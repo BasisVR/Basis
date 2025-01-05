@@ -24,7 +24,7 @@ namespace Basis.Scripts.Networking.Transmitters
     {
         public bool HasEvents = false;
         public float timer = 0f;
-        public float interval = 0.0333333333333333f;
+        public float interval = DefaultInterval;
         public float SmallestDistanceToAnotherPlayer;
         [SerializeField]
         public BasisAudioTransmission AudioTransmission = new BasisAudioTransmission();
@@ -41,7 +41,7 @@ namespace Basis.Scripts.Networking.Transmitters
         public LocalAvatarSyncMessage LASM = new LocalAvatarSyncMessage();
         public float UnClampedInterval;
 
-        public static float DefaultInterval = 0.0333333333333333f;
+        public const float DefaultInterval = 0.0333333333333333f;
         public static float BaseMultiplier = 1f; // Starting multiplier.
         public static float IncreaseRate = 0.0075f; // Rate of increase per unit distance.
         public CombinedDistanceAndClosestTransformJob distanceJob = new CombinedDistanceAndClosestTransformJob();

@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Transmitters;
 using LiteNetLib;
 using UnityEngine;
 
@@ -12,7 +15,7 @@ namespace HVR.Basis.Comms
     {
         public const byte NegotiationPacket = 255;
         public const byte ReservedPacket = 254;
-        
+
         public const byte ReservedPacket_RemoteRequestsInitializationMessage = 0;
 
         public delegate void InterpolatedDataChanged(float[] current);
@@ -26,11 +29,12 @@ namespace HVR.Basis.Comms
         private Dictionary<Guid, ICommsNetworkable> _guidToNetworkable;
         private Guid[] _orderedGuids;
         private byte[] _negotiationPacket;
-        
+
         private IFeatureReceiver[] _featureHandles; // May contain null values if the corresponding Feature fails to initialize. Iterate defensively
         private GameObject _holder;
         private bool _isWearer;
         private byte[] _remoteRequestsInitializationPacket;
+        private BasisNetworkTransmitter _netTransmitter;
 
         private void Awake()
         {
@@ -39,7 +43,7 @@ namespace HVR.Basis.Comms
             {
                 avatar.gameObject.AddComponent<HVRAvatarComms>();
             }
-            
+
             var rand = new System.Random();
             var safeNetPairings = netPairings
                 .Where(pairing => Guid.TryParse(pairing.guid, out _))
@@ -69,7 +73,7 @@ namespace HVR.Basis.Comms
                 // The order of the list of pairings should not matter between clients because of the Negotiation packet.
                 .OrderBy(_ => rand.Next())
                 .ToArray();
-            
+
             _guidToNetworkable = safeNetPairings.ToDictionary(pairing => new Guid(pairing.guid), pairing => (ICommsNetworkable)pairing.component);
             _orderedGuids = safeNetPairings.Select(pairing => new Guid(pairing.guid)).ToArray();
             _negotiationPacket = new [] { NegotiationPacket }
@@ -104,8 +108,9 @@ namespace HVR.Basis.Comms
             var streamed = _holder.AddComponent<StreamedAvatarFeature>();
             streamed.avatar = avatar;
             streamed.valueArraySize = (byte)count; // TODO: Sanitize count to be within bounds
+            streamed.transmitter = _netTransmitter;
             _holder.SetActive(true);
-            
+
             var handle = new FeatureInterpolator(this, guidIndex, streamed, interpolatedDataChanged);
             streamed.OnInterpolatedDataChanged += handle.OnInterpolatedDataChanged;
             streamed.SetEncodingInfo(_isWearer, (byte)guidIndex); // TODO: Make sure upstream that guidIndex is within limits
@@ -139,11 +144,24 @@ namespace HVR.Basis.Comms
         public void AssignGuids(bool isWearer)
         {
             _isWearer = isWearer;
+
+            if (BasisNetworkManagement.PlayerToNetworkedPlayer(BasisLocalPlayer.Instance, out var netPlayer))
+            {
+                if (netPlayer.NetworkSend is BasisNetworkTransmitter transmitter)
+                {
+                    _netTransmitter = transmitter;
+                }
+                else
+                    throw new InvalidOperationException("BasisNetworkSendBase for the local player is not a BasisNetworkTransmitter.");
+            }
+            else
+                throw new InvalidOperationException("Could not find networked player for local player during OnAvatarNetworkReady.");
+
             for (var index = 0; index < _orderedGuids.Length; index++)
             {
                 var guid = _orderedGuids[index];
                 var networkable = _guidToNetworkable[guid];
-                
+
                 networkable.OnGuidAssigned(index, guid);
             }
         }
@@ -192,7 +210,7 @@ namespace HVR.Basis.Comms
     public class FeatureEvent : IFeatureReceiver
     {
         private DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced;
-        
+
         private readonly FeatureNetworking _featureNetworking;
         private readonly int _guidIndex;
         private readonly FeatureNetworking.EventReceived _eventReceived;
@@ -239,7 +257,7 @@ namespace HVR.Basis.Comms
         {
             if (whoAsked == null) throw new ArgumentException("whoAsked cannot be null");
             if (whoAsked.Length == 0) throw new ArgumentException("whoAsked cannot be empty");
-            
+
             SubmitInternal(currentState, whoAsked);
         }
 
@@ -247,9 +265,9 @@ namespace HVR.Basis.Comms
         {
             var buffer = new byte[1 + currentState.Count];
             buffer[0] = (byte)_guidIndex;
-            
+
             currentState.CopyTo(buffer, 1);
-            
+
             _avatar.NetworkMessageSend(HVRAvatarComms.OurMessageIndex, buffer, DeliveryMethod, whoAskedNullable);
         }
     }
@@ -297,6 +315,16 @@ namespace HVR.Basis.Comms
         public void OnInterpolatedDataChanged(float[] current)
         {
             _interpolatedDataChanged.Invoke(current);
+        }
+
+        public void SwitchToHighSpeedTransmission()
+        {
+            _streamed.SwitchToHighSpeedTransmission();
+        }
+
+        public void SwitchToRegularSpeedTransmission()
+        {
+            _streamed.SwitchToRegularSpeedTransmission();
         }
     }
 
