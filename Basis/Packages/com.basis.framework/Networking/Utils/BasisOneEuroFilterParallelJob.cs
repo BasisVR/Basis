@@ -1,7 +1,7 @@
 /*
- * BasicOneEuroFilterParallelJob.cs
- * Author: Dario Mazzanti (dario.mazzanti@iit.it), 2016
- *
+ * (c) Luke Doolan 2025-present.
+ * This file is released under the terms of the MIT license, and contains code written by Dario Mazzanti released under the same terms.
+ * Original implementation sourced from https://github.com/DarioMazzanti/OneEuroFilterUnity
  * This Unity C# utility is based on the C++ implementation of the OneEuroFilter algorithm by Nicolas Roussel (http://www.lifl.fr/~casiez/1euro/OneEuroFilter.cc)
  * More info on the 1€ filter by Géry Casiez at http://www.lifl.fr/~casiez/1euro/
  *
