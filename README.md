@@ -89,7 +89,8 @@ This would not be possible without the following:
 - [RNNoise.Net](https://github.com/Yellow-Dog-Man/RNNoise.Net)
 - [unity](https://unity.com/)
 - [ionic icons](https://github.com/ionic-team/ionicons?ref=svgrepo.com)
-
+- [OneEuroFilterUnity](https://github.com/DarioMazzanti/OneEuroFilterUnity)
+- [1euro](http://www.lifl.fr/~casiez/1euro/)
 
 ## Third-Party Code and Trademarks
 
