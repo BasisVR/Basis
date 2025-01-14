@@ -20,7 +20,7 @@ namespace Basis
         public static string Ip = "localhost";//server1.basisvr.org //localhost
         public static int Port = 4296;
 
-        public static byte[] AvatarMessage = new byte[LocalAvatarSyncMessage.AvatarSyncSize];
+        public static byte[] AvatarMessage = new byte[LocalAvatarSyncMessage.AvatarSyncSize +1];
         public static Vector3 Position = new Vector3(0, 0, 0);
         public static Quaternion Rotation = new Quaternion(0, 0, 0, 1);
         public static float[] FloatArray = new float[LocalAvatarSyncMessage.StoredBones];
@@ -57,16 +57,16 @@ namespace Basis
 
                     AvatarNetworkLoadInformation ANLI = new AvatarNetworkLoadInformation
                     {
-                        AvatarMetaUrl = "",
-                        AvatarBundleUrl = "",
-                        UnlockPassword = ""
+                        AvatarMetaUrl = "LoadingAvatar",
+                        AvatarBundleUrl = "LoadingAvatar",
+                        UnlockPassword = "LoadingAvatar"
                     };
                     byte[] Bytes = ANLI.EncodeToBytes();
                     //0 downloading 1 local
                     RM.clientAvatarChangeMessage = new ClientAvatarChangeMessage
                     {
                         byteArray = Bytes,
-                        loadMode = 2,//0 is normal 
+                        loadMode = 1,//0 is normal 
                     };
                     RM.localAvatarSyncMessage = new LocalAvatarSyncMessage
                     {
@@ -156,19 +156,39 @@ namespace Basis
 
             }
         }
+        public static bool[] boolArray = new bool[8];
         public static void SendMovement()
         {
             if (LocalPLayer != null)
             {
-                int Offset = 0;
                 Position = Randomizer.GetRandomPosition(new Vector3(30,30,30),new Vector3(80,80,80));
+                AvatarMessage[0] = ConvertBoolsToByte();
+                Array.Fill(boolArray,false);
+                int Offset = 1;
                 WriteVectorFloatToBytes(Position, ref AvatarMessage, ref Offset);
                 WriteQuaternionToBytes(Rotation, ref AvatarMessage, ref Offset, RotationCompression);
                 WriteUShortsToBytes(UshortArray, ref AvatarMessage, ref Offset);
                 LocalPLayer.Send(AvatarMessage, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
             }
         }
+        public static byte ConvertBoolsToByte()
+        {
+            if (boolArray == null)
+            {
+                boolArray = new bool[8];
+            }
+            byte byteValue = 0;
 
+            for (int i = 0; i < 8; i++)
+            {
+                if (boolArray[i])
+                {
+                    byteValue |= (byte)(1 << i);
+                }
+            }
+
+            return byteValue;
+        }
         public static ushort Compress(float value, float MinValue, float MaxValue, float valueDiffence)
         {
             // Clamp the value to ensure it's within the specified range
