@@ -57,16 +57,16 @@ namespace Basis
 
                     AvatarNetworkLoadInformation ANLI = new AvatarNetworkLoadInformation
                     {
-                        AvatarMetaUrl = "",
-                        AvatarBundleUrl = "",
-                        UnlockPassword = ""
+                        AvatarMetaUrl = "LoadingAvatar",
+                        AvatarBundleUrl = "LoadingAvatar",
+                        UnlockPassword = "LoadingAvatar"
                     };
                     byte[] Bytes = ANLI.EncodeToBytes();
                     //0 downloading 1 local
                     RM.clientAvatarChangeMessage = new ClientAvatarChangeMessage
                     {
                         byteArray = Bytes,
-                        loadMode = 2,//0 is normal 
+                        loadMode = 1,//0 is normal 
                     };
                     RM.localAvatarSyncMessage = new LocalAvatarSyncMessage
                     {
