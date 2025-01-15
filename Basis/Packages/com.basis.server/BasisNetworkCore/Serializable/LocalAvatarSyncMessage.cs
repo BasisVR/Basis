@@ -13,7 +13,6 @@ public static partial class SerializableBasis
         public bool hasAdditionalAvatarData;
         public bool[] boolArray;// = new bool[8];
         public int EncodedMuscleCount;
-        public int EncodedRemovedMuscleCount;
         public void Deserialize(NetDataReader Writer, bool AttemptAdditionalData)
         {
             int Bytes = Writer.AvailableBytes;
@@ -24,9 +23,8 @@ public static partial class SerializableBasis
                 return;
             }
             ConvertByteToBools(MuscleLoadOut);
-            ComputeSizes(out EncodedRemovedMuscleCount,out EncodedMuscleCount);
-            //lets say like 45
-            int UshortsToReadyForMuscles = EncodedRemovedMuscleCount * 2; //conversion to ushort (2 bytes)
+            EncodedMuscleCount = ComputeNewSize();
+            int UshortsToReadyForMuscles = EncodedMuscleCount * 2; //conversion to ushort (2 bytes)
             int NeededSize = AvatarSyncSize - UshortsToReadyForMuscles;
             if (Bytes - 1 >= NeededSize)
             {
@@ -151,7 +149,7 @@ public static partial class SerializableBasis
                 boolArray[i] = (byteValue & (1 << i)) != 0;
             }
         }
-        public void UpdateFlagsBasedOnData(float[] dataArray, out float[] Value, out int removedSize, out int newSize)
+        public void UpdateFlagsBasedOnData(float[] dataArray, out float[] Value, out int newSize)
         {
             if (boolArray == null)
             {
@@ -167,7 +165,7 @@ public static partial class SerializableBasis
             boolArray[7] = IsSectionZero(3, 3, dataArray);   // Upper Chest
 
             // Precompute the new size directly here
-            ComputeSizes(out removedSize, out newSize);
+            newSize = ComputeNewSize();
             Value = FilterDataBasedOnFlags(dataArray, newSize);
         }
         private static readonly int[] SectionStartIndices = { 69, 49, 40, 31, 23, 15, 6, 3 };
@@ -185,22 +183,19 @@ public static partial class SerializableBasis
             return true;
         }
 
-        private void ComputeSizes(out int removedSize,out int newSize)
+        private int ComputeNewSize()
         {
-            newSize = 0;
-            removedSize = 0;
+            int newSize = 0;
             for (int i = 0; i < 8; i++)
             {
-                if (boolArray[i])
-                {
-                    removedSize += SectionSizes[i];
-                }
-                else
+                if (!boolArray[i])
                 {
                     newSize += SectionSizes[i];
                 }
             }
+            return newSize;
         }
+
         private float[] FilterDataBasedOnFlags(float[] dataArray, int newSize)
         {
             if (newSize == dataArray.Length)

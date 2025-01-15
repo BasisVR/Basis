@@ -77,16 +77,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisDebug.LogError("FloatArray send was null!");
                 FloatArray = new float[LocalAvatarSyncMessage.StoredBones];
             }
-            LocalAvatarSyncMessage.UpdateFlagsBasedOnData(FloatArray, out float[] FloatArrayCopy,out int RemovedSize, out int LengthSize);
+            LocalAvatarSyncMessage.UpdateFlagsBasedOnData(FloatArray, out float[] FloatArrayCopy, out int Length);
 
             ushort[] NetworkOutData = NetworkSend;
-            Parallel.For(0, LengthSize, Index =>
+            Parallel.For(0, Length, Index =>
             {
                 // NetworkOutData[Index] = Compress(FloatArrayCopy[Index], BasisNetworkPlayer.MinMuscle[Index],BasisNetworkPlayer.MaxMuscle[Index], BasisNetworkPlayer.RangeMuscle[Index]);
                 NetworkOutData[Index] = Compress(FloatArrayCopy[Index],-180, 180, 180 - -180);
             });
             NetworkSend = NetworkOutData;
-            BasisUnityBitPackerExtensions.WriteUShortsToBytes(LengthSize, NetworkOutData, ref LocalAvatarSyncMessage.array, ref Offset);
+            BasisUnityBitPackerExtensions.WriteUShortsToBytes(Length, NetworkOutData, ref LocalAvatarSyncMessage.array, ref Offset);
         }
 
         public static ushort Compress(float value, float MinValue, float MaxValue, float valueDiffence)
