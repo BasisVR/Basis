@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 public static partial class SerializableBasis
 {
+    [System.Serializable]
     public struct LocalAvatarSyncMessage
     {
         public byte[] array;
@@ -11,19 +12,20 @@ public static partial class SerializableBasis
         public AdditionalAvatarData[] AdditionalAvatarDatas;
         public bool hasAdditionalAvatarData;
         public bool[] boolArray;// = new bool[8];
+        public int EncodedMuscleCount;
         public void Deserialize(NetDataReader Writer, bool AttemptAdditionalData)
         {
             int Bytes = Writer.AvailableBytes;
             if (Writer.TryGetByte(out byte MuscleLoadOut) == false)
             {
-                BNL.LogError($"Unable to read Remaing bytes where {Bytes}");
+                BNL.LogError($"Unable to read Remaining bytes where {Bytes}");
                 hasAdditionalAvatarData = false;
                 return;
             }
             ConvertByteToBools(MuscleLoadOut);
-            int newSize = ComputeNewSize();
-            int ReducedAmount = newSize * 2; //conversion to ushort (2 bytes)
-            int NeededSize = AvatarSyncSize - ReducedAmount;
+            EncodedMuscleCount = ComputeNewSize();
+            int UshortsToReadyForMuscles = EncodedMuscleCount * 2; //conversion to ushort (2 bytes)
+            int NeededSize = AvatarSyncSize - UshortsToReadyForMuscles;
             if (Bytes - 1 >= NeededSize)
             {
                 //89 * 2 = 178 + 12 + 14 = 204
@@ -85,6 +87,38 @@ public static partial class SerializableBasis
                 }
             }
         }
+        public float[] ReconstructDataWithZeros(float[] filteredData)
+        {
+            int originalSize = 0;
+            for (int i = 0; i < SectionSizes.Length; i++)
+            {
+                originalSize += SectionSizes[i];
+            }
+
+            float[] reconstructedData = new float[originalSize];
+            int filteredIndex = 0;
+
+            for (int i = 0; i < 8; i++)
+            {
+                int startIndex = SectionStartIndices[i];
+                int count = SectionSizes[i];
+
+                if (boolArray[i]) // Section was removed, fill with zeros
+                {
+                    for (int j = startIndex; j < startIndex + count; j++)
+                    {
+                        reconstructedData[j] = 0f;
+                    }
+                }
+                else // Section was not removed, copy from filtered data
+                {
+                    Array.Copy(filteredData, filteredIndex, reconstructedData, startIndex, count);
+                    filteredIndex += count;
+                }
+            }
+
+            return reconstructedData;
+        }
         public byte ConvertBoolsToByte()
         {
             if (boolArray == null)
@@ -115,8 +149,12 @@ public static partial class SerializableBasis
                 boolArray[i] = (byteValue & (1 << i)) != 0;
             }
         }
-        public void UpdateFlagsBasedOnData(float[] dataArray,out float[] Value, out int newSize)
+        public void UpdateFlagsBasedOnData(float[] dataArray, out float[] Value, out int newSize)
         {
+            if (boolArray == null)
+            {
+                boolArray = new bool[8];
+            }
             boolArray[0] = IsSectionZero(69, 20, dataArray); // Right Hand Fingers
             boolArray[1] = IsSectionZero(49, 20, dataArray); // Left Hand Fingers
             boolArray[2] = IsSectionZero(40, 9, dataArray);  // Right Arm

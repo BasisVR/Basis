@@ -79,21 +79,23 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             LocalAvatarSyncMessage.UpdateFlagsBasedOnData(FloatArray, out float[] FloatArrayCopy, out int Length);
 
-            var NetworkOutData = NetworkSend;
+            ushort[] NetworkOutData = NetworkSend;
             Parallel.For(0, Length, Index =>
             {
-                NetworkOutData[Index] = Compress(FloatArrayCopy[Index], -180, 180);//BasisNetworkPlayer.RangeMuscle[Index]
+                // NetworkOutData[Index] = Compress(FloatArrayCopy[Index], BasisNetworkPlayer.MinMuscle[Index],BasisNetworkPlayer.MaxMuscle[Index], BasisNetworkPlayer.RangeMuscle[Index]);
+                NetworkOutData[Index] = Compress(FloatArrayCopy[Index],-180, 180, 180 - -180);
             });
-
-            BasisUnityBitPackerExtensions.WriteUShortsToBytes(NetworkOutData, ref LocalAvatarSyncMessage.array, ref Offset);
+            NetworkSend = NetworkOutData;
+            BasisUnityBitPackerExtensions.WriteUShortsToBytes(Length, NetworkOutData, ref LocalAvatarSyncMessage.array, ref Offset);
         }
-        public static ushort Compress(float value, float MinValue, float MaxValue)//float valueDiffence
+
+        public static ushort Compress(float value, float MinValue, float MaxValue, float valueDiffence)
         {
             // Clamp the value to ensure it's within the specified range
-           // value = math.clamp(value, MinValue, MaxValue);
+            value = Math.Clamp(value, MinValue, MaxValue);
 
             // Map the float value to the ushort range
-            float normalized = (value - MinValue); // 0..1  / (valueDiffence)
+            float normalized = (value - MinValue) / (valueDiffence); // 0..1
             return (ushort)(normalized * ushortRangeDifference);//+ UShortMin (its always zero)
         }
         private const ushort UShortMin = ushort.MinValue; // 0
