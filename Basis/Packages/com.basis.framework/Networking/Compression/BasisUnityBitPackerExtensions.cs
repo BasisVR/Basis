@@ -8,10 +8,10 @@ namespace Basis.Scripts.Networking.Compression
     public static class BasisUnityBitPackerExtensions
     {
        // public static int LengthFloatBytes = LocalAvatarSyncMessage.StoredBones * 4; // Initialize LengthBytes first
-       //  public static int LengthUshortBytes = LocalAvatarSyncMessage.StoredBones * 2; // Initialize LengthBytes first
-      
+        public static int LengthUshortBytes = LocalAvatarSyncMessage.StoredBones * 2; // Initialize LengthBytes first
+
         // Object pool for byte arrays to avoid allocation during runtime
-        private static readonly ObjectPool<byte[]> byteArrayPool = new ObjectPool<byte[]>(() => new byte[LocalAvatarSyncMessage.StoredBones * 2]);
+        private static readonly ObjectPool<byte[]> byteArrayPool = new ObjectPool<byte[]>(() => new byte[LengthUshortBytes]);
         // Manual conversion of Vector3 to bytes (without BitConverter)
         public static void WriteVectorFloatToBytes(UnityEngine. Vector3 values, ref byte[] bytes, ref int offset)
         {
@@ -64,12 +64,12 @@ namespace Basis.Scripts.Networking.Compression
             return new Unity.Mathematics.quaternion(x, y, z, compressor.Decompress(compressedW));
         }
         // Write ushort array to bytes (no BitConverter)
-        public static void WriteUShortsToBytes(int BoneCount,ushort[] values, ref byte[] bytes, ref int offset)
+        public static void WriteUShortsToBytes(ushort[] values, ref byte[] bytes, ref int offset)
         {
-            EnsureSize(ref bytes, offset + (BoneCount * 2));
+            EnsureSize(ref bytes, offset + LengthUshortBytes);
 
             // Manually copy ushort values as bytes
-            for (int index = 0; index < BoneCount; index++)
+            for (int index = 0; index < LocalAvatarSyncMessage.StoredBones; index++)
             {
                 WriteUShortToBytes(values[index], ref bytes, ref offset);
             }
@@ -98,16 +98,16 @@ namespace Basis.Scripts.Networking.Compression
         }
 
         // Read muscles from bytes (no BitConverter)
-        public static void ReadMusclesFromBytes(int ushortlength,ref byte[] bytes, ref ushort[] muscles, ref int offset)
+        public static void ReadMusclesFromBytes(ref byte[] bytes, ref ushort[] muscles, ref int offset)
         {
-            if (muscles == null || muscles.Length < ushortlength)
+            if (muscles == null || muscles.Length != LocalAvatarSyncMessage.StoredBones)
             {
-                muscles = new ushort[ushortlength];
+                muscles = new ushort[LocalAvatarSyncMessage.StoredBones];
             }
-            EnsureSize(bytes, offset + ushortlength);
+            EnsureSize(bytes, offset + LengthUshortBytes - 2);
 
             // Manually read float values from bytes
-            for (int Index = 0; Index < ushortlength; Index++)
+            for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones - 1; Index++)
             {
                 muscles[Index] = ReadUShortFromBytes(ref bytes, ref offset);
                 // UnityEngine.BasisDebug.Log("" + muscles[i]);
@@ -126,16 +126,16 @@ namespace Basis.Scripts.Networking.Compression
             return result;
         }
         // Read muscles from bytes as ushort (no BitConverter)
-        public static void ReadMusclesFromBytesAsUShort(int ushortlength, ref byte[] bytes, ref ushort[] muscles, ref int offset)
+        public static void ReadMusclesFromBytesAsUShort(ref byte[] bytes, ref ushort[] muscles, ref int offset)
         {
-            if (muscles == null || muscles.Length < ushortlength)
+            if (muscles == null || muscles.Length != LocalAvatarSyncMessage.StoredBones)
             {
-                muscles = new ushort[ushortlength];
+                muscles = new ushort[LocalAvatarSyncMessage.StoredBones];
             }
-            EnsureSize(bytes, offset + ushortlength);
+            EnsureSize(bytes, offset + LengthUshortBytes - 2);
 
             // Manually read ushort values from bytes
-            for (int index = 0; index < ushortlength; index++)
+            for (int index = 0; index < LocalAvatarSyncMessage.StoredBones - 1; index++)
             {
                 muscles[index] = ReadUShortFromBytes(ref bytes, ref offset);
                 // UnityEngine.BasisDebug.Log("" + muscles[index]);

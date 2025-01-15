@@ -16,9 +16,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     {
         public static void Compress(BasisNetworkTransmitter Transmit, Animator Anim)
         {
-            //go through the float array
-            //cut out the groupings
-            CompressAvatarData(ref Transmit.Offset, ref Transmit.FloatArray, ref Transmit.UshortArray, ref Transmit.LASM, Transmit.PoseHandler, Transmit.HumanPose, Anim);
+            CompressAvatarData(ref Transmit.Offset, ref Transmit.FloatArray,ref Transmit.UshortArray, ref Transmit.LASM,Transmit.PoseHandler, Transmit.HumanPose, Anim);
 
             if (Transmit.SendingOutAvatarData.Count == 0)
             {
@@ -29,9 +27,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 Transmit.LASM.AdditionalAvatarDatas = Transmit.SendingOutAvatarData.Values.ToArray();
                 Transmit.LASM.hasAdditionalAvatarData = true;
-                //  BasisDebug.Log("Sending out AvatarData " + Transmit.SendingOutAvatarData.Count);
+              //  BasisDebug.Log("Sending out AvatarData " + Transmit.SendingOutAvatarData.Count);
             }
-            Transmit.LASM.Serialize(Transmit.AvatarSendWriter, true);
+            Transmit.LASM.Serialize(Transmit.AvatarSendWriter,true);
             BasisNetworkProfiler.LocalAvatarSyncMessageCounter.Sample(Transmit.AvatarSendWriter.Length);
             BasisNetworkManagement.LocalPlayerPeer.Send(Transmit.AvatarSendWriter, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
             Transmit.AvatarSendWriter.Reset();
@@ -67,7 +65,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             BasisUnityBitPackerExtensions.WriteVectorFloatToBytes(Anim.bodyPosition, ref LocalAvatarSyncMessage.array, ref Offset);
             BasisUnityBitPackerExtensions.WriteQuaternionToBytes(Anim.bodyRotation, ref LocalAvatarSyncMessage.array, ref Offset, BasisNetworkPlayer.RotationCompression);
 
-            if (NetworkSend == null)
+            if(NetworkSend == null)
             {
                 BasisDebug.LogError("Network send was null!");
                 NetworkSend = new ushort[LocalAvatarSyncMessage.StoredBones];
@@ -77,22 +75,20 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisDebug.LogError("FloatArray send was null!");
                 FloatArray = new float[LocalAvatarSyncMessage.StoredBones];
             }
-            LocalAvatarSyncMessage.UpdateFlagsBasedOnData(FloatArray, out float[] FloatArrayCopy, out int Length);
 
-            ushort[] NetworkOutData = NetworkSend;
-            Parallel.For(0, Length, Index =>
+            var NetworkOutData = NetworkSend;
+            var FloatArrayCopy = FloatArray;
+            Parallel.For(0, LocalAvatarSyncMessage.StoredBones, Index =>
             {
-                // NetworkOutData[Index] = Compress(FloatArrayCopy[Index], BasisNetworkPlayer.MinMuscle[Index],BasisNetworkPlayer.MaxMuscle[Index], BasisNetworkPlayer.RangeMuscle[Index]);
-                NetworkOutData[Index] = Compress(FloatArrayCopy[Index],-180, 180, 180 - -180);
+                NetworkOutData[Index] = Compress(FloatArrayCopy[Index], BasisNetworkPlayer.MinMuscle[Index], BasisNetworkPlayer.MaxMuscle[Index], BasisNetworkPlayer.RangeMuscle[Index]);
             });
-            NetworkSend = NetworkOutData;
-            BasisUnityBitPackerExtensions.WriteUShortsToBytes(Length, NetworkOutData, ref LocalAvatarSyncMessage.array, ref Offset);
-        }
 
-        public static ushort Compress(float value, float MinValue, float MaxValue, float valueDiffence)
+            BasisUnityBitPackerExtensions.WriteUShortsToBytes(NetworkOutData, ref LocalAvatarSyncMessage.array, ref Offset);
+        }
+        public static ushort Compress(float value, float MinValue, float MaxValue,float valueDiffence)
         {
             // Clamp the value to ensure it's within the specified range
-            value = Math.Clamp(value, MinValue, MaxValue);
+            value = math.clamp(value, MinValue, MaxValue);
 
             // Map the float value to the ushort range
             float normalized = (value - MinValue) / (valueDiffence); // 0..1
