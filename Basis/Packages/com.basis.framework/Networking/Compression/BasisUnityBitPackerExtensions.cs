@@ -66,11 +66,10 @@ namespace Basis.Scripts.Networking.Compression
         // Write ushort array to bytes (no BitConverter)
         public static void WriteUShortsToBytes(int BoneCount,ushort[] values, ref byte[] bytes, ref int offset)
         {
-            int length = values.Length;
-            EnsureSize(ref bytes, offset + (length * 2));
+            EnsureSize(ref bytes, offset + (BoneCount * 2));
 
             // Manually copy ushort values as bytes
-            for (int index = 0; index < length; index++)
+            for (int index = 0; index < BoneCount; index++)
             {
                 WriteUShortToBytes(values[index], ref bytes, ref offset);
             }

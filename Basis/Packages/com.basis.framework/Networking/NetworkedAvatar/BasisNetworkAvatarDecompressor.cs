@@ -24,8 +24,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 Position = BasisUnityBitPackerExtensions.ReadVectorFloatFromBytes(ref syncMessage.avatarSerialization.array, ref baseReceiver.Offset),
                 rotation = BasisUnityBitPackerExtensions.ReadQuaternionFromBytes(ref syncMessage.avatarSerialization.array, BasisNetworkPlayer.RotationCompression, ref baseReceiver.Offset)
             };
+            BasisDebug.Log("Encoded Length " + syncMessage.avatarSerialization.EncodedMuscleCount);
             BasisUnityBitPackerExtensions.ReadMusclesFromBytes(syncMessage.avatarSerialization.EncodedMuscleCount, ref syncMessage.avatarSerialization.array, ref baseReceiver.CopyData, ref baseReceiver.Offset);
-            for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)
+            for (int Index = 0; Index < syncMessage.avatarSerialization.EncodedMuscleCount; Index++)
             {
                 avatarBuffer.Muscles[Index] = Decompress(baseReceiver.CopyData[Index], -180, 180);
             }
