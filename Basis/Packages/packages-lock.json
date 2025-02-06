@@ -405,13 +405,6 @@
         "com.unity.xr.legacyinputhelpers": "2.1.4"
       }
     },
-    "com.xiph.opus": {
-      "version": "https://github.com/BasisVR/UnityOpus.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "0723f26d8ede8ad74992049da2ee55a2382dc29d"
-    },
     "com.xiph.rnnoise": {
       "version": "https://github.com/BasisVR/RNNoise.Net.git",
       "depth": 0,

@@ -14,7 +14,6 @@
     "com.unity.xr.management": "4.5.0",
     "com.unity.xr.openxr": "1.14.0",
     "com.valvesoftware.unity.openvr": "file:com.valvesoftware.unity.openvr-1.2.1.tgz",
-    "com.xiph.opus": "https://github.com/BasisVR/UnityOpus.git",
     "com.xiph.rnnoise": "https://github.com/BasisVR/RNNoise.Net.git",
     "com.unity.modules.accessibility": "1.0.0",
     "com.unity.modules.ai": "1.0.0",

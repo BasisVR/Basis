@@ -69,8 +69,8 @@ namespace Basis.Scripts.Drivers
             if (HasEvents == false)
             {
                 MicrophoneRecorder.OnPausedAction += OnPausedEvent;
-                MicrophoneRecorder.MainThreadOnHasAudio += MicrophoneTransmitting;
-                MicrophoneRecorder.MainThreadOnHasSilence += MicrophoneNotTransmitting;
+                MicrophoneRecorder.OnHasAudio += MicrophoneTransmitting;
+                MicrophoneRecorder.OnHasSilence += MicrophoneNotTransmitting;
                 RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
                 BasisDeviceManagement.Instance.OnBootModeChanged += OnModeSwitch;
                 BasisLocalPlayer.Instance.OnPlayersHeightChanged += OnHeightChanged;
@@ -284,8 +284,8 @@ namespace Basis.Scripts.Drivers
             {
                 RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
                 BasisDeviceManagement.Instance.OnBootModeChanged -= OnModeSwitch;
-                MicrophoneRecorder.MainThreadOnHasAudio -= MicrophoneTransmitting;
-                MicrophoneRecorder.MainThreadOnHasSilence -= MicrophoneNotTransmitting;
+                MicrophoneRecorder.OnHasAudio -= MicrophoneTransmitting;
+                MicrophoneRecorder.OnHasSilence -= MicrophoneNotTransmitting;
                 HasEvents = false;
             }
         }

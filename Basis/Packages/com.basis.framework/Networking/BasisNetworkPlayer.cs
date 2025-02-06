@@ -19,8 +19,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     public abstract class BasisNetworkPlayer
     {
         public bool Ready;
-        private readonly object _lock = new object(); // Lock object for thread-safety
-        private bool _hasReasonToSendAudio;
         public int Offset = 0;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         [SerializeField]
@@ -38,23 +36,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         [SerializeField]
         public PlayerIdMessage PlayerIDMessage;
         public bool hasID = false;
-        public bool HasReasonToSendAudio
-        {
-            get
-            {
-                lock (_lock)
-                {
-                    return _hasReasonToSendAudio;
-                }
-            }
-            set
-            {
-                lock (_lock)
-                {
-                    _hasReasonToSendAudio = value;
-                }
-            }
-        }
         public ushort NetId
         {
             get

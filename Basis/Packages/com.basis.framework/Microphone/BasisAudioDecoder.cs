@@ -1,28 +1,30 @@
-﻿using UnityEngine;
 using System;
-using UnityOpus;
 using Basis.Scripts.Device_Management;
+using Concentus;
 
 public class BasisAudioDecoder
 {
     public event Action OnDecoded;
-    AudioDecoder decoder;
+    IOpusDecoder decoder;
     public BasisOpusSettings Settings;
     public float[] pcmBuffer;
-    public int pcmLength;
-    public int FakepcmLength;
+    public int ActualPcmLength;
+    public int FakePcmLength;
     public void Initialize()
     {
-        FakepcmLength = 2048;
-        pcmLength = 2048;
+        FakePcmLength = 2048;
+        ActualPcmLength = 2048;
         Settings = BasisDeviceManagement.Instance.BasisOpusSettings;
-        pcmBuffer = new float[FakepcmLength * (int)Settings.NumChannels];//AudioDecoder.maximumPacketDuration now its 2048
-        decoder = new AudioDecoder(Settings.SamplingFrequency, Settings.NumChannels);
+        pcmBuffer = new float[FakePcmLength];//AudioDecoder.maximumPacketDuration now its 2048
+        decoder = OpusCodecFactory.CreateDecoder(Settings.GetSampleFreq(),1);
     }
     public void Deinitalize()
     {
-        decoder.Dispose();
-        decoder = null;
+        if (decoder != null)
+        {
+            decoder.Dispose();
+            decoder = null;
+        }
     }
 
     /// <summary>
@@ -30,11 +32,19 @@ public class BasisAudioDecoder
     /// note that the pcm buffer is always going to have more data then submited.
     /// the pcm length is how much was actually encoded.
     /// </summary>
-    /// <param name="data"></param>
-    public void OnDecode(byte[] data, int length)
+    /// <param name="incomingSpan"></param>
+    /*
+    public void OnDecode(ReadOnlySpan<byte> incomingSpan, int length,Span<float> OutgoingData)
     {
-       // UnityEngine.BasisDebug.Log("decode size is " + data.Length + " " + length);
-        pcmLength = decoder.Decode(data, length, pcmBuffer);
+        ActualPcmLength = decoder.Decode(incomingSpan, OutgoingData, length);
+        OnDecoded?.Invoke();
+    }
+    */
+    public void OnDecode(byte[] incomingSpan, int length)
+    {
+        Span<float> OutgoingData = pcmBuffer.AsSpan();
+        ActualPcmLength = decoder.Decode(incomingSpan, OutgoingData, pcmBuffer.Length);
+        pcmBuffer = OutgoingData.ToArray();
         OnDecoded?.Invoke();
     }
 }

@@ -25,7 +25,7 @@ namespace Basis.Scripts.Networking.Recievers
         public bool IsPlaying = false;
         public void OnDecoded()
         {
-            OnDecoded(decoder.pcmBuffer, decoder.pcmLength);
+            OnDecoded(decoder.pcmBuffer, decoder.ActualPcmLength);
         }
         public void StopAudio()
         {

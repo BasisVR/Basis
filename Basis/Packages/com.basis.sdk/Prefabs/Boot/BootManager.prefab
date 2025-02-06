@@ -53,7 +53,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   FireOffNetwork: 1
-  HasEvents: 0
   BakedInCommandLineArgs: []
   CurrentMode: None
   BasisOpusSettings: {fileID: 11400000, guid: 5ad599c7b6420494f84e3a3b71efbfa8, type: 2}
@@ -222,4 +221,5 @@ MonoBehaviour:
         AssetMode: Gameobject
         AssetToLoadName: LoadingAvatar
         AssetBundleCRC: 0
-  UseAddressables: 0
+  UseAddressablesToLoadScene: 0
+  UseSceneProvidedHere: 0

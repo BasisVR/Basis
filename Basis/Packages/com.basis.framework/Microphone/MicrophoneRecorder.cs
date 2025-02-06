@@ -2,9 +2,9 @@ using UnityEngine;
 using System;
 using System.Linq;
 using Basis.Scripts.Device_Management;
-using System.Threading;
 using Unity.Collections;
 using Unity.Jobs;
+using Basis.Scripts.Networking.Transmitters;
 public partial class MicrophoneRecorder : MicrophoneRecorderBase
 {
     private int head = 0;
@@ -14,10 +14,7 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
     public bool UseDenoiser = false;
     public static Action<bool> OnPausedAction;
     private bool MicrophoneIsStarted = false;
-    private Thread processingThread;
     public bool isRunning = true;
-    private ManualResetEvent processingEvent = new ManualResetEvent(false);
-    private object processingLock = new object();
     private int position;
     private NativeArray<float> PBA;
     private LogarithmicVolumeAdjustmentJob VAJ;
@@ -37,8 +34,8 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
             ProcessBufferLength = processBufferArray.Length;
             samplingFrequency = BasisOpusSettings.GetSampleFreq();
             microphoneBufferArray = new float[BasisOpusSettings.RecordingFullLength * samplingFrequency];
-            rmsValues = new float[rmsWindowSize];
             bufferLength = microphoneBufferArray.Length;
+            rmsValues = new float[rmsWindowSize];
             PacketSize = ProcessBufferLength * 4;
             if (!HasEvents)
             {
@@ -51,8 +48,6 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
             ChangeMicrophoneVolume(SMDMicrophone.SelectedVolumeMicrophone);
             ResetMicrophones(SMDMicrophone.SelectedMicrophone);
             ConfigureDenoiser(SMDMicrophone.SelectedDenoiserMicrophone);
-
-            StartProcessingThread();  // Start the processing thread once
             IsInitialize = true;
             return true;
         }
@@ -60,7 +55,6 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
     }
     public new void OnDestroy()
     {
-        StopProcessingThread();  // Stop the processing thread
         if (HasEvents)
         {
             SMDMicrophone.OnMicrophoneChanged -= ResetMicrophones;
@@ -77,7 +71,6 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
         }
         base.OnDestroy();
     }
-
     private void ConfigureDenoiser(bool useDenoiser)
     {
         UseDenoiser = useDenoiser;
@@ -87,7 +80,6 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
     {
         ResetMicrophones(SMDMicrophone.SelectedMicrophone);
     }
-
     public void ResetMicrophones(string newMicrophone)
     {
         if (string.IsNullOrEmpty(newMicrophone))
@@ -126,7 +118,6 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
             MicrophoneDevice = newMicrophone;
         }
     }
-
     private void StopMicrophone()
     {
         if (string.IsNullOrEmpty(MicrophoneDevice))
@@ -138,22 +129,18 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
         MicrophoneDevice = null;
         MicrophoneIsStarted = false;
     }
-
     public void ToggleIsPaused()
     {
         IsPaused = !IsPaused;
     }
-
     public void SetPauseState(bool isPaused)
     {
         IsPaused = isPaused;
     }
-
     public bool GetPausedState()
     {
         return IsPaused;
     }
-
     public static bool isPaused = false;
     private bool IsPaused
     {
@@ -175,141 +162,73 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
             OnPausedAction?.Invoke(isPaused);
         }
     }
-    private bool ScheduleMainHasAudio;
-    private bool ScheduleMainHasSilence;
-    public static Action MainThreadOnHasAudio;
-    public static Action MainThreadOnHasSilence; // Event triggered when silence is detected
-    private readonly object _lock = new object();
     public void LateUpdate()
     {
-        if (MicrophoneIsStarted)
+        if (!MicrophoneIsStarted)
+            return;
+
+        position = Microphone.GetPosition(MicrophoneDevice);
+        if (position == head)
         {
-            position = Microphone.GetPosition(MicrophoneDevice);
-            if (position == head)
-            {
-                // No new data has been recorded since the last update
-                return;
-            }
-
-            clip.GetData(microphoneBufferArray, 0);
-
-            // Signal the processing thread to start processing the audio data
-            processingEvent.Set();
-            lock (_lock)
-            {
-                if (ScheduleMainHasAudio)
-                {
-                    MainThreadOnHasAudio?.Invoke();
-                    ScheduleMainHasAudio = false;
-                }
-                else
-                {
-                    if (ScheduleMainHasSilence)
-                    {
-                        MainThreadOnHasSilence?.Invoke();
-                        ScheduleMainHasSilence = false;
-                    }
-                }
-            }
+            // No new data has been recorded since the last update
+            return;
         }
-    }
-
-    void StartProcessingThread()
-    {
-        processingThread = new Thread(() =>
-        {
-            while (isRunning)
-            {
-                processingEvent.WaitOne();  // Wait until there's data to process
-                lock (processingLock)
-                {
-                    if (!isRunning) break;  // Exit if the thread should stop
-                    ProcessAudioData(position);
-                }
-                processingEvent.Reset();  // Reset the event to wait for new data
-            }
-        });
-        processingThread.Start();
-    }
-
-    void StopProcessingThread()
-    {
-        lock (processingLock)
-        {
-            isRunning = false;
-
-            // Safely trigger the event if the thread is waiting on it
-            processingEvent?.Set();
-
-            // Check if the thread is still alive before attempting to join it
-            if (processingThread != null && processingThread.IsAlive)
-            {
-                // Wait for the thread to finish, with a timeout to prevent hanging
-                bool terminated = processingThread.Join(1000); // 1 second timeout
-            }
-        }
-    }
-    void OnApplicationQuit()
-    {
-        StopProcessingThread();
-    }
-    public void ProcessAudioData(int position)
-    {
+        //microphoneBufferArray.AsSpan();
+        // Directly access the span over the buffer1
+        Span<float> microphoneBufferSpan = microphoneBufferArray.AsSpan();
+        clip.GetData(microphoneBufferSpan, 0);
         int dataLength = GetDataLength(bufferLength, head, position);
 
         while (dataLength >= ProcessBufferLength)
         {
+            Span<float> processBufferSpan = processBufferArray.AsSpan();
+
             int remain = bufferLength - head;
             if (remain < ProcessBufferLength)
             {
-                Array.Copy(microphoneBufferArray, head, processBufferArray, 0, remain);
-                Array.Copy(microphoneBufferArray, 0, processBufferArray, remain, ProcessBufferLength - remain);
+                // Handle buffer wrapping more efficiently using slicing
+                microphoneBufferSpan.Slice(head, remain).CopyTo(processBufferSpan);
+                microphoneBufferSpan.Slice(0, ProcessBufferLength - remain)
+                    .CopyTo(processBufferSpan.Slice(remain));
             }
             else
             {
-                Array.Copy(microphoneBufferArray, head, processBufferArray, 0, ProcessBufferLength);
+                microphoneBufferSpan.Slice(head, ProcessBufferLength)
+                    .CopyTo(processBufferSpan);
             }
 
-            AdjustVolume();  // Adjust the volume of the audio data
+            processBufferSpan = AdjustVolume(processBufferSpan);  // Adjust the volume of the audio data
 
             if (UseDenoiser)
             {
-                ApplyDeNoise();  // Apply noise gate before processing the audio
+                ApplyDeNoise(processBufferSpan);  // Apply noise gate before processing
             }
 
-            RollingRMS();
+            RollingRMS(processBufferSpan);
 
             if (IsTransmitWorthy())
             {
                 OnHasAudio?.Invoke();
-                lock (_lock)
-                {
-                    ScheduleMainHasAudio = true;
-                }
-             }
+                BasisAudioTransmission.OnAudioReady(processBufferSpan);
+            }
             else
             {
                 OnHasSilence?.Invoke();
-                lock (_lock)
-                {
-                    ScheduleMainHasSilence = true;
-                }
             }
 
             head = (head + ProcessBufferLength) % bufferLength;
             dataLength -= ProcessBufferLength;
         }
     }
-    public void AdjustVolume()
+    public Span<float> AdjustVolume(Span<float> processBufferArray)
     {
-        VAJ.processBufferArray.CopyFrom(processBufferArray);
-
+        processBufferArray.CopyTo(VAJ.processBufferArray);
         handle = VAJ.Schedule(processBufferArray.Length, 64);
         handle.Complete();
 
-        VAJ.processBufferArray.CopyTo(processBufferArray);
+       return VAJ.processBufferArray.AsSpan();
     }
-    public float GetRMS()
+    public float GetRMS(Span<float> processBufferArray)
     {
         // Use a double for the sum to avoid overflow and precision issues
         double sum = 0.0;
@@ -340,13 +259,13 @@ public partial class MicrophoneRecorder : MicrophoneRecorderBase
         VAJ.Volume = Volume;
         BasisDebug.Log("Set Microphone Volume To "+ Volume);
     }
-    public void ApplyDeNoise()
+    public void ApplyDeNoise(Span<float> processBufferArray)
     {
         Denoiser.Denoise(processBufferArray);
     }
-    public void RollingRMS()
+    public void RollingRMS(Span<float> processBufferArray)
     {
-        float rms = GetRMS();
+        float rms = GetRMS(processBufferArray);
         rmsValues[rmsIndex] = rms;
         rmsIndex = (rmsIndex + 1) % rmsWindowSize;
         averageRms = rmsValues.Average();

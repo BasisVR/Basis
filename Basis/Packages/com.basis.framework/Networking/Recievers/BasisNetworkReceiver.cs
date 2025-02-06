@@ -259,13 +259,13 @@ namespace Basis.Scripts.Networking.Recievers
         {
             if (AudioReceiverModule.decoder != null)
             {
-                if (silentData == null || silentData.Length != AudioReceiverModule.decoder.FakepcmLength)
+                if (silentData == null || silentData.Length != AudioReceiverModule.decoder.FakePcmLength)
                 {
-                    silentData = new float[AudioReceiverModule.decoder.FakepcmLength];
+                    silentData = new float[AudioReceiverModule.decoder.FakePcmLength];
                     Array.Fill(silentData, 0f);
                 }
                 BasisNetworkProfiler.ServerAudioSegmentMessageCounter.Sample(1);
-                AudioReceiverModule.OnDecoded(silentData, AudioReceiverModule.decoder.FakepcmLength);
+                AudioReceiverModule.OnDecoded(silentData, AudioReceiverModule.decoder.FakePcmLength);
                 Player.AudioReceived?.Invoke(false);
             }
         }

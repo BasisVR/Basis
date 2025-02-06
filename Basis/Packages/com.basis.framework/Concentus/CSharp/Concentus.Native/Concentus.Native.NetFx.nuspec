@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+		<!-- Required elements-->
+		<id>Concentus.Native.NetFx</id>
+		<version>1.5.2</version>
+		<description>(This is used internally by the Concentus.Native meta-package. You should not need to reference it directly). Contains native Opus redistributable binaries for various platforms, intended as an optional addon to the core Concentus library. The default behavior for Concentus would be to look for these native binaries and use them if present, otherwise, fall back to a pure C# implementation of the codec.</description>
+		<authors>Logan Stromberg</authors>
+		<icon>icon.png</icon>
+
+		<!-- Optional elements -->
+		<title>Concentus.Native (NetFx target package)</title>
+		<owners>lostromb</owners>
+		<copyright>© Xiph.Org Foundation, Skype Limited, CSIRO, Microsoft Corp.</copyright>
+		<tags>Concentus Opus Audio Codec Resampler Resampling DSP Compression Encoder Decoder</tags>
+		<projectUrl>https://github.com/lostromb/concentus</projectUrl>
+		<licenseUrl>https://opus-codec.org/license/</licenseUrl> <!-- have to support potentially old Nuget clients that don't understand license expressions -->
+		<dependencies>
+		</dependencies>
+	</metadata>
+	<files>
+		<file src="..\icon.png" target="\icon.png" />
+		<file src="..\..\LICENSE" target="\LICENSE" />
+		
+		<!-- Make sure all the native libraries are bundled into /content, that the folder tree is preserved,
+		and that build targets will copy those to projects transitively. This is kind of wasteful because
+		it copies every single binary for every platform into the build output which wastes some space. -->
+		<file src=".\runtimes\**" target="content\runtimes" />
+		<file src=".\Concentus.Native.NetFx.targets" target="build" />
+		<file src=".\Concentus.Native.NetFx.targets" target="buildTransitive" />
+	</files>
+</package>

@@ -25,8 +25,6 @@ namespace Basis.Scripts.Networking.Transmitters
         public float timer = 0f;
         public float interval = 0.0333333333333333f;
         public float SmallestDistanceToAnotherPlayer;
-        [SerializeField]
-        public BasisAudioTransmission AudioTransmission = new BasisAudioTransmission();
         public NativeArray<float3> targetPositions;
         public NativeArray<float> distances;
         public NativeArray<bool> DistanceResults;
@@ -176,11 +174,11 @@ namespace Basis.Scripts.Networking.Transmitters
                 }
                 if (TalkingPoints.Count != 0)
                 {
-                    HasReasonToSendAudio = true;
+                    BasisAudioTransmission.HasReasonToSendAudio = true;
                 }
                 else
                 {
-                    HasReasonToSendAudio = false;
+                    BasisAudioTransmission.HasReasonToSendAudio = false;
                 }
                 //even if we are not listening to anyone we still need to tell the server that!
                 VoiceReceiversMessage VRM = new VoiceReceiversMessage
@@ -230,7 +228,7 @@ namespace Basis.Scripts.Networking.Transmitters
             if (Ready == false)
             {
                 IndexLength = -1;
-                AudioTransmission.OnEnable(this);
+                BasisAudioTransmission.OnEnable(this);
                 OnAvatarCalibrationLocal();
                 if (HasEvents == false)
                 {
@@ -324,7 +322,7 @@ namespace Basis.Scripts.Networking.Transmitters
         {
             if (Ready)
             {
-                AudioTransmission.OnDisable();
+                BasisAudioTransmission.OnDisable();
             }
             if (HasEvents)
             {

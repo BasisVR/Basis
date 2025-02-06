@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <metadata>
+		<!-- Required elements-->
+		<id>Concentus.Native</id>
+		<version>1.5.2</version>
+		<description>Contains native Opus redistributable binaries for various platforms, intended as an optional addon to the core Concentus library. The default behavior for Concentus would be to look for these native binaries and use them if present, otherwise, fall back to a pure C# implementation of the codec. For best results, you should install this package ONLY into your top-level project, not into any intermediate libraries - this allows things like dotnet publish to correctly trim out native binaries that aren't relevant to your release target.</description>
+		<authors>Logan Stromberg</authors>
+		<icon>icon.png</icon>
+
+		<!-- Optional elements -->
+		<title>Concentus.Native</title>
+		<owners>lostromb</owners>
+		<copyright>© Xiph.Org Foundation, Skype Limited, CSIRO, Microsoft Corp.</copyright>
+		<tags>Concentus Opus Audio Codec Resampler Resampling DSP Compression Encoder Decoder</tags>
+		<projectUrl>https://github.com/lostromb/concentus</projectUrl>
+		<license type="file">LICENSE</license>
+		<dependencies>
+			<group targetFramework="netcoreapp1.0">
+				<dependency id="Concentus.Native.NetCore" version="1.5.1" />
+			</group>
+			<group targetFramework="net452">
+				<dependency id="Concentus.Native.NetFx" version="1.5.1" />
+			</group>
+		</dependencies>
+	</metadata>
+	<files>
+		<file src="..\icon.png" target="\icon.png" />
+		<file src="..\..\LICENSE" target="\LICENSE" />
+	</files>
+</package>

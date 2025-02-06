@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <ItemGroup>
+        <_ConcentusNativeBinaries Include="$(MSBuildThisFileDirectory)..\content\**\*.dll" />
+        <_ConcentusNativeBinaries Include="$(MSBuildThisFileDirectory)..\content\**\*.so" />
+        <_ConcentusNativeBinaries Include="$(MSBuildThisFileDirectory)..\content\**\*.dylib" />
+
+        <Content Include="@(_ConcentusNativeBinaries)">
+            <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+            <Visible>False</Visible>
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+            <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        </Content>
+    </ItemGroup>
+</Project>
