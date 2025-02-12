@@ -1,3 +1,4 @@
+using System;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers.Editor;
 using Basis.Scripts.Editor;
@@ -10,6 +11,7 @@ using UnityEngine.UIElements;
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
 {
+    public static event Action<BasisAvatarSDKInspector> InspectorGuiCreated;
     public VisualTreeAsset visualTree;
     public BasisAvatar Avatar;
 
@@ -43,6 +45,8 @@ public partial class BasisAvatarSDKInspector : Editor
             SetupItems();
             AvatarSDKJiggleBonesView.Initialize(this);
             AvatarSDKVisemes.Initialize(this);
+
+            InspectorGuiCreated?.Invoke(this);
         }
         else
         {
