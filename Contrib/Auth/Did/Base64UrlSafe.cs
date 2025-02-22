@@ -5,7 +5,7 @@
 namespace Basis.Contrib.Auth.DecentralizedIds
 {
 	/// Base64 url-safe encode and decode.
-	public class Base64UrlSafe
+	public sealed class Base64UrlSafe
 	{
 		public static string Encode(byte[] bytes)
 		{
