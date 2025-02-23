@@ -5,7 +5,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Basis.Contrib.Auth.DecentralizedIds;
 using Basis.Contrib.Auth.DecentralizedIds.Newtypes;
+using Basis.Contrib.Auth.DecentralizedIds.Result;
 using CryptoRng = System.Security.Cryptography.RandomNumberGenerator;
 using Debug = System.Diagnostics.Debug;
 
@@ -21,6 +23,47 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 				// We will add more did methods in the future, like did:web
 				{ DidMethodKind.Key, new DidKeyResolver() },
 			};
+	}
+
+	/// Errors during resolution of DID Document.
+	public abstract record DidResolveErr : DidVerifyErr
+	{
+		private DidResolveErr() { }
+
+		/// Did had an invalid prefix.
+		public sealed record InvalidPrefix : DidResolveErr { }
+
+		/// Did method is not supported.
+		public sealed record UnsupportedMethod : DidResolveErr { }
+
+		/// Another generic error happened during DID document resolution.
+		public sealed record Other(Exception E) : DidResolveErr { }
+	}
+
+	/// Errors relating to the DID URL Fragment.
+	public abstract record DidFragmentErr : DidVerifyErr
+	{
+		private DidFragmentErr() { }
+
+		/// No such fragment was present in the DID document.
+		public sealed record NoSuchFragment : DidFragmentErr { }
+
+		/// The given fragment was ambiguous.
+		public sealed record AmbiguousFragment : DidFragmentErr { }
+	}
+
+	/// Errors relating to the signature validity.
+	public abstract record DidSignatureErr : DidVerifyErr
+	{
+		private DidSignatureErr() { }
+
+		// TODO: Define failure modes
+	}
+
+	/// Toplevel error type.
+	public abstract record DidVerifyErr
+	{
+		internal DidVerifyErr() { } // Seals class
 	}
 
 	// TODO(@thebutlah): Create and implement an `IChallengeResponseAuth`
@@ -60,13 +103,16 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 		///
 		/// It is the caller's responsibility to keep track of which challenges
 		/// should be held for which responses.
-		public async Task<VerifyResponseResult> VerifyResponse(
+		public async Task<Result<Success, DidVerifyErr>> VerifyResponse(
 			Response response,
 			Challenge challenge
 		)
 		{
-			var document = await ResolveDid(challenge.Identity);
-			var pubkey = RetrieveKey(document, response.DidUrlFragment);
+			var resolveResult = await ResolveDid(challenge.Identity); /*var pubkey = RetrieveKey(document, response.DidUrlFragment);*/
+			if (resolveResult is Result<DidDocument, DidResolveErr>.Err(var err))
+			{
+				return new Result<Success, DidVerifyErr>.Err(err);
+			}
 			var (isVerified, verifySigErr) = VerifySignature(
 				pubkey,
 				challenge.Nonce,
@@ -79,7 +125,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			return VerifyResponseResult.Success;
 		}
 
-		private (bool, DidSignatureErr?) VerifySignature(
+		private Result<Success, DidSignatureErr> VerifySignature(
 			JsonWebKey pubkey,
 			Nonce nonce,
 			Signature signature
@@ -88,13 +134,17 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			throw new NotImplementedException("todo: do the cryptography");
 		}
 
-		private JsonWebKey RetrieveKey(DidDocument document, DidUrlFragment keyId)
+		private Result<JsonWebKey, DidFragmentErr> RetrieveKey(
+			DidDocument document,
+			DidUrlFragment keyId
+		)
 		{
 			JsonWebKey pubkeyJwk;
 			if (keyId.V.Equals(string.Empty))
 			{
 				if (document.Pubkeys.Count != 1)
 				{
+					return new Result<>.Err(new DidFragmentErr.AmbiguousFragment());
 					throw new DidResolveException(DidResolveErr.AmbiguousFragment);
 				}
 				pubkeyJwk = document.Pubkeys.First().Value;
@@ -106,7 +156,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			return pubkeyJwk;
 		}
 
-		private async Task<DidDocument> ResolveDid(Did identity)
+		static async Task<Result<DidDocument, DidResolveErr>> ResolveDid(Did identity)
 		{
 			var segments = identity.V.Split(
 				separator: ":",
@@ -124,29 +174,6 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			};
 			var resolver = Resolvers[method];
 			return await resolver.ResolveDocument(identity);
-		}
-
-		/// Errors related to validating to the signature itself.
-		public enum DidSignatureErr { }
-
-		/// Errors related to resolving a Did document from a Did.
-		public enum DidResolveErr
-		{
-			InvalidPrefix,
-			UnsupportedMethod,
-			NoSuchFragment,
-			AmbiguousFragment,
-		}
-
-		public sealed class DidResolveException : Exception
-		{
-			public DidResolveErr Error { get; }
-
-			public DidResolveException(DidResolveErr error)
-				: base(error.ToString())
-			{
-				Error = error;
-			}
 		}
 	}
 
@@ -173,24 +200,4 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 		/// * `"z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"`
 		DidUrlFragment DidUrlFragment
 	);
-
-	/// Possible return values VerifyResponse method.
-	public enum VerifyResponseResult
-	{
-		/// The verification was successful
-		Success,
-
-		/// Was unable to resolve the Did to a DidDocument.
-		FailedToResolveDid,
-
-		/// The fragment in the response didn't exist in the DID Document resolved
-		/// from the challenge's identity.
-		NoSuchFragment,
-
-		/// The response signature did not match the challenge nonce
-		MismatchedNonce,
-
-		/// The verification failed due to an invalid signature
-		InvalidSig,
-	}
 }
