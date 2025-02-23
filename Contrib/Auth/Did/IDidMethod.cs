@@ -2,12 +2,11 @@
 
 using System.Threading.Tasks;
 using Did = Basis.Contrib.Auth.DecentralizedIds.Newtypes.Did;
-using DidDocument = Basis.Contrib.Auth.DecentralizedIds.DidDocument;
 
 namespace Basis.Contrib.Auth.DecentralizedIds
 {
 	/// The functionality that all DID methods implement
-	interface IDidMethod
+	public interface IDidMethod
 	{
 		/// Resolves to a map of DID Url fragments to a Json Web Key. This method
 		/// resolves a DID to its DID Document, and inspects the `verificationMethods`
@@ -17,5 +16,14 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 		/// we standardize the api to return JsonWebKey because it documents its
 		/// own key algorithms and is a reasonably portable format.
 		public Task<DidDocument> ResolveDocument(Did did);
+
+		public DidMethodKind Kind { get; }
+	}
+
+	/// The different supported DidMethods.
+	public enum DidMethodKind
+	{
+		Key,
+		// TODO: Web
 	}
 }

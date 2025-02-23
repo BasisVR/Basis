@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 
 namespace Basis.Contrib.Auth.DecentralizedIds
 {
-	public class JsonWebKey
+	public sealed class JsonWebKey
 	{
 		[JsonProperty("kty")]
 		public string? Kty { get; set; }

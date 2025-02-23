@@ -7,16 +7,19 @@ namespace Basis.Contrib.Auth.DecentralizedIds.Newtypes
 {
 	/// A DID. DIDs do *not* contain any fragment portion. See
 	/// https://www.w3.org/TR/did-core/#did-syntax
-	public record Did(string V);
+	public sealed record Did(string V);
 
 	/// A full DID Url, which is a did along with an optional path query and
 	/// fragment. See
 	/// https://www.w3.org/TR/did-core/#did-url-syntax
-	public record DidUrl(string V);
+	public sealed record DidUrl(string V);
 
-	/// A DID Url Fragment. Does not include the `#` part.
-	public record DidUrlFragment(string V);
+	/// A DID Url Fragment. Does not include the `#` part. Can be empty.
+	public sealed record DidUrlFragment(string V);
 
-	/// A JSON Web Signature, serialized in "compact serialization" form.
-	public record JwsCompact(string V);
+	/// A signature.
+	public sealed record Signature(byte[] V);
+
+	/// A random nonce.
+	public sealed record Nonce(byte[] V);
 }
