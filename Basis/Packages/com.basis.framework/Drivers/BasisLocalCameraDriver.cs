@@ -24,7 +24,7 @@ namespace Basis.Scripts.Drivers
         public UniversalAdditionalCameraData CameraData;
         public SteamAudio.SteamAudioListener SteamAudioListener;
         public BasisLocalPlayer LocalPlayer;
-        public int DefaultCameraFov = 90;
+        public int DefaultCameraFov = 60;
         // Static event to notify when the instance exists
         public static event System.Action InstanceExists;
         public BasisLockToInput BasisLockToInput;
@@ -41,7 +41,8 @@ namespace Basis.Scripts.Drivers
         public AudioClip MuteSound;
         public AudioClip UnMuteSound;
         public AudioSource AudioSource;
-        public float NearClip = 0.001f;
+        public float NearClip = 0.02f;
+        public float farClip = 3000.0f;
         private Coroutine scaleCoroutine;
 
         public Vector3 StartingScale = Vector3.zero;
@@ -62,7 +63,7 @@ namespace Basis.Scripts.Drivers
                 HasInstance = true;
             }
             Camera.nearClipPlane = NearClip;
-            Camera.farClipPlane = 1500;
+            Camera.farClipPlane = farClip;
             CameraInstanceID = Camera.GetInstanceID();
             //fire static event that says the instance exists
             OnHeightChanged();
