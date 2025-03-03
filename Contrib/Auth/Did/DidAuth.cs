@@ -157,7 +157,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			{
 				case SigningAlgorithm.Ed25519:
 					if (
-						Ed25519.VerifySignature(
+						Ed25519.Verify(
 							pubkey: pubkey.DecodePubkey(),
 							sig: signature,
 							payload: new Payload(nonce.V)

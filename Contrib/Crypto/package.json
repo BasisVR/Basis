@@ -7,6 +7,7 @@
   "publishConfig": { "registry": "https://npm.pkg.github.com/@BasisVR" },
   "repository":"https://github.com/BasisVR/Basis",
   "dependencies": {
-    "org.basisvr.bouncycastle": "2.5.0"
+    "org.basisvr.bouncycastle": "2.5.0",
+    "org.basisvr.generator.equals": "3.2.0"
   }
 }

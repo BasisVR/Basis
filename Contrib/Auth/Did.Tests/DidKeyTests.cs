@@ -1,20 +1,22 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Basis.Contrib.Auth.DecentralizedIds.Newtypes;
+using Basis.Contrib.Crypto;
 using Xunit;
 
 namespace Basis.Contrib.Auth.DecentralizedIds
 {
 	public class DidKeyTests
 	{
-		[Fact]
-		public async Task DidKeyTestVectors()
+		// See https://w3c-ccg.github.io/did-method-key/#ed25519-x25519
+		static List<(string, JsonWebKey)> TestVectors()
 		{
-			// See https://w3c-ccg.github.io/did-method-key/#ed25519-x25519
-			var examples = new List<(string, JsonWebKey)>
+			return new List<(string, JsonWebKey)>
 			{
 				(
 					"did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp",
@@ -26,9 +28,13 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 					}
 				),
 			};
+		}
 
+		[Fact]
+		public async Task DidKeyTestVectors()
+		{
 			var resolver = new DidKeyResolver();
-			foreach (var (inputDid, expectedJwk) in examples)
+			foreach (var (inputDid, expectedJwk) in TestVectors())
 			{
 				var expectedFragment = new DidUrlFragment(
 					inputDid.Split(
@@ -44,6 +50,24 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 					JsonSerializer.Serialize(resolvedJwk)
 						== JsonSerializer.Serialize(expectedJwk),
 					"resolved JWK did not match expected JWK"
+				);
+			}
+		}
+
+		[Fact]
+		public void DidKeyTestEncode()
+		{
+			foreach (var (expectedDid, jwkInput) in TestVectors())
+			{
+				var pubkeyBytes = Base64UrlSafe.Decode(
+					jwkInput.X ?? throw new Exception("the examples are not null")
+				);
+				var encodedDid = DidKeyResolver.EncodePubkeyAsDid(
+					new PubKey(pubkeyBytes)
+				);
+				Debug.Assert(
+					expectedDid.Equals(encodedDid.V),
+					$"encoded was {encodedDid}, expected {expectedDid}"
 				);
 			}
 		}

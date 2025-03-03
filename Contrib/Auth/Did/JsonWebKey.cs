@@ -55,21 +55,21 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 		/// Returns null if the algorithm is unknown.
 		public SigningAlgorithm? GetAlgorithm()
 		{
-			if (K == "OKP" && Crv == "Ed25519")
+			if (Kty == "OKP" && Crv == "Ed25519")
 			{
 				return SigningAlgorithm.Ed25519;
 			}
 			return null;
 		}
 
-		public Pubkey DecodePubkey()
+		public PubKey DecodePubkey()
 		{
-			return new Pubkey(Base64UrlSafe.Decode(X ?? ""));
+			return new PubKey(Base64UrlSafe.Decode(X ?? ""));
 		}
 
-		public Privkey DecodePrivkey()
+		public PrivKey DecodePrivkey()
 		{
-			return new Privkey(Base64UrlSafe.Decode(D ?? ""));
+			return new PrivKey(Base64UrlSafe.Decode(D ?? ""));
 		}
 
 		public bool IsPubkey()

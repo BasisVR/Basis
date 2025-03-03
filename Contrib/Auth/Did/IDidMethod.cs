@@ -1,6 +1,10 @@
 #nullable enable
 
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Basis.Contrib.Auth.DecentralizedIds.Newtypes;
+using Basis.Contrib.Crypto;
 using Did = Basis.Contrib.Auth.DecentralizedIds.Newtypes.Did;
 
 namespace Basis.Contrib.Auth.DecentralizedIds

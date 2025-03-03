@@ -1,8 +1,12 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+using Basis.Contrib.Crypto;
 using Base128 = WojciechMikołajewicz.Base128;
 using Base58 = SimpleBase.Base58;
 using Debug = System.Diagnostics.Debug;
@@ -19,7 +23,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 		public const string PREFIX = "did:key:";
 
 		/// https://github.com/multiformats/multicodec/blob/master/table.csv#L98
-		const ushort ED25519_MULTIFORMAT_CODE = 0xED;
+		const byte ED25519_MULTIFORMAT_CODE = 0xED;
 
 		/// https://datatracker.ietf.org/doc/html/draft-multiformats-multibase#appendix-D.1
 		const char BASE58_BTC_MULTIBASE_CODE = 'z';
@@ -81,6 +85,29 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			return new DidDocument(
 				Pubkeys: new ReadOnlyDictionary<DidUrlFragment, JsonWebKey>(pubkeys)
 			);
+		}
+
+		public static Did EncodePubkeyAsDid(PubKey pubKey)
+		{
+			var nBytesForMultiformat = Base128.GetRequiredBytesUInt32(
+				ED25519_MULTIFORMAT_CODE
+			);
+			byte[] withMultiformatCode = new byte[
+				pubKey.V.Length + nBytesForMultiformat
+			];
+			Base128.WriteUInt32(
+				withMultiformatCode.AsSpan()[..nBytesForMultiformat],
+				ED25519_MULTIFORMAT_CODE,
+				out int _
+			);
+			pubKey.V.CopyTo(withMultiformatCode.AsSpan()[nBytesForMultiformat..]);
+
+			var base58Encoded = Base58.Bitcoin.Encode(withMultiformatCode);
+
+			var s = new StringBuilder(PREFIX);
+			s.Append(BASE58_BTC_MULTIBASE_CODE);
+			s.Append(base58Encoded);
+			return new Did(s.ToString());
 		}
 
 		/// See

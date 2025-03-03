@@ -8,9 +8,9 @@ namespace Basis.Contrib.Crypto
 {
 	public class Ed25519Tests
 	{
-		record Example(string Pubkey, string Message, string Signature);
+		record Example(string Pubkey, string Privkey, string Message, string Signature);
 
-		private IList<Example> RfcTestVectors()
+		private static List<Example> RfcTestVectors()
 		{
 			return new List<Example>()
 			{
@@ -18,6 +18,8 @@ namespace Basis.Contrib.Crypto
 				new(
 					Pubkey: "d75a980182b10ab7d54bfed3c964073a"
 						+ "0ee172f3daa62325af021a68f707511a",
+					Privkey: "9d61b19deffd5a60ba844af492ec2cc4"
+						+ "4449c5697b326919703bac031cae7f60",
 					Message: "",
 					Signature: "e5564300c360ac729086e2cc806e828a"
 						+ "84877f1eb8e5d974d873e06522490155"
@@ -27,6 +29,8 @@ namespace Basis.Contrib.Crypto
 				new(
 					Pubkey: "3d4017c3e843895a92b70aa74d1b7ebc"
 						+ "9c982ccf2ec4968cc0cd55f12af4660c",
+					Privkey: "4ccd089b28ff96da9db6c346ec114e0f"
+						+ "5b8a319f35aba624da8cf6ed4fb8a6fb",
 					Message: "72",
 					Signature: "92a009a9f0d4cab8720e820b5f642540"
 						+ "a2b27b5416503f8fb3762223ebdb69da"
@@ -36,6 +40,8 @@ namespace Basis.Contrib.Crypto
 				new(
 					Pubkey: "fc51cd8e6218a1a38da47ed00230f058"
 						+ "0816ed13ba3303ac5deb911548908025",
+					Privkey: "c5aa8df43f9f837bedb7442f31dcb7b1"
+						+ "66d38535076f094b85ce3a2e0b4458f7",
 					Message: "af82",
 					Signature: "6291d657deec24024827e69c3abe01a3"
 						+ "0ce548a284743a445e3680d7db5ac3ac"
@@ -45,6 +51,8 @@ namespace Basis.Contrib.Crypto
 				new(
 					Pubkey: "278117fc144c72340f67d0f2316e8386"
 						+ "ceffbf2b2428c9c51fef7c597f1d426e",
+					Privkey: "f5e5767cf153319517630f226876b86c"
+						+ "8160cc583bc013744c6bf255f5cc0ee5",
 					Message: "08b8b2b733424243760fe426a4b54908"
 						+ "632110a66c2f6591eabd3345e3e4eb98"
 						+ "fa6e264bf09efe12ee50f8f54e9f77b1"
@@ -117,6 +125,8 @@ namespace Basis.Contrib.Crypto
 				new(
 					Pubkey: "ec172b93ad5e563bf4932c70e1245034"
 						+ "c35467ef2efd4d64ebf819683467e2bf",
+					Privkey: "833fe62409237b9d62ec77587520911e"
+						+ "9a759cec1d19755b7da901b96dca3d42",
 					Message: "ddaf35a193617abacc417349ae204131"
 						+ "12e6fa4e89a97ea20a9eeee64b55d39a"
 						+ "2192992a274fc1a836ba3c23a3feebbd"
@@ -130,42 +140,82 @@ namespace Basis.Contrib.Crypto
 		}
 
 		[Fact]
-		public void RfcTestVectorsShouldPass()
+		public void RfcTestVectorsShouldVerify()
 		{
 			var testVectors = RfcTestVectors();
 			int i = 0;
 			foreach (var e in testVectors)
 			{
 				Console.WriteLine($"testing example {i}");
-				var pubkey = new Pubkey(Convert.FromHexString(e.Pubkey));
+				var pubkey = new PubKey(Convert.FromHexString(e.Pubkey));
 				var payload = new Payload(Convert.FromHexString(e.Message));
 				var signature = new Signature(Convert.FromHexString(e.Signature));
-				Debug.Assert(Ed25519.VerifySignature(pubkey, signature, payload));
+				Debug.Assert(Ed25519.Verify(pubkey, signature, payload));
 
 				i += 1;
 			}
 		}
 
 		[Fact]
-		public void SlightlyModifiedFromTestVectorsShouldFail()
+		public void RfcTestVectorsShouldSign()
 		{
 			var testVectors = RfcTestVectors();
 			int i = 0;
 			foreach (var e in testVectors)
 			{
 				Console.WriteLine($"testing example {i}");
-				var pubkey = new Pubkey(Convert.FromHexString(e.Pubkey));
+				var expectedPubkey = new PubKey(Convert.FromHexString(e.Pubkey));
+				var privkey = new PrivKey(Convert.FromHexString(e.Privkey));
+				var payload = new Payload(Convert.FromHexString(e.Message));
+				var expectedSignature = new Signature(
+					Convert.FromHexString(e.Signature)
+				);
+
+				PubKey convertedPubkey =
+					Ed25519.ConvertPrivkeyToPubkey(privkey)
+					?? throw new Exception("should not have been null");
+				Debug.Assert(
+					convertedPubkey == expectedPubkey,
+					"pubkey derived from privkey did not match what was expected"
+				);
+
+				Debug.Assert(
+					Ed25519.Sign(privkey, payload, out Signature? sig),
+					"signing should always succeed with a valid pubkey"
+				);
+				Debug.Assert(
+					sig is not null,
+					"sig should not be null when signing succeeds"
+				);
+				Debug.Assert(
+					sig == expectedSignature,
+					"signature should match expected signature"
+				);
+
+				i += 1;
+			}
+		}
+
+		[Fact]
+		public void SlightlyModifiedFromTestVectorsShouldFailVerification()
+		{
+			var testVectors = RfcTestVectors();
+			int i = 0;
+			foreach (var e in testVectors)
+			{
+				Console.WriteLine($"testing example {i}");
+				var pubkey = new PubKey(Convert.FromHexString(e.Pubkey));
 				var payload = new Payload(Convert.FromHexString(e.Message));
 				var signature = new Signature(Convert.FromHexString(e.Signature));
 
 				// Try using valid but mismatched pubkey
-				var badPubkey = new Pubkey(
+				var badPubkey = new PubKey(
 					Convert.FromHexString(
 						"411D2E24033EA71821F8D5C65F45CFB3FA5E06E30F860B3D8E6DA309D668BBD1"
 					)
 				);
 				Debug.Assert(
-					!Ed25519.VerifySignature(badPubkey, signature, payload),
+					!Ed25519.Verify(badPubkey, signature, payload),
 					"Corrupting pubkey should have failed to verify"
 				);
 
@@ -173,7 +223,7 @@ namespace Basis.Contrib.Crypto
 				var badSignature = new Signature(signature.V.ToArray()); // copy
 				badSignature.V[0] = (byte)(signature.V[0] ^ byte.MaxValue);
 				Debug.Assert(
-					!Ed25519.VerifySignature(pubkey, badSignature, payload),
+					!Ed25519.Verify(pubkey, badSignature, payload),
 					"Corrupting signature should have failed to verify"
 				);
 
@@ -190,7 +240,7 @@ namespace Basis.Contrib.Crypto
 					badPayload = new Payload(tmp);
 				}
 				Debug.Assert(
-					!Ed25519.VerifySignature(pubkey, signature, badPayload),
+					!Ed25519.Verify(pubkey, signature, badPayload),
 					"Corrupting payload should have failed to verify"
 				);
 
@@ -199,39 +249,43 @@ namespace Basis.Contrib.Crypto
 		}
 
 		[Fact]
-		public void EmptyOrNullShouldFail()
+		public void EmptyOrNullShouldFailVerification()
 		{
 			var example = RfcTestVectors()[2]; // Pick one that does not have anything empty
-			Console.WriteLine($"Using example {example}");
-			var pubkey = new Pubkey(Convert.FromHexString(example.Pubkey));
+			var pubkey = new PubKey(Convert.FromHexString(example.Pubkey));
 			var payload = new Payload(Convert.FromHexString(example.Message));
 			var signature = new Signature(Convert.FromHexString(example.Signature));
 
 			Debug.Assert(
-				!Ed25519.VerifySignature(
-					new Pubkey(Array.Empty<byte>()),
-					signature,
-					payload
-				),
+				!Ed25519.Verify(new PubKey(Array.Empty<byte>()), signature, payload),
 				"empty pubkey should fail"
 			);
 
 			Debug.Assert(
-				!Ed25519.VerifySignature(
-					pubkey,
-					new Signature(Array.Empty<byte>()),
-					payload
-				),
+				!Ed25519.Verify(pubkey, new Signature(Array.Empty<byte>()), payload),
 				"empty sig should fail"
 			);
 
 			Debug.Assert(
-				!Ed25519.VerifySignature(
-					pubkey,
-					signature,
-					new Payload(Array.Empty<byte>())
-				),
+				!Ed25519.Verify(pubkey, signature, new Payload(Array.Empty<byte>())),
 				"empty payload should fail"
+			);
+		}
+
+		[Fact]
+		public void EmptyPrivkeyShouldFailSigning()
+		{
+			Debug.Assert(
+				!Ed25519.Sign(
+					new PrivKey(Array.Empty<byte>()),
+					new Payload(Array.Empty<byte>()),
+					out Signature? sig
+				),
+				"empty privkey should fail signing and return false"
+			);
+			Debug.Assert(
+				sig is null,
+				"empty privkey should fail signing and return null for sig"
 			);
 		}
 	}

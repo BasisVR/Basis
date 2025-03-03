@@ -18,6 +18,7 @@
   <!--First-party dependencies-->
   <ItemGroup>
     <ProjectReference Include="..\Did\Did.csproj" />
+    <ProjectReference Include="..\..\Crypto\Crypto.csproj" />
   </ItemGroup>
 
 </Project>

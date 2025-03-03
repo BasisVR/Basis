@@ -8,6 +8,8 @@
   "repository":"https://github.com/BasisVR/Basis",
   "dependencies": {
     "org.basisvr.base128": "1.2.2",
+    "org.basisvr.contrib.crypto": "0.0.0",
+    "org.basisvr.generator.equals": "3.2.0",
     "org.basisvr.newtonsoft.json": "13.0.3",
     "org.basisvr.simplebase": "4.0.2"
   }

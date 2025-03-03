@@ -11,7 +11,8 @@
     "precompiledReferences": [
         "Base128.dll",
         "SimpleBase.dll",
-        "Newtonsoft.Json.dll"
+        "Newtonsoft.Json.dll",
+        "Generator.Equals.Runtime.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
