@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 namespace Basis.Scripts.Common
 {
     public static class BasisDataStore
@@ -26,21 +27,45 @@ namespace Basis.Scripts.Common
             }
         }
         // Method to load the avatar (string and byte) from a file using JSON
-        public static bool LoadAvatar(string fileNameAndExtension, string defaultName, byte defaultData,out BasisSavedAvatar BasisSavedAvatar)
+        public static bool LoadAvatar(string fileNameAndExtension, string defaultName, byte defaultData, out BasisSavedAvatar BasisSavedAvatar)
         {
             string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
+
             if (File.Exists(filePath))
             {
                 string json = File.ReadAllText(filePath);
-                BasisSavedAvatar avatarWrapper = JsonUtility.FromJson<BasisSavedAvatar>(json);
-                if (string.IsNullOrEmpty(avatarWrapper.UniqueID))
+
+                // Check if the file is empty
+                if (string.IsNullOrEmpty(json))
                 {
-                    avatarWrapper.UniqueID = defaultName;
-                     avatarWrapper.loadmode = defaultData;
+                    BasisDebug.LogWarning("File found but empty");
+                    BasisSavedAvatar = null;
+                    return false;
                 }
-                BasisDebug.Log("Avatar loaded from " + filePath);
-                BasisSavedAvatar = avatarWrapper;
-                return true;
+
+                try
+                {
+                    // Attempt to parse the JSON
+                    BasisSavedAvatar avatarWrapper = JsonUtility.FromJson<BasisSavedAvatar>(json);
+
+                    // If UniqueID is empty, set it to defaultName and loadmode to defaultData
+                    if (string.IsNullOrEmpty(avatarWrapper.UniqueID))
+                    {
+                        avatarWrapper.UniqueID = defaultName;
+                        avatarWrapper.loadmode = defaultData;
+                    }
+
+                    BasisDebug.Log("Avatar loaded from " + filePath);
+                    BasisSavedAvatar = avatarWrapper;
+                    return true;
+                }
+                catch (ArgumentException ex)
+                {
+                    // Handle any JSON parsing error, e.g., invalid JSON structure or empty document
+                    BasisDebug.LogError("Error loading avatar: " + ex.Message);
+                    BasisSavedAvatar = null;
+                    return false;
+                }
             }
             else
             {

@@ -14,7 +14,7 @@
 
   <!--Third-party dependencies-->
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.0" />
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
     <PackageReference Include="Generator.Equals" Version="3.2.0" />
   </ItemGroup>
 </Project>

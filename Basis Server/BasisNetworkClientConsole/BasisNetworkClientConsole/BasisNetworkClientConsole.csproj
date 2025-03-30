@@ -11,6 +11,9 @@
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>
+	  <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
+	</ItemGroup>
+	<ItemGroup>
 	  <ProjectReference Include="..\..\BasisNetworkClient\BasisNetworkClient.csproj" />
 	  <ProjectReference Include="..\..\BasisNetworkCore\BasisNetworkCore.csproj" />
 	  <ProjectReference Include="..\..\LiteNetLib\LiteNetLib.csproj" />

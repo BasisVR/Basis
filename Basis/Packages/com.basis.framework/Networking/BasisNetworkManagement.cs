@@ -675,6 +675,15 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
+                case BasisNetworkCommons.MovementCompressedChannel:
+                    if (ValidateSize(Reader, peer, channel) == false)
+                    {
+                        Reader.Recycle();
+                        return;
+                    }
+                    BasisNetworkHandleAvatar.HandleAvatarCompressedUpdate(Reader);
+                    Reader.Recycle();
+                    break;
                 default:
                     BNL.LogError($"this Channel was not been implemented {channel}");
                     Reader.Recycle();

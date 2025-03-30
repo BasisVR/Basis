@@ -7,6 +7,10 @@
     <Nullable>enable</Nullable>
     <StartupObject>Basis.Program</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
+  </ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\BasisNetworkServer\BasisNetworkServer.csproj" />
 		<ProjectReference Include="..\BasisNetworkCore\BasisNetworkCore.csproj" />

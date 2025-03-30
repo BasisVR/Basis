@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
 using BasisDidLink;
+using BasisNetworkServer;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
 using LiteNetLib;
@@ -25,6 +26,7 @@ public static class NetworkServer
         auth = new PasswordAuth(configuration.Password ?? string.Empty);
         authIdentity = new BasisDIDAuthIdentity();
         SetupServer(configuration);
+        BasisPlayerPackerPlayers.Initalize();
         BasisServerHandleEvents.SubscribeServerEvents();
         BasisPlayerModeration.LoadBannedPlayers();
         if (configuration.EnableStatistics)
@@ -124,6 +126,18 @@ public static class NetworkServer
             {
                 BNL.LogError($"Message was larger then the preprogrammed channels {BasisNetworkCommons.TotalChannels}");
             }
+        }
+    }
+    public static void SendOutValidated(NetPeer Peer, byte[] Data, byte MessageIndex, DeliveryMethod DeliveryMethod = DeliveryMethod.ReliableSequenced)
+    {
+        if (MessageIndex <= BasisNetworkCommons.TotalChannels)
+        {
+            Peer.Send(Data, MessageIndex, DeliveryMethod);
+            //  BNL.Log($"sent {MessageIndex}");
+        }
+        else
+        {
+            BNL.LogError($"Message was larger then the preprogrammed channels {BasisNetworkCommons.TotalChannels}");
         }
     }
     public static bool CheckValidated(NetDataWriter Writer)

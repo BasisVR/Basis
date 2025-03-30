@@ -1,6 +1,8 @@
 using Basis.Network.Core;
 using LiteNetLib;
 using LiteNetLib.Utils;
+using System.IO.Compression;
+using System.IO;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static SerializableBasis;
 
@@ -49,6 +51,23 @@ public static class NetworkClient
         {
             BNL.LogError("Call Shutdown First!");
             return null;
+        }
+    }
+    // Method to decompress a large byte array using Deflate
+    public static byte[] DecompressByteArray(byte[] compressedData)
+    {
+        using (MemoryStream compressedMemoryStream = new MemoryStream(compressedData))
+        using (MemoryStream decompressedMemoryStream = new MemoryStream())
+        {
+            // Create a DeflateStream to read the compressed data
+            using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionMode.Decompress))
+            {
+                // Copy the decompressed data to the new memory stream
+                deflateStream.CopyTo(decompressedMemoryStream);
+            }
+
+            // Return the decompressed data as a byte array
+            return decompressedMemoryStream.ToArray();
         }
     }
     public static void Disconnect()

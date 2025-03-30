@@ -3,6 +3,7 @@ using System.Threading;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
+using BasisNetworkServer;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using static SerializableBasis;
@@ -36,6 +37,7 @@ public partial class BasisServerReductionSystem
         }
         else
         {
+            BasisPlayerPackerPlayers.AddPlayer(playerID);
             //first time request create said data!
             playerData = new SyncedToPlayerPulse
             {
@@ -49,6 +51,7 @@ public partial class BasisServerReductionSystem
     }
     public static void RemovePlayer(NetPeer playerID)
     {
+        BasisPlayerPackerPlayers.RemovePlayer(playerID);
         SyncedToPlayerPulse Pulse = PlayerSync.GetPulse(playerID.Id);
         PlayerSync.SetPulse(playerID.Id, null);
         if (Pulse != null)
@@ -152,7 +155,7 @@ public partial class BasisServerReductionSystem
         /// <param name="state">The player ID (passed from the timer)</param>
         private void SendPlayerData(object state)
         {
-            var playerID = (ClientPayload)state;
+            ClientPayload playerID = (ClientPayload)state;
             if (SyncBoolArray.GetBool(playerID.dataCameFromThisUser))
             {
                 ServerSideReducablePlayer playerData = ChunkedServerSideReducablePlayerArray.GetPlayer(playerID.dataCameFromThisUser);
@@ -178,8 +181,10 @@ public partial class BasisServerReductionSystem
                             }
                             //how long does this data need to last for
                             playerData.serverSideSyncPlayerMessage.interval = (byte)adjustedInterval;
-                            playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
-                            NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                           // playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
+
+                            BasisPlayerPackerPlayers.AddData(playerID.localClient, playerData.serverSideSyncPlayerMessage);
+                           // NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
                             playerData.Writer.Reset();
                         }
                         catch (Exception e)

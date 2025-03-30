@@ -15,6 +15,7 @@
   <!--Third-party dependencies-->
   <ItemGroup>
     <ProjectReference Include="..\..\Crypto\Crypto.csproj" />
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="SimpleBase" Version="4.0.2" />
     <PackageReference Include="VarInt" Version="1.2.2" />

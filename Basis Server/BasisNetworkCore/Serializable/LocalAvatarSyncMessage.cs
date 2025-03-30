@@ -1,6 +1,4 @@
-using BasisNetworkCore;
 using LiteNetLib.Utils;
-using System.Collections.Generic;
 public static partial class SerializableBasis
 {
     public struct LocalAvatarSyncMessage

@@ -19,12 +19,17 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\..\Contrib\Auth\Did\Did.csproj" />
-		<ProjectReference Include="..\..\Contrib\Crypto\Crypto.csproj" />
 		<ProjectReference Include="..\BasisNetworkCore\BasisNetworkCore.csproj" />
 		<ProjectReference Include="..\Contrib\Auth\Did\Did.csproj" />
 		<ProjectReference Include="..\Contrib\Crypto\Crypto.csproj" />
 		<ProjectReference Include="..\LiteNetLib\LiteNetLib.csproj" />
+		<ProjectReference Include="..\ZstSharp\Zstd.Extern\Zstd.Extern.csproj" />
+		<ProjectReference Include="..\ZstSharp\ZstdSharp\ZstdSharp.csproj" />
 	</ItemGroup>
 	
 	<PropertyGroup>
