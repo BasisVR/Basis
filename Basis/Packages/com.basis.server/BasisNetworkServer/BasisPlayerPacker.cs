@@ -7,17 +7,15 @@ using System.IO.Compression;
 using System.IO;
 using static BasisServerReductionSystem;
 using static SerializableBasis;
-using System.Linq;
 namespace BasisNetworkServer
 {
     public static class BasisPlayerPackerPlayers
     {
         public static ManagedTimer timer;//create a new timer
         public static ConcurrentDictionary<NetPeer, BasisPlayerPacker> Players = new ConcurrentDictionary<NetPeer, BasisPlayerPacker>();
-        public static NetDataWriter Writer = new NetDataWriter();
         public static void Initalize()
         {
-            timer = new ManagedTimer(PushData, null, 8, 8);
+            timer = new ManagedTimer(PushData, null, 4, 4);
         }
         public static void AddPlayer(NetPeer NetPeer)
         {
@@ -35,7 +33,7 @@ namespace BasisNetworkServer
             ICollection<BasisPlayerPacker> value = Players.Values;
             foreach (BasisPlayerPacker Packer in value)
             {
-                Packer.Push(Writer);
+                Packer.Push();
             }
         }
         public static void AddData(NetPeer Destination, ServerSideSyncPlayerMessage SSSPM)
@@ -51,21 +49,26 @@ namespace BasisNetworkServer
     /// </summary>
     public class BasisPlayerPacker
     {
-        public ConcurrentQueue<ServerSideSyncPlayerMessage> SSSPM = new ConcurrentQueue<ServerSideSyncPlayerMessage>();
+        public ConcurrentDictionary<ushort, ServerSideSyncPlayerMessage> SSSPM = new ConcurrentDictionary<ushort, ServerSideSyncPlayerMessage>();
         public NetPeer localClient;
+        public NetDataWriter Writer = new NetDataWriter();
         public void Add(ServerSideSyncPlayerMessage ServerSideSyncPlayerMessage)
         {
-            SSSPM.Enqueue(ServerSideSyncPlayerMessage);
+            SSSPM[ServerSideSyncPlayerMessage.playerIdMessage.playerID] = ServerSideSyncPlayerMessage;
         }
-        public void Push(NetDataWriter Writer)
+
+        public void Push()
         {
-            foreach (ServerSideSyncPlayerMessage message in SSSPM)
-            {
-                message.Serialize(Writer);
-            }
-            SSSPM.Clear();
-            byte[] UnCompressedData = Writer.CopyData();
+            ICollection<ServerSideSyncPlayerMessage> Values = SSSPM.Values;
             Writer.Reset();
+            foreach (ServerSideSyncPlayerMessage Message in Values)
+            {
+                Message.Serialize(Writer);
+            }
+           int MaxSize = localClient.GetMaxSinglePacketSize( DeliveryMethod.Sequenced);
+            BNL.Log("Max Network Size can be is " + MaxSize);
+           // GetMaxSinglePacketSize
+            byte[] UnCompressedData = Writer.Data;
 
             if (UnCompressedData != null && UnCompressedData.Length != 0)
             {
@@ -79,17 +82,13 @@ namespace BasisNetworkServer
         {
             using (MemoryStream compressedMemoryStream = new MemoryStream())
             {
-                // Create a DeflateStream to write compressed data
-                using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionLevel.Optimal))
+                using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionLevel.Optimal, true))
                 {
-                    // Write the byte array to the DeflateStream
                     deflateStream.Write(data, 0, data.Length);
-                }
+                } // Ensure deflateStream is closed before reading compressedMemoryStream
 
-                // Return the compressed data as a byte array
                 return compressedMemoryStream.ToArray();
             }
         }
-
     }
 }

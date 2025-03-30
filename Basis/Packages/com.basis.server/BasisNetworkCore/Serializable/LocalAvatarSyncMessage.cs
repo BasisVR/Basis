@@ -1,71 +1,91 @@
 using LiteNetLib.Utils;
+
 public static partial class SerializableBasis
 {
     public struct LocalAvatarSyncMessage
     {
-        public byte[] array;//position -> rotation -> rotation
+        public byte[] array; // Position -> Rotation -> Rotation
         public const int AvatarSyncSize = 204;
+        public const int TotalSafeSize = 205;
         public const int StoredBones = 89;
 
-        public AdditionalAvatarData[] AdditionalAvatarDatas;
         public byte AdditionalAvatarDataSize;
-        public void Deserialize(NetDataReader Writer)
+        public AdditionalAvatarData[] AdditionalAvatarDatas;
+
+        public void Deserialize(NetDataReader reader)
         {
-            int Bytes = Writer.AvailableBytes;
-            if (Bytes >= AvatarSyncSize)
+            int availableBytes = reader.AvailableBytes;
+            if (availableBytes < TotalSafeSize) // Ensure there's at least AvatarSyncSize + 1 byte
             {
-                //89 * 2 = 178 + 12 + 14 = 204
-                //now 178 for muscles, 3*4 for position 12, 4*4 for rotation 16-2 (W is half) = 204
-                array ??= new byte[AvatarSyncSize];
-                Writer.GetBytes(array, AvatarSyncSize);
-                if (Writer.TryGetByte(out AdditionalAvatarDataSize))
-                {
-                    if (AdditionalAvatarDataSize != 0)
-                    {
-                        AdditionalAvatarDatas = new AdditionalAvatarData[AdditionalAvatarDataSize];
-                        for (int Index = 0; Index < AdditionalAvatarDatas.Length; Index++)
-                        {
-                            AdditionalAvatarDatas[Index] = new AdditionalAvatarData();
-                            AdditionalAvatarDatas[Index].Deserialize(Writer);
-                        }
-                      //  BNL.Log("found additional message " + AdditionalAvatarDatas.Length);
-                    }
-                }
-                else
-                {
-                    BNL.LogError("fundamental error missing Additional Avatar Data Byte");
-                }
+                BNL.LogError($"Insufficient bytes ({availableBytes}) to deserialize LocalAvatarSyncMessage.");
+                return;
+            }
+
+
+            if (!reader.TryGetByte(out AdditionalAvatarDataSize))
+            {
+                BNL.LogError("Missing AdditionalAvatarDataSize byte in LocalAvatarSyncMessage. this should never occur as we validate size above!");
+                return;
+            }
+            if (AdditionalAvatarDataSize == 0)
+            {
+                AdditionalAvatarDatas = null;
             }
             else
             {
-                BNL.LogError($"Unable to read Remaining bytes where {Bytes} in LocalAvatarSyncMessage");
-            }
-        }
-        public void Serialize(NetDataWriter Writer)
-        {
-            if (array == null)
-            {
-                BNL.LogError("array was null!!");
-            }
-            else
-            {
-                Writer.Put(array);
-            }
-            if (AdditionalAvatarDatas == null || AdditionalAvatarDatas.Length == 0 || AdditionalAvatarDatas.Length > 256)
-            {
-                Writer.Put(0);
-            }
-            else
-            {
-                AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
-                Writer.Put(AdditionalAvatarDataSize);
+                AdditionalAvatarDatas = new AdditionalAvatarData[AdditionalAvatarDataSize];
                 for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
                 {
-                    AdditionalAvatarData AAD = AdditionalAvatarDatas[Index];
-                    AAD.Serialize(Writer);
+                    AdditionalAvatarDatas[Index] = new AdditionalAvatarData();
+                    AdditionalAvatarDatas[Index].Deserialize(reader);
                 }
-             //   BNL.Log("sending additional message " + AdditionalAvatarDatas.Length);
             }
+
+            //89 * 2  =178
+            //3 * 4 = 12
+            //3 * 4 + 1*2 = 14
+            // = 204
+            if (array == null || array.Length == 0)
+            {
+                array = new byte[AvatarSyncSize];
+            }
+            reader.GetBytes(array, AvatarSyncSize);
+        }
+
+        public void Serialize(NetDataWriter writer)
+        {
+            if (AdditionalAvatarDatas == null || AdditionalAvatarDatas.Length == 0)
+            {
+                writer.Put((byte)0);
+            }
+            else
+            {
+                if (AdditionalAvatarDatas.Length > 256)
+                {
+                    BNL.LogError("Too many AdditionalAvatarDatas, exceeding maximum allowed size (256).");
+                    return;
+                }
+                AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
+                writer.Put(AdditionalAvatarDataSize);
+                for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
+                {
+                    AdditionalAvatarData aad = AdditionalAvatarDatas[Index];
+                    if (aad.array == null)
+                    {
+                        BNL.LogError($"AdditionalAvatarData[{Index}] is null and cannot be serialized.");
+                        continue;
+                    }
+                    aad.Serialize(writer);
+                }
+            }
+
+            if (array == null)
+            {
+                BNL.LogError("Array is null while serializing LocalAvatarSyncMessage.");
+                return;
+            }
+
+            writer.Put(array);
         }
     }
 }

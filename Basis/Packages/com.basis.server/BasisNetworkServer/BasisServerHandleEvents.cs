@@ -525,8 +525,7 @@ namespace BasisServerHandle
                 // Add player ID to the audio segment message
                 audioSegment.playerIdMessage = new PlayerIdMessage
                 {
-                    playerID = (ushort)sender.Id,
-                    AdditionalData = 0,
+                     playerID  = (ushort)sender.Id,
                 };
 
                 // Serialize the audio segment message

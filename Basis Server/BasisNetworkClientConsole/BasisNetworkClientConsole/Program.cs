@@ -6,7 +6,6 @@ using BasisNetworkClientConsole;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Text;
-using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
 
@@ -21,7 +20,7 @@ namespace Basis
         public static string Ip = "localhost";//server1.basisvr.org //localhost
         public static int Port = 4296;
 
-        public static byte[] AvatarMessage = new byte[LocalAvatarSyncMessage.AvatarSyncSize];
+        public static byte[] AvatarMessage = new byte[205];
         public static Vector3 Position = new Vector3(0, 0, 0);
         public static Quaternion Rotation = new Quaternion(0, 0, 0, 1);
         public static float[] FloatArray = new float[LocalAvatarSyncMessage.StoredBones];
@@ -210,7 +209,8 @@ namespace Basis
         {
             if (LocalPLayer != null)
             {
-                int Offset = 0;
+                int Offset = 1;
+                AvatarMessage[0] = 0;
                 Position = Randomizer.GetRandomPosition(new Vector3(30,30,30),new Vector3(80,80,80));
                 WriteVectorFloatToBytes(Position, ref AvatarMessage, ref Offset);
                 WriteQuaternionToBytes(Rotation, ref AvatarMessage, ref Offset, RotationCompression);

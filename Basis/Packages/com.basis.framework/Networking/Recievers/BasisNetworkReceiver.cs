@@ -268,9 +268,8 @@ namespace Basis.Scripts.Networking.Recievers
         {
             if (Ready)
             {
-                byte SequenceNumber = audioSegment.playerIdMessage.AdditionalData;
                 BasisNetworkProfiler.ServerAudioSegmentMessageCounter.Sample(audioSegment.audioSegmentData.LengthUsed);
-                AudioReceiverModule.OnDecode(SequenceNumber, audioSegment.audioSegmentData.buffer, audioSegment.audioSegmentData.LengthUsed);
+                AudioReceiverModule.OnDecode(audioSegment.audioSegmentData.buffer, audioSegment.audioSegmentData.LengthUsed);
                 Player.AudioReceived?.Invoke(true);
             }
         }
@@ -279,7 +278,7 @@ namespace Basis.Scripts.Networking.Recievers
             if (Ready)
             {
                 BasisNetworkProfiler.ServerAudioSegmentMessageCounter.Sample(1);
-                AudioReceiverModule.OnDecodeSilence(audioSilentSegment.playerIdMessage.AdditionalData);
+                AudioReceiverModule.OnDecodeSilence();
                 Player.AudioReceived?.Invoke(false);
             }
         }

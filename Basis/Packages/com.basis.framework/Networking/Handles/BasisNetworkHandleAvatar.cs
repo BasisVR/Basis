@@ -1,11 +1,11 @@
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Recievers;
 using LiteNetLib;
-using static SerializableBasis;
 using System.Collections.Generic;
-using Basis.Scripts.Networking.NetworkedAvatar;
-using System.IO.Compression;
 using System.IO;
+using System.IO.Compression;
+using static SerializableBasis;
 public static class BasisNetworkHandleAvatar
 {
     public static Queue<ServerSideSyncPlayerMessage> Message = new Queue<ServerSideSyncPlayerMessage>();
@@ -13,8 +13,10 @@ public static class BasisNetworkHandleAvatar
     {
         byte[] Bytes = Reader.GetRemainingBytes();
         byte[] Decompressed = DecompressByteArray(Bytes);
+
         Reader.SetSource(Decompressed);
-        while (Reader.AvailableBytes > 0)
+
+        while(Reader.AvailableBytes >= 208)//208 is the smallest size a uncompressed avatar update can be.
         {
             HandleAvatarUpdate(Reader);
         }
@@ -23,25 +25,23 @@ public static class BasisNetworkHandleAvatar
     public static byte[] DecompressByteArray(byte[] compressedData)
     {
         using (MemoryStream compressedMemoryStream = new MemoryStream(compressedData))
-        using (MemoryStream decompressedMemoryStream = new MemoryStream())
         {
-            // Create a DeflateStream to read the compressed data
-            using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionMode.Decompress))
+            using (MemoryStream decompressedMemoryStream = new MemoryStream())
             {
-                // Copy the decompressed data to the new memory stream
-                deflateStream.CopyTo(decompressedMemoryStream);
-            }
+                using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionMode.Decompress))
+                {
+                    deflateStream.CopyTo(decompressedMemoryStream);
+                } // Ensure deflateStream is properly disposed before reading
 
-            // Return the decompressed data as a byte array
-            return decompressedMemoryStream.ToArray();
+                return decompressedMemoryStream.ToArray();
+            }
         }
     }
     public static void HandleAvatarUpdate(NetPacketReader Reader)
     {
-        if (Message.TryDequeue(out ServerSideSyncPlayerMessage SSM) == false)
-        {
-            SSM = new ServerSideSyncPlayerMessage();
-        }
+        ServerSideSyncPlayerMessage SSM = new ServerSideSyncPlayerMessage();
+        SSM.avatarSerialization = new LocalAvatarSyncMessage();
+
         SSM.Deserialize(Reader);
         if (BasisNetworkManagement.RemotePlayers.TryGetValue(SSM.playerIdMessage.playerID, out BasisNetworkReceiver player))
         {
@@ -51,12 +51,12 @@ public static class BasisNetworkHandleAvatar
         {
             BasisDebug.Log($"Missing Player For Avatar Update {SSM.playerIdMessage.playerID}");
         }
-        Message.Enqueue(SSM);
-        if (Message.Count > 256)
-        {
-            Message.Clear();
-            BasisDebug.LogError("Messages Exceeded 250! Resetting");
-        }
+        // Message.Enqueue(SSM);
+        // if (Message.Count > 256)
+        //   {
+        //     Message.Clear();
+        //  BasisDebug.LogError("Messages Exceeded 250! Resetting");
+        // }
     }
     public static void HandleAvatarChangeMessage(NetPacketReader reader)
     {

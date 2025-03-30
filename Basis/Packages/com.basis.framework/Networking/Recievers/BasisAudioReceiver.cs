@@ -24,12 +24,12 @@ namespace Basis.Scripts.Networking.Recievers
         public bool IsReady;
         public float[] silentData;
         public byte lastReadIndex = 0;
-        public void OnDecode(byte SequenceNumber, byte[] data, int length)
+        public void OnDecode(byte[] data, int length)
         {
             pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.NetworkSampleRate, false);
             InOrderRead.Add(pcmBuffer, pcmLength);
         }
-        public void OnDecodeSilence(byte SequenceNumber)
+        public void OnDecodeSilence()
         {
             InOrderRead.Add(silentData, RemoteOpusSettings.FrameSize);
         }

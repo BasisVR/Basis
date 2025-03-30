@@ -7,17 +7,17 @@ using System.IO.Compression;
 using System.IO;
 using static BasisServerReductionSystem;
 using static SerializableBasis;
-using System.Linq;
+using System.Xml.Linq;
+using System;
 namespace BasisNetworkServer
 {
     public static class BasisPlayerPackerPlayers
     {
         public static ManagedTimer timer;//create a new timer
         public static ConcurrentDictionary<NetPeer, BasisPlayerPacker> Players = new ConcurrentDictionary<NetPeer, BasisPlayerPacker>();
-        public static NetDataWriter Writer = new NetDataWriter();
         public static void Initalize()
         {
-            timer = new ManagedTimer(PushData, null, 8, 8);
+            timer = new ManagedTimer(PushData, null, 10, 10);
         }
         public static void AddPlayer(NetPeer NetPeer)
         {
@@ -35,7 +35,7 @@ namespace BasisNetworkServer
             ICollection<BasisPlayerPacker> value = Players.Values;
             foreach (BasisPlayerPacker Packer in value)
             {
-                Packer.Push(Writer);
+                Packer.Push();
             }
         }
         public static void AddData(NetPeer Destination, ServerSideSyncPlayerMessage SSSPM)
@@ -51,45 +51,112 @@ namespace BasisNetworkServer
     /// </summary>
     public class BasisPlayerPacker
     {
-        public ConcurrentQueue<ServerSideSyncPlayerMessage> SSSPM = new ConcurrentQueue<ServerSideSyncPlayerMessage>();
+        public ConcurrentDictionary<ushort, ServerSideSyncPlayerMessage> SSSPM = new ConcurrentDictionary<ushort, ServerSideSyncPlayerMessage>();
         public NetPeer localClient;
+        List<byte> CombinedData = new List<byte>(6);
         public void Add(ServerSideSyncPlayerMessage ServerSideSyncPlayerMessage)
         {
-            SSSPM.Enqueue(ServerSideSyncPlayerMessage);
+            SSSPM[ServerSideSyncPlayerMessage.playerIdMessage.playerID] = ServerSideSyncPlayerMessage;
         }
-        public void Push(NetDataWriter Writer)
-        {
-            foreach (ServerSideSyncPlayerMessage message in SSSPM)
-            {
-                message.Serialize(Writer);
-            }
-            SSSPM.Clear();
-            byte[] UnCompressedData = Writer.CopyData();
-            Writer.Reset();
 
-            if (UnCompressedData != null && UnCompressedData.Length != 0)
+        public void Push()
+        {
+            int count = SSSPM.Count;
+            if (count != 0)
             {
-                byte[] CompressedData = CompressByteArray(UnCompressedData);
-                BNL.Log("Compressed Data " + CompressedData.Length);
-                NetworkServer.SendOutValidated(localClient, CompressedData, BasisNetworkCommons.MovementCompressedChannel, DeliveryMethod.Sequenced);
+                NetDataWriter Writer = new NetDataWriter(true, 208);
+                ICollection<ServerSideSyncPlayerMessage> Values = SSSPM.Values;
+                if (count > 6)
+                {
+                    int MaxSize = localClient.GetMaxSinglePacketSize(DeliveryMethod.Sequenced);
+                    List<byte[]> RawChunks = new List<byte[]>();
+
+                    // Prepare the raw chunks
+                    foreach (ServerSideSyncPlayerMessage Message in Values)
+                    {
+                        Writer.Reset();
+                        Message.Serialize(Writer);
+                        int LengthOfBytes = Writer.Length;
+                        byte[] Data = Writer.Data;
+                        RawChunks.Add(Data);
+                    }
+                    // Clear the message collection after sending all data
+                    SSSPM.Clear();
+
+                    foreach (byte[] Raw in RawChunks)
+                    {
+                        // Check if adding this chunk would exceed the max size
+                        if (CombinedData.Count + Raw.Length > MaxSize)
+                        {
+                            // If the combined data is already too large, send the data and clear the combined list.
+                            SendOut(CombinedData.ToArray(), CombinedData.Count);
+                            CombinedData.Clear();
+                        }
+
+                        // Add the chunk to the combined data list
+                        CombinedData.AddRange(Raw);
+                    }
+                    CombinedData.Clear();
+
+                    // If there's remaining data after processing all chunks, send it out
+                    if (CombinedData.Count > 0)
+                    {
+                        SendOut(CombinedData.ToArray(), CombinedData.Count);
+                    }
+                }
+                else
+                {
+                    foreach (ServerSideSyncPlayerMessage Message in Values)
+                    {
+                        Writer.Reset();
+                        Message.Serialize(Writer);
+                        SendOutSingle(Writer);
+                    }
+
+                }
             }
         }
+        public void SendOut(byte[] Data, int length)
+        {
+            byte[] CompressedData = CompressByteArray(Data, length);
+
+            if (CompressedData != null && CompressedData.Length > 0)
+            {
+                //   BNL.Log($"Compressed Data Size: {CompressedData.Length}");
+                NetworkServer.SendOutValidated(
+                    localClient,
+                    CompressedData,
+                    BasisNetworkCommons.MovementCompressedChannel,
+                    DeliveryMethod.Sequenced
+                );
+            }
+            else
+            {
+                BNL.LogError("Compression resulted in an empty or null byte array.");
+            }
+        }
+        public void SendOutSingle(NetDataWriter NetDataWriter)
+        {
+            NetworkServer.SendOutValidated(
+                localClient,
+                NetDataWriter,
+                BasisNetworkCommons.MovementCompressedChannel,
+                DeliveryMethod.Sequenced
+            );
+        }
+
         // Method to compress a large byte array using Deflate
-        public static byte[] CompressByteArray(byte[] data)
+        public static byte[] CompressByteArray(byte[] data,int length)
         {
             using (MemoryStream compressedMemoryStream = new MemoryStream())
             {
-                // Create a DeflateStream to write compressed data
-                using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionLevel.Optimal))
+                using (DeflateStream deflateStream = new DeflateStream(compressedMemoryStream, CompressionLevel.Optimal, true))
                 {
-                    // Write the byte array to the DeflateStream
-                    deflateStream.Write(data, 0, data.Length);
-                }
+                    deflateStream.Write(data, 0, length);
+                } // Ensure deflateStream is closed before reading compressedMemoryStream
 
-                // Return the compressed data as a byte array
                 return compressedMemoryStream.ToArray();
             }
         }
-
     }
 }

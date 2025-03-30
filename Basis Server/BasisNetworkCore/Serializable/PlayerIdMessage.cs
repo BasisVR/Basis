@@ -4,8 +4,10 @@ public static partial class SerializableBasis
 {
     public struct PlayerIdMessage
     {
+        public ushort playerID;
+        /*
         private ushort data; // Encodes both playerID and additional data.
-
+        
         /// <summary>
         /// 0 to 1023
         /// </summary>
@@ -23,14 +25,14 @@ public static partial class SerializableBasis
             get => (byte)((data >> 10) & 0x3F); // Extract the upper 6 bits for AdditionalData
             set => data = (ushort)((data & 0x03FF) | ((value & 0x3F) << 10)); // Set AdditionalData while preserving lower 10 bits
         }
-
+        */
         public void Deserialize(NetDataReader Writer)
         {
-            Writer.Get(out data); // Read the entire ushort value
+            Writer.Get(out playerID); // Read the entire ushort value
         }
         public void Serialize(NetDataWriter Writer)
         {
-            Writer.Put(data); // Write the entire ushort value
+            Writer.Put(playerID); // Write the entire ushort value
         }
     }
 }
