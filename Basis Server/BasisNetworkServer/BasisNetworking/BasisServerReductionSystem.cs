@@ -37,7 +37,6 @@ public partial class BasisServerReductionSystem
         }
         else
         {
-            BasisPlayerPackerPlayers.AddPlayer(playerID);
             //first time request create said data!
             playerData = new SyncedToPlayerPulse
             {
@@ -51,7 +50,6 @@ public partial class BasisServerReductionSystem
     }
     public static void RemovePlayer(NetPeer playerID)
     {
-        BasisPlayerPackerPlayers.RemovePlayer(playerID);
         SyncedToPlayerPulse Pulse = PlayerSync.GetPulse(playerID.Id);
         PlayerSync.SetPulse(playerID.Id, null);
         if (Pulse != null)
@@ -181,10 +179,8 @@ public partial class BasisServerReductionSystem
                             }
                             //how long does this data need to last for
                             playerData.serverSideSyncPlayerMessage.interval = (byte)adjustedInterval;
-                           // playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
-
-                            BasisPlayerPackerPlayers.AddData(playerID.localClient, playerData.serverSideSyncPlayerMessage);
-                           // NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                            playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
+                            NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
                             playerData.Writer.Reset();
                         }
                         catch (Exception e)

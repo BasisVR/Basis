@@ -2,7 +2,6 @@ using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
 using BasisDidLink;
-using BasisNetworkServer;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
 using LiteNetLib;
@@ -26,7 +25,6 @@ public static class NetworkServer
         auth = new PasswordAuth(configuration.Password ?? string.Empty);
         authIdentity = new BasisDIDAuthIdentity();
         SetupServer(configuration);
-        BasisPlayerPackerPlayers.Initalize();
         BasisServerHandleEvents.SubscribeServerEvents();
         BasisPlayerModeration.LoadBannedPlayers();
         if (configuration.EnableStatistics)

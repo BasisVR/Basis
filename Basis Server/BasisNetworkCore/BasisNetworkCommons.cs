@@ -12,7 +12,7 @@ namespace Basis.Network.Core
         /// when adding a new message we need to increase this
         /// will function up to 64
         /// </summary>
-        public const byte TotalChannels = 21;
+        public const byte TotalChannels = 19;
         /// <summary>
         /// channel zero is only used for unreliable methods
         /// we fall it through to stop bugs
@@ -90,10 +90,5 @@ namespace Basis.Network.Core
         /// Client sends a admin message and the server needs to respond accordingly
         /// </summary>
         public const byte AdminMessage = 18;
-        /// <summary>
-        /// this is normally avatar movement only can be used once!
-        /// </summary>
-        public const byte MovementCompressedChannel = 19;
-        public const byte MovementUnCompressedChannel = 20;
     }
 }
