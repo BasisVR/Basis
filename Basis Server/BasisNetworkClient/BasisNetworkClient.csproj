@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="$(ProjectDir)..\.props" />
-  
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.1;net9.0</TargetFrameworks>
     <Configurations>Debug;Release</Configurations>
@@ -17,8 +17,6 @@
 	  <ProjectReference Include="..\Contrib\Auth\Did\Did.csproj" />
 	  <ProjectReference Include="..\Contrib\Crypto\Crypto.csproj" />
 	<ProjectReference Include="..\LiteNetLib\LiteNetLib.csproj" />
-	  <ProjectReference Include="..\..\Contrib\Auth\Did\Did.csproj" />
-	  <ProjectReference Include="..\..\Contrib\Crypto\Crypto.csproj" />
   </ItemGroup>
 	<PropertyGroup>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>

@@ -14,10 +14,6 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasisNetworkConsole", "BasisServerConsole\BasisNetworkConsole.csproj", "{3BFB9307-E78F-4277-ABE3-6762A2B69E19}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasisNetworkClient", "BasisNetworkClient\BasisNetworkClient.csproj", "{6972BF72-BE14-4C71-ABF3-6EF914FADEC8}"
-	ProjectSection(ProjectDependencies) = postProject
-		{308F2BB8-C94E-43B4-865F-03193EC0B33B} = {308F2BB8-C94E-43B4-865F-03193EC0B33B}
-		{EBF77A0E-12AB-4963-9D14-6AD833811785} = {EBF77A0E-12AB-4963-9D14-6AD833811785}
-	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasisNetworkCore", "BasisNetworkCore\BasisNetworkCore.csproj", "{7828CBD0-B57F-4C02-AD19-A0E015A5DD70}"
 EndProject
@@ -28,10 +24,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasisNetworkClientConsole",
 		{6972BF72-BE14-4C71-ABF3-6EF914FADEC8} = {6972BF72-BE14-4C71-ABF3-6EF914FADEC8}
 		{7828CBD0-B57F-4C02-AD19-A0E015A5DD70} = {7828CBD0-B57F-4C02-AD19-A0E015A5DD70}
 	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Crypto", "Contrib\Crypto\Crypto.csproj", "{308F2BB8-C94E-43B4-865F-03193EC0B33B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Did", "Contrib\Auth\Did\Did.csproj", "{EBF77A0E-12AB-4963-9D14-6AD833811785}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,14 +55,6 @@ Global
 		{B806E008-766C-42FD-BD05-BD486B23CA76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B806E008-766C-42FD-BD05-BD486B23CA76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B806E008-766C-42FD-BD05-BD486B23CA76}.Release|Any CPU.Build.0 = Release|Any CPU
-		{308F2BB8-C94E-43B4-865F-03193EC0B33B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{308F2BB8-C94E-43B4-865F-03193EC0B33B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{308F2BB8-C94E-43B4-865F-03193EC0B33B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{308F2BB8-C94E-43B4-865F-03193EC0B33B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EBF77A0E-12AB-4963-9D14-6AD833811785}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{EBF77A0E-12AB-4963-9D14-6AD833811785}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{EBF77A0E-12AB-4963-9D14-6AD833811785}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{EBF77A0E-12AB-4963-9D14-6AD833811785}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
