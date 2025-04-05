@@ -1,0 +1,11 @@
+{
+  "name": "org.basisvr.contrib.handles.dns",
+  "version": "0.0.0",
+  "displayName": "Basis.Contrib.Auth.Handles.Dns",
+  "description": "DNS Handles",
+  "documentationUrl": "https://github.com/BasisVR/Basis",
+  "publishConfig": { "registry": "https://npm.pkg.github.com/@BasisVR" },
+  "repository":"https://github.com/BasisVR/Basis",
+  "dependencies": {
+  }
+}

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--Language Settings-->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>Nullable</WarningsAsErrors>
+  </PropertyGroup>
+
+  <!--Ignore Subproject dirs-->
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!--Third-party dependencies-->
+  <ItemGroup>
+    <PackageReference Include="Generator.Equals" Version="3.2.0" />
+  </ItemGroup>
+</Project>
