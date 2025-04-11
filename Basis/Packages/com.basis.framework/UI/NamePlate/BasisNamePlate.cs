@@ -3,6 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
+using System;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -22,11 +23,15 @@ namespace Basis.Scripts.UI.NamePlate
         public Coroutine returnToNormalCoroutine;
         public bool HasRendererCheckWiredUp = false;
         public bool IsVisible = true;
+        public static bool ShowHandle = false;
         public bool HasProgressBarVisible = false;
         public Mesh bakedMesh;
         private WaitForSeconds cachedReturnDelay;
         private WaitForEndOfFrame cachedEndOfFrame;
         public Color CurrentColor;
+        public static Action<bool> ShowHandleEvent = thebool => { BasisNamePlate.ShowHandle = thebool; };
+        public SpriteRenderer namePlateLarge;
+        public TextMeshPro Handletext;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -56,6 +61,13 @@ namespace Basis.Scripts.UI.NamePlate
             // Text.enableAutoSizing = false;
             GenerateText();
             GameObject.Destroy(Text.gameObject);
+            ShowHandleEvent += ShowHandleFunc;
+            ShowHandleFunc(ShowHandle);
+        }
+        public void ShowHandleFunc(bool Show)
+        {
+            int id = GetInstanceID();
+            BasisDebug.Log("ShowHandleFunc " + Show + " " + id);
         }
         public void GenerateText()
         {
@@ -174,6 +186,7 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer.AudioReceived -= OnAudioReceived;
             DeInitalizeCallToRender();
             RemoteNamePlateDriver.Instance.RemoveNamePlate(this);
+            ShowHandleEvent -= ShowHandleFunc;
             base.OnDestroy();
         }
         public void DeInitalizeCallToRender()
