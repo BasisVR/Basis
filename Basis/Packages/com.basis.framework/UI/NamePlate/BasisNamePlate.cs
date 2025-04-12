@@ -32,6 +32,8 @@ namespace Basis.Scripts.UI.NamePlate
         public static Action<bool> ShowHandleEvent = thebool => { BasisNamePlate.ShowHandle = thebool; };
         public SpriteRenderer namePlateLarge;
         public TextMeshPro Handletext;
+        public GameObject NPL;
+        public GameObject baseNameplateBackground;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -68,6 +70,12 @@ namespace Basis.Scripts.UI.NamePlate
         {
             int id = GetInstanceID();
             BasisDebug.Log("ShowHandleFunc " + Show + " " + id);
+            //Check if already in intended state
+            if (NPL.activeSelf == Show) { return; }
+
+            NPL.SetActive(Show);
+            baseNameplateBackground.SetActive(!Show);
+            Handletext.text = BasisRemotePlayer.UUID;
         }
         public void GenerateText()
         {
