@@ -4,6 +4,7 @@ using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.UI.NamePlate;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -33,6 +34,8 @@ namespace Basis.Scripts.UI.UI_Panels
             Camera.onClick.AddListener(() => OpenCamera(this));
             BasisCursorManagement.UnlockCursor(nameof(BasisHamburgerMenu));
             BasisUINeedsVisibleTrackers.Instance.Add(this);
+            BasisNamePlate.ShowHandleEvent?.Invoke(true);
+            BasisDebug.Log("burger");
         }
         private Dictionary<BasisInput, Action> TriggerDelegates = new Dictionary<BasisInput, Action>();
         public void RespawnLocalPlayer()
@@ -109,6 +112,8 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
             BasisUINeedsVisibleTrackers.Instance.Remove(this);
+            BasisNamePlate.ShowHandleEvent?.Invoke(false);
+            BasisDebug.Log("Destroy Burger");
         }
     }
 }
