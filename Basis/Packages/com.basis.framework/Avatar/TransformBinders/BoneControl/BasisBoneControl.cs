@@ -41,6 +41,9 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public int GizmoReference = -1;
         public bool HasGizmo = false;
 
+        // Offset with rotation of target taken into consideration
+        public float3 RelativeOffset => Target.OutGoingData.position + math.mul(Target.OutGoingData.rotation, Offset);
+
         public int TposeGizmoReference = -1;
         public bool TposeHasGizmo = false;
         public bool HasVirtualOverride;
