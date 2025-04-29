@@ -2,6 +2,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// Controls the virtual spine and bone hierarchy for character animation.
@@ -39,6 +40,19 @@ public class BasisVirtualSpineDriver
     [SerializeField] private float chestRotationSpeed = 25f;
     [SerializeField] private float spineRotationSpeed = 30f;
     [SerializeField] private float hipsRotationSpeed = 40f;
+
+    [Header("Spine Stretch Settings")]
+    [SerializeField] private float maxStretchPercentage = 1.3f;  
+    [SerializeField] private float minStretchPercentage = 0.7f;
+    [SerializeField] private float stretchFactor = 1.0f;     // How much to stretch per degree
+    [SerializeField] private float stretchSmoothing = 5.0f;  // How smoothly to apply stretch
+
+    // Weights should add up to 1.
+    [Header("Bone Weights")]
+    [SerializeField] private float neckWeight = 0.1f;    // How much the neck stretches
+    [SerializeField] private float chestWeight = 0.3f;    // How much the chest stretches
+    [SerializeField] private float spineWeight = 0.6f;   // How much the spine stretches
+    [SerializeField] private float hipsWeight = 0f;       // Hips don't stretch
 
     [Header("Offset Settings")]
     [SerializeField] private Vector3 headOffset;    // Eye-to-head in eye local space
@@ -106,30 +120,50 @@ public class BasisVirtualSpineDriver
     /// </summary>
     private void OnSimulateHead()
     {
-        float deltaTime = Time.deltaTime;
+		float deltaTime = Time.deltaTime;
 
-        // Update head and neck rotation
-        head.OutGoingData.rotation = centerEye.OutGoingData.rotation;
-        neck.OutGoingData.rotation = head.OutGoingData.rotation;
+		head.OutGoingData.rotation = centerEye.OutGoingData.rotation;
+		neck.OutGoingData.rotation = head.OutGoingData.rotation;
 
-        // Update chest rotation with reduced influence
-        Quaternion targetChestRotation = Quaternion.Slerp(chest.OutGoingData.rotation, neck.OutGoingData.rotation, deltaTime * chestRotationSpeed);
-        chest.OutGoingData.rotation = Quaternion.Euler(0, targetChestRotation.eulerAngles.y, 0);
+		// Now, apply the spine curve progressively:
+		// The chest should not follow the head directly, it should follow the neck but with reduced influence.
+		Quaternion targetChestRotation = Quaternion.Slerp(chest.OutGoingData.rotation, neck.OutGoingData.rotation, deltaTime * chestRotationSpeed);
+		Vector3 EulerChestRotation = targetChestRotation.eulerAngles;
+		chest.OutGoingData.rotation = Quaternion.Euler(0, EulerChestRotation.y, 0);
 
-        // Update spine rotation
-        Quaternion targetSpineRotation = Quaternion.Slerp(spine.OutGoingData.rotation, chest.OutGoingData.rotation, deltaTime * spineRotationSpeed);
-        spine.OutGoingData.rotation = Quaternion.Euler(0, targetSpineRotation.eulerAngles.y, 0);
+		// The hips should stay upright, using chest rotation as a reference
+		Quaternion targetSpineRotation = Quaternion.Slerp(spine.OutGoingData.rotation, chest.OutGoingData.rotation, deltaTime * spineRotationSpeed);// Lesser influence for hips to remain more upright
+		Vector3 targetSpineRotationEuler = targetSpineRotation.eulerAngles;
+		spine.OutGoingData.rotation = Quaternion.Euler(0, targetSpineRotationEuler.y, 0);
 
-        // Update hips rotation
-        Quaternion targetHipsRotation = Quaternion.Slerp(hips.OutGoingData.rotation, spine.OutGoingData.rotation, deltaTime * hipsRotationSpeed);
-        hips.OutGoingData.rotation = Quaternion.Euler(0, targetHipsRotation.eulerAngles.y, 0);
+		// The hips should stay upright, using chest rotation as a reference
+		Quaternion targetHipsRotation = Quaternion.Slerp(hips.OutGoingData.rotation, spine.OutGoingData.rotation, deltaTime * hipsRotationSpeed);// Lesser influence for hips to remain more upright
+		Vector3 targetHipsRotationEuler = targetHipsRotation.eulerAngles;
+		hips.OutGoingData.rotation = Quaternion.Euler(0, targetHipsRotationEuler.y, 0);
 
-        // Apply position control
-        ApplyHeadPositionControl(head);
-        ApplyPositionControl(neck);
-        ApplyPositionControl(chest);
-        ApplyPositionControl(spine);
-        ApplyPositionControl(hips);
+		// Apply position control with weighted offsets
+		ApplyHeadPositionControl(head);
+        ApplyPositionControlWithWeight(neck, neckWeight);
+        ApplyPositionControlWithWeight(chest, chestWeight);
+        ApplyPositionControlWithWeight(spine, spineWeight);
+        ApplyPositionControlWithWeight(hips, hipsWeight);
+    }
+
+    /// <summary>
+    /// Calculates the angle between the head's forward direction and the hip-head vector.
+    /// </summary>
+    private float CalculateStretchAmount()
+    {
+		float3 headForward = math.mul(head.OutGoingData.rotation, new float3(0, 0, 1));
+		float3 hipToHead = head.OutGoingData.position - hips.OutGoingData.position;
+		hipToHead = math.normalize(hipToHead);
+
+        var rawAngle = Vector3.Angle(hipToHead, headForward);
+        var normalizedAngle = rawAngle / 90f;
+
+        Debug.Log("Raw Angle: " + rawAngle + " Normalized Angle: " + normalizedAngle);
+
+        return normalizedAngle;
     }
 
     /// <summary>
@@ -141,9 +175,9 @@ public class BasisVirtualSpineDriver
     }
 
     /// <summary>
-    /// Applies position control for a bone based on its target's rotation.
+    /// Applies position control for a bone based on its target's rotation, with weighted offset.
     /// </summary>
-    private void ApplyPositionControl(BasisBoneControl boneControl)
+    private void ApplyPositionControlWithWeight(BasisBoneControl boneControl, float weight)
     {
         quaternion targetRotation = boneControl.Target.OutGoingData.rotation;
 
@@ -153,8 +187,16 @@ public class BasisVirtualSpineDriver
         forward = math.normalize(forward);
 
         quaternion yawRotation = quaternion.LookRotationSafe(forward, new float3(0, 1, 0));
-        float3 offset = math.mul(yawRotation, boneControl.Offset);
+        
+        // Calculate base offset
+        float3 baseOffset = math.mul(yawRotation, boneControl.Offset);
+        
+        // Apply weighted stretch to the offset
+        float3 stretchedOffset = baseOffset;
+        var offsetMagY = baseOffset.y;
 
-        boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + offset;
+		stretchedOffset.y = Mathf.Clamp(CalculateStretchAmount() * offsetMagY, offsetMagY * minStretchPercentage, offsetMagY * maxStretchPercentage);
+
+        boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + stretchedOffset;
     }
 }
