@@ -2,7 +2,6 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 /// <summary>
 /// Controls the virtual spine and bone hierarchy for character animation.
@@ -41,12 +40,6 @@ public class BasisVirtualSpineDriver
     [SerializeField] private float spineRotationSpeed = 30f;
     [SerializeField] private float hipsRotationSpeed = 40f;
 
-    [Header("Spine Stretch Settings")]
-    [SerializeField] private float maxStretchPercentage = 1.3f;  
-    [SerializeField] private float minStretchPercentage = 0.7f;
-    [SerializeField] private float stretchFactor = 1.0f;     // How much to stretch per degree
-    [SerializeField] private float stretchSmoothing = 5.0f;  // How smoothly to apply stretch
-
     // Weights should add up to 1.
     [Header("Bone Weights")]
     [SerializeField] private float neckWeight = 0.1f;    // How much the neck stretches
@@ -55,9 +48,12 @@ public class BasisVirtualSpineDriver
     [SerializeField] private float hipsWeight = 0f;       // Hips don't stretch
 
     [Header("Offset Settings")]
-    [SerializeField] private Vector3 headOffset;    // Eye-to-head in eye local space
-    [SerializeField] private Vector3 neckOffset;    // Head-to-neck in head local space
-    [SerializeField] private Vector3 neckEyeOffset;
+    private Vector3 headOffset;    // Eye-to-head in eye local space
+    private Vector3 neckOffset;    // Head-to-neck in head local space
+    private Vector3 neckEyeOffset;
+
+    private float yHeadDiff = 0f;
+
     #endregion
 
     /// <summary>
@@ -120,19 +116,19 @@ public class BasisVirtualSpineDriver
     /// </summary>
     private void OnSimulateHead()
     {
-		float deltaTime = Time.deltaTime;
+        float deltaTime = Time.deltaTime;
 
 		head.OutGoingData.rotation = centerEye.OutGoingData.rotation;
 		neck.OutGoingData.rotation = head.OutGoingData.rotation;
 
-		// Now, apply the spine curve progressively:
-		// The chest should not follow the head directly, it should follow the neck but with reduced influence.
-		Quaternion targetChestRotation = Quaternion.Slerp(chest.OutGoingData.rotation, neck.OutGoingData.rotation, deltaTime * chestRotationSpeed);
-		Vector3 EulerChestRotation = targetChestRotation.eulerAngles;
-		chest.OutGoingData.rotation = Quaternion.Euler(0, EulerChestRotation.y, 0);
+        // Now, apply the spine curve progressively:
+        // The chest should not follow the head directly, it should follow the neck but with reduced influence.
+        Quaternion targetChestRotation = Quaternion.Slerp(chest.OutGoingData.rotation, neck.OutGoingData.rotation, deltaTime * chestRotationSpeed);
+        Vector3 EulerChestRotation = targetChestRotation.eulerAngles;
+        chest.OutGoingData.rotation = Quaternion.Euler(0, EulerChestRotation.y, 0);
 
-		// The hips should stay upright, using chest rotation as a reference
-		Quaternion targetSpineRotation = Quaternion.Slerp(spine.OutGoingData.rotation, chest.OutGoingData.rotation, deltaTime * spineRotationSpeed);// Lesser influence for hips to remain more upright
+        // The hips should stay upright, using chest rotation as a reference
+        Quaternion targetSpineRotation = Quaternion.Slerp(spine.OutGoingData.rotation, chest.OutGoingData.rotation, deltaTime * spineRotationSpeed);// Lesser influence for hips to remain more upright
 		Vector3 targetSpineRotationEuler = targetSpineRotation.eulerAngles;
 		spine.OutGoingData.rotation = Quaternion.Euler(0, targetSpineRotationEuler.y, 0);
 
@@ -142,7 +138,8 @@ public class BasisVirtualSpineDriver
 		hips.OutGoingData.rotation = Quaternion.Euler(0, targetHipsRotationEuler.y, 0);
 
 		// Apply position control with weighted offsets
-		ApplyHeadPositionControl(head);
+		ApplyBasicPositionControl(head);
+
         ApplyPositionControlWithWeight(neck, neckWeight);
         ApplyPositionControlWithWeight(chest, chestWeight);
         ApplyPositionControlWithWeight(spine, spineWeight);
@@ -152,32 +149,56 @@ public class BasisVirtualSpineDriver
     /// <summary>
     /// Calculates the angle between the head's forward direction and the hip-head vector.
     /// </summary>
-    private float CalculateStretchAmount()
+  //  private float CalculateStretchAmount()
+  //  {
+		//float3 headForward = math.mul(head.OutGoingData.rotation, new float3(0, 0, 1));
+		//float3 hipToHead = hips.OutGoingData.position - head.OutGoingData.position;
+		//hipToHead = math.normalize(hipToHead);
+
+  //      var rawAngle = Vector3.Angle(hipToHead, headForward);
+  //      var normalizedAngle = (rawAngle - 90f) / 90f;
+
+  //      Debug.Log("Raw Angle: " + rawAngle + " Normalized Angle: " + normalizedAngle);
+
+  //      return normalizedAngle;
+  //  }
+
+	private float CalculateStretchAmount()
+	{
+        var stretchAmount = Mathf.Clamp(yHeadDiff, -maximumCompressionAmount, maximumStretchAmount);
+        Debug.Log("yHeadDiff: " + yHeadDiff + " MaximumCompression: " + -maximumCompressionAmount + " MaximumStretch: " + maximumStretchAmount);
+        return stretchAmount;
+	}
+
+	private float3 HipToHeadTOffset => hips.TposeLocal.position + spine.TposeLocal.position + chest.TposeLocal.position + neck.TposeLocal.position + head.TposeLocal.position;
+    private float3 HipToHeadOffset => hips.Offset - spine.Offset - chest.Offset - neck.Offset;
+    private float maxHeadMovement => Vector3.Magnitude(head.Offset) * 2f;
+    private float maximumCompressionAmount => head.Offset.y - -Vector3.Magnitude(head.Offset);
+    private float maximumStretchAmount => Vector3.Magnitude(head.Offset) - head.Offset.y;
+
+
+	private float3 RelativeOffset(BasisBoneControl bone)
     {
-		float3 headForward = math.mul(head.OutGoingData.rotation, new float3(0, 0, 1));
-		float3 hipToHead = head.OutGoingData.position - hips.OutGoingData.position;
-		hipToHead = math.normalize(hipToHead);
-
-        var rawAngle = Vector3.Angle(hipToHead, headForward);
-        var normalizedAngle = rawAngle / 90f;
-
-        Debug.Log("Raw Angle: " + rawAngle + " Normalized Angle: " + normalizedAngle);
-
-        return normalizedAngle;
+        return bone.Target.OutGoingData.position + math.mul(bone.Target.OutGoingData.rotation, bone.Offset);
+	}
+    private float3 TPoseOffset(BasisBoneControl bone)
+    {
+        return bone.Target.TposeLocal.position + math.mul(bone.Target.TposeLocal.rotation, bone.Offset);
     }
 
-    /// <summary>
-    /// Applies position control for the head bone.
-    /// </summary>
-    private void ApplyHeadPositionControl(BasisBoneControl boneControl)
+	/// <summary>
+	/// Applies position control for the head bone.
+	/// </summary>
+	private void ApplyBasicPositionControl(BasisBoneControl boneControl)
     {
-        boneControl.OutGoingData.position = boneControl.RelativeOffset;
-    }
+        yHeadDiff = RelativeOffset(boneControl).y - TPoseOffset(boneControl).y;
+		boneControl.OutGoingData.position = RelativeOffset(boneControl);
+	}
 
-    /// <summary>
-    /// Applies position control for a bone based on its target's rotation, with weighted offset.
-    /// </summary>
-    private void ApplyPositionControlWithWeight(BasisBoneControl boneControl, float weight)
+	/// <summary>
+	/// Applies position control for a bone based on its target's rotation, with weighted offset.
+	/// </summary>
+	private void ApplyPositionControlWithWeight(BasisBoneControl boneControl, float weight)
     {
         quaternion targetRotation = boneControl.Target.OutGoingData.rotation;
 
@@ -193,10 +214,21 @@ public class BasisVirtualSpineDriver
         
         // Apply weighted stretch to the offset
         float3 stretchedOffset = baseOffset;
-        var offsetMagY = baseOffset.y;
 
-		stretchedOffset.y = Mathf.Clamp(CalculateStretchAmount() * offsetMagY, offsetMagY * minStretchPercentage, offsetMagY * maxStretchPercentage);
+        stretchedOffset.y -= CalculateStretchAmount() * weight;
 
         boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + stretchedOffset;
     }
+
+	public static float CalculateHeightChange(float3 defaultOffset, float3 currentOffset, float sphereRadius)
+	{
+		// Normalize positions to ensure they're on the sphere surface
+		float3 normalizedPos1 = math.normalize(defaultOffset) * sphereRadius;
+		float3 normalizedPos2 = math.normalize(currentOffset) * sphereRadius;
+
+		// Calculate the change in Y
+		float heightChange = normalizedPos2.y - normalizedPos1.y;
+
+		return heightChange;
+	}
 }

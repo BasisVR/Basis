@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 namespace Basis.Scripts.Common
 {
     public static class BasisDataStore
@@ -25,18 +26,27 @@ namespace Basis.Scripts.Common
                  loadmode = data;
             }
         }
+
         // Method to load the avatar (string and byte) from a file using JSON
         public static bool LoadAvatar(string fileNameAndExtension, string defaultName, byte defaultData,out BasisSavedAvatar BasisSavedAvatar)
         {
             string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
             if (File.Exists(filePath))
             {
+                BasisSavedAvatar avatarWrapper = new BasisSavedAvatar(defaultName, defaultData);
                 string json = File.ReadAllText(filePath);
-                BasisSavedAvatar avatarWrapper = JsonUtility.FromJson<BasisSavedAvatar>(json);
-                if (string.IsNullOrEmpty(avatarWrapper.UniqueID))
+                try {
+                    avatarWrapper = JsonUtility.FromJson<BasisSavedAvatar>(json);
+				}
+                catch (Exception e)
+                {
+                    BasisDebug.LogError("BasisDataStore: JSON file cannot be loaded - switching to default.");
+                }
+
+				if (avatarWrapper == null || string.IsNullOrEmpty(avatarWrapper.UniqueID))
                 {
                     avatarWrapper.UniqueID = defaultName;
-                     avatarWrapper.loadmode = defaultData;
+                    avatarWrapper.loadmode = defaultData;
                 }
                 BasisDebug.Log("Avatar loaded from " + filePath);
                 BasisSavedAvatar = avatarWrapper;
@@ -49,6 +59,7 @@ namespace Basis.Scripts.Common
                 return false;
             }
         }
+
         // Method to save the string to a file using JSON
         public static void SaveString(string stringContents, string fileNameAndExtension)
         {

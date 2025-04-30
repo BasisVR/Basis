@@ -1,12 +1,12 @@
-using Basis.Scripts.Avatar;
 using Basis.Scripts.Common;
 using System;
 using Unity.Burst;
 using Unity.Mathematics;
 using UnityEngine;
+
 namespace Basis.Scripts.TransformBinders.BoneControl
 {
-    [System.Serializable]
+    [Serializable]
     [BurstCompile]
     public class BasisBoneControl
     {
@@ -40,9 +40,6 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public BasisCalibratedCoords OutgoingWorldData = new BasisCalibratedCoords();
         public int GizmoReference = -1;
         public bool HasGizmo = false;
-
-        // Offset with rotation of target taken into consideration
-        public float3 RelativeOffset => Target.OutGoingData.position + math.mul(Target.OutGoingData.rotation, Offset);
 
         public int TposeGizmoReference = -1;
         public bool TposeHasGizmo = false;
