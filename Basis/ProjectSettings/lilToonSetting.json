@@ -109,6 +109,7 @@
     "isLocked": false,
     "isDebugOptimize": false,
     "isOptimizeInTestBuild": false,
+    "isOptimizeInNDMF": false,
     "isMigrateInStartUp": true,
     "defaultAsUnlit": 0.0,
     "defaultVertexLightStrength": 0.0,
@@ -135,5 +136,5 @@
     "presetCloth": {
         "instanceID": 0
     },
-    "previousVersion": 44
+    "previousVersion": 45
 }

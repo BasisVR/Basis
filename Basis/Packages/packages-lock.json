@@ -479,6 +479,13 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "jp.lilxyzw.liltoon": {
+      "version": "https://github.com/lilxyzw/lilToon.git?path=Assets/lilToon#master",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "3c440723a3daee8feb002d2d8409c7ff682db1a3"
+    },
     "org.basisvr.base128": {
       "version": "file:org.basisvr.base128-1.2.2.tgz",
       "depth": 0,

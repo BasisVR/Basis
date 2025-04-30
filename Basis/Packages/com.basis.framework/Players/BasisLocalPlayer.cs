@@ -282,7 +282,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalAvatarDriver.SimulateAnimatorAndIk();
 
             //we move the player at the very end after everything has been processed.
-            LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
+            LocalCharacterDriver.SimulateMovement(DeltaTime, transform);
 
             //Apply Animator Weights
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
@@ -303,6 +303,7 @@ namespace Basis.Scripts.BasisSdk.Players
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();
         }
+
         public Quaternion MoveAvatar()
         {
             if (BasisAvatar == null)
@@ -321,20 +322,9 @@ namespace Basis.Scripts.BasisSdk.Players
             Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
             blendedXZ.y = hipsPosition.y;
             Vector3 centerPosition = blendedXZ;
-
-            if (currentDistance <= LocalAvatarDriver.MaxExtendedDistance)
-            {
-                output = -BasisLocalBoneDriver.Hips.TposeLocal.position;
-            }
-            else
-            {
-                Vector3 direction = (hipsPosition - headPosition).normalized;
-                float overshoot = currentDistance - LocalAvatarDriver.MaxExtendedDistance;
-                Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocal.position;
-                float3 correctedHips = TposeHips + correction;
-                output = -correctedHips;
-            }
+          
+            float3 correctedHips = BasisLocalBoneDriver.Hips.TposeLocal.position;
+            output = -correctedHips;
 
             Vector3 childWorldPosition = centerPosition + parentWorldRotation * output;
 

@@ -18,6 +18,7 @@
     "com.unity.xr.openxr": "1.14.1",
     "com.valvesoftware.unity.openvr": "file:com.valvesoftware.unity.openvr-1.2.1.tgz",
     "com.xiph.rnnoise": "https://github.com/BasisVR/RNNoise.Net.git",
+    "jp.lilxyzw.liltoon": "https://github.com/lilxyzw/lilToon.git?path=Assets/lilToon#master",
     "org.basisvr.base128": "file:org.basisvr.base128-1.2.2.tgz",
     "org.basisvr.bouncycastle": "file:org.basisvr.bouncycastle-2.5.0.tgz",
     "org.basisvr.generator.equals": "file:org.basisvr.generator.equals-3.2.0.tgz",

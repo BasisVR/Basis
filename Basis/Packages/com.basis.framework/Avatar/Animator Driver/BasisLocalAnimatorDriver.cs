@@ -104,7 +104,6 @@ namespace Basis.Scripts.Animator_Driver
             // Apply dampening to the angular velocity
             dampenedAngularVelocity = Vector3.Lerp(previousAngularVelocity, angularVelocity, AngularDampingFactor);
 
-
             basisAnimatorVariableApply.BasisAnimatorVariables.AngularVelocity = dampenedAngularVelocity;
             /*
             if (basisAnimatorVariableApply.BasisAnimatorVariables.isMoving == false)

@@ -2879,8 +2879,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   BasisBundleDescription:
-    AssetBundleName: White Hoodie Cheeks
-    AssetBundleDescription: Cheek's Avatar with a white hoodie
+    AssetBundleName: Blue Mask Cheeks
+    AssetBundleDescription: Cheek's Avatar with a blue mask
   Animator: {fileID: 2021633455}
   FaceVisemeMesh: {fileID: 2017350511}
   FaceBlinkMesh: {fileID: 2017350511}

@@ -47,11 +47,6 @@ public class BasisVirtualSpineDriver
     [SerializeField] private float spineWeight = 0.6f;   // How much the spine stretches
     [SerializeField] private float hipsWeight = 0f;       // Hips don't stretch
 
-    [Header("Offset Settings")]
-    private Vector3 headOffset;    // Eye-to-head in eye local space
-    private Vector3 neckOffset;    // Head-to-neck in head local space
-    private Vector3 neckEyeOffset;
-
     private float yHeadDiff = 0f;
 
     #endregion
@@ -149,33 +144,15 @@ public class BasisVirtualSpineDriver
     /// <summary>
     /// Calculates the angle between the head's forward direction and the hip-head vector.
     /// </summary>
-  //  private float CalculateStretchAmount()
-  //  {
-		//float3 headForward = math.mul(head.OutGoingData.rotation, new float3(0, 0, 1));
-		//float3 hipToHead = hips.OutGoingData.position - head.OutGoingData.position;
-		//hipToHead = math.normalize(hipToHead);
-
-  //      var rawAngle = Vector3.Angle(hipToHead, headForward);
-  //      var normalizedAngle = (rawAngle - 90f) / 90f;
-
-  //      Debug.Log("Raw Angle: " + rawAngle + " Normalized Angle: " + normalizedAngle);
-
-  //      return normalizedAngle;
-  //  }
-
 	private float CalculateStretchAmount()
 	{
         var stretchAmount = Mathf.Clamp(yHeadDiff, -maximumCompressionAmount, maximumStretchAmount);
-        Debug.Log("yHeadDiff: " + yHeadDiff + " MaximumCompression: " + -maximumCompressionAmount + " MaximumStretch: " + maximumStretchAmount);
+        //Debug.Log("yHeadDiff: " + yHeadDiff + " MaximumCompression: " + -maximumCompressionAmount + " MaximumStretch: " + maximumStretchAmount);
         return stretchAmount;
 	}
 
-	private float3 HipToHeadTOffset => hips.TposeLocal.position + spine.TposeLocal.position + chest.TposeLocal.position + neck.TposeLocal.position + head.TposeLocal.position;
-    private float3 HipToHeadOffset => hips.Offset - spine.Offset - chest.Offset - neck.Offset;
-    private float maxHeadMovement => Vector3.Magnitude(head.Offset) * 2f;
     private float maximumCompressionAmount => head.Offset.y - -Vector3.Magnitude(head.Offset);
     private float maximumStretchAmount => Vector3.Magnitude(head.Offset) - head.Offset.y;
-
 
 	private float3 RelativeOffset(BasisBoneControl bone)
     {
@@ -219,16 +196,4 @@ public class BasisVirtualSpineDriver
 
         boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + stretchedOffset;
     }
-
-	public static float CalculateHeightChange(float3 defaultOffset, float3 currentOffset, float sphereRadius)
-	{
-		// Normalize positions to ensure they're on the sphere surface
-		float3 normalizedPos1 = math.normalize(defaultOffset) * sphereRadius;
-		float3 normalizedPos2 = math.normalize(currentOffset) * sphereRadius;
-
-		// Calculate the change in Y
-		float heightChange = normalizedPos2.y - normalizedPos1.y;
-
-		return heightChange;
-	}
 }

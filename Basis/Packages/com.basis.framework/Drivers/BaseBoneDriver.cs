@@ -41,7 +41,7 @@ namespace Basis.Scripts.Drivers
             // sequence all other devices to run at the same time
             float DeltaTime = Time.deltaTime;
             Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-           Quaternion Rotation = transform.rotation;
+            Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
