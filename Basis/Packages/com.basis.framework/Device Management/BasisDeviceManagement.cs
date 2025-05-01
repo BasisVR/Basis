@@ -101,7 +101,7 @@ namespace Basis.Scripts.Device_Management
             {
                 Addressables.Release(BasisFallBackBoneDataAsync);
             }
-            if(LipSyncProfile.IsValid())
+            if (LipSyncProfile.IsValid())
             {
                 Addressables.Release(LipSyncProfile);
             }
@@ -361,7 +361,9 @@ namespace Basis.Scripts.Device_Management
         }
         public void RemoveDevicesFrom(string SubSystem, string id)
         {
-            for (int i = AllInputDevices.Count - 1; i >= 0; i--)
+            List<int> toRemove = new List<int>();
+
+            for (int i = 0; i < AllInputDevices.Count; i++)
             {
                 var device = AllInputDevices[i];
                 if (device != null &&
@@ -370,10 +372,17 @@ namespace Basis.Scripts.Device_Management
                 {
                     CacheDevice(device);
                     GameObject.Destroy(device.gameObject);
-                    AllInputDevices.RemoveAt(i);
+                    toRemove.Add(i);
                 }
             }
+
+            // Remove in reverse order
+            for (int i = toRemove.Count - 1; i >= 0; i--)
+            {
+                AllInputDevices.RemoveAt(toRemove[i]);
+            }
         }
+
         private void CheckForPass(string type)
         {
             if (string.IsNullOrEmpty(type))

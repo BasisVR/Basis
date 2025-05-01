@@ -59,12 +59,25 @@ namespace Basis.Scripts.Avatar
 
             try
             {
-                GameObject output = mode switch
+                GameObject output = null;
+                switch (mode)
                 {
-                    0 => await DownloadAndLoadAvatar(bundle, player),
-                    1 => await LoadAddressableAvatar(bundle, player),
-                    _ => await DownloadAndLoadAvatar(bundle, player)
-                };
+                    case 0:
+                        BasisDebug.Log("Requested Avatar was a AssetBundle Avatar " + bundle.BasisRemoteBundleEncrypted.CombinedURL, BasisDebug.LogTag.Avatar);
+                        output = await DownloadAndLoadAvatar(bundle, player);
+                        break;
+
+                    case 1:
+                        BasisDebug.Log("Requested Avatar was an Addressable Avatar " + bundle.BasisRemoteBundleEncrypted.CombinedURL, BasisDebug.LogTag.Avatar);
+                        output = await LoadAddressableAvatar(bundle, player);
+                        break;
+
+                    default:
+                        BasisDebug.Log("Using Default, this means index was out of acceptable range! " + bundle.BasisRemoteBundleEncrypted.CombinedURL, BasisDebug.LogTag.Avatar);
+                        output = await DownloadAndLoadAvatar(bundle, player);
+                        break;
+                }
+
 
                 player.AvatarMetaData = bundle;
                 player.AvatarLoadMode = mode;
@@ -92,12 +105,25 @@ namespace Basis.Scripts.Avatar
 
             try
             {
-                GameObject output = mode switch
+                GameObject output = null;
+                switch (mode)
                 {
-                    0 => await DownloadAndLoadAvatar(bundle, player),
-                    1 => await LoadAddressableAvatar(bundle, player),
-                    _ => await DownloadAndLoadAvatar(bundle, player)
-                };
+                    case 0:
+                        BasisDebug.Log("Requested Avatar was a AssetBundle Avatar " + bundle.BasisRemoteBundleEncrypted.CombinedURL, BasisDebug.LogTag.Avatar);
+                        output = await DownloadAndLoadAvatar(bundle, player);
+                        break;
+
+                    case 1:
+                        BasisDebug.Log("Requested Avatar was an Addressable Avatar " + bundle.BasisRemoteBundleEncrypted.CombinedURL, BasisDebug.LogTag.Avatar);
+                        output = await LoadAddressableAvatar(bundle, player);
+                        break;
+
+                    default:
+                        BasisDebug.Log("Using Default, this means index was out of acceptable range! " + bundle.BasisRemoteBundleEncrypted.CombinedURL, BasisDebug.LogTag.Avatar);
+                        output = await DownloadAndLoadAvatar(bundle, player);
+                        break;
+                }
+
 
                 player.AvatarMetaData = bundle;
                 player.AvatarLoadMode = mode;
@@ -143,7 +169,12 @@ namespace Basis.Scripts.Avatar
 
         private static void InitializePlayerAvatar(BasisPlayer player, GameObject obj)
         {
-            if (!obj.TryGetComponent(out BasisAvatar avatar)) return;
+            if (!obj.TryGetComponent(out BasisAvatar avatar))
+            {
+                BasisDebug.LogError("Failed to find BasisAvatar component on instantiated object.");
+                GameObject.Destroy(obj);
+                return;
+            }
 
             DeleteLastAvatar(player);
             player.IsConsideredFallBackAvatar = false;
@@ -222,30 +253,36 @@ namespace Basis.Scripts.Avatar
             }
         }
 
-        public static async void DeleteLastAvatar(BasisPlayer player)
+        public static async void DeleteLastAvatar(BasisPlayer Player)
         {
-            if (player.BasisAvatar == null) return;
+            if (Player.BasisAvatar == null) return;
 
-            GameObject.Destroy(player.BasisAvatar.gameObject);
+            GameObject.Destroy(Player.BasisAvatar.gameObject);
 
-            if (!player.IsConsideredFallBackAvatar)
-                await BasisLoadHandler.RequestDeIncrementOfBundle(player.AvatarMetaData);
+            if (!Player.IsConsideredFallBackAvatar)
+                await BasisLoadHandler.RequestDeIncrementOfBundle(Player.AvatarMetaData);
         }
 
-        public static void SetupRemoteAvatar(BasisRemotePlayer player)
+        public static void SetupRemoteAvatar(BasisRemotePlayer Player)
         {
-            player.RemoteAvatarDriver.RemoteCalibration(player);
-            player.InitalizeIKCalibration(player.RemoteAvatarDriver);
-            foreach (var renderer in player.BasisAvatar.Renders)
-                renderer.gameObject.layer = 7;
-        }
+            int RenderCount = Player.BasisAvatar.Renders.Length;
+            Player.RemoteAvatarDriver.RemoteCalibration(Player);
 
-        public static void SetupLocalAvatar(BasisLocalPlayer player)
+            Player.InitalizeIKCalibration(Player.RemoteAvatarDriver);
+            for (int Index = 0; Index < RenderCount; Index++)
+            {
+                Player.BasisAvatar.Renders[Index].gameObject.layer = 7;
+            }
+        }
+        public static void SetupLocalAvatar(BasisLocalPlayer Player)
         {
-            player.LocalAvatarDriver.InitialLocalCalibration(player);
-            player.InitalizeIKCalibration(player.LocalAvatarDriver);
-            foreach (var renderer in player.BasisAvatar.Renders)
-                renderer.gameObject.layer = 6;
+            int RenderCount = Player.BasisAvatar.Renders.Length;
+            Player.LocalAvatarDriver.InitialLocalCalibration(Player);
+            Player.InitalizeIKCalibration(Player.LocalAvatarDriver);
+            for (int Index = 0; Index < RenderCount; Index++)
+            {
+                Player.BasisAvatar.Renders[Index].gameObject.layer = 6;
+            }
         }
     }
 }
