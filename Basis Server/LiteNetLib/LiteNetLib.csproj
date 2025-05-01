@@ -40,4 +40,20 @@
     <TargetFrameworks>net9.0;netstandard2.1</TargetFrameworks>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net9.0|AnyCPU'">
+    <DefineConstants>$(DefineConstants);LITENETLIB_UNSAFE;DEBUG_MESSAGES</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net9.0|AnyCPU'">
+    <DefineConstants>$(DefineConstants);LITENETLIB_UNSAFE;DEBUG_MESSAGES</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netstandard2.1|AnyCPU'">
+    <DefineConstants>$(DefineConstants);LITENETLIB_UNSAFE;DEBUG_MESSAGES</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|netstandard2.1|AnyCPU'">
+    <DefineConstants>$(DefineConstants);LITENETLIB_UNSAFE;DEBUG_MESSAGES</DefineConstants>
+  </PropertyGroup>
+
 </Project>

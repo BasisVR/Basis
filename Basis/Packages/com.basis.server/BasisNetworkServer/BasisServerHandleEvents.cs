@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
 using BasisNetworkCore;
+using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.Security;
 using LiteNetLib;
 using LiteNetLib.Utils;
@@ -255,7 +256,7 @@ namespace BasisServerHandle
             {
                 try
                 {
-                   // if(NetworkServer.authIdentity.)
+                    // if(NetworkServer.authIdentity.)
                     switch (channel)
                     {
                         case BasisNetworkCommons.FallChannel:
@@ -278,7 +279,7 @@ namespace BasisServerHandle
                             }
                             break;
                         case BasisNetworkCommons.AuthIdentityMessage:
-                            if (ValidateSize(reader, peer,channel))
+                            if (ValidateSize(reader, peer, channel))
                             {
                                 HandleAuth(reader, peer);
                             }
@@ -381,6 +382,20 @@ namespace BasisServerHandle
                             if (ValidateSize(reader, peer, channel))
                             {
                                 BasisPlayerModeration.OnAdminMessage(peer, reader);
+                            }
+                            reader.Recycle();
+                            break;
+                        case BasisNetworkCommons.AvatarCloneRequestMessage:
+                            if (ValidateSize(reader, peer, channel))
+                            {
+                               // BasisAvatarRequestMessages.AvatarCloneRequestMessage();
+                            }
+                            reader.Recycle();
+                            break;
+                        case BasisNetworkCommons.AvatarCloneResponseMessage:
+                            if (ValidateSize(reader, peer, channel))
+                            {
+                              //  BasisAvatarRequestMessages.AvatarCloneResponseMessage();
                             }
                             reader.Recycle();
                             break;

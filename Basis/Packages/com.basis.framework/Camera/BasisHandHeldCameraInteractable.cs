@@ -175,22 +175,83 @@ public abstract class BasisHandHeldCameraInteractable : InteractableObject
     public override void InputUpdate()
     {
         var interactingInput = GetActiveInteracting();
-        if (interactingInput != null)
+        if (interactingInput == null) return;
+
+        var inputWrapper = interactingInput.Value;
+
+        if (inputWrapper.BoneControl == null)
         {
-            Vector3 inPos = interactingInput.Value.BoneControl.OutgoingWorldData.position;
-            Quaternion inRot = interactingInput.Value.BoneControl.OutgoingWorldData.rotation;
-            if (Basis.Scripts.Device_Management.BasisDeviceManagement.IsUserInDesktop())
+            Debug.LogWarning("BoneControl is null in interactingInput. Skipping InputUpdate.");
+            return;
+        }
+
+        Vector3 inPos;
+        Quaternion inRot;
+
+        if (Basis.Scripts.Device_Management.BasisDeviceManagement.IsUserInDesktop())
+        {
+            if (BasisLocalCameraDriver.Instance != null && BasisLocalCameraDriver.Instance.Camera != null)
             {
                 BasisLocalCameraDriver.Instance.Camera.transform.GetPositionAndRotation(out inPos, out inRot);
-
                 PollDesktopManipulation(Inputs.desktopCenterEye.Source);
             }
-
-            InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
-            if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
+            else
             {
-                this.transform.SetPositionAndRotation(pos, rot);
+                Debug.LogWarning("BasisLocalCameraDriver or its Camera is null.");
+                return;
             }
+        }
+        else
+        {
+            inPos = inputWrapper.BoneControl.OutgoingWorldData.position;
+            inRot = inputWrapper.BoneControl.OutgoingWorldData.rotation;
+        }
+
+        if (InputConstraint == null)
+        {
+            Debug.LogWarning("InputConstraint is null in InputUpdate.");
+            return;
+        }
+
+        InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
+        // NOTE: Removed transform.SetPositionAndRotation here to avoid UI lag
+    }
+
+    private void LateUpdate()
+    {
+        if (!RequiresUpdateLoop)
+            return;
+
+        var interactingInput = GetActiveInteracting();
+        if (interactingInput == null || interactingInput.Value.BoneControl == null)
+            return;
+
+        Vector3 inPos;
+        Quaternion inRot;
+
+        if (Basis.Scripts.Device_Management.BasisDeviceManagement.IsUserInDesktop())
+        {
+            if (BasisLocalCameraDriver.Instance != null && BasisLocalCameraDriver.Instance.Camera != null)
+            {
+                BasisLocalCameraDriver.Instance.Camera.transform.GetPositionAndRotation(out inPos, out inRot);
+                PollDesktopManipulation(Inputs.desktopCenterEye.Source);
+            }
+            else return;
+        }
+        else
+        {
+            inPos = interactingInput.Value.BoneControl.OutgoingWorldData.position;
+            inRot = interactingInput.Value.BoneControl.OutgoingWorldData.rotation;
+        }
+
+        if (InputConstraint == null)
+            return;
+
+        InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
+
+        if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
+        {
+            transform.SetPositionAndRotation(pos, rot);
         }
     }
 

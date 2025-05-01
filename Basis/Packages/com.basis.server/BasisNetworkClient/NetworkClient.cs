@@ -4,10 +4,10 @@ using LiteNetLib.Utils;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static SerializableBasis;
 
-public static class NetworkClient
+public class NetworkClient
 {
-    public static NetManager client;
-    public static EventBasedNetListener listener;
+    public  NetManager client;
+    public EventBasedNetListener listener;
     private static NetPeer peer;
     private static bool IsInUse;
     /// <summary>
@@ -16,7 +16,7 @@ public static class NetworkClient
     /// <param name="IP"></param>
     /// <param name="port"></param>
     /// <param name="ReadyMessage"></param>
-    public static NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, bool UseNativeSockets = false)
+    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, bool UseNativeSockets = false)
     {
         if (IsInUse == false)
         {
@@ -51,7 +51,7 @@ public static class NetworkClient
             return null;
         }
     }
-    public static void Disconnect()
+    public void Disconnect()
     {
         IsInUse = false;
         BNL.Log("Client Called Disconnect from server");

@@ -5,7 +5,7 @@
       "app_key": "application.generated.unity.basisunity.exe",
       "launch_type": "url",
       "url": "steam://launch/",
-      "action_manifest_path": "C:\\Users\\doola\\OneDrive\\Documents\\Github\\Basis Foundation\\Basis Unity\\Basis\\Assets\\StreamingAssets\\SteamVR\\actions.json",
+      "action_manifest_path": "Assets\\StreamingAssets\\SteamVR\\actions.json",
       "strings": {
         "en_us": {
           "name": "Basis Unity [Testing]"

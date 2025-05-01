@@ -47,6 +47,8 @@ namespace Basis.Scripts.Networking
         public static SynchronizationContext MainThreadContext;
         public static NetPeer LocalPlayerPeer;
         public BasisNetworkTransmitter Transmitter;
+        [SerializeField]
+        public NetworkClient NetworkClient = new NetworkClient();
         /// <summary>
         /// this occurs after the localplayer has been approved by the network and setup
         /// </summary>

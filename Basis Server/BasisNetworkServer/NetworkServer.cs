@@ -1,3 +1,4 @@
+
 using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
@@ -9,6 +10,7 @@ using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 public static class NetworkServer
 {
     public static EventBasedNetListener listener;
@@ -54,10 +56,32 @@ public static class NetworkServer
             DisconnectTimeout = configuration.DisconnectTimeout,
             PacketPoolSize = 2000,
             UnsyncedEvents = true,
+            ReceivePollingTime = 75000,
         };
+        NetDebug.Logger = new BasisServerLogger();
         StartListening(configuration);
     }
-
+    public class BasisServerLogger : INetLogger
+    {
+        public void WriteNet(NetLogLevel level, string str, params object[] args)
+        {
+            switch (level)
+            {
+                case NetLogLevel.Warning:
+                    BNL.LogWarning(str);
+                    break;
+                case NetLogLevel.Error:
+                    BNL.LogError(str);
+                    break;
+                case NetLogLevel.Trace:
+                  //  BNL.Log(str);
+                    break;
+                case NetLogLevel.Info:
+                 //   BNL.Log(str);
+                    break;
+            }
+        }
+    }
     public static void StartListening(Configuration configuration)
     {
         if (configuration.OverrideAutoDiscoveryOfIpv)
@@ -96,14 +120,28 @@ public static class NetworkServer
             }
         }
     }
-    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, ref List<NetPeer> authenticatedClients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
+    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, ref List<NetPeer> authenticatedClients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int MaxMessages = 70)
     {
         if (NetworkServer.CheckValidated(Writer))
         {
             int count = authenticatedClients.Count;
-            for (int index = 0; index < count; index++)
+            if (deliveryMethod == DeliveryMethod.Sequenced)
             {
-                authenticatedClients[index].Send(Writer, channel, deliveryMethod);
+                for (int index = 0; index < count; index++)
+                {
+                    int Size = authenticatedClients[index].GetPacketsCountInQueue(channel, deliveryMethod);
+                    if (Size <= MaxMessages)
+                    {
+                        authenticatedClients[index].Send(Writer, channel, deliveryMethod);
+                    }
+                }
+            }
+            else
+            {
+                for (int index = 0; index < count; index++)
+                {
+                    authenticatedClients[index].Send(Writer, channel, deliveryMethod);
+                }
             }
         }
     }

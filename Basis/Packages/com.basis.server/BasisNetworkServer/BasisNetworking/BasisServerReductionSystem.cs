@@ -11,6 +11,7 @@ public partial class BasisServerReductionSystem
     // Default interval in milliseconds for the timer
     public static Configuration Configuration;
     public static ChunkedSyncedToPlayerPulseArray PlayerSync = new ChunkedSyncedToPlayerPulseArray(64);
+    public static int MaxMessages = 80;
     /// <summary>
     /// add the new client
     /// then update all existing clients arrays
@@ -152,7 +153,7 @@ public partial class BasisServerReductionSystem
         /// <param name="state">The player ID (passed from the timer)</param>
         private void SendPlayerData(object state)
         {
-            var playerID = (ClientPayload)state;
+            ClientPayload playerID = (ClientPayload)state;
             if (SyncBoolArray.GetBool(playerID.dataCameFromThisUser))
             {
                 ServerSideReducablePlayer playerData = ChunkedServerSideReducablePlayerArray.GetPlayer(playerID.dataCameFromThisUser);
@@ -179,7 +180,13 @@ public partial class BasisServerReductionSystem
                             //how long does this data need to last for
                             playerData.serverSideSyncPlayerMessage.interval = (byte)adjustedInterval;
                             playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
-                            NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                            //getmax size if larger dont send
+                           //int PacketSize = playerID.localClient.GetMaxSinglePacketSize(DeliveryMethod.Sequenced);
+                            int Size = playerID.localClient.GetPacketsCountInQueue(BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                            if (Size < MaxMessages)
+                            {
+                                NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                            }
                             playerData.Writer.Reset();
                         }
                         catch (Exception e)

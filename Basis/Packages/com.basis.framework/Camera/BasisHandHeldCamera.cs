@@ -6,17 +6,20 @@ using System.Collections;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using UnityEngine.Rendering;
+using TMPro;
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
     public UniversalAdditionalCameraData CameraData;
     public Camera captureCamera;
     public RenderTexture renderTexture;
-
+    public TextMeshProUGUI countdownText;
     public int captureWidth = 3840;
     public int captureHeight = 2160;
 
     public int PreviewCaptureWidth = 1920;
     public int PreviewCaptureHeight = 1080;
+
+    private bool showUI = false;
 
     public BasisMeshRendererCheck BasisMeshRendererCheck;
     public MeshRenderer Renderer;
@@ -81,7 +84,64 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         }
         base.OnDestroy();
     }
+    public void Timer()
+    {
+        StartCoroutine(DelayedAction(5)); // Countdown from 5 seconds
+    }
+    private IEnumerator DelayedAction(float delaySeconds)
+    {
+        for (int i = (int)delaySeconds; i > 0; i--)
+        {
+            countdownText.text = i.ToString();
+            yield return new WaitForSeconds(1f);
+        }
 
+        // Flash "!" before capture
+        countdownText.text = "!";
+        yield return new WaitForSeconds(0.5f);
+
+        // Prepare format
+        TextureFormat Format;
+        RenderTextureFormat RenderFormat;
+
+        if (captureFormat == "EXR")
+        {
+            Format = TextureFormat.RGBAFloat;
+            RenderFormat = RenderTextureFormat.ARGBFloat;
+        }
+        else
+        {
+            Format = TextureFormat.RGBA32;
+            RenderFormat = RenderTextureFormat.ARGB32;
+        }
+
+        StartCoroutine(TakeScreenshot(Format, RenderFormat));
+
+        // Reset the countdown text back to "5" after triggering
+        countdownText.text = ((int)delaySeconds).ToString();
+    }
+    public void Nameplates()
+    {
+        int uiLayer = LayerMask.NameToLayer("UI");
+        if (uiLayer < 0)
+        {
+            Debug.LogWarning("UI Layer not found.");
+            return;
+        }
+
+        int uiLayerMask = 1 << uiLayer;
+
+        showUI = !showUI;
+
+        if (showUI)
+        {
+            captureCamera.cullingMask |= uiLayerMask; // Enable UI layer
+        }
+        else
+        {
+            captureCamera.cullingMask &= ~uiLayerMask; // Disable UI layer
+        }
+    }
     public void CapturePhoto()
     {
         TextureFormat Format;

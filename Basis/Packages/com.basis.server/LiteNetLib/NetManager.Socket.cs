@@ -1,4 +1,4 @@
-﻿#if UNITY_2018_3_OR_NEWER
+#if UNITY_2018_3_OR_NEWER
 #define UNITY_SOCKET_FIX
 #endif
 using System.Runtime.InteropServices;

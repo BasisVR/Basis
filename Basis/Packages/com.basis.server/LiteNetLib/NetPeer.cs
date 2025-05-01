@@ -1,4 +1,4 @@
-﻿#if DEBUG
+#if DEBUG
 #define STATS_ENABLED
 #endif
 using System;
@@ -89,7 +89,7 @@ namespace LiteNetLib
         private readonly object _unreliableChannelLock = new object();
 
         private readonly ConcurrentQueue<BaseChannel> _channelSendQueue;
-        private readonly BaseChannel[] _channels;
+        public readonly BaseChannel[] _channels;
 
         //MTU
         private int _mtu;
@@ -313,10 +313,21 @@ namespace LiteNetLib
         /// <param name="channelNumber">number of channel 0-63</param>
         /// <param name="ordered">type of channel ReliableOrdered or ReliableUnordered</param>
         /// <returns>packets count in channel queue</returns>
+        public int GetPacketsCountInQueue(byte channelNumber, DeliveryMethod deliveryMethod)
+        {
+            int idx = (byte)(channelNumber * NetConstants.ChannelTypeCount + (byte)deliveryMethod);
+            var channel = _channels[idx];
+            return channel != null ? _channels[idx].PacketsInQueue : 0;
+        }
+        /// <summary>
+        /// Returns packets count in queue for reliable channel
+        /// </summary>
+        /// <param name="channelNumber">number of channel 0-63</param>
+        /// <param name="ordered">type of channel ReliableOrdered or ReliableUnordered</param>
+        /// <returns>packets count in channel queue</returns>
         public int GetPacketsCountInReliableQueue(byte channelNumber, bool ordered)
         {
-            int idx = channelNumber * NetConstants.ChannelTypeCount +
-                       (byte) (ordered ? DeliveryMethod.ReliableOrdered : DeliveryMethod.ReliableUnordered);
+            int idx = channelNumber * NetConstants.ChannelTypeCount + (byte) (ordered ? DeliveryMethod.ReliableOrdered : DeliveryMethod.ReliableUnordered);
             var channel = _channels[idx];
             return channel != null ? ((ReliableChannel)channel).PacketsInQueue : 0;
         }

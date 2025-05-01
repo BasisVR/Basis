@@ -25,7 +25,7 @@ namespace Basis.Network.Server.Ownership
             NetDataWriter Writer = new NetDataWriter(true, 2);
             ownershipTransferMessage.playerIdMessage.playerID = currentOwner;
             ownershipTransferMessage.Serialize(Writer);
-            BNL.Log("OwnershipResponse " + currentOwner + " for " + ownershipTransferMessage.playerIdMessage);
+            BNL.Log("OwnershipResponse " + currentOwner + " for " + ownershipTransferMessage.playerIdMessage.playerID);
             NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequest, DeliveryMethod.ReliableOrdered);
         }
         /// <summary>
