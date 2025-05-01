@@ -13,267 +13,201 @@ namespace Basis.Scripts.Virtual_keyboard
 {
     public class BasisVirtualKeyboard : BasisUIBase
     {
-        public List<BasisVirtualRow> rows = new List<BasisVirtualRow>();
+        public List<BasisVirtualRow> rows = new();
         public Canvas Canvas;
         public RectTransform CanvasRectTransform;
         public Button CopyFrom;
         public KeyboardLayoutData KeyboardLayoutData;
         public BasisGraphicUIRayCaster BasisGraphicUIRayCaster;
+
         public float RowWidth = 44;
         public float VerticalSpacing = 1;
         public float HorizontalSpacing = 1;
         public float rowHeight = 44f;
+
         public GameObject keyboardParent;
-        public static string KeyboardParent = "KeyboardParent";
-        public static string RowName = "Row";
+
         public string SelectedLanguage = "English";
         public string SelectedStyle = "QWERTY";
         public bool IsCapital;
+        public LanguageStyle CurrentSelectedLanguage;
+
+        public static string VirtualKeyboard = "Virtual Keyboard";
+        public static string KeyboardParentName = "KeyboardParent";
+        public static string RowName = "Row";
+
         public static InputField InputField;
         public static TMP_InputField TMPInputField;
-        public LanguageStyle CurrentSelectedLanguage;
-        public static string VirtualKeyboard = "Virtual Keyboard";
-        public static void CreateMenu(InputField inputField, TMP_InputField tMP_InputField)
+
+        public static void CreateMenu(InputField inputField, TMP_InputField tmpInputField)
         {
-            AddressableGenericResource resource = new AddressableGenericResource(VirtualKeyboard, AddressableExpectedResult.SingleItem);
+            var resource = new AddressableGenericResource(VirtualKeyboard, AddressableExpectedResult.SingleItem);
             OpenMenuNow(resource);
             InputField = inputField;
-            TMPInputField = tMP_InputField;
+            TMPInputField = tmpInputField;
         }
-        // Start is called before the first frame update
+
         void OnEnable()
         {
-            LanguageStyle Language = KeyboardLayoutData.GetLanguageStyle(SelectedLanguage, SelectedStyle);
-            SetupKeyboard(Language, false);
+            var language = KeyboardLayoutData.GetLanguageStyle(SelectedLanguage, SelectedStyle);
+            SetupKeyboard(language, false);
         }
-        public override void InitalizeEvent()
-        {
-            BasisCursorManagement.UnlockCursor(nameof(BasisHamburgerMenu));
-        }
+
+        public override void InitalizeEvent() => BasisCursorManagement.UnlockCursor(nameof(BasisHamburgerMenu));
+
+        public override void DestroyEvent() => BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
+
         public void ClearOutOldData()
         {
-            // Clear existing rows and destroy previous keyboard parent
             if (keyboardParent != null)
-            {
                 Destroy(keyboardParent);
-            }
             rows.Clear();
         }
-        public void Callback(BasisVirtualKeyboardButton KeyInformation)
+
+        public void Callback(BasisVirtualKeyboardButton key)
         {
-            if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsEnterKey || KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsCloseKey)
+            bool isEnterOrClose = key.BasisVirtualKeyboardSpecialKey is BasisVirtualKeyboardSpecialKey.IsEnterKey or BasisVirtualKeyboardSpecialKey.IsCloseKey;
+            if (isEnterOrClose)
             {
                 CloseThisMenu();
+                return;
             }
-            else
+
+            if (key.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsCaseSwitchKey)
             {
-                if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsCaseSwitchKey)
-                {
-                    SetupKeyboard(CurrentSelectedLanguage, !IsCapital);
-                }
-                else
-                {
-                    if (InputField != null)
-                    {
-                        if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsDeleteKey)
-                        {
-                            if (InputField.text.Length > 0)
-                            {
-                                InputField.text = InputField.text.Substring(0, InputField.text.Length - 1);
-                            }
-                        }
-                        else
-                        {
-                            if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.NotSpecial)
-                            {
-                                InputField.text += KeyInformation.Text.text;
-                            }
-                            else
-                            {
-                                if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsPasteKey)
-                                {
-                                    string copiedText = GUIUtility.systemCopyBuffer; // Get the clipboard text
+                SetupKeyboard(CurrentSelectedLanguage, !IsCapital);
+                return;
+            }
 
-                                    if (Uri.IsWellFormedUriString(copiedText, UriKind.RelativeOrAbsolute))
-                                    {
-                                        InputField.text += copiedText;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (TMPInputField != null)
-                    {
-                        if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsDeleteKey)
-                        {
-                            if (TMPInputField.text.Length > 0)
-                            {
-                                TMPInputField.text = TMPInputField.text.Substring(0, TMPInputField.text.Length - 1);
-                            }
-                        }
-                        else
-                        {
-                            if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.NotSpecial)
-                            {
-                                TMPInputField.text += KeyInformation.Text.text;
-                            }
-                            else
-                            {
-                                if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsPasteKey)
-                                {
-                                    string copiedText = GUIUtility.systemCopyBuffer; // Get the clipboard text
+            ApplyKeyToInput(InputField, key);
+            ApplyKeyToInput(TMPInputField, key);
+        }
 
-                                    if (Uri.IsWellFormedUriString(copiedText, UriKind.RelativeOrAbsolute))
-                                    {
-                                        TMPInputField.text += copiedText;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+        void ApplyKeyToInput(dynamic field, BasisVirtualKeyboardButton key)
+        {
+            if (field == null) return;
+
+            switch (key.BasisVirtualKeyboardSpecialKey)
+            {
+                case BasisVirtualKeyboardSpecialKey.IsDeleteKey:
+                    if (field.text.Length > 0)
+                        field.text = field.text[..^1];
+                    break;
+                case BasisVirtualKeyboardSpecialKey.NotSpecial:
+                    field.text += key.Text.text;
+                    break;
+                case BasisVirtualKeyboardSpecialKey.IsPasteKey:
+                    var paste = GUIUtility.systemCopyBuffer;
+                    if (Uri.IsWellFormedUriString(paste, UriKind.RelativeOrAbsolute))
+                        field.text += paste;
+                    break;
             }
         }
-        // Setup the QWERTY keyboard layout
-        public void SetupKeyboard(LanguageStyle Language, bool IsCapitalization)
+
+        public void SetupKeyboard(LanguageStyle language, bool isCapital)
         {
-            IsCapital = IsCapitalization;
-            CurrentSelectedLanguage = Language;
+            IsCapital = isCapital;
+            CurrentSelectedLanguage = language;
             ClearOutOldData();
-            // Create a parent object to hold all the rows
-            keyboardParent = new GameObject(KeyboardParent);
-            keyboardParent.transform.SetParent(this.transform);
-            keyboardParent.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+
+            keyboardParent = new GameObject(KeyboardParentName);
+            keyboardParent.transform.SetParent(transform, false);
             keyboardParent.transform.localScale = Vector3.one;
+            var keyboardRect = keyboardParent.AddComponent<RectTransform>();
 
-            // Ensure the parent object has a RectTransform component
-            RectTransform keyboardParentRectTransform = keyboardParent.AddComponent<RectTransform>();
+            var rowsData = language.rows;
+            float maxRowWidth = 0f;
 
-            // Calculate the required width based on the widest row and fixed height of 50 units
-            float totalWidth = 0f;
-            List<RowCollection> Rows = Language.rows;
-            for (int Index = 0; Index < Rows.Count; Index++)
+            foreach (var row in rowsData)
             {
-                List<string> ItemsInRow = Rows[Index].innerCollection;
-                for (int RowIndex = 0; RowIndex < ItemsInRow.Count; RowIndex++)
-                {
-                    if (IsCapitalization)
-                    {
-                        ItemsInRow[RowIndex] = ItemsInRow[RowIndex].ToUpper();
-                    }
-                    else
-                    {
-                        ItemsInRow[RowIndex] = ItemsInRow[RowIndex].ToLower();
-                    }
+                for (int i = 0; i < row.innerCollection.Count; i++)
+                    row.innerCollection[i] = isCapital ? row.innerCollection[i].ToUpper() : row.innerCollection[i].ToLower();
 
-                }
-            }
-            foreach (var row in Rows)
-            {
-                float rowWidth = row.innerCollection.Count * (RowWidth + VerticalSpacing); // Assuming each button is 50 units wide
-                if (rowWidth > totalWidth)
-                {
-                    totalWidth = rowWidth;
-                }
+                float rowWidth = row.innerCollection.Count * (RowWidth + VerticalSpacing);
+                if (rowWidth > maxRowWidth) maxRowWidth = rowWidth;
             }
 
-            // Set the size of the RectTransform to match the calculated width and fixed height
-            keyboardParentRectTransform.sizeDelta = new Vector2(totalWidth, (rowHeight + VerticalSpacing) * Rows.Count);
+            float totalHeight = (rowHeight + VerticalSpacing) * rowsData.Count;
+            keyboardRect.sizeDelta = new Vector2(maxRowWidth, totalHeight);
+            CanvasRectTransform.sizeDelta = keyboardRect.sizeDelta;
 
-            // Set the size of the Canvas to match the RectTransform
-            CanvasRectTransform.sizeDelta = keyboardParentRectTransform.sizeDelta;
+            var layout = keyboardParent.AddComponent<VerticalLayoutGroup>();
+            SetCommon(layout, VerticalSpacing);
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
 
-            // Add VerticalLayoutGroup to the parent object
-            VerticalLayoutGroup verticalLayoutGroup = keyboardParent.AddComponent<VerticalLayoutGroup>();
-            verticalLayoutGroup.childControlHeight = true;
-            verticalLayoutGroup.childControlWidth = true;
-            SetCommon(verticalLayoutGroup, VerticalSpacing);
-
-            // Create the rows and buttons based on the layout
-            foreach (var row in Rows)
+            foreach (var row in rowsData)
             {
-                // Create a new GameObject for the row
-                GameObject rowObject = new GameObject(RowName);
-                rowObject.transform.SetParent(keyboardParent.transform);
-                rowObject.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                var rowObject = new GameObject(RowName);
+                rowObject.transform.SetParent(keyboardParent.transform, false);
                 rowObject.transform.localScale = Vector3.one;
 
-                RectTransform rowRectTransform = rowObject.AddComponent<RectTransform>();
-                rowRectTransform.sizeDelta = new Vector2(totalWidth, rowHeight + VerticalSpacing);
+                var rowRect = rowObject.AddComponent<RectTransform>();
+                rowRect.sizeDelta = new Vector2(maxRowWidth, rowHeight + VerticalSpacing);
 
-                // Add HorizontalLayoutGroup to the row object
-                HorizontalLayoutGroup horizontalLayoutGroup = rowObject.AddComponent<HorizontalLayoutGroup>();
-                horizontalLayoutGroup.childControlHeight = false;
-                horizontalLayoutGroup.childControlWidth = false;
-                SetCommon(horizontalLayoutGroup, HorizontalSpacing);
+                var hLayout = rowObject.AddComponent<HorizontalLayoutGroup>();
+                SetCommon(hLayout, HorizontalSpacing);
+                hLayout.childControlHeight = false;
+                hLayout.childControlWidth = false;
 
-                BasisVirtualRow basisRow = new BasisVirtualRow();
-                basisRow.RowObject = rowObject;
+                var virtualRow = new BasisVirtualRow { RowObject = rowObject };
 
-                List<string> ItemsInRow = row.innerCollection;
-                for (int RowIndex = 0; RowIndex < ItemsInRow.Count; RowIndex++)
+                foreach (var label in row.innerCollection)
                 {
-                    BasisVirtualKeyboardButton button = CreateButton(ItemsInRow[RowIndex]);
-                    button.ButtonRect.SetParent(rowObject.transform);
-                    button.ButtonRect.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                    var button = CreateButton(label);
+                    button.ButtonRect.SetParent(rowObject.transform, false);
                     button.ButtonRect.localScale = Vector3.one;
-                    if (basisRow.SetupButton(button, Language.SpecialKeys, RowWidth, out SpecialKeySizes FoundSpecial))
-                    {
-                        button.BasisVirtualKeyboardSpecialKey = FoundSpecial.BasisVirtualKeyboardSpecialKey;
-                    }
+
+                    if (virtualRow.SetupButton(button, language.SpecialKeys, RowWidth, out var special))
+                        button.BasisVirtualKeyboardSpecialKey = special.BasisVirtualKeyboardSpecialKey;
+
                     button.Button.onClick.AddListener(() => Callback(button));
-                    basisRow.RowButtons.Add(button);
-                    rows.Add(basisRow);
+                    virtualRow.RowButtons.Add(button);
                 }
+
+                rows.Add(virtualRow);
             }
         }
-        public void SetCommon(HorizontalOrVerticalLayoutGroup HorizontalOrVerticalLayoutGroup, float Spacing)
+
+        public void SetCommon(HorizontalOrVerticalLayoutGroup layout, float spacing)
         {
-            HorizontalOrVerticalLayoutGroup.childForceExpandHeight = false;
-            HorizontalOrVerticalLayoutGroup.childForceExpandWidth = false;
-            HorizontalOrVerticalLayoutGroup.spacing = Spacing;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = false;
+            layout.spacing = spacing;
         }
 
-        // Helper method to create a button
         BasisVirtualKeyboardButton CreateButton(string label)
         {
-            GameObject buttonObject = GameObject.Instantiate(CopyFrom.gameObject, this.transform);
-            if (buttonObject.TryGetComponent<RectTransform>(out RectTransform buttonRectTransform))
-            {
-                TextMeshProUGUI textMeshProUGUI = buttonObject.GetComponentInChildren<TextMeshProUGUI>();
-
-                textMeshProUGUI.autoSizeTextContainer = true;
-                textMeshProUGUI.fontSizeMin = 0.1f;
-                textMeshProUGUI.text = label;
-
-                buttonObject.name = label;
-                buttonObject.SetActive(true);
-                if (buttonObject.TryGetComponent<Button>(out Button Button))
-                {
-                    BasisVirtualKeyboardButton BVKB = new BasisVirtualKeyboardButton
-                    {
-                        ButtonRect = buttonRectTransform,
-                        Text = textMeshProUGUI,
-                        Button = Button,
-                    };
-                    return BVKB;
-                }
-                else
-                {
-                    BasisDebug.LogError("Missing Button");
-                    return new BasisVirtualKeyboardButton();
-                }
-            }
-            else
+            var obj = Instantiate(CopyFrom.gameObject, transform);
+            if (!obj.TryGetComponent(out RectTransform rect))
             {
                 BasisDebug.LogError("Missing RectTransform");
                 return new BasisVirtualKeyboardButton();
             }
-        }
 
-        public override void DestroyEvent()
-        {
-            BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
+            var text = obj.GetComponentInChildren<TextMeshProUGUI>();
+            if (text != null)
+            {
+                text.autoSizeTextContainer = true;
+                text.fontSizeMin = 0.1f;
+                text.text = label;
+            }
+
+            obj.name = label;
+            obj.SetActive(true);
+
+            if (obj.TryGetComponent<Button>(out var btn))
+            {
+                return new BasisVirtualKeyboardButton
+                {
+                    ButtonRect = rect,
+                    Text = text,
+                    Button = btn
+                };
+            }
+
+            BasisDebug.LogError("Missing Button");
+            return new BasisVirtualKeyboardButton();
         }
     }
 }

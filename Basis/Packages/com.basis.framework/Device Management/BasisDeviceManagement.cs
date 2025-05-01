@@ -361,21 +361,18 @@ namespace Basis.Scripts.Device_Management
         }
         public void RemoveDevicesFrom(string SubSystem, string id)
         {
-            for (int Index = 0; Index < AllInputDevices.Count; Index++)
+            for (int i = AllInputDevices.Count - 1; i >= 0; i--)
             {
-                BasisInput device = AllInputDevices[Index];
-                if (device != null)
+                var device = AllInputDevices[i];
+                if (device != null &&
+                    device.SubSystemIdentifier == SubSystem &&
+                    device.UniqueDeviceIdentifier == id)
                 {
-                    if (device.SubSystemIdentifier == SubSystem && device.UniqueDeviceIdentifier == id)
-                    {
-                        CacheDevice(device);
-                        AllInputDevices[Index] = null;
-                        GameObject.Destroy(device.gameObject);
-                    }
+                    CacheDevice(device);
+                    GameObject.Destroy(device.gameObject);
+                    AllInputDevices.RemoveAt(i);
                 }
             }
-
-            AllInputDevices.RemoveAll(item => item == null);
         }
         private void CheckForPass(string type)
         {

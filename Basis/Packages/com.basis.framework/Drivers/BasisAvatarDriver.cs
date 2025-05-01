@@ -1,3 +1,4 @@
+
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
@@ -9,384 +10,238 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+
 namespace Basis.Scripts.Drivers
 {
-    [System.Serializable]
+    [Serializable]
     public abstract class BasisAvatarDriver
     {
-        public float ActiveAvatarEyeHeight()
+        private static readonly Dictionary<HumanBodyBones, BasisBoneTrackedRole> BoneToRoleMap = new()
         {
-            if (BasisLocalPlayer.Instance.BasisAvatar != null)
-            {
-                return BasisLocalPlayer.Instance.BasisAvatar.AvatarEyePosition.x;
-            }
-            else
-            {
-                return BasisLocalPlayer.FallbackSize;
-            }
+            { HumanBodyBones.Head, BasisBoneTrackedRole.Head },
+            { HumanBodyBones.Neck, BasisBoneTrackedRole.Neck },
+            { HumanBodyBones.Chest, BasisBoneTrackedRole.Chest },
+            { HumanBodyBones.Hips, BasisBoneTrackedRole.Hips },
+            { HumanBodyBones.Spine, BasisBoneTrackedRole.Spine },
+            { HumanBodyBones.LeftUpperLeg, BasisBoneTrackedRole.LeftUpperLeg },
+            { HumanBodyBones.RightUpperLeg, BasisBoneTrackedRole.RightUpperLeg },
+            { HumanBodyBones.LeftLowerLeg, BasisBoneTrackedRole.LeftLowerLeg },
+            { HumanBodyBones.RightLowerLeg, BasisBoneTrackedRole.RightLowerLeg },
+            { HumanBodyBones.LeftFoot, BasisBoneTrackedRole.LeftFoot },
+            { HumanBodyBones.RightFoot, BasisBoneTrackedRole.RightFoot },
+            { HumanBodyBones.LeftShoulder, BasisBoneTrackedRole.LeftShoulder },
+            { HumanBodyBones.RightShoulder, BasisBoneTrackedRole.RightShoulder },
+            { HumanBodyBones.LeftUpperArm, BasisBoneTrackedRole.LeftUpperArm },
+            { HumanBodyBones.RightUpperArm, BasisBoneTrackedRole.RightUpperArm },
+            { HumanBodyBones.LeftLowerArm, BasisBoneTrackedRole.LeftLowerArm },
+            { HumanBodyBones.RightLowerArm, BasisBoneTrackedRole.RightLowerArm },
+            { HumanBodyBones.LeftHand, BasisBoneTrackedRole.LeftHand },
+            { HumanBodyBones.RightHand, BasisBoneTrackedRole.RightHand },
+            { HumanBodyBones.LeftToes, BasisBoneTrackedRole.LeftToes },
+            { HumanBodyBones.RightToes, BasisBoneTrackedRole.RightToes },
+            { HumanBodyBones.Jaw, BasisBoneTrackedRole.Mouth }
+        };
+
+        private static readonly Dictionary<BasisBoneTrackedRole, HumanBodyBones> RoleToBoneMap = new();
+
+        static BasisAvatarDriver()
+        {
+            foreach (var pair in BoneToRoleMap)
+                RoleToBoneMap[pair.Value] = pair.Key;
         }
-        private static string TPose = "Assets/Animator/Animated TPose.controller";
+
+        public static bool TryConvertToBoneTrackingRole(HumanBodyBones body, out BasisBoneTrackedRole result) =>
+            BoneToRoleMap.TryGetValue(body, out result);
+
+        public static bool TryConvertToHumanoidRole(BasisBoneTrackedRole role, out HumanBodyBones result) =>
+            RoleToBoneMap.TryGetValue(role, out result);
+
+        public static bool IsApartOfSpineVertical(BasisBoneTrackedRole role) =>
+            role is BasisBoneTrackedRole.Hips or BasisBoneTrackedRole.Chest or BasisBoneTrackedRole.Spine
+              or BasisBoneTrackedRole.CenterEye or BasisBoneTrackedRole.Mouth or BasisBoneTrackedRole.Head;
+
+        public float ActiveAvatarEyeHeight() =>
+            BasisLocalPlayer.Instance.BasisAvatar?.AvatarEyePosition.x ?? BasisLocalPlayer.FallbackSize;
+
         public Action CalibrationComplete;
         public Action TposeStateChange;
-        public BasisTransformMapping References = new BasisTransformMapping();
+        public BasisTransformMapping References = new();
         public RuntimeAnimatorController SavedruntimeAnimatorController;
         public SkinnedMeshRenderer[] SkinnedMeshRenderer;
         public BasisPlayer Player;
         public bool CurrentlyTposing = false;
         public bool HasEvents = false;
-        public List<int> ActiveMatrixOverrides = new List<int>();
-        public void TryActiveMatrixOverride(int InstanceID)
+        public List<int> ActiveMatrixOverrides = new();
+        public int SkinnedMeshRendererLength;
+
+        private static readonly string TPose = "Assets/Animator/Animated TPose.controller";
+
+        public void TryActiveMatrixOverride(int id)
         {
-            if (ActiveMatrixOverrides.Contains(InstanceID) == false)
+            if (!ActiveMatrixOverrides.Contains(id))
             {
-                ActiveMatrixOverrides.Add(InstanceID);
+                ActiveMatrixOverrides.Add(id);
                 SetAllMatrixRecalculation(true);
             }
         }
-        public void RemoveActiveMatrixOverride(int InstanceID)
+
+        public void RemoveActiveMatrixOverride(int id)
         {
-            if (ActiveMatrixOverrides.Remove(InstanceID))
-            {
-                if (ActiveMatrixOverrides.Count == 0)
-                {
-                    SetAllMatrixRecalculation(false);
-                }
-            }
+            if (ActiveMatrixOverrides.Remove(id) && ActiveMatrixOverrides.Count == 0)
+                SetAllMatrixRecalculation(false);
         }
+
         public void SetMatrixOverride()
         {
 #if UNITY_EDITOR
             SetAllMatrixRecalculation(true);
 #else
-            if (ActiveMatrixOverrides.Count != 0)
-            {
-                SetAllMatrixRecalculation(true);
-            }
-            else
-            {
-                SetAllMatrixRecalculation(false);
-           }
+            SetAllMatrixRecalculation(ActiveMatrixOverrides.Count != 0);
 #endif
         }
-        public void Calibration(BasisAvatar Avatar)
+
+        public void Calibration(BasisAvatar avatar)
         {
             FindSkinnedMeshRenders();
-            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Avatar.transform, ref References);
+            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, avatar.transform, ref References);
             Player.FaceIsVisible = false;
-            if (Avatar == null)
+
+            if (avatar == null)
             {
                 BasisDebug.LogError("Missing Avatar");
+                return;
             }
-            if (Avatar.FaceVisemeMesh == null)
-            {
-                BasisDebug.Log("Missing Face for " + Player.DisplayName, BasisDebug.LogTag.Avatar);
-            }
-            Player.UpdateFaceVisibility(Avatar.FaceVisemeMesh.isVisible);
+
+            if (avatar.FaceVisemeMesh == null)
+                BasisDebug.Log($"Missing Face for {Player.DisplayName}", BasisDebug.LogTag.Avatar);
+
+            Player.UpdateFaceVisibility(avatar.FaceVisemeMesh?.isVisible ?? false);
+
             if (Player.FaceRenderer != null)
-            {
                 GameObject.Destroy(Player.FaceRenderer);
-            }
-            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Avatar.FaceVisemeMesh.gameObject);
+
+            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(avatar.FaceVisemeMesh.gameObject);
             Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
 
-            if (BasisFacialBlinkDriver.MeetsRequirements(Avatar))
-            {
-                Player.FacialBlinkDriver.Initialize(Player, Avatar);
-            }
+            if (BasisFacialBlinkDriver.MeetsRequirements(avatar))
+                Player.FacialBlinkDriver.Initialize(Player, avatar);
         }
+
         public void PutAvatarIntoTPose()
         {
-            BasisDebug.Log("PutAvatarIntoTPose", BasisDebug.LogTag.Avatar);
             CurrentlyTposing = true;
+
             if (SavedruntimeAnimatorController == null)
-            {
                 SavedruntimeAnimatorController = Player.BasisAvatar.Animator.runtimeAnimatorController;
-            }
-            UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op = Addressables.LoadAssetAsync<RuntimeAnimatorController>(TPose);
-            RuntimeAnimatorController RAC = op.WaitForCompletion();
-            Player.BasisAvatar.Animator.runtimeAnimatorController = RAC;
+
+            var op = Addressables.LoadAssetAsync<RuntimeAnimatorController>(TPose);
+            var controller = op.WaitForCompletion();
+            Player.BasisAvatar.Animator.runtimeAnimatorController = controller;
             ForceUpdateAnimator(Player.BasisAvatar.Animator);
+
             BasisDeviceManagement.UnassignFBTrackers();
             TposeStateChange?.Invoke();
         }
+
         public void ResetAvatarAnimator()
         {
-            BasisDebug.Log("ResetAvatarAnimator", BasisDebug.LogTag.Avatar);
             Player.BasisAvatar.Animator.runtimeAnimatorController = SavedruntimeAnimatorController;
             SavedruntimeAnimatorController = null;
             CurrentlyTposing = false;
             TposeStateChange?.Invoke();
         }
-        public Bounds GetBounds(Transform animatorParent)
-        {
-            // Get all renderers in the parent GameObject
-            Renderer[] renderers = animatorParent.GetComponentsInChildren<Renderer>();
-            int length = renderers.Length;
-            if (length == 0)
-            {
-                return new Bounds(Vector3.zero, new Vector3(0.3f, BasisLocalPlayer.FallbackSize, 0.3f));
-            }
-            Bounds bounds = renderers[0].bounds;
-            for (int Index = 1; Index < length; Index++)
-            {
-                bounds.Encapsulate(renderers[Index].bounds);
-            }
-            return bounds;
-        }
-        public static bool TryConvertToBoneTrackingRole(HumanBodyBones body, out BasisBoneTrackedRole result)
-        {
-            switch (body)
-            {
-                case HumanBodyBones.Head:
-                    result = BasisBoneTrackedRole.Head;
-                    return true;
-                case HumanBodyBones.Neck:
-                    result = BasisBoneTrackedRole.Neck;
-                    return true;
-                case HumanBodyBones.Chest:
-                    result = BasisBoneTrackedRole.Chest;
-                    return true;
-                case HumanBodyBones.Hips:
-                    result = BasisBoneTrackedRole.Hips;
-                    return true;
-                case HumanBodyBones.Spine:
-                    result = BasisBoneTrackedRole.Spine;
-                    return true;
-                case HumanBodyBones.LeftUpperLeg:
-                    result = BasisBoneTrackedRole.LeftUpperLeg;
-                    return true;
-                case HumanBodyBones.RightUpperLeg:
-                    result = BasisBoneTrackedRole.RightUpperLeg;
-                    return true;
-                case HumanBodyBones.LeftLowerLeg:
-                    result = BasisBoneTrackedRole.LeftLowerLeg;
-                    return true;
-                case HumanBodyBones.RightLowerLeg:
-                    result = BasisBoneTrackedRole.RightLowerLeg;
-                    return true;
-                case HumanBodyBones.LeftFoot:
-                    result = BasisBoneTrackedRole.LeftFoot;
-                    return true;
-                case HumanBodyBones.RightFoot:
-                    result = BasisBoneTrackedRole.RightFoot;
-                    return true;
-                case HumanBodyBones.LeftShoulder:
-                    result = BasisBoneTrackedRole.LeftShoulder;
-                    return true;
-                case HumanBodyBones.RightShoulder:
-                    result = BasisBoneTrackedRole.RightShoulder;
-                    return true;
-                case HumanBodyBones.LeftUpperArm:
-                    result = BasisBoneTrackedRole.LeftUpperArm;
-                    return true;
-                case HumanBodyBones.RightUpperArm:
-                    result = BasisBoneTrackedRole.RightUpperArm;
-                    return true;
-                case HumanBodyBones.LeftLowerArm:
-                    result = BasisBoneTrackedRole.LeftLowerArm;
-                    return true;
-                case HumanBodyBones.RightLowerArm:
-                    result = BasisBoneTrackedRole.RightLowerArm;
-                    return true;
-                case HumanBodyBones.LeftHand:
-                    result = BasisBoneTrackedRole.LeftHand;
-                    return true;
-                case HumanBodyBones.RightHand:
-                    result = BasisBoneTrackedRole.RightHand;
-                    return true;
-                case HumanBodyBones.LeftToes:
-                    result = BasisBoneTrackedRole.LeftToes;
-                    return true;
-                case HumanBodyBones.RightToes:
-                    result = BasisBoneTrackedRole.RightToes;
-                    return true;
-                case HumanBodyBones.Jaw:
-                    result = BasisBoneTrackedRole.Mouth;
-                    return true;
-            }
-            result = BasisBoneTrackedRole.Hips;
-            return false;
-        }
-        public static bool TryConvertToHumanoidRole(BasisBoneTrackedRole role, out HumanBodyBones result)
-        {
-            switch (role)
-            {
-                case BasisBoneTrackedRole.Head:
-                    result = HumanBodyBones.Head;
-                    return true;
-                case BasisBoneTrackedRole.Neck:
-                    result = HumanBodyBones.Neck;
-                    return true;
-                case BasisBoneTrackedRole.Chest:
-                    result = HumanBodyBones.Chest;
-                    return true;
-                case BasisBoneTrackedRole.Hips:
-                    result = HumanBodyBones.Hips;
-                    return true;
-                case BasisBoneTrackedRole.Spine:
-                    result = HumanBodyBones.Spine;
-                    return true;
-                case BasisBoneTrackedRole.LeftUpperLeg:
-                    result = HumanBodyBones.LeftUpperLeg;
-                    return true;
-                case BasisBoneTrackedRole.RightUpperLeg:
-                    result = HumanBodyBones.RightUpperLeg;
-                    return true;
-                case BasisBoneTrackedRole.LeftLowerLeg:
-                    result = HumanBodyBones.LeftLowerLeg;
-                    return true;
-                case BasisBoneTrackedRole.RightLowerLeg:
-                    result = HumanBodyBones.RightLowerLeg;
-                    return true;
-                case BasisBoneTrackedRole.LeftFoot:
-                    result = HumanBodyBones.LeftFoot;
-                    return true;
-                case BasisBoneTrackedRole.RightFoot:
-                    result = HumanBodyBones.RightFoot;
-                    return true;
-                case BasisBoneTrackedRole.LeftShoulder:
-                    result = HumanBodyBones.LeftShoulder;
-                    return true;
-                case BasisBoneTrackedRole.RightShoulder:
-                    result = HumanBodyBones.RightShoulder;
-                    return true;
-                case BasisBoneTrackedRole.LeftUpperArm:
-                    result = HumanBodyBones.LeftUpperArm;
-                    return true;
-                case BasisBoneTrackedRole.RightUpperArm:
-                    result = HumanBodyBones.RightUpperArm;
-                    return true;
-                case BasisBoneTrackedRole.LeftLowerArm:
-                    result = HumanBodyBones.LeftLowerArm;
-                    return true;
-                case BasisBoneTrackedRole.RightLowerArm:
-                    result = HumanBodyBones.RightLowerArm;
-                    return true;
-                case BasisBoneTrackedRole.LeftHand:
-                    result = HumanBodyBones.LeftHand;
-                    return true;
-                case BasisBoneTrackedRole.RightHand:
-                    result = HumanBodyBones.RightHand;
-                    return true;
-                case BasisBoneTrackedRole.LeftToes:
-                    result = HumanBodyBones.LeftToes;
-                    return true;
-                case BasisBoneTrackedRole.RightToes:
-                    result = HumanBodyBones.RightToes;
-                    return true;
-                case BasisBoneTrackedRole.Mouth:
-                    result = HumanBodyBones.Jaw;
-                    return true;
-            }
 
-            result = HumanBodyBones.Hips; // fallback
-            return false;
-        }
-        public static bool IsApartOfSpineVertical(BasisBoneTrackedRole Role)
+        public void FindSkinnedMeshRenders()
         {
-            if (Role == BasisBoneTrackedRole.Hips ||
-                Role == BasisBoneTrackedRole.Chest ||
-                Role == BasisBoneTrackedRole.Hips ||
-                Role == BasisBoneTrackedRole.Spine ||
-                Role == BasisBoneTrackedRole.CenterEye ||
-                Role == BasisBoneTrackedRole.Mouth ||
-                Role == BasisBoneTrackedRole.Head)
-            {
-                return true;
-            }
-            return false;
+            SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
         }
-        public void CalculateTransformPositions(BasisPlayer BasisPlayer, BasisBaseBoneDriver driver)
+
+        public void SetAllMatrixRecalculation(bool state)
         {
-            //  BasisDebug.Log("CalculateTransformPositions", BasisDebug.LogTag.Avatar);
-            for (int Index = 0; Index < driver.ControlsLength; Index++)
+            for (int i = 0; i < SkinnedMeshRendererLength; i++)
+                SkinnedMeshRenderer[i].forceMatrixRecalculationPerRender = state;
+        }
+
+        public void updateWhenOffscreen(bool state)
+        {
+            for (int i = 0; i < SkinnedMeshRendererLength; i++)
+                SkinnedMeshRenderer[i].updateWhenOffscreen = state;
+        }
+        public void CalculateTransformPositions(BasisPlayer player, BasisBaseBoneDriver driver)
+        {
+            for (int i = 0; i < driver.ControlsLength; i++)
             {
-                BasisBoneControl Control = driver.Controls[Index];
-                if (driver.trackedRoles[Index] == BasisBoneTrackedRole.CenterEye)
+                var role = driver.trackedRoles[i];
+                var control = driver.Controls[i];
+
+                if (role == BasisBoneTrackedRole.CenterEye)
                 {
-                    GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarEyePosition, out float3 TposeWorld);
-                    SetInitialData(BasisPlayer.BasisAvatar.Animator, Control, driver.trackedRoles[Index], TposeWorld);
+                    GetWorldSpaceRotAndPos(() => player.BasisAvatar.AvatarEyePosition, out float3 eyePos);
+                    SetInitialData(player.BasisAvatar.Animator, control, role, eyePos);
+                }
+                else if (role == BasisBoneTrackedRole.Mouth)
+                {
+                    GetWorldSpaceRotAndPos(() => player.BasisAvatar.AvatarMouthPosition, out float3 mouthPos);
+                    SetInitialData(player.BasisAvatar.Animator, control, role, mouthPos);
+                }
+                else if (BasisDeviceManagement.FBBD.FindBone(out var fallback, role) &&
+                         TryConvertToHumanoidRole(role, out var humanoid))
+                {
+                    GetBoneRotAndPos(player.transform, player.BasisAvatar.Animator, humanoid,
+                        fallback.PositionPercentage, out var rot, out float3 tPose, out _);
+                    SetInitialData(player.BasisAvatar.Animator, control, role, tPose);
                 }
                 else
                 {
-                    if (driver.trackedRoles[Index] == BasisBoneTrackedRole.Mouth)
-                    {
-                        GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarMouthPosition, out float3 TposeWorld);
-                        SetInitialData(BasisPlayer.BasisAvatar.Animator, Control, driver.trackedRoles[Index], TposeWorld);
-                    }
-                    else
-                    {
-                        if (BasisDeviceManagement.FBBD.FindBone(out BasisFallBone FallBackBone, driver.trackedRoles[Index]))
-                        {
-                            if (TryConvertToHumanoidRole(driver.trackedRoles[Index], out HumanBodyBones HumanBones))
-                            {
-                                GetBoneRotAndPos(BasisPlayer.transform, BasisPlayer.BasisAvatar.Animator, HumanBones, FallBackBone.PositionPercentage, out quaternion Rotation, out float3 TposeWorld, out bool UsedFallback);
-                                SetInitialData(BasisPlayer.BasisAvatar.Animator, Control, driver.trackedRoles[Index], TposeWorld);
-                            }
-                            else
-                            {
-                                BasisDebug.LogError("cant Convert to humanbodybone " + driver.trackedRoles[Index]);
-                            }
-                        }
-                        else
-                        {
-                            BasisDebug.LogError("cant find Fallback Bone for " + driver.trackedRoles[Index]);
-                        }
-                    }
+                    BasisDebug.LogError($"Unable to resolve fallback or humanoid bone for {role}");
                 }
             }
         }
-        public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
+
+        public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPct,
+                                     out quaternion rotation, out float3 position, out bool usedFallback)
         {
-            if (anim.avatar != null && anim.avatar.isHuman)
+            usedFallback = false;
+
+            if (anim.avatar?.isHuman == true)
             {
-                Transform boneTransform = anim.GetBoneTransform(bone);
-                if (boneTransform == null)
+                var boneTransform = anim.GetBoneTransform(bone);
+                if (boneTransform != null)
                 {
-                    Rotation = driver.rotation;
-                    Position = anim.transform.position;
-                    // Position = new Vector3(0, Position.y, 0);
-                    Position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(), heightPercentage);
-                    //Position = new Vector3(0, Position.y, 0);
-                    UsedFallback = true;
+                    boneTransform.GetPositionAndRotation(out var pos, out var rot);
+                    rotation = rot;
+                    position = pos;
+                    return;
                 }
-                else
-                {
-                    UsedFallback = false;
-                    boneTransform.GetPositionAndRotation(out Vector3 VPosition, out Quaternion QRotation);
-                    Position = VPosition;
-                    Rotation = QRotation;
-                }
+                usedFallback = true;
             }
             else
             {
-                Rotation = driver.rotation;
-                Position = anim.transform.position;
-                Position = new Vector3(0, Position.y, 0);
-                Position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(), heightPercentage);
-                Position = new Vector3(0, Position.y, 0);
-                UsedFallback = true;
+                usedFallback = true;
             }
-        }
-        public float3 CalculateFallbackOffset(HumanBodyBones bone, float fallbackHeight, float3 heightPercentage)
-        {
-            Vector3 height = fallbackHeight * heightPercentage;
-            return bone == HumanBodyBones.Hips ? math.mul(height, -Vector3.up) : math.mul(height, Vector3.up);
-        }
-        public void GetWorldSpaceRotAndPos(Func<Vector2> positionSelector, out float3 position)
-        {
-            float3 bottom = Player.BasisAvatar.Animator.transform.position;
-            Vector3 convertedToVector3 = BasisHelpers.AvatarPositionConversion(positionSelector());
-            position = BasisHelpers.ConvertFromLocalSpace(convertedToVector3, bottom);
-        }
-        public void ForceUpdateAnimator(Animator Anim)
-        {
-            // Specify the time you want the Animator to update to (in seconds)
-            float desiredTime = Time.deltaTime;
 
-            // Call the Update method to force the Animator to update to the desired time
-            Anim.Update(desiredTime);
+            rotation = driver.rotation;
+            position = anim.transform.position;
+            position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(), heightPct);
         }
+
+        public float3 CalculateFallbackOffset(HumanBodyBones bone, float height, float3 heightPct)
+        {
+            var scaled = height * heightPct;
+            return bone == HumanBodyBones.Hips ? math.mul(scaled, -Vector3.up) : math.mul(scaled, Vector3.up);
+        }
+
+        public void GetWorldSpaceRotAndPos(Func<Vector2> selector, out float3 position)
+        {
+            var basePos = Player.BasisAvatar.Animator.transform.position;
+            var localVec3 = BasisHelpers.AvatarPositionConversion(selector());
+            position = BasisHelpers.ConvertFromLocalSpace(localVec3, basePos);
+        }
+
+        public void ForceUpdateAnimator(Animator animator) =>
+            animator.Update(Time.deltaTime);
+
         public bool IsNull(UnityEngine.Object obj)
         {
             if (obj == null)
@@ -394,64 +249,46 @@ namespace Basis.Scripts.Drivers
                 BasisDebug.LogError("Missing Object during calibration");
                 return true;
             }
-            else
-            {
-                return false;
-            }
+            return false;
         }
-        public void SetInitialData(Animator animator, BasisBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
+
+        public void SetInitialData(Animator animator, BasisBoneControl bone, BasisBoneTrackedRole role, Vector3 tPoseWorld)
         {
-            bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(animator, WorldTpose);//out Vector3 WorldSpaceFloor
+            bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(animator, tPoseWorld);
             bone.TposeLocal.position = bone.OutGoingData.position;
             bone.TposeLocal.rotation = bone.OutGoingData.rotation;
-            if (IsApartOfSpineVertical(Role))
-            {
-                bone.OutGoingData.position = new Vector3(0, bone.OutGoingData.position.y, bone.OutGoingData.position.z);
-                bone.TposeLocal.position = bone.OutGoingData.position;
-            }
-            if (Role == BasisBoneTrackedRole.Hips)
-            {
-                bone.TposeLocal.rotation = quaternion.identity;
-            }
-        }
-        public void SetAndCreateLock(BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
-        {
-            if (CreateLocks)
-            {
 
-                if (BaseBoneDriver.FindBone(out BasisBoneControl AssignedToAddToBone, AssignedTo) == false)
-                {
-                    BasisDebug.LogError("Cant Find Bone " + AssignedTo);
-                }
-                if (BaseBoneDriver.FindBone(out BasisBoneControl LockToBone, LockToBoneRole) == false)
-                {
-                    BasisDebug.LogError("Cant Find Bone " + LockToBoneRole);
-                }
-                BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
-            }
+            if (IsApartOfSpineVertical(role))
+                bone.TposeLocal.position = new Vector3(0, bone.TposeLocal.position.y, bone.TposeLocal.position.z);
+
+            if (role == BasisBoneTrackedRole.Hips)
+                bone.TposeLocal.rotation = quaternion.identity;
         }
-        public int SkinnedMeshRendererLength;
-        public void FindSkinnedMeshRenders()
+
+        public void SetAndCreateLock(BasisBaseBoneDriver driver, BasisBoneTrackedRole lockTo, BasisBoneTrackedRole assignTo,
+                                     float posLerp, float rotLerp, bool create = true)
         {
-            SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
+            if (!create) return;
+
+            if (!driver.FindBone(out var assign, assignTo))
+                BasisDebug.LogError($"Can't find bone {assignTo}");
+
+            if (!driver.FindBone(out var target, lockTo))
+                BasisDebug.LogError($"Can't find lock target {lockTo}");
+
+            driver.CreateRotationalLock(assign, target, posLerp, rotLerp);
         }
-        public void SetAllMatrixRecalculation(bool State)
+
+        public Bounds GetBounds(Transform animatorParent)
         {
-            for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
-            {
-                SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
-                Render.forceMatrixRecalculationPerRender = State;
-            }
-            //  BasisDebug.Log($"Matrix ReCalculation State set to {State}");
-        }
-        public void updateWhenOffscreen(bool State)
-        {
-            for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
-            {
-                SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
-                Render.updateWhenOffscreen = State;
-            }
+            var renderers = animatorParent.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0)
+                return new Bounds(Vector3.zero, new Vector3(0.3f, BasisLocalPlayer.FallbackSize, 0.3f));
+
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+            return bounds;
         }
     }
 }
