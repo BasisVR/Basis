@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
@@ -11,7 +15,23 @@ public partial class BasisServerReductionSystem
     // Default interval in milliseconds for the timer
     public static Configuration Configuration;
     public static ChunkedSyncedToPlayerPulseArray PlayerSync = new ChunkedSyncedToPlayerPulseArray(64);
-    public static int MaxMessages = 80;
+    public static int MaxMessages = 500;
+    public static Timer DistanceCalculator;
+    private static CancellationTokenSource cancellationTokenSource;
+    private static Task loopTask;
+    public static void StartLoop()
+    {
+        if (loopTask == null || loopTask.IsCompleted)
+        {
+            cancellationTokenSource = new CancellationTokenSource();
+            loopTask = Task.Run(() => LoopAsync(cancellationTokenSource.Token));
+            HighResolutionScheduler.Start();
+        }
+    }
+    public static void StopLoop()
+    {
+        cancellationTokenSource?.Cancel();
+    }
     /// <summary>
     /// add the new client
     /// then update all existing clients arrays
@@ -21,12 +41,13 @@ public partial class BasisServerReductionSystem
     /// <param name="serverSideSyncPlayer"></param>
     public static void AddOrUpdatePlayer(NetPeer playerID, ServerSideSyncPlayerMessage playerToUpdate, NetPeer serverSideSyncPlayer)
     {
-        SyncedToPlayerPulse playerData =  PlayerSync.GetPulse(serverSideSyncPlayer.Id);
+        SyncedToPlayerPulse playerData = PlayerSync.GetPulse(serverSideSyncPlayer.Id);
         //stage 1 lets update whoever send us this datas last player information
+        Vector3 Data = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(playerToUpdate);
         if (playerData != null)
         {
             playerData.lastPlayerInformation = playerToUpdate;
-            playerData.Position = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(playerToUpdate);
+            playerData.Position = Data;
         }
         playerData = PlayerSync.GetPulse(playerID.Id);
         //ok now we can try to schedule sending out this data!
@@ -59,7 +80,8 @@ public partial class BasisServerReductionSystem
                 ServerSideReducablePlayer player = Pulse.ChunkedServerSideReducablePlayerArray.GetPlayer(Index);
                 if (player != null)
                 {
-                    player.timer.Dispose();
+                    //   player.timer.Dispose();
+                    HighResolutionScheduler.RemoveEvent(player.timer);
                     Pulse.ChunkedServerSideReducablePlayerArray.SetPlayer(Index, null);
                 }
             }
@@ -72,7 +94,8 @@ public partial class BasisServerReductionSystem
                 ServerSideReducablePlayer SSRP = player.ChunkedServerSideReducablePlayerArray.GetPlayer(Index);
                 if (SSRP != null)
                 {
-                    SSRP.timer.Dispose();
+                    // SSRP.timer.Dispose();
+                    HighResolutionScheduler.RemoveEvent(SSRP.timer);
                     Pulse.ChunkedServerSideReducablePlayerArray.SetPlayer(Index, null);
                 }
             }
@@ -105,7 +128,8 @@ public partial class BasisServerReductionSystem
             if (playerData != null)
             {
                 // Update the player's message
-                playerData.serverSideSyncPlayerMessage = serverSideSyncPlayerMessage;
+                playerData.serverSideSyncPlayerMessage.playerIdMessage = serverSideSyncPlayerMessage.playerIdMessage;
+                playerData.serverSideSyncPlayerMessage.avatarSerialization = serverSideSyncPlayerMessage.avatarSerialization;
                 playerData.Position = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(serverSideSyncPlayerMessage);
                 SyncBoolArray.SetBool(serverSidePlayer.Id, true);
                 ChunkedServerSideReducablePlayerArray.SetPlayer(serverSidePlayer.Id, playerData);
@@ -130,14 +154,23 @@ public partial class BasisServerReductionSystem
                 localClient = playerID,
                 dataCameFromThisUser = serverSidePlayer.Id
             };
-            serverSideSyncPlayerMessage.interval = (byte)Configuration.BSRSMillisecondDefaultInterval;
+
+            Guid playerSyncJob = HighResolutionScheduler.AddEvent(() =>
+            {
+                SendPlayerData(clientPayload);
+                // Send player data here
+            }, Configuration.BSRSMillisecondDefaultInterval); // Run every 50ms
+
+
             ServerSideReducablePlayer newPlayer = new ServerSideReducablePlayer
             {
                 serverSideSyncPlayerMessage = serverSideSyncPlayerMessage,
-                timer = new Timer(SendPlayerData, clientPayload, Configuration.BSRSMillisecondDefaultInterval, Configuration.BSRSMillisecondDefaultInterval),
+                //    timer = new Timer(SendPlayerData, clientPayload, Configuration.BSRSMillisecondDefaultInterval, Configuration.BSRSMillisecondDefaultInterval),
+                timer = playerSyncJob,
                 Writer = new NetDataWriter(true, 204),
                 Position = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(serverSideSyncPlayerMessage),
             };
+            serverSideSyncPlayerMessage.interval = (byte)Configuration.BSRSMillisecondDefaultInterval;
             SendPlayerData(clientPayload);
             SyncBoolArray.SetBool(serverSidePlayer.Id, true);
             ChunkedServerSideReducablePlayerArray.SetPlayer(serverSidePlayer.Id, newPlayer);
@@ -154,45 +187,25 @@ public partial class BasisServerReductionSystem
                 ServerSideReducablePlayer playerData = ChunkedServerSideReducablePlayerArray.GetPlayer(playerID.dataCameFromThisUser);
                 if (playerData != null)
                 {
-                    SyncedToPlayerPulse pulse = PlayerSync.GetPulse(playerID.localClient.Id);
-                    if (pulse != null)
+                    try
                     {
-                        try
+                        int Size = playerID.localClient.GetPacketsCountInQueue(BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                        if (Size < MaxMessages)
                         {
-                            // Calculate the distance between the two points
-                            float activeDistance = Distance(pulse.Position, playerData.Position);
-                            // Adjust the timer interval based on the new syncRateMultiplier
-                            int adjustedInterval = (int)(Configuration.BSRSMillisecondDefaultInterval * (Configuration.BSRBaseMultiplier + (activeDistance * Configuration.BSRSIncreaseRate)));
-                            if (adjustedInterval > byte.MaxValue)
-                            {
-                                adjustedInterval = byte.MaxValue;
-                            }
-                            byte ByteAdjusted = (byte)adjustedInterval;
-                            if (playerData.serverSideSyncPlayerMessage.interval != ByteAdjusted)
-                            {
-                                //  Console.WriteLine("Adjusted Interval is" + adjustedInterval);
-                                playerData.timer.Change(adjustedInterval, adjustedInterval);
-                                //how long does this data need to last for
-                                playerData.serverSideSyncPlayerMessage.interval = ByteAdjusted;
-                            }
-                            int Size = playerID.localClient.GetPacketsCountInQueue(BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
-                            if (Size < MaxMessages)
-                            {
-                                playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
-                                NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
-                                playerData.Writer.Reset();
-                            }
+                            playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
+                            NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+                            playerData.Writer.Reset();
                         }
-                        catch (Exception e)
+                    }
+                    catch (Exception e)
+                    {
+                        if (e.InnerException != null)
                         {
-                            if (e.InnerException != null)
-                            {
-                                BNL.LogError($"SRS Encounter Issue {e.Message} {e.StackTrace} {e.InnerException}");
-                            }
-                            else
-                            {
-                                BNL.LogError($"SRS Encounter Issue {e.Message} {e.StackTrace}");
-                            }
+                            BNL.LogError($"SRS Encounter Issue {e.Message} {e.StackTrace} {e.InnerException}");
+                        }
+                        else
+                        {
+                            BNL.LogError($"SRS Encounter Issue {e.Message} {e.StackTrace}");
                         }
                     }
                 }
@@ -200,8 +213,191 @@ public partial class BasisServerReductionSystem
             }
         }
     }
-    public static float Distance(Vector3 pointA, Vector3 pointB)
+    private static async Task LoopAsync(CancellationToken token)
     {
-        return (pointB - pointA).SquaredMagnitude(); // Avoid intermediate objects if possible
+        float baseInterval = Configuration.BSRSMillisecondDefaultInterval;//50
+        float increaseRate = Configuration.BSRSIncreaseRate;//0.005f
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                int count = PlayerSync.ActiveChunkCount;
+                for (int topIndex = 0; topIndex < count; topIndex++)
+                {
+                    SyncedToPlayerPulse topPulse = PlayerSync.GetPulse(topIndex);
+                    if (topPulse == null)
+                    {
+                        continue;
+                    }
+
+                    for (int bottomIndex = 0; bottomIndex < count; bottomIndex++)
+                    {
+                        if (topIndex == bottomIndex)
+                        {
+                            continue;
+                        }
+
+                        SyncedToPlayerPulse bottomPulse = PlayerSync.GetPulse(bottomIndex);
+                        if (bottomPulse == null)
+                        {
+                            continue;
+                        }
+
+                        float activeDistance = SquaredDistance(topPulse.Position, bottomPulse.Position);
+
+                        int adjustedInterval = (int)(baseInterval * (activeDistance * increaseRate));
+
+                        if (adjustedInterval > byte.MaxValue)
+                        {
+                            adjustedInterval = byte.MaxValue;
+                        }
+
+                        byte byteAdjusted = (byte)adjustedInterval;
+
+                        ServerSideReducablePlayer playerData = topPulse.ChunkedServerSideReducablePlayerArray.GetPlayer(bottomIndex);
+                        if (playerData != null && playerData.serverSideSyncPlayerMessage.interval != byteAdjusted)
+                        {
+                            HighResolutionScheduler.ChangeInterval(playerData.timer, adjustedInterval);
+                            playerData.serverSideSyncPlayerMessage.interval = byteAdjusted;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                if (e.InnerException != null)
+                {
+                    BNL.LogError($"SRS Loop Encountered Issue: {e.Message} {e.StackTrace} {e.InnerException}");
+                }
+                else
+                {
+                    BNL.LogError($"SRS Loop Encountered Issue: {e.Message} {e.StackTrace}");
+                }
+            }
+            await Task.Delay(33, token);
+        }
+    }
+    public static float SquaredDistance(Vector3 a, Vector3 b)
+    {
+        float dx = a.x - b.x;
+        float dy = a.y - b.y;
+        float dz = a.z - b.z;
+        return dx * dx + dy * dy + dz * dz;
+    }
+    /// <summary>
+    /// Structure representing a player's server-side data that can be reduced.
+    /// </summary>
+    public class ServerSideReducablePlayer
+    {
+        public Guid timer;//create a new timer
+        public ServerSideSyncPlayerMessage serverSideSyncPlayerMessage;
+        public NetDataWriter Writer;
+        public Vector3 Position;
+    }
+    public class HighResolutionScheduler
+    {
+        private class ScheduledItem
+        {
+            public Guid Id;
+            public Action Callback;
+            public int IntervalMs;
+            public long NextTick;
+        }
+
+        private static readonly ConcurrentDictionary<Guid, ScheduledItem> scheduledItems = new();
+        private static readonly ConcurrentQueue<ScheduledItem> toAdd = new();
+        private static readonly ConcurrentQueue<Guid> toRemove = new();
+
+        private static Thread schedulerThread;
+        private static bool running;
+        private static Stopwatch stopwatch;
+        public static void Start()
+        {
+            if (running) return;
+
+            running = true;
+            stopwatch = Stopwatch.StartNew();
+            schedulerThread = new Thread(RunLoop)
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.Highest
+            };
+            schedulerThread.Start();
+        }
+
+        public static void Stop()
+        {
+            running = false;
+            schedulerThread?.Join();
+        }
+
+        public static Guid AddEvent(Action callback, int intervalMs)
+        {
+            var item = new ScheduledItem
+            {
+                Id = Guid.NewGuid(),
+                Callback = callback,
+                IntervalMs = intervalMs,
+                NextTick = stopwatch.ElapsedMilliseconds + intervalMs
+            };
+
+            toAdd.Enqueue(item);
+            return item.Id;
+        }
+
+        public static void RemoveEvent(Guid id)
+        {
+            toRemove.Enqueue(id);
+        }
+
+        public static void ChangeInterval(Guid id, int newInterval)
+        {
+            if (scheduledItems.TryGetValue(id, out var item))
+            {
+                item.IntervalMs = newInterval;
+                item.NextTick = stopwatch.ElapsedMilliseconds + newInterval;
+            }
+        }
+
+        private static void RunLoop()
+        {
+            while (running)
+            {
+                long now = stopwatch.ElapsedMilliseconds;
+
+                // Add new events
+                while (toAdd.TryDequeue(out var item))
+                {
+                    scheduledItems[item.Id] = item;
+                }
+
+                // Remove events
+                while (toRemove.TryDequeue(out var id))
+                {
+                    scheduledItems.TryRemove(id, out _);
+                }
+
+                int processed = 0;
+
+                foreach (var kvp in scheduledItems)
+                {
+                    var item = kvp.Value;
+                    if (now >= item.NextTick)
+                    {
+                        try
+                        {
+                            item.Callback?.Invoke();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[Scheduler] Exception: {ex}");
+                        }
+
+                        item.NextTick = now + item.IntervalMs;
+                        processed++;
+                    }
+                }
+            }
+        }
     }
 }

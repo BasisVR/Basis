@@ -104,7 +104,7 @@ public class ChunkedSyncedToPlayerPulseArray
     private readonly int _chunkSize;
     private readonly int _numChunks;
     public const int TotalSize = 1024;
-
+    public int ActiveChunkCount;
     public ChunkedSyncedToPlayerPulseArray(int chunkSize = 256)
     {
         if (TotalSize <= 0)
@@ -120,6 +120,7 @@ public class ChunkedSyncedToPlayerPulseArray
         {
             _chunks[i] = new SyncedToPlayerPulse[chunkSize];
         }
+        ActiveChunkCount = chunkSize;
     }
 
     public void SetPulse(int index, SyncedToPlayerPulse pulse)

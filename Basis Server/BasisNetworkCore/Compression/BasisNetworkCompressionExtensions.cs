@@ -14,7 +14,7 @@ namespace Basis.Network.Core.Compression
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 DecompressAndProcessAvatarFaster(ServerSideSyncPlayerMessage syncMessage)
         {
-            return ReadVectorFloatFromBytes(ref syncMessage.avatarSerialization.array);
+            return ReadVectorFloatFromBytesFaster(ref syncMessage.avatarSerialization.array);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -31,7 +31,7 @@ namespace Basis.Network.Core.Compression
         /// </summary>
         public static Vector3 DecompressAndProcessAvatar(ServerSideSyncPlayerMessage syncMessage)
         {
-            return ReadVectorFloatFromBytes(ref syncMessage.avatarSerialization.array);
+            return ReadVectorFloatFromBytesFaster(ref syncMessage.avatarSerialization.array);
         }
         // Manual conversion of bytes to Vector3 (without BitConverter)
         public static Vector3 ReadVectorFloatFromBytes(ref byte[] bytes)

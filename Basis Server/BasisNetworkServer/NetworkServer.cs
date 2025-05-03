@@ -32,6 +32,7 @@ public static class NetworkServer
         {
             BasisStatistics.StartWorkerThread(NetworkServer.server);
         }
+        BasisServerReductionSystem.StartLoop();
         BNL.Log("Server Worker Threads Booted");
 
     }
