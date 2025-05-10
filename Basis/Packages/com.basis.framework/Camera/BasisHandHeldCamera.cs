@@ -41,6 +41,11 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public GameObject ShutterOptions;
     public GameObject ISOOptions;
 
+    private GameObject[] allOptionPanels;
+    private int uiLayerMask;
+    private static Material clearMaterial;
+    private Texture2D pooledScreenshot;
+
     [SerializeField]
     public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
     public BasisHandHeldCameraMetaData MetaData = new BasisHandHeldCameraMetaData();
@@ -63,11 +68,14 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
                 captureCamera.clearFlags = PlayerCamera.clearFlags;
             }
         }
+
         await HandHeld.Initalize(this);
+
         if (MetaData.Profile.TryGet(out MetaData.tonemapping))
         {
             ToggleToneMapping(TonemappingMode.Neutral);
         }
+
         SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
         CameraData.allowHDROutput = true;
         CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
@@ -83,7 +91,112 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         base.Awake();
         captureCamera.gameObject.SetActive(true);
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+
+        allOptionPanels = new GameObject[]
+        {
+            ResolutionOptions,
+            FormatOptions,
+            ApertureOptions,
+            ShutterOptions,
+            ISOOptions
+        };
+
+        int uiLayer = LayerMask.NameToLayer("UI");
+        if (uiLayer < 0)
+        {
+            Debug.LogWarning("UI Layer not found.");
+        }
+        else
+        {
+            uiLayerMask = 1 << uiLayer;
+        }
+
+        if (clearMaterial == null)
+        {
+            Shader shader = Shader.Find("Unlit/Color");
+            if (shader != null)
+            {
+                clearMaterial = new Material(shader);
+            }
+        }
     }
+    public void SetResolution(int width, int height, AntialiasingQuality AQ, RenderTextureFormat RenderTextureFormat = RenderTextureFormat.ARGBFloat)
+    {
+        if (renderTexture == null || renderTexture.width != width || renderTexture.height != height || renderTexture.format != RenderTextureFormat)
+        {
+            if (renderTexture != null)
+            {
+                renderTexture.Release();
+            }
+
+            RenderTextureDescriptor descriptor = new RenderTextureDescriptor(width, height, RenderTextureFormat, depth)
+            {
+                msaaSamples = 2,
+                useMipMap = false,
+                autoGenerateMips = false,
+                sRGB = true
+            };
+            renderTexture = new RenderTexture(descriptor);
+            renderTexture.Create();
+        }
+
+        captureCamera.targetTexture = renderTexture;
+        CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+        CameraData.antialiasingQuality = AQ;
+        actualMaterial.SetTexture("_MainTex", renderTexture);
+        actualMaterial.mainTexture = renderTexture;
+        Renderer.sharedMaterial = actualMaterial;
+    }
+
+    private void EnsureTexturePool(int width, int height, TextureFormat format)
+    {
+        if (pooledScreenshot == null || pooledScreenshot.width != width || pooledScreenshot.height != height || pooledScreenshot.format != format)
+        {
+            pooledScreenshot = new Texture2D(width, height, format, false);
+        }
+    }
+
+    public IEnumerator TakeScreenshot(TextureFormat TextureFormat, RenderTextureFormat Format = RenderTextureFormat.ARGBFloat)
+    {
+        SetResolution(captureWidth, captureHeight, AntialiasingQuality.High, Format);
+
+        yield return new WaitForEndOfFrame();
+
+        BasisLocalAvatarDriver.ScaleHeadToNormal();
+        ToggleToneMapping(TonemappingMode.ACES);
+        captureCamera.Render();
+
+        EnsureTexturePool(renderTexture.width, renderTexture.height, TextureFormat);
+
+        AsyncGPUReadback.Request(renderTexture, 0, request =>
+        {
+            if (request.hasError)
+            {
+                BasisDebug.LogError("GPU Readback failed.");
+                SetNormalAfterCapture();
+                return;
+            }
+
+            Unity.Collections.NativeArray<byte> data = request.GetData<byte>();
+            pooledScreenshot.LoadRawTextureData(data);
+            pooledScreenshot.Apply(false);
+
+            SetNormalAfterCapture();
+            SaveScreenshotAsync(pooledScreenshot);
+        });
+    }
+    private void ToggleOnlyThisPanel(GameObject panelToShow)
+    {
+        for (int i = 0; i < allOptionPanels.Length; i++)
+        {
+            allOptionPanels[i].SetActive(allOptionPanels[i] == panelToShow);
+        }
+    }
+    public void ResolutionButton() => ToggleOnlyThisPanel(ResolutionOptions);
+    public void FormatButton() => ToggleOnlyThisPanel(FormatOptions);
+    public void ApertureButton() => ToggleOnlyThisPanel(ApertureOptions);
+    public void ShutterButton() => ToggleOnlyThisPanel(ShutterOptions);
+    public void ISOButton() => ToggleOnlyThisPanel(ISOOptions);
 
     private void OnBootModeChanged(string obj)
     {
@@ -160,78 +273,24 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         enableRecordingView = !enableRecordingView;
         OverrideDesktopOutput();
     }
-
-    public void ResolutionButton()
+    private void FillRenderTextureWithColor(RenderTexture rt, Color color)
     {
-        ResolutionOptions.SetActive(true);
-        FormatOptions.SetActive(false);
-        ApertureOptions.SetActive(false);
-        ShutterOptions.SetActive(false);
-        ISOOptions.SetActive(false);
-    }
-    public void FormatButton()
-    {
-        ResolutionOptions.SetActive(false);
-        FormatOptions.SetActive(true);
-        ApertureOptions.SetActive(false);
-        ShutterOptions.SetActive(false);
-        ISOOptions.SetActive(false);
-    }
-    public void ApertureButton()
-    {
-        ResolutionOptions.SetActive(false);
-        FormatOptions.SetActive(false);
-        ApertureOptions.SetActive(true);
-        ShutterOptions.SetActive(false);
-        ISOOptions.SetActive(false);
-    }
-    public void ShutterButton()
-    {
-        ResolutionOptions.SetActive(false);
-        FormatOptions.SetActive(false);
-        ApertureOptions.SetActive(false);
-        ShutterOptions.SetActive(true);
-        ISOOptions.SetActive(false);
-    }
-    public void ISOButton()
-    {
-        ResolutionOptions.SetActive(false);
-        FormatOptions.SetActive(false);
-        ApertureOptions.SetActive(false);
-        ShutterOptions.SetActive(false);
-        ISOOptions.SetActive(true);
-    }
-    void FillRenderTextureWithColor(RenderTexture rt, Color color)
-    {
-        // Save current active RenderTexture
-        RenderTexture previous = RenderTexture.active;
-
-        // Set our target as the active RenderTexture
-        RenderTexture.active = rt;
-
-        // Set up viewport and projection
-        GL.PushMatrix();
-        GL.LoadPixelMatrix(0, rt.width, rt.height, 0);
-
-        // Clear with the target color
-        GL.Clear(true, true, color);
-
-        // Clean up
-        GL.PopMatrix();
-
-        // Restore previous RT
-        RenderTexture.active = previous;
-    }
-    public void Nameplates()
-    {
-        int uiLayer = LayerMask.NameToLayer("UI");
-        if (uiLayer < 0)
+        if (clearMaterial == null)
         {
-            Debug.LogWarning("UI Layer not found.");
+            Debug.LogWarning("Clear material not initialized");
             return;
         }
 
-        int uiLayerMask = 1 << uiLayer;
+        clearMaterial.color = color;
+        Graphics.Blit(null, rt, clearMaterial);
+    }
+    public void Nameplates()
+    {
+        if (uiLayerMask == 0)
+        {
+            Debug.LogWarning("UI Layer Mask was not initialized properly.");
+            return;
+        }
 
         showUI = !showUI;
 
@@ -262,29 +321,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         StartCoroutine(TakeScreenshot(Format, RenderFormat));
     }
 
-    public void SetResolution(int width, int height, AntialiasingQuality AQ, RenderTextureFormat RenderTextureFormat = RenderTextureFormat.ARGBFloat)
-    {
-        if (renderTexture != null)
-        {
-            renderTexture.Release();
-        }
-        RenderTextureDescriptor descriptor = new RenderTextureDescriptor(width, height, RenderTextureFormat, depth)
-        {
-            msaaSamples = 2,
-            useMipMap = false,
-            autoGenerateMips = false,
-            sRGB = true
-        };
-        renderTexture = new RenderTexture(descriptor);
-        renderTexture.Create();
-        captureCamera.targetTexture = renderTexture;
-        CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-        CameraData.antialiasingQuality = AQ;
-        actualMaterial.SetTexture("_MainTex", renderTexture);
-        actualMaterial.mainTexture = renderTexture;
-        Renderer.sharedMaterial = actualMaterial;
-    }
-
     public void ChangeResolution(int index)
     {
         if (index >= 0 && index < MetaData.resolutions.Length)
@@ -299,33 +335,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         BasisDebug.Log($"Capture format changed to {captureFormat}");
     }
 
-    public IEnumerator TakeScreenshot(TextureFormat TextureFormat, RenderTextureFormat Format = RenderTextureFormat.ARGBFloat)
-    {
-        SetResolution(captureWidth, captureHeight, AntialiasingQuality.High, Format);
-        yield return new WaitForEndOfFrame();
-        BasisLocalAvatarDriver.ScaleHeadToNormal();
-        ToggleToneMapping(TonemappingMode.ACES);
-        captureCamera.Render();
-        yield return new WaitForEndOfFrame();
-
-        Texture2D screenshot = new Texture2D(renderTexture.width, renderTexture.height, TextureFormat, false);
-        AsyncGPUReadback.Request(renderTexture, 0, request =>
-        {
-            if (request.hasError)
-            {
-                BasisDebug.LogError("GPU Readback failed.");
-                SetNormalAfterCapture();
-                return;
-            }
-
-            Unity.Collections.NativeArray<byte> data = request.GetData<byte>();
-            screenshot.LoadRawTextureData(data);
-            screenshot.Apply(false);
-
-            SetNormalAfterCapture();
-            SaveScreenshotAsync(screenshot);
-        });
-    }
     public void SetNormalAfterCapture()
     {
         ToggleToneMapping(TonemappingMode.Neutral);
