@@ -18,12 +18,12 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public TextMeshProUGUI countdownText;
     public int captureWidth = 3840;
     public int captureHeight = 2160;
-
+    [Space(10)]
     public int PreviewCaptureWidth = 1920;
     public int PreviewCaptureHeight = 1080;
-
+    [Space(10)]
     private bool showUI = false;
-
+    [Space(10)]
     public BasisMeshRendererCheck BasisMeshRendererCheck;
     public MeshRenderer Renderer;
     public Material Material;
@@ -32,23 +32,28 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public string picturesFolder;
     public int InstanceID;
     public int depth = 24;
-
+    [Space(10)]
     public bool enableRecordingView;
-
+    [Space(10)]
     public GameObject ResolutionOptions;
     public GameObject FormatOptions;
     public GameObject ApertureOptions;
     public GameObject ShutterOptions;
     public GameObject ISOOptions;
-
+    [Space(10)]
     private GameObject[] allOptionPanels;
     private int uiLayerMask;
     private static Material clearMaterial;
     private Texture2D pooledScreenshot;
-
+    [Space(10)]
     [SerializeField]
     public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
     public BasisHandHeldCameraMetaData MetaData = new BasisHandHeldCameraMetaData();
+    [Space(10)]
+    private float previewUpdateInterval = 1f / 30f; // Target 30 FPS
+    private float nextPreviewTime = 0f;
+    private Coroutine previewRoutine;
+
     public new async void Awake()
     {
         captureCamera.forceIntoRenderTexture = true;
@@ -90,6 +95,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         await HandHeld.SaveSettings();
         base.Awake();
         captureCamera.gameObject.SetActive(true);
+        StartPreviewLoop();
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
 
         allOptionPanels = new GameObject[]
@@ -185,6 +191,42 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             SaveScreenshotAsync(pooledScreenshot);
         });
     }
+    private IEnumerator PreviewRenderLoop()
+    {
+        while (true)
+        {
+            if (captureCamera != null && captureCamera.targetTexture != null && captureCamera.enabled)
+            {
+                captureCamera.Render();
+            }
+            yield return new WaitForSecondsRealtime(previewUpdateInterval);
+        }
+    }
+
+    private void StartPreviewLoop()
+    {
+        float currentFPS = 1f / Mathf.Max(Time.unscaledDeltaTime, 0.001f);
+        float halvedFPS = currentFPS * 0.5f;
+        float roundedFPS = Mathf.Clamp(Mathf.Round(halvedFPS / 5f) * 5f, 5f, 60f);
+
+        previewUpdateInterval = 1f / roundedFPS;
+        Debug.Log($"Camera Preview FPS: {roundedFPS}");
+        
+        if (previewRoutine == null)
+        {
+            previewRoutine = StartCoroutine(PreviewRenderLoop());
+        }
+    }
+
+    private void StopPreviewLoop()
+    {
+        if (previewRoutine != null)
+        {
+            StopCoroutine(previewRoutine);
+            previewRoutine = null;
+        }
+    }
+
     private void ToggleOnlyThisPanel(GameObject panelToShow)
     {
         for (int i = 0; i < allOptionPanels.Length; i++)
@@ -205,6 +247,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
     public new void OnDestroy()
     {
+        StopPreviewLoop();
         if (BasisMeshRendererCheck != null)
         {
             BasisMeshRendererCheck.Check -= VisibilityFlag;

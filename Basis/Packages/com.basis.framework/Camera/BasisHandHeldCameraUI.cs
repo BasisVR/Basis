@@ -14,23 +14,23 @@ public class BasisHandHeldCameraUI
     public Button Timer;
     public Button Nameplates;
     public Button OverrideDesktopOutput;
-
+    [Space(10)]
     public Button ResolutionButton;
     public Button FormatButton;
     public Button ApertureButton;
     public Button ShutterButton;
     public Button ISOButton;
-
+    [Space(10)]
     public Button RES_OPTION_720p;
     public Button RES_OPTION_1080p;
     public Button RES_OPTION_4K;
     public Button RES_OPTION_8K;
     public int RES_OPTION = 0;
-
+    [Space(10)]
     public Button FORMAT_OPTION_PNG;
     public Button FORMAT_OPTION_EXR;
     public int FORMAT_OPTION = 0;
-
+    [Space(10)]
     public Button APERTURE_OPTION_14;
     public Button APERTURE_OPTION_28;
     public Button APERTURE_OPTION_40;
@@ -39,7 +39,7 @@ public class BasisHandHeldCameraUI
     public Button APERTURE_OPTION_11;
     public Button APERTURE_OPTION_16;
     public int APERTURE_OPTION = 0;
-
+    [Space(10)]
     public Button SHUTTER_OPTION_1000;
     public Button SHUTTER_OPTION_0500;
     public Button SHUTTER_OPTION_0250;
@@ -48,7 +48,7 @@ public class BasisHandHeldCameraUI
     public Button SHUTTER_OPTION_0030;
     public Button SHUTTER_OPTION_0015;
     public int SHUTTER_OPTION = 0;
-
+    [Space(10)]
     public Button ISO_OPTION_0100;
     public Button ISO_OPTION_0200;
     public Button ISO_OPTION_0400;
@@ -57,7 +57,7 @@ public class BasisHandHeldCameraUI
     public Button ISO_OPTION_3200;
     public Button ISO_OPTION_6400;
     public int ISO_OPTION = 0;
-
+    [Space(10)]
     public TextMeshProUGUI DOFFocusOutput;
     public TextMeshProUGUI DepthApertureOutput;
     public TextMeshProUGUI BloomIntensityOutput;
@@ -67,26 +67,25 @@ public class BasisHandHeldCameraUI
     public TextMeshProUGUI FOVOutput;
     public TextMeshProUGUI SSXOutput;
     public TextMeshProUGUI SSYOutput;
-
+    [Space(10)]
     public Slider FOVSlider;
     public Slider DepthFocusDistanceSlider;
     public Slider DepthApertureSlider;
-
     public Slider SensorSizeXSlider;
     public Slider SensorSizeYSlider;
     public Slider BloomIntensitySlider;
     public Slider BloomThresholdSlider;
     public Slider ContrastSlider;
     public Slider SaturationSlider;
-
+    [Space(10)]
     public Button CameraSettingsSlidersPanelButton;
     public Button CameraSettingsButtonPanelButton;
-
+    [Space(10)]
     public Toggle depthIsActiveButton;
-
+    [Space(10)]
     public GameObject[] CameraSettingsSlidersPanel;
     public GameObject[] CameraSettingsButtonPanel;
-
+    [Space(10)]
     public BasisHandHeldCamera HHC;
     public async Task Initalize(BasisHandHeldCamera hhc)
     {
@@ -237,7 +236,6 @@ public class BasisHandHeldCameraUI
 
             if (!showSliders)
             {
-                FOVSlider.gameObject.SetActive(false);
                 DepthFocusDistanceSlider.gameObject.SetActive(false);
                 DepthApertureSlider.gameObject.SetActive(false);
                 SensorSizeXSlider.gameObject.SetActive(false);
@@ -249,7 +247,6 @@ public class BasisHandHeldCameraUI
             }
             else
             {
-                FOVSlider.gameObject.SetActive(true);
                 DepthFocusDistanceSlider.gameObject.SetActive(true);
                 DepthApertureSlider.gameObject.SetActive(true);
                 SensorSizeXSlider.gameObject.SetActive(true);
