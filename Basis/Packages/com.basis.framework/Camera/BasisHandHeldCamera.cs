@@ -9,7 +9,6 @@ using UnityEngine.Rendering;
 using TMPro;
 using UnityEngine.XR;
 using Basis.Scripts.Device_Management;
-
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
     public UniversalAdditionalCameraData CameraData;
@@ -34,12 +33,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public int depth = 24;
     [Space(10)]
     public bool enableRecordingView;
-    [Space(10)]
-    public GameObject ResolutionOptions;
-    public GameObject FormatOptions;
-    public GameObject ApertureOptions;
-    public GameObject ShutterOptions;
-    public GameObject ISOOptions;
     [Space(10)]
     private GameObject[] allOptionPanels;
     private int uiLayerMask;
@@ -98,15 +91,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         StartPreviewLoop();
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
 
-        allOptionPanels = new GameObject[]
-        {
-            ResolutionOptions,
-            FormatOptions,
-            ApertureOptions,
-            ShutterOptions,
-            ISOOptions
-        };
-
         int uiLayer = LayerMask.NameToLayer("UI");
         if (uiLayer < 0)
         {
@@ -126,6 +110,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             }
         }
     }
+
     public void SetResolution(int width, int height, AntialiasingQuality AQ, RenderTextureFormat RenderTextureFormat = RenderTextureFormat.ARGBFloat)
     {
         if (renderTexture == null || renderTexture.width != width || renderTexture.height != height || renderTexture.format != RenderTextureFormat)
@@ -153,7 +138,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         actualMaterial.mainTexture = renderTexture;
         Renderer.sharedMaterial = actualMaterial;
     }
-
     private void EnsureTexturePool(int width, int height, TextureFormat format)
     {
         if (pooledScreenshot == null || pooledScreenshot.width != width || pooledScreenshot.height != height || pooledScreenshot.format != format)
@@ -226,19 +210,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             previewRoutine = null;
         }
     }
-
-    private void ToggleOnlyThisPanel(GameObject panelToShow)
-    {
-        for (int i = 0; i < allOptionPanels.Length; i++)
-        {
-            allOptionPanels[i].SetActive(allOptionPanels[i] == panelToShow);
-        }
-    }
-    public void ResolutionButton() => ToggleOnlyThisPanel(ResolutionOptions);
-    public void FormatButton() => ToggleOnlyThisPanel(FormatOptions);
-    public void ApertureButton() => ToggleOnlyThisPanel(ApertureOptions);
-    public void ShutterButton() => ToggleOnlyThisPanel(ShutterOptions);
-    public void ISOButton() => ToggleOnlyThisPanel(ISOOptions);
 
     private void OnBootModeChanged(string obj)
     {
@@ -346,6 +317,40 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             captureCamera.cullingMask &= ~uiLayerMask; // Disable UI layer
         }
     }
+    public void SetFocusFromRay(Ray ray)
+    {
+        if (captureCamera == null || MetaData.depthOfField == null)
+        {
+            Debug.LogWarning("Cannot set DOF: Camera or DOF is missing.");
+            return;
+        }
+
+        if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
+        {
+            if (hit.collider.transform.IsChildOf(transform))
+            {
+                Debug.Log("[DOF] Raycast hit self — skipping.");
+                return;
+            }
+
+            float distance = Vector3.Distance(ray.origin, hit.point);
+            MetaData.depthOfField.focusDistance.value = distance;
+
+            if (HandHeld != null)
+            {
+                HandHeld.DepthFocusDistanceSlider.SetValueWithoutNotify(distance);
+                HandHeld.DOFFocusOutput.text = distance.ToString("F2");
+            }
+
+            Debug.Log($"[DOF] Focus distance set to {distance:F2} units (hit {hit.collider.name})");
+            Debug.DrawRay(ray.origin, ray.direction * 100f, Color.red, 1f);
+        }
+        else
+        {
+            Debug.Log("[DOF] Raycast did not hit anything.");
+        }
+    }
+
     public void CapturePhoto()
     {
         TextureFormat Format;
