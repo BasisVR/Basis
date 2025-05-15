@@ -195,12 +195,22 @@ public class BasisHandHeldCameraUI
     }
     private void UpdateResolutionSprites()
     {
-        for (int i = 0; i < ResolutionSprites.Length; i++)
+        int resolutionCount = ResolutionSprites.Length;
+
+        // Ensure index is in bounds before the loop
+        if (currentResolutionIndex < 0 || currentResolutionIndex >= resolutionCount)
+        {
+            BasisDebug.LogWarning($"[UpdateResolutionSprites] Invalid currentResolutionIndex: {currentResolutionIndex}, ResolutionSprites.Length: {resolutionCount}");
+            return;
+        }
+
+        for (int i = 0; i < resolutionCount; i++)
         {
             if (ResolutionSprites[i] != null)
                 ResolutionSprites[i].SetActive(i == currentResolutionIndex);
         }
     }
+
     public int GetFormatIndex()
     {
         return Format != null && Format.isOn ? FORMAT_EXR : FORMAT_PNG;
@@ -332,14 +342,55 @@ public class BasisHandHeldCameraUI
             if (depthIsActiveButton != null)
                 depthIsActiveButton.isOn = settings.depthIsActive;
 
-            // Camera setup
-            HHC.captureFormat = HHC.MetaData.formats[settings.resolutionIndex];
+            // Camera setup — safe index access
+            if (settings.resolutionIndex >= 0 && settings.resolutionIndex < HHC.MetaData.formats.Length)
+            {
+                HHC.captureFormat = HHC.MetaData.formats[settings.resolutionIndex];
+            }
+            else
+            {
+                BasisDebug.LogWarning($"[ApplySettings] Invalid resolutionIndex: {settings.resolutionIndex}, formats count: {HHC.MetaData.formats.Length}");
+                HHC.captureFormat = HHC.MetaData.formats[0];
+            }
+
             HHC.captureCamera.fieldOfView = settings.fov;
             HHC.captureCamera.focalLength = settings.focusDistance;
             HHC.captureCamera.sensorSize = new Vector2(settings.sensorSizeX, settings.sensorSizeY);
-            HHC.captureCamera.aperture = float.Parse(HHC.MetaData.apertures[settings.apertureIndex].TrimStart('f', '/'));
-            HHC.captureCamera.shutterSpeed = 1f / float.Parse(HHC.MetaData.shutterSpeeds[settings.shutterSpeedIndex].Split('/')[1]);
-            HHC.captureCamera.iso = int.Parse(HHC.MetaData.isoValues[settings.isoIndex]);
+
+            if (settings.apertureIndex >= 0 && settings.apertureIndex < HHC.MetaData.apertures.Length)
+            {
+                HHC.captureCamera.aperture = float.Parse(HHC.MetaData.apertures[settings.apertureIndex].TrimStart('f', '/'));
+            }
+            else
+            {
+                BasisDebug.LogWarning($"[ApplySettings] Invalid apertureIndex: {settings.apertureIndex}, count: {HHC.MetaData.apertures.Length}");
+            }
+
+            if (settings.shutterSpeedIndex >= 0 && settings.shutterSpeedIndex < HHC.MetaData.shutterSpeeds.Length)
+            {
+                string[] parts = HHC.MetaData.shutterSpeeds[settings.shutterSpeedIndex].Split('/');
+                if (parts.Length == 2 && float.TryParse(parts[1], out float denominator))
+                {
+                    HHC.captureCamera.shutterSpeed = 1f / denominator;
+                }
+                else
+                {
+                    BasisDebug.LogWarning($"[ApplySettings] Invalid shutter speed format: {HHC.MetaData.shutterSpeeds[settings.shutterSpeedIndex]}");
+                }
+            }
+            else
+            {
+                BasisDebug.LogWarning($"[ApplySettings] Invalid shutterSpeedIndex: {settings.shutterSpeedIndex}, count: {HHC.MetaData.shutterSpeeds.Length}");
+            }
+
+            if (settings.isoIndex >= 0 && settings.isoIndex < HHC.MetaData.isoValues.Length)
+            {
+                HHC.captureCamera.iso = int.Parse(HHC.MetaData.isoValues[settings.isoIndex]);
+            }
+            else
+            {
+                BasisDebug.LogWarning($"[ApplySettings] Invalid isoIndex: {settings.isoIndex}, count: {HHC.MetaData.isoValues.Length}");
+            }
 
             ApplyPostProcessingSettings(settings);
 

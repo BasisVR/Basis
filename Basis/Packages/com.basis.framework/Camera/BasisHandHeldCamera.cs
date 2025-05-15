@@ -37,6 +37,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     private GameObject[] allOptionPanels;
     private int uiLayerMask;
     private static Material clearMaterial;
+    private const string CLEAR_SHADER_PATH = "Unlit/Color";
     private Texture2D pooledScreenshot;
     [Space(10)]
     [SerializeField]
@@ -44,7 +45,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public BasisHandHeldCameraMetaData MetaData = new BasisHandHeldCameraMetaData();
     [Space(10)]
     private float previewUpdateInterval = 1f / 30f; // Target 30 FPS
-    private float nextPreviewTime = 0f;
     private Coroutine previewRoutine;
 
     public new async void Awake()
@@ -94,7 +94,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         int uiLayer = LayerMask.NameToLayer("UI");
         if (uiLayer < 0)
         {
-            Debug.LogWarning("UI Layer not found.");
+            BasisDebug.LogWarning("UI Layer not found.");
         }
         else
         {
@@ -103,7 +103,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
         if (clearMaterial == null)
         {
-            Shader shader = Shader.Find("Unlit/Color");
+            Shader shader = Shader.Find(CLEAR_SHADER_PATH);
             if (shader != null)
             {
                 clearMaterial = new Material(shader);
@@ -194,7 +194,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         float roundedFPS = Mathf.Clamp(Mathf.Round(halvedFPS / 5f) * 5f, 5f, 60f);
 
         previewUpdateInterval = 1f / roundedFPS;
-        Debug.Log($"Camera Preview FPS: {roundedFPS}");
+        BasisDebug.Log($"Camera Preview FPS: {roundedFPS}");
         
         if (previewRoutine == null)
         {
@@ -229,7 +229,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         }
         if (HandHeld != null)
         {
-            HandHeld.SaveSettings().ConfigureAwait(false); // async-safe call in cleanup
+            _ = HandHeld.SaveSettings();
         }
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         base.OnDestroy();
@@ -295,7 +295,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     {
         if (clearMaterial == null)
         {
-            Debug.LogWarning("Clear material not initialized");
+            BasisDebug.LogWarning("Clear material not initialized");
             return;
         }
 
@@ -306,7 +306,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     {
         if (uiLayerMask == 0)
         {
-            Debug.LogWarning("UI Layer Mask was not initialized properly.");
+            BasisDebug.LogWarning("UI Layer Mask was not initialized properly.");
             return;
         }
 
@@ -325,15 +325,15 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     {
         if (captureCamera == null || MetaData.depthOfField == null)
         {
-            Debug.LogWarning("Cannot set DOF: Camera or DOF is missing.");
+            BasisDebug.LogWarning("Cannot set DOF: Camera or DOF is missing.");
             return;
         }
 
         if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
         {
-            if (hit.collider.transform.IsChildOf(transform))
+            if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
             {
-                Debug.Log("[DOF] Raycast hit self — skipping.");
+                BasisDebug.Log("[DOF] Raycast hit self — skipping.");
                 return;
             }
 
@@ -346,12 +346,11 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
                 HandHeld.DOFFocusOutput.text = distance.ToString("F2");
             }
 
-            Debug.Log($"[DOF] Focus distance set to {distance:F2} units (hit {hit.collider.name})");
-            Debug.DrawRay(ray.origin, ray.direction * 100f, Color.red, 1f);
+            BasisDebug.Log($"[DOF] Focus distance set to {distance:F2} units (hit {hit.collider.name})");
         }
         else
         {
-            Debug.Log("[DOF] Raycast did not hit anything.");
+            BasisDebug.Log("[DOF] Raycast did not hit anything.");
         }
     }
 

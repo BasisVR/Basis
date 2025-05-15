@@ -30,7 +30,7 @@ public class PreviewClickDirect : MonoBehaviour
         {
             worldSpaceUICamera = Camera.main;
             if (worldSpaceUICamera == null)
-                Debug.LogWarning("No camera tagged MainCamera found. Assign worldSpaceUICamera manually.");
+                BasisDebug.LogWarning("No camera tagged MainCamera found. Assign worldSpaceUICamera manually.");
         }
     }
 
@@ -68,7 +68,7 @@ public class PreviewClickDirect : MonoBehaviour
             RenderTexture rt = cameraController.captureCamera.targetTexture;
             if (rt == null)
             {
-                Debug.LogWarning("[Click] RenderTexture is null.");
+                BasisDebug.LogWarning("[Click] RenderTexture is null.");
                 return;
             }
 

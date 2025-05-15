@@ -100,14 +100,17 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         public static async void OpenCamera(BasisHamburgerMenu menu)
         {
-            // Destroy existing camera if any
             if (activeCameraInstance != null)
             {
                 GameObject.Destroy(activeCameraInstance);
+                BasisDebug.Log("[OpenCamera] Destroyed previous camera instance.");
                 activeCameraInstance = null;
             }
+            else
+            {
+                BasisDebug.LogWarning("[OpenCamera] Tried to destroy camera, but none existed.");
+            }
 
-            // Get position/rotation for spawn
             menu.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
             BasisUIManagement.CloseAllMenus();
 
