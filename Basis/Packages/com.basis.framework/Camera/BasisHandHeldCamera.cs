@@ -67,14 +67,14 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             }
         }
 
-        await HandHeld.Initalize(this);
+        await HandHeld.Initialize(this);
 
         if (MetaData.Profile.TryGet(out MetaData.tonemapping))
         {
             ToggleToneMapping(TonemappingMode.Neutral);
         }
 
-        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
+        SetResolution(captureWidth, captureHeight, AntialiasingQuality.Low);
         CameraData.allowHDROutput = true;
         CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
         CameraData.antialiasingQuality = AntialiasingQuality.High;
@@ -226,6 +226,10 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         if (renderTexture != null)
         {
             renderTexture.Release();
+        }
+        if (HandHeld != null)
+        {
+            HandHeld.SaveSettings().ConfigureAwait(false); // async-safe call in cleanup
         }
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         base.OnDestroy();

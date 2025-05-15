@@ -22,6 +22,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public Button Camera;
         public static string MainMenuAddressableID = "MainMenu";
         public static BasisHamburgerMenu Instance;
+        internal static GameObject activeCameraInstance;
         public bool OverrideForceCalibration;
         public override void InitalizeEvent()
         {
@@ -97,12 +98,22 @@ namespace Basis.Scripts.UI.UI_Panels
             AddressableGenericResource resource = new AddressableGenericResource(MainMenuAddressableID, AddressableExpectedResult.SingleItem);
             OpenMenuNow(resource);
         }
-        public static async void OpenCamera(BasisHamburgerMenu BasisHamburgerMenu)
+        public static async void OpenCamera(BasisHamburgerMenu menu)
         {
-            BasisHamburgerMenu.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+            // Destroy existing camera if any
+            if (activeCameraInstance != null)
+            {
+                GameObject.Destroy(activeCameraInstance);
+                activeCameraInstance = null;
+            }
+
+            // Get position/rotation for spawn
+            menu.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
             BasisUIManagement.CloseAllMenus();
-            InstantiationParameters Pars = new InstantiationParameters(Position, Rotation, null);
-            await BasisHandHeldCameraFactory.CreateCamera(Pars);
+
+            InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
+            BasisHandHeldCamera cameraComponent = await BasisHandHeldCameraFactory.CreateCamera(parameters);
+            activeCameraInstance = cameraComponent.gameObject;
         }
 
         public override void DestroyEvent()
