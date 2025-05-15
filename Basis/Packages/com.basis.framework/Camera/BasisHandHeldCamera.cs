@@ -38,6 +38,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     private int uiLayerMask;
     private static Material clearMaterial;
     private const string CLEAR_SHADER_PATH = "Unlit/Color";
+    private const float RaycastMaxDistance = 1000f;
     private Texture2D pooledScreenshot;
     [Space(10)]
     [SerializeField]
@@ -216,7 +217,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         OverrideDesktopOutput();
     }
 
-    public new void OnDestroy()
+    public new async void OnDestroy()
     {
         StopPreviewLoop();
         if (BasisMeshRendererCheck != null)
@@ -229,7 +230,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         }
         if (HandHeld != null)
         {
-            _ = HandHeld.SaveSettings();
+            await HandHeld.SaveSettings();
         }
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         base.OnDestroy();
@@ -329,7 +330,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             return;
         }
 
-        if (Physics.Raycast(ray, out RaycastHit hit, 1000f))
+        if (Physics.Raycast(ray, out RaycastHit hit, RaycastMaxDistance))
         {
             if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
             {
