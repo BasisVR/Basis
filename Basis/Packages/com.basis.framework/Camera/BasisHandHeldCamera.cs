@@ -34,7 +34,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     [Space(10)]
     public bool enableRecordingView;
     [Space(10)]
-    private GameObject[] allOptionPanels;
     private int uiLayerMask;
     private static Material clearMaterial;
     private const string CLEAR_SHADER_PATH = "Unlit/Color";
