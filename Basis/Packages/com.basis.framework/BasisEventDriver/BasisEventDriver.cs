@@ -6,13 +6,13 @@ using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.UI.NamePlate;
 using UnityEngine;
 using UnityEngine.InputSystem;
-
 public class BasisEventDriver : MonoBehaviour
 {
     public float updateInterval = 0.1f; // 100 milliseconds
     public float timeSinceLastUpdate = 0f;
     public void OnEnable()
     {
+        BasisSceneFactory.Initalize();
         Application.onBeforeRender += OnBeforeRender;
     }
     public void OnDisable()
@@ -40,7 +40,10 @@ public class BasisEventDriver : MonoBehaviour
         // Reset flag once all actions are executed
         BasisDeviceManagement.hasPendingActions = !BasisDeviceManagement.mainThreadActions.IsEmpty;
     }
-
+    public void FixedUpdate()
+    {
+        BasisSceneFactory.Simulate();
+    }
     public void LateUpdate()
     {
         if (BasisLocalEyeDriver.RequiresUpdate())

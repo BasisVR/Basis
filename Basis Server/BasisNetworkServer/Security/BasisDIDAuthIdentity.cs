@@ -29,7 +29,7 @@ namespace BasisDidLink
         public ConcurrentDictionary<NetPeer, OnAuth> AuthIdentity = new ConcurrentDictionary<NetPeer, OnAuth>();
         private readonly ConcurrentDictionary<NetPeer, CancellationTokenSource> _timeouts = new ConcurrentDictionary<NetPeer, CancellationTokenSource>();
         public List<string> Admins = new List<string>();
-        public const string FilePath = "admins.xml";
+        public static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "admins.xml");
         public BasisDIDAuthIdentity()
         {
             string[] LoadedAdmins = LoadAdmins(FilePath);

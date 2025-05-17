@@ -52,7 +52,7 @@ public static class BasisPlayerSettingsManager
                 BasisDebug.LogError($"Failed to load settings for {uuid}: {ex.Message}. Resetting file.");
             }
 
-            File.Delete(filePath);
+            File.Delete(filePath);//runs if a error or file is bad.
         }
 
         BasisPlayerSettingsData defaultData = new BasisPlayerSettingsData(uuid, 1.0f, true);
@@ -64,9 +64,25 @@ public static class BasisPlayerSettingsManager
     {
         string sanitizedUuid = SanitizeFileName(settings.UUID);
         string filePath = GetFilePath(sanitizedUuid);
-        string json = JsonUtility.ToJson(settings, false);
 
         CacheSettings(sanitizedUuid, settings);
+
+        if (BasisPlayerSettingsData.Default.VolumeLevel == settings.VolumeLevel
+            && BasisPlayerSettingsData.Default.AvatarVisible == settings.AvatarVisible)
+        {
+            BasisDebug.Log("Player Settings where default no need to store a copy");
+            if (File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+            return;
+        }
+
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+        string json = JsonUtility.ToJson(settings, false);
         await File.WriteAllTextAsync(filePath, json);
     }
 

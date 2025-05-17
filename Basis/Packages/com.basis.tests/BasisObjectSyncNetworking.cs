@@ -75,7 +75,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         HasMessageIndexAssigned = false;
         BasisScene.OnNetworkMessageReceived += OnNetworkMessageReceived;
         BasisNetworkManagement.OnOwnershipTransfer += OnOwnershipTransfer;
-        BasisNetworkManagement.OwnershipReleased += OwnershipReleased;
+        BasisNetworkManagement.OnOwnershipReleased += OwnershipReleased;
         BasisNetworkNetIDConversion.OnNetworkIdAdded += OnNetworkIdAdded;
         _updateInterval = 1f / TargetFrequency; // Calculate interval (1/33 seconds)
         _lastUpdateTime = Time.timeAsDouble;
@@ -88,7 +88,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         HasMessageIndexAssigned = false;
         BasisScene.OnNetworkMessageReceived -= OnNetworkMessageReceived;
         BasisNetworkManagement.OnOwnershipTransfer -= OnOwnershipTransfer;
-        BasisNetworkManagement.OwnershipReleased -= OwnershipReleased;
+        BasisNetworkManagement.OnOwnershipReleased -= OwnershipReleased;
         BasisNetworkNetIDConversion.OnNetworkIdAdded -= OnNetworkIdAdded;
     }
 

@@ -56,7 +56,7 @@ namespace Basis.Scripts.Networking.Transmitters
         public Dictionary<byte, AdditionalAvatarData> SendingOutAvatarData = new Dictionary<byte, AdditionalAvatarData>();
         public float[] CalculatedDistances;
         public static Action AfterAvatarChanges;
-
+        public const float SmallestOutgoingInterval = 0.005f;
         /// <summary>
         /// schedules data going out. replaces existing byte index.
         /// </summary>
@@ -76,7 +76,7 @@ namespace Basis.Scripts.Networking.Transmitters
 
             if (timer >= interval)
             {
-                if (Ready && Player.BasisAvatar != null)
+                if (Player.BasisAvatar != null)
                 {
                     ScheduleCheck();
                     BasisNetworkAvatarCompressor.Compress(this, Player.BasisAvatar.Animator);
@@ -86,7 +86,7 @@ namespace Basis.Scripts.Networking.Transmitters
 
                     // Calculate next interval and clamp it
                     UnClampedInterval = DefaultInterval * (BaseMultiplier + (SmallestDistanceToAnotherPlayer * IncreaseRate));
-                    interval = math.clamp(UnClampedInterval, 0.005f, SlowestSendRate);
+                    interval = math.clamp(UnClampedInterval, SmallestOutgoingInterval, SlowestSendRate);
 
                     // Account for overshoot
                     timer -= interval;
@@ -176,14 +176,7 @@ namespace Basis.Scripts.Networking.Transmitters
                         TalkingPoints.Add(HearingIndexToId[Index]);
                     }
                 }
-                if (TalkingPoints.Count != 0)
-                {
-                    HasReasonToSendAudio = true;
-                }
-                else
-                {
-                    HasReasonToSendAudio = false;
-                }
+                HasReasonToSendAudio = TalkingPoints.Count != 0;
                 //even if we are not listening to anyone we still need to tell the server that!
                 VoiceReceiversMessage VRM = new VoiceReceiversMessage
                 {
@@ -229,24 +222,16 @@ namespace Basis.Scripts.Networking.Transmitters
         }
         public override void Initialize()
         {
-            if (Ready == false)
+            IndexLength = -1;
+            AudioTransmission.OnEnable(this);
+            OnAvatarCalibrationLocal();
+            if (HasEvents == false)
             {
-                IndexLength = -1;
-                AudioTransmission.OnEnable(this);
-                OnAvatarCalibrationLocal();
-                if (HasEvents == false)
-                {
-                    Player.OnAvatarSwitchedFallBack += OnAvatarCalibrationLocal;
-                    Player.OnAvatarSwitched += OnAvatarCalibrationLocal;
-                    Player.OnAvatarSwitched += SendOutAvatarChange;
-                    AfterAvatarChanges += SendOutLatest;
-                    HasEvents = true;
-                }
-                Ready = true;
-            }
-            else
-            {
-                BasisDebug.Log("Already Ready");
+                Player.OnAvatarSwitchedFallBack += OnAvatarCalibrationLocal;
+                Player.OnAvatarSwitched += OnAvatarCalibrationLocal;
+                Player.OnAvatarSwitched += SendOutAvatarChange;
+                AfterAvatarChanges += SendOutLatest;
+                HasEvents = true;
             }
         }
         public void ScheduleCheck()
@@ -325,7 +310,7 @@ namespace Basis.Scripts.Networking.Transmitters
         }
         public override void DeInitialize()
         {
-            if (Ready)
+            if (AudioTransmission != null)
             {
                 AudioTransmission.OnDisable();
             }

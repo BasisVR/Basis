@@ -6,11 +6,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.Build;
 using UnityEngine;
 
 public static class BasisBundleBuild
 {
+    public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
+   
     public static async Task<(bool, string)> GameObjectBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets)
     {
         int TargetCount = Targets.Count;
@@ -49,6 +50,22 @@ public static class BasisBundleBuild
     {
         try
         {
+            // Invoke pre build event and wait for all subscribers to complete
+            if (PreBuildBundleEvents != null)
+            {
+                List<Task> eventTasks = new List<Task>();
+                Delegate[] events = PreBuildBundleEvents.GetInvocationList();
+                int Length = events.Length;
+                for (int ctr = 0; ctr < Length; ctr++)
+                {
+                    Func<BasisContentBase, List<BuildTarget>, Task> handler = (Func<BasisContentBase, List<BuildTarget>, Task>)events[ctr];
+                    eventTasks.Add(handler(basisContentBase, targets));
+                }
+
+                await Task.WhenAll(eventTasks);
+                Debug.Log($"{Length} Pre BuildBundle Event(s)...");
+            }
+            
             Debug.Log("Starting BuildBundle...");
             EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 0);
 

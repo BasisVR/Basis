@@ -37,7 +37,7 @@ namespace Basis.Scripts.Networking
         /// fire when ownership is changed for a unique string
         /// </summary>
         public static OnNetworkMessageReceiveOwnershipTransfer OnOwnershipTransfer;
-        public static OnNetworkMessageReceiveOwnershipRemoved OwnershipReleased;
+        public static OnNetworkMessageReceiveOwnershipRemoved OnOwnershipReleased;
         public static ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new ConcurrentDictionary<ushort, BasisNetworkPlayer>();
         public static ConcurrentDictionary<ushort, BasisNetworkReceiver> RemotePlayers = new ConcurrentDictionary<ushort, BasisNetworkReceiver>();
         public static HashSet<ushort> JoiningPlayers = new HashSet<ushort>();
@@ -53,7 +53,7 @@ namespace Basis.Scripts.Networking
         /// this occurs after the localplayer has been approved by the network and setup
         /// </summary>
         public static Action<BasisNetworkPlayer, BasisLocalPlayer> OnLocalPlayerJoined;
-        public static bool HasSentOnLocalPlayerJoin = false;
+        public static bool LocalPlayerIsConnected { get; private set; }
         /// <summary>
         /// this occurs after a remote user has been authenticated and joined & spawned
         /// </summary>
@@ -119,7 +119,7 @@ namespace Basis.Scripts.Networking
             {
                 Instance = this;
             }
-            BasisNetworkPlayer.SetupData();
+            BasisAvatarMuscleRange.Initalize();
             MainThreadContext = SynchronizationContext.Current;
             // Initialize AvatarBuffer
             BasisAvatarBufferPool.AvatarBufferPool(30);
@@ -174,7 +174,7 @@ namespace Basis.Scripts.Networking
             LocalPlayerPeer = null;
             Transmitter = null;
             OnLocalPlayerJoined = null;
-            HasSentOnLocalPlayerJoin = false;
+            LocalPlayerIsConnected = false;
             OnRemotePlayerJoined = null;
             OnLocalPlayerLeft = null;
             OnRemotePlayerLeft = null;
@@ -335,7 +335,7 @@ namespace Basis.Scripts.Networking
                         LocalNetworkedPlayer.Initialize();
                         // Notify listeners about the local player joining.
                         OnLocalPlayerJoined?.Invoke(LocalNetworkedPlayer, BasisLocalPlayer.Instance);
-                        HasSentOnLocalPlayerJoin = true;
+                        LocalPlayerIsConnected = true;
                     }
                     catch (Exception ex)
                     {
@@ -373,12 +373,9 @@ namespace Basis.Scripts.Networking
                 {
                     BasisNetworkManagement.MainThreadContext.Post(async _ =>
                     {
-                        if (LocalPlayerPeer != null)
+                        if (LocalPlayerPeer != null && BasisNetworkManagement.Players.TryGetValue((ushort)LocalPlayerPeer.RemoteId, out BasisNetworkPlayer NetworkedPlayer))
                         {
-                            if (BasisNetworkManagement.Players.TryGetValue((ushort)LocalPlayerPeer.RemoteId, out BasisNetworkPlayer NetworkedPlayer))
-                            {
-                                BasisNetworkManagement.OnLocalPlayerLeft?.Invoke(NetworkedPlayer, (Basis.Scripts.BasisSdk.Players.BasisLocalPlayer)NetworkedPlayer.Player);
-                            }
+                            BasisNetworkManagement.OnLocalPlayerLeft?.Invoke(NetworkedPlayer, (Basis.Scripts.BasisSdk.Players.BasisLocalPlayer)NetworkedPlayer.Player);
                         }
                         if (BasisNetworkServerRunner != null)
                         {
@@ -417,12 +414,9 @@ namespace Basis.Scripts.Networking
                 {
                     BasisNetworkManagement.MainThreadContext.Post(async _ =>
                     {
-                        if (LocalPlayerPeer != null)
+                        if (LocalPlayerPeer != null && BasisNetworkManagement.Players.TryGetValue((ushort)LocalPlayerPeer.RemoteId, out BasisNetworkPlayer NetworkedPlayer))
                         {
-                            if (BasisNetworkManagement.Players.TryGetValue((ushort)LocalPlayerPeer.RemoteId, out BasisNetworkPlayer NetworkedPlayer))
-                            {
-                                BasisNetworkManagement.OnLocalPlayerLeft?.Invoke(NetworkedPlayer, (Basis.Scripts.BasisSdk.Players.BasisLocalPlayer)NetworkedPlayer.Player);
-                            }
+                            BasisNetworkManagement.OnLocalPlayerLeft?.Invoke(NetworkedPlayer, (BasisLocalPlayer)NetworkedPlayer.Player);
                         }
                         if (BasisNetworkServerRunner != null)
                         {

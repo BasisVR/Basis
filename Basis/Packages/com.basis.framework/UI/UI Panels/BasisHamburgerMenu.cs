@@ -41,9 +41,9 @@ namespace Basis.Scripts.UI.UI_Panels
         private Dictionary<BasisInput, Action> TriggerDelegates = new Dictionary<BasisInput, Action>();
         public void RespawnLocalPlayer()
         {
-            if (BasisLocalPlayer.Instance != null && BasisSceneFactory.Instance != null)
+            if (BasisLocalPlayer.Instance != null)
             {
-                BasisSceneFactory.Instance.SpawnPlayer(BasisLocalPlayer.Instance);
+                BasisSceneFactory.SpawnPlayer(BasisLocalPlayer.Instance);
             }
             BasisHamburgerMenu.Instance.CloseThisMenu();
         }
