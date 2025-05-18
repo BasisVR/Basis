@@ -31,6 +31,14 @@ namespace Basis.Scripts.Networking.Transmitters
         [NativeDisableParallelForRestriction]
         public NativeArray<float> smallestDistance;
 
+        // Returns whether the distance is smaller or greater than the boundaryDistance but adds a margin to prevent flapping (hysteresis).
+        // We increase margin before exiting and we decrease margin before entering (the margin is a ratio).
+        private bool HysteresisDistance(bool wasInside, float sqrDistance, float boundaryDistance, float margin = 0.05f)
+        {
+            float hysteresis = wasInside ? +margin : -margin;
+            return sqrDistance < boundaryDistance * (1f + hysteresis);
+        }
+
         public void Execute(int index)
         {
             // Calculate distance
@@ -39,9 +47,9 @@ namespace Basis.Scripts.Networking.Transmitters
             distances[index] = sqrDistance;
 
             // Determine boolean results
-            DistanceResults[index] = sqrDistance < VoiceDistance;
-            HearingResults[index] = sqrDistance < HearingDistance;
-            AvatarResults[index] = sqrDistance < AvatarDistance;
+            DistanceResults[index] = HysteresisDistance(DistanceResults[index], sqrDistance, VoiceDistance);
+            HearingResults[index] = HysteresisDistance(HearingResults[index], sqrDistance, HearingDistance);
+            AvatarResults[index] = HysteresisDistance(AvatarResults[index], sqrDistance, AvatarDistance);
 
             // Update the smallest distance (atomic operation to avoid race conditions)
             float currentSmallest = smallestDistance[0];
