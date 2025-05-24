@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.LowLevelPhysics;
 
@@ -6,6 +7,7 @@ using UnityEngine.LowLevelPhysics;
 public class HoverSphere
 {
     public bool enabled = true;
+    public bool OnlySortClosest = true;
     public Vector3 WorldPosition;
     [SerializeField]
     public float Radius;
@@ -67,7 +69,7 @@ public class HoverSphere
         }
     }
 
-    public HoverSphere(Vector3 position, float radius, int maxResults, LayerMask layerMask, bool startEnabled)
+    public HoverSphere(Vector3 position, float radius, int maxResults, LayerMask layerMask, bool startEnabled,bool onlySortClosest)
     {
         WorldPosition = position;
         Radius = radius;
@@ -76,48 +78,91 @@ public class HoverSphere
         Results = new HoverResult[MaxResults];
         LayerMask = layerMask;
         enabled = startEnabled;
+        OnlySortClosest = onlySortClosest;
+        AllocateArrays();
     }
 
-    public void PollSystem(Vector3 worldPositionUpdate)
+    private void AllocateArrays()
+    {
+        if (MaxResults <= 0) MaxResults = 1; // Prevent zero-size arrays
+
+        HitResults = new Collider[MaxResults];
+        Results = new HoverResult[MaxResults];
+    }
+
+    public void PollSystem(Vector3 updatedWorldPosition)
     {
         if (!enabled)
         {
             ResultCount = 0;
             return;
         }
-        WorldPosition = worldPositionUpdate;
 
-        if (MaxResults != HitResults.Length)
-        {
-            HitResults = new Collider[MaxResults];
-            Results = new HoverResult[MaxResults];
-        }
+        WorldPosition = updatedWorldPosition;
+
+        if (HitResults == null || HitResults.Length != MaxResults)
+            AllocateArrays();
 
         ResultCount = Physics.OverlapSphereNonAlloc(WorldPosition, Radius, HitResults, LayerMask, QueryTrigger);
-        HitsToSortedResults();
+        ProcessHits();
     }
 
-    private void HitsToSortedResults()
+    private void ProcessHits()
     {
-        // Calculate results
+        if (OnlySortClosest)
+        {
+            HoverResult closestResult = default;
+            float closestDistance = float.MaxValue;
+
+            for (int Index = 0; Index < ResultCount; Index++)
+            {
+                Collider col = HitResults[Index];
+                if (col == null) continue;
+
+                float distance = Vector3.Distance(col.transform.position, WorldPosition);
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestResult = new HoverResult(col, WorldPosition);
+                }
+            }
+
+            if (ResultCount > 0 && closestResult.collider != null)
+            {
+                Results[0] = closestResult;
+                ResultCount = 1; // update count to reflect only 1 result
+            }
+            else
+            {
+                ResultCount = 0;
+            }
+
+            return;
+        }
+
         for (int Index = 0; Index < ResultCount; Index++)
         {
-            var col = HitResults[Index];
-            HoverResult result;
-            if (col == null)
-                result = default;
-            else
-                result = new HoverResult(col, WorldPosition);
-            Results[Index] = result;
+            Collider col = HitResults[Index];
+            Results[Index] = col != null ? new HoverResult(col, WorldPosition) : default;
         }
-        // Sort by object distance to center
-        Array.Sort(Results[..ResultCount], (a, b) => a.distanceToCenter.CompareTo(b.distanceToCenter));
+        Array.Sort(Results, 0, ResultCount, HoverResultComparer.Instance);
     }
 
     public HoverResult? ClosestResult()
     {
-        if (ResultCount == 0 || MaxResults <= 0)
-            return null;
-        return Results[0];
+        return (ResultCount > 0 && MaxResults > 0) ? Results[0] : (HoverResult?)null;
+    }
+
+    /// <summary>
+    /// Efficient singleton comparer for sorting HoverResults by distance.
+    /// </summary>
+    private class HoverResultComparer : IComparer<HoverResult>
+    {
+        public static readonly HoverResultComparer Instance = new HoverResultComparer();
+
+        public int Compare(HoverResult a, HoverResult b)
+        {
+            return a.distanceToCenter.CompareTo(b.distanceToCenter);
+        }
     }
 }

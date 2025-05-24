@@ -368,20 +368,22 @@ public class BasisAvatarValidator
             }
         }
     }
+    public const int MaxTrianglesBeforeWarning = 150000;
+    public const int MeshVertices = 65535;
     public void CheckMesh(SkinnedMeshRenderer skinnedMeshRenderer, ref List<string> Errors, ref List<string> Warnings)
     {
         if (skinnedMeshRenderer.sharedMesh == null)
         {
-            Errors.Add(skinnedMeshRenderer.gameObject.name + " does not have a mesh assigned to its SkinnedMeshRenderer!");
+            Errors.Add($"{skinnedMeshRenderer.gameObject.name} does not have a mesh assigned to its SkinnedMeshRenderer!");
             return;
         }
-        if (skinnedMeshRenderer.sharedMesh.triangles.Length > 100000)
+        if (skinnedMeshRenderer.sharedMesh.triangles.Length > MaxTrianglesBeforeWarning)
         {
-            Warnings.Add(skinnedMeshRenderer.gameObject.name + " Has More then 100000 Triangles. This will cause performance issues");
+            Warnings.Add($"{skinnedMeshRenderer.gameObject.name} Has More then {MaxTrianglesBeforeWarning} Triangles. This will cause performance issues");
         }
-        if (skinnedMeshRenderer.sharedMesh.vertices.Length > 65535)
+        if (skinnedMeshRenderer.sharedMesh.vertices.Length > MeshVertices)
         {
-            Warnings.Add(skinnedMeshRenderer.gameObject.name + " Has more vertices then what can be properly renderer. this will cause performance issues");
+            Warnings.Add($"{skinnedMeshRenderer.gameObject.name} Has more vertices then what can be properly renderer ({MeshVertices}). this will cause performance issues");
         }
         if (skinnedMeshRenderer.sharedMesh.blendShapeCount != 0)
         {
@@ -389,16 +391,9 @@ public class BasisAvatarValidator
             if (!string.IsNullOrEmpty(assetPath))
             {
                 ModelImporter modelImporter = AssetImporter.GetAtPath(assetPath) as ModelImporter;
-                if (modelImporter != null)
+                if (modelImporter != null && !ModelImporterExtensions.IsLegacyBlendShapeNormalsEnabled(modelImporter))
                 {
-                    if (ModelImporterExtensions.IsLegacyBlendShapeNormalsEnabled(modelImporter))
-                    {
-
-                    }
-                    else
-                    {
-                        Warnings.Add($"{assetPath} does not have legacy blendshapes enabled, which may increase file size.");
-                    }
+                    Warnings.Add($"{assetPath} does not have legacy blendshapes enabled, which may increase file size.");
                 }
             }
         }

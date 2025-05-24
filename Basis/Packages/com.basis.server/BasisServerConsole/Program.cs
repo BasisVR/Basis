@@ -45,15 +45,16 @@ namespace Basis
                 await BasisServerSideLogging.ShutdownAsync();
                 BNL.Log("Server shut down successfully.");
             };
+            if (config.EnableConsole)
+            {
+                BasisConsoleCommands.RegisterCommand("/admin add", BasisConsoleCommands.HandleAddAdmin);
+                BasisConsoleCommands.RegisterCommand("/status", BasisConsoleCommands.HandleStatus);
+                BasisConsoleCommands.RegisterCommand("/shutdown", BasisConsoleCommands.HandleShutdown);
+                BasisConsoleCommands.RegisterCommand("/help", BasisConsoleCommands.HandleHelp);
+                BasisConsoleCommands.RegisterConfigurationCommands(config);
 
-            // BasisConsoleCommands.RegisterCommand("/admin add", BasisConsoleCommands.HandleAddAdmin);
-            // BasisConsoleCommands.RegisterCommand("/status", BasisConsoleCommands.HandleStatus);
-            // BasisConsoleCommands.RegisterCommand("/shutdown", BasisConsoleCommands.HandleShutdown);
-            // BasisConsoleCommands.RegisterCommand("/help", BasisConsoleCommands.HandleHelp);
-            //BasisConsoleCommands.RegisterConfigurationCommands(config);
-
-            // Task.Run(() => BasisConsoleCommands.ProcessConsoleCommands());
-
+                BasisConsoleCommands.StartConsoleListener();
+            }
             // Wait for shutdown signal
             shutdownEvent.Wait();
         }

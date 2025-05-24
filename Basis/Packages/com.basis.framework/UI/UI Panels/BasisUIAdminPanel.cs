@@ -3,7 +3,7 @@ using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.UI.UI_Panels;
 using System.Collections.Generic;
-using System.Linq;
+using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,7 +12,7 @@ public class BasisUIAdminPanel : BasisUIBase
 {
     public static string Path = "Packages/com.basis.sdk/Prefabs/UI/BasisUIAdminPanel.prefab";
     public static string CursorRequest = "BasisUIAdminPanel";
-    public GameObject ButtonPrefab;
+    public BasisUIAdminButton ButtonPrefab;
     public Transform Parent;
     public BasisNetworkPlayer SelectedPlayer;
     public override void DestroyEvent()
@@ -41,29 +41,33 @@ public class BasisUIAdminPanel : BasisUIBase
         GenerateButtons();
     }
 
-    public List<Button> buttons = new List<Button>();
+    public List<BasisUIAdminButton> AdminButtons = new List<BasisUIAdminButton>();
     public void GenerateButtons()
     {
-        foreach (Button Button in buttons)
+        foreach (BasisUIAdminButton Button in AdminButtons)
         {
             GameObject.Destroy(Button.gameObject);
         }
-        buttons.Clear();
+        AdminButtons.Clear();
         foreach (BasisNetworkPlayer Player in BasisNetworkManagement.Players.Values)
         {
-            var buttonObject = Instantiate(ButtonPrefab, Parent);
-            buttonObject.name = Player.Player.DisplayName;
+            var buttonObject = Instantiate(ButtonPrefab.gameObject, Parent);            buttonObject.name = Player.Player.DisplayName;
             buttonObject.SetActive(true);
-            if (buttonObject.TryGetComponent<Button>(out var button))
+            if (buttonObject.TryGetComponent<BasisUIAdminButton>(out BasisUIAdminButton BasisUIAdminButton))
             {
-                button.onClick.AddListener(() => OnClick(Player));
-                buttons.Add(button);
-                TextMeshProUGUI buttonText = buttonObject.GetComponentInChildren<TextMeshProUGUI>();
-                if (buttonText != null)
-                {
-                    buttonText.text = $"{Player.Player.DisplayName} :{Player.NetId} : {Player.Player.UUID}";
-                }
+                AdminButtons.Add(BasisUIAdminButton);
+
+                BasisUIAdminButton.Button.onClick.AddListener(() => OnClick(Player));
+                string cleanDisplayName = StripRichText(Player.Player.DisplayName);
+                BasisUIAdminButton.DisplayName.text = cleanDisplayName;
+                BasisUIAdminButton.PlayerUUID.text = $"{Player.Player.UUID}";
+                BasisUIAdminButton.NetworkID.text = $"{Player.NetId}";
             }
+        }
+        string StripRichText(string input)
+        {
+            // Regex pattern to match any <...> tags
+            return Regex.Replace(input, "<.*?>", string.Empty);
         }
     }
     private void BindButtons()

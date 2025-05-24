@@ -83,7 +83,8 @@ namespace Basis.Scripts.UI.UI_Panels
             avatarUrlsRuntime.Clear();
             avatarUrlsRuntime.AddRange(preLoadedBundles);
             await BasisDataStoreAvatarKeys.LoadKeys();
-            for (int Index = 0; Index < preLoadedBundles.Count; Index++)
+            int PreloadedCount = preLoadedBundles.Count;
+            for (int Index = 0; Index < PreloadedCount; Index++)
             {
                 BasisLoadableBundle loadableBundle = preLoadedBundles[Index];
                 BasisDataStoreAvatarKeys.AvatarKey Key = new BasisDataStoreAvatarKeys.AvatarKey()
@@ -100,7 +101,8 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             List<BasisDataStoreAvatarKeys.AvatarKey> activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
-            for (int Index = 0; Index < activeKeys.Count; Index++)
+            int AKcount = activeKeys.Count;
+            for (int Index = 0; Index < AKcount; Index++)
             {
                 if (!BasisLoadHandler.IsMetaDataOnDisc(activeKeys[Index].Url, out var info))
                 {
@@ -146,56 +148,49 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         private async Task CreateAvatarButtons(List<BasisDataStoreAvatarKeys.AvatarKey> activeKeys)
         {
-            foreach (var bundle in avatarUrlsRuntime)
+            foreach (BasisLoadableBundle bundle in avatarUrlsRuntime)
             {
-                // Ensure no duplicate buttons are created
-                if (createdCopies.Exists(copy => copy.name == bundle.BasisRemoteBundleEncrypted.CombinedURL))
+                if (bundle == null)
+                {
+                    continue;
+                }
+                if (createdCopies.Exists(copy => copy != null && copy.name == bundle.BasisRemoteBundleEncrypted.CombinedURL))
                 {
                     Debug.LogWarning("Button for this avatar already exists: " + bundle.BasisRemoteBundleEncrypted.CombinedURL);
                     continue;
                 }
-
-                var buttonObject = Instantiate(ButtonPrefab, ParentedAvatarButtons);
+                GameObject buttonObject = Instantiate(ButtonPrefab, ParentedAvatarButtons);
                 buttonObject.name = bundle.BasisRemoteBundleEncrypted.CombinedURL;
                 buttonObject.SetActive(true);
-
-                if (buttonObject.TryGetComponent<Button>(out var button))
+                if (buttonObject.TryGetComponent<BasisUIAvatarSelectionButton>(out var SelectionButton))
                 {
-                    button.onClick.AddListener(() => ShowInformation(bundle));
-
-                    TextMeshProUGUI buttonText = buttonObject.GetComponentInChildren<TextMeshProUGUI>();
-                    if (buttonText != null)
+                    SelectionButton.Button.onClick.AddListener(() => ShowInformation(bundle));
+                    BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
                     {
-                        BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
+                        LoadableBundle = bundle
+                    };
+                    try
+                    {
+                        if (bundle.UnlockPassword == BasisLocalPlayer.DefaultAvatar)
                         {
-                            LoadableBundle = bundle
-                        };
-
-                        try
-                        {
-                            if (bundle.UnlockPassword == BasisLocalPlayer.DefaultAvatar)
-                            {
-                                buttonText.text = BasisLocalPlayer.DefaultAvatar;
-                            }
-                            else
-                            {
-                                await BasisLoadHandler.HandleBundleAndMetaLoading(wrapper, Report, CancellationToken);
-                                buttonText.text = wrapper.LoadableBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
-                            }
+                            SelectionButton.Text.text = BasisLocalPlayer.DefaultAvatar;
                         }
-                        catch (Exception E)
+                        else
                         {
-                            BasisDebug.LogError(E);
-                            BasisLoadHandler.RemoveDiscInfo(bundle.BasisRemoteBundleEncrypted.CombinedURL);
-                            continue;
+                            await BasisLoadHandler.HandleBundleAndMetaLoading(wrapper, Report, CancellationToken);
+                            SelectionButton.Text.text = wrapper.LoadableBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
                         }
                     }
+                    catch (Exception E)
+                    {
+                        BasisDebug.LogError(E);
+                        BasisLoadHandler.RemoveDiscInfo(bundle.BasisRemoteBundleEncrypted.CombinedURL);
+                        continue;
+                    }
                 }
-
                 createdCopies.Add(buttonObject);
             }
         }
-
         private void ClearCreatedCopies()
         {
             foreach (var copy in createdCopies)

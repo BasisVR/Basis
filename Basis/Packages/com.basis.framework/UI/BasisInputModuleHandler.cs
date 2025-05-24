@@ -129,7 +129,10 @@ namespace Basis.Scripts.UI
                         BasisLocalInputActions.IgnoreCrouchToggle = true;
                         if (BasisDeviceManagement.Instance.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.Instance.CurrentMode == "OpenXRLoader" || ForceKeyboard)
                         {
-                            BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                            if (BasisVirtualKeyboard.HasInstance == false)
+                            {
+                                BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                            }
                         }
                     }
                 }
@@ -149,7 +152,10 @@ namespace Basis.Scripts.UI
                             BasisLocalInputActions.IgnoreCrouchToggle = true;
                             if (BasisDeviceManagement.Instance.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.Instance.CurrentMode == "OpenXRLoader" || ForceKeyboard)
                             {
-                                BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                                if (BasisVirtualKeyboard.HasInstance == false)
+                                {
+                                    BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                                }
                             }
                         }
                     }

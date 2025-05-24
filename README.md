@@ -25,7 +25,7 @@ We are actively working on Basis. If you like what you see please consider contr
 
  ## How you can Contribute
 
-After a half-year of development, we have only recently put Basis on github, which means while everything is operational, we still have to work on fixing plenty of bugs.
+After a year of development, we have only recently put Basis on github, which means while everything is operational, we still have to work on fixing plenty of bugs.
 
 Do you have a suggestion for improving Basis? Please Fork the repo and create a pull request! You can also open an issue with the tag “improvement”.
 Not sure how to contribute but still wanting to help out? Consider donating! We appreciate any help possible.

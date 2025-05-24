@@ -50,9 +50,9 @@ namespace Basis.Scripts.BasisSdk
 
         [SerializeField]
         public Renderer[] Renders;
+        [HideInInspector]
         [SerializeField]
         public BasisJiggleStrain[] JiggleStrains;
-
         public bool HasSendEvent;
         public AvatarNetworkMessageSendEventServerReductionSystem OnServerReductionSystemMessageReceived;
         public AvatarNetworkMessageReceiveEvent OnNetworkMessageReceived;

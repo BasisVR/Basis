@@ -52,6 +52,7 @@ public class Configuration
     public BasisUserRestrictionMode BasisUserRestrictionMode;
     public int HowManyDuplicateAuthCanExist = 2;
     public int AuthValidationTimeOutMiliseconds = 9000;
+    public bool EnableConsole = true;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

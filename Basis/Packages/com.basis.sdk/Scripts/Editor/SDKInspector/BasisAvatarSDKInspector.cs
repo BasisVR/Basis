@@ -19,7 +19,7 @@ public partial class BasisAvatarSDKInspector : Editor
     public bool AvatarEyePositionState = false;
     public bool AvatarMouthPositionState = false;
     public VisualElement rootElement;
-    public AvatarSDKJiggleBonesView AvatarSDKJiggleBonesView = new AvatarSDKJiggleBonesView();
+    //Deprecated 15052025 Use BasisJiggleBonesComponent instead public AvatarSDKJiggleBonesView AvatarSDKJiggleBonesView = new AvatarSDKJiggleBonesView();
     public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
     public Button EventCallbackAvatarBundleButton { get; private set; }
     public Texture2D Texture;
@@ -60,7 +60,7 @@ public partial class BasisAvatarSDKInspector : Editor
             rootElement.Add(button);
             BasisAutomaticSetupAvatarEditor.TryToAutomatic(this);
             SetupItems();
-            AvatarSDKJiggleBonesView.Initialize(this);
+            //deprecated 15/05/2025 use BasisJiggleBonesComponent  AvatarSDKJiggleBonesView.Initialize(this);
             AvatarSDKVisemes.Initialize(this);
             InspectorGuiCreated?.Invoke(this);
         }

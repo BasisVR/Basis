@@ -19,7 +19,7 @@ public class BasisTestNetworkAvatar : MonoBehaviour
     private void OnAvatarReady(bool IsOwner)
     {
         Debug.Log("was called!");
-        if (BasisNetworkManagement.HasSentOnLocalPlayerJoin == false)
+        if (BasisNetworkManagement.LocalPlayerIsConnected == false)
         {
             BasisNetworkManagement.OnLocalPlayerJoined += OnLocalPlayerJoined;
         }

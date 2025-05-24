@@ -33,8 +33,10 @@ namespace Basis.Scripts.Virtual_keyboard
         public static TMP_InputField TMPInputField;
         public LanguageStyle CurrentSelectedLanguage;
         public static string VirtualKeyboard = "Virtual Keyboard";
+        public static bool HasInstance;
         public static void CreateMenu(InputField inputField, TMP_InputField tMP_InputField)
         {
+            HasInstance = true;
             AddressableGenericResource resource = new AddressableGenericResource(VirtualKeyboard, AddressableExpectedResult.SingleItem);
             OpenMenuNow(resource);
             InputField = inputField;
@@ -63,6 +65,7 @@ namespace Basis.Scripts.Virtual_keyboard
         {
             if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsEnterKey || KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsCloseKey)
             {
+                HasInstance = false;
                 CloseThisMenu();
             }
             else

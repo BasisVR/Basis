@@ -20,9 +20,9 @@ namespace Basis.Scripts.Drivers
             }
             if (player.BasisAvatar != null)
             {
-                if (player.BasisAvatar.JiggleStrains != null && player.BasisAvatar.JiggleStrains.Length != 0)
+                if (player.BasisAvatar.TryGetComponent<BasisJiggleBonesComponent>(out var Jiggle))
                 {
-                    int Count = player.BasisAvatar.JiggleStrains.Length;
+                    int Count = Jiggle.JiggleStrains.Length;
                     JiggleRigRendererLOD = BasisHelpers.GetOrAddComponent<JiggleRigRendererLOD>(player.gameObject);
                     JiggleRigRendererLOD.cameraDistance = 0;
                     JiggleRigRendererLOD.Simulate();
@@ -31,7 +31,7 @@ namespace Basis.Scripts.Drivers
                     List<JiggleRig> Jiggles = new List<JiggleRig>();
                     for (int StrainIndex = 0; StrainIndex < Count; StrainIndex++)
                     {
-                        BasisJiggleStrain Strain = player.BasisAvatar.JiggleStrains[StrainIndex];
+                        BasisJiggleStrain Strain = Jiggle.JiggleStrains[StrainIndex];
                         if (Strain.RootTransform != null)
                         {
                             JiggleRig Rig = Conversion(Strain);
@@ -45,6 +45,36 @@ namespace Basis.Scripts.Drivers
                     Jiggler.jiggleRigs = Jiggles;
                     Jiggler.Initialize();
                     return true;
+                }
+                else
+                {
+                    if (player.BasisAvatar.JiggleStrains != null && player.BasisAvatar.JiggleStrains.Length != 0)
+                    {
+                        int Count = player.BasisAvatar.JiggleStrains.Length;
+                        JiggleRigRendererLOD = BasisHelpers.GetOrAddComponent<JiggleRigRendererLOD>(player.gameObject);
+                        JiggleRigRendererLOD.cameraDistance = 0;
+                        JiggleRigRendererLOD.Simulate();
+                        JiggleRigRendererLOD.SetRenderers(player.BasisAvatar.Renders);
+                        Jiggler = BasisHelpers.GetOrAddComponent<JiggleRigBuilder>(player.gameObject);
+                        List<JiggleRig> Jiggles = new List<JiggleRig>();
+                        for (int StrainIndex = 0; StrainIndex < Count; StrainIndex++)
+                        {
+                            BasisJiggleStrain Strain = player.BasisAvatar.JiggleStrains[StrainIndex];
+                            if (Strain.RootTransform != null)
+                            {
+                                JiggleRig Rig = Conversion(Strain);
+                                Jiggles.Add(Rig);
+                            }
+                            else
+                            {
+                                BasisDebug.LogError("Missing Root Transform of Jiggle Strain!");
+                            }
+                        }
+                        Jiggler.jiggleRigs = Jiggles;
+                        Jiggler.Initialize();
+                        return true;
+                    }
+
                 }
             }
             return false;

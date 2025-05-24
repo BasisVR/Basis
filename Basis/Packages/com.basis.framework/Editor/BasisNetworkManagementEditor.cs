@@ -50,7 +50,6 @@ public class BasisNetworkManagementEditor : Editor
         EditorGUILayout.LabelField("Transmitter Details", EditorStyles.boldLabel);
         if (BasisNetworkManagement.Instance.Transmitter != null)
         {
-            EditorGUILayout.LabelField("Ready:", BasisNetworkManagement.Instance.Transmitter.Ready.ToString());
             EditorGUILayout.LabelField("Has Events:", BasisNetworkManagement.Instance.Transmitter.HasEvents.ToString());
             EditorGUILayout.LabelField("Timer:", BasisNetworkManagement.Instance.Transmitter.timer.ToString("F3"));
             EditorGUILayout.LabelField("Interval:", BasisNetworkManagement.Instance.Transmitter.interval.ToString("F3"));

@@ -20,6 +20,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 06b1965d0565c4444b4ce3ea5aa8e690
+    m_Address: Packages/com.basis.tests/Mirror/BasisSDKMIrror.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0beeb56a431ea1646bb55ff6c6fc5a62
     m_Address: Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset
     m_ReadOnly: 0
@@ -257,6 +262,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ebe88bc64d28a8e4586b89098577937f
     m_Address: Interactable/InteractLineMat.mat
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ed07444dbf3e0f744a12b80ab0a8a2b7
+    m_Address: Packages/com.basis.sdk/Prefabs/UI/Personal Mirror Prefab/PersonalMirror.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

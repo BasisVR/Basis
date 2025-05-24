@@ -1,7 +1,7 @@
 namespace Basis.Scripts.Drivers
 {
     [System.Serializable]
-    public class PhonemeBlendShapeInfo
+    public class BasisPhonemeBlendShapeInfo
     {
         public string phoneme;
         public int blendShape;

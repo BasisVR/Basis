@@ -6,4 +6,6 @@ public class BasisLoadableBundle
     public BasisRemoteEncyptedBundle BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle();
     public BasisStoredEncryptedBundle BasisLocalEncryptedBundle= new BasisStoredEncryptedBundle();
     public BasisBundleConnector BasisBundleConnector;
+
 }
+

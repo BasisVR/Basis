@@ -17,7 +17,7 @@ namespace BasisNetworkServer.Security
     {
         private static readonly ConcurrentDictionary<string, BannedPlayer> BannedPlayers = new ConcurrentDictionary<string, BannedPlayer>();
         private static readonly HashSet<string> BannedUUIDs = new();
-        private static readonly string BanFilePath = "banned_players.xml";
+        private static readonly string BanFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "banned_players.xml");
 
         public class BannedPlayer
         {

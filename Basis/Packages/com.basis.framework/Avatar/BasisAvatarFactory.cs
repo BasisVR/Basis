@@ -289,23 +289,22 @@ namespace Basis.Scripts.Avatar
         }
         public static void SetupRemoteAvatar(BasisRemotePlayer Player)
         {
-            int RenderCount = Player.BasisAvatar.Renders.Length;
             Player.RemoteAvatarDriver.RemoteCalibration(Player);
-
             Player.InitalizeIKCalibration(Player.RemoteAvatarDriver);
-            for (int Index = 0; Index < RenderCount; Index++)
-            {
-                Player.BasisAvatar.Renders[Index].gameObject.layer = 7;
-            }
+            SetupAvatar(Player, BasisLayerMapper.RemoteAvatarLayer);
         }
         public static void SetupLocalAvatar(BasisLocalPlayer Player)
         {
-            int RenderCount = Player.BasisAvatar.Renders.Length;
             Player.LocalAvatarDriver.InitialLocalCalibration(Player);
             Player.InitalizeIKCalibration(Player.LocalAvatarDriver);
+            SetupAvatar(Player,BasisLayerMapper.LocalAvatarLayer);
+        }
+        public static void SetupAvatar(BasisPlayer Player,int Layer)
+        {
+            int RenderCount = Player.BasisAvatar.Renders.Length;
             for (int Index = 0; Index < RenderCount; Index++)
             {
-                Player.BasisAvatar.Renders[Index].gameObject.layer = 6;
+                Player.BasisAvatar.Renders[Index].gameObject.layer = Layer;
             }
         }
     }

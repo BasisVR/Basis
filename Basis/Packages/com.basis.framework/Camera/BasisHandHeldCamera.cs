@@ -9,7 +9,6 @@ using UnityEngine.Rendering;
 using TMPro;
 using UnityEngine.XR;
 using Basis.Scripts.Device_Management;
-
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
     public UniversalAdditionalCameraData CameraData;
@@ -18,12 +17,12 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public TextMeshProUGUI countdownText;
     public int captureWidth = 3840;
     public int captureHeight = 2160;
-
+    [Space(10)]
     public int PreviewCaptureWidth = 1920;
     public int PreviewCaptureHeight = 1080;
-
+    [Space(10)]
     private bool showUI = false;
-
+    [Space(10)]
     public BasisMeshRendererCheck BasisMeshRendererCheck;
     public MeshRenderer Renderer;
     public Material Material;
@@ -32,12 +31,22 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public string picturesFolder;
     public int InstanceID;
     public int depth = 24;
-
+    [Space(10)]
     public bool enableRecordingView;
-
+    [Space(10)]
+    private int uiLayerMask;
+    private static Material clearMaterial;
+    private const string CLEAR_SHADER_PATH = "Unlit/Color";
+    private const float RaycastMaxDistance = 1000f;
+    private Texture2D pooledScreenshot;
+    [Space(10)]
     [SerializeField]
     public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
     public BasisHandHeldCameraMetaData MetaData = new BasisHandHeldCameraMetaData();
+    [Space(10)]
+    private float previewUpdateInterval = 1f / 30f; // Target 30 FPS
+    private Coroutine previewRoutine;
+
     public new async void Awake()
     {
         captureCamera.forceIntoRenderTexture = true;
@@ -57,12 +66,15 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
                 captureCamera.clearFlags = PlayerCamera.clearFlags;
             }
         }
-        await HandHeld.Initalize(this);
+
+        await HandHeld.Initialize(this);
+
         if (MetaData.Profile.TryGet(out MetaData.tonemapping))
         {
             ToggleToneMapping(TonemappingMode.Neutral);
         }
-        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
+
+        SetResolution(captureWidth, captureHeight, AntialiasingQuality.Low);
         CameraData.allowHDROutput = true;
         CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
         CameraData.antialiasingQuality = AntialiasingQuality.High;
@@ -76,7 +88,127 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         await HandHeld.SaveSettings();
         base.Awake();
         captureCamera.gameObject.SetActive(true);
+        StartPreviewLoop();
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+
+        int uiLayer = LayerMask.NameToLayer("UI");
+        if (uiLayer < 0)
+        {
+            BasisDebug.LogWarning("UI Layer not found.");
+        }
+        else
+        {
+            uiLayerMask = 1 << uiLayer;
+        }
+
+        if (clearMaterial == null)
+        {
+            Shader shader = Shader.Find(CLEAR_SHADER_PATH);
+            if (shader != null)
+            {
+                clearMaterial = new Material(shader);
+            }
+        }
+    }
+
+    public void SetResolution(int width, int height, AntialiasingQuality AQ, RenderTextureFormat RenderTextureFormat = RenderTextureFormat.ARGBFloat)
+    {
+        if (renderTexture == null || renderTexture.width != width || renderTexture.height != height || renderTexture.format != RenderTextureFormat)
+        {
+            if (renderTexture != null)
+            {
+                renderTexture.Release();
+            }
+
+            RenderTextureDescriptor descriptor = new RenderTextureDescriptor(width, height, RenderTextureFormat, depth)
+            {
+                msaaSamples = 2,
+                useMipMap = false,
+                autoGenerateMips = false,
+                sRGB = true
+            };
+            renderTexture = new RenderTexture(descriptor);
+            renderTexture.Create();
+        }
+
+        captureCamera.targetTexture = renderTexture;
+        CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+        CameraData.antialiasingQuality = AQ;
+        actualMaterial.SetTexture("_MainTex", renderTexture);
+        actualMaterial.mainTexture = renderTexture;
+        Renderer.sharedMaterial = actualMaterial;
+    }
+    private void EnsureTexturePool(int width, int height, TextureFormat format)
+    {
+        if (pooledScreenshot == null || pooledScreenshot.width != width || pooledScreenshot.height != height || pooledScreenshot.format != format)
+        {
+            pooledScreenshot = new Texture2D(width, height, format, false);
+        }
+    }
+
+    public IEnumerator TakeScreenshot(TextureFormat TextureFormat, RenderTextureFormat Format = RenderTextureFormat.ARGBFloat)
+    {
+        SetResolution(captureWidth, captureHeight, AntialiasingQuality.High, Format);
+
+        yield return new WaitForEndOfFrame();
+
+        BasisLocalAvatarDriver.ScaleHeadToNormal();
+        ToggleToneMapping(TonemappingMode.ACES);
+        captureCamera.Render();
+
+        EnsureTexturePool(renderTexture.width, renderTexture.height, TextureFormat);
+
+        AsyncGPUReadback.Request(renderTexture, 0, request =>
+        {
+            if (request.hasError)
+            {
+                BasisDebug.LogError("GPU Readback failed.");
+                SetNormalAfterCapture();
+                return;
+            }
+
+            Unity.Collections.NativeArray<byte> data = request.GetData<byte>();
+            pooledScreenshot.LoadRawTextureData(data);
+            pooledScreenshot.Apply(false);
+
+            SetNormalAfterCapture();
+            SaveScreenshotAsync(pooledScreenshot);
+        });
+    }
+    private IEnumerator PreviewRenderLoop()
+    {
+        while (true)
+        {
+            if (captureCamera != null && captureCamera.targetTexture != null && captureCamera.enabled)
+            {
+                captureCamera.Render();
+            }
+            yield return new WaitForSecondsRealtime(previewUpdateInterval);
+        }
+    }
+
+    private void StartPreviewLoop()
+    {
+        float currentFPS = 1f / Mathf.Max(Time.unscaledDeltaTime, 0.001f);
+        float halvedFPS = currentFPS * 0.5f;
+        float roundedFPS = Mathf.Clamp(Mathf.Round(halvedFPS / 5f) * 5f, 5f, 60f);
+
+        previewUpdateInterval = 1f / roundedFPS;
+        BasisDebug.Log($"Camera Preview FPS: {roundedFPS}");
+        
+        if (previewRoutine == null)
+        {
+            previewRoutine = StartCoroutine(PreviewRenderLoop());
+        }
+    }
+
+    private void StopPreviewLoop()
+    {
+        if (previewRoutine != null)
+        {
+            StopCoroutine(previewRoutine);
+            previewRoutine = null;
+        }
     }
 
     private void OnBootModeChanged(string obj)
@@ -84,8 +216,9 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         OverrideDesktopOutput();
     }
 
-    public new void OnDestroy()
+    public new async void OnDestroy()
     {
+        StopPreviewLoop();
         if (BasisMeshRendererCheck != null)
         {
             BasisMeshRendererCheck.Check -= VisibilityFlag;
@@ -93,6 +226,10 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         if (renderTexture != null)
         {
             renderTexture.Release();
+        }
+        if (HandHeld != null)
+        {
+            await HandHeld.SaveSettings();
         }
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         base.OnDestroy();
@@ -154,37 +291,24 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         enableRecordingView = !enableRecordingView;
         OverrideDesktopOutput();
     }
-    void FillRenderTextureWithColor(RenderTexture rt, Color color)
+    private void FillRenderTextureWithColor(RenderTexture rt, Color color)
     {
-        // Save current active RenderTexture
-        RenderTexture previous = RenderTexture.active;
-
-        // Set our target as the active RenderTexture
-        RenderTexture.active = rt;
-
-        // Set up viewport and projection
-        GL.PushMatrix();
-        GL.LoadPixelMatrix(0, rt.width, rt.height, 0);
-
-        // Clear with the target color
-        GL.Clear(true, true, color);
-
-        // Clean up
-        GL.PopMatrix();
-
-        // Restore previous RT
-        RenderTexture.active = previous;
-    }
-    public void Nameplates()
-    {
-        int uiLayer = LayerMask.NameToLayer("UI");
-        if (uiLayer < 0)
+        if (clearMaterial == null)
         {
-            Debug.LogWarning("UI Layer not found.");
+            BasisDebug.LogWarning("Clear material not initialized");
             return;
         }
 
-        int uiLayerMask = 1 << uiLayer;
+        clearMaterial.color = color;
+        Graphics.Blit(null, rt, clearMaterial);
+    }
+    public void Nameplates()
+    {
+        if (uiLayerMask == 0)
+        {
+            BasisDebug.LogWarning("UI Layer Mask was not initialized properly.");
+            return;
+        }
 
         showUI = !showUI;
 
@@ -197,6 +321,39 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             captureCamera.cullingMask &= ~uiLayerMask; // Disable UI layer
         }
     }
+    public void SetFocusFromRay(Ray ray)
+    {
+        if (captureCamera == null || MetaData.depthOfField == null)
+        {
+            BasisDebug.LogWarning("Cannot set DOF: Camera or DOF is missing.");
+            return;
+        }
+
+        if (Physics.Raycast(ray, out RaycastHit hit, RaycastMaxDistance))
+        {
+            if (hit.collider != null && hit.collider.transform.IsChildOf(transform))
+            {
+                BasisDebug.Log("[DOF] Raycast hit self — skipping.");
+                return;
+            }
+
+            float distance = Vector3.Distance(ray.origin, hit.point);
+            MetaData.depthOfField.focusDistance.value = distance;
+
+            if (HandHeld != null)
+            {
+                HandHeld.DepthFocusDistanceSlider.SetValueWithoutNotify(distance);
+                HandHeld.DOFFocusOutput.text = distance.ToString("F2");
+            }
+
+            BasisDebug.Log($"[DOF] Focus distance set to {distance:F2} units (hit {hit.collider.name})");
+        }
+        else
+        {
+            BasisDebug.Log("[DOF] Raycast did not hit anything.");
+        }
+    }
+
     public void CapturePhoto()
     {
         TextureFormat Format;
@@ -205,8 +362,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         {
             Format = TextureFormat.RGBAFloat;
             RenderFormat = RenderTextureFormat.ARGBFloat;
-
-
         }
         else
         {
@@ -215,29 +370,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         }
 
         StartCoroutine(TakeScreenshot(Format, RenderFormat));
-    }
-
-    public void SetResolution(int width, int height, AntialiasingQuality AQ, RenderTextureFormat RenderTextureFormat = RenderTextureFormat.ARGBFloat)
-    {
-        if (renderTexture != null)
-        {
-            renderTexture.Release();
-        }
-        RenderTextureDescriptor descriptor = new RenderTextureDescriptor(width, height, RenderTextureFormat, depth)
-        {
-            msaaSamples = 2,
-            useMipMap = false,
-            autoGenerateMips = false,
-            sRGB = true
-        };
-        renderTexture = new RenderTexture(descriptor);
-        renderTexture.Create();
-        captureCamera.targetTexture = renderTexture;
-        CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-        CameraData.antialiasingQuality = AQ;
-        actualMaterial.SetTexture("_MainTex", renderTexture);
-        actualMaterial.mainTexture = renderTexture;
-        Renderer.sharedMaterial = actualMaterial;
     }
 
     public void ChangeResolution(int index)
@@ -254,33 +386,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         BasisDebug.Log($"Capture format changed to {captureFormat}");
     }
 
-    public IEnumerator TakeScreenshot(TextureFormat TextureFormat, RenderTextureFormat Format = RenderTextureFormat.ARGBFloat)
-    {
-        SetResolution(captureWidth, captureHeight, AntialiasingQuality.High, Format);
-        yield return new WaitForEndOfFrame();
-        BasisLocalAvatarDriver.ScaleHeadToNormal();
-        ToggleToneMapping(TonemappingMode.ACES);
-        captureCamera.Render();
-        yield return new WaitForEndOfFrame();
-
-        Texture2D screenshot = new Texture2D(renderTexture.width, renderTexture.height, TextureFormat, false);
-        AsyncGPUReadback.Request(renderTexture, 0, request =>
-        {
-            if (request.hasError)
-            {
-                BasisDebug.LogError("GPU Readback failed.");
-                SetNormalAfterCapture();
-                return;
-            }
-
-            Unity.Collections.NativeArray<byte> data = request.GetData<byte>();
-            screenshot.LoadRawTextureData(data);
-            screenshot.Apply(false);
-
-            SetNormalAfterCapture();
-            SaveScreenshotAsync(screenshot);
-        });
-    }
     public void SetNormalAfterCapture()
     {
         ToggleToneMapping(TonemappingMode.Neutral);
