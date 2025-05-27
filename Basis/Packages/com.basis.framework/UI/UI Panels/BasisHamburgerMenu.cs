@@ -21,22 +21,56 @@ namespace Basis.Scripts.UI.UI_Panels
         public Button Respawn;
         public Button Camera;
         public Button PersonalMirror;
+        public Image PersonalMirrorIcon;
+        public GameObject FullBodyParent;
         public static string MainMenuAddressableID = "MainMenu";
         public static BasisHamburgerMenu Instance;
         internal static GameObject activeCameraInstance;
-        internal static GameObject personalMirrorInstance;
+        internal static BasisPersonalMirror personalMirrorInstance;
+
         public bool OverrideForceCalibration;
+        public static bool HasMirror;
         public override void InitalizeEvent()
         {
             Instance = this;
+            UpdateMirrorState();
+
             Settings.onClick.AddListener(SettingsPanel);
             AvatarButton.onClick.AddListener(AvatarButtonPanel);
             FullBody.onClick.AddListener(PutIntoCalibrationMode);
             Respawn.onClick.AddListener(RespawnLocalPlayer);
             Camera.onClick.AddListener(() => OpenCamera(this));
-            PersonalMirror.onClick.AddListener(() => OpenPersonalMirror(this));
+
+            PersonalMirror.onClick.AddListener(() => OpenOrClosePersonalMirror(this));
+
             BasisCursorManagement.UnlockCursor(nameof(BasisHamburgerMenu));
             BasisUINeedsVisibleTrackers.Instance.Add(this);
+            BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+            FullBodyParent.SetActive(!BasisDeviceManagement.IsUserInDesktop());
+        }
+
+        public override void DestroyEvent()
+        {
+            // Remove listeners
+            Settings.onClick.RemoveListener(SettingsPanel);
+            AvatarButton.onClick.RemoveListener(AvatarButtonPanel);
+            FullBody.onClick.RemoveListener(PutIntoCalibrationMode);
+            Respawn.onClick.RemoveListener(RespawnLocalPlayer);
+            Camera.onClick.RemoveAllListeners(); // Used lambda, must remove all
+            PersonalMirror.onClick.RemoveAllListeners(); // Used lambda, must remove all
+
+            BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
+            BasisUINeedsVisibleTrackers.Instance.Remove(this);
+            BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+        }
+        private void OnBootModeChanged(string obj)
+        {
+            FullBodyParent.SetActive(!BasisDeviceManagement.IsUserInDesktop());
+        }
+
+        public void UpdateMirrorState()
+        {
+            PersonalMirrorIcon.color = HasMirror ? Color.red : Color.white;
         }
         private Dictionary<BasisInput, Action> TriggerDelegates = new Dictionary<BasisInput, Action>();
         public void RespawnLocalPlayer()
@@ -121,29 +155,35 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisHandHeldCamera cameraComponent = await BasisHandHeldCameraFactory.CreateCamera(parameters);
             activeCameraInstance = cameraComponent.gameObject;
         }
-        public static async void OpenPersonalMirror(BasisHamburgerMenu menu)
+        public override void DestroyEvent()
+
+            InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
+            BasisHandHeldCamera cameraComponent = await BasisHandHeldCameraFactory.CreateCamera(parameters);
+            activeCameraInstance = cameraComponent.gameObject;
+        }
+        public static async void OpenOrClosePersonalMirror(BasisHamburgerMenu menu)
         {
-            if (personalMirrorInstance != null)
+            if (HasMirror)
             {
-                GameObject.Destroy(personalMirrorInstance);
-                BasisDebug.Log("[OpenPersonalMirror] Destroyed previous mirror instance.");
+                HasMirror = false;
+                if (personalMirrorInstance != null)
+                {
+                    GameObject.Destroy(personalMirrorInstance.gameObject);
+                }
                 personalMirrorInstance = null;
+                menu.UpdateMirrorState();
             }
             else
             {
-                BasisDebug.LogWarning("[OpenPersonalMirror] Tried to destroy mirror, but none existed.");
+                if (HasMirror == false)
+                {
+                    HasMirror = true;
+                    menu.UpdateMirrorState();
+                    menu.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+                    InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
+                    personalMirrorInstance = await BasisPersonalMirrorFactory.CreateMirror(parameters);
+                }
             }
-            menu.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
-            BasisUIManagement.CloseAllMenus();
-
-            InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
-            BasisPersonalMirror mirrorComponent = await BasisPersonalMirrorFactory.CreateMirror(parameters);
-            personalMirrorInstance = mirrorComponent.gameObject;
-        }
-        public override void DestroyEvent()
-        {
-            BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
-            BasisUINeedsVisibleTrackers.Instance.Remove(this);
         }
     }
 }

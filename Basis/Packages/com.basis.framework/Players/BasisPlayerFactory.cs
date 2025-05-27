@@ -5,8 +5,6 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
-
-
 namespace Basis.Scripts.Player
 {
     public static class BasisPlayerFactory
