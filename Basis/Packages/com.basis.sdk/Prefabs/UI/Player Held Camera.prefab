@@ -1646,6 +1646,7 @@ GameObject:
   - component: {fileID: 15060440589094605}
   - component: {fileID: 4522140879432349440}
   - component: {fileID: 776022247282492588}
+  - component: {fileID: 6669071180814510435}
   m_Layer: 5
   m_Name: CursorPreviewScreen
   m_TagString: Untagged
@@ -1723,6 +1724,22 @@ MonoBehaviour:
   previewRect: {fileID: 208852300088584259}
   focusCursor: {fileID: 2049495183562144527}
   worldSpaceUICamera: {fileID: 0}
+--- !u!114 &6669071180814510435
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1287055481820051631}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbdeaec0f7e56aa45ad93ba27b94a466, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  previewClick: {fileID: 776022247282492588}
+  worldSpaceUICamera: {fileID: 0}
+  previewRect: {fileID: 208852300088584259}
+  interactThreshold: 0.9
 --- !u!1 &1366930664538580033
 GameObject:
   m_ObjectHideFlags: 0

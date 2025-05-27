@@ -1,5 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.BasisSdk.Players;
 
 public class PreviewClickDirect : MonoBehaviour
 {
@@ -33,8 +36,12 @@ public class PreviewClickDirect : MonoBehaviour
                 BasisDebug.LogWarning("No camera tagged MainCamera found. Assign worldSpaceUICamera manually.");
         }
     }
-
     private void OnClick(InputAction.CallbackContext context)
+    {
+        Vector2 screenPos = Mouse.current.position.ReadValue();
+        TryInteraction(screenPos);
+    }
+    public void TryInteraction(Vector2 screenPos)
     {
         if (cameraController.HandHeld.depthIsActiveButton == null || !cameraController.HandHeld.depthIsActiveButton.isOn)
             return;
@@ -42,7 +49,6 @@ public class PreviewClickDirect : MonoBehaviour
         if (previewRect == null || worldSpaceUICamera == null || cameraController == null)
             return;
 
-        Vector2 screenPos = Mouse.current.position.ReadValue();
         // Ensure we haven't clicked on other UI elements
         if (!RectTransformUtility.RectangleContainsScreenPoint(previewRect, screenPos, worldSpaceUICamera)) { return; }
         // Only respond if clicked on the previewRect
@@ -50,8 +56,10 @@ public class PreviewClickDirect : MonoBehaviour
         {
             // Move focus cursor to local position
             if (focusCursor != null)
+            {
                 focusCursor.anchoredPosition = localPos;
-
+                focusCursor.gameObject.SetActive(true);
+            }
             // Calculate UV from localPos
             Vector2 size = previewRect.rect.size;
             Vector2 pivot = previewRect.pivot;
@@ -79,7 +87,6 @@ public class PreviewClickDirect : MonoBehaviour
 
             // Generate the ray from captureCamera using pixelPos
             Ray ray = cameraController.captureCamera.ScreenPointToRay(pixelPos);
-
             cameraController.SetFocusFromRay(ray);
         }
     }
