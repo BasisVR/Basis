@@ -155,12 +155,6 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisHandHeldCamera cameraComponent = await BasisHandHeldCameraFactory.CreateCamera(parameters);
             activeCameraInstance = cameraComponent.gameObject;
         }
-        public override void DestroyEvent()
-
-            InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
-            BasisHandHeldCamera cameraComponent = await BasisHandHeldCameraFactory.CreateCamera(parameters);
-            activeCameraInstance = cameraComponent.gameObject;
-        }
         public static async void OpenOrClosePersonalMirror(BasisHamburgerMenu menu)
         {
             if (HasMirror)
