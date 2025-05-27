@@ -9,6 +9,7 @@ using UnityEngine.Rendering;
 using TMPro;
 using UnityEngine.XR;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.BasisSdk.Helpers;
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
     public UniversalAdditionalCameraData CameraData;
@@ -66,6 +67,9 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
                 captureCamera.clearFlags = PlayerCamera.clearFlags;
             }
         }
+
+        BasisMeshRendererCheck = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Renderer.gameObject);
+        BasisMeshRendererCheck.Check += VisibilityFlag;
 
         await HandHeld.Initialize(this);
 

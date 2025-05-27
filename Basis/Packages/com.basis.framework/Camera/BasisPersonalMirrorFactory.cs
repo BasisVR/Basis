@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 public static class BasisPersonalMirrorFactory
 {
-    public static async Task<BasisPersonalMirror> CreateMirror(InstantiationParameters InstantiationParameters)
+    public static async Task<BasisPersonalMirror> CreateMirror(InstantiationParameters InstantiationParameters, string Path = "Packages/com.basis.sdk/Prefabs/UI/Personal Mirror Prefab/PersonalMirror.prefab")
     {
         ChecksRequired Required = new ChecksRequired();
         Required.UseContentRemoval = false;
