@@ -1182,6 +1182,8 @@ MonoBehaviour:
   Respawn: {fileID: 6177668928599932322}
   Camera: {fileID: 1910678384374953430}
   PersonalMirror: {fileID: 4929223344291569152}
+  PersonalMirrorIcon: {fileID: 4293543267476797222}
+  FullBodyParent: {fileID: 0}
   OverrideForceCalibration: 0
 --- !u!114 &1537182542201181301
 MonoBehaviour:

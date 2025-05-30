@@ -65,7 +65,8 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         private void OnBootModeChanged(string obj)
         {
-            FullBodyParent.SetActive(!BasisDeviceManagement.IsUserInDesktop());
+            if(FullBodyParent != null)
+                FullBodyParent.SetActive(!BasisDeviceManagement.IsUserInDesktop());
         }
 
         public void UpdateMirrorState()
