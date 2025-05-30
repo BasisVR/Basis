@@ -117,6 +117,8 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
     private async System.Threading.Tasks.Task InitializeUI()
     {
+        basisMeshRendererCheck = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Renderer.gameObject);
+        basisMeshRendererCheck.Check += VisibilityFlag;
         await HandHeld.Initialize(this);
     }
 

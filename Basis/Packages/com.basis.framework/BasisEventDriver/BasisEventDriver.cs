@@ -67,4 +67,8 @@ public class BasisEventDriver : MonoBehaviour
             BasisNetworkTransmitter.AfterAvatarChanges?.Invoke();
         }
     }
+    public void OnApplicationQuit()
+    {
+        BasisMicrophoneRecorder.StopProcessingThread();
+    }
 }

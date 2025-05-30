@@ -123,10 +123,6 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisUILoadingBar.Initalize();
 
         }
-        public void OnApplicationQuit()
-        {
-            BasisMicrophoneRecorder.StopProcessingThread();
-        }
         public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
         {
             if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisOnDiscInformation info))

@@ -2,8 +2,10 @@ using UnityEngine;
 
 public class BasisPersonalMirror : MonoBehaviour
 {
-    void Start()
+    public static BasisPersonalMirror Instance;
+    public void OnEnable()
     {
-        
+        Instance = this;
+
     }
 }

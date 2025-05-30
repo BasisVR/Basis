@@ -156,29 +156,29 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisHandHeldCamera cameraComponent = await BasisHandHeldCameraFactory.CreateCamera(parameters);
             activeCameraInstance = cameraComponent.gameObject;
         }
-    public static async void OpenOrClosePersonalMirror(BasisHamburgerMenu menu)
-    {
-        if (HasMirror)
+        public static async void OpenOrClosePersonalMirror(BasisHamburgerMenu menu)
         {
-            HasMirror = false;
-            if (personalMirrorInstance != null)
+            if (HasMirror)
             {
-                GameObject.Destroy(personalMirrorInstance.gameObject);
-            }
-            personalMirrorInstance = null;
-            menu.UpdateMirrorState();
-        }
-        else
-        {
-            if (HasMirror == false)
-            {
-                HasMirror = true;
+                HasMirror = false;
+                if (personalMirrorInstance != null)
+                {
+                    GameObject.Destroy(personalMirrorInstance.gameObject);
+                }
+                personalMirrorInstance = null;
                 menu.UpdateMirrorState();
-                menu.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
-                InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
-                personalMirrorInstance = await BasisPersonalMirrorFactory.CreateMirror(parameters);
+            }
+            else
+            {
+                if (HasMirror == false)
+                {
+                    HasMirror = true;
+                    menu.UpdateMirrorState();
+                    menu.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+                    InstantiationParameters parameters = new InstantiationParameters(position, rotation, null);
+                    personalMirrorInstance = await BasisPersonalMirrorFactory.CreateMirror(parameters);
+                }
             }
         }
     }
-}
 }
