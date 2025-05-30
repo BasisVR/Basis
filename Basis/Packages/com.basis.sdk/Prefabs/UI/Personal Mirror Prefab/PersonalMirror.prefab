@@ -100,8 +100,6 @@ GameObject:
   - component: {fileID: 4147712560411048403}
   - component: {fileID: 2124879051369331049}
   - component: {fileID: 8346945181337994915}
-  - component: {fileID: -2353200309306215751}
-  - component: {fileID: -7649188115193421999}
   m_Layer: 8
   m_Name: PersonalMirror
   m_TagString: Untagged
@@ -148,8 +146,8 @@ MonoBehaviour:
   FarClipPlane: 25
   XSize: 2048
   YSize: 2048
-  depth: 8
-  Antialiasing: 2
+  depth: 24
+  Antialiasing: 4
   allowXRRendering: 1
   RenderPostProcessing: 0
   OcclusionCulling: 0
@@ -205,7 +203,7 @@ MonoBehaviour:
       State: 0
     extras: []
   disableInfluence: 0
-  InteractRange: 0.2
+  InteractRange: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
@@ -263,10 +261,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6605923727707009212}
-  serializedVersion: 5
+  serializedVersion: 4
   m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
+  m_Drag: 0
+  m_AngularDrag: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -283,34 +281,6 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &-2353200309306215751
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6605923727707009212}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e6527b4fe5e39b14a91aa0e51b25c992, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &-7649188115193421999
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6605923727707009212}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b87e7a2b5ca91e74f93d8eb6d575954e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  WorldOffset: {x: 0, y: 0, z: 0.75}
-  hasLocalCreationEvent: 0
-  Position: {x: 0, y: 0, z: 0}
-  Rotation: {x: 0, y: 0, z: 0, w: 0}
 --- !u!1 &7563364329703000399
 GameObject:
   m_ObjectHideFlags: 0

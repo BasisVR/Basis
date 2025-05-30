@@ -6,5 +6,6 @@ public class BasisPersonalMirror : MonoBehaviour
     public void OnEnable()
     {
         Instance = this;
+
     }
 }

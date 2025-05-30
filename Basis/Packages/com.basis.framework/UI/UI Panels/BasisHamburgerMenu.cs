@@ -27,6 +27,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public static BasisHamburgerMenu Instance;
         internal static GameObject activeCameraInstance;
         internal static BasisPersonalMirror personalMirrorInstance;
+
         public bool OverrideForceCalibration;
         public static bool HasMirror;
         public override void InitalizeEvent()
@@ -39,6 +40,7 @@ namespace Basis.Scripts.UI.UI_Panels
             FullBody.onClick.AddListener(PutIntoCalibrationMode);
             Respawn.onClick.AddListener(RespawnLocalPlayer);
             Camera.onClick.AddListener(() => OpenCamera(this));
+
             PersonalMirror.onClick.AddListener(() => OpenOrClosePersonalMirror(this));
 
             BasisCursorManagement.UnlockCursor(nameof(BasisHamburgerMenu));
@@ -63,7 +65,8 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         private void OnBootModeChanged(string obj)
         {
-            FullBodyParent.SetActive(!BasisDeviceManagement.IsUserInDesktop());
+            if(FullBodyParent != null)
+                FullBodyParent.SetActive(!BasisDeviceManagement.IsUserInDesktop());
         }
 
         public void UpdateMirrorState()
