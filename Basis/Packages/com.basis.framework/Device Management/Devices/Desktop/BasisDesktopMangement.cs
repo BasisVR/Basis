@@ -21,7 +21,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     gameObject.transform.parent = BasisLocalPlayer.Instance.transform;
                 }
                 BasisAvatarEyeInput = gameObject.AddComponent<BasisAvatarEyeInput>();
-                BasisAvatarEyeInput.Initalize("Desktop Eye", nameof(BasisDesktopManagement));
+                BasisAvatarEyeInput.Initialize("Desktop Eye", nameof(BasisDesktopManagement));
                 BasisDeviceManagement.Instance.TryAdd(BasisAvatarEyeInput);
             }
         }

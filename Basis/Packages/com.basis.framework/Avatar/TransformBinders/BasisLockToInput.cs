@@ -75,7 +75,8 @@ namespace Basis.Scripts.TransformBinders
                 }
                 else
                 {
-                    BasisDebug.LogError("There was a missing BasisInput at " + Index);
+                    // when application is exiting, objects will be destroyed naturally, don't error log during this process
+                    if (!Application.isPlaying) BasisDebug.LogError("There was a missing BasisInput at " + Index);
                 }
             }
         }

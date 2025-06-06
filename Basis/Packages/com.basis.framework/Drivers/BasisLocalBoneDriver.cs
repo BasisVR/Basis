@@ -21,7 +21,8 @@ namespace Basis.Scripts.Drivers
         public static BasisBoneControl LeftLowerArmControl;
         public static BasisBoneControl RightLowerArmControl;
         public static bool HasEye;
-        public void InitalizeLocal()
+
+        public void Initialize(BasisLocalPlayer localPlayer)
         {
             HasEye = FindBone(out Eye, BasisBoneTrackedRole.CenterEye);
             FindBone(out Head, BasisBoneTrackedRole.Head);

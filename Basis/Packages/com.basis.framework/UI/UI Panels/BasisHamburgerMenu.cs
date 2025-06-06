@@ -133,6 +133,19 @@ namespace Basis.Scripts.UI.UI_Panels
             AddressableGenericResource resource = new AddressableGenericResource(MainMenuAddressableID, AddressableExpectedResult.SingleItem);
             OpenMenuNow(resource);
         }
+
+        public static void ToggleHamburgerMenuNow()
+        {
+            if (Instance == null)
+            {
+                OpenHamburgerMenuNow();
+            }
+            else
+            {
+                Instance.CloseThisMenu();
+                Instance = null;
+            }
+        }
         public static async void OpenCamera(BasisHamburgerMenu menu)
         {
             if (activeCameraInstance != null)

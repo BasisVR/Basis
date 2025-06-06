@@ -7,6 +7,7 @@ public struct BasisAvatarAnimatorHash
     public int HashCurrentVerticalMovement;
     public int HashCurrentSpeed;
     public int HashCrouchedState;
+    public int HashCrouchBlend;
     public int HashMovingState;
 
         public int IsPaused;

@@ -74,7 +74,7 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
--# Basis exclusions
+# Basis exclusions
 [Aa]sset[Bb]undles/
 [Aa]ssets/_[Uu]ser[Cc]ontent
 [Aa]ssets/_[Uu]ser[Cc]ontent.meta

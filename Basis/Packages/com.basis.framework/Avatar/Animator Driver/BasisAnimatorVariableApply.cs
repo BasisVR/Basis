@@ -19,6 +19,12 @@ namespace Basis.Scripts.Animator_Driver
                 BasisAnimatorVariables.cachedAnimSpeed = BasisAnimatorVariables.AnimationsCurrentSpeed;
             }
 
+            if (BasisAnimatorVariables.cachedCrouchBlend != BasisAnimatorVariables.CrouchBlend)
+            {
+                Animator.SetFloat(BasisAvatarAnimatorHash.HashCrouchBlend, BasisAnimatorVariables.CrouchBlend);
+                BasisAnimatorVariables.cachedCrouchBlend = BasisAnimatorVariables.CrouchBlend;
+            }
+
             if (BasisAnimatorVariables.cachedIsMoving != BasisAnimatorVariables.isMoving)
             {
                 Animator.SetBool(BasisAvatarAnimatorHash.HashMovingState, BasisAnimatorVariables.isMoving);
@@ -53,7 +59,7 @@ namespace Basis.Scripts.Animator_Driver
                 Animator.SetBool(BasisAvatarAnimatorHash.HashIsJumping, BasisAnimatorVariables.IsJumping);
                 BasisAnimatorVariables.cachedIsJumping = BasisAnimatorVariables.IsJumping;
             }
-           // UpdateJumpState();
+            // UpdateJumpState();
             if (IsStopped != false)
             {
                 IsStopped = false;
@@ -79,14 +85,18 @@ namespace Basis.Scripts.Animator_Driver
             BasisAnimatorVariables.cachedIsFalling = false;
             BasisAnimatorVariables.IsFalling = false;
 
-            // Set all animator float parameters to zero
+            // Set all animator float parameters to defaults
             Animator.SetFloat(BasisAvatarAnimatorHash.HashCurrentSpeed, 0f);
+            Animator.SetFloat(BasisAvatarAnimatorHash.HashCrouchBlend, 1f);
             Animator.SetFloat(BasisAvatarAnimatorHash.HashCurrentHorizontalMovement, 0f);
             Animator.SetFloat(BasisAvatarAnimatorHash.HashCurrentVerticalMovement, 0f);
 
             // Update cached variables for float states
             BasisAnimatorVariables.cachedAnimSpeed = 0f;
             BasisAnimatorVariables.AnimationsCurrentSpeed = 0f;
+
+            BasisAnimatorVariables.cachedCrouchBlend = 1f;
+            BasisAnimatorVariables.CrouchBlend = 1f;
 
             BasisAnimatorVariables.cachedHorizontalMovement = 0f;
             BasisAnimatorVariables.cachedVerticalMovement = 0f;
@@ -101,6 +111,7 @@ namespace Basis.Scripts.Animator_Driver
             BasisAvatarAnimatorHash.HashCurrentHorizontalMovement = Animator.StringToHash("CurrentHorizontalMovement");
             BasisAvatarAnimatorHash.HashCurrentVerticalMovement = Animator.StringToHash("CurrentVerticalMovement");
             BasisAvatarAnimatorHash.HashCurrentSpeed = Animator.StringToHash("CurrentSpeed");
+            BasisAvatarAnimatorHash.HashCrouchBlend = Animator.StringToHash("CrouchBlend");
             BasisAvatarAnimatorHash.HashCrouchedState = Animator.StringToHash("CrouchedState");
             BasisAvatarAnimatorHash.HashMovingState = Animator.StringToHash("MovingState");
 
