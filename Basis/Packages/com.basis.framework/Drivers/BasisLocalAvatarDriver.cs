@@ -137,7 +137,7 @@ namespace Basis.Scripts.Drivers
             Builder.enabled = false;
             Calibration(player.BasisAvatar);
             BasisLocalPlayer.Instance.LocalBoneDriver.RemoveAllListeners();
-            BasisLocalPlayer.Instance.BasisLocalEyeDriver.Initalize(this, player);
+            BasisLocalPlayer.Instance.LocalEyeDriver.Initalize(this, player);
             SetMatrixOverride();
             updateWhenOffscreen(true);
             if (References.Hashead)
@@ -155,7 +155,7 @@ namespace Basis.Scripts.Drivers
             player.LocalMuscleDriver.Initialize(player.BasisAvatar.Animator);
 
             CalibrationComplete?.Invoke();
-            player.LocalAnimatorDriver.Initialize(player.BasisAvatar.Animator);
+            player.LocalAnimatorDriver.Initialize(player);
 
             ResetAvatarAnimator();
             BasisAvatarIKStageCalibration.HasFBIKTrackers = false;

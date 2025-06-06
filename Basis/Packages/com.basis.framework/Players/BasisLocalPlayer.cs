@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using static Basis.Scripts.Drivers.BasisBaseBoneDriver;
 namespace Basis.Scripts.BasisSdk.Players
 {
@@ -44,14 +45,14 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public static Action OnLocalPlayerCreatedAndReady;
         public static Action OnLocalPlayerCreated;
-        public event Action OnLocalAvatarChanged;
-        public event Action OnSpawnedEvent;
+        public Action OnLocalAvatarChanged;
+        public Action OnSpawnedEvent;
         public Action OnPlayersHeightChanged;
         public OrderedDelegate AfterFinalMove = new OrderedDelegate();
 
         public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
-        public BasisLocalHeightInformation LastHeight= new BasisLocalHeightInformation();
-        public BasisLocalCameraDriver CameraDriver;
+        public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
+        public BasisLocalCameraDriver LocalCameraDriver;
         //bones that we use to map between avatar and trackers
         [Header("Bone Driver")]
         [SerializeField]
@@ -74,7 +75,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisMuscleDriver LocalMuscleDriver = new BasisMuscleDriver();
         [Header("Eye Driver")]
         [SerializeField]
-        public BasisLocalEyeDriver BasisLocalEyeDriver = new BasisLocalEyeDriver();
+        public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();
         [Header("Mouth & Visemes Driver")]
         [SerializeField]
         public BasisAudioAndVisemeDriver LocalVisemeDriver = new BasisAudioAndVisemeDriver();
@@ -87,26 +88,26 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisMicrophoneRecorder.OnPausedAction += OnPausedEvent;
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
-            LocalBoneDriver.CreateInitialArrays(this.transform, true);
-            LocalBoneDriver.InitalizeLocal();
+            LocalBoneDriver.CreateInitialArrays(transform, true);
+            LocalBoneDriver.Initialize(this);
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);
-            CameraDriver.gameObject.SetActive(true);
             LocalCharacterDriver.Initialize(this);
+            LocalCameraDriver.gameObject.SetActive(true);
             if (HasEvents == false)
             {
                 OnLocalAvatarChanged += OnCalibration;
                 SceneManager.sceneLoaded += OnSceneLoadedCallback;
                 HasEvents = true;
             }
-            bool LoadedState = BasisDataStore.LoadAvatar(LoadFileNameAndExtension, DefaultAvatar, BasisPlayer.LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastUsedAvatar);
+            bool LoadedState = BasisDataStore.LoadAvatar(LoadFileNameAndExtension, DefaultAvatar, LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastUsedAvatar);
             if (LoadedState)
             {
                 await LoadInitialAvatar(LastUsedAvatar);
             }
             else
             {
-                await CreateAvatar(BasisPlayer.LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
+                await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
             BasisMicrophoneRecorder.TryInitialize();
             PlayerReady = true;
@@ -146,12 +147,12 @@ namespace Basis.Scripts.BasisSdk.Players
                     }
                 }
                 BasisDebug.Log("failed to load last used : no key found to load but was found on disc");
-                await CreateAvatar(BasisPlayer.LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
+                await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
             else
             {
                 BasisDebug.Log("failed to load last used : url was not found on disc");
-                await CreateAvatar(BasisPlayer.LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
+                await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
         }
         public void Teleport(Vector3 position, Quaternion rotation)
@@ -210,16 +211,16 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 LocalMuscleDriver.DisposeAllJobsData();
             }
-            if (BasisLocalEyeDriver != null)
+            if (LocalEyeDriver != null)
             {
-                BasisLocalEyeDriver.OnDestroy(this);
+                LocalEyeDriver.OnDestroy(this);
             }
             if (FacialBlinkDriver != null)
             {
                 FacialBlinkDriver.OnDestroy();
             }
             BasisMicrophoneRecorder.OnPausedAction -= OnPausedEvent;
-            LocalAnimatorDriver.OnDestroy(this);
+            LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
             BasisUILoadingBar.DeInitalize();
         }
@@ -269,7 +270,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalAvatarDriver.SimulateAnimatorAndIk();
 
             //we move the player at the very end after everything has been processed.
-            LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
+            LocalCharacterDriver.SimulateMovement(DeltaTime, transform);
 
             //Apply Animator Weights
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);

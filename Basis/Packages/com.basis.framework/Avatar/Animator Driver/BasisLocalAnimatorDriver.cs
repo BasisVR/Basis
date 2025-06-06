@@ -1,24 +1,27 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
-using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using Unity.Mathematics;
 using Basis.Scripts.Avatar;
+using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Drivers;
 namespace Basis.Scripts.Animator_Driver
 {
     [System.Serializable]
     public class BasisLocalAnimatorDriver
     {
+        [System.NonSerialized] public BasisLocalPlayer LocalPlayer;
+        [System.NonSerialized] public BasisLocalCharacterDriver LocalCharacterDriver;
         [SerializeField]
         private BasisAnimatorVariableApply basisAnimatorVariableApply = new BasisAnimatorVariableApply();
         [SerializeField]
         private Animator Animator;
-        public float LargerThenVelocityCheck = 0.01f;
+        public float StationaryVelocityThreshold = 0.01f;
         public float LargerThenVelocityCheckRotation = 0.03f;
         public float ScaleMovementBy = 1;
+        [Range(0,1f)] public float CrouchThreshold = 0.35f; // Percent of CrouchToStanding
         public float dampeningFactor = 6; // Adjust this value to control the dampening effect
         public float AngularDampingFactor = 30;
         private Vector3 previousRawVelocity = Vector3.zero;
@@ -40,6 +43,7 @@ namespace Basis.Scripts.Animator_Driver
         public Quaternion hipsDifferenceQ = Quaternion.identity;
         public float smoothFactor = 30f;
         public Quaternion smoothedRotation;
+
         public void SimulateAnimator(float DeltaTime)
         {
             if (BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
@@ -51,8 +55,8 @@ namespace Basis.Scripts.Animator_Driver
                 return;
             }
             // Calculate the velocity of the character controller
-            currentVelocity = Quaternion.Inverse(BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation)
-                              * (BasisLocalPlayer.Instance.LocalCharacterDriver.bottomPointLocalspace - BasisLocalPlayer.Instance.LocalCharacterDriver.LastbottomPoint) / DeltaTime;
+            var charDriver = BasisLocalPlayer.Instance.LocalCharacterDriver;
+            currentVelocity = Quaternion.Inverse(BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation) * (charDriver.bottomPointLocalSpace - charDriver.LastBottomPoint) / DeltaTime;
 
             // Sanitize currentVelocity
             currentVelocity = new Vector3(
@@ -84,10 +88,11 @@ namespace Basis.Scripts.Animator_Driver
             previousRawVelocity = dampenedVelocity;
 
             basisAnimatorVariableApply.BasisAnimatorVariables.Velocity = dampenedVelocity;
-            basisAnimatorVariableApply.BasisAnimatorVariables.isMoving = basisAnimatorVariableApply.BasisAnimatorVariables.Velocity.sqrMagnitude > LargerThenVelocityCheck;
+            bool isMoving = dampenedVelocity.sqrMagnitude > StationaryVelocityThreshold;
+            basisAnimatorVariableApply.BasisAnimatorVariables.isMoving = isMoving;
             basisAnimatorVariableApply.BasisAnimatorVariables.AnimationsCurrentSpeed = 1;
 
-            if (HasHipsInput && basisAnimatorVariableApply.BasisAnimatorVariables.isMoving == false)
+            if (HasHipsInput && isMoving == false)
             {
                 if (HipsInput.TryGetRole(out BasisBoneTrackedRole role))
                 {
@@ -98,8 +103,9 @@ namespace Basis.Scripts.Animator_Driver
                 }
             }
 
-            basisAnimatorVariableApply.BasisAnimatorVariables.IsFalling = BasisLocalPlayer.Instance.LocalCharacterDriver.IsFalling;
-            basisAnimatorVariableApply.BasisAnimatorVariables.IsCrouching = BasisLocalInputActions.Crouching;
+            basisAnimatorVariableApply.BasisAnimatorVariables.IsFalling = LocalCharacterDriver.IsFalling;
+            basisAnimatorVariableApply.BasisAnimatorVariables.CrouchBlend = LocalCharacterDriver.CrouchBlend;
+            basisAnimatorVariableApply.BasisAnimatorVariables.IsCrouching = LocalCharacterDriver.CrouchBlend < CrouchThreshold;
 
             // Calculate the angular velocity of the hips
             deltaRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation * Quaternion.Inverse(previousHipsRotation);
@@ -133,18 +139,20 @@ namespace Basis.Scripts.Animator_Driver
         {
             basisAnimatorVariableApply.UpdateIsLandingState();
         }
-        public void Initialize(Animator animator)
+        public void Initialize(BasisLocalPlayer localPlayer)
         {
-            this.Animator = animator;
+            LocalPlayer = localPlayer;
+            LocalCharacterDriver = localPlayer.LocalCharacterDriver;
+            Animator = localPlayer.BasisAvatar.Animator;
             Animator.logWarnings = false;
             Animator.updateMode = AnimatorUpdateMode.Normal;
             Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
 
             basisAnimatorVariableApply.LoadCachedAnimatorHashes(Animator);
-            if (HasEvents == false)
+            if (!HasEvents)
             {
-                BasisLocalPlayer.Instance.LocalCharacterDriver.JustJumped += JustJumped;
-                BasisLocalPlayer.Instance.LocalCharacterDriver.JustLanded += JustLanded;
+                LocalCharacterDriver.JustJumped += JustJumped;
+                LocalCharacterDriver.JustLanded += JustLanded;
                 BasisDeviceManagement.Instance.AllInputDevices.OnListChanged += AssignHipsFBTracker;
                 HasEvents = true;
             }
@@ -162,12 +170,12 @@ namespace Basis.Scripts.Animator_Driver
             previousAngularVelocity = Vector3.zero; // Reset angular velocity dampening on teleport
         }
 
-        public void OnDestroy(BasisLocalPlayer localPlayer)
+        public void OnDestroy()
         {
             if (HasEvents)
             {
-                localPlayer.LocalCharacterDriver.JustJumped -= JustJumped;
-                localPlayer.LocalCharacterDriver.JustLanded -= JustLanded;
+                LocalCharacterDriver.JustJumped -= JustJumped;
+                LocalCharacterDriver.JustLanded -= JustLanded;
                 BasisDeviceManagement.Instance.AllInputDevices.OnListChanged -= AssignHipsFBTracker;
             }
         }
