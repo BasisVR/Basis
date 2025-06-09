@@ -17,7 +17,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public Camera Camera;
         public BasisLocalAvatarDriver AvatarDriver;
         public static BasisAvatarEyeInput Instance;
-        public float rotationSpeed = 0.1f;
+        public float rotationSpeed = 1f;
         public float rotationY;
         public float rotationX;
         public float minimumY = -89f;
@@ -26,6 +26,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public float InjectedZ = 0;
         public bool HasEyeEvents = false;
         public float InjectedZRot = 0;
+
+        public Vector2 LookRotationVector = Vector2.zero;
 
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         private readonly BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
@@ -66,18 +68,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 HasEyeEvents = true;
             }
             //  OnCalibration();
-        }
-
-        [Obsolete("Use BasisLocalPlayer.Instance.LocalCharacterDriver.LockLookRotation instead")]
-        public void PauseHead(string requestName)
-        {
-            LookRotationLock.Add(requestName);
-        }
-
-        [Obsolete("Use BasisLocalPlayer.Instance.LocalCharacterDriver.UnlockLookRotation instead")]
-        public bool UnPauseHead(string requestName)
-        {
-            return LookRotationLock.Remove(requestName);
         }
 
         private void OnCursorStateChange(CursorLockMode cursor, bool newCursorVisible)
@@ -127,6 +117,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             BasisLocalPlayer.Instance.OnLocalAvatarChanged -= PlayerInitialized;
             base.OnDisable();
         }
+
+        public void SetLookRotationVector(Vector2 delta)
+        {
+            LookRotationVector = delta;
+        }
+
         public void HandleLookRotation(Vector2 lookVector)
         {
             BasisPointRaycaster.ScreenPoint = Mouse.current.position.value;
@@ -141,6 +137,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             if (hasRoleAssigned)
             {
+                if (!LookRotationVector.Equals(Vector2.zero))
+                    HandleLookRotation(LookRotationVector);
                 if (BasisLocalInputActions.Instance != null)
                 {
                     BasisLocalInputActions.Instance.InputState.CopyTo(InputState);

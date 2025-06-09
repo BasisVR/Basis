@@ -33,6 +33,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
 
+        public float MouseSensitivity = 1f;
+        public float JoystickSensitivity = 1f;
+
         [System.NonSerialized] public BasisLocalPlayer LocalPlayer;
         [System.NonSerialized] public BasisLocalCharacterDriver LocalCharacterDriver;
         [System.NonSerialized] public BasisAvatarEyeInput AvatarEyeInput;
@@ -40,9 +43,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public PlayerInput Input;
 
         [SerializeField] public BasisInputState InputState = new BasisInputState();
-
-        [Obsolete("This is a short-term solution for listening for the menu action. Later changes will make this actually obsolete.")]
-        public Action OnMenu = BasisHamburgerMenu.ToggleHamburgerMenuNow;
 
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
 
@@ -125,18 +125,18 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private void AddCallbacks()
         {
-            CrouchAction.action.performed += OnCrouchStarted;
+            CrouchAction.action.performed += OnCrouchPerformed;
             DesktopSwitch.action.performed += OnSwitchDesktop;
             Escape.action.performed += OnEscapePerformed;
             JumpAction.action.performed += OnJumpActionPerformed;
             LeftMousePressed.action.performed += OnLeftMouse;
             MiddleMouseScroll.action.performed += OnMouseScroll;
             MiddleMouseScrollClick.action.performed += OnMouseScrollClick;
-            MoveAction.action.performed += OnMoveActionStarted;
+            MoveAction.action.performed += OnMoveActionPerformed;
             PrimaryButtonGetState.action.performed += OnPrimaryGet;
             RightMousePressed.action.performed += OnRightMouse;
             RunButton.action.performed += OnRunStarted;
-            LookAction.action.performed += OnLookActionStarted;
+            LookAction.action.performed += OnLookActionPerformed;
             XRSwitch.action.performed += OnSwitchOpenXR;
 
             CrouchAction.action.canceled += OnCrouchCancelled;
@@ -155,18 +155,18 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private void RemoveCallbacks()
         {
-            CrouchAction.action.performed -= OnCrouchStarted;
+            CrouchAction.action.performed -= OnCrouchPerformed;
             DesktopSwitch.action.performed -= OnSwitchDesktop;
             Escape.action.performed -= OnEscapePerformed;
             JumpAction.action.performed -= OnJumpActionPerformed;
             LeftMousePressed.action.performed -= OnLeftMouse;
             MiddleMouseScroll.action.performed -= OnMouseScroll;
             MiddleMouseScrollClick.action.performed -= OnMouseScrollClick;
-            MoveAction.action.performed -= OnMoveActionStarted;
+            MoveAction.action.performed -= OnMoveActionPerformed;
             PrimaryButtonGetState.action.performed -= OnPrimaryGet;
             RightMousePressed.action.performed -= OnRightMouse;
             RunButton.action.performed -= OnRunStarted;
-            LookAction.action.performed -= OnLookActionStarted;
+            LookAction.action.performed -= OnLookActionPerformed;
             XRSwitch.action.performed -= OnSwitchOpenXR;
 
             CrouchAction.action.canceled -= OnCrouchCancelled;
@@ -183,21 +183,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             LookAction.action.canceled -= OnLookActionCancelled;
         }
 
-        // Handling normalized values from analog controls such as joysticks,
-        // that aren't already handled elsewhere (eg: movement updates are handled in another script)
-        private void Update()
-        {
-            if (AvatarEyeInput != null)
-            {
-                var lookDelta = LookAction.action.ReadValue<Vector2>();
-                // locks vertical look to the crouch control
-                if (IsCrouchHeld) lookDelta.y = 0;
-                AvatarEyeInput.HandleLookRotation(lookDelta);
-            }
-        }
-
         // Input action methods
-        public void OnMoveActionStarted(InputAction.CallbackContext ctx)
+        public void OnMoveActionPerformed(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetMovementVector(ctx.ReadValue<Vector2>());
             LocalCharacterDriver.UpdateMovementSpeed(IsRunHeld);
@@ -206,23 +193,32 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnMoveActionCancelled(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetMovementVector(Vector2.zero);
-            bool monoStableInput = false;
-            monoStableInput |= ctx.control.device is Gamepad;
-            monoStableInput |= ctx.control.device is Joystick;
-            if (monoStableInput)
+            if (IsMonoStableInput(ctx.control.device))
             {
                 IsRunHeld = false;
                 LocalCharacterDriver.UpdateMovementSpeed(IsRunHeld);
             }
         }
 
-        public void OnLookActionStarted(InputAction.CallbackContext ctx)
+        private const float deltaCoefficient = 0.1f;
+        public void OnLookActionPerformed(InputAction.CallbackContext ctx)
         {
+            var sensitivity = IsMonoStableInput(ctx.control.device) ? JoystickSensitivity : MouseSensitivity;
+            var lookDelta = ctx.ReadValue<Vector2>() * (deltaCoefficient * sensitivity);
             if (IsCrouchHeld)
-                LocalCharacterDriver.UpdateCrouchBlend(ctx.ReadValue<Vector2>().y);
+            {
+                LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
+                lookDelta.y = 0;
+            }
+
+            if (AvatarEyeInput) AvatarEyeInput.SetLookRotationVector(lookDelta);
         }
 
-        public void OnLookActionCancelled(InputAction.CallbackContext ctx) { }
+        public void OnLookActionCancelled(InputAction.CallbackContext ctx)
+        {
+            LocalCharacterDriver.SetCrouchBlendDelta(0f);
+            if (AvatarEyeInput) AvatarEyeInput.SetLookRotationVector(Vector2.zero);
+        }
 
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)
         {
@@ -234,7 +230,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             // Logic for when jump is cancelled (if needed)
         }
 
-        public void OnCrouchStarted(InputAction.CallbackContext ctx)
+        public void OnCrouchPerformed(InputAction.CallbackContext ctx)
         {
             if (ctx.interaction is UnityEngine.InputSystem.Interactions.TapInteraction) LocalCharacterDriver.CrouchToggle();
             if (ctx.interaction is UnityEngine.InputSystem.Interactions.HoldInteraction) CrouchStart();
@@ -272,9 +268,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnEscapePerformed(InputAction.CallbackContext ctx)
         {
-#pragma warning disable CS0618
-            OnMenu?.Invoke();
-#pragma warning restore CS0618
+            BasisHamburgerMenu.ToggleHamburgerMenu();
         }
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx)
@@ -320,6 +314,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnMouseScrollClick(InputAction.CallbackContext ctx)
         {
             InputState.Secondary2DAxisClick = ctx.ReadValue<float>() == 1;
+        }
+
+        private static bool IsMonoStableInput(InputDevice device)
+        {
+            bool monoStable = false;
+            monoStable |= device is Gamepad;
+            monoStable |= device is Joystick;
+            return monoStable;
         }
     }
 }

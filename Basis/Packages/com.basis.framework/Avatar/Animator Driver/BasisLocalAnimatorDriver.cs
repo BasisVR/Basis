@@ -44,9 +44,29 @@ namespace Basis.Scripts.Animator_Driver
         public float smoothFactor = 30f;
         public Quaternion smoothedRotation;
 
+        public void Initialize(BasisLocalPlayer localPlayer)
+        {
+            LocalPlayer = localPlayer;
+            LocalCharacterDriver = localPlayer.LocalCharacterDriver;
+            Animator = localPlayer.BasisAvatar.Animator;
+            Animator.logWarnings = false;
+            Animator.updateMode = AnimatorUpdateMode.Normal;
+            Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+
+            basisAnimatorVariableApply.LoadCachedAnimatorHashes(Animator);
+            if (!HasEvents)
+            {
+                LocalCharacterDriver.JustJumped += JustJumped;
+                LocalCharacterDriver.JustLanded += JustLanded;
+                BasisDeviceManagement.Instance.AllInputDevices.OnListChanged += AssignHipsFBTracker;
+                HasEvents = true;
+            }
+            AssignHipsFBTracker();
+        }
+
         public void SimulateAnimator(float DeltaTime)
         {
-            if (BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
+            if (LocalPlayer.LocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
             {
                 if (basisAnimatorVariableApply.IsStopped == false)
                 {
@@ -55,7 +75,7 @@ namespace Basis.Scripts.Animator_Driver
                 return;
             }
             // Calculate the velocity of the character controller
-            var charDriver = BasisLocalPlayer.Instance.LocalCharacterDriver;
+            var charDriver = LocalPlayer.LocalCharacterDriver;
             currentVelocity = Quaternion.Inverse(BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation) * (charDriver.bottomPointLocalSpace - charDriver.LastBottomPoint) / DeltaTime;
 
             // Sanitize currentVelocity
@@ -138,25 +158,6 @@ namespace Basis.Scripts.Animator_Driver
         private void JustLanded()
         {
             basisAnimatorVariableApply.UpdateIsLandingState();
-        }
-        public void Initialize(BasisLocalPlayer localPlayer)
-        {
-            LocalPlayer = localPlayer;
-            LocalCharacterDriver = localPlayer.LocalCharacterDriver;
-            Animator = localPlayer.BasisAvatar.Animator;
-            Animator.logWarnings = false;
-            Animator.updateMode = AnimatorUpdateMode.Normal;
-            Animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
-
-            basisAnimatorVariableApply.LoadCachedAnimatorHashes(Animator);
-            if (!HasEvents)
-            {
-                LocalCharacterDriver.JustJumped += JustJumped;
-                LocalCharacterDriver.JustLanded += JustLanded;
-                BasisDeviceManagement.Instance.AllInputDevices.OnListChanged += AssignHipsFBTracker;
-                HasEvents = true;
-            }
-            AssignHipsFBTracker();
         }
         public void AssignHipsFBTracker()
         {

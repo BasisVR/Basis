@@ -134,7 +134,7 @@ namespace Basis.Scripts.UI.UI_Panels
             OpenMenuNow(resource);
         }
 
-        public static void ToggleHamburgerMenuNow()
+        public static void ToggleHamburgerMenu()
         {
             if (Instance == null)
             {

@@ -66,6 +66,13 @@ namespace Basis.Scripts.BasisCharacterController
         /// A value between 0 and 1 representing the character's crouch state, where 0 is fully crouched and 1 is fully standing.
         /// </summary>
         public float CrouchBlend = 1f;
+
+        /// <summary>
+        /// Value updated by <see cref="SetCrouchBlendDelta"/> which triggers <see cref="UpdateCrouchBlend"/> implicitly each simulation frame.
+        /// This is generally used by event based input systems where a start and stop event are called, but per-frame updates are not.
+        /// </summary>
+        private float CrouchBlendDelta = 0f;
+
         /// <summary>
         /// Indicates whether the character is considered crouching based on the CrouchBlend value being less than the defined threshold.
         /// </summary>
@@ -198,6 +205,11 @@ namespace Basis.Scripts.BasisCharacterController
             UpdateMovementSpeed(UseMaxSpeed);
         }
 
+        public void SetCrouchBlendDelta(float delta)
+        {
+            CrouchBlendDelta = delta;
+        }
+
         public void UpdateCrouchBlend(float delta)
         {
             CrouchBlend = CrouchingLock ? 1f : math.clamp(CrouchBlend + delta * CrouchDeltaCoefficient, 0, 1);
@@ -245,6 +257,7 @@ namespace Basis.Scripts.BasisCharacterController
 
             Quaternion flattenedRotation = Quaternion.Euler(rotationEulerAngles);
 
+            if (CrouchBlendDelta != 0) UpdateCrouchBlend(CrouchBlendDelta);
             // Calculate horizontal movement direction
             Vector3 horizontalMoveDirection = new Vector3(MovementVector.x, 0, MovementVector.y).normalized;
 
