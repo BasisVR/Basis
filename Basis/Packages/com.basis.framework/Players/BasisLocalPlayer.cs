@@ -88,7 +88,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisMicrophoneRecorder.OnPausedAction += OnPausedEvent;
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
-            LocalBoneDriver.CreateInitialArrays(transform, true);
+            LocalBoneDriver.CreateInitialArrays(this.transform, true);
             LocalBoneDriver.Initialize(this);
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);
@@ -160,7 +160,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisAvatarStrainJiggleDriver.PrepareTeleport();
             BasisDebug.Log("Teleporting");
             LocalCharacterDriver.IsEnabled = false;
-            transform.SetPositionAndRotation(position, rotation);
+            this.transform.SetPositionAndRotation(position, rotation);
             LocalCharacterDriver.IsEnabled = true;
             if (LocalAnimatorDriver != null)
             {
@@ -270,7 +270,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalAvatarDriver.SimulateAnimatorAndIk();
 
             //we move the player at the very end after everything has been processed.
-            LocalCharacterDriver.SimulateMovement(DeltaTime, transform);
+            LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
 
             //Apply Animator Weights
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);

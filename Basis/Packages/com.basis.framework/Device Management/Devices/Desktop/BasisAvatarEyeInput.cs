@@ -177,7 +177,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 {
                     var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
                     GameObject go = op.WaitForCompletion();
-                    GameObject gameObj = Instantiate(go, transform, true);
+                    GameObject gameObj = Instantiate(go, this.transform, true);
                     gameObj.name = CommonDeviceIdentifier;
                     if (gameObj.TryGetComponent(out BasisVisualTracker))
                     {
@@ -190,7 +190,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     {
                         UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
                         GameObject go = op.WaitForCompletion();
-                        GameObject gameObj = Instantiate(go, transform, true);
+                        GameObject gameObj = Instantiate(go, this.transform, true);
                         gameObj.name = CommonDeviceIdentifier;
                         if (gameObj.TryGetComponent(out BasisVisualTracker))
                         {

@@ -183,7 +183,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void ApplyFinalMovement()
         {
-            transform.SetLocalPositionAndRotation(TransformFinalPosition, TransformFinalRotation);
+            this.transform.SetLocalPositionAndRotation(TransformFinalPosition, TransformFinalRotation);
         }
         public void UnAssignFullBodyTrackers()
         {

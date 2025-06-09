@@ -86,7 +86,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             LocalPlayer = localPlayer;
             LocalCharacterDriver = localPlayer.LocalCharacterDriver;
-            gameObject.SetActive(true);
+            this.gameObject.SetActive(true);
         }
 
         private void EnableActions()
