@@ -207,7 +207,7 @@ namespace Basis.Scripts.UI
                 if (current != null)
                 {
                     ExecuteEvents.Execute(current, new BaseEventData(EventSystem), ExecuteEvents.submitHandler);
-                    EventSystem.SetSelectedGameObject(null);
+                    EventSystem.SetSelectedGameObject(FindNextSelectable(current));
                 }
             }
         }
