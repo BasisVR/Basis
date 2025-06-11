@@ -1,3 +1,4 @@
+using Basis.Scripts.Behaviour;
 using LiteNetLib;
 using UnityEngine;
 
@@ -17,6 +18,7 @@ namespace Basis.Scripts.BasisSdk
         private ushort linkedPlayerID;
         public bool HasLinkedPlayer { get; private set; } = false;
         public OnNetworkReady OnAvatarNetworkReady;
+        public BasisAvatarMonoBehaviour[] Behaviours;
         /// <summary>
         /// this is called when the owner of this gameobject is ready for you to request data about it
         /// </summary>
@@ -54,40 +56,13 @@ namespace Basis.Scripts.BasisSdk
         [SerializeField]
         public BasisJiggleStrain[] JiggleStrains;
         public bool HasSendEvent;
-        public AvatarNetworkMessageSendEventServerReductionSystem OnServerReductionSystemMessageReceived;
-        public AvatarNetworkMessageReceiveEvent OnNetworkMessageReceived;
         public AvatarNetworkMessageSendEvent OnNetworkMessageSend;
         public AvatarNetworkMessageSendEventServerReductionSystem OnServerReductionSystemMessageSend;
-
         public OnReady OnAvatarReady;
         /// <summary>
         /// this is called when the owner of this gameobject is ready for you to request data about it
         /// </summary>
         public delegate void OnReady(bool IsOwner);
-        /// <summary>
-        /// this is used for sending Network Messages
-        /// </summary>
-        /// <param name="MessageIndex"></param>
-        /// <param name="buffer"></param>
-        /// <param name="DeliveryMethod"></param>
-        /// <param name="Recipients">if null everyone but self, you can include yourself to make it loop back over the network</param>
-        public void NetworkMessageSend(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
-        {
-            OnNetworkMessageSend?.Invoke(MessageIndex, buffer, DeliveryMethod, Recipients);
-        }
-        /// <summary>
-        /// this is used for sending Network Messages
-        /// </summary>
-        /// <param name="MessageIndex"></param>
-        /// <param name="DeliveryMethod"></param>
-        public void NetworkMessageSend(byte MessageIndex, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable)
-        {
-            OnNetworkMessageSend?.Invoke(MessageIndex, null, DeliveryMethod);
-        }
-        public void ServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
-        {
-            OnServerReductionSystemMessageSend?.Invoke(MessageIndex,buffer);
-        }
         /// <summary>
         /// this is used for Receiving Network Messages
         /// </summary>

@@ -184,7 +184,7 @@ public partial class BasisServerReductionSystem
                                 playerData.serverSideSyncPlayerMessage.interval = ByteAdjusted;
                             }
                             int Size = playerID.localClient.GetPacketsCountInQueue(BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
-                            if (Size < MaxMessages)
+                            if (Size < MaxMessages && playerData.Writer != null)
                             {
                                 playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
                                 NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);

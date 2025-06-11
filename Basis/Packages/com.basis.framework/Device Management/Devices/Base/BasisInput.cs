@@ -39,9 +39,9 @@ namespace Basis.Scripts.Device_Management.Devices
         public event SimulationHandler AfterControlApply;
         public BasisDeviceMatchSettings BasisDeviceMatchSettings;
         [SerializeField]
-        public BasisInputState InputState = new BasisInputState();
+        public BasisInputState CurrentInputState = new BasisInputState();
         [SerializeField]
-        public BasisInputState LastState = new BasisInputState();
+        public BasisInputState LastInputState = new BasisInputState();
         public static BasisBoneTrackedRole[] CanHaveMultipleRoles = new BasisBoneTrackedRole[] { BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.RightHand };
         public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
         {
@@ -288,9 +288,9 @@ namespace Basis.Scripts.Device_Management.Devices
             switch (trackedRole)
             {
                 case BasisBoneTrackedRole.LeftHand:
-                    float largestValue = Mathf.Abs(InputState.Primary2DAxis.x) > Mathf.Abs(InputState.Primary2DAxis.y)
-                        ? InputState.Primary2DAxis.x
-                        : InputState.Primary2DAxis.y;
+                    float largestValue = Mathf.Abs(CurrentInputState.Primary2DAxis.x) > Mathf.Abs(CurrentInputState.Primary2DAxis.y)
+                        ? CurrentInputState.Primary2DAxis.x
+                        : CurrentInputState.Primary2DAxis.y;
                     //0 to 1 largestValue
 
                     BasisLocalPlayer.Instance.LocalCharacterDriver.SetMovementSpeedMultiplier(largestValue);
@@ -298,7 +298,7 @@ namespace Basis.Scripts.Device_Management.Devices
                     // todo: consider hoisting variable to be toggled by another user input (eg: thumbstick click)
                     BasisLocalPlayer.Instance.LocalCharacterDriver.UpdateMovementSpeed(true);
                     //only open ui after we have stopped pressing down on the secondary button
-                    if (InputState.SecondaryButtonGetState == false && LastState.SecondaryButtonGetState)
+                    if (CurrentInputState.SecondaryButtonGetState == false && LastInputState.SecondaryButtonGetState)
                     {
                         if (BasisHamburgerMenu.Instance == null)
                         {
@@ -309,7 +309,7 @@ namespace Basis.Scripts.Device_Management.Devices
                             BasisHamburgerMenu.Instance.CloseThisMenu();
                         }
                     }
-                    if (InputState.PrimaryButtonGetState == false && LastState.PrimaryButtonGetState)
+                    if (CurrentInputState.PrimaryButtonGetState == false && LastInputState.PrimaryButtonGetState)
                     {
                         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
                         {
@@ -318,14 +318,14 @@ namespace Basis.Scripts.Device_Management.Devices
                     }
                     break;
                 case BasisBoneTrackedRole.RightHand:
-                    BasisLocalPlayer.Instance.LocalCharacterDriver.Rotation = InputState.Primary2DAxis;
-                    if (InputState.PrimaryButtonGetState)
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.Rotation = CurrentInputState.Primary2DAxis;
+                    if (CurrentInputState.PrimaryButtonGetState)
                     {
                         BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
                     }
                     break;
                 case BasisBoneTrackedRole.CenterEye:
-                    if (InputState.PrimaryButtonGetState == false && LastState.PrimaryButtonGetState)
+                    if (CurrentInputState.PrimaryButtonGetState == false && LastInputState.PrimaryButtonGetState)
                     {
                         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
                         {
@@ -383,9 +383,10 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void LastUpdatePlayerControl()
         {
-            InputState.CopyTo(LastState);
+            CurrentInputState.CopyTo(LastInputState);
         }
         public abstract void ShowTrackedVisual();
+        public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
         public bool UseFallbackModel()
         {
             if (hasRoleAssigned == false)

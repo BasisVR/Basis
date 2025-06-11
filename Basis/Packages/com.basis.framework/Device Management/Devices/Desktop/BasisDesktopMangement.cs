@@ -14,7 +14,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisAvatarEyeInput == null)
             {
                 BasisDeviceManagement.Instance.SetCameraRenderState(false);
-                BasisDeviceManagement.Instance.CurrentMode = BasisDeviceManagement.Desktop;
+                BasisDeviceManagement.CurrentMode = BasisDeviceManagement.Desktop;
                 GameObject gameObject = new GameObject("Desktop Eye");
                 if (BasisLocalPlayer.Instance != null)
                 {

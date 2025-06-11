@@ -135,6 +135,7 @@ MonoBehaviour:
   FaceVisemeMovement: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
   BlinkViseme: ffffffff
   laughterBlendTarget: -1
+  Behaviours: []
   IsOwnedLocally: 0
   Renders:
   - {fileID: 8839165641088738499}

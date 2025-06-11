@@ -3,10 +3,10 @@ using UnityEngine;
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
+    
     using static VRC.SDKBase.VRCShader;
 
-    public class AudioReactiveSurface : UdonSharpBehaviour
+    public class AudioReactiveSurface : MonoBehaviour
 #else
     using static Shader;
 

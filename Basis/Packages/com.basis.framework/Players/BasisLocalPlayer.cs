@@ -52,6 +52,8 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
         public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
+        [Header("Camera Driver")]
+        [SerializeField]
         public BasisLocalCameraDriver LocalCameraDriver;
         //bones that we use to map between avatar and trackers
         [Header("Bone Driver")]
@@ -177,11 +179,16 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisSceneFactory.SpawnPlayer(this);
             }
         }
-        public async Task CreateAvatar(byte mode, BasisLoadableBundle BasisLoadableBundle)
+        public async Task CreateAvatar(byte LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
-            await BasisAvatarFactory.LoadAvatarLocal(this, mode, BasisLoadableBundle);
-            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.CombinedURL, mode, LoadFileNameAndExtension);
+            await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle);
+            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
             OnLocalAvatarChanged?.Invoke();
+        }
+        public async Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)
+        {
+            byte LoadByte = (byte)LoadMode;
+            await CreateAvatar(LoadByte, BasisLoadableBundle);
         }
         public void OnCalibration()
         {

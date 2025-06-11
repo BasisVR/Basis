@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
 using UnityEngine;
@@ -58,10 +59,10 @@ public class BasisObjectSyncNetworking : MonoBehaviour
     //    BasisObjectSyncSystem.StartApplyRemoteData(this);
 
     }
-    private void OnInteractStartEvent(BasisInput input)
+    private async void OnInteractStartEvent(BasisInput input)
     {
-        BasisNetworkManagement.TakeOwnership(NetworkId, (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId);
-    //    BasisObjectSyncSystem.StopApplyRemoteData(this);
+        await BasisNetworkManagement.TakeOwnershipAsync(NetworkId, (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+        //    BasisObjectSyncSystem.StopApplyRemoteData(this);
     }
 
     private void OnNetworkIDSet(string NetworkID)
@@ -74,8 +75,8 @@ public class BasisObjectSyncNetworking : MonoBehaviour
     {
         HasMessageIndexAssigned = false;
         BasisScene.OnNetworkMessageReceived += OnNetworkMessageReceived;
-        BasisNetworkManagement.OnOwnershipTransfer += OnOwnershipTransfer;
-        BasisNetworkManagement.OnOwnershipReleased += OwnershipReleased;
+        BasisNetworkPlayer.OnOwnershipTransfer += OnOwnershipTransfer;
+        BasisNetworkPlayer.OnOwnershipReleased += OwnershipReleased;
         BasisNetworkNetIDConversion.OnNetworkIdAdded += OnNetworkIdAdded;
         _updateInterval = 1f / TargetFrequency; // Calculate interval (1/33 seconds)
         _lastUpdateTime = Time.timeAsDouble;
@@ -87,8 +88,8 @@ public class BasisObjectSyncNetworking : MonoBehaviour
     {
         HasMessageIndexAssigned = false;
         BasisScene.OnNetworkMessageReceived -= OnNetworkMessageReceived;
-        BasisNetworkManagement.OnOwnershipTransfer -= OnOwnershipTransfer;
-        BasisNetworkManagement.OnOwnershipReleased -= OwnershipReleased;
+        BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransfer;
+        BasisNetworkPlayer.OnOwnershipReleased -= OwnershipReleased;
         BasisNetworkNetIDConversion.OnNetworkIdAdded -= OnNetworkIdAdded;
     }
 
@@ -149,7 +150,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
             HasMessageIndexAssigned = true;
             if (HasActiveOwnership == false)
             {
-                BasisNetworkManagement.RequestCurrentOwnership(NetworkId);
+                BasisNetworkManagement.RequestCurrentOwnershipAsync(NetworkId);
             }
             OwnedPickupSet();
         }

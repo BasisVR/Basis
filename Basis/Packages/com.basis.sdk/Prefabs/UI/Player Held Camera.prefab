@@ -6339,13 +6339,13 @@ MonoBehaviour:
       State: 0
     extras: []
   disableInfluence: 0
-  InteractRange: 0.25
   Equippable: 0
   IsPuppeted: 0
   GenerateColliderMesh: 0
   ColliderRef: {fileID: 7802551649234531970}
   InputConstraint:
     rid: -2
+  InteractRange: 0.25
   CameraData: {fileID: 5341505974008291344}
   captureCamera: {fileID: 3367479847239852769}
   renderTexture: {fileID: 0}
@@ -6484,7 +6484,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!65 &7802551649234531970
 BoxCollider:
   m_ObjectHideFlags: 0

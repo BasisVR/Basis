@@ -27,7 +27,7 @@ namespace Basis.Scripts.Device_Management
         public const string InvalidConst = "Invalid";
         public string[] BakedInCommandLineArgs = new string[] { };
         public static string NetworkManagement = "NetworkManagement";
-        public string CurrentMode = "None";
+        public static string CurrentMode = "None";
         [SerializeField]
         public const string Desktop = "Desktop";
         public static string BoneData = "Assets/ScriptableObjects/BoneData.asset";
@@ -56,11 +56,7 @@ namespace Basis.Scripts.Device_Management
         /// <returns></returns>
         public static bool IsUserInDesktop()
         {
-            if (BasisDeviceManagement.Instance == null)
-            {
-                return false;
-            }
-            if (Desktop == BasisDeviceManagement.Instance.CurrentMode)
+            if (Desktop == BasisDeviceManagement.CurrentMode)
             {
                 return true;
             }
@@ -323,7 +319,7 @@ namespace Basis.Scripts.Device_Management
         }
         public static void SwitchSetMode(string Mode)
         {
-            if (Instance != null && Mode != Instance.CurrentMode)
+            if (Instance != null && Mode != CurrentMode)
             {
                 Instance.SwitchMode(Mode);
             }

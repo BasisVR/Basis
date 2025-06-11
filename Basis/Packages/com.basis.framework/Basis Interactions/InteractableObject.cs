@@ -5,7 +5,7 @@ using UnityEngine;
 
 // Needs Rigidbody for hover sphere `OnTriggerStay`
 [Serializable]
-public abstract partial class InteractableObject : MonoBehaviour
+public abstract class InteractableObject : MonoBehaviour
 {
     public InputSources Inputs = new(0);
 
@@ -14,7 +14,7 @@ public abstract partial class InteractableObject : MonoBehaviour
     [SerializeField]
     private bool disableInfluence = false;
     // NOTE: unity editor will not use the set function so setting disabling Interact in play will not cleanup inputs
-    public bool DisableInfluence
+    public bool pickupable
     {
         get => disableInfluence;
         set
@@ -32,7 +32,6 @@ public abstract partial class InteractableObject : MonoBehaviour
             disableInfluence = value;
         }
     }
-    public float InteractRange = 1.0f;
     [Space(10)]
     public bool Equippable = false;
 
@@ -109,7 +108,7 @@ public abstract partial class InteractableObject : MonoBehaviour
     /// </summary>
     /// <param name="source"></param>
     /// <returns></returns>
-    public virtual bool IsWithinRange(Vector3 source)
+    public virtual bool IsWithinRange(Vector3 source, float InteractRange)
     {
         Collider collider = GetCollider();
         if (collider != null)
@@ -140,11 +139,11 @@ public abstract partial class InteractableObject : MonoBehaviour
     /// <returns>If the Interactable should change state from Hover to Interacting, e.g. when trigger is down</returns>
     public virtual bool IsInteractTriggered(BasisInput input)
     {
-        return input.InputState.GripButton ||
+        return input.CurrentInputState.GripButton ||
             // special case for desktop (left-click)
             input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole role) && 
             role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.CenterEye && 
-            input.InputState.Trigger == 1;
+            input.CurrentInputState.Trigger == 1;
     }
 
     public abstract bool CanHover(BasisInput input);
@@ -185,9 +184,9 @@ public abstract partial class InteractableObject : MonoBehaviour
     {
         BasisInputWrapper[] InputArray = Inputs.ToArray();
         int count = InputArray.Length;
-        for (int i = 0; i < count; i++)
+        for (int InputIndex = 0; InputIndex < count; InputIndex++)
         {
-            BasisInputWrapper input = InputArray[i];
+            BasisInputWrapper input = InputArray[InputIndex];
             if (input.Source != null)
             {
                 if (IsHoveredBy(input.Source))
@@ -208,7 +207,7 @@ public abstract partial class InteractableObject : MonoBehaviour
     /// <returns></returns>
     public virtual bool IsInfluencable(BasisInput input)
     {
-        return !DisableInfluence && (CanHover(input) || CanInteract(input));
+        return !pickupable && (CanHover(input) || CanInteract(input));
     }
 
     public virtual void StartRemoteControl()

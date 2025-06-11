@@ -3,10 +3,10 @@
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
+    
 
     [RequireComponent(typeof(SkinnedMeshRenderer))]
-    public class AudioReactiveBlendshapes : UdonSharpBehaviour
+    public class AudioReactiveBlendshapes : MonoBehaviour
 #else
     [RequireComponent(typeof(SkinnedMeshRenderer))]
     public class AudioReactiveBlendshapes : MonoBehaviour

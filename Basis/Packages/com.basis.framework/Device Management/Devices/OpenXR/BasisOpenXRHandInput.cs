@@ -22,6 +22,7 @@ public class BasisOpenXRHandInput : BasisInput
     public InputActionProperty MenuButton;
     public InputActionProperty Primary2DAxis;
     public InputActionProperty Secondary2DAxis;
+    public UnityEngine.XR.InputDevice Device;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
@@ -109,16 +110,16 @@ public class BasisOpenXRHandInput : BasisInput
         TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
         TransformFinalRotation = LocalRawRotation;
 
-        InputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        InputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
 
-        InputState.GripButton = Grip.action?.ReadValue<float>() > 0.5f;
-        InputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
-        InputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > 0.5f;
-        InputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > 0.5f;
-        InputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > 0.5f;
+        CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > 0.5f;
+        CurrentInputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
+        CurrentInputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > 0.5f;
+        CurrentInputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > 0.5f;
+        CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > 0.5f;
 
-        InputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
+        CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
         if (hasRoleAssigned)
         {
             if (Control.HasTracked != BasisHasTracked.HasNoTracker)
@@ -136,11 +137,11 @@ public class BasisOpenXRHandInput : BasisInput
 
     private void CalculateFingerCurls()
     {
-        FingerCurls.ThumbPercentage = new Vector2(InputState.GripButton ? -1f : 0.7f, 0);
-        FingerCurls.IndexPercentage = new Vector2(BasisBaseMuscleDriver.MapValue(InputState.Trigger, 0, 1, -1f, 0.7f), 0);
-        FingerCurls.MiddlePercentage = new Vector2(InputState.PrimaryButtonGetState ? -1f : 0.7f, 0);
-        FingerCurls.RingPercentage = new Vector2(InputState.SecondaryButtonGetState ? -1f : 0.7f, 0);
-        FingerCurls.LittlePercentage = new Vector2(InputState.SystemOrMenuButton ? 1 - 1f : 0.7f, 0);
+        FingerCurls.ThumbPercentage = new Vector2(CurrentInputState.GripButton ? -1f : 0.7f, 0);
+        FingerCurls.IndexPercentage = new Vector2(BasisBaseMuscleDriver.MapValue(CurrentInputState.Trigger, 0, 1, -1f, 0.7f), 0);
+        FingerCurls.MiddlePercentage = new Vector2(CurrentInputState.PrimaryButtonGetState ? -1f : 0.7f, 0);
+        FingerCurls.RingPercentage = new Vector2(CurrentInputState.SecondaryButtonGetState ? -1f : 0.7f, 0);
+        FingerCurls.LittlePercentage = new Vector2(CurrentInputState.SystemOrMenuButton ? 1 - 1f : 0.7f, 0);
     }
     public override void ShowTrackedVisual()
     {
@@ -169,7 +170,7 @@ public class BasisOpenXRHandInput : BasisInput
                     InputDevices.GetDevicesWithCharacteristics(input, inputDevices);
                     if (inputDevices.Count != 0)
                     {
-                        UnityEngine.XR.InputDevice Device = inputDevices[0];
+                        Device = inputDevices[0];
                         string LoadRequest;
                         string HandString = Hand.ToString().ToLower();
                         switch (Device.name)
@@ -233,5 +234,16 @@ public class BasisOpenXRHandInput : BasisInput
         {
             BasisVisualTracker.Initialization(this);
         }
+    }
+
+    /// <summary>
+    /// Duration does not work on OpenXRHands, in the future we should handle it for the user.
+    /// </summary>
+    /// <param name="duration"></param>
+    /// <param name="amplitude"></param>
+    /// <param name="frequency"></param>
+    public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+    {
+        Device.SendHapticImpulse(0, amplitude, duration);
     }
 }

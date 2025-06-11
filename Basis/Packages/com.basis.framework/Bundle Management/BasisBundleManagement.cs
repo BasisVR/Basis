@@ -12,7 +12,7 @@ public static class BasisBundleManagement
     {
         if (!IsValidBundleWrapper(bundleWrapper)) return new(null, null,"Invalid Bundle Wrapper!");
 
-        string metaUrl = bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.CombinedURL;
+        string metaUrl = bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
         if (!IsValidUrl(metaUrl)) return new(null, null, "Combined URL is missing!");
 
         try
@@ -21,7 +21,7 @@ public static class BasisBundleManagement
 
             (BasisBundleConnector connector, string localPath, byte[] Bytes) = await BasisIOManagement.DownloadBEE(metaUrl, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken);
             bundleWrapper.LoadableBundle.BasisBundleConnector = connector;
-            bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle.LocalConnectorPath = localPath;
+            bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation = localPath;
 
             if (!IsValidConnector(bundleWrapper.LoadableBundle.BasisBundleConnector)) return new (null, null, "");
 
@@ -51,7 +51,7 @@ public static class BasisBundleManagement
         }
 
         bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle = storedBundle;
-        string metaUrl = bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.CombinedURL;
+        string metaUrl = bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
 
         if (!IsValidUrl(metaUrl))
         {
@@ -59,9 +59,9 @@ public static class BasisBundleManagement
         }
         try
         {
-            BasisDebug.Log($"Processing on-disk meta at {storedBundle.LocalConnectorPath}");
+            BasisDebug.Log($"Processing on-disk meta at {storedBundle.DownloadedBeeFileLocation}");
 
-            (BasisBundleConnector, byte[]) value = await BasisIOManagement.ReadBEEFile(storedBundle.LocalConnectorPath, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken);
+            (BasisBundleConnector, byte[]) value = await BasisIOManagement.ReadBEEFile(storedBundle.DownloadedBeeFileLocation, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken);
             bundleWrapper.LoadableBundle.BasisBundleConnector = value.Item1;
 
             if (bundleWrapper.LoadableBundle == null)

@@ -232,6 +232,7 @@ namespace BasisServerHandle
                 SendRemoteSpawnMessage(newPeer, ReadyMessage);
 
                 BasisNetworkResourceManagement.SendOutAllResources(newPeer);
+                BasisNetworkOwnership.SendOutOwnershipInformation(newPeer);
             }
             else
             {

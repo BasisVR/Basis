@@ -21,6 +21,7 @@ public class ExampleButtonInteractable : InteractableObject
     [Header("References")]
     public Collider ColliderRef;
     public MeshRenderer RendererRef;
+    public float InteractRange = 1f;
 
     private BasisInputWrapper _inputSource;
     // Ignore provided list localy, but keep it updated for other scripts 
@@ -58,7 +59,7 @@ public class ExampleButtonInteractable : InteractableObject
 
     public override bool CanHover(BasisInput input)
     {
-        return _InputSource.GetState() == InteractInputState.NotAdded && IsWithinRange(input.transform.position) && isEnabled;
+        return _InputSource.GetState() == InteractInputState.NotAdded && IsWithinRange(input.transform.position, InteractRange) && isEnabled;
     }
     public override bool CanInteract(BasisInput input)
     {
@@ -67,7 +68,7 @@ public class ExampleButtonInteractable : InteractableObject
         // dont interact again till after interacting stopped
         if (_InputSource.GetState() == InteractInputState.Interacting) return false;
 
-        return IsWithinRange(input.transform.position) && isEnabled;
+        return IsWithinRange(input.transform.position, InteractRange) && isEnabled;
     }
 
     public override void OnHoverStart(BasisInput input)

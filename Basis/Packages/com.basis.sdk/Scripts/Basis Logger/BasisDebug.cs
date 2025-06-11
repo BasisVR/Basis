@@ -41,18 +41,24 @@ public static class BasisDebug
     {
         return logTag switch
         {
-            LogTag.Voice => "#FF69B4",          // Hot Pink
-            LogTag.Networking => "#1E90FF",    // Dodger Blue
-            LogTag.IK => "#32CD32",            // Lime Green
-            LogTag.Core => "#FFD700",          // Gold
-            LogTag.Event => "#FF4500",         // Orange Red
-            LogTag.System => "#9370DB",        // Medium Purple
-            LogTag.Device => "#00CED1",        // Dark Turquoise
-            LogTag.Avatar => "#8B0000",        // Dark Red
-            LogTag.Input => "#808000",         // Olive
-            LogTag.Gizmo => "#FF6347",         // Tomato
-            LogTag.Scene => "#4682B4",         // Steel Blue
-            _ => "#FFFFFF"                     // Default White
+            LogTag.System => "#9370DB",       // Medium Purple
+            LogTag.Voice => "#FF69B4",        // Hot Pink
+            LogTag.Networking => "#1E90FF",   // Dodger Blue
+            LogTag.IK => "#32CD32",           // Lime Green
+            LogTag.Core => "#FFD700",         // Gold
+            LogTag.Event => "#FF4500",        // Orange Red
+            LogTag.Device => "#00CED1",       // Dark Turquoise
+            LogTag.Avatar => "#8B0000",       // Dark Red
+            LogTag.Input => "#808000",        // Olive
+            LogTag.Gizmo => "#FF6347",        // Tomato
+            LogTag.Scene => "#4682B4",        // Steel Blue
+            LogTag.Editor => "#4B0082",       // Indigo
+            LogTag.Pickups => "#DAA520",      // Goldenrod
+            LogTag.Camera => "#2E8B57",       // Sea Green
+            LogTag.Mirror => "#708090",       // Slate Gray
+            LogTag.Local => "#20B2AA",        // Light Sea Green
+            LogTag.Remote => "#DC143C",       // Crimson
+            _ => "#FFFFFF"                    // Default White
         };
     }
 
@@ -90,7 +96,13 @@ public static class BasisDebug
         Avatar,
         Input,
         Gizmo,
-        Scene
+        Scene,
+        Editor,
+        Pickups,
+        Camera,
+        Mirror,
+        Local,
+        Remote,
     }
 
     public enum MessageType

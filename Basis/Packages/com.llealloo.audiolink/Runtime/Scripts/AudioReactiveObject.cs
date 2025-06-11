@@ -3,9 +3,9 @@
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
+    
 
-    public class AudioReactiveObject : UdonSharpBehaviour
+    public class AudioReactiveObject : MonoBehaviour
 #else
     public class AudioReactiveObject : MonoBehaviour
 #endif

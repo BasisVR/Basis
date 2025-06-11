@@ -9,7 +9,6 @@ public class ChunkedBoolArray
     private readonly int _chunkSize;
     private readonly int _numChunks;
     private readonly int _totalSize;
-
     public ChunkedBoolArray(int chunkSize = 256)
     {
         if (BasisNetworkCommons.MaxConnections <= 0)
@@ -27,7 +26,6 @@ public class ChunkedBoolArray
             _chunks[i] = new bool[chunkSize];
         }
     }
-
     public void SetBool(int index, bool value)
     {
         if (index < 0 || index >= _totalSize)
@@ -38,7 +36,6 @@ public class ChunkedBoolArray
 
         Volatile.Write(ref _chunks[chunkIndex][localIndex], value);
     }
-
     public bool GetBool(int index)
     {
         if (index < 0 || index >= _totalSize)

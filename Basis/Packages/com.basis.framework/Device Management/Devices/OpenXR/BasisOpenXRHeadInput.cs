@@ -100,4 +100,9 @@ public class BasisOpenXRHeadInput : BasisInput
             }
         }
     }
+
+    public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+    {
+        BasisDebug.LogError("XRHead does not support Haptics Playback");
+    }
 }

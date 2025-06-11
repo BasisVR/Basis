@@ -238,6 +238,7 @@ GameObject:
   - component: {fileID: 1521688259443178838}
   - component: {fileID: 2233025765587422440}
   - component: {fileID: 2964141905449137060}
+  - component: {fileID: 1035056478208136688}
   m_Layer: 0
   m_Name: BasisOnSceneLoadCleanup
   m_TagString: Untagged
@@ -288,6 +289,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   LoadRequest: UserNamePanel
+--- !u!114 &1035056478208136688
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6945557231596396514}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a77971dc49cce9541828138eb5e2270e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  BasisBundleDescription:
+    AssetBundleName: output
+    AssetBundleDescription: descipt
+  SpawnPoint: {fileID: 0}
+  RespawnHeight: -100
+  RespawnCheckTimer: 0.1
+  Group: {fileID: 6216228358845890117, guid: 471a0209081144d4da2426822e8a0b47, type: 2}
+  MainCamera: {fileID: 0}
+  IsReady: 0
 --- !u!1 &7016211280354211674
 GameObject:
   m_ObjectHideFlags: 0

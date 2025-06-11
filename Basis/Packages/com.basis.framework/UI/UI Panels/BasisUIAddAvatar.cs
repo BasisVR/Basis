@@ -157,7 +157,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisLoadableBundle loadableBundle = new BasisLoadableBundle
                 {
                     UnlockPassword = password,
-                    BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle { CombinedURL = url },
+                    BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle { RemoteBeeFileLocation = url },
                     BasisBundleConnector = new BasisBundleConnector(),
                     BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle()
                 };

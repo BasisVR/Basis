@@ -132,7 +132,7 @@ namespace Basis.Scripts.UI
                             MovementLock.Add(nameof(BasisInputModuleHandler));
                             CrouchingLock.Add(nameof(BasisInputModuleHandler));
                         }
-                        if (BasisDeviceManagement.Instance.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.Instance.CurrentMode == "OpenXRLoader" || ForceKeyboard)
+                        if (BasisDeviceManagement.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.CurrentMode == "OpenXRLoader" || ForceKeyboard)
                         {
                             if (BasisVirtualKeyboard.HasInstance == false)
                             {
@@ -152,7 +152,7 @@ namespace Basis.Scripts.UI
                             HasHoverONInput = true;
                             MovementLock.Add(nameof(BasisInputModuleHandler));
                             CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                            if (BasisDeviceManagement.Instance.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.Instance.CurrentMode == "OpenXRLoader" || ForceKeyboard)
+                            if (BasisDeviceManagement.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.CurrentMode == "OpenXRLoader" || ForceKeyboard)
                             {
                                 if (BasisVirtualKeyboard.HasInstance == false)
                                 {
