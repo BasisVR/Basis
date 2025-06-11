@@ -294,7 +294,7 @@ namespace Basis.Scripts.Device_Management.Devices
                     //0 to 1 largestValue
 
                     BasisLocalPlayer.Instance.LocalCharacterDriver.SetMovementSpeedMultiplier(largestValue);
-                    BasisLocalPlayer.Instance.LocalCharacterDriver.SetMovementVector(InputState.Primary2DAxis);
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.SetMovementVector(CurrentInputState.Primary2DAxis);
                     // todo: consider hoisting variable to be toggled by another user input (eg: thumbstick click)
                     BasisLocalPlayer.Instance.LocalCharacterDriver.UpdateMovementSpeed(true);
                     //only open ui after we have stopped pressing down on the secondary button
