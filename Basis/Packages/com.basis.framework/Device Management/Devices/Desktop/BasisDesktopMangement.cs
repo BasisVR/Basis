@@ -14,14 +14,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisAvatarEyeInput == null)
             {
                 BasisDeviceManagement.Instance.SetCameraRenderState(false);
-                BasisDeviceManagement.Instance.CurrentMode = BasisDeviceManagement.Desktop;
+                BasisDeviceManagement.CurrentMode = BasisDeviceManagement.Desktop;
                 GameObject gameObject = new GameObject("Desktop Eye");
                 if (BasisLocalPlayer.Instance != null)
                 {
                     gameObject.transform.parent = BasisLocalPlayer.Instance.transform;
                 }
                 BasisAvatarEyeInput = gameObject.AddComponent<BasisAvatarEyeInput>();
-                BasisAvatarEyeInput.Initalize("Desktop Eye", nameof(BasisDesktopManagement));
+                BasisAvatarEyeInput.Initialize("Desktop Eye", nameof(BasisDesktopManagement));
                 BasisDeviceManagement.Instance.TryAdd(BasisAvatarEyeInput);
             }
         }

@@ -91,7 +91,7 @@ public static class BasisMicrophoneRecorder
                 BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
                 HasEvents = true;
             }
-            SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.Instance.CurrentMode);
+            SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.CurrentMode);
             ResetMicrophones(SMDMicrophone.SelectedMicrophone);
             ConfigureDenoiser(SMDMicrophone.SelectedDenoiserMicrophone);
             StartProcessingThread();  // Start the processing thread once

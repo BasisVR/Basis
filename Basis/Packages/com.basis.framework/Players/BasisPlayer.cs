@@ -7,11 +7,26 @@ namespace Basis.Scripts.BasisSdk.Players
     public abstract class BasisPlayer : MonoBehaviour
     {
         public bool IsLocal { get; set; }
+        public RuntimePlatform GetRuntimePlatform()
+        {
+            if(IsLocal)
+            {
+                return Application.platform;
+            }
+            else
+            {
+                BasisDebug.LogError ("this is not implemented talk with the creators of basis");
+                return RuntimePlatform.WindowsPlayer;
+            }
+        }
+
         public string DisplayName;
         public string UUID;
         public BasisAvatar BasisAvatar;
         public Transform BasisAvatarTransform;
         public bool HasAvatarDriver;
+
+        public event Action OnMetaDataUpdated;
         public event Action OnAvatarSwitched;
         public event Action OnAvatarSwitchedFallBack;
         public BasisProgressReport ProgressReportAvatarLoad = new BasisProgressReport();

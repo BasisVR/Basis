@@ -34,7 +34,7 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisNetworkManagement.OnEnableInstanceCreate += LoadCurrentSettings;
             if (BasisDeviceManagement.Instance != null)
             {
-                this.transform.parent = BasisDeviceManagement.Instance.transform;
+                this.transform.SetParent(BasisDeviceManagement.Instance.transform,true);
             }
         }
 
@@ -105,7 +105,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisDebug.Log("using Local Asset Bundle or Addressable", BasisDebug.LogTag.Networking);
                 if (BundledContentHolder.Instance.UseAddressablesToLoadScene)
                 {
-                    await BasisSceneLoadDriver.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.CombinedURL);
+                    await BasisSceneLoadDriver.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
                 }
                 else
                 {

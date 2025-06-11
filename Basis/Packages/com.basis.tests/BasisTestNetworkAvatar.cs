@@ -1,34 +1,30 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Behaviour;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using LiteNetLib;
 using UnityEngine;
-public class BasisTestNetworkAvatar : MonoBehaviour
+public class BasisTestNetworkAvatar : BasisAvatarMonoBehaviour
 {
-    [Header("Assign Ahead Of Time")]
-    public BasisAvatar avatar;
-    public byte MessageIndexTest;
     public byte[] SubmittingData;
     public ushort[] Recipients = null;
     public BasisPlayer BasisPlayer;
     public void Awake()
     {
-        avatar.OnAvatarReady += OnAvatarReady;
+        Avatar.OnAvatarReady += OnAvatarReady;
     }
     private void OnAvatarReady(bool IsOwner)
     {
         Debug.Log("was called!");
         if (BasisNetworkManagement.LocalPlayerIsConnected == false)
         {
-            BasisNetworkManagement.OnLocalPlayerJoined += OnLocalPlayerJoined;
+            BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
         }
         else
         {
             SetupIfLocal();
         }
-        //recieve messages
-        avatar.OnNetworkMessageReceived += OnNetworkMessageReceived;
     }
     private void OnLocalPlayerJoined(BasisNetworkPlayer player1, BasisLocalPlayer player2)
     {
@@ -36,11 +32,11 @@ public class BasisTestNetworkAvatar : MonoBehaviour
     }
     public void OnDestroy()
     {
-        BasisNetworkManagement.OnLocalPlayerJoined -= OnLocalPlayerJoined;
+        BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
     }
     private void SetupIfLocal()
     {
-        if (BasisNetworkManagement.AvatarToPlayer(avatar, out BasisPlayer))
+        if (BasisNetworkManagement.AvatarToPlayer(Avatar, out BasisPlayer))
         {
             if (BasisPlayer.IsLocal)
             {
@@ -51,11 +47,18 @@ public class BasisTestNetworkAvatar : MonoBehaviour
     public void LoopSend()
     {
         Debug.Log("Sening Loop Data");
-        avatar.NetworkMessageSend(MessageIndexTest, SubmittingData, DeliveryMethod.Unreliable, Recipients);
+        NetworkMessageSend(SubmittingData, DeliveryMethod.Unreliable, Recipients);
     }
 
-    private void OnNetworkMessageReceived(ushort PlayerID, byte MessageIndex, byte[] buffer, DeliveryMethod Method = DeliveryMethod.ReliableSequenced)
+    public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
     {
-        //  Debug.Log("OnNetworkMessageReceived from player " + PlayerID + " with message Index " + MessageIndex + " | " + buffer.Length);
+    }
+
+    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+    {
+    }
+
+    public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
+    {
     }
 }

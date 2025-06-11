@@ -59,16 +59,16 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             if (SteamVR.active)
             {
-                InputState.GripButton = SteamVR_Actions._default.Grip.GetState(inputSource);
-                InputState.SystemOrMenuButton = SteamVR_Actions._default.System.GetState(inputSource);
-                InputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
-                InputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
-                InputState.Primary2DAxisClick = SteamVR_Actions._default.JoyStickClick.GetState(inputSource);
-                InputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
-                InputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
-                InputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
-                InputState.Secondary2DAxis = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
-                InputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
+                CurrentInputState.GripButton = SteamVR_Actions._default.Grip.GetState(inputSource);
+                CurrentInputState.SystemOrMenuButton = SteamVR_Actions._default.System.GetState(inputSource);
+                CurrentInputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
+                CurrentInputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
+                CurrentInputState.Primary2DAxisClick = SteamVR_Actions._default.JoyStickClick.GetState(inputSource);
+                CurrentInputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
+                CurrentInputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
+                CurrentInputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
+                CurrentInputState.Secondary2DAxis = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
+                CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
                 UpdatePlayerControl();
             }
         }
@@ -160,6 +160,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     }
                 }
             }
+        }
+        public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+        {
+            SteamVR_Actions.default_Haptic.Execute(0, duration, frequency, amplitude, inputSource);
         }
     }
 }

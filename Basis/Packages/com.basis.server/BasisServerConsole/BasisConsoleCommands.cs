@@ -127,6 +127,7 @@ namespace BasisNetworkConsole
         // Example command handlers
         public static void HandleAddAdmin(string[] args)
         {
+            BNL.Log("args Count is " + args.Length);
             if (args.Length >= 1)
             {
                 string value = args[0];

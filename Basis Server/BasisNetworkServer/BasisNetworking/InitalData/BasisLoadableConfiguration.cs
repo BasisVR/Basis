@@ -13,7 +13,6 @@ namespace BasisNetworking.InitialData
         public string LoadedNetID = "";
         public string UnlockPassword = "";
         public string CombinedURL = "";
-        public bool IsLocalLoad = false;
 
         public float PositionX = 0f;
         public float PositionY = 0f;

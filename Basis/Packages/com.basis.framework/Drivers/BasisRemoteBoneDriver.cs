@@ -29,7 +29,7 @@ namespace Basis.Scripts.Drivers
             }
             FindBone(out Mouth, BasisBoneTrackedRole.Mouth);
         }
-        public void CalculateHeadBoneData()
+        public void CalculateBoneData()
         {
             Vector3 RRT = RemotePlayer.transform.position;
             if (Head.HasBone && HasHead)

@@ -59,7 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 return;
             }
-            if (BasisLocalPlayer.Instance.CameraDriver == null)
+            if (BasisLocalPlayer.Instance.LocalCameraDriver == null)
             {
                 return;
             }

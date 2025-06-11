@@ -4,12 +4,12 @@ using UnityEngine.UI;
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
-    using VRC.SDKBase;
-    using VRC.Udon;
+    
+    
+    
     using static VRC.SDKBase.VRCShader;
 
-    public class AudioLinkController : UdonSharpBehaviour
+    public class AudioLinkController : MonoBehaviour
 #else
     using static Shader;
 
@@ -106,7 +106,7 @@ namespace AudioLink
 
             #if UDONSHARP
 
-                inputTransform.GetComponent<UdonBehaviour>().enabled = (int)userSyncMode < (int)desiredSyncMode;
+                inputTransform.GetComponent<MonoBehaviour>().enabled = (int)userSyncMode < (int)desiredSyncMode;
 
             #endif
 

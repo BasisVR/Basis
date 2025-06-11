@@ -2999,7 +2999,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!114 &8668315191492580132
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3042,7 +3042,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UserNameTMP_InputField: {fileID: 4878091726375581371}
   Ready: {fileID: 7868681224681406568}
-  UseAddressables: 0
   AdvancedSettings: {fileID: 3620331647213534057}
   AdvancedSettingsPanel: {fileID: 7345067995383593187}
   IPaddress: {fileID: 7064524275758642703}

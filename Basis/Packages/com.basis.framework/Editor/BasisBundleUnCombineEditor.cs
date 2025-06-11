@@ -77,9 +77,8 @@ public class BasisBundleUnCombineEditor : EditorWindow
 
             BasisTrackedBundleWrapper bundleWrapper = new BasisTrackedBundleWrapper();
             bundleWrapper.LoadableBundle = new BasisLoadableBundle();
-            bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle.LocalConnectorPath = LocalFile;
-            bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.CombinedURL = LocalFile;
-            bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.IsLocal = false;
+            bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation = LocalFile;
+            bundleWrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation = LocalFile;
 
             bundleWrapper.LoadableBundle.UnlockPassword = password;
             bundleWrapper.LoadableBundle.BasisBundleConnector = new BasisBundleConnector();

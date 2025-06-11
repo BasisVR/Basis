@@ -336,6 +336,10 @@ namespace Basis.Scripts.Drivers
                 }
             }
         }
+        public bool GetBonePositionRotation(Animator anim, HumanBodyBones bone)
+        {
+           return anim.GetBoneTransform(bone);
+        }
         public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
         {
             if (anim.avatar != null && anim.avatar.isHuman)

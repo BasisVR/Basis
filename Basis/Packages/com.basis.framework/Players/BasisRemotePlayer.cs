@@ -67,7 +67,7 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         public async Task CreateAvatar(byte Mode, BasisLoadableBundle BasisLoadableBundle)
         {
-            if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.CombinedURL))
+            if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 BasisDebug.LogError("trying to create Avatar with empty Bundle");
                 return;
@@ -86,7 +86,7 @@ namespace Basis.Scripts.BasisSdk.Players
             else
             {
                 // BasisDebug.Log("Going to load Loading Avatar Instead of requested Avatar");
-                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this, BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.LocalConnectorPath);
+                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this, BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
             }
         }
         public void OnDestroy()

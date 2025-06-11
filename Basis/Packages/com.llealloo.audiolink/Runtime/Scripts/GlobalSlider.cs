@@ -1,20 +1,20 @@
 ﻿#if UDONSHARP
-using UdonSharp;
+
 
 using UnityEngine.UI;
 
-using VRC.SDKBase;
+
 
 namespace AudioLink
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-    public class GlobalSlider : UdonSharpBehaviour
+    public class GlobalSlider : MonoBehaviour
     {
         [UdonSynced]
         private float syncedValue;
         private bool deserializing;
         private Slider slider;
-        private VRCPlayerApi localPlayer;
+        private BasisPlayer localPlayer;
 
         private void Start()
         {

@@ -127,6 +127,7 @@ public static class BasisBundleBuild
             RestoreOriginalBuildTarget(originalActiveTarget);
 
             Debug.Log("Successfully built asset bundle.");
+
             EditorUtility.ClearProgressBar();
             return (true, "Success");
         }

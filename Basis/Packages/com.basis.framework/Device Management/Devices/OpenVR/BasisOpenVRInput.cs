@@ -53,10 +53,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         }
                         if (HasInputSource)
                         {
-                            InputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
-                            InputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
-                            InputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
-                            InputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
+                            CurrentInputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
+                            CurrentInputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
+                            CurrentInputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
+                            CurrentInputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
                         }
                         UpdatePlayerControl();
                     }
@@ -100,6 +100,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     }
                 }
             }
+        }
+
+        public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+        {
+            SteamVR_Actions.default_Haptic.Execute(0, duration, frequency, amplitude, inputSource);
         }
     }
 }

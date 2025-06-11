@@ -52,7 +52,6 @@ namespace BasisNetworking.InitalData
                 LoadedNetID = config.LoadedNetID,
                 UnlockPassword = config.UnlockPassword,
                 CombinedURL = config.CombinedURL,
-                IsLocalLoad = config.IsLocalLoad,
                 PositionX = config.PositionX,
                 PositionY = config.PositionY,
                 PositionZ = config.PositionZ,

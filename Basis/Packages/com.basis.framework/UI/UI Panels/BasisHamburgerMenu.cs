@@ -85,7 +85,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public void PutIntoCalibrationMode()
         {
             BasisDebug.Log("Attempting" + nameof(PutIntoCalibrationMode));
-            string BasisBootedMode = BasisDeviceManagement.Instance.CurrentMode;
+            string BasisBootedMode = BasisDeviceManagement.CurrentMode;
             if (OverrideForceCalibration || BasisBootedMode == "OpenVRLoader" || BasisBootedMode == "OpenXRLoader")
             {
                 BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
@@ -94,18 +94,18 @@ namespace Basis.Scripts.UI.UI_Panels
                 {
                     Action triggerDelegate = () => OnTriggerChanged(BasisInput);
                     TriggerDelegates[BasisInput] = triggerDelegate;
-                    BasisInput.InputState.OnTriggerChanged += triggerDelegate;
+                    BasisInput.CurrentInputState.OnTriggerChanged += triggerDelegate;
                 }
             }
         }
 
         public void OnTriggerChanged(BasisInput FiredOff)
         {
-            if (FiredOff.InputState.Trigger >= 0.9f)
+            if (FiredOff.CurrentInputState.Trigger >= 0.9f)
             {
                 foreach (var entry in TriggerDelegates)
                 {
-                    entry.Key.InputState.OnTriggerChanged -= entry.Value;
+                    entry.Key.CurrentInputState.OnTriggerChanged -= entry.Value;
                 }
                 TriggerDelegates.Clear();
                 BasisAvatarIKStageCalibration.FullBodyCalibration();
@@ -135,6 +135,19 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisUIManagement.CloseAllMenus();
             AddressableGenericResource resource = new AddressableGenericResource(MainMenuAddressableID, AddressableExpectedResult.SingleItem);
             OpenMenuNow(resource);
+        }
+
+        public static void ToggleHamburgerMenu()
+        {
+            if (Instance == null)
+            {
+                OpenHamburgerMenuNow();
+            }
+            else
+            {
+                Instance.CloseThisMenu();
+                Instance = null;
+            }
         }
         public static async void OpenCamera(BasisHamburgerMenu menu)
         {

@@ -5,13 +5,13 @@ using UnityEngine;
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
+    
     using VRC.SDK3.Rendering;
-    using VRC.SDKBase;
+    
     using static VRC.SDKBase.VRCShader;
 
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-    public partial class AudioLink : UdonSharpBehaviour
+    public partial class AudioLink : MonoBehaviour
 #else
     using Unity.Collections;
     using UnityEngine.Rendering;
@@ -138,7 +138,7 @@ namespace AudioLink
         private double _networkTimeMSAccumulatedError;
 #if UDONSHARP
         private bool _hasInitializedTime = false;
-        private VRCPlayerApi _localPlayer;
+        private BasisPlayer _localPlayer;
 #endif
         private double _fpsTime = 0;
         private int _fpsCount = 0;
@@ -410,7 +410,7 @@ namespace AudioLink
             audioMaterial.SetVector(_VersionNumberAndFPSProperty, new Vector4(3.02f, AudioLinkVersionNumberMajor, _fpsCount, AudioLinkVersionNumberMinor));
 #if UDONSHARP
             audioMaterial.SetVector(_PlayerCountAndData, new Vector4(
-                VRCPlayerApi.GetPlayerCount(),
+                BasisPlayer.GetPlayerCount(),
                 Networking.IsMaster ? 1.0f : 0.0f,
 #if UNITY_EDITOR
                     0.0f,
@@ -583,7 +583,7 @@ namespace AudioLink
 #if UDONSHARP
                 if (VRC.SDKBase.Utilities.IsValid(_localPlayer))
                 {
-                    float distanceToSource = Vector3.Distance(_localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, audioSource.transform.position);
+                    float distanceToSource = Vector3.Distance(_localPlayer.GetTrackingData(BasisPlayer.TrackingDataType.Head).position, audioSource.transform.position);
                     audioMaterial.SetFloat(_SourceDistance, distanceToSource);
                 }
 #endif
@@ -670,7 +670,7 @@ namespace AudioLink
         }
 
 #if UDONSHARP
-        public override void OnPlayerJoined(VRCPlayerApi player)
+        public override void OnPlayerJoined(BasisPlayer player)
         {
             if (VRC.SDKBase.Utilities.IsValid(player) && player.isMaster)
             {
@@ -679,7 +679,7 @@ namespace AudioLink
             }
         }
 
-        public override void OnPlayerLeft(VRCPlayerApi player)
+        public override void OnPlayerLeft(BasisPlayer player)
         {
             if (VRC.SDKBase.Utilities.IsValid(player) && (player.isMaster || player.displayName == _masterName))
             {
@@ -689,9 +689,9 @@ namespace AudioLink
 
         private void FindAndUpdateMasterName()
         {
-            VRCPlayerApi[] players = new VRCPlayerApi[VRCPlayerApi.GetPlayerCount()];
-            VRCPlayerApi.GetPlayers(players);
-            foreach (VRCPlayerApi player in players)
+            BasisPlayer[] players = new BasisPlayer[BasisPlayer.GetPlayerCount()];
+            BasisPlayer.GetPlayers(players);
+            foreach (BasisPlayer player in players)
             {
                 if (player != null)
                 {

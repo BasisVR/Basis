@@ -28,13 +28,13 @@ public class BasisUIAdminPanel : BasisUIBase
     {
         BindButtons();
         GenerateButtons();
-        BasisNetworkManagement.OnRemotePlayerJoined += OnRemotePlayerJoined;
-        BasisNetworkManagement.OnRemotePlayerLeft += OnRemotePlayerJoined;
+        BasisNetworkPlayer.OnRemotePlayerJoined += OnRemotePlayerJoined;
+        BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayerJoined;
     }
     public void OnDestroy()
     {
-        BasisNetworkManagement.OnRemotePlayerJoined -= OnRemotePlayerJoined;
-        BasisNetworkManagement.OnRemotePlayerLeft -= OnRemotePlayerJoined;
+        BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayerJoined;
+        BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayerJoined;
     }
     private void OnRemotePlayerJoined(BasisNetworkPlayer player1, BasisRemotePlayer player2)
     {
