@@ -92,6 +92,13 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         base.OnDestroy();
     }
+    private void OnEnable()
+    {
+        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
+        BasisDebug.Log($"[HandHeldCamera] Preview reset to {PreviewCaptureWidth}x{PreviewCaptureHeight} @ {AntialiasingQuality.Low}");
+        captureCamera.targetTexture = renderTexture;
+        StartPreviewLoop();
+    }
 
     private void InitializeCameraSettings()
     {
