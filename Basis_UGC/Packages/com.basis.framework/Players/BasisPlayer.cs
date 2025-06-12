@@ -54,6 +54,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisAvatarStrainJiggleDriver BasisAvatarStrainJiggleDriver = new BasisAvatarStrainJiggleDriver();
         [SerializeField]
         public BasisFacialBlinkDriver FacialBlinkDriver = new BasisFacialBlinkDriver();
+        public static bool UseJiggles = true;
         public void InitalizeIKCalibration(BasisAvatarDriver BasisAvatarDriver)
         {
             if (BasisAvatarDriver != null)
@@ -65,14 +66,17 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisDebug.LogError("Mising CharacterIKCalibration");
                 HasAvatarDriver = false;
             }
-            HasJiggles = false;
-            try
+            if (UseJiggles)
             {
-                HasJiggles = BasisAvatarStrainJiggleDriver.Initalize(this);
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError($"{e.ToString()} {e.StackTrace}");
+                HasJiggles = false;
+                try
+                {
+                    HasJiggles = BasisAvatarStrainJiggleDriver.Initalize(this);
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"{e.ToString()} {e.StackTrace}");
+                }
             }
         }
         public void UpdateFaceVisibility(bool State)

@@ -1,6 +1,7 @@
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Profiler;
@@ -8,8 +9,10 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
+using System.Data;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UIElements;
 using static BasisNetworkGenericMessages;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
@@ -220,6 +223,18 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             return false;
         }
+        public bool IsOwnerCached(string UniqueNetworkId)
+        {
+            if (BasisNetworkManagement.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique) && NetId == Unique)
+            {
+                return true;
+            }
+            return false;
+        }
+        public static async Task<bool> IsOwnerLocal(string IOwnThis)
+        {
+          return  await BasisNetworkPlayer.LocalPlayer.IsOwner(IOwnThis);
+        }
 
         public static async Task<(bool, ushort)> SetOwnerAsync(BasisNetworkPlayer FutureOwner, string IOwnThis)
         {
@@ -318,6 +333,31 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisDebug.LogError("Missing Haptic Input For Device Type " + Role);
             }
         }
+
+        public void Immobilize(bool Immobilize)
+        {
+            if (Player.IsLocal)
+            {
+                var MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
+                var CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+
+                if (Immobilize)
+                {
+                    MovementLock.Add(nameof(BasisNetworkPlayer));
+                    CrouchingLock.Add(nameof(BasisNetworkPlayer));
+                }
+                else
+                {
+                    MovementLock.Remove(nameof(BasisNetworkPlayer));
+                    CrouchingLock.Remove(nameof(BasisNetworkPlayer));
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetTrackingData", BasisDebug.LogTag.Networking);
+            }
+        }
+
         /// <summary>
         /// this occurs after the localplayer has been approved by the network and setup
         /// </summary>
@@ -336,5 +376,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// this occurs after a remote user has removed
         /// </summary>
         public static Action<BasisNetworkPlayer, BasisRemotePlayer> OnRemotePlayerLeft;
+        public string displayName
+        {
+            get
+            {
+                if (Player != null)
+                {
+                    return Player.DisplayName;
+                }
+                else { return string.Empty; }
+            }
+        }
     }
 }

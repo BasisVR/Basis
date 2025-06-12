@@ -63,7 +63,6 @@ public class PickupInteractable : InteractableObject
     private Vector3 currentZoopVelocity = Vector3.zero;
 
     public Action<PickUpUseMode> OnPickupUse;
-    public BasisPlayer currentPlayer;
 
     public enum PickUpUseMode
     {
