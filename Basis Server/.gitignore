@@ -48,4 +48,8 @@ msbuild.wrn
 *.nuspec
 *.cache
 
-
+# Docker
+Docker/*
+!Docker/README.md
+!Docker/Dockerfile
+!Docker/docker-compose.yml

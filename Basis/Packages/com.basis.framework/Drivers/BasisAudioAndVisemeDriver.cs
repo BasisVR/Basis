@@ -19,7 +19,7 @@ namespace Basis.Scripts.Drivers
         public BasisAvatar Avatar;
         public uLipSync.uLipSync uLipSync;
         public uLipSyncBlendShape uLipSyncBlendShape;
-        public List<PhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<PhonemeBlendShapeInfo>();
+        public List<BasisPhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<BasisPhonemeBlendShapeInfo>();
         private uLipSync.Profile profile;
         public bool FirstTime = false;
         public bool WasSuccessful;
@@ -75,7 +75,7 @@ namespace Basis.Scripts.Drivers
                     {
                         case 10:
                             {
-                                PhonemeBlendShapeInfo PhonemeBlendShapeInfo = new PhonemeBlendShapeInfo
+                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
                                 {
                                     phoneme = "A",
                                     blendShape = FaceVisemeIndex
@@ -86,7 +86,7 @@ namespace Basis.Scripts.Drivers
 
                         case 12:
                             {
-                                PhonemeBlendShapeInfo PhonemeBlendShapeInfo = new PhonemeBlendShapeInfo
+                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
                                 {
                                     phoneme = "I",
                                     blendShape = FaceVisemeIndex
@@ -97,7 +97,7 @@ namespace Basis.Scripts.Drivers
 
                         case 14:
                             {
-                                PhonemeBlendShapeInfo PhonemeBlendShapeInfo = new PhonemeBlendShapeInfo
+                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
                                 {
                                     phoneme = "U",
                                     blendShape = FaceVisemeIndex
@@ -108,7 +108,7 @@ namespace Basis.Scripts.Drivers
 
                         case 11:
                             {
-                                PhonemeBlendShapeInfo PhonemeBlendShapeInfo = new PhonemeBlendShapeInfo
+                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
                                 {
                                     phoneme = "E",
                                     blendShape = FaceVisemeIndex
@@ -118,7 +118,7 @@ namespace Basis.Scripts.Drivers
                             }
                         case 13:
                             {
-                                PhonemeBlendShapeInfo PhonemeBlendShapeInfo = new PhonemeBlendShapeInfo
+                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
                                 {
                                     phoneme = "O",
                                     blendShape = FaceVisemeIndex
@@ -128,7 +128,7 @@ namespace Basis.Scripts.Drivers
                             }
                         case 7:
                             {
-                                PhonemeBlendShapeInfo PhonemeBlendShapeInfo = new PhonemeBlendShapeInfo
+                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
                                 {
                                     phoneme = "S",
                                     blendShape = FaceVisemeIndex
@@ -147,7 +147,7 @@ namespace Basis.Scripts.Drivers
             uLipSyncBlendShape.CachedblendShapes.Clear();
             for (int Index = 0; Index < phonemeBlendShapeTable.Count; Index++)
             {
-                PhonemeBlendShapeInfo info = phonemeBlendShapeTable[Index];
+                BasisPhonemeBlendShapeInfo info = phonemeBlendShapeTable[Index];
                 uLipSyncBlendShape.AddBlendShape(info.phoneme, info.blendShape);
             }
             uLipSyncBlendShape.BlendShapeInfos = uLipSyncBlendShape.CachedblendShapes.ToArray();

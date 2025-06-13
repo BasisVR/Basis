@@ -1,0 +1,23 @@
+services:
+  basis-server:
+    build:
+      context: ../
+      dockerfile: Docker/Dockerfile
+    image: basis-server:latest
+    container_name: basis-server
+    restart: unless-stopped
+    environment:
+      SetPort: 4296
+      HealthCheckPort: 10666
+      PromethusPort: 1234
+      Password: default_password
+      PeerLimit: 1024
+      EnableStatistics: true
+      EnableConsole: false
+    ports:
+      - "4296:4296/udp"
+      - "10666:10666/tcp"
+      - "1234:1234/tcp"
+    volumes:
+      - ./initialresources:/app/initialresources:ro
+      - ./config:/app/config

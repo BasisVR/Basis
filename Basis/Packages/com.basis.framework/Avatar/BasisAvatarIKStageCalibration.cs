@@ -254,7 +254,7 @@ namespace Basis.Scripts.Avatar
                 case BasisBoneTrackedRole.RightToes:
                     return 0.4f;
                 default:
-                    Console.WriteLine("Unknown role " + role);
+                    BasisDebug.LogError("Unknown role " + role);
                     return 0;
             }
         }

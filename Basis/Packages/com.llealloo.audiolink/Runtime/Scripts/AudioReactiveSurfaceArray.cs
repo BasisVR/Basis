@@ -3,10 +3,10 @@
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
+    
     using static VRC.SDKBase.VRCShader;
 
-    public class AudioReactiveSurfaceArray : UdonSharpBehaviour
+    public class AudioReactiveSurfaceArray : MonoBehaviour
 #else
     using static Shader;
 

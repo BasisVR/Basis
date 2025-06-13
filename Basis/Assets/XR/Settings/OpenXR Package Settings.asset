@@ -926,6 +926,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 1
   m_symmetricProjection: 1
+  m_optimizeMultiviewRenderRegions: 0
   m_foveatedRenderingApi: 1
 --- !u!114 &-8419463971566137
 MonoBehaviour:
@@ -1468,6 +1469,7 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
+  m_optimizeMultiviewRenderRegions: 0
   m_foveatedRenderingApi: 1
 --- !u!114 &4488616393402168616
 MonoBehaviour:
@@ -1944,4 +1946,5 @@ MonoBehaviour:
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
+  m_optimizeMultiviewRenderRegions: 0
   m_foveatedRenderingApi: 0

@@ -10,7 +10,6 @@ public static class BasisBundleErrorHandler
 
         if (wasModified)
         {
-            AssetBundleBuilder.ResetAssetBundleName(tempStoragePath);
             TemporaryStorageHandler.ClearTemporaryStorage(tempStoragePath);
             AssetDatabase.Refresh();
             Debug.LogError("Temporary modifications and storage have been reset.");

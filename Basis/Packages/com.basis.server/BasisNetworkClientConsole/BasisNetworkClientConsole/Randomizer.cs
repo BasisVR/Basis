@@ -1,4 +1,5 @@
 using Basis.Scripts.Networking.Compression;
+using static Org.BouncyCastle.Asn1.Cmp.Challenge;
 
 namespace BasisNetworkClientConsole
 {
@@ -18,6 +19,14 @@ namespace BasisNetworkClientConsole
         public static float GetRandomFloat(Random random, float min, float max)
         {
             return (float)(random.NextDouble() * (max - min) + min);
+        }
+        public static Vector3 GetRandomOffset(float maxOffset = 0.5f)
+        {
+            Random random = new Random();
+            float x = (float)(random.NextDouble() * 2 - 1) * maxOffset;
+            float y = (float)(random.NextDouble() * 2 - 1) * maxOffset;
+            float z = (float)(random.NextDouble() * 2 - 1) * maxOffset;
+            return new Vector3(x, y, z);
         }
     }
 }

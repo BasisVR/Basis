@@ -6,12 +6,9 @@ using Basis.Scripts.Profiler;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System.Threading.Tasks;
-using UnityEngine;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static DarkRift.Basis_Common.Serializable.SerializableBasis;
 using static SerializableBasis;
-
-
 public static class BasisNetworkGenericMessages
 {
     // Handler for server scene data messages
@@ -41,24 +38,24 @@ public static class BasisNetworkGenericMessages
     {
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);
-        BasisNetworkManagement.Instance.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID);
-        BasisNetworkManagement.OwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
+        BasisNetworkManagement.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID);
+        BasisNetworkPlayer.OnOwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
     }
     public static void HandleOwnership(OwnershipTransferMessage OwnershipTransferMessage)
     {
-        if (BasisNetworkManagement.Instance.OwnershipPairing.ContainsKey(OwnershipTransferMessage.ownershipID))
+        if (BasisNetworkManagement.OwnershipPairing.ContainsKey(OwnershipTransferMessage.ownershipID))
         {
-            BasisNetworkManagement.Instance.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
+            BasisNetworkManagement.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
         }
         else
         {
-            BasisNetworkManagement.Instance.OwnershipPairing.TryAdd(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID);
+            BasisNetworkManagement.OwnershipPairing.TryAdd(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID);
         }
         if (BasisNetworkManagement.TryGetLocalPlayerID(out ushort Id))
         {
             bool isLocalOwner = OwnershipTransferMessage.playerIdMessage.playerID == Id;
 
-            BasisNetworkManagement.OnOwnershipTransfer?.Invoke(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID, isLocalOwner);
+            BasisNetworkPlayer.OnOwnershipTransfer?.Invoke(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID, isLocalOwner);
         }
     }
     // Handler for server avatar data messages
@@ -78,13 +75,9 @@ public static class BasisNetworkGenericMessages
             if (player.Player.BasisAvatar != null)
             {
                 RemoteAvatarDataMessage output = serverAvatarDataMessage.avatarDataMessage;
-                if (player.Player.BasisAvatar.OnNetworkMessageReceived == null)
+                if (player.Player.BasisAvatar.Behaviours.Length >= output.messageIndex)
                 {
-                    Debug.LogWarning(player.Player.DisplayName + " Message was Queued But nothing was there to Rec it " + output.messageIndex);
-                }
-                else
-                {
-                    player.Player.BasisAvatar.OnNetworkMessageReceived?.Invoke(serverAvatarDataMessage.playerIdMessage.playerID, output.messageIndex, output.payload, Method);
+                    player.Player.BasisAvatar.Behaviours[output.messageIndex].OnNetworkMessageReceived(serverAvatarDataMessage.playerIdMessage.playerID, output.payload, Method);
                 }
             }
             else

@@ -7,6 +7,9 @@ using System.Xml.Serialization;
 [Serializable]
 public class Configuration
 {
+    public const string ConfigFolderName = "config";
+    public const string LogsFolderName = "logs";
+    public const string InitialResourcesFolderName = "initialresources";
     public int PeerLimit = 1024;
     public ushort SetPort = 4296;
     public int QueueEvents = 10;
@@ -52,6 +55,7 @@ public class Configuration
     public BasisUserRestrictionMode BasisUserRestrictionMode;
     public int HowManyDuplicateAuthCanExist = 2;
     public int AuthValidationTimeOutMiliseconds = 9000;
+    public bool EnableConsole = true;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

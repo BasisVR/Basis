@@ -24,7 +24,7 @@ public class BasisGizmos : MonoBehaviour
     /// </summary>
     public void UpdatePosition(Vector3 position)
     {
-        transform.position = position;
+        this.transform.position = position;
     }
 
     /// <summary>
@@ -32,6 +32,6 @@ public class BasisGizmos : MonoBehaviour
     /// </summary>
     public void UpdateSize(Vector3 scale)
     {
-        transform.localScale = scale;
+        this.transform.localScale = scale;
     }
 }

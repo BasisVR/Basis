@@ -1,5 +1,8 @@
+using UnityEngine.Serialization;
+
 [System.Serializable]
 public class BasisStoredEncryptedBundle
 {
-    public string LocalConnectorPath;
+    [FormerlySerializedAs("LocalConnectorPath")]
+    public string DownloadedBeeFileLocation;
 }

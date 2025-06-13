@@ -43,13 +43,13 @@ namespace Basis.Scripts.TransformBinders
             if (AttachedInput == null || AttachedInput == input)
             {
                 BasisDebug.Log("ReParenting Camera", BasisDebug.LogTag.Device);
-                transform.parent = BasisLocalPlayer.Instance.transform;
+                this.transform.parent = BasisLocalPlayer.Instance.transform;
             }
         }
 
         public void FindRole()
         {
-            transform.parent = BasisLocalPlayer.Instance.transform;
+            this.transform.parent = BasisLocalPlayer.Instance.transform;
             int count = BasisDeviceManagement.Instance.AllInputDevices.Count;
             BasisDebug.Log("finding Lock " + TrackedRole, BasisDebug.LogTag.Device);
             for (int Index = 0; Index < count; Index++)
@@ -62,9 +62,9 @@ namespace Basis.Scripts.TransformBinders
                         if (role == TrackedRole)
                         {
                             AttachedInput = Input;
-                            transform.parent = AttachedInput.transform;
-                            transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-                            transform.localScale = Vector3.one;
+                            this.transform.parent = AttachedInput.transform;
+                            this.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                            this.transform.localScale = Vector3.one;
                             return;
                         }
                     }
@@ -75,7 +75,8 @@ namespace Basis.Scripts.TransformBinders
                 }
                 else
                 {
-                    BasisDebug.LogError("There was a missing BasisInput at " + Index);
+                    // when application is exiting, objects will be destroyed naturally, don't error log during this process
+                    if (!Application.isPlaying) BasisDebug.LogError("There was a missing BasisInput at " + Index);
                 }
             }
         }

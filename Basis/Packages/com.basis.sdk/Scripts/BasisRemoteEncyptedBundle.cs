@@ -1,6 +1,8 @@
+using UnityEngine.Serialization;
+
 [System.Serializable]
 public class BasisRemoteEncyptedBundle
 {
-    public bool IsLocal;
-    public string CombinedURL;
+    [FormerlySerializedAs("CombinedURL")]
+    public string RemoteBeeFileLocation;
 }

@@ -12,22 +12,22 @@ namespace Basis.Scripts.UI.NamePlate
     {
         public BasisBoneControl HipTarget;
         public BasisBoneControl MouthTarget;
-        public TextMeshPro Text;
         public SpriteRenderer LoadingBar;
         public MeshFilter Filter;
         public TextMeshPro LoadingText;
         public BasisRemotePlayer BasisRemotePlayer;
-        public SpriteRenderer namePlateImage;
         public Coroutine colorTransitionCoroutine;
         public Coroutine returnToNormalCoroutine;
         public bool HasRendererCheckWiredUp = false;
         public bool IsVisible = true;
         public bool HasProgressBarVisible = false;
         public Mesh bakedMesh;
+        public MeshRenderer Renderer;
         private WaitForSeconds cachedReturnDelay;
         private WaitForEndOfFrame cachedEndOfFrame;
         public Color CurrentColor;
         public Transform Self;
+        public float InteractRange = 2f;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -35,37 +35,20 @@ namespace Basis.Scripts.UI.NamePlate
         /// <param name="basisRemotePlayer"></param>
         public void Initalize(BasisBoneControl hipTarget, BasisRemotePlayer basisRemotePlayer)
         {
-            if (BasisDeviceManagement.IsMobile())
-            {
-                Color Color = namePlateImage.color;
-                Color.a = 1;
-                namePlateImage.color = Color;
-            }
             cachedReturnDelay = new WaitForSeconds(RemoteNamePlateDriver.returnDelay);
             cachedEndOfFrame = new WaitForEndOfFrame();
             BasisRemotePlayer = basisRemotePlayer;
             HipTarget = hipTarget;
             MouthTarget = BasisRemotePlayer.RemoteBoneDriver.Mouth;
-            Text.text = BasisRemotePlayer.DisplayName;
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
             BasisRemotePlayer.AudioReceived += OnAudioReceived;
             BasisRemotePlayer.OnAvatarSwitched += RebuildRenderCheck;
             BasisRemotePlayer.OnAvatarSwitchedFallBack += RebuildRenderCheck;
             Self = this.transform;
+            RemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
             RemoteNamePlateDriver.Instance.AddNamePlate(this);
             LoadingText.enableVertexGradient = false;
-            // Text.enableCulling = true;
-            // Text.enableAutoSizing = false;
-            GenerateText();
-            GameObject.Destroy(Text.gameObject);
-        }
-        public void GenerateText()
-        {
-            // Force update to ensure the mesh is generated
-            Text.ForceMeshUpdate();
-            // Store the generated mesh
-            bakedMesh = Mesh.Instantiate(Text.mesh);
-            Filter.sharedMesh = bakedMesh;
+
         }
         public void RebuildRenderCheck()
         {
@@ -109,15 +92,9 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (IsVisible)
             {
-                Color targetColor;
-                if (BasisRemotePlayer.OutOfRangeFromLocal)
-                {
-                    targetColor = hasRealAudio ? RemoteNamePlateDriver.StaticOutOfRangeColor : RemoteNamePlateDriver.StaticNormalColor;
-                }
-                else
-                {
-                    targetColor = hasRealAudio ? RemoteNamePlateDriver.StaticIsTalkingColor : RemoteNamePlateDriver.StaticNormalColor;
-                }
+                Color targetColor = BasisRemotePlayer.OutOfRangeFromLocal
+                    ? hasRealAudio ? RemoteNamePlateDriver.StaticOutOfRangeColor : RemoteNamePlateDriver.StaticNormalColor
+                    : hasRealAudio ? RemoteNamePlateDriver.StaticIsTalkingColor : RemoteNamePlateDriver.StaticNormalColor;
                 BasisNetworkManagement.MainThreadContext.Post(_ =>
                 {
                     if (this != null)
@@ -139,29 +116,26 @@ namespace Basis.Scripts.UI.NamePlate
         }
         private IEnumerator TransitionColor(Color targetColor)
         {
-            CurrentColor = namePlateImage.color;
+            CurrentColor = Renderer.sharedMaterials[0].color;
             float elapsedTime = 0f;
 
             while (elapsedTime < RemoteNamePlateDriver.transitionDuration)
             {
                 elapsedTime += Time.deltaTime;
                 float lerpProgress = Mathf.Clamp01(elapsedTime / RemoteNamePlateDriver.transitionDuration);
-                namePlateImage.color = Color.Lerp(CurrentColor, targetColor, lerpProgress);
+                Renderer.materials[0].color = Color.Lerp(CurrentColor, targetColor, lerpProgress);
                 yield return cachedEndOfFrame;
             }
 
-            namePlateImage.color = targetColor;
+            Renderer.materials[0].color = targetColor;
             CurrentColor = targetColor;
             colorTransitionCoroutine = null;
 
-            if (targetColor == RemoteNamePlateDriver.StaticIsTalkingColor)
+            if (returnToNormalCoroutine != null)
             {
-                if (returnToNormalCoroutine != null)
-                {
-                    StopCoroutine(returnToNormalCoroutine);
-                }
-                returnToNormalCoroutine = StartCoroutine(DelayedReturnToNormal());
+                StopCoroutine(returnToNormalCoroutine);
             }
+            returnToNormalCoroutine = StartCoroutine(DelayedReturnToNormal());
         }
 
         private IEnumerator DelayedReturnToNormal()
@@ -225,23 +199,21 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override bool CanHover(BasisInput input)
         {
-            return !DisableInfluence &&
-                !IsPuppeted &&
+            return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
                 found.GetState() == InteractInputState.Ignored &&
-                IsWithinRange(found.BoneControl.OutgoingWorldData.position);
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
         public override bool CanInteract(BasisInput input)
         {
-            return !DisableInfluence &&
-                !IsPuppeted &&
+            return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
                 found.GetState() == InteractInputState.Hovering &&
-                IsWithinRange(found.BoneControl.OutgoingWorldData.position);
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
 
         public override void OnHoverStart(BasisInput input)
@@ -336,7 +308,7 @@ namespace Basis.Scripts.UI.NamePlate
         public override bool IsInteractTriggered(BasisInput input)
         {
             // click or mostly triggered
-            return input.InputState.Trigger >= 0.9;
+            return input.CurrentInputState.Trigger >= 0.9;
         }
     }
 }

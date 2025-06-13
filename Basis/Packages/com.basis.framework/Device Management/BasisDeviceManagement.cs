@@ -27,10 +27,12 @@ namespace Basis.Scripts.Device_Management
         public const string InvalidConst = "Invalid";
         public string[] BakedInCommandLineArgs = new string[] { };
         public static string NetworkManagement = "NetworkManagement";
-        public string CurrentMode = "None";
+        public static string CurrentMode = "None";
         [SerializeField]
         public const string Desktop = "Desktop";
         public static string BoneData = "Assets/ScriptableObjects/BoneData.asset";
+        public static BasisFallBackBoneData FBBD;
+        public const string ProfilePath = "Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset";
         public string DefaultMode()
         {
             if (IsMobile())
@@ -54,11 +56,7 @@ namespace Basis.Scripts.Device_Management
         /// <returns></returns>
         public static bool IsUserInDesktop()
         {
-            if (BasisDeviceManagement.Instance == null)
-            {
-                return false;
-            }
-            if (Desktop == BasisDeviceManagement.Instance.CurrentMode)
+            if (Desktop == BasisDeviceManagement.CurrentMode)
             {
                 return true;
             }
@@ -178,7 +176,7 @@ namespace Basis.Scripts.Device_Management
         {
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out string ForcedDevicemanager);
             LoadFallbackData();
-            InstantiationParameters parameters = new InstantiationParameters();
+            InstantiationParameters parameters = new InstantiationParameters(this.transform,true);
             await BasisPlayerFactory.CreateLocalPlayer(parameters);
 
             if (string.IsNullOrEmpty(ForcedDevicemanager))
@@ -198,11 +196,10 @@ namespace Basis.Scripts.Device_Management
             }
             await OnInitializationCompleted?.Invoke();
         }
-        public static BasisFallBackBoneData FBBD;
         public void LoadFallbackData()
         {
             BasisFallBackBoneDataAsync = Addressables.LoadAssetAsync<BasisFallBackBoneData>(BoneData);
-            LipSyncProfile = Addressables.LoadAssetAsync<uLipSync.Profile>("Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset");
+            LipSyncProfile = Addressables.LoadAssetAsync<uLipSync.Profile>(ProfilePath);
             FBBD = BasisFallBackBoneDataAsync.WaitForCompletion();
             LipSyncProfile.WaitForCompletion();
         }
@@ -322,7 +319,7 @@ namespace Basis.Scripts.Device_Management
         }
         public static void SwitchSetMode(string Mode)
         {
-            if (Instance != null && Mode != Instance.CurrentMode)
+            if (Instance != null && Mode != CurrentMode)
             {
                 Instance.SwitchMode(Mode);
             }
@@ -342,7 +339,7 @@ namespace Basis.Scripts.Device_Management
             {
                 BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
             }
-            BasisDebug.Log("Stero Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
+            BasisDebug.Log("Stereo Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
         }
         public static void ShowTrackersAsync()
         {

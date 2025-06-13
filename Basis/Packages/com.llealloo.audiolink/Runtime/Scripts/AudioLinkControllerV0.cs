@@ -4,12 +4,12 @@ using UnityEngine.UI;
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
-    using VRC.SDKBase;
-    using VRC.Udon;
+    
+    
+    
     using static VRC.SDKBase.VRCShader;
 
-    public class AudioLinkControllerV0 : UdonSharpBehaviour
+    public class AudioLinkControllerV0 : MonoBehaviour
 #else
     using static Shader;
 

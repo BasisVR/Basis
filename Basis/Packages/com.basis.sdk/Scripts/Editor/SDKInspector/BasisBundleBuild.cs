@@ -6,11 +6,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEditor;
-using UnityEditor.Build;
 using UnityEngine;
 
 public static class BasisBundleBuild
 {
+    public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
+   
     public static async Task<(bool, string)> GameObjectBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets)
     {
         int TargetCount = Targets.Count;
@@ -49,6 +50,22 @@ public static class BasisBundleBuild
     {
         try
         {
+            // Invoke pre build event and wait for all subscribers to complete
+            if (PreBuildBundleEvents != null)
+            {
+                List<Task> eventTasks = new List<Task>();
+                Delegate[] events = PreBuildBundleEvents.GetInvocationList();
+                int Length = events.Length;
+                for (int ctr = 0; ctr < Length; ctr++)
+                {
+                    Func<BasisContentBase, List<BuildTarget>, Task> handler = (Func<BasisContentBase, List<BuildTarget>, Task>)events[ctr];
+                    eventTasks.Add(handler(basisContentBase, targets));
+                }
+
+                await Task.WhenAll(eventTasks);
+                Debug.Log($"{Length} Pre BuildBundle Event(s)...");
+            }
+            
             Debug.Log("Starting BuildBundle...");
             EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 0);
 
@@ -66,20 +83,20 @@ public static class BasisBundleBuild
             ClearAssetBundleDirectory(assetBundleObject.AssetBundleDirectory);
 
             string hexString = GenerateHexString(32);
-
-            BasisBundleGenerated[] bundles = new BasisBundleGenerated[targets.Count];
+            int targetsLength = targets.Count;
+            BasisBundleGenerated[] bundles = new BasisBundleGenerated[targetsLength];
             List<string> paths = new List<string>();
 
-            for (int i = 0; i < targets.Count; i++)
+            for (int Index = 0; Index < targetsLength; Index++)
             {
-                BuildTarget target = targets[i];
+                BuildTarget target = targets[Index];
                 var (success, result) = await buildFunction(basisContentBase, assetBundleObject, hexString, target);
                 if (!success)
                 {
                     return (false, $"Failure While Building for {target}");
                 }
 
-                bundles[i] = result.Item1;
+                bundles[Index] = result.Item1;
                 string hashPath = PathConversion(result.Item2.EncyptedPath);
                 paths.Add(hashPath);
 
@@ -110,6 +127,7 @@ public static class BasisBundleBuild
             RestoreOriginalBuildTarget(originalActiveTarget);
 
             Debug.Log("Successfully built asset bundle.");
+
             EditorUtility.ClearProgressBar();
             return (true, "Success");
         }
@@ -280,18 +298,27 @@ public static class BasisBundleBuild
     // Convert a Unity path to a Windows-compatible path and open it in File Explorer
     public static void OpenFolderInExplorer(string folderPath)
     {
+#if UNITY_EDITOR_LINUX
+        string osPath = folderPath;
+#else
         // Convert Unity-style file path (forward slashes) to Windows-style (backslashes)
-        string windowsPath = folderPath.Replace("/", "\\");
+        string osPath = folderPath.Replace("/", "\\");
+#endif
 
         // Check if the path exists
-        if (Directory.Exists(windowsPath) || File.Exists(windowsPath))
+        if (Directory.Exists(osPath) || File.Exists(osPath))
         {
+#if UNITY_EDITOR_LINUX
             // On Windows, use 'explorer' to open the folder or highlight the file
-            System.Diagnostics.Process.Start("explorer.exe", windowsPath);
+            System.Diagnostics.Process.Start("open", osPath);
+#else
+            // On Windows, use 'explorer' to open the folder or highlight the file
+            System.Diagnostics.Process.Start("explorer.exe", osPath);
+#endif
         }
         else
         {
-            Debug.LogError("Path does not exist: " + windowsPath);
+            Debug.LogError("Path does not exist: " + osPath);
         }
     }
     public static bool ErrorChecking(BasisContentBase BasisContentBase, out string Error)

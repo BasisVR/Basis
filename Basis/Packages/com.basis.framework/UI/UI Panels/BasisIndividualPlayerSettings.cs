@@ -66,7 +66,11 @@ public class BasisIndividualPlayerSettings : BasisUIBase
 
         UserVolumeOverride.onValueChanged.AddListener(value => ChangePlayersVolume(playerUUID, value));
     }
-
+    public float step = 0.05f; // The interval between values
+    float SnapValue(float value)
+    {
+        return Mathf.Round(value / step) * step;
+    }
     public async void ToggleAvatarPressed(string playerUUID)
     {
         BasisPlayerSettingsData settings = await BasisPlayerSettingsManager.RequestPlayerSettings(playerUUID);
@@ -81,6 +85,8 @@ public class BasisIndividualPlayerSettings : BasisUIBase
     }
     public async void ChangePlayersVolume(string playerUUID, float volume)
     {
+        volume = SnapValue(volume);
+        UserVolumeOverride.SetValueWithoutNotify(volume);
         BasisPlayerSettingsData settings = await BasisPlayerSettingsManager.RequestPlayerSettings(playerUUID);
         settings.VolumeLevel = volume;
         SliderVolumePercentage.text = Mathf.RoundToInt(volume * 100) + "%";

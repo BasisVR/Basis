@@ -1,31 +1,25 @@
 using Basis.Scripts.BasisSdk;
-using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
+using BattlePhaze.SettingsManager.Intergrations;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
 using UnityEngine.Rendering.Universal;
 
-public class BasisSceneFactory : MonoBehaviour
+public static class BasisSceneFactory
 {
-    public BasisScene BasisScene;
-    public AudioMixerGroup WorldDefaultMixer;
-    public static BasisSceneFactory Instance;
-    private float timeSinceLastCheck = 0f;
-    public float RespawnCheckTimer = 5f;
-    public float RespawnHeight = -100f;
-    public BasisLocalPlayer BasisLocalPlayer;
-    public void Awake()
+    public static BasisScene BasisScene;
+    private static float timeSinceLastCheck = 0f;
+    public static float RespawnCheckTimer = 5f;
+    public static float RespawnHeight = -100f;
+    public static BasisLocalPlayer BasisLocalPlayer;
+    public static void Initalize()
     {
-        if (BasisHelpers.CheckInstance(Instance))
-        {
-            Instance = this;
-        }
         BasisScene.Ready += Initalize;
         BasisScene.Destroyed += BasisSceneDestroyed;
     }
-    public void BasisSceneDestroyed(BasisScene UnloadingScene)
+    public static void BasisSceneDestroyed(BasisScene UnloadingScene)
     {
         if(UnloadingScene != BasisScene)
         {
@@ -33,7 +27,7 @@ public class BasisSceneFactory : MonoBehaviour
         }
         else
         {
-            BasisScene[] Scenes = FindObjectsByType<BasisScene>( FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            BasisScene[] Scenes = GameObject.FindObjectsByType<BasisScene>( FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             foreach(BasisScene PotentialMainScene in Scenes)
             {
                 if(PotentialMainScene != UnloadingScene)
@@ -44,7 +38,7 @@ public class BasisSceneFactory : MonoBehaviour
             }
         }
     }
-    public void Initalize(BasisScene scene)
+    public static void Initalize(BasisScene scene)
     {
         BasisScene = scene;
         AttachMixerToAllSceneAudioSources();
@@ -85,10 +79,10 @@ public class BasisSceneFactory : MonoBehaviour
         }
         else
         {
-            BasisLocalPlayer = FindFirstObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
+            BasisLocalPlayer = GameObject.FindFirstObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
         }
     }
-    public void LoadCameraPropertys(Camera Camera)
+    public static void LoadCameraPropertys(Camera Camera)
     {
         BNL.Log("Loading Camera Propertys From Camera "+ Camera.gameObject.name);  
         Camera RealCamera = BasisLocalCameraDriver.Instance.Camera;
@@ -109,13 +103,13 @@ public class BasisSceneFactory : MonoBehaviour
            Data.volumeTrigger = AdditionalCameraData.volumeTrigger;
         }
     }
-    public void AttachMixerToAllSceneAudioSources()
+    public static void AttachMixerToAllSceneAudioSources()
     {
         // Check if mixerGroup is assigned
-        BasisScene.Group = WorldDefaultMixer;
+        BasisScene.Group = SMModuleAudio.Instance.WorldDefaultMixer;
 
         // Get all active and inactive AudioSources in the scene
-        AudioSource[] sources = FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        AudioSource[] sources = GameObject.FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         int AudioSourceCount = sources.Length;
         // Loop through each AudioSource and assign the mixer group if not already assigned
         for (int Index = 0; Index < AudioSourceCount; Index++)
@@ -129,7 +123,7 @@ public class BasisSceneFactory : MonoBehaviour
 
         BasisDebug.Log("Mixer group assigned to all scene AudioSources.");
     }
-    public void SpawnPlayer(BasisLocalPlayer Basis)
+    public static void SpawnPlayer(BasisLocalPlayer Basis)
     {
         BasisDebug.Log("Spawning Player");
         RequestSpawnPoint(out Vector3 position, out Quaternion rotation);
@@ -142,7 +136,7 @@ public class BasisSceneFactory : MonoBehaviour
             BasisDebug.LogError("Missing Local Player!");
         }
     }
-    public void FixedUpdate()
+    public static void Simulate()
     {
         timeSinceLastCheck += Time.deltaTime;
         // Check only if enough time has passed
@@ -155,13 +149,14 @@ public class BasisSceneFactory : MonoBehaviour
             }
         }
     }
-    public void RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
+    public static void RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
     {
         if (BasisScene != null)
         {
             if (BasisScene.SpawnPoint == null)
             {
-                this.transform.GetPositionAndRotation(out Position, out Rotation);
+                Position = Vector3.zero;
+                Rotation = Quaternion.identity;
             }
             else
             {

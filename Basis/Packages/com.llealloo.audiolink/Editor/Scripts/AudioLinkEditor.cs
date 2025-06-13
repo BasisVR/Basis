@@ -2,7 +2,7 @@
 using System.Reflection;
 
 #if UDONSHARP
-using UdonSharp;
+
 using UdonSharpEditor;
 #endif
 
@@ -85,7 +85,7 @@ namespace AudioLink.Editor
         public static void LinkAll(AudioLink target)
         {
 #if UDONSHARP
-            UdonSharpBehaviour[] allBehaviours = FindObjectsOfType<UdonSharpBehaviour>();
+            MonoBehaviour[] allBehaviours = FindObjectsOfType<MonoBehaviour>();
 #else
             MonoBehaviour[] allBehaviours = FindObjectsByType<MonoBehaviour>( FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
 #endif

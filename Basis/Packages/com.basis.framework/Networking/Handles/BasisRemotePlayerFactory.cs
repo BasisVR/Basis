@@ -37,7 +37,7 @@ namespace Basis.Scripts.Networking
                 // Retrieve the results
                 BasisRemotePlayer remote = await createRemotePlayerTask;
                 // Continue with the rest of the code
-                RemoteInitialization(BasisNetworkReceiver, remote);
+                RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
                 if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
                 {
                     BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
@@ -47,10 +47,8 @@ namespace Basis.Scripts.Networking
                     BasisDebug.LogError("Critical issue could not add player to data");
                     return null;
                 }
-                BasisNetworkReceiver.Initialize();//fires events and makes us network compatible
                 BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
-                BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(BasisNetworkReceiver, ServerReadyMessage.localReadyMessage.localAvatarSyncMessage, ServerReadyMessage.playerIdMessage.playerID);
-                BasisNetworkManagement.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
+                BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
 
                 BasisNetworkManagement.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
                 remote.LoadAvatarFromInitial(avatarID);
@@ -63,7 +61,7 @@ namespace Basis.Scripts.Networking
                 return null;
             }
         }
-        public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer)
+        public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer, ServerReadyMessage ServerReadyMessage)
         {
             BasisNetworkReceiver.Player = RemotePlayer;
             RemotePlayer.NetworkReceiver = BasisNetworkReceiver;
@@ -87,6 +85,8 @@ namespace Basis.Scripts.Networking
             {
                 BasisDebug.LogError("Missing CharacterIKCalibration");
             }
+            BasisNetworkReceiver.Initialize();//fires events and makes us network compatible
+            BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(BasisNetworkReceiver, ServerReadyMessage.localReadyMessage.localAvatarSyncMessage, ServerReadyMessage.playerIdMessage.playerID);
         }
         public static async Task<BasisNetworkPlayer> CreateRemotePlayer(ServerReadyMessage ServerReadyMessage,Transform Parent)
         {

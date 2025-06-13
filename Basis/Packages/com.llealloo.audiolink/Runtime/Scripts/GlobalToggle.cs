@@ -1,20 +1,20 @@
 ﻿#if UDONSHARP
-using UdonSharp;
+
 
 using UnityEngine.UI;
 
-using VRC.SDKBase;
+
 
 namespace AudioLink
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-    public class GlobalToggle : UdonSharpBehaviour
+    public class GlobalToggle : MonoBehaviour
     {
         [UdonSynced]
         private bool syncedValue;
         private bool deserializing;
         private Toggle toggle;
-        private VRCPlayerApi localPlayer;
+        private BasisPlayer localPlayer;
 
         private void Start()
         {

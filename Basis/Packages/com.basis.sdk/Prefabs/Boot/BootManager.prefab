@@ -89,6 +89,7 @@ MonoBehaviour:
     Parse: 0
     Type: 3
   Mixer: {fileID: 24100000, guid: 471a0209081144d4da2426822e8a0b47, type: 2}
+  WorldDefaultMixer: {fileID: 6216228358845890117, guid: 471a0209081144d4da2426822e8a0b47, type: 2}
 --- !u!114 &3440983803499203360
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -628,7 +629,8 @@ MonoBehaviour:
   RightMousePressed: {fileID: -240064975923332847, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  basisLocalPlayer: {fileID: 0}
+  MouseSensitivity: 1
+  JoystickSensitivity: 1
   Input: {fileID: 297858091515769489}
   InputState:
     gripButton: 0
@@ -687,7 +689,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Actions: {fileID: -944628639613478452, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  m_NotificationBehavior: 0
+  m_NotificationBehavior: 3
   m_UIInputModule: {fileID: 0}
   m_DeviceLostEvent:
     m_PersistentCalls:
@@ -2588,7 +2590,6 @@ GameObject:
   - component: {fileID: 7986300708970645016}
   - component: {fileID: -8771156173352421049}
   - component: {fileID: 6370897756145117596}
-  - component: {fileID: 8092540372531724008}
   - component: {fileID: -3484738083713026149}
   - component: {fileID: 508802122937325065}
   - component: {fileID: -1434852531052301144}
@@ -2632,7 +2633,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FireOffNetwork: 1
   BakedInCommandLineArgs: []
-  CurrentMode: None
   BasisDeviceNameMatcher: {fileID: 11400000, guid: 9b8e3db83cb310c40afaa430d0071a18, type: 2}
   AllInputDevices:
     _list: []
@@ -2663,23 +2663,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4da8d078d89b337479355b40c108f122, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &8092540372531724008
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9135220577826176361}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 90fa98c7b5e1b2c4db2c453c8989ced3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  BasisScene: {fileID: 0}
-  WorldDefaultMixer: {fileID: 6216228358845890117, guid: 471a0209081144d4da2426822e8a0b47, type: 2}
-  RespawnCheckTimer: 5
-  RespawnHeight: -100
-  BasisLocalPlayer: {fileID: 0}
 --- !u!114 &-3484738083713026149
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2752,10 +2735,9 @@ MonoBehaviour:
   DefaultScene:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -2765,10 +2747,9 @@ MonoBehaviour:
   DefaultAvatar:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:

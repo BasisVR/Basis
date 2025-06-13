@@ -1,14 +1,14 @@
 ﻿
 #if UDONSHARP
-using UdonSharp;
+
 using UnityEngine;
 using UnityEngine.Animations;
-using VRC.SDKBase;
-using VRC.Udon;
+
+
 
 namespace AudioLink
 {
-    public class AudioLinkControllerHandle : UdonSharpBehaviour
+    public class AudioLinkControllerHandle : MonoBehaviour
     {
         public ParentConstraint parentConstraint;
 

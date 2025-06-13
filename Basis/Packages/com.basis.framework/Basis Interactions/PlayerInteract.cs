@@ -1,21 +1,23 @@
-using UnityEngine;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using System.Linq;
-using Basis.Scripts.Device_Management.Devices;
-using UnityEngine.AddressableAssets;
 using Unity.Burst;
+using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using Basis.Scripts.TransformBinders.BoneControl;
 public class PlayerInteract : MonoBehaviour
 {
 
 
-    [Tooltip("How far the player can interact with objects. Must > hoverDistance")]
-    public float raycastDistance = 1.0f;
+    [Tooltip("How far the player can interact with objects. Must hold that raycastDistance > hoverRadius")]
+    public float raycastDistance = 5.0f;
     [Tooltip("How far the player Hover.")]
     public float hoverRadius = 0.5f;
+
+    public bool OnlySortClosest = true;
     [Tooltip("Both of the above are relative to object transforms, objects with larger colliders may have issues")]
     [System.Serializable]
     public struct InteractInput
@@ -97,7 +99,6 @@ public class PlayerInteract : MonoBehaviour
         {
             AddInput(Input);
         }
-        // TODO: what if it has no matchable name?
         // device removed handled elsewhere
     }
 
@@ -396,7 +397,7 @@ public class PlayerInteract : MonoBehaviour
 
         // deskies cant hover grab :)
         // TODO: pass up max hits for config 
-        HoverSphere hoverSphere = new HoverSphere(interactOrigin.transform.position, hoverRadius, 128, InteractableLayerMask, !IsDesktopCenterEye(input));
+        HoverSphere hoverSphere = new HoverSphere(interactOrigin.transform.position, hoverRadius, 128, InteractableLayerMask, !IsDesktopCenterEye(input), OnlySortClosest);
 
         interactOrigin.transform.SetParent(input.transform);
         interactOrigin.layer = LayerMask.NameToLayer("Ignore Raycast");
@@ -474,17 +475,29 @@ public class PlayerInteract : MonoBehaviour
     }
 
     /// <summary>
-    /// Gets the closest InteractableObject in the given HoverSphere where IsInfluencable is true for the given input
+    /// Gets the closest InteractableObject in the given HoverSphere where IsInfluencable is true for the given input.
     /// </summary>
-    /// <param name="hoverSphere"></param>
-    /// <param name="input"></param>
-    /// <returns></returns>
+    /// <param name="hoverSphere">The hover sphere containing hover results.</param>
+    /// <param name="input">The input used to check if the object is influencable.</param>
+    /// <returns>
+    /// A tuple containing the HoverResult and the corresponding InteractableObject that is influencable, or default values if none is found.
+    /// </returns>
     private (HoverSphere.HoverResult, InteractableObject) ClosestInfluencableHover(HoverSphere hoverSphere, BasisInput input)
     {
-        (HoverSphere.HoverResult, InteractableObject) @out = hoverSphere.Results[..hoverSphere.ResultCount]
-            .Select(hit => hit.collider.TryGetComponent(out InteractableObject component) ? (hit, component) : (default, null))
-            .Where(interact => interact.component != null && interact.component.IsInfluencable(input))
-            .FirstOrDefault();
-        return @out;
+        for (int Index = 0; Index < hoverSphere.ResultCount; Index++)
+        {
+            ref var hit = ref hoverSphere.Results[Index];
+
+            if (hit.collider != null && hit.collider.TryGetComponent<InteractableObject>(out var component))
+            {
+                if (component.IsInfluencable(input))
+                {
+                    return (hit, component);
+                }
+            }
+        }
+
+        // Return default if none found
+        return (default, null);
     }
 }

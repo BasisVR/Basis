@@ -174,7 +174,7 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 0
-  AndroidBundleVersionCode: 32
+  AndroidBundleVersionCode: 39
   AndroidMinSdkVersion: 29
   AndroidTargetSdkVersion: 32
   AndroidPreferredInstallLocation: 0
@@ -492,11 +492,15 @@ PlayerSettings:
   m_BuildTargetBatching:
   - m_BuildTarget: Standalone
     m_StaticBatching: 0
-    m_DynamicBatching: 1
+    m_DynamicBatching: 0
   - m_BuildTarget: Android
     m_StaticBatching: 0
-    m_DynamicBatching: 1
-  m_BuildTargetShaderSettings: []
+    m_DynamicBatching: 0
+  m_BuildTargetShaderSettings:
+  - m_BuildTarget: Standalone
+    m_ChunkSizeInMB: 16
+    m_MaxChunks: 0
+    m_OverrideDefaultSettings: 0
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: AndroidPlayer
     m_GraphicsJobs: 1
@@ -530,6 +534,7 @@ PlayerSettings:
   - serializedVersion: 2
     m_BuildTarget: Android
     m_EncodingQuality: 1
+  m_BuildTargetGroupHDRCubemapEncodingQuality: []
   m_BuildTargetGroupLightmapSettings: []
   m_BuildTargetGroupLoadStoreDebugModeSettings: []
   m_BuildTargetNormalMapEncoding: []
@@ -796,12 +801,12 @@ PlayerSettings:
   webGLMemoryLinearGrowthStep: 16
   webGLMemoryGeometricGrowthStep: 0.2
   webGLMemoryGeometricGrowthCap: 96
-  webGLEnableWebGPU: 0
   webGLPowerPreference: 2
   webGLWebAssemblyTable: 0
   webGLWebAssemblyBigInt: 0
   webGLCloseOnQuit: 0
   webWasm2023: 0
+  webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
     Android: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;AUDIOLINK;AUDIOLINK_V1
     EmbeddedLinux: 
@@ -929,3 +934,4 @@ PlayerSettings:
   insecureHttpOption: 0
   androidVulkanDenyFilterList: []
   androidVulkanAllowFilterList: []
+  androidVulkanDeviceFilterListAsset: {fileID: 0}

@@ -20,6 +20,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 06b1965d0565c4444b4ce3ea5aa8e690
+    m_Address: Packages/com.basis.tests/Mirror/BasisSDKMIrror.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0beeb56a431ea1646bb55ff6c6fc5a62
     m_Address: Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset
     m_ReadOnly: 0
@@ -145,6 +150,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6339a6e83fe84c14d975b2a5a205b51a
+    m_Address: Packages/com.basis.sdk/Prefabs/UI/Accept Deny Panel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 664b0a1856405914186fc25229d9d893
     m_Address: vr_tracker_vive_1_0
     m_ReadOnly: 0
@@ -257,6 +267,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ebe88bc64d28a8e4586b89098577937f
     m_Address: Interactable/InteractLineMat.mat
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ed07444dbf3e0f744a12b80ab0a8a2b7
+    m_Address: Packages/com.basis.sdk/Prefabs/UI/Personal Mirror Prefab/PersonalMirror.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

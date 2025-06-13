@@ -21,7 +21,7 @@ public static class BasisEncryptionWrapper
         }
         finally
         {
-            reportProgress.ReportProgress(UniqueID, 100, "Failure");
+            reportProgress?.ReportProgress(UniqueID, 100, "Failure");
         }
     }
 
@@ -34,7 +34,7 @@ public static class BasisEncryptionWrapper
         }
         finally
         {
-            reportProgress.ReportProgress(UniqueID, 100, "Failure");
+            reportProgress?.ReportProgress(UniqueID, 100, "Failure");
         }
     }
 

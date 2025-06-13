@@ -164,3 +164,9 @@ MonoBehaviour:
   - ExampleButtonInteractable
   - PlayerInteract
   - BasisProp
+  - Basis.Scripts.UGC.ShaderInteractions.BasisUGCShaderInteractions
+  - Basis.Scripts.UGC.OnOff.BasisUGCOnOff
+  - Basis.Scripts.UGC.BlendShapes.BasisUGCBlendShapes
+  - Basis.Scripts.UGC.BlendShapes.BasisUGCExpressions
+  - Basis.Scripts.UGC.Animator.BasisUGCAnimator
+  - Basis.Scripts.BasisSdk.BasisJiggleBonesComponent

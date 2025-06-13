@@ -2,50 +2,60 @@ using UnityEngine;
 using UnityEditor;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking;
-
 [CustomEditor(typeof(BasisNetworkManagement))]
 public class BasisNetworkManagementEditor : Editor
 {
-    private bool receiverArrayFoldout = false; // Foldout toggle
-    private int selectedReceiverIndex = 0; // Slider for receivers
+    private SerializedProperty ipProp;
+    private SerializedProperty portProp;
+    private SerializedProperty passwordProp;
+
+    private bool receiverArrayFoldout = true;
+    private int selectedReceiverIndex = 0;
+    private bool nativeArrayFoldout = false; // Foldout for NativeArray details
+    private bool debugFoldout = false; // Foldout for debugging data
+    private void OnEnable()
+    {
+        ipProp = serializedObject.FindProperty("Ip");
+        portProp = serializedObject.FindProperty("Port");
+        passwordProp = serializedObject.FindProperty("Password");
+    }
 
     public override void OnInspectorGUI()
     {
+        serializedObject.Update();
+
         // Reference to the target script
         BasisNetworkManagement networkManager = (BasisNetworkManagement)target;
-
-        // Display base inspector elements
-        //DrawDefaultInspector();
 
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Network Statistics", EditorStyles.boldLabel);
 
-        // Display stats
-        networkManager.Ip = EditorGUILayout.TextField("IP Address:", networkManager.Ip);
-        networkManager.Port = (ushort)EditorGUILayout.IntField("Port:", networkManager.Port);
-        networkManager.Password = EditorGUILayout.PasswordField("Password:", networkManager.Password);
+        // Editable fields using SerializedProperties
+        EditorGUILayout.PropertyField(ipProp, new GUIContent("IP Address"));
+        portProp.intValue = EditorGUILayout.IntField("Port", portProp.intValue);
+        passwordProp.stringValue = EditorGUILayout.PasswordField("Password", passwordProp.stringValue);
+
         EditorGUILayout.LabelField("Total Players:", BasisNetworkManagement.Players.Count.ToString());
         EditorGUILayout.LabelField("Remote Players:", BasisNetworkManagement.RemotePlayers.Count.ToString());
         EditorGUILayout.LabelField("Joining Players:", BasisNetworkManagement.JoiningPlayers.Count.ToString());
         EditorGUILayout.LabelField("Receiver Count:", BasisNetworkManagement.ReceiverCount.ToString());
 
-
-        if(BasisNetworkManagement.Instance == null)
+        if (BasisNetworkManagement.Instance == null)
         {
+            serializedObject.ApplyModifiedProperties();
             return;
         }
+
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Transmitter Details", EditorStyles.boldLabel);
         if (BasisNetworkManagement.Instance.Transmitter != null)
         {
-            // Display key properties
-            EditorGUILayout.LabelField("Ready:", BasisNetworkManagement.Instance.Transmitter.Ready.ToString());
             EditorGUILayout.LabelField("Has Events:", BasisNetworkManagement.Instance.Transmitter.HasEvents.ToString());
             EditorGUILayout.LabelField("Timer:", BasisNetworkManagement.Instance.Transmitter.timer.ToString("F3"));
             EditorGUILayout.LabelField("Interval:", BasisNetworkManagement.Instance.Transmitter.interval.ToString("F3"));
             EditorGUILayout.LabelField("Smallest Distance to Another Player:", BasisNetworkManagement.Instance.Transmitter.SmallestDistanceToAnotherPlayer.ToString("F3"));
+
             EditorGUILayout.Space();
-            // Native Array Details
             nativeArrayFoldout = EditorGUILayout.Foldout(nativeArrayFoldout, "Native Arrays", true);
             if (nativeArrayFoldout)
             {
@@ -57,8 +67,6 @@ public class BasisNetworkManagementEditor : Editor
             }
 
             EditorGUILayout.Space();
-
-            // Debugging Foldout
             debugFoldout = EditorGUILayout.Foldout(debugFoldout, "Debugging", true);
             if (debugFoldout)
             {
@@ -67,31 +75,22 @@ public class BasisNetworkManagementEditor : Editor
                 EditorGUILayout.LabelField("Avatar Index:", BasisNetworkManagement.Instance.Transmitter.AvatarIndex != null ? BasisNetworkManagement.Instance.Transmitter.AvatarIndex.Length.ToString() : "NULL");
             }
         }
-        // Apply property modifications
-        serializedObject.ApplyModifiedProperties();
-        EditorGUILayout.Space();
 
-        // Foldout for Receiver Array Data
+        EditorGUILayout.Space();
         receiverArrayFoldout = EditorGUILayout.Foldout(receiverArrayFoldout, "Receiver Array Data", true);
         if (receiverArrayFoldout)
         {
             if (BasisNetworkManagement.ReceiverArray != null && BasisNetworkManagement.ReceiverArray.Length > 0)
             {
                 EditorGUILayout.LabelField($"Receiver Array Length: {BasisNetworkManagement.ReceiverArray.Length}");
-
-                // Slider to select receiver
                 selectedReceiverIndex = EditorGUILayout.IntSlider("Select Receiver", selectedReceiverIndex, 0, BasisNetworkManagement.ReceiverArray.Length - 1);
 
-                // Get selected receiver
                 var receiver = BasisNetworkManagement.ReceiverArray[selectedReceiverIndex];
                 if (receiver != null)
                 {
                     EditorGUILayout.BeginVertical("box");
                     EditorGUILayout.LabelField($"Receiver {selectedReceiverIndex + 1}", EditorStyles.boldLabel);
-
-                    // Display properties of the selected receiver
                     DisplayReceiverProperties(receiver);
-
                     EditorGUILayout.EndVertical();
                 }
                 else
@@ -105,14 +104,19 @@ public class BasisNetworkManagementEditor : Editor
             }
         }
 
-        // Apply changes if properties were modified
+        serializedObject.ApplyModifiedProperties();
+
         if (GUI.changed)
         {
             EditorUtility.SetDirty(networkManager);
         }
     }
-    private bool nativeArrayFoldout = false; // Foldout for NativeArray details
-    private bool debugFoldout = false; // Foldout for debugging data
+
+    private void DisplayReceiverProperties(object receiver)
+    {
+        // Placeholder: implement this to show receiver details properly
+        EditorGUILayout.LabelField("Receiver Data: (custom display not implemented)");
+    }
     private void DisplayReceiverProperties(BasisNetworkReceiver receiver)
     {
         // Use reflection to dynamically display fields

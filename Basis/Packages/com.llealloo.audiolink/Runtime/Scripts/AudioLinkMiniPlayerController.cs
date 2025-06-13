@@ -1,13 +1,13 @@
 ﻿#if UDONSHARP
-using UdonSharp;
+
 
 using UnityEngine;
 using UnityEngine.UI;
 
 using VRC.SDK3.Components;
 using VRC.SDK3.Components.Video;
-using VRC.SDKBase;
-using VRC.Udon;
+
+
 
 // #if UNITY_EDITOR && !COMPILER_UDONSHARP
 // using UnityEditor;
@@ -18,7 +18,7 @@ using VRC.Udon;
 namespace AudioLink
 {
     [AddComponentMenu("AudioLink/UI/AudioLink Mini Player Controller")]
-    public class AudioLinkMiniPlayerController : UdonSharpBehaviour
+    public class AudioLinkMiniPlayerController : MonoBehaviour
     {
         public AudioLinkMiniPlayer videoPlayer;
 
@@ -58,7 +58,7 @@ namespace AudioLink
         private void Start()
         {
 #if !UNITY_EDITOR
-            VRCPlayerApi owner = Networking.GetOwner(gameObject);
+            BasisPlayer owner = Networking.GetOwner(gameObject);
             if (VRC.SDKBase.Utilities.IsValid(owner) && owner.IsValid())
                 instanceMaster = owner.displayName;
 #endif
@@ -338,11 +338,11 @@ namespace AudioLink
 
         void FindOwners()
         {
-            int playerCount = VRCPlayerApi.GetPlayerCount();
-            VRCPlayerApi[] playerList = new VRCPlayerApi[playerCount];
-            playerList = VRCPlayerApi.GetPlayers(playerList);
+            int playerCount = BasisPlayer.GetPlayerCount();
+            BasisPlayer[] playerList = new BasisPlayer[playerCount];
+            playerList = BasisPlayer.GetPlayers(playerList);
 
-            foreach (VRCPlayerApi player in playerList)
+            foreach (BasisPlayer player in playerList)
             {
                 if (!VRC.SDKBase.Utilities.IsValid(player) || !player.IsValid())
                     continue;
@@ -361,9 +361,9 @@ namespace AudioLink
                 return $"Controls locked to master {instanceMaster} and owner {instanceOwner}";
         }
 
-        public override void OnPlayerLeft(VRCPlayerApi player)
+        public override void OnPlayerLeft(BasisPlayer player)
         {
-            VRCPlayerApi owner = Networking.GetOwner(gameObject);
+            BasisPlayer owner = Networking.GetOwner(gameObject);
             if (VRC.SDKBase.Utilities.IsValid(owner) && owner.IsValid())
                 instanceMaster = owner.displayName;
         }
