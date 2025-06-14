@@ -216,7 +216,7 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             if (LocalMuscleDriver != null)
             {
-                LocalMuscleDriver.DisposeAllJobsData();
+                LocalMuscleDriver.OnDestroy();
             }
             if (LocalEyeDriver != null)
             {

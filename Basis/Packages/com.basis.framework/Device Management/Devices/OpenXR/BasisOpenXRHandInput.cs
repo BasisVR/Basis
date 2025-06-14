@@ -10,7 +10,6 @@ using UnityEngine.InputSystem;
 using UnityEngine.XR;
 public class BasisOpenXRHandInput : BasisInput
 {
-    public BasisFingerPose FingerCurls;
     public InputActionProperty DeviceActionPosition;
     public InputActionProperty DeviceActionRotation;
     public InputActionProperty PalmPosition;

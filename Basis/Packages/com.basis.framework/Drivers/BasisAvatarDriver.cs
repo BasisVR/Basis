@@ -72,6 +72,7 @@ namespace Basis.Scripts.Drivers
         {
             FindSkinnedMeshRenders();
             BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Avatar.transform, ref References);
+            References.RecordCurrentTPose();
             Player.FaceIsVisible = false;
             if (Avatar == null)
             {

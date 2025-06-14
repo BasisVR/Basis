@@ -55,7 +55,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 case SteamVR_Input_Sources.LeftHand:
                     {
-                        UpdateFingerPercentages(ref BasisLocalPlayer.Instance.LocalMuscleDriver.LeftFinger);
+                        UpdateFingerPercentages( BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHandPoses);
 
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetLeft;
@@ -67,8 +67,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
                 case SteamVR_Input_Sources.RightHand:
                     {
-                        UpdateFingerPercentages(ref BasisLocalPlayer.Instance.LocalMuscleDriver.RightFinger);
-
+                        UpdateFingerPercentages( BasisLocalPlayer.Instance.LocalMuscleDriver.RightHandPoses);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetRight;
 
@@ -80,39 +79,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             }
         }
 
-        private void UpdateFingerPercentages(ref BasisFingerPose fingerDriver)
+        private void UpdateFingerPercentages( BasisFingerPose fingerDriver)
         {
-            ConvertFingerSplays();
-            fingerDriver.ThumbPercentage = GetFingerPercentage(0);
-            fingerDriver.IndexPercentage = GetFingerPercentage(1);
-            fingerDriver.MiddlePercentage = GetFingerPercentage(2);
-            fingerDriver.RingPercentage = GetFingerPercentage(3);
-            fingerDriver.LittlePercentage = GetFingerPercentage(4);
-        }
-        /// <summary>
-        /// this is where it all goes wrong
-        /// valve use splay in a funky way 
-        /// or in a way my dumbass does not understand
-        /// </summary>
-        /// <param name="index"></param>
-        /// <returns></returns>
-        private Vector2 GetFingerPercentage(int index)
-        {
-            float flippedCurl = 1 - skeletonAction.fingerCurls[index];
-            float flippedSplay = 1 - FingerSplays[index];
-
-            return new Vector2(
-                BasisBaseMuscleDriver.MapValue(flippedCurl, 0, 1, -1f, 0.7f),
-                flippedSplay
-            );
-        }
-        public void ConvertFingerSplays()
-        {
-            FingerSplays[0] = 0;
-            for (int Index = 1; Index < 5; Index++)
-            {
-                FingerSplays[Index] = BasisBaseMuscleDriver.MapValue(skeletonAction.fingerSplays[Index-1], 0, 1, -1f, 1f);
-            }
 
         }
         public void DeInitalize()

@@ -132,6 +132,7 @@ namespace Basis.Scripts.Drivers
                 player.BasisAvatar.Animator.runtimeAnimatorController = RAC;
             }
             player.BasisAvatar.Animator.applyRootMotion = false;
+            //tpose
             PutAvatarIntoTPose();
             Builder = BasisHelpers.GetOrAddComponent<RigBuilder>(AvatarAnimatorParent);
             Builder.enabled = false;
@@ -151,12 +152,12 @@ namespace Basis.Scripts.Drivers
             SetBodySettings(player.LocalBoneDriver);
             CalculateTransformPositions(player, player.LocalBoneDriver);
             ComputeOffsets(player.LocalBoneDriver);
-            player.LocalMuscleDriver.DisposeAllJobsData();
-            player.LocalMuscleDriver.Initialize(player.BasisAvatar.Animator);
+            player.LocalMuscleDriver.OnDestroy();
+            player.LocalMuscleDriver.Initialize();
 
             CalibrationComplete?.Invoke();
             player.LocalAnimatorDriver.Initialize(player);
-
+            //stop Tpose
             ResetAvatarAnimator();
             BasisAvatarIKStageCalibration.HasFBIKTrackers = false;
             if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Head, BasisBoneTrackedRole.Head))

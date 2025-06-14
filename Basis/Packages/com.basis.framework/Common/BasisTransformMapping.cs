@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -462,6 +463,32 @@ namespace Basis.Scripts.Common
             position = default;
             rotation = default;
             return false;
+        }
+        [Serializable]
+        public struct TransformPose
+        {
+            public Vector3 Position;
+            public Quaternion Rotation;
+
+            public TransformPose(Vector3 pos, Quaternion rot)
+            {
+                Position = pos;
+                Rotation = rot;
+            }
+        }
+        public Dictionary<HumanBodyBones, TransformPose> TPoseRecords = new Dictionary<HumanBodyBones, TransformPose>();
+        public void RecordCurrentTPose()
+        {
+            for (int Index = 0; Index < 53; Index++)
+            {
+                HumanBodyBones bone = (HumanBodyBones)Index;
+
+                if (GetTransform(bone, out var boneTransform) && boneTransform != null)
+                {
+                    boneTransform.GetLocalPositionAndRotation(out var pos, out var rot);
+                    TPoseRecords[bone] = new TransformPose(pos, rot);
+                }
+            }
         }
     }
 }
