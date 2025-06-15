@@ -63,6 +63,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         LeftHandParams[2].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
                         LeftHandParams[3].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
                         LeftHandParams[4].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
+
+                        LeftHandParams[1].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
+                        LeftHandParams[2].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
+                        LeftHandParams[3].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
+                        LeftHandParams[4].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetLeft;
 
@@ -79,6 +84,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         RightHandParams[2].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
                         RightHandParams[3].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
                         RightHandParams[4].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
+
+                        RightHandParams[1].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
+                        RightHandParams[2].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
+                        RightHandParams[3].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
+                        RightHandParams[4].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetRight;
 
