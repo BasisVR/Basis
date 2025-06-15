@@ -74,7 +74,7 @@ namespace Basis.Scripts.BasisSdk.Players
         //finger poses
         [Header("Muscle Driver")]
         [SerializeField]
-        public BasisMuscleDriver LocalMuscleDriver = new BasisMuscleDriver();
+        public BasisHandDriver LocalMuscleDriver = new BasisHandDriver();
         [Header("Eye Driver")]
         [SerializeField]
         public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();
@@ -293,7 +293,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.PostSimulateBonePositions();
 
             //handles fingers
-            LocalMuscleDriver.UpdateFingers(LocalAvatarDriver);
+            LocalMuscleDriver.UpdateFingers();
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();

@@ -28,6 +28,7 @@ namespace Basis.Scripts.Drivers
         private static string TPose = "Assets/Animator/Animated TPose.controller";
         public Action CalibrationComplete;
         public Action TposeStateChange;
+        [SerializeField]
         public BasisTransformMapping References = new BasisTransformMapping();
         public RuntimeAnimatorController SavedruntimeAnimatorController;
         public SkinnedMeshRenderer[] SkinnedMeshRenderer;
@@ -72,7 +73,7 @@ namespace Basis.Scripts.Drivers
         {
             FindSkinnedMeshRenders();
             BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Avatar.transform, ref References);
-            References.RecordCurrentTPose();
+            References.RecordPoses(Player.BasisAvatar.Animator);
             Player.FaceIsVisible = false;
             if (Avatar == null)
             {

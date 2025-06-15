@@ -83,7 +83,7 @@ MonoBehaviour:
   m_UseFastSRGBLinearConversion: 1
   m_SupportDataDrivenLensFlare: 0
   m_SupportScreenSpaceLensFlare: 0
-  m_GPUResidentDrawerMode: 1
+  m_GPUResidentDrawerMode: 0
   m_SmallMeshScreenPercentage: 0
   m_GPUResidentDrawerEnableOcclusionCullingInCameras: 1
   m_ShadowType: 1

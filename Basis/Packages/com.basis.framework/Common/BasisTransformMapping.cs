@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Basis.Scripts.Common
 {
+    [System.Serializable]
     public class BasisTransformMapping
     {
         public Transform AnimatorRoot;
@@ -464,31 +465,21 @@ namespace Basis.Scripts.Common
             rotation = default;
             return false;
         }
-        [Serializable]
-        public struct TransformPose
-        {
-            public Vector3 Position;
-            public Quaternion Rotation;
 
-            public TransformPose(Vector3 pos, Quaternion rot)
-            {
-                Position = pos;
-                Rotation = rot;
-            }
-        }
-        public Dictionary<HumanBodyBones, TransformPose> TPoseRecords = new Dictionary<HumanBodyBones, TransformPose>();
-        public void RecordCurrentTPose()
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TPoseRecords = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public void RecordPoses(Animator animator)
         {
+            //Tpose
             for (int Index = 0; Index < 53; Index++)
             {
                 HumanBodyBones bone = (HumanBodyBones)Index;
-
-                if (GetTransform(bone, out var boneTransform) && boneTransform != null)
+                if (GetTransform(bone, out Transform boneTransform))
                 {
                     boneTransform.GetLocalPositionAndRotation(out var pos, out var rot);
-                    TPoseRecords[bone] = new TransformPose(pos, rot);
+                    TPoseRecords[bone] = new BasisCalibratedCoords(pos, rot);
                 }
             }
         }
+       
     }
 }
