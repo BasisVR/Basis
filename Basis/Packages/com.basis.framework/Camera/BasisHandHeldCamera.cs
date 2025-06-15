@@ -492,28 +492,22 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
     private void VisibilityFlag(bool isVisible)
     {
-        if (isVisible)
+        if (!isVisible)
         {
-            if (!LastVisibilityState)
+            if (LastVisibilityState && BasisLocalPlayer.Instance != null)
             {
-                if (BasisLocalPlayer.Instance != null)
-                {
-                    captureCamera.enabled = true;
-                    LastVisibilityState = true;
-                    BasisLocalPlayer.Instance.LocalAvatarDriver.TryActiveMatrixOverride(InstanceID);
-                }
+                captureCamera.enabled = false;
+                LastVisibilityState = false;
+                BasisLocalPlayer.Instance.LocalAvatarDriver.RemoveActiveMatrixOverride(InstanceID);
             }
         }
         else
         {
-            if (LastVisibilityState)
+            if (!LastVisibilityState && BasisLocalPlayer.Instance != null)
             {
-                if (BasisLocalPlayer.Instance != null)
-                {
-                    captureCamera.enabled = false;
-                    LastVisibilityState = false;
-                    BasisLocalPlayer.Instance.LocalAvatarDriver.RemoveActiveMatrixOverride(InstanceID);
-                }
+                captureCamera.enabled = true;
+                LastVisibilityState = true;
+                BasisLocalPlayer.Instance.LocalAvatarDriver.TryActiveMatrixOverride(InstanceID);
             }
         }
     }
