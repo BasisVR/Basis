@@ -98,6 +98,7 @@ GameObject:
   - component: {fileID: 6712607072514091673}
   - component: {fileID: 3054218223580752409}
   - component: {fileID: 4147712560411048403}
+  - component: {fileID: -6216164189268355534}
   m_Layer: 8
   m_Name: PersonalMirror
   m_TagString: Untagged
@@ -230,6 +231,18 @@ MonoBehaviour:
         _restPosition: {x: 0, y: 0, z: 0}
         _restRotation: {x: 0, y: 0, z: 0, w: 0}
         sources: []
+--- !u!114 &-6216164189268355534
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6605923727707009212}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6527b4fe5e39b14a91aa0e51b25c992, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &7563364329703000399
 GameObject:
   m_ObjectHideFlags: 0
