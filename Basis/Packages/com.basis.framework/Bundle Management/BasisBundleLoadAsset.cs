@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 using static BundledContentHolder;
 public static class BasisBundleLoadAsset
 {
-    public static async Task<GameObject> LoadFromWrapper(BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation,bool ModifyScale,Vector3 Scale, Selector Selector, Transform Parent = null)
+    public static async Task<GameObject> LoadFromWrapper(BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation,bool ModifyScale,Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false)
     {
         bool Incremented = false;
         if (BasisLoadableBundle.AssetBundle != null)
@@ -39,6 +39,7 @@ public static class BasisBundleLoadAsset
                                 ChecksRequired.DisableAnimatorEvents = true;
                             }
                             ChecksRequired.UseContentRemoval = UseContentRemoval;
+                            ChecksRequired.RemoveColliders = DestroyColliders;
                             GameObject CreatedCopy = ContentPoliceControl.ContentControl(loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent);
                             Incremented = BasisLoadableBundle.Increment();
                             return CreatedCopy;

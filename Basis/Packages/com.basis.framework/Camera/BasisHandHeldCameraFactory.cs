@@ -24,7 +24,7 @@ public static class BasisHandHeldCameraFactory
         }
         else
         {
-            BasisDebug.LogError("Missing ");
+            BasisDebug.LogError("No Gameobjects in prefab");
         }
         BasisDebug.LogError("Error Missing Player!");
         return null;

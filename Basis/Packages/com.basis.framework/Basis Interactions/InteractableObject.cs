@@ -12,37 +12,39 @@ public abstract class InteractableObject : MonoBehaviour
     [Header("Interactable Settings")]
 
     [SerializeField]
-    private bool disableInfluence = false;
+    private bool interactableEnabled = true;
     // NOTE: unity editor will not use the set function so setting disabling Interact in play will not cleanup inputs
-    public bool pickupable
+    public bool InteractableEnabled
     {
-        get => disableInfluence;
+        get => interactableEnabled;
         set
         {
             // remove hover and interacting on disable
-            if (value)
+            if (!value)
             {
                 ClearAllInfluencing();
-                OnInfluenceDisable?.Invoke();
+                if (interactableEnabled)
+                    OnInfluenceDisable?.Invoke();
             }
             else
             {
-                OnInfluenceEnable?.Invoke();
+                if (!interactableEnabled)
+                    OnInfluenceEnable?.Invoke();
             }
-            disableInfluence = value;
+            interactableEnabled = value;
         }
     }
+
     [Space(10)]
     public bool Equippable = false;
 
     [NonSerialized]
-    public bool RequiresUpdateLoop = false;
+    internal bool RequiresUpdateLoop = false;
+
     /// <summary>
-    /// 1. to block interaction when puppeted.
-    /// 2. (example) iskinematic set
-    /// depending on puppeted state.
+    /// Whether this object is controlled elsewhere.
+    /// This is used to block interaction, set iskinematic, ect.
     /// </summary>
-    // [HideInInspector]
     public bool IsPuppeted = false;
     // Delegates for interaction events
     public Action<BasisInput> OnInteractStartEvent;
@@ -174,6 +176,9 @@ public abstract class InteractableObject : MonoBehaviour
         OnHoverEndEvent?.Invoke(input, willInteract);
     }
 
+    /// <summary>
+    /// Interactable event loop, called every frame on AfterFinalMove when an input has it as a target and RequiresUpdateLoop is true.
+    /// </summary>
     public abstract void InputUpdate();
 
     /// <summary>
@@ -207,7 +212,7 @@ public abstract class InteractableObject : MonoBehaviour
     /// <returns></returns>
     public virtual bool IsInfluencable(BasisInput input)
     {
-        return !pickupable && (CanHover(input) || CanInteract(input));
+        return InteractableEnabled && (CanHover(input) || CanInteract(input));
     }
 
     public virtual void StartRemoteControl()
