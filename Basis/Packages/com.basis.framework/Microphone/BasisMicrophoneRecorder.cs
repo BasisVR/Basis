@@ -38,7 +38,7 @@ public static class BasisMicrophoneRecorder
     public static float[] rmsValues;
     public static int rmsIndex = 0;
     public static float averageRms;
-#if !UNITY_ANDROID
+#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
     public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
 #endif
     public static int minFreq = 48000;
@@ -66,7 +66,7 @@ public static class BasisMicrophoneRecorder
         {
             VAJ.processBufferArray.Dispose();
         }
-#if !UNITY_ANDROID
+#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
         Denoiser.Dispose();
 #endif
     }
@@ -377,7 +377,7 @@ public static class BasisMicrophoneRecorder
     }
     public static void ApplyDeNoise()
     {
-#if !UNITY_ANDROID
+#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
         Denoiser.Denoise(processBufferArray);
 #endif
     }
