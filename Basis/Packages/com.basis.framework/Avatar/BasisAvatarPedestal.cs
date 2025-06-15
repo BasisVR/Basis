@@ -111,7 +111,7 @@ public class BasisAvatarPedestal : InteractableObject
     }
     public override bool CanHover(BasisInput input)
     {
-        return !pickupable &&
+        return InteractableEnabled &&
             !IsPuppeted &&
             Inputs.IsInputAdded(input) &&
             input.TryGetRole(out BasisBoneTrackedRole role) &&
@@ -121,7 +121,7 @@ public class BasisAvatarPedestal : InteractableObject
     }
     public override bool CanInteract(BasisInput input)
     {
-        return !pickupable &&
+        return InteractableEnabled &&
             !IsPuppeted &&
             Inputs.IsInputAdded(input) &&
             input.TryGetRole(out BasisBoneTrackedRole role) &&

@@ -199,8 +199,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override bool CanHover(BasisInput input)
         {
-            return !pickupable &&
-                !IsPuppeted &&
+            return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
@@ -209,8 +208,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override bool CanInteract(BasisInput input)
         {
-            return !pickupable &&
-                !IsPuppeted &&
+            return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&

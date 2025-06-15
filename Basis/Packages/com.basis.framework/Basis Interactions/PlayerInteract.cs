@@ -12,8 +12,8 @@ public class PlayerInteract : MonoBehaviour
 {
 
 
-    [Tooltip("How far the player can interact with objects. Must > hoverDistance")]
-    public float raycastDistance = 1.0f;
+    [Tooltip("How far the player can interact with objects. Must hold that raycastDistance > hoverRadius")]
+    public float raycastDistance = 5.0f;
     [Tooltip("How far the player Hover.")]
     public float hoverRadius = 0.5f;
 
@@ -99,7 +99,6 @@ public class PlayerInteract : MonoBehaviour
         {
             AddInput(Input);
         }
-        // TODO: what if it has no matchable name?
         // device removed handled elsewhere
     }
 

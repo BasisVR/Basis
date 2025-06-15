@@ -26,6 +26,7 @@ public static class ContentPoliceControl
             }
             // Create a list to hold all components in the original GameObject
             UnityEngine.Component[] components = SearchAndDestroy.GetComponentsInChildren<UnityEngine.Component>(true);
+
             int count = components.Length;
 
             if (BundledContentHolder.Instance.GetSelector(Selector, out ContentPoliceSelector PoliceCheck))

@@ -1,15 +1,11 @@
 using System;
-using System.Collections.Generic;
 using Basis.Scripts.Animator_Driver;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Serialization;
 using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
 namespace Basis.Scripts.BasisCharacterController
 {
@@ -243,12 +239,6 @@ namespace Basis.Scripts.BasisCharacterController
         public float CurrentSpeed;
         public void HandleMovement(float DeltaTime,Transform PlayersTransform)
         {
-            if (MovementLock)
-            {
-                HasJumpAction = false;
-                return;
-            }
-
             // Cache current rotation and zero out x and z components
             currentRotation = BasisLocalBoneDriver.Head.OutgoingWorldData.rotation;
             Vector3 rotationEulerAngles = currentRotation.eulerAngles;
@@ -264,6 +254,11 @@ namespace Basis.Scripts.BasisCharacterController
             CurrentSpeed = math.lerp(MinimumMovementSpeed, MaximumMovementSpeed, MovementSpeedScale) + MinimumMovementSpeed * MovementSpeedBoost;
 
             Vector3 totalMoveDirection = flattenedRotation * horizontalMoveDirection * CurrentSpeed * DeltaTime;
+            if (MovementLock)
+            {
+                HasJumpAction = false;
+                totalMoveDirection = Vector3.zero;
+            }
 
             // Handle jumping and falling
             if (groundedPlayer && HasJumpAction)
