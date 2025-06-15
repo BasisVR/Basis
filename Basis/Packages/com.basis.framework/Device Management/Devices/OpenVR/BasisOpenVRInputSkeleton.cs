@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
+using System;
 using UnityEngine;
 using Valve.VR;
 
@@ -14,7 +15,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public SteamVR_Action_Skeleton skeletonAction;
         [SerializeField]
         public BasisOpenVRInputController BasisOpenVRInputController;
-        public float[] FingerSplays = new float[5];
+
         public Quaternion additionalRotation;
         public Vector3 additionalPositionOffsetLeft = new Vector3(0, -0.06f, -0.01f);
         public Vector3 additionalPositionOffsetRight = new Vector3(0, -0.06f, -0.01f);
@@ -55,8 +56,13 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 case SteamVR_Input_Sources.LeftHand:
                     {
-                        UpdateFingerPercentages( BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHandPoses);
-
+                        BasisFingerPoseParams[] LeftHandParams = BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHandParams;
+                        //values need to be moved from 0 to 1 to -0.9 to 0.9f
+                        LeftHandParams[0].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
+                        LeftHandParams[1].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
+                        LeftHandParams[2].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
+                        LeftHandParams[3].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
+                        LeftHandParams[4].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetLeft;
 
@@ -67,7 +73,12 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
                 case SteamVR_Input_Sources.RightHand:
                     {
-                        UpdateFingerPercentages( BasisLocalPlayer.Instance.LocalMuscleDriver.RightHandPoses);
+                        var RightHandParams = BasisLocalPlayer.Instance.LocalMuscleDriver.RightHandParams;
+                        RightHandParams[0].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
+                        RightHandParams[1].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
+                        RightHandParams[2].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
+                        RightHandParams[3].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
+                        RightHandParams[4].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetRight;
 
@@ -78,10 +89,9 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     }
             }
         }
-
-        private void UpdateFingerPercentages( BasisFingerPose fingerDriver)
+        float Remap01ToMinus1To1(float value)
         {
-
+            return (1f - value) * 2f - 1f;
         }
         public void DeInitalize()
         {

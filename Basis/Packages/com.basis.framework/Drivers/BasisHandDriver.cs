@@ -11,14 +11,10 @@ public class BasisHandDriver
     public BasisFingerPose LeftHandPoses;
     [SerializeField]
     public BasisFingerPose RightHandPoses;
-
-    public float LerpSpeed = 17f;
     public Transform LeftHand;
     public Transform RightHand;
     public bool HasLeftHand;
     public bool HasRightHand;
-
-    public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeData = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
     public HumanPoseHandler poseHandler;
     public HumanPose pose;
 
@@ -40,12 +36,15 @@ public class BasisHandDriver
 
     private Transform[] LeftHandJoints = new Transform[15];
     private Transform[] RightHandJoints = new Transform[15];
+
     private bool[] LeftHandJointsbools = new bool[15];
     private bool[] RightHandJointsbools = new bool[15];
+
     [SerializeField]
     public BasisFingerPoseParams[] LeftHandParams = new BasisFingerPoseParams[5];
     [SerializeField]
     public BasisFingerPoseParams[] RightHandParams = new BasisFingerPoseParams[5];
+
     const float epsilon = 0.0001f;
     const int fingersCount = 5;
     const int jointsPerFinger = 3;
@@ -81,8 +80,6 @@ public class BasisHandDriver
         if (HasLeftHand) LeftHand = Mapping.leftHand;
         if (HasRightHand) RightHand = Mapping.rightHand;
 
-        TposeData = Mapping.TPoseRecords;
-
         if (LeftHandParams == null || LeftHandParams.Length != 5)
         {
             LeftHandParams = new BasisFingerPoseParams[5];
@@ -115,9 +112,9 @@ public class BasisHandDriver
            new BasisFingerPoseParams(0f, 1f),//2
           new  BasisFingerPoseParams(1f, 0f),//3
           new  BasisFingerPoseParams(0f, 0f),//4
-          new  BasisFingerPoseParams(-1f, -1f),//5
-          new BasisFingerPoseParams(0f, -1f),//6
-           new BasisFingerPoseParams(-1f, 0f)//7
+          new  BasisFingerPoseParams(-1, -1f),//5
+          new BasisFingerPoseParams(0f, -1),//6
+           new BasisFingerPoseParams(-1, 0f)//7
         };
 
         List<BasisStoredHandPose> LeftHandPoseDataList = new List<BasisStoredHandPose>();
@@ -207,30 +204,29 @@ public class BasisHandDriver
     {
         ApplyInterpolatedPose(LeftHandParams, RightHandParams);
     }
+
     public void ApplyInterpolatedPose(BasisFingerPoseParams[] leftHand, BasisFingerPoseParams[] rightHand)
     {
         InterpolatePose(leftHand, LeftHandPoseData, ref LeftHandDestination);
         InterpolatePose(rightHand, RightHandPoseData, ref RightHandDestination);
 
-        for (int Index = 0; Index < 15; Index++)
+        for (int i = 0; i < 15; i++)
         {
-            if (RightHandJointsbools[Index])
-            {
-                RightHandJoints[Index].SetLocalPositionAndRotation(RightHandDestination[Index].position, RightHandDestination[Index].rotation);
-            }
-            if (LeftHandJointsbools[Index])
-            {
-                LeftHandJoints[Index].SetLocalPositionAndRotation(LeftHandDestination[Index].position, LeftHandDestination[Index].rotation);
-            }
+            if (RightHandJointsbools[i])
+                RightHandJoints[i].SetLocalPositionAndRotation(RightHandDestination[i].position, RightHandDestination[i].rotation);
+
+            if (LeftHandJointsbools[i])
+                LeftHandJoints[i].SetLocalPositionAndRotation(LeftHandDestination[i].position, LeftHandDestination[i].rotation);
         }
     }
+
     public void InterpolatePose(BasisFingerPoseParams[] targetPose, BasisStoredHandPose[] poseData, ref BasisCalibratedCoords[] result)
     {
         int poseCount = poseData.Length;
 
         for (int fingerIndex = 0; fingerIndex < fingersCount; fingerIndex++)
         {
-            // Initialize accumulators
+            // Reset accumulators once per finger
             for (int j = 0; j < jointsPerFinger; j++)
             {
                 weightedPositions[j] = Vector3.zero;
@@ -246,24 +242,27 @@ public class BasisHandDriver
                 var storedPose = poseData[poseIndex];
                 var poseParam = storedPose.FingerPoseForPosition;
 
-                float diffStretch = targetStretch - poseParam.Stretch;
-                float diffSpread = targetSpread - poseParam.Spread;
-                float sqrDist = diffStretch * diffStretch + diffSpread * diffSpread;
-
-                float weight = 1f / (Mathf.Sqrt(sqrDist) + epsilon);
+                float dStretch = targetStretch - poseParam.Stretch;
+                float dSpread = targetSpread - poseParam.Spread;
+                float weight = 1f / (Mathf.Sqrt(dStretch * dStretch + dSpread * dSpread) + epsilon);
 
                 var joints = storedPose.FingerJoints;
 
+                int baseIndex = fingerIndex * jointsPerFinger;
+
                 for (int j = 0; j < jointsPerFinger; j++)
                 {
-                    int globalIndex = fingerIndex * jointsPerFinger + j;
+                    int globalIndex = baseIndex + j;
                     ref BasisCalibratedCoords joint = ref joints[globalIndex];
 
                     Vector3 Position = joint.position;
+                    // Weighted position accumulation
                     weightedPositions[j] += Position * weight;
 
-                    Quaternion Rotation = joint.rotation;
-                    Vector4 quatVec = new Vector4(Rotation.x, Rotation.y, Rotation.z, Rotation.w);
+                    // Weighted rotation accumulation
+                    Quaternion rot = joint.rotation;
+                    Vector4 quatVec = new Vector4(rot.x, rot.y, rot.z, rot.w);
+
                     if (Vector4.Dot(rotationAccumulator[j], quatVec) < 0f)
                         quatVec = -quatVec;
 
@@ -272,21 +271,22 @@ public class BasisHandDriver
                 }
             }
 
-            // Normalize accumulators and assign results
+            // Final interpolation
+            int fingerBaseIndex = fingerIndex * jointsPerFinger;
+
             for (int j = 0; j < jointsPerFinger; j++)
             {
-                int globalIndex = fingerIndex * jointsPerFinger + j;
-                float weight = totalWeights[j];
+                int globalIndex = fingerBaseIndex + j;
+                float w = totalWeights[j];
 
-                if (weight > 0f)
+                if (w > 0f)
                 {
-                    Vector3 pos = weightedPositions[j] / weight;
-                    Vector4 accQuat = rotationAccumulator[j] / weight;
+                    Vector3 pos = weightedPositions[j] / w;
+                    Vector4 accQuat = rotationAccumulator[j] / w;
+                    Quaternion finalRot = new Quaternion(accQuat.x, accQuat.y, accQuat.z, accQuat.w);
+                    finalRot = Quaternion.Normalize(finalRot);
 
-                    Quaternion rot = new Quaternion(accQuat.x, accQuat.y, accQuat.z, accQuat.w);
-                    rot = Quaternion.Normalize(rot);
-
-                    result[globalIndex] = new BasisCalibratedCoords(pos, rot);
+                    result[globalIndex] = new BasisCalibratedCoords(pos, finalRot);
                 }
                 else
                 {
