@@ -331,7 +331,6 @@ MonoBehaviour:
   UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.6745098}
   MutedColor: {r: 1, g: 0, b: 0, a: 0.6784314}
   LocalIsTransmitting: 0
-  IsNormalHead: 0
 --- !u!114 &3806033592985501336
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -465,8 +464,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2ca35de189490844b1d7864bc416ffb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  raycastDistance: 1
+  raycastDistance: 5
   hoverRadius: 0.5
+  OnlySortClosest: 1
   InteractInputs: []
   LineMaterial: {fileID: 0}
   interactLineWidth: 0.015
@@ -533,10 +533,9 @@ MonoBehaviour:
   AvatarMetaData:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -801,12 +800,16 @@ MonoBehaviour:
       MiddlePercentage: {x: 0, y: 0}
       RingPercentage: {x: 0, y: 0}
       LittlePercentage: {x: 0, y: 0}
+      jointPositions: []
+      jointRotations: []
     RightFinger:
       ThumbPercentage: {x: 0, y: 0}
       IndexPercentage: {x: 0, y: 0}
       MiddlePercentage: {x: 0, y: 0}
       RingPercentage: {x: 0, y: 0}
       LittlePercentage: {x: 0, y: 0}
+      jointPositions: []
+      jointRotations: []
     LastLeftThumbPercentage: {x: -1.1, y: -1.1}
     LastLeftIndexPercentage: {x: -1.1, y: -1.1}
     LastLeftMiddlePercentage: {x: -1.1, y: -1.1}
