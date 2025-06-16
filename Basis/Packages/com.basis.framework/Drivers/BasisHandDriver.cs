@@ -271,7 +271,7 @@ public class BasisHandDriver
         UpdateFingerPoses(Map.RightRing, RightRingAdditional.PoseData.RightRing, ref Current.RightRing, Map.HasRightRing, Percentage);
         UpdateFingerPoses(Map.RightLittle, RightLittleAdditional.PoseData.RightLittle, ref Current.RightLittle, Map.HasRightLittle, Percentage);
     }
-    public Vector2 ConvertValue(Vector2 Inbound,float Scale = 0.8f)
+    public Vector2 ConvertValue(Vector2 Inbound,float Scale = 0.75f)
     {
         Inbound.x *= Scale;
         Inbound.y *= Scale;
