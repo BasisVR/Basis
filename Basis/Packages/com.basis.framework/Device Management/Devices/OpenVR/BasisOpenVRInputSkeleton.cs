@@ -55,49 +55,41 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             switch (BasisOpenVRInputController.inputSource)
             {
                 case SteamVR_Input_Sources.LeftHand:
-                    {
-                        BasisFingerPose LeftHand = BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
-                        //values need to be moved from 0 to 1 to -0.9 to 0.9f
-                        LeftHand.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
-                        LeftHand.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
-                        LeftHand.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
-                        LeftHand.RingPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
-                        LeftHand.LittlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
-
-                        LeftHand.IndexPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
-                        LeftHand.MiddlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
-                        LeftHand.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
-                        LeftHand.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
-                        // Apply additional position offset
-                        BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetLeft;
-
-                        // Apply additional rotation offset by converting to Quaternion and adding
-                        BasisOpenVRInputController.AvatarRotationOffset = (skeletonAction.boneRotations[1] * additionalRotation).eulerAngles;
-                        break;
-                    }
+                    UpdateHandPose(
+                        BasisLocalPlayer.Instance.LocalHandDriver.LeftHand,
+                        additionalPositionOffsetLeft,
+                        skeletonAction.boneRotations[1] * additionalRotation
+                    );
+                    break;
 
                 case SteamVR_Input_Sources.RightHand:
-                    {
-                        BasisFingerPose RightFinger = BasisLocalPlayer.Instance.LocalHandDriver.RightHand;
-                        RightFinger.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
-                        RightFinger.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
-                        RightFinger.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
-                        RightFinger.RingPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
-                        RightFinger.LittlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
-
-                        RightFinger.IndexPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
-                        RightFinger.MiddlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
-                        RightFinger.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
-                        RightFinger.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
-                        // Apply additional position offset
-                        BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetRight;
-
-                        // Apply additional rotation offset by converting to Quaternion and adding
-                        Quaternion baseRotation = skeletonAction.boneRotations[1];
-                        BasisOpenVRInputController.AvatarRotationOffset = (baseRotation * additionalRotation).eulerAngles;
-                        break;
-                    }
+                    UpdateHandPose(
+                        BasisLocalPlayer.Instance.LocalHandDriver.RightHand,
+                        additionalPositionOffsetRight,
+                        skeletonAction.boneRotations[1] * additionalRotation
+                    );
+                    break;
             }
+        }
+
+        private void UpdateHandPose(BasisFingerPose hand, Vector3 positionOffset, Quaternion rotation)
+        {
+            // Finger curls
+            hand.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
+            hand.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
+            hand.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
+            hand.RingPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
+            hand.LittlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
+
+            // Finger splays
+            hand.IndexPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
+            hand.MiddlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
+            hand.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
+            hand.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
+
+            // Apply offsets
+            BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + positionOffset;
+            BasisOpenVRInputController.AvatarRotationOffset = rotation.eulerAngles;
         }
         float Remap01ToMinus1To1(float value)
         {
