@@ -74,7 +74,7 @@ namespace Basis.Scripts.BasisSdk.Players
         //finger poses
         [Header("Muscle Driver")]
         [SerializeField]
-        public BasisHandDriver LocalMuscleDriver = new BasisHandDriver();
+        public BasisHandDriver LocalHandDriver = new BasisHandDriver();
         [Header("Eye Driver")]
         [SerializeField]
         public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();
@@ -214,9 +214,9 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisMicrophoneRecorder.OnHasSilence -= DriveAudioToViseme;
                 HasCalibrationEvents = false;
             }
-            if (LocalMuscleDriver != null)
+            if (LocalHandDriver != null)
             {
-                LocalMuscleDriver.Dispose();
+                LocalHandDriver.Dispose();
             }
             if (LocalEyeDriver != null)
             {
@@ -293,7 +293,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.PostSimulateBonePositions();
 
             //handles fingers
-            LocalMuscleDriver.UpdateFingers(LocalAvatarDriver.References);
+            LocalHandDriver.UpdateFingers(LocalAvatarDriver.References);
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();

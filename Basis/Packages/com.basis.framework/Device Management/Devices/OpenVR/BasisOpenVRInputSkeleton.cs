@@ -56,7 +56,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 case SteamVR_Input_Sources.LeftHand:
                     {
-                        BasisFingerPose LeftHand = BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHand;
+                        BasisFingerPose LeftHand = BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
                         //values need to be moved from 0 to 1 to -0.9 to 0.9f
                         LeftHand.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
                         LeftHand.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
@@ -78,7 +78,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
                 case SteamVR_Input_Sources.RightHand:
                     {
-                        BasisFingerPose RightFinger = BasisLocalPlayer.Instance.LocalMuscleDriver.RightHand;
+                        BasisFingerPose RightFinger = BasisLocalPlayer.Instance.LocalHandDriver.RightHand;
                         RightFinger.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
                         RightFinger.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
                         RightFinger.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);

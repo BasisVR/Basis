@@ -149,10 +149,10 @@ namespace Basis.Scripts.Drivers
             {
                 HeadScale = Vector3.one;
             }
+            player.LocalHandDriver.Initialize(player.BasisAvatar.Animator, References);
             SetBodySettings(player.LocalBoneDriver);
             CalculateTransformPositions(player, player.LocalBoneDriver);
             ComputeOffsets(player.LocalBoneDriver);
-            player.LocalMuscleDriver.Initialize(player.BasisAvatar.Animator, References);
 
             CalibrationComplete?.Invoke();
             player.LocalAnimatorDriver.Initialize(player);

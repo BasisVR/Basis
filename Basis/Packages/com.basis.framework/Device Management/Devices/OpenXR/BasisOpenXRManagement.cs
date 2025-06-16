@@ -92,7 +92,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             {
                 XRHand rightHand = subsystem.rightHand;
                 // Extract and map joint curls and splays
-                UpdateHandFromXR(rightHand,  BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHand, isLeft: false);
+                UpdateHandFromXR(rightHand,  BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, isLeft: false);
             }
 
 
@@ -101,7 +101,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             {
                 XRHand leftHand = subsystem.leftHand;
                 // Extract and map joint curls and splays
-                UpdateHandFromXR(leftHand,  BasisLocalPlayer.Instance.LocalMuscleDriver.RightHand, isLeft: true);
+                UpdateHandFromXR(leftHand,  BasisLocalPlayer.Instance.LocalHandDriver.RightHand, isLeft: true);
             }
         }
 
