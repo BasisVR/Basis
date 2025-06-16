@@ -1,6 +1,7 @@
 using Basis.Scripts.Common;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
@@ -45,8 +46,6 @@ public class BasisHandDriver
     public Vector2 LastRightLittlePercentage = new Vector2(-1.1f, -1.1f);
 
     public Dictionary<Vector2, BasisPoseDataAdditional> CoordToPose = new Dictionary<Vector2, BasisPoseDataAdditional>();
-    public Vector2[] CoordKeys; // Cached array of keys for optimization
-
     public BasisPoseDataAdditional LeftThumbAdditional;
     public BasisPoseDataAdditional LeftIndexAdditional;
     public BasisPoseDataAdditional LeftMiddleAdditional;
@@ -63,6 +62,7 @@ public class BasisHandDriver
     public NativeArray<float> DistancesArray;
     public NativeArray<int> closestIndexArray;
     public float LerpSpeed = 17f;
+    public Vector2[] Poses;
     public void Dispose()
     {
         // Dispose NativeArrays if allocated
@@ -79,9 +79,56 @@ public class BasisHandDriver
             closestIndexArray.Dispose();
         }
     }
-    public void Initialize(Animator animator, BasisTransformMapping Mapping)
+    public void Initialize()
     {
         Dispose();
+        float epsilon = 0.05f; // Adjust this value for approximate closeness
+        List<Vector2> points = new List<Vector2>();
+        bool IsApproximateDuplicate(Vector2 newCoord)
+        {
+            foreach (var existingCoord in points)
+            {
+                if (Vector2.Distance(existingCoord, newCoord) < epsilon)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        void AddPose(Vector2 poseData)
+        {
+            if (IsApproximateDuplicate(poseData) == false)
+            {
+                points.Add(poseData);
+            }
+        }
+        // Define the corners
+        Vector2 TopLeft = new Vector2(-1f, 1f);
+        Vector2 TopRight = new Vector2(1f, 1f);
+        Vector2 BottomLeft = new Vector2(-1f, -1f);
+        Vector2 BottomRight = new Vector2(1f, -1f);
+        // Loop through the square grid using the increment
+        for (float x = BottomLeft.x; x <= BottomRight.x; x += increment)
+        {
+            for (float y = BottomLeft.y; y <= TopLeft.y; y += increment)
+            {
+                AddPose(new Vector2(x, y));
+            }
+        }
+
+        // Ensure corners are included exactly
+        AddPose(TopLeft);
+        AddPose(TopRight);
+        AddPose(BottomLeft);
+        AddPose(BottomRight);
+        Poses = points.ToArray();
+        // Initialize and set up arrays
+        CoordKeysArray = new NativeArray<Vector2>(Poses, Allocator.Persistent);
+        closestIndexArray = new NativeArray<int>(1, Allocator.Persistent);
+        DistancesArray = new NativeArray<float>(Poses.Length, Allocator.Persistent);
+    }
+    public void ReInitialize(Animator animator, BasisTransformMapping Mapping)
+    {
         //safely does it
         // Aggregate data for all fingers
         Transform[] allTransforms = AggregateFingerTransforms(Mapping.LeftThumb, Mapping.LeftIndex, Mapping.LeftMiddle, Mapping.LeftRing, Mapping.LeftLittle, Mapping.RightThumb, Mapping.RightIndex, Mapping.RightMiddle, Mapping.RightRing, Mapping.RightLittle);
@@ -118,27 +165,13 @@ public class BasisHandDriver
         RecordCurrentPose(ref Current, allTransforms, allHasProximal);
         CoordToPose.Clear();
 
-        List<BasisPoseDataAdditional> points = new List<BasisPoseDataAdditional>();
-        HashSet<Vector2> addedCoords = new HashSet<Vector2>();
-        float epsilon = 0.05f; // Adjust this value for approximate closeness
-        bool IsApproximateDuplicate(Vector2 newCoord)
+        int length = Poses.Length;
+        for (int Index = 0; Index < length; Index++)
         {
-            foreach (var existingCoord in addedCoords)
-            {
-                if (Vector2.Distance(existingCoord, newCoord) < epsilon)
-                {
-                    return true;
-                }
-            }
-            return false;
+            AddPose(Poses[Index]);
         }
         void AddPose(Vector2 coord)
         {
-            if (IsApproximateDuplicate(coord))
-            {
-                return;
-            }
-
             BasisPoseData poseData = new BasisPoseData();
             SetAndRecordPose(coord.x, ref poseData, coord.y, poseHandler, ref pose, allTransforms, allHasProximal);
 
@@ -147,51 +180,7 @@ public class BasisHandDriver
                 PoseData = poseData,
                 Coord = coord
             };
-
-            points.Add(poseAdd);
-            addedCoords.Add(coord);
-        }
-        // Define the corners
-        Vector2 TopLeft = new Vector2(-1f, 1f);
-        Vector2 TopRight = new Vector2(1f, 1f);
-        Vector2 BottomLeft = new Vector2(-1f, -1f);
-        Vector2 BottomRight = new Vector2(1f, -1f);
-        // Loop through the square grid using the increment
-        for (float x = BottomLeft.x; x <= BottomRight.x; x += increment)
-        {
-            for (float y = BottomLeft.y; y <= TopLeft.y; y += increment)
-            {
-                AddPose(new Vector2(x, y));
-            }
-        }
-
-        // Ensure corners are included exactly
-        AddPose(TopLeft);
-        AddPose(TopRight);
-        AddPose(BottomLeft);
-        AddPose(BottomRight);
-
-        // Build the dictionary
-        int Count = points.Count;
-        for (int Index = 0; Index < Count; Index++)
-        {
-            BasisPoseDataAdditional point = points[Index];
-            CoordToPose.TryAdd(point.Coord, point);
-        }
-
-        // Cache dictionary keys for faster access
-        CoordKeys = new Vector2[Count];
-        CoordToPose.Keys.CopyTo(CoordKeys, 0);
-
-        // Initialize and set up arrays
-        CoordKeysArray = new NativeArray<Vector2>(CoordKeys, Allocator.Persistent);
-        DistancesArray = new NativeArray<float>(Count, Allocator.Persistent);
-        closestIndexArray = new NativeArray<int>(1, Allocator.Persistent);
-
-        // Copy data into CoordKeysArray
-        for (int Index = 0; Index < Count; Index++)
-        {
-            CoordKeysArray[Index] = CoordKeys[Index];
+            CoordToPose.TryAdd(poseAdd.Coord, poseAdd);
         }
     }
     public void UpdateFingers(BasisTransformMapping Map)
