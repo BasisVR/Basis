@@ -230,33 +230,52 @@ public class BasisHandDriver
                 currentValue = newValue;
             }
         }
+        // Convert all finger percentages first
+        Vector2 LeftThumbPercentage = ConvertValue(LeftHand.ThumbPercentage);
+        Vector2 LeftIndexPercentage = ConvertValue(LeftHand.IndexPercentage);
+        Vector2 LeftMiddlePercentage = ConvertValue(LeftHand.MiddlePercentage);
+        Vector2 LeftRingPercentage = ConvertValue(LeftHand.RingPercentage);
+        Vector2 LeftLittlePercentage = ConvertValue(LeftHand.LittlePercentage);
 
-        // Left Hand
-        TryUpdateFingerPose(ref LastLeftThumbPercentage, LeftHand.ThumbPercentage, ref LeftThumbAdditional);
-        TryUpdateFingerPose(ref LastLeftIndexPercentage, LeftHand.IndexPercentage, ref LeftIndexAdditional);
-        TryUpdateFingerPose(ref LastLeftMiddlePercentage, LeftHand.MiddlePercentage, ref LeftMiddleAdditional);
-        TryUpdateFingerPose(ref LastLeftRingPercentage, LeftHand.RingPercentage, ref LeftRingAdditional);
-        TryUpdateFingerPose(ref LastLeftLittlePercentage, LeftHand.LittlePercentage, ref LeftLittleAdditional);
+        Vector2 RightThumbPercentage = ConvertValue(RightHand.ThumbPercentage);
+        Vector2 RightIndexPercentage = ConvertValue(RightHand.IndexPercentage);
+        Vector2 RightMiddlePercentage = ConvertValue(RightHand.MiddlePercentage);
+        Vector2 RightRingPercentage = ConvertValue(RightHand.RingPercentage);
+        Vector2 RightLittlePercentage = ConvertValue(RightHand.LittlePercentage);
 
-        // Right Hand
-        TryUpdateFingerPose(ref LastRightThumbPercentage, RightHand.ThumbPercentage, ref RightThumbAdditional);
-        TryUpdateFingerPose(ref LastRightIndexPercentage, RightHand.IndexPercentage, ref RightIndexAdditional);
-        TryUpdateFingerPose(ref LastRightMiddlePercentage, RightHand.MiddlePercentage, ref RightMiddleAdditional);
-        TryUpdateFingerPose(ref LastRightRingPercentage, RightHand.RingPercentage, ref RightRingAdditional);
-        TryUpdateFingerPose(ref LastRightLittlePercentage, RightHand.LittlePercentage, ref RightLittleAdditional);
+        // Update Left Hand finger poses
+        TryUpdateFingerPose(ref LastLeftThumbPercentage, LeftThumbPercentage, ref LeftThumbAdditional);
+        TryUpdateFingerPose(ref LastLeftIndexPercentage, LeftIndexPercentage, ref LeftIndexAdditional);
+        TryUpdateFingerPose(ref LastLeftMiddlePercentage, LeftMiddlePercentage, ref LeftMiddleAdditional);
+        TryUpdateFingerPose(ref LastLeftRingPercentage, LeftRingPercentage, ref LeftRingAdditional);
+        TryUpdateFingerPose(ref LastLeftLittlePercentage, LeftLittlePercentage, ref LeftLittleAdditional);
 
-        // Update Transforms
+        // Update Right Hand finger poses
+        TryUpdateFingerPose(ref LastRightThumbPercentage, RightThumbPercentage, ref RightThumbAdditional);
+        TryUpdateFingerPose(ref LastRightIndexPercentage, RightIndexPercentage, ref RightIndexAdditional);
+        TryUpdateFingerPose(ref LastRightMiddlePercentage, RightMiddlePercentage, ref RightMiddleAdditional);
+        TryUpdateFingerPose(ref LastRightRingPercentage, RightRingPercentage, ref RightRingAdditional);
+        TryUpdateFingerPose(ref LastRightLittlePercentage, RightLittlePercentage, ref RightLittleAdditional);
+
+        // Apply finger transforms - Left Hand
         UpdateFingerPoses(Map.LeftThumb, LeftThumbAdditional.PoseData.LeftThumb, ref Current.LeftThumb, Map.HasLeftThumb, Percentage);
         UpdateFingerPoses(Map.LeftIndex, LeftIndexAdditional.PoseData.LeftIndex, ref Current.LeftIndex, Map.HasLeftIndex, Percentage);
         UpdateFingerPoses(Map.LeftMiddle, LeftMiddleAdditional.PoseData.LeftMiddle, ref Current.LeftMiddle, Map.HasLeftMiddle, Percentage);
         UpdateFingerPoses(Map.LeftRing, LeftRingAdditional.PoseData.LeftRing, ref Current.LeftRing, Map.HasLeftRing, Percentage);
         UpdateFingerPoses(Map.LeftLittle, LeftLittleAdditional.PoseData.LeftLittle, ref Current.LeftLittle, Map.HasLeftLittle, Percentage);
 
+        // Apply finger transforms - Right Hand
         UpdateFingerPoses(Map.RightThumb, RightThumbAdditional.PoseData.RightThumb, ref Current.RightThumb, Map.HasRightThumb, Percentage);
         UpdateFingerPoses(Map.RightIndex, RightIndexAdditional.PoseData.RightIndex, ref Current.RightIndex, Map.HasRightIndex, Percentage);
         UpdateFingerPoses(Map.RightMiddle, RightMiddleAdditional.PoseData.RightMiddle, ref Current.RightMiddle, Map.HasRightMiddle, Percentage);
         UpdateFingerPoses(Map.RightRing, RightRingAdditional.PoseData.RightRing, ref Current.RightRing, Map.HasRightRing, Percentage);
         UpdateFingerPoses(Map.RightLittle, RightLittleAdditional.PoseData.RightLittle, ref Current.RightLittle, Map.HasRightLittle, Percentage);
+    }
+    public Vector2 ConvertValue(Vector2 Inbound,float Scale = 0.8f)
+    {
+        Inbound.x *= Scale;
+        Inbound.y *= Scale;
+        return Inbound;
     }
     public void UpdateFingerPoses(Transform[] proximal, BasisCalibratedCoords[] poses, ref BasisCalibratedCoords[] currentPoses, bool[] hasProximal, float Percentage)
     {
