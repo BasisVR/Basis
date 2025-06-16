@@ -56,18 +56,18 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 case SteamVR_Input_Sources.LeftHand:
                     {
-                        BasisFingerPoseParams[] LeftHandParams = BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHandParams;
+                        BasisFingerPose LeftHand = BasisLocalPlayer.Instance.LocalMuscleDriver.LeftHand;
                         //values need to be moved from 0 to 1 to -0.9 to 0.9f
-                        LeftHandParams[0].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
-                        LeftHandParams[1].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
-                        LeftHandParams[2].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
-                        LeftHandParams[3].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
-                        LeftHandParams[4].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
+                        LeftHand.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
+                        LeftHand.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
+                        LeftHand.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
+                        LeftHand.RingPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
+                        LeftHand.LittlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
 
-                        LeftHandParams[1].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
-                        LeftHandParams[2].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
-                        LeftHandParams[3].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
-                        LeftHandParams[4].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
+                        LeftHand.IndexPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
+                        LeftHand.MiddlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
+                        LeftHand.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
+                        LeftHand.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetLeft;
 
@@ -78,17 +78,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
                 case SteamVR_Input_Sources.RightHand:
                     {
-                        var RightHandParams = BasisLocalPlayer.Instance.LocalMuscleDriver.RightHandParams;
-                        RightHandParams[0].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
-                        RightHandParams[1].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
-                        RightHandParams[2].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
-                        RightHandParams[3].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
-                        RightHandParams[4].Stretch = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
+                        BasisFingerPose RightFinger = BasisLocalPlayer.Instance.LocalMuscleDriver.RightHand;
+                        RightFinger.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
+                        RightFinger.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
+                        RightFinger.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
+                        RightFinger.RingPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
+                        RightFinger.LittlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
 
-                        RightHandParams[1].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
-                        RightHandParams[2].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
-                        RightHandParams[3].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
-                        RightHandParams[4].Spread = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
+                        RightFinger.IndexPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
+                        RightFinger.MiddlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
+                        RightFinger.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
+                        RightFinger.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
                         // Apply additional position offset
                         BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + additionalPositionOffsetRight;
 

@@ -1,298 +1,388 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Jobs;
 [DefaultExecutionOrder(15001)]
 [System.Serializable]
 public class BasisHandDriver
 {
     [SerializeField]
-    public BasisFingerPose LeftHandPoses;
+    public BasisPoseData RestingOnePoseData;
     [SerializeField]
-    public BasisFingerPose RightHandPoses;
-    public Transform LeftHand;
-    public Transform RightHand;
-    public bool HasLeftHand;
-    public bool HasRightHand;
+    public BasisPoseData Current;
+    //  public string[] Muscles;
+    public float increment = 0.1f;
     public HumanPoseHandler poseHandler;
     public HumanPose pose;
 
-    public float[] LeftThumb = new float[4];
-    public float[] LeftIndex = new float[4];
-    public float[] LeftMiddle = new float[4];
-    public float[] LeftRing = new float[4];
-    public float[] LeftLittle = new float[4];
+    public float[] LeftThumb;
+    public float[] LeftIndex;
+    public float[] LeftMiddle;
+    public float[] LeftRing;
+    public float[] LeftLittle;
 
-    public float[] RightThumb = new float[4];
-    public float[] RightIndex = new float[4];
-    public float[] RightMiddle = new float[4];
-    public float[] RightRing = new float[4];
-    public float[] RightLittle = new float[4];
-
-    public BasisCalibratedCoords[] LeftHandCoords = new BasisCalibratedCoords[15];
-    public BasisCalibratedCoords[] RightHandCoords = new BasisCalibratedCoords[15];
-
-
-    private Transform[] LeftHandJoints = new Transform[15];
-    private Transform[] RightHandJoints = new Transform[15];
-
-    private bool[] LeftHandJointsbools = new bool[15];
-    private bool[] RightHandJointsbools = new bool[15];
+    public float[] RightThumb;
+    public float[] RightIndex;
+    public float[] RightMiddle;
+    public float[] RightRing;
+    public float[] RightLittle;
 
     [SerializeField]
-    public BasisFingerPoseParams[] LeftHandParams = new BasisFingerPoseParams[5];
+    public BasisFingerPose LeftHand;
     [SerializeField]
-    public BasisFingerPoseParams[] RightHandParams = new BasisFingerPoseParams[5];
+    public BasisFingerPose RightHand;
 
-    const float epsilon = 0.0001f;
-    const int fingersCount = 5;
-    const int jointsPerFinger = 3;
-    const int totalCoords = fingersCount * jointsPerFinger;
+    public Vector2 LastLeftThumbPercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastLeftIndexPercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastLeftMiddlePercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastLeftRingPercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastLeftLittlePercentage = new Vector2(-1.1f, -1.1f);
 
-    // Reusable arrays to avoid per-call allocations
-    private readonly Vector3[] weightedPositions = new Vector3[jointsPerFinger];
-    private readonly Vector4[] rotationAccumulator = new Vector4[jointsPerFinger];
-    private readonly float[] totalWeights = new float[jointsPerFinger];
-    private BasisCalibratedCoords[] LeftHandDestination = new BasisCalibratedCoords[totalCoords];
-    private BasisCalibratedCoords[] RightHandDestination = new BasisCalibratedCoords[totalCoords];
-    public BasisStoredHandPose[] LeftHandPoseData;
-    public BasisStoredHandPose[] RightHandPoseData;
-    public void Initialize()
+    public Vector2 LastRightThumbPercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastRightIndexPercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastRightMiddlePercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastRightRingPercentage = new Vector2(-1.1f, -1.1f);
+    public Vector2 LastRightLittlePercentage = new Vector2(-1.1f, -1.1f);
+    public Dictionary<Vector2, BasisPoseDataAdditional> CoordToPose = new Dictionary<Vector2, BasisPoseDataAdditional>();
+    public Vector2[] CoordKeys; // Cached array of keys for optimization
+
+    public BasisPoseDataAdditional LeftThumbAdditional;
+    public BasisPoseDataAdditional LeftIndexAdditional;
+    public BasisPoseDataAdditional LeftMiddleAdditional;
+    public BasisPoseDataAdditional LeftRingAdditional;
+    public BasisPoseDataAdditional LeftLittleAdditional;
+
+    public BasisPoseDataAdditional RightThumbAdditional;
+    public BasisPoseDataAdditional RightIndexAdditional;
+    public BasisPoseDataAdditional RightMiddleAdditional;
+    public BasisPoseDataAdditional RightRingAdditional;
+    public BasisPoseDataAdditional RightLittleAdditional;
+    public NativeArray<Vector2> CoordKeysArray;
+    public NativeArray<float> DistancesArray;
+    public NativeArray<int> closestIndexArray;
+    public float LerpSpeed = 17f;
+    public bool[] allHasProximal;
+    public Transform[] allTransforms;
+    // Define the corners
+    private static Vector2 TopLeft = new Vector2(-1f, 1f);
+    private static Vector2 TopRight = new Vector2(1f, 1f);
+    private static Vector2 BottomLeft = new Vector2(-1f, -1f);
+    private static Vector2 BottomRight = new Vector2(1f, -1f);
+    public void Dispose()
     {
+        // Dispose NativeArrays if allocated
+        if (CoordKeysArray.IsCreated)
+        {
+            CoordKeysArray.Dispose();
+        }
+        if (DistancesArray.IsCreated)
+        {
+            DistancesArray.Dispose();
+        }
+        if (closestIndexArray.IsCreated)
+        {
+            closestIndexArray.Dispose();
+        }
+    }
+    public void Initialize(Animator animator, BasisTransformMapping Mapping)
+    {
+        Dispose();//safely does it
+        // Aggregate data for all fingers
+        allTransforms = AggregateFingerTransforms(
+            Mapping.LeftThumb, Mapping.LeftIndex, Mapping.LeftMiddle, Mapping.LeftRing, Mapping.LeftLittle,
+            Mapping.RightThumb, Mapping.RightIndex, Mapping.RightMiddle, Mapping.RightRing, Mapping.RightLittle);
+        allHasProximal = AggregateHasProximal(
+             Mapping.HasLeftThumb, Mapping.HasLeftIndex, Mapping.HasLeftMiddle, Mapping.HasLeftRing, Mapping.HasLeftLittle,
+             Mapping.HasRightThumb, Mapping.HasRightIndex, Mapping.HasRightMiddle, Mapping.HasRightRing, Mapping.HasRightLittle);
+        // Initialize the HumanPoseHandler with the animator's avatar and transform
+        poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
+        // Initialize the HumanPose
+        pose = new HumanPose();
+        // Get the current human pose
+        poseHandler.GetHumanPose(ref pose);
+        // Assign muscle indices to each finger array using Array.Copy
         LeftThumb = new float[4];
+        System.Array.Copy(pose.muscles, 55, LeftThumb, 0, 4);
         LeftIndex = new float[4];
+        System.Array.Copy(pose.muscles, 59, LeftIndex, 0, 4);
         LeftMiddle = new float[4];
+        System.Array.Copy(pose.muscles, 63, LeftMiddle, 0, 4);
         LeftRing = new float[4];
+        System.Array.Copy(pose.muscles, 67, LeftRing, 0, 4);
         LeftLittle = new float[4];
+        System.Array.Copy(pose.muscles, 71, LeftLittle, 0, 4);
 
         RightThumb = new float[4];
+        System.Array.Copy(pose.muscles, 75, RightThumb, 0, 4);
         RightIndex = new float[4];
+        System.Array.Copy(pose.muscles, 79, RightIndex, 0, 4);
         RightMiddle = new float[4];
+        System.Array.Copy(pose.muscles, 83, RightMiddle, 0, 4);
         RightRing = new float[4];
+        System.Array.Copy(pose.muscles, 87, RightRing, 0, 4);
         RightLittle = new float[4];
+        System.Array.Copy(pose.muscles, 91, RightLittle, 0, 4);
 
-        BasisTransformMapping Mapping = BasisLocalPlayer.Instance.LocalAvatarDriver.References;
+        RecordCurrentPose(ref RestingOnePoseData);
+        RecordCurrentPose(ref Current);
+        CoordToPose.Clear();
 
-        HasLeftHand = Mapping.HasleftHand;
-        HasRightHand = Mapping.HasrightHand;
-
-        if (HasLeftHand) LeftHand = Mapping.leftHand;
-        if (HasRightHand) RightHand = Mapping.rightHand;
-
-        if (LeftHandParams == null || LeftHandParams.Length != 5)
+        List<BasisPoseDataAdditional> points = new List<BasisPoseDataAdditional>();
+        HashSet<Vector2> addedCoords = new HashSet<Vector2>();
+        float epsilon = 0.05f; // Adjust this value for approximate closeness
+        bool IsApproximateDuplicate(Vector2 newCoord)
         {
-            LeftHandParams = new BasisFingerPoseParams[5];
+            foreach (var existingCoord in addedCoords)
+            {
+                if (Vector2.Distance(existingCoord, newCoord) < epsilon)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
-        if (RightHandParams == null || RightHandParams.Length != 5)
+        void AddPose(Vector2 coord)
         {
-            RightHandParams = new BasisFingerPoseParams[5];
+            if (IsApproximateDuplicate(coord))
+            {
+                return;
+            }
+
+            BasisPoseData poseData = new BasisPoseData();
+            SetAndRecordPose(coord.x, ref poseData, coord.y);
+
+            BasisPoseDataAdditional poseAdd = new BasisPoseDataAdditional
+            {
+                PoseData = poseData,
+                Coord = coord
+            };
+
+            points.Add(poseAdd);
+            addedCoords.Add(coord);
         }
 
-        for (int i = 0; i < 15; i++)
+        // Loop through the square grid using the increment
+        for (float x = BottomLeft.x; x <= BottomRight.x; x += increment)
         {
-            LeftHandJointsbools[i] = Mapping.GetTransform((HumanBodyBones)(24 + i), out LeftHandJoints[i]);
-            RightHandJointsbools[i] = Mapping.GetTransform((HumanBodyBones)(39 + i), out RightHandJoints[i]);
+            for (float y = BottomLeft.y; y <= TopLeft.y; y += increment)
+            {
+                AddPose(new Vector2(x, y));
+            }
         }
-        Initalize(BasisLocalPlayer.Instance.BasisAvatar.Animator);
+
+        // Ensure corners are included exactly
+        AddPose(TopLeft);
+        AddPose(TopRight);
+        AddPose(BottomLeft);
+        AddPose(BottomRight);
+
+        // Build the dictionary
+        int Count = points.Count;
+        for (int Index = 0; Index < Count; Index++)
+        {
+            BasisPoseDataAdditional point = points[Index];
+            CoordToPose.TryAdd(point.Coord, point);
+        }
+
+        // Cache dictionary keys for faster access
+        CoordKeys = new Vector2[Count];
+        CoordToPose.Keys.CopyTo(CoordKeys, 0);
+
+        // Initialize and set up arrays
+        CoordKeysArray = new NativeArray<Vector2>(CoordKeys, Allocator.Persistent);
+        DistancesArray = new NativeArray<float>(Count, Allocator.Persistent);
+        closestIndexArray = new NativeArray<int>(1, Allocator.Persistent);
+
+        // Copy data into CoordKeysArray
+        for (int Index = 0; Index < Count; Index++)
+        {
+            CoordKeysArray[Index] = CoordKeys[Index];
+        }
     }
-    public void OnDestroy() { }
-    public void Initalize(Animator animator)
+    public void UpdateFingers(BasisTransformMapping Map)
     {
-        poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
-        pose = new HumanPose();
-        RecordAllPoses();
-    }
-    public void RecordAllPoses()
-    {
-        poseHandler.GetHumanPose(ref pose);
-        List<BasisFingerPoseParams> samples = new List<BasisFingerPoseParams>
+        float rotation = LerpSpeed * Time.deltaTime;
+        bool GetClosestValue(Vector2 percentage, out BasisPoseDataAdditional result)
         {
-           new BasisFingerPoseParams(1f, 1f),//1
-           new BasisFingerPoseParams(0f, 1f),//2
-          new  BasisFingerPoseParams(1f, 0f),//3
-          new  BasisFingerPoseParams(0f, 0f),//4
-          new  BasisFingerPoseParams(-1, -1f),//5
-          new BasisFingerPoseParams(0f, -1),//6
-           new BasisFingerPoseParams(-1, 0f)//7
-        };
+            var distanceJob = new BasisFindClosestPointJob
+            {
+                target = percentage,
+                CoordKeys = CoordKeysArray,
+                Distances = DistancesArray
+            };
 
-        List<BasisStoredHandPose> LeftHandPoseDataList = new List<BasisStoredHandPose>();
-        List<BasisStoredHandPose> RightHandPoseDataList = new List<BasisStoredHandPose>();
-        foreach (BasisFingerPoseParams sample in samples)
-        {
-            SetAndRecordPose(sample, ref LeftHandCoords, ref RightHandCoords);
+            JobHandle distanceJobHandle = distanceJob.Schedule(CoordKeysArray.Length, 64);
+            distanceJobHandle.Complete();
 
-            LeftHandPoseDataList.Add(new BasisStoredHandPose(sample, (BasisCalibratedCoords[])LeftHandCoords.Clone()));
-            RightHandPoseDataList.Add(new BasisStoredHandPose(sample, (BasisCalibratedCoords[])RightHandCoords.Clone()));
+            var reductionJob = new BasisFindMinDistanceJob
+            {
+                distances = DistancesArray,
+                closestIndex = closestIndexArray
+            };
+
+            JobHandle reductionJobHandle = reductionJob.Schedule();
+            reductionJobHandle.Complete();
+
+            int closestIndex = closestIndexArray[0];
+            return CoordToPose.TryGetValue(CoordKeysArray[closestIndex], out result);
         }
-        LeftHandPoseData = LeftHandPoseDataList.ToArray();
-        RightHandPoseData = RightHandPoseDataList.ToArray();
+
+        void TryUpdateFingerPose(ref Vector2 currentValue, Vector2 newValue, ref BasisPoseDataAdditional additional)
+        {
+            if (currentValue != newValue)
+            {
+                if (GetClosestValue(newValue, out var result))
+                {
+                    additional = result;
+                    currentValue = newValue;
+                }
+            }
+        }
+
+        // Left Hand
+        TryUpdateFingerPose(ref LastLeftThumbPercentage, LeftHand.ThumbPercentage, ref LeftThumbAdditional);
+        TryUpdateFingerPose(ref LastLeftIndexPercentage, LeftHand.IndexPercentage, ref LeftIndexAdditional);
+        TryUpdateFingerPose(ref LastLeftMiddlePercentage, LeftHand.MiddlePercentage, ref LeftMiddleAdditional);
+        TryUpdateFingerPose(ref LastLeftRingPercentage, LeftHand.RingPercentage, ref LeftRingAdditional);
+        TryUpdateFingerPose(ref LastLeftLittlePercentage, LeftHand.LittlePercentage, ref LeftLittleAdditional);
+
+        // Right Hand
+        TryUpdateFingerPose(ref LastRightThumbPercentage, RightHand.ThumbPercentage, ref RightThumbAdditional);
+        TryUpdateFingerPose(ref LastRightIndexPercentage, RightHand.IndexPercentage, ref RightIndexAdditional);
+        TryUpdateFingerPose(ref LastRightMiddlePercentage, RightHand.MiddlePercentage, ref RightMiddleAdditional);
+        TryUpdateFingerPose(ref LastRightRingPercentage, RightHand.RingPercentage, ref RightRingAdditional);
+        TryUpdateFingerPose(ref LastRightLittlePercentage, RightHand.LittlePercentage, ref RightLittleAdditional);
+
+        // Update Transforms
+        UpdateFingerPoses(Map.LeftThumb, LeftThumbAdditional.PoseData.LeftThumb, ref Current.LeftThumb, Map.HasLeftThumb, rotation);
+        UpdateFingerPoses(Map.LeftIndex, LeftIndexAdditional.PoseData.LeftIndex, ref Current.LeftIndex, Map.HasLeftIndex, rotation);
+        UpdateFingerPoses(Map.LeftMiddle, LeftMiddleAdditional.PoseData.LeftMiddle, ref Current.LeftMiddle, Map.HasLeftMiddle, rotation);
+        UpdateFingerPoses(Map.LeftRing, LeftRingAdditional.PoseData.LeftRing, ref Current.LeftRing, Map.HasLeftRing, rotation);
+        UpdateFingerPoses(Map.LeftLittle, LeftLittleAdditional.PoseData.LeftLittle, ref Current.LeftLittle, Map.HasLeftLittle, rotation);
+        UpdateFingerPoses(Map.RightThumb, RightThumbAdditional.PoseData.RightThumb, ref Current.RightThumb, Map.HasRightThumb, rotation);
+        UpdateFingerPoses(Map.RightIndex, RightIndexAdditional.PoseData.RightIndex, ref Current.RightIndex, Map.HasRightIndex, rotation);
+        UpdateFingerPoses(Map.RightMiddle, RightMiddleAdditional.PoseData.RightMiddle, ref Current.RightMiddle, Map.HasRightMiddle, rotation);
+        UpdateFingerPoses(Map.RightRing, RightRingAdditional.PoseData.RightRing, ref Current.RightRing, Map.HasRightRing, rotation);
+        UpdateFingerPoses(Map.RightLittle, RightLittleAdditional.PoseData.RightLittle, ref Current.RightLittle, Map.HasRightLittle, rotation);
     }
-    public void SetAndRecordPose(BasisFingerPoseParams poses, ref BasisCalibratedCoords[] LeftHand, ref BasisCalibratedCoords[] RightHand)
+    public void UpdateFingerPoses(Transform[] proximal, BasisCalibratedCoords[] poses, ref BasisCalibratedCoords[] currentPoses, bool[] hasProximal, float rotation)
     {
-        SetMuscleData(ref LeftThumb, poses);
-        SetMuscleData(ref LeftIndex, poses);
-        SetMuscleData(ref LeftMiddle, poses);
-        SetMuscleData(ref LeftRing, poses);
-        SetMuscleData(ref LeftLittle, poses);
+        for (int FingerBoneIndex = 0; FingerBoneIndex < 3; FingerBoneIndex++)
+        {
+            if (!hasProximal[FingerBoneIndex])
+            {
+                continue;
+            }
 
-        SetMuscleData(ref RightThumb, poses);
-        SetMuscleData(ref RightIndex, poses);
-        SetMuscleData(ref RightMiddle, poses);
-        SetMuscleData(ref RightRing, poses);
-        SetMuscleData(ref RightLittle, poses);
+            float3 newPosition = math.lerp(currentPoses[FingerBoneIndex].position, poses[FingerBoneIndex].position, rotation);
+            quaternion newRotation = math.slerp(currentPoses[FingerBoneIndex].rotation, poses[FingerBoneIndex].rotation, rotation);
+            currentPoses[FingerBoneIndex].position = newPosition;
+            currentPoses[FingerBoneIndex].rotation = newRotation;
+            proximal[FingerBoneIndex].SetLocalPositionAndRotation(newPosition, newRotation);
+        }
+    }
+    public void RecordCurrentPose(ref BasisPoseData poseData)
+    {
 
-        ApplyMuscleData();
+        // Record all finger poses
+        NativeArray<BasisCalibratedCoords> allFingerPoses = RecordAllFingerPoses(allTransforms, allHasProximal);
+
+        // Distribute poses to individual fingers
+        int offset = 0;
+        ExtractFingerPoses(ref poseData.LeftThumb, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.LeftIndex, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.LeftMiddle, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.LeftRing, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.LeftLittle, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.RightThumb, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.RightIndex, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.RightMiddle, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.RightRing, allFingerPoses, ref offset, 3);
+        ExtractFingerPoses(ref poseData.RightLittle, allFingerPoses, ref offset, 3);
+
+        allFingerPoses.Dispose();
+    }
+    private Transform[] AggregateFingerTransforms(params Transform[][] fingerTransforms)
+    {
+        return fingerTransforms.SelectMany(f => f).ToArray();
+    }
+    private bool[] AggregateHasProximal(params bool[][] hasProximalArrays)
+    {
+        return hasProximalArrays.SelectMany(h => h).ToArray();
+    }
+    private void ExtractFingerPoses(ref BasisCalibratedCoords[] poses, NativeArray<BasisCalibratedCoords> allPoses, ref int offset, int length)
+    {
+        if (poses == null || poses.Length != length)
+        {
+            poses = new BasisCalibratedCoords[length];
+        }
+
+        NativeArray<BasisCalibratedCoords>.Copy(allPoses, offset, poses, 0, length);
+        offset += length;
+    }
+    public void SetAndRecordPose(float fillValue, ref BasisPoseData poseData, float Splane)
+    {
+        // Apply muscle data to both hands
+        SetMuscleData(ref LeftThumb, fillValue, Splane);
+        SetMuscleData(ref LeftIndex, fillValue, Splane);
+        SetMuscleData(ref LeftMiddle, fillValue, Splane);
+        SetMuscleData(ref LeftRing, fillValue, Splane);
+        SetMuscleData(ref LeftLittle, fillValue, Splane);
+
+        SetMuscleData(ref RightThumb, fillValue, Splane);
+        SetMuscleData(ref RightIndex, fillValue, Splane);
+        SetMuscleData(ref RightMiddle, fillValue, Splane);
+        SetMuscleData(ref RightRing, fillValue, Splane);
+        SetMuscleData(ref RightLittle, fillValue, Splane);
+
+        // Update the finger muscle values in the poses array using Array.Copy
+        System.Array.Copy(LeftThumb, 0, pose.muscles, 55, 4);
+        System.Array.Copy(LeftIndex, 0, pose.muscles, 59, 4);
+        System.Array.Copy(LeftMiddle, 0, pose.muscles, 63, 4);
+        System.Array.Copy(LeftRing, 0, pose.muscles, 67, 4);
+        System.Array.Copy(LeftLittle, 0, pose.muscles, 71, 4);
+
+        System.Array.Copy(RightThumb, 0, pose.muscles, 75, 4);
+        System.Array.Copy(RightIndex, 0, pose.muscles, 79, 4);
+        System.Array.Copy(RightMiddle, 0, pose.muscles, 83, 4);
+        System.Array.Copy(RightRing, 0, pose.muscles, 87, 4);
+        System.Array.Copy(RightLittle, 0, pose.muscles, 91, 4);
         poseHandler.SetHumanPose(ref pose);
-        RecordHandPositionsAndRotations(ref LeftHand, ref RightHand);
+        RecordCurrentPose(ref poseData);
     }
-
-    public void RecordHandPositionsAndRotations(ref BasisCalibratedCoords[] LeftHand, ref BasisCalibratedCoords[] RightHand)
+    public void SetMuscleData(ref float[] muscleArray, float fillValue, float specificValue)
     {
-        if (LeftHand == null || LeftHand.Length != 15) LeftHand = new BasisCalibratedCoords[15];
-        if (RightHand == null || RightHand.Length != 15) RightHand = new BasisCalibratedCoords[15];
-
-        for (int index = 0; index < 15; index++)
+        Array.Fill(muscleArray, fillValue);
+        muscleArray[1] = specificValue;
+    }
+    private NativeArray<BasisCalibratedCoords> RecordAllFingerPoses(Transform[] allTransforms, bool[] allHasProximal)
+    {
+        int length = allTransforms.Length;
+        // Prepare NativeArrays and TransformAccessArray
+        NativeArray<bool> hasProximalArray = new NativeArray<bool>(length, Allocator.Persistent);
+        NativeArray<BasisCalibratedCoords> fingerPoses = new NativeArray<BasisCalibratedCoords>(length, Allocator.Persistent);
+        TransformAccessArray transformAccessArray = new TransformAccessArray(length);
+        // Fill NativeArrays and TransformAccessArray
+        for (int Index = 0; Index < length; Index++)
         {
-            if (LeftHandJointsbools[index] && LeftHandJoints[index] != null)
-            {
-                LeftHand[index] = new BasisCalibratedCoords(
-                    LeftHandJoints[index].localPosition,
-                    LeftHandJoints[index].localRotation
-                );
-            }
-            else
-            {
-                LeftHand[index] = new BasisCalibratedCoords(Vector3.zero, Quaternion.identity);
-            }
-
-            if (RightHandJointsbools[index] && RightHandJoints[index] != null)
-            {
-                RightHand[index] = new BasisCalibratedCoords(
-                    RightHandJoints[index].localPosition,
-                    RightHandJoints[index].localRotation
-                );
-            }
-            else
-            {
-                RightHand[index] = new BasisCalibratedCoords(Vector3.zero, Quaternion.identity);
-            }
+            hasProximalArray[Index] = allHasProximal[Index];
+            transformAccessArray.Add(allTransforms[Index]);
         }
-    }
-    public void ApplyMuscleData()
-    {
-        Array.Copy(LeftThumb, 0, pose.muscles, 55, 4);
-        Array.Copy(LeftIndex, 0, pose.muscles, 59, 4);
-        Array.Copy(LeftMiddle, 0, pose.muscles, 63, 4);
-        Array.Copy(LeftRing, 0, pose.muscles, 67, 4);
-        Array.Copy(LeftLittle, 0, pose.muscles, 71, 4);
-
-        Array.Copy(RightThumb, 0, pose.muscles, 75, 4);
-        Array.Copy(RightIndex, 0, pose.muscles, 79, 4);
-        Array.Copy(RightMiddle, 0, pose.muscles, 83, 4);
-        Array.Copy(RightRing, 0, pose.muscles, 87, 4);
-        Array.Copy(RightLittle, 0, pose.muscles, 91, 4);
-    }
-
-    public void SetMuscleData(ref float[] muscleArray, BasisFingerPoseParams pose)
-    {
-        Array.Fill(muscleArray, pose.Stretch);
-        muscleArray[1] = pose.Spread;
-    }
-    public void UpdateFingers()
-    {
-        ApplyInterpolatedPose(LeftHandParams, RightHandParams);
-    }
-
-    public void ApplyInterpolatedPose(BasisFingerPoseParams[] leftHand, BasisFingerPoseParams[] rightHand)
-    {
-        InterpolatePose(leftHand, LeftHandPoseData, ref LeftHandDestination);
-        InterpolatePose(rightHand, RightHandPoseData, ref RightHandDestination);
-
-        for (int i = 0; i < 15; i++)
+        // Create and schedule the job
+        BasisRecordAllFingersJob job = new BasisRecordAllFingersJob
         {
-            if (RightHandJointsbools[i])
-                RightHandJoints[i].SetLocalPositionAndRotation(RightHandDestination[i].position, RightHandDestination[i].rotation);
-
-            if (LeftHandJointsbools[i])
-                LeftHandJoints[i].SetLocalPositionAndRotation(LeftHandDestination[i].position, LeftHandDestination[i].rotation);
-        }
-    }
-
-    public void InterpolatePose(BasisFingerPoseParams[] targetPose, BasisStoredHandPose[] poseData, ref BasisCalibratedCoords[] result)
-    {
-        int poseCount = poseData.Length;
-
-        for (int fingerIndex = 0; fingerIndex < fingersCount; fingerIndex++)
-        {
-            // Reset accumulators once per finger
-            for (int j = 0; j < jointsPerFinger; j++)
-            {
-                weightedPositions[j] = Vector3.zero;
-                rotationAccumulator[j] = Vector4.zero;
-                totalWeights[j] = 0f;
-            }
-
-            float targetStretch = targetPose[fingerIndex].Stretch;
-            float targetSpread = targetPose[fingerIndex].Spread;
-
-            for (int poseIndex = 0; poseIndex < poseCount; poseIndex++)
-            {
-                var storedPose = poseData[poseIndex];
-                var poseParam = storedPose.FingerPoseForPosition;
-
-                float dStretch = targetStretch - poseParam.Stretch;
-                float dSpread = targetSpread - poseParam.Spread;
-                float weight = 1f / (Mathf.Sqrt(dStretch * dStretch + dSpread * dSpread) + epsilon);
-
-                var joints = storedPose.FingerJoints;
-
-                int baseIndex = fingerIndex * jointsPerFinger;
-
-                for (int j = 0; j < jointsPerFinger; j++)
-                {
-                    int globalIndex = baseIndex + j;
-                    ref BasisCalibratedCoords joint = ref joints[globalIndex];
-
-                    Vector3 Position = joint.position;
-                    // Weighted position accumulation
-                    weightedPositions[j] += Position * weight;
-
-                    // Weighted rotation accumulation
-                    Quaternion rot = joint.rotation;
-                    Vector4 quatVec = new Vector4(rot.x, rot.y, rot.z, rot.w);
-
-                    if (Vector4.Dot(rotationAccumulator[j], quatVec) < 0f)
-                        quatVec = -quatVec;
-
-                    rotationAccumulator[j] += quatVec * weight;
-                    totalWeights[j] += weight;
-                }
-            }
-
-            // Final interpolation
-            int fingerBaseIndex = fingerIndex * jointsPerFinger;
-
-            for (int j = 0; j < jointsPerFinger; j++)
-            {
-                int globalIndex = fingerBaseIndex + j;
-                float w = totalWeights[j];
-
-                if (w > 0f)
-                {
-                    Vector3 pos = weightedPositions[j] / w;
-                    Vector4 accQuat = rotationAccumulator[j] / w;
-                    Quaternion finalRot = new Quaternion(accQuat.x, accQuat.y, accQuat.z, accQuat.w);
-                    finalRot = Quaternion.Normalize(finalRot);
-
-                    result[globalIndex] = new BasisCalibratedCoords(pos, finalRot);
-                }
-                else
-                {
-                    result[globalIndex] = new BasisCalibratedCoords(Vector3.zero, Quaternion.identity);
-                }
-            }
-        }
+            HasProximal = hasProximalArray,
+            FingerPoses = fingerPoses
+        };
+        JobHandle handle = job.Schedule(transformAccessArray);
+        handle.Complete();
+        transformAccessArray.Dispose();
+        hasProximalArray.Dispose();
+        return fingerPoses;
     }
 }

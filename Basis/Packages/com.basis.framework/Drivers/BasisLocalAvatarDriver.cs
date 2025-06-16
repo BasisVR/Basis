@@ -152,8 +152,7 @@ namespace Basis.Scripts.Drivers
             SetBodySettings(player.LocalBoneDriver);
             CalculateTransformPositions(player, player.LocalBoneDriver);
             ComputeOffsets(player.LocalBoneDriver);
-            player.LocalMuscleDriver.OnDestroy();
-            player.LocalMuscleDriver.Initialize();
+            player.LocalMuscleDriver.Initialize(player.BasisAvatar.Animator, References);
 
             CalibrationComplete?.Invoke();
             player.LocalAnimatorDriver.Initialize(player);
@@ -640,10 +639,10 @@ namespace Basis.Scripts.Drivers
             Builder.layers.Add(RigLayer);
             return RigGameobject;
         }
-        public void SimulateAnimatorAndIk()
+        public void SimulateAnimatorAndIk(float DeltaTime)
         {
             Builder.SyncLayers();
-            PlayableGraph.Evaluate(Time.deltaTime);
+            PlayableGraph.Evaluate(DeltaTime);
         }
     }
 }
