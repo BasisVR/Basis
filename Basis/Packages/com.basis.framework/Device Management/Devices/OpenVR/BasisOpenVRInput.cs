@@ -44,11 +44,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         {
                             if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                             {
-                                // Apply the position offset using math.mul for quaternion-vector multiplication
-                                Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+                                // Apply position offset using math.mul for quaternion-vector multiplication
+                                Control.IncomingData.position = TransformFinalPosition;
 
-                                // Apply the rotation offset using math.mul for quaternion multiplication
-                                Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
+                                // Apply rotation offset using math.mul for quaternion multiplication
+                                Control.IncomingData.rotation = TransformFinalRotation;
                             }
                         }
                         if (HasInputSource)

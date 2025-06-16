@@ -16,6 +16,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public SteamVR_Action_Pose DeviceposeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("Pose");
         public BasisOpenVRInputSkeleton SkeletonHandInput = null;
         public bool HasOnUpdate = false;
+        public bool HasHandPose = false;
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
             if (HasOnUpdate && DeviceposeAction != null)
@@ -75,7 +76,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
             UpdateHistoryBuffer();
-            if (HasOnUpdate)
+            if (HasOnUpdate && HasHandPose == false)
             {
                 LocalRawPosition = DeviceposeAction[inputSource].localPosition;
                 LocalRawRotation = DeviceposeAction[inputSource].localRotation;
@@ -87,10 +88,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                 {
                     // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+                    Control.IncomingData.position = TransformFinalPosition;
 
                     // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
+                    Control.IncomingData.rotation = TransformFinalRotation;
                 }
             }
         }

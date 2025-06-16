@@ -58,7 +58,7 @@ public class BasisOpenXRHeadInput : BasisInput
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
             // Apply position offset using math.mul for quaternion-vector multiplication
-            Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+            Control.IncomingData.position = TransformFinalPosition;
 
             // Apply rotation offset using math.mul for quaternion multiplication
             Control.IncomingData.rotation = TransformFinalRotation;

@@ -29,18 +29,6 @@ public class BasisOpenXRHandInput : BasisInput
         string DevicePalmPath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
         SetupInputActions(devicePath);
 
-        switch (basisBoneTrackedRole)
-        {
-            case BasisBoneTrackedRole.LeftHand:
-                AvatarPositionOffset = new float3(0f, 0.05f, 0.05f);
-                AvatarRotationOffset = new float3(-90f, 45f, 0f);
-                break;
-            case BasisBoneTrackedRole.RightHand:
-                AvatarPositionOffset = new float3(0f, 0.05f, 0.05f);
-                AvatarRotationOffset = new float3(-75f, -45f, 0f);
-                break;
-        }
-
         PalmPosition = new InputActionProperty(new InputAction($"{DevicePalmPath}/devicePosition", InputActionType.Value, $"{DevicePalmPath}/devicePosition", expectedControlType: "Vector3"));
         PalmRotation = new InputActionProperty(new InputAction($"{DevicePalmPath}/deviceRotation", InputActionType.Value, $"{DevicePalmPath}/deviceRotation", expectedControlType: "Quaternion"));
 
@@ -124,10 +112,10 @@ public class BasisOpenXRHandInput : BasisInput
             if (Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
                 // Apply position offset using math.mul for quaternion-vector multiplication
-                Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+                Control.IncomingData.position = TransformFinalPosition;
 
                 // Apply rotation offset using math.mul for quaternion multiplication
-                Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
+                Control.IncomingData.rotation = TransformFinalRotation;
             }
         }
         UpdatePlayerControl();

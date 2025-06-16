@@ -27,9 +27,6 @@ namespace Basis.Scripts.Device_Management.Devices
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
         public float3 TransformFinalPosition;
         public quaternion TransformFinalRotation;
-        [Header("Avatar Offset Applied Per Frame")]
-        public float3 AvatarPositionOffset = Vector3.zero;
-        public float3 AvatarRotationOffset = Vector3.zero;
 
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
@@ -150,7 +147,6 @@ namespace Basis.Scripts.Device_Management.Devices
             //unassign the old tracker
             UnAssignTracker();
             BasisDebug.Log("Finding ID " + unUniqueDeviceID, BasisDebug.LogTag.Input);
-            AvatarRotationOffset = Quaternion.identity.eulerAngles;
             //configure device identifier
             SubSystemIdentifier = subSystems;
             CommonDeviceIdentifier = unUniqueDeviceID;
@@ -163,8 +159,6 @@ namespace Basis.Scripts.Device_Management.Devices
                 AssignRoleAndTracker(BasisDeviceMatchSettings.TrackedRole);
             }
             //reset the offsets, its up to the higher level to set this now.
-            AvatarPositionOffset = Vector3.zero;
-            AvatarRotationOffset = Vector3.zero;
             if (HasRaycastSupport())
             {
                 CreateRayCaster(this);

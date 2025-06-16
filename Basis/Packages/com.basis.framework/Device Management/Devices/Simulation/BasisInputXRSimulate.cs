@@ -38,9 +38,11 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
             {
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                 {
-                    // Apply the position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-                    Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
+                    // Apply position offset using math.mul for quaternion-vector multiplication
+                    Control.IncomingData.position = TransformFinalPosition;
+
+                    // Apply rotation offset using math.mul for quaternion multiplication
+                    Control.IncomingData.rotation = TransformFinalRotation;
                 }
             }
             UpdatePlayerControl();

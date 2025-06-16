@@ -87,9 +87,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             hand.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
             hand.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
 
+            // skeletonAction.bonePositions[0
             // Apply offsets
-            BasisOpenVRInputController.AvatarPositionOffset = skeletonAction.bonePositions[1] + positionOffset;
-            BasisOpenVRInputController.AvatarRotationOffset = rotation.eulerAngles;
+            BasisOpenVRInputController.LocalRawPosition = skeletonAction.bonePositions[1];// + positionOffset;
+            BasisOpenVRInputController.LocalRawRotation = rotation;
+
         }
         float Remap01ToMinus1To1(float value)
         {
