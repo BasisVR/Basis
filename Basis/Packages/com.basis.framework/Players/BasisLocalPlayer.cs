@@ -72,9 +72,9 @@ namespace Basis.Scripts.BasisSdk.Players
         [SerializeField]
         public BasisLocalAnimatorDriver LocalAnimatorDriver = new BasisLocalAnimatorDriver();
         //finger poses
-        [Header("Muscle Driver")]
+        [Header("Hand Driver")]
         [SerializeField]
-        public BasisHandDriver LocalHandDriver = new BasisHandDriver();
+        public BasisLocalHandDriver LocalHandDriver = new BasisLocalHandDriver();
         [Header("Eye Driver")]
         [SerializeField]
         public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();

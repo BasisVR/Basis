@@ -1,7 +1,6 @@
 using Basis.Scripts.Common;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
@@ -10,7 +9,7 @@ using UnityEngine;
 using UnityEngine.Jobs;
 [DefaultExecutionOrder(15001)]
 [System.Serializable]
-public class BasisHandDriver
+public class BasisLocalHandDriver
 {
     [SerializeField]
     public BasisPoseData Current;
