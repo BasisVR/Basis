@@ -7,7 +7,11 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+
+#if BASIS_FRAMEWORK_EXISTS
 using Basis.Scripts.BasisSdk.Players;
+#endif
+
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
 {
@@ -330,6 +334,7 @@ public partial class BasisAvatarSDKInspector : Editor
     }
     public void RequestAvatarLoad()
     {
+#if BASIS_FRAMEWORK_EXISTS
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
@@ -341,10 +346,12 @@ public partial class BasisAvatarSDKInspector : Editor
             BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
             BasisLocalPlayer.OnLocalPlayerCreatedAndReady += LoadAvatar;
         }
+#endif
     }
     public bool ScheduleCallback = false;
     public async void LoadAvatar()
     {
+#if BASIS_FRAMEWORK_EXISTS
         if (ScheduleCallback)
         {
             BasisLocalPlayer.OnLocalPlayerCreatedAndReady -= LoadAvatar;
@@ -363,6 +370,7 @@ public partial class BasisAvatarSDKInspector : Editor
         BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
         await BasisLocalPlayer.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
         BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
+#endif
     }
     private void ClearResultLabel()
     {
