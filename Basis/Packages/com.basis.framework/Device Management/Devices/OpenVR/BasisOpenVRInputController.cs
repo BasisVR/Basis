@@ -16,7 +16,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public SteamVR_Action_Pose DeviceposeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("Pose");
         public BasisOpenVRInputSkeleton SkeletonHandInput = null;
         public bool HasOnUpdate = false;
-        public bool HasHandPose = false;
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
             if (HasOnUpdate && DeviceposeAction != null)
@@ -73,13 +72,15 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 UpdatePlayerControl();
             }
         }
+        public Vector3 ControllerPosition;
+        public Quaternion ControllerRotation;
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
             UpdateHistoryBuffer();
-            if (HasOnUpdate && HasHandPose == false)
+            if (HasOnUpdate)
             {
-                LocalRawPosition = DeviceposeAction[inputSource].localPosition;
-                LocalRawRotation = DeviceposeAction[inputSource].localRotation;
+                ControllerPosition = DeviceposeAction[inputSource].localPosition;
+                ControllerRotation = DeviceposeAction[inputSource].localRotation;
             }
             TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             TransformFinalRotation = LocalRawRotation;
