@@ -46,8 +46,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 LocalRawPosition = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
                 LocalRawRotation = Quaternion.identity;
             }
-            TransformFinalPosition = LocalRawPosition;
-            TransformFinalRotation = LocalRawRotation;
+            ControllerFinalPosition = LocalRawPosition;
+            ControllerFinalRotation = LocalRawRotation;
             InitalizeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
             if (BasisHelpers.CheckInstance(Instance))
             {
@@ -162,8 +162,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 LocalRawPosition = adjustedHeadPosition;
                 Control.IncomingData.position = LocalRawPosition;
                 Control.IncomingData.rotation = LocalRawRotation;
-                TransformFinalPosition = LocalRawPosition;
-                TransformFinalRotation = LocalRawRotation;
+                ControllerFinalPosition = LocalRawPosition;
+                ControllerFinalRotation = LocalRawRotation;
                 UpdatePlayerControl();
             }
         }

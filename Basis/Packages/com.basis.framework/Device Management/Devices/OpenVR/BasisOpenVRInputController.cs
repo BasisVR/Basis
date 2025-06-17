@@ -14,7 +14,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public OpenVRDevice Device;
         public SteamVR_Input_Sources inputSource;
         public SteamVR_Action_Pose DeviceposeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("Pose");
-        public BasisOpenVRInputSkeleton SkeletonHandInput = null;
         public bool HasOnUpdate = false;
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
@@ -34,11 +33,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     HasOnUpdate = true;
                 }
             }
-            if (inputSource == SteamVR_Input_Sources.LeftHand || inputSource == SteamVR_Input_Sources.RightHand)
-            {
-                SkeletonHandInput = new BasisOpenVRInputSkeleton();
-                SkeletonHandInput.Initalize(this);
-            }
             BasisDebug.Log("set Controller to inputSource " + inputSource + " bone role " + basisBoneTrackedRole);
         }
         public new void OnDestroy()
@@ -47,10 +41,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;
                 HasOnUpdate = false;
-            }
-            if (SkeletonHandInput != null)
-            {
-                SkeletonHandInput.DeInitalize();
             }
             historyBuffer.Clear();
             base.OnDestroy();
@@ -69,32 +59,81 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 CurrentInputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
                 CurrentInputState.Secondary2DAxis = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
                 CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
+                switch (inputSource)
+                {
+                    case SteamVR_Input_Sources.LeftHand:
+                        {
+                            SteamVR_Action_Skeleton LeftHand = SteamVR_Actions.default_SkeletonLeftHand;
+                            UpdateHandPose(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, LeftHand);
+                            break;
+                        }
+
+                    case SteamVR_Input_Sources.RightHand:
+                        {
+                            SteamVR_Action_Skeleton RightHand = SteamVR_Actions.default_SkeletonRightHand;
+                            UpdateHandPose(BasisLocalPlayer.Instance.LocalHandDriver.RightHand, RightHand);
+                            break;
+                        }
+                }
                 UpdatePlayerControl();
             }
         }
-        public Vector3 ControllerPosition;
-        public Quaternion ControllerRotation;
+        public SteamVR_Skeleton_Pose SteamVR_Skeleton_Pose;
+        private void UpdateHandPose(BasisFingerPose hand, SteamVR_Action_Skeleton skeletonAction)
+        {
+            // Finger curls
+            hand.ThumbPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[0]);
+            hand.IndexPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[1]);
+            hand.MiddlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[2]);
+            hand.RingPercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[3]);
+            hand.LittlePercentage[0] = Remap01ToMinus1To1(skeletonAction.fingerCurls[4]);
+
+            // Finger splays
+            hand.IndexPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[0]);
+            hand.MiddlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[1]);
+            hand.RingPercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[2]);
+            hand.LittlePercentage[1] = Remap01ToMinus1To1(skeletonAction.fingerSplays[3]);
+
+            BonePositions = skeletonAction.bonePositions;
+            BoneRotations = skeletonAction.boneRotations;
+            HandPalmPosition = BonePositions[1];
+            HandPalmRotation = BoneRotations[1];
+        }
+        public Vector3[] BonePositions;
+        public Quaternion[] BoneRotations;
+        public float3 ControllerPosition;
+        public quaternion ControllerRotation;
+
+        public float3 HandPalmPosition;
+        public quaternion HandPalmRotation;
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
+            float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             UpdateHistoryBuffer();
-            if (HasOnUpdate)
-            {
-                ControllerPosition = DeviceposeAction[inputSource].localPosition;
-                ControllerRotation = DeviceposeAction[inputSource].localRotation;
-            }
-            TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            TransformFinalRotation = LocalRawRotation;
-            if (hasRoleAssigned)
-            {
-                if (Control.HasTracked != BasisHasTracked.HasNoTracker)
-                {
-                    // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = TransformFinalPosition;
 
-                    // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = TransformFinalRotation;
-                }
+            // Get controller pose
+            ControllerFinalRotation = DeviceposeAction[inputSource].localRotation;
+            ControllerFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
+
+            // Scale hand positions
+            //float3 FinalHandPosition = HandPosition * scale;
+            float3 FinalPalmPosition = HandPalmPosition * scale;
+
+            // Transform hand rotation: Apply controller rotation to hand rotation
+            HandFinalRotation = math.mul(ControllerFinalRotation,HandPalmRotation);
+
+            // Transform hand position: Apply controller rotation to hand position, then add controller position
+            HandFinalPosition = ControllerFinalPosition +  math.mul(ControllerFinalRotation, FinalPalmPosition);
+
+            if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
+            {
+                Control.IncomingData.position = HandFinalPosition;
+                Control.IncomingData.rotation = HandFinalRotation;
             }
+        }
+        float Remap01ToMinus1To1(float value)
+        {
+            return (1f - value) * 2f - 1f;
         }
         #region Mostly Unused Steam
         protected SteamVR_HistoryBuffer historyBuffer = new SteamVR_HistoryBuffer(30);

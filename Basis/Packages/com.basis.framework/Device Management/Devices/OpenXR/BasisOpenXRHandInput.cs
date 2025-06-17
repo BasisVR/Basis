@@ -94,8 +94,8 @@ public class BasisOpenXRHandInput : BasisInput
         LocalRawPosition = DeviceActionPosition.action.ReadValue<Vector3>();
         LocalRawRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
-        TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-        TransformFinalRotation = LocalRawRotation;
+        ControllerFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        ControllerFinalRotation = LocalRawRotation;
 
         CurrentInputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
         CurrentInputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
@@ -112,10 +112,10 @@ public class BasisOpenXRHandInput : BasisInput
             if (Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
                 // Apply position offset using math.mul for quaternion-vector multiplication
-                Control.IncomingData.position = TransformFinalPosition;
+                Control.IncomingData.position = ControllerFinalPosition;
 
                 // Apply rotation offset using math.mul for quaternion multiplication
-                Control.IncomingData.rotation = TransformFinalRotation;
+                Control.IncomingData.rotation = ControllerFinalRotation;
             }
         }
         UpdatePlayerControl();

@@ -38,17 +38,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         LocalRawPosition = deviceTransform.pos;
                         LocalRawRotation = deviceTransform.rot;
 
-                        TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                        TransformFinalRotation = LocalRawRotation;
+                        ControllerFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        ControllerFinalRotation = LocalRawRotation;
                         if (hasRoleAssigned)
                         {
                             if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                             {
                                 // Apply position offset using math.mul for quaternion-vector multiplication
-                                Control.IncomingData.position = TransformFinalPosition;
+                                Control.IncomingData.position = ControllerFinalPosition;
 
                                 // Apply rotation offset using math.mul for quaternion multiplication
-                                Control.IncomingData.rotation = TransformFinalRotation;
+                                Control.IncomingData.rotation = ControllerFinalRotation;
                             }
                         }
                         if (HasInputSource)

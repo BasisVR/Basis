@@ -32,17 +32,17 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
 
             LocalRawPosition /= SPTDS;
 
-            TransformFinalPosition = LocalRawPosition * SPTDS;
-            TransformFinalRotation = LocalRawRotation;
+            ControllerFinalPosition = LocalRawPosition * SPTDS;
+            ControllerFinalRotation = LocalRawRotation;
             if (hasRoleAssigned)
             {
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                 {
                     // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = TransformFinalPosition;
+                    Control.IncomingData.position = ControllerFinalPosition;
 
                     // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = TransformFinalRotation;
+                    Control.IncomingData.rotation = ControllerFinalRotation;
                 }
             }
             UpdatePlayerControl();
