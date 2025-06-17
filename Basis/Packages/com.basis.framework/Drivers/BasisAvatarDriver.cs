@@ -9,9 +9,10 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+
 namespace Basis.Scripts.Drivers
 {
-    [System.Serializable]
+    [Serializable]
     public abstract class BasisAvatarDriver
     {
         public float ActiveAvatarEyeHeight()
