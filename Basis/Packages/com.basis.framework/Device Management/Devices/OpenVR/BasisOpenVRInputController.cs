@@ -92,11 +92,13 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             hand.RingPercentage[0] = Remap01ToMinus1To1(Curls[3]);
             hand.LittlePercentage[0] = Remap01ToMinus1To1(Curls[4]);
 
-            hand.IndexPercentage[1] = 0;
-            hand.IndexPercentage[1] = Remap01ToMinus1To1(Splays[0]);
-            hand.MiddlePercentage[1] = Remap01ToMinus1To1(Splays[1]);
-            hand.RingPercentage[1] = Remap01ToMinus1To1(Splays[2]);
-            hand.LittlePercentage[1] = Remap01ToMinus1To1(Splays[3]);
+            //someone else can solve this
+            //its Distance between each finger.
+            hand.ThumbPercentage[1] = 0;
+            hand.IndexPercentage[1] = 0;// Remap01ToMinus1To1(Splays[0]);
+            hand.MiddlePercentage[1] = 0;// Remap01ToMinus1To1(Splays[1]);
+            hand.RingPercentage[1] = 0;// Remap01ToMinus1To1(Splays[2]);
+            hand.LittlePercentage[1] = 0;// Remap01ToMinus1To1(Splays[3]);
         }
         float Remap01ToMinus1To1(float value)
         {
