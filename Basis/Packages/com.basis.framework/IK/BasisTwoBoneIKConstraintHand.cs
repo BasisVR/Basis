@@ -216,8 +216,8 @@ namespace UnityEngine.Animations.Rigging
 
                 targetOffset = AffineTransform.identity,
             };
-            job.targetOffset.translation = data.CalibratedOffset;
-            job.targetOffset.rotation = Quaternion.Euler(data.CalibratedRotation);
+            job.targetOffset.translation =Vector3.zero;// data.CalibratedOffset; //dooly come back here!
+            job.targetOffset.rotation = Quaternion.identity; //Quaternion.Euler(data.CalibratedRotation);
             job.hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty);
 
             return job;

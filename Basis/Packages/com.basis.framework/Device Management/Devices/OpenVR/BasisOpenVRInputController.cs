@@ -96,8 +96,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             BonePositions = skeletonAction.bonePositions;
             BoneRotations = skeletonAction.boneRotations;
-            HandPalmPosition = BonePositions[1];
-            HandPalmRotation = BoneRotations[1];
         }
         public Vector3[] BonePositions;
         public Quaternion[] BoneRotations;
@@ -106,6 +104,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
         public float3 HandPalmPosition;
         public quaternion HandPalmRotation;
+
+        public float3 HandToIKRotationOffset = new float3(0, 90, -180);
+        public float3 AddedPosition;
+        public bool Inverse = false;
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
             float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
@@ -115,15 +117,28 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             ControllerFinalRotation = DeviceposeAction[inputSource].localRotation;
             ControllerFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
 
+            HandPalmPosition = BonePositions[1];
+            HandPalmRotation = BoneRotations[1];
+
             // Scale hand positions
             //float3 FinalHandPosition = HandPosition * scale;
-            float3 FinalPalmPosition = HandPalmPosition * scale;
+            float3 FinalPalmPosition = (AddedPosition + HandPalmPosition) * scale;
 
-            // Transform hand rotation: Apply controller rotation to hand rotation
-            HandFinalRotation = math.mul(ControllerFinalRotation,HandPalmRotation);
+            quaternion ConvertedRotation = math.mul(HandPalmRotation, Quaternion.Euler(HandToIKRotationOffset));
+
+            if (Inverse)
+            {
+                // Transform hand rotation: Apply controller rotation to hand rotation
+                HandFinalRotation = math.mul(ControllerFinalRotation, Quaternion.Inverse(ConvertedRotation));
+            }
+            else
+            {
+                // Transform hand rotation: Apply controller rotation to hand rotation
+                HandFinalRotation = math.mul(ControllerFinalRotation, ConvertedRotation);
+            }
 
             // Transform hand position: Apply controller rotation to hand position, then add controller position
-            HandFinalPosition = ControllerFinalPosition +  math.mul(ControllerFinalRotation, FinalPalmPosition);
+            HandFinalPosition = ControllerFinalPosition - math.mul(ControllerFinalRotation, FinalPalmPosition);
 
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
