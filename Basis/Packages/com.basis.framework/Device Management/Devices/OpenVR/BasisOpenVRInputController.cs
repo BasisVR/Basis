@@ -16,6 +16,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public SteamVR_Input_Sources inputSource;
         public SteamVR_Action_Pose DeviceposeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("Pose");
         public bool HasOnUpdate = false;
+        public Vector3[] BonePositions;
+        public Quaternion[] BoneRotations;
+        public float3 ControllerPosition;
+        public quaternion ControllerRotation;
+
+        public float3 HandWristPosition;
+        public quaternion HandWristRotation;
+
+        public float3 leftHandToIKRotationOffset = new float3(0, 90, -180);
+        public float3 rightHandToIKRotationOffset = new float3(0, -90, -180);
+        public float3 AddedPosition = new float3(0, -0.05f, 0);
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
             if (HasOnUpdate && DeviceposeAction != null)
@@ -100,21 +111,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             hand.RingPercentage[1] = 0;// Remap01ToMinus1To1(Splays[2]);
             hand.LittlePercentage[1] = 0;// Remap01ToMinus1To1(Splays[3]);
         }
-        float Remap01ToMinus1To1(float value)
-        {
-            return (0.75f - value) * 2f - 0.75f;
-        }
-        public Vector3[] BonePositions;
-        public Quaternion[] BoneRotations;
-        public float3 ControllerPosition;
-        public quaternion ControllerRotation;
-
-        public float3 HandPalmPosition;
-        public quaternion HandPalmRotation;
-
-        public float3 leftHandToIKRotationOffset = new float3(0, 90, -180);
-        public float3 rightHandToIKRotationOffset = new float3(0, -90, -180);
-        public float3 AddedPosition = new float3(0, -0.05f, 0);
 
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
@@ -125,21 +121,21 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             ControllerFinalRotation = DeviceposeAction[inputSource].localRotation;
             ControllerFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
 
-            HandPalmPosition = BonePositions[1];
-            HandPalmRotation = BoneRotations[1];
+            HandWristPosition = BonePositions[1];
+            HandWristRotation = BoneRotations[1];
 
-            float3 FinalPalmPosition = (AddedPosition + HandPalmPosition) * scale;
+            float3 FinalPalmPosition = (AddedPosition + HandWristPosition) * scale;
             quaternion ConvertedRotation = new quaternion();
             switch (fromSource)
             {
                 case SteamVR_Input_Sources.LeftHand:
-                    ConvertedRotation = math.mul(HandPalmRotation, Quaternion.Euler(leftHandToIKRotationOffset));
+                    ConvertedRotation = math.mul(HandWristRotation, Quaternion.Euler(leftHandToIKRotationOffset));
                     break;
                 case SteamVR_Input_Sources.RightHand:
-                    ConvertedRotation = math.mul(HandPalmRotation, Quaternion.Euler(rightHandToIKRotationOffset));
+                    ConvertedRotation = math.mul(HandWristRotation, Quaternion.Euler(rightHandToIKRotationOffset));
                     break;
                 default:
-                    ConvertedRotation = HandPalmRotation;
+                    ConvertedRotation = HandWristRotation;
                     break;
             }
             HandFinalRotation = math.mul(ControllerFinalRotation, ConvertedRotation);

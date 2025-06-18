@@ -434,5 +434,9 @@ namespace Basis.Scripts.Device_Management.Devices
             BasisUIRaycast.Initialize(BaseInput, BasisPointRaycaster);
             HasRaycaster = true;
         }
+        public float Remap01ToMinus1To1(float value)
+        {
+            return (0.75f - value) * 2f - 0.75f;
+        }
     }
 }

@@ -1462,10 +1462,10 @@ MonoBehaviour:
   - {fileID: -2546553118739243343}
   - {fileID: 638815009775519648}
   m_renderMode: 1
-  m_autoColorSubmissionMode: 0
+  m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
     m_List: 020000000100000000000000
-  m_depthSubmissionMode: 1
+  m_depthSubmissionMode: 2
   m_spacewarpMotionVectorTextureFormat: 0
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0

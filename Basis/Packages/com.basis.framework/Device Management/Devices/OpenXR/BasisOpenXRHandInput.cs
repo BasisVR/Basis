@@ -7,9 +7,9 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
-using UnityEngine.UIElements;
 using UnityEngine.XR;
 using UnityEngine.XR.Hands;
+using UnityEngine.XR.Hands.Gestures;
 using UnityEngine.XR.Management;
 public class BasisOpenXRHandInput : BasisInput
 {
@@ -25,8 +25,8 @@ public class BasisOpenXRHandInput : BasisInput
     public UnityEngine.XR.InputDevice Device;
     public XRHandSubsystem m_Subsystem;
 
-    public float3 leftHandToIKRotationOffset = new float3(0, 90, -180);
-    public float3 rightHandToIKRotationOffset = new float3(0, -90, -180);
+    public float3 leftHandToIKRotationOffset = new float3(0, 0, -180);
+    public float3 rightHandToIKRotationOffset = new float3(0, 0, -180);
     public float3 AddedPosition = new float3(0, -0.05f, 0);
     public float3 WristPos;
     public quaternion HandPalmRotation;
@@ -34,7 +34,6 @@ public class BasisOpenXRHandInput : BasisInput
     {
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
-        string DevicePalmPath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
         SetupInputActions(devicePath);
 
         DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
@@ -155,33 +154,67 @@ public class BasisOpenXRHandInput : BasisInput
         }
         if (TryGetRole(out BasisBoneTrackedRole AssignedRole))
         {
-            BasisDebug.Log("run1");
-            if (AssignedRole == BasisBoneTrackedRole.LeftHand)
+            switch (AssignedRole)
             {
-                if (subsystem.leftHand.isTracked)
-                {
-                    BasisDebug.Log("run2");
-                    XRHand leftHand = subsystem.leftHand;
-                    // Palm and Wrist
-                    //UpdateJointPose(leftHand, XRHandJointID.Palm, out PalmPos, out PalmRot);
-                    UpdateJointPose(leftHand, XRHandJointID.Wrist, out WristPos, out HandPalmRotation); // Fixed: Use Wrist joint here
-                }
-            }
-            else
-            {
-                if (AssignedRole == BasisBoneTrackedRole.RightHand)
-                {
+                case BasisBoneTrackedRole.LeftHand:
+                    if (subsystem.leftHand.isTracked)
+                    {
+                        BasisFingerPose LeftHand = BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
+                        UpdateJointPose(subsystem.leftHand, XRHandJointID.Wrist, out WristPos, out HandPalmRotation);
+                        TryGetShapePercentage(subsystem.leftHand, XRHandFingerID.Thumb, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Thumb);
+                        TryGetShapePercentage(subsystem.leftHand, XRHandFingerID.Index, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Index);
+                        TryGetShapePercentage(subsystem.leftHand, XRHandFingerID.Middle, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Middle);
+                        TryGetShapePercentage(subsystem.leftHand, XRHandFingerID.Ring, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Ring);
+                        TryGetShapePercentage(subsystem.leftHand, XRHandFingerID.Little, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Little);
+
+                        LeftHand.ThumbPercentage[0] = Remap01ToMinus1To1(Thumb);
+                        LeftHand.IndexPercentage[0] = Remap01ToMinus1To1(Index);
+                        LeftHand.MiddlePercentage[0] = Remap01ToMinus1To1(Middle);
+                        LeftHand.RingPercentage[0] = Remap01ToMinus1To1(Ring);
+                        LeftHand.LittlePercentage[0] = Remap01ToMinus1To1(Little);
+                    }
+                    break;
+                case BasisBoneTrackedRole.RightHand:
                     if (subsystem.rightHand.isTracked)
                     {
-                        BasisDebug.Log("run3");
-                        XRHand rightHand = subsystem.rightHand;
-                        // Palm and Wrist
-                        //  UpdateJointPose(rightHand, XRHandJointID.Palm, out PalmPos, out PalmRot);
-                        UpdateJointPose(rightHand, XRHandJointID.Wrist, out WristPos, out HandPalmRotation); // Fixed: Use Wrist joint here
+                        BasisFingerPose RightHand = BasisLocalPlayer.Instance.LocalHandDriver.RightHand;
+                        UpdateJointPose(subsystem.rightHand, XRHandJointID.Wrist, out WristPos, out HandPalmRotation);
+
+                        TryGetShapePercentage(subsystem.rightHand, XRHandFingerID.Thumb, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Thumb);
+                        TryGetShapePercentage(subsystem.rightHand, XRHandFingerID.Index, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Index);
+                        TryGetShapePercentage(subsystem.rightHand, XRHandFingerID.Middle, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Middle);
+                        TryGetShapePercentage(subsystem.rightHand, XRHandFingerID.Ring, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Ring);
+                        TryGetShapePercentage(subsystem.rightHand, XRHandFingerID.Little, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float Little);
+
+                        RightHand.ThumbPercentage[0] = Remap01ToMinus1To1(Thumb);
+                        RightHand.IndexPercentage[0] = Remap01ToMinus1To1(Index);
+                        RightHand.MiddlePercentage[0] = Remap01ToMinus1To1(Middle);
+                        RightHand.RingPercentage[0] = Remap01ToMinus1To1(Ring);
+                        RightHand.LittlePercentage[0] = Remap01ToMinus1To1(Little);
                     }
-                }
+                    break;
             }
         }
+    }
+    public bool TryGetShapePercentage(XRHand Hand, XRHandFingerID m_FingerID, XRFingerShapeTypes m_TypesNeeded, XRFingerShapeType XRFingerShapeType, out float value)
+    {
+
+        XRFingerShape fingerShape = Hand.CalculateFingerShape(m_FingerID, m_TypesNeeded);
+        switch (XRFingerShapeType)
+        {
+            case XRFingerShapeType.FullCurl:
+                return fingerShape.TryGetFullCurl(out value);
+            case XRFingerShapeType.BaseCurl:
+                return fingerShape.TryGetBaseCurl(out value);
+            case XRFingerShapeType.TipCurl:
+                return fingerShape.TryGetTipCurl(out value);
+            case XRFingerShapeType.Pinch:
+                return fingerShape.TryGetPinch(out value);
+            case XRFingerShapeType.Spread:
+                return fingerShape.TryGetSpread(out value);
+        }
+        value = 0;
+        return false;
     }
     private void UpdateJointPose(XRHand hand, XRHandJointID jointId, out float3 Position, out quaternion Rotation)
     {
@@ -251,7 +284,7 @@ public class BasisOpenXRHandInput : BasisInput
 
                         var op = Addressables.LoadAssetAsync<GameObject>(LoadRequest);
                         GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go, this.transform);
+                        GameObject gameObject = GameObject.Instantiate(go, this.transform);
                         gameObject.name = CommonDeviceIdentifier;
                         if (gameObject.TryGetComponent(out BasisVisualTracker))
                         {
@@ -281,7 +314,7 @@ public class BasisOpenXRHandInput : BasisInput
     {
         UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
         GameObject go = op.WaitForCompletion();
-        GameObject gameObject = Object.Instantiate(go);
+        GameObject gameObject = GameObject.Instantiate(go);
         gameObject.name = CommonDeviceIdentifier;
         gameObject.transform.parent = this.transform;
         if (gameObject.TryGetComponent(out BasisVisualTracker))
