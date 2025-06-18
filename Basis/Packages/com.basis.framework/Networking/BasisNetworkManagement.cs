@@ -235,20 +235,19 @@ namespace Basis.Scripts.Networking
             BNL.LogWarningOutput += LogWarningOutput;
             BNL.LogErrorOutput += LogErrorOutput;
 
+            string UUID = BasisDIDAuthIdentityClient.GetOrSaveDID();
             if (IsHostMode)
             {
                 IpString = "localhost";
                 BasisNetworkServerRunner = new BasisNetworkServerRunner();
-                Configuration ServerConfig = new Configuration() { IPv4Address = IpString };
-                ServerConfig.UsingLoggingFile = false;
-                BasisNetworkServerRunner.Initalize(ServerConfig, string.Empty);
+                Configuration ServerConfig = new Configuration() { IPv4Address = IpString, HasFileSupport = false, UseNativeSockets = false, UseAuthIdentity = true, UseAuth = true, Password = PrimitivePassword, EnableStatistics = false  };
+                BasisNetworkServerRunner.Initalize(ServerConfig, string.Empty, UUID);
             }
 
             BasisDebug.Log("Connecting with Port " + Port + " IpString " + IpString);
             //   string result = BasisNetworkIPResolve.ResolveHosttoIP(IpString);
             //   BasisDebug.Log($"DNS call: {IpString} resolves to {result}");
             BasisLocalPlayer BasisLocalPlayer = BasisLocalPlayer.Instance;
-            string UUID = BasisDIDAuthIdentityClient.GetOrSaveDID();
             BasisLocalPlayer.UUID = UUID;
             byte[] Information = BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(BasisLocalPlayer.AvatarMetaData);
             ReadyMessage readyMessage = new ReadyMessage
@@ -953,6 +952,21 @@ namespace Basis.Scripts.Networking
             DateTime ServerTime = BasisNetworkManagement.RemoteUtcTime();
             int SecondsAhead = BasisNetworkManagement.DateTimeToSeconds(ServerTime);
             return SecondsAhead;
+        }
+        /// <summary>
+        /// this message goes to the server and no where else, requires logic on the server todo things with it.
+        /// </summary>
+        public static void SendServerSideMessage(byte[] netDataWriter, DeliveryMethod Mode)
+        {
+            if (LocalPlayerPeer != null)
+            {
+                LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.ServerBoundMessage, Mode);
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SceneData, netDataWriter.Length);
+            }
+            else
+            {
+                BasisDebug.LogError("Local NetPeer was null!", BasisDebug.LogTag.Networking);
+            }
         }
     }
 }

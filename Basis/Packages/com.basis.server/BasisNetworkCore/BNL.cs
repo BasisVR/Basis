@@ -52,4 +52,8 @@ public static class BNL
         Console.WriteLine(message);
         Console.ForegroundColor = originalColor;
     }
+    public static void ClearConsole()
+    {
+        Console.Clear();
+    }
 }

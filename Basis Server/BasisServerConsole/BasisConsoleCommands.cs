@@ -192,7 +192,14 @@ namespace BasisNetworkConsole
             foreach (var kvp in commands)
             {
                 var command = kvp.Value;
-                BNL.Log($"{command.Name} - {command.Description}");
+                if (string.IsNullOrEmpty(command.Description))
+                {
+                    BNL.Log($"{command.Name}");
+                }
+                else
+                {
+                    BNL.Log($"{command.Name} - {command.Description}");
+                }
             }
         }
         public static void HandleClear(string[] args)

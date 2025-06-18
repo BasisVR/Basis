@@ -11,21 +11,18 @@ public class BasisNetworkServerRunner
     [SerializeField]
     public Configuration Configuration;
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    public void Initalize(Configuration Configuration, string LogPath)
+    public void Initalize(Configuration configuration, string LogPath,string UUIDTomarkAsAdmin)
     {
-        //  BasisPrometheus.StartPrometheus(config.PromethusPort, config.PromethusUrl);
-        // Initialize server-side logging
-       //string FolderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+        Configuration = configuration;
         BasisServerSideLogging.Initialize(Configuration, LogPath);
-        // Create a cancellation token source
         cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
         serverTask = Task.Run(() =>
         {
             try
             {
-                Configuration Configuration = new Configuration();
                 NetworkServer.StartServer(Configuration);
+                NetworkServer.authIdentity.AddNetPeerAsAdmin(UUIDTomarkAsAdmin);
             }
             catch (Exception ex)
             {

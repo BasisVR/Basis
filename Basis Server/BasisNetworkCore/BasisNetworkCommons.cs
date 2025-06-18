@@ -12,7 +12,7 @@ namespace Basis.Network.Core
         /// when adding a new message we need to increase this
         /// will function up to 64
         /// </summary>
-        public const byte TotalChannels = 20;
+        public const byte TotalChannels = 21;
         /// <summary>
         /// channel zero is only used for unreliable methods
         /// we fall it through to stop bugs
@@ -98,5 +98,10 @@ namespace Basis.Network.Core
         /// Avatar Response Channel
         /// </summary>
         public const byte AvatarCloneResponseMessage = 20;
+        /// <summary>
+        /// requires implementation from a developer,
+        /// ground work for hooking in code that only gets delivered to the server
+        /// </summary>
+        public const byte ServerBoundMessage = 21;
     }
 }

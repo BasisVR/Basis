@@ -254,6 +254,10 @@ namespace BasisDidLink
         }
         static void SaveAdmins(string[] admins, string filePath)
         {
+            if (!IAuthIdentity.HasFileSupport)
+            {
+                return;
+            }
             admins ??= new string[0]; // Ensure it's not null
 
             try
@@ -272,29 +276,37 @@ namespace BasisDidLink
 
         static string[] LoadAdmins(string filePath)
         {
-            if (File.Exists(filePath))
+            if (IAuthIdentity.HasFileSupport)
             {
-                try
+                if (File.Exists(filePath))
                 {
-                    XmlSerializer serializer = new XmlSerializer(typeof(string[]));
-                    using (StreamReader reader = new StreamReader(filePath))
+                    try
                     {
-                        return (string[])serializer.Deserialize(reader);
+                        XmlSerializer serializer = new XmlSerializer(typeof(string[]));
+                        using (StreamReader reader = new StreamReader(filePath))
+                        {
+                            return (string[])serializer.Deserialize(reader);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        BNL.LogError($"Error loading admins (possibly corrupted file) deleting and trying again: {ex.Message} {ex.StackTrace}");
+                        File.Delete(filePath);
+                        LoadAdmins(filePath);
                     }
                 }
-                catch (Exception ex)
-                {
-                    BNL.LogError($"Error loading admins (possibly corrupted file) deleting and trying again: {ex.Message} {ex.StackTrace}");
-                    File.Delete(filePath);
-                    LoadAdmins(filePath);
-                }
-            }
 
-            // If file is missing or corrupted, create a new one
-            BNL.Log("Creating a new admin list...");
-            string[] newAdmins = new string[0];
-            SaveAdmins(newAdmins, filePath);
-            return newAdmins;
+                // If file is missing or corrupted, create a new one
+                BNL.Log("Creating a new admin list...");
+                string[] newAdmins = new string[0];
+                SaveAdmins(newAdmins, filePath);
+                return newAdmins;
+            }
+            else
+            {
+                string[] newAdmins = new string[0];
+                return newAdmins;
+            }
         }
 
 

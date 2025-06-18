@@ -1148,7 +1148,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!114 &1722851449925555937
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1183,7 +1183,7 @@ MonoBehaviour:
   Camera: {fileID: 1910678384374953430}
   PersonalMirror: {fileID: 4929223344291569152}
   PersonalMirrorIcon: {fileID: 4293543267476797222}
-  FullBodyParent: {fileID: 0}
+  FullBodyParent: {fileID: 6150366187989676438}
   OverrideForceCalibration: 0
 --- !u!114 &1537182542201181301
 MonoBehaviour:

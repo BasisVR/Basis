@@ -124,7 +124,11 @@ public static class BasisMicrophoneRecorder
         if (!Microphone.devices.Contains(newMicrophone))
         {
             BasisDebug.LogError("Microphone " + newMicrophone + " not found!");
-            return;
+            if (Microphone.devices.Length != 0)
+            {
+                newMicrophone = Microphone.devices[0];
+                BasisDebug.LogError("Falling Back To Microphone " + newMicrophone);
+            }
         }
         bool isRecording = Microphone.IsRecording(newMicrophone);
         BasisDebug.Log(isRecording ? $"Is Recording {MicrophoneDevice}" : $"Is not Recording {MicrophoneDevice}");

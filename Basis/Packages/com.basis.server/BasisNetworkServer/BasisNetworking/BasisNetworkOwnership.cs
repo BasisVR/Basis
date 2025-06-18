@@ -13,6 +13,19 @@ namespace Basis.Network.Server.Ownership
         public static ConcurrentDictionary<string, ushort> ownershipByObjectId = new ConcurrentDictionary<string, ushort>();
 
         public static readonly object LockObject = new object();  // For synchronized multi-step operations
+        public static void SendOutOwnershipInformation(NetPeer Peer)
+        {
+            NetDataWriter Writer = new NetDataWriter(true, 2);
+            OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
+            foreach (KeyValuePair<string, ushort> Ownership in ownershipByObjectId)
+            {
+                ownershipTransferMessage.playerIdMessage.playerID = Ownership.Value;
+                ownershipTransferMessage.ownershipID = Ownership.Key;
+                ownershipTransferMessage.Serialize(Writer);
+                NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequest, DeliveryMethod.ReliableOrdered);
+                Writer.Reset();
+            }
+        }
         public static void OwnershipResponse(NetPacketReader Reader, NetPeer Peer)
         {
             OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
@@ -94,7 +107,7 @@ namespace Basis.Network.Server.Ownership
                 //once a ownership has been requested there good for life or when a ownership switch happens.
                 NetworkRequestNewOrExisting(ownershipTransferMessage, out ushort currentOwner);
                 ownershipTransferMessage.Serialize(Writer);
-                NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.ChangeCurrentOwnerRequest, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
             }
         }
         /// <summary>
@@ -121,7 +134,6 @@ namespace Basis.Network.Server.Ownership
             }
             return true;
         }
-
         /// <summary>
         /// Adds an object with ownership information to the database in a thread-safe manner.
         /// </summary>
@@ -138,7 +150,6 @@ namespace Basis.Network.Server.Ownership
                 return false;
             }
         }
-
         /// <summary>
         /// Removes an object and its ownership information from the database in a thread-safe and consistent manner.
         /// </summary>
@@ -158,7 +169,6 @@ namespace Basis.Network.Server.Ownership
                 }
             }
         }
-
         /// <summary>
         /// Switches the ownership of an object in a thread-safe manner.
         /// </summary>
@@ -186,7 +196,6 @@ namespace Basis.Network.Server.Ownership
                 return false;
             }
         }
-
         /// <summary>
         /// Checks if an object exists in the database.
         /// </summary>
@@ -194,7 +203,6 @@ namespace Basis.Network.Server.Ownership
         {
             return ownershipByObjectId.ContainsKey(objectId); // Thread-safe lookup without extra locking
         }
-
         /// <summary>
         /// Retrieves ownership information for a specific object ID in a thread-safe manner.
         /// </summary>
@@ -208,7 +216,6 @@ namespace Basis.Network.Server.Ownership
             ownershipInfo = 0;
             return false;
         }
-
         /// <summary>
         /// Prints current ownership database for debugging purposes with thread safety.
         /// </summary>
@@ -224,7 +231,6 @@ namespace Basis.Network.Server.Ownership
                 }
             }
         }
-
         /// <summary>
         /// Removes all ownership of a specific player and notifies all clients.
         /// </summary>

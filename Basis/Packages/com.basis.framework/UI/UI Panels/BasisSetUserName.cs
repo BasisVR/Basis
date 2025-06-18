@@ -22,6 +22,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public TMP_InputField Password;
         public Button UseLocalhost;
         public Toggle HostMode;
+        public TextMeshProUGUI ConnectText;
         public void Start()
         {
             UserNameTMP_InputField.text = BasisDataStore.LoadString(LoadFileName, string.Empty);
@@ -31,6 +32,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 AdvancedSettings.onClick.AddListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.AddListener(UseLocalHost);
             }
+            HostMode.onValueChanged.AddListener(UseHostMode);
             BasisNetworkManagement.OnEnableInstanceCreate += LoadCurrentSettings;
             if (BasisDeviceManagement.Instance != null)
             {
@@ -46,6 +48,17 @@ namespace Basis.Scripts.UI.UI_Panels
                 UseLocalhost.onClick.RemoveListener(UseLocalHost);
             }
         }
+        public void UseHostMode(bool IsDown)
+        {
+            if(IsDown)
+            {
+                ConnectText.text = "Host";
+            }
+            else
+            {
+                ConnectText.text = "Connect";
+            }
+        }
         public void UseLocalHost()
         {
             IPaddress.text = "localhost";
@@ -57,6 +70,7 @@ namespace Basis.Scripts.UI.UI_Panels
             Port.text = BasisNetworkManagement.Instance.Port.ToString();
             Password.text = BasisNetworkManagement.Instance.Password;
             HostMode.isOn = BasisNetworkManagement.Instance.IsHostMode;
+            UseHostMode(HostMode.isOn);
             if (BasisDeviceManagement.Instance != null)
             {
                 this.transform.SetParent(BasisDeviceManagement.Instance.transform);

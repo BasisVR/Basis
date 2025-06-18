@@ -23,6 +23,8 @@ public static class NetworkServer
     {
         Configuration = configuration;
         BasisServerReductionSystem.Configuration = configuration;
+        BasisPlayerModeration.UseFileOnDisc = configuration.HasFileSupport;
+        IAuthIdentity.HasFileSupport = configuration.HasFileSupport;
         auth = new PasswordAuth(configuration.Password ?? string.Empty);
         authIdentity = new BasisDIDAuthIdentity();
         SetupServer(configuration);
