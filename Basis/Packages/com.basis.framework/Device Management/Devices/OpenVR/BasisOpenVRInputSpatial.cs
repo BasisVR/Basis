@@ -35,7 +35,7 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
             if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
             {
                 LocalRawPosition = (float3)resultPose.position;
-                DevuceFinalRotation = resultPose.rotation;
+                DeviceFinalRotation = resultPose.rotation;
                 if (TryGetRole(out var CurrentRole))
                 {
                     if (CurrentRole == BasisBoneTrackedRole.CenterEye)
@@ -46,7 +46,7 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
                     Control.IncomingData.position = DeviceFinalPosition;
 
                     // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = DevuceFinalRotation;
+                    Control.IncomingData.rotation = DeviceFinalRotation;
                 }
             }
             DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;

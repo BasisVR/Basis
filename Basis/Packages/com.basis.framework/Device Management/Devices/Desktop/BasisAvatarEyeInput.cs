@@ -44,7 +44,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisDebug.Log("Using Fallback Height " + BasisLocalPlayer.FallbackSize, BasisDebug.LogTag.Input);
                 DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
             }
-            DevuceFinalRotation = Quaternion.identity;
+            DeviceFinalRotation = Quaternion.identity;
             InitalizeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
             if (BasisHelpers.CheckInstance(Instance))
             {
@@ -157,7 +157,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 Control.IncomingData.position = LocalRawPosition;
                 Control.IncomingData.rotation = LocalRawRotation;
                 DeviceFinalPosition = LocalRawPosition;
-                DevuceFinalRotation = LocalRawRotation;
+                DeviceFinalRotation = LocalRawRotation;
                 UpdatePlayerControl();
             }
         }

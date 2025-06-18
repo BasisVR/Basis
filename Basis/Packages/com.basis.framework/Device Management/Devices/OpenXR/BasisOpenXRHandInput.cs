@@ -22,14 +22,13 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty Secondary2DAxis;
     public UnityEngine.XR.InputDevice Device;
     public XRHandSubsystem m_Subsystem;
-    public float3 leftHandToIKRotationOffset = new float3(0, 0, -180);
-    public float3 rightHandToIKRotationOffset = new float3(0, 0, -180);
-    public float3 AddedPosition = new float3(0, -0.05f, 0);
-    public float3 WristPos;
-    public quaternion HandPalmRotation;
+    public float3 LocalWristPosition;
     public const float TriggerDownAmount = 0.5f;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
+        leftHandToIKRotationOffset = new float3(0, 0, -180);
+        rightHandToIKRotationOffset = new float3(0, 0, -180);
+        IkOffsetPosition = new float3(0, -0.05f, 0);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         SetupInputActions(devicePath);
@@ -96,6 +95,7 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void DoPollData()
     {
+        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
         CurrentInputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
         CurrentInputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
         CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
@@ -105,31 +105,15 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
 
-        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-
         DeviceFinalPosition = DeviceActionPosition.action.ReadValue<Vector3>() * scale;
-        DevuceFinalRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+        DeviceFinalRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
-        HandFinalPosition = WristPos * scale;
-        HandFinalRotation = HandPalmRotation;
 
-        float3 FinalPalmPosition = (AddedPosition + HandFinalPosition) * scale;
-        quaternion ConvertedRotation = HandPalmRotation;
-        if (TryGetRole(out BasisBoneTrackedRole AssignedRole))
-        {
-            switch (AssignedRole)
-            {
-                case BasisBoneTrackedRole.LeftHand:
-                    ConvertedRotation = math.mul(HandPalmRotation, Quaternion.Euler(leftHandToIKRotationOffset));
-                    break;
-                case BasisBoneTrackedRole.RightHand:
-                    ConvertedRotation = math.mul(HandPalmRotation, Quaternion.Euler(rightHandToIKRotationOffset));
-                    break;
-            }
-        }
-        HandFinalRotation = math.mul(DevuceFinalRotation, ConvertedRotation);
+        HandleHandFinalRotation();
 
-        HandFinalPosition = FinalPalmPosition;
+        float3 ModifiedOffset = math.mul(DeviceFinalRotation, IkOffsetPosition);
+
+        HandFinalPosition = (ModifiedOffset + LocalWristPosition) * scale;
 
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
@@ -150,14 +134,14 @@ public class BasisOpenXRHandInput : BasisInputController
                 case BasisBoneTrackedRole.LeftHand:
                     if (subsystem.leftHand.isTracked)
                     {
-                        UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out WristPos, out HandPalmRotation);
+                        UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out LocalWristPosition, out HandFinalRotation);
                     }
                     break;
 
                 case BasisBoneTrackedRole.RightHand:
                     if (subsystem.rightHand.isTracked)
                     {
-                        UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out WristPos, out HandPalmRotation);
+                        UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out LocalWristPosition, out HandFinalRotation);
                     }
                     break;
             }
@@ -193,7 +177,6 @@ public class BasisOpenXRHandInput : BasisInputController
         }
         return 0f;
     }
-
     public bool TryGetShapePercentage(XRHand hand, XRHandFingerID fingerID, XRFingerShapeTypes typesNeeded, XRFingerShapeType shapeType, out float value)
     {
         XRFingerShape fingerShape = hand.CalculateFingerShape(fingerID, typesNeeded);
@@ -271,7 +254,6 @@ public class BasisOpenXRHandInput : BasisInputController
             }
         }
     }
-
     /// <summary>
     /// Duration does not work on OpenXRHands, in the future we should handle it for the user.
     /// </summary>

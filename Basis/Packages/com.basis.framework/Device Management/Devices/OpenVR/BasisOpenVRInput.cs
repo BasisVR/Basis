@@ -33,7 +33,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     {
                         deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
                         LocalRawPosition = deviceTransform.pos;
-                        DevuceFinalRotation = deviceTransform.rot;
+                        DeviceFinalRotation = deviceTransform.rot;
 
                         DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
                         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
@@ -42,7 +42,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                             Control.IncomingData.position = DeviceFinalPosition;
 
                             // Apply rotation offset using math.mul for quaternion multiplication
-                            Control.IncomingData.rotation = DevuceFinalRotation;
+                            Control.IncomingData.rotation = DeviceFinalRotation;
                         }
                         if (HasInputSource)
                         {

@@ -31,7 +31,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
             LocalRawPosition /= SPTDS;
 
             DeviceFinalPosition = LocalRawPosition * SPTDS;
-            DevuceFinalRotation = LocalRawRotation;
+            DeviceFinalRotation = LocalRawRotation;
             if (hasRoleAssigned)
             {
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
@@ -40,7 +40,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
                     Control.IncomingData.position = DeviceFinalPosition;
 
                     // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = DevuceFinalRotation;
+                    Control.IncomingData.rotation = DeviceFinalRotation;
                 }
             }
             UpdatePlayerControl();

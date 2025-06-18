@@ -44,7 +44,7 @@ public class BasisOpenXRHeadInput : BasisInput
     public override void DoPollData()
     {
         if (Position.action != null) LocalRawPosition = Position.action.ReadValue<Vector3>();
-        if (Rotation.action != null) DevuceFinalRotation = Rotation.action.ReadValue<Quaternion>();
+        if (Rotation.action != null) DeviceFinalRotation = Rotation.action.ReadValue<Quaternion>();
 
         DeviceFinalPosition = BasisLocalPlayer.Instance?.CurrentHeight != null
             ? LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale
@@ -56,7 +56,7 @@ public class BasisOpenXRHeadInput : BasisInput
             Control.IncomingData.position = DeviceFinalPosition;
 
             // Apply rotation offset using math.mul for quaternion multiplication
-            Control.IncomingData.rotation = DevuceFinalRotation;
+            Control.IncomingData.rotation = DeviceFinalRotation;
         }
 
         UpdatePlayerControl();

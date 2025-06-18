@@ -3,9 +3,7 @@ using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using Valve.VR;
-
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
 {
     [DefaultExecutionOrder(15001)]
@@ -20,14 +18,14 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public float3 ControllerPosition;
         public quaternion ControllerRotation;
 
-        public float3 HandWristPosition;
+        public float3 LocalWristPosition;
         public quaternion HandWristRotation;
 
-        public float3 leftHandToIKRotationOffset = new float3(0, 90, -180);
-        public float3 rightHandToIKRotationOffset = new float3(0, -90, -180);
-        public float3 AddedPosition = new float3(0, -0.05f, 0);
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
+            leftHandToIKRotationOffset = new float3(0, 90, -180);
+            rightHandToIKRotationOffset = new float3(0, -90, -180);
+            IkOffsetPosition = new float3(0, -0.05f, 0);
             if (HasOnUpdate && DeviceposeAction != null)
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;
@@ -117,27 +115,16 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             UpdateHistoryBuffer();
 
             // Get controller pose
-            DevuceFinalRotation = DeviceposeAction[inputSource].localRotation;
+            DeviceFinalRotation = DeviceposeAction[inputSource].localRotation;
             DeviceFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
 
-            HandWristPosition = BonePositions[1];
+            LocalWristPosition = BonePositions[1];
             HandWristRotation = BoneRotations[1];
 
-            float3 FinalPalmPosition = (AddedPosition + HandWristPosition) * scale;
-            quaternion ConvertedRotation = HandWristRotation;
-            switch (fromSource)
-            {
-                case SteamVR_Input_Sources.LeftHand:
-                    ConvertedRotation = math.mul(HandWristRotation, Quaternion.Euler(leftHandToIKRotationOffset));
-                    break;
-                case SteamVR_Input_Sources.RightHand:
-                    ConvertedRotation = math.mul(HandWristRotation, Quaternion.Euler(rightHandToIKRotationOffset));
-                    break;
-            }
-            HandFinalRotation = math.mul(DevuceFinalRotation, ConvertedRotation);
-
+            HandleHandFinalRotation();
+            float3 FinalPalmPosition = (IkOffsetPosition + LocalWristPosition) * scale;
             // Transform hand position: Apply controller rotation to hand position, then add controller position
-            HandFinalPosition = DeviceFinalPosition - math.mul(DevuceFinalRotation, FinalPalmPosition);
+            HandFinalPosition = DeviceFinalPosition - math.mul(DeviceFinalRotation, FinalPalmPosition);
 
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {

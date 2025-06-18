@@ -27,7 +27,7 @@ namespace Basis.Scripts.Device_Management.Devices
         public float3 LocalRawPosition;
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
         public float3 DeviceFinalPosition;
-        public quaternion DevuceFinalRotation;
+        public quaternion DeviceFinalRotation;
 
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
@@ -178,7 +178,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void ApplyFinalMovement()
         {
-            this.transform.SetLocalPositionAndRotation(DeviceFinalPosition, DevuceFinalRotation);
+            this.transform.SetLocalPositionAndRotation(DeviceFinalPosition, DeviceFinalRotation);
         }
         public void UnAssignFullBodyTrackers()
         {
