@@ -1,10 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.TransformBinders.BoneControl;
-using System.Threading.Tasks;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using Valve.VR;
 
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
@@ -36,20 +33,16 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     {
                         deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
                         LocalRawPosition = deviceTransform.pos;
-                        LocalRawRotation = deviceTransform.rot;
+                        DevuceFinalRotation = deviceTransform.rot;
 
-                        ControllerFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                        ControllerFinalRotation = LocalRawRotation;
-                        if (hasRoleAssigned)
+                        DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
                         {
-                            if (Control.HasTracked != BasisHasTracked.HasNoTracker)
-                            {
-                                // Apply position offset using math.mul for quaternion-vector multiplication
-                                Control.IncomingData.position = ControllerFinalPosition;
+                            // Apply position offset using math.mul for quaternion-vector multiplication
+                            Control.IncomingData.position = DeviceFinalPosition;
 
-                                // Apply rotation offset using math.mul for quaternion multiplication
-                                Control.IncomingData.rotation = ControllerFinalRotation;
-                            }
+                            // Apply rotation offset using math.mul for quaternion multiplication
+                            Control.IncomingData.rotation = DevuceFinalRotation;
                         }
                         if (HasInputSource)
                         {
@@ -74,34 +67,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
-                    var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
-                    GameObject go = op.WaitForCompletion();
-                    GameObject gameObject = Object.Instantiate(go);
-                    gameObject.name = CommonDeviceIdentifier;
-                    gameObject.transform.parent = this.transform;
-                    if (gameObject.TryGetComponent(out BasisVisualTracker))
-                    {
-                        BasisVisualTracker.Initialization(this);
-                    }
+                    LoadModelWithKey(Match.DeviceID);
                 }
                 else
                 {
                     if (UseFallbackModel())
                     {
-                        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go);
-                        gameObject.name = CommonDeviceIdentifier;
-                        gameObject.transform.parent = this.transform;
-                        if (gameObject.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
+                        LoadModelWithKey(FallbackDeviceID);
                     }
                 }
             }
         }
-
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
         {
             SteamVR_Actions.default_Haptic.Execute(0, duration, frequency, amplitude, inputSource);

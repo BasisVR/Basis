@@ -1,13 +1,10 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR;
 using Basis.Scripts.TransformBinders.BoneControl;
-using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.SpatialTracking;
 using Valve.VR;
-
 namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
 {
     [DefaultExecutionOrder(15001)]
@@ -38,28 +35,21 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
             if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
             {
                 LocalRawPosition = (float3)resultPose.position;
-                LocalRawRotation = resultPose.rotation;
-                if (hasRoleAssigned)
-                {
-                    if (Control.HasTracked != BasisHasTracked.HasNoTracker)
-                    {
-                        // Apply position offset using math.mul for quaternion-vector multiplication
-                        Control.IncomingData.position = ControllerFinalPosition;
-
-                        // Apply rotation offset using math.mul for quaternion multiplication
-                        Control.IncomingData.rotation = ControllerFinalRotation;
-                    }
-                }
+                DevuceFinalRotation = resultPose.rotation;
                 if (TryGetRole(out var CurrentRole))
                 {
                     if (CurrentRole == BasisBoneTrackedRole.CenterEye)
                     {
                         BasisOpenVRInputEye.Simulate();
                     }
+                    // Apply position offset using math.mul for quaternion-vector multiplication
+                    Control.IncomingData.position = DeviceFinalPosition;
+
+                    // Apply rotation offset using math.mul for quaternion multiplication
+                    Control.IncomingData.rotation = DevuceFinalRotation;
                 }
             }
-            ControllerFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            ControllerFinalRotation = LocalRawRotation;
+            DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             UpdatePlayerControl();
         }
         public override void ShowTrackedVisual()
@@ -69,29 +59,13 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
                 BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
-                    var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
-                    GameObject go = op.WaitForCompletion();
-                    GameObject gameObject = Object.Instantiate(go);
-                    gameObject.name = CommonDeviceIdentifier;
-                    gameObject.transform.parent = this.transform;
-                    if (gameObject.TryGetComponent(out BasisVisualTracker))
-                    {
-                        BasisVisualTracker.Initialization(this);
-                    }
+                    LoadModelWithKey(Match.DeviceID);
                 }
                 else
                 {
                     if (UseFallbackModel())
                     {
-                        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go);
-                        gameObject.name = CommonDeviceIdentifier;
-                        gameObject.transform.parent = this.transform;
-                        if (gameObject.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
+                        LoadModelWithKey(FallbackDeviceID);
                     }
                 }
             }

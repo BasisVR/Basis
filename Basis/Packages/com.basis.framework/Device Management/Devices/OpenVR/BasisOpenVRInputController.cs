@@ -1,7 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.TransformBinders.BoneControl;
-using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -10,7 +9,7 @@ using Valve.VR;
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
 {
     [DefaultExecutionOrder(15001)]
-    public class BasisOpenVRInputController : BasisInput
+    public class BasisOpenVRInputController : BasisInputController
     {
         public OpenVRDevice Device;
         public SteamVR_Input_Sources inputSource;
@@ -118,14 +117,14 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             UpdateHistoryBuffer();
 
             // Get controller pose
-            ControllerFinalRotation = DeviceposeAction[inputSource].localRotation;
-            ControllerFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
+            DevuceFinalRotation = DeviceposeAction[inputSource].localRotation;
+            DeviceFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
 
             HandWristPosition = BonePositions[1];
             HandWristRotation = BoneRotations[1];
 
             float3 FinalPalmPosition = (AddedPosition + HandWristPosition) * scale;
-            quaternion ConvertedRotation = new quaternion();
+            quaternion ConvertedRotation = HandWristRotation;
             switch (fromSource)
             {
                 case SteamVR_Input_Sources.LeftHand:
@@ -134,14 +133,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 case SteamVR_Input_Sources.RightHand:
                     ConvertedRotation = math.mul(HandWristRotation, Quaternion.Euler(rightHandToIKRotationOffset));
                     break;
-                default:
-                    ConvertedRotation = HandWristRotation;
-                    break;
             }
-            HandFinalRotation = math.mul(ControllerFinalRotation, ConvertedRotation);
+            HandFinalRotation = math.mul(DevuceFinalRotation, ConvertedRotation);
 
             // Transform hand position: Apply controller rotation to hand position, then add controller position
-            HandFinalPosition = ControllerFinalPosition - math.mul(ControllerFinalRotation, FinalPalmPosition);
+            HandFinalPosition = DeviceFinalPosition - math.mul(DevuceFinalRotation, FinalPalmPosition);
 
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
@@ -189,29 +185,13 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
-                    var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
-                    GameObject go = op.WaitForCompletion();
-                    GameObject gameObject = Object.Instantiate(go);
-                    gameObject.name = CommonDeviceIdentifier;
-                    gameObject.transform.parent = this.transform;
-                    if (gameObject.TryGetComponent(out BasisVisualTracker))
-                    {
-                        BasisVisualTracker.Initialization(this);
-                    }
+                    LoadModelWithKey(Match.DeviceID);
                 }
                 else
                 {
                     if (UseFallbackModel())
                     {
-                        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go);
-                        gameObject.name = CommonDeviceIdentifier;
-                        gameObject.transform.parent = this.transform;
-                        if (gameObject.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
+                        LoadModelWithKey(FallbackDeviceID);
                     }
                 }
             }

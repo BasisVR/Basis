@@ -8,6 +8,7 @@ using Basis.Scripts.UI.UI_Panels;
 using System.Linq;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
 namespace Basis.Scripts.Device_Management.Devices
 {
@@ -21,16 +22,12 @@ namespace Basis.Scripts.Device_Management.Devices
         public bool HasControl = false;
         public string UniqueDeviceIdentifier;
         public string ClassName;
-        [Header("Raw data from tracker unmodified")]
-        public float3 LocalRawPosition;
-        public quaternion LocalRawRotation;
-        [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
-        public float3 ControllerFinalPosition;
-        public quaternion ControllerFinalRotation;
 
+        [Header("Raw Position Of Device")]
+        public float3 LocalRawPosition;
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
-        public float3 HandFinalPosition;
-        public quaternion HandFinalRotation;
+        public float3 DeviceFinalPosition;
+        public quaternion DevuceFinalRotation;
 
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
@@ -181,7 +178,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void ApplyFinalMovement()
         {
-            this.transform.SetLocalPositionAndRotation(ControllerFinalPosition, ControllerFinalRotation);
+            this.transform.SetLocalPositionAndRotation(DeviceFinalPosition, DevuceFinalRotation);
         }
         public void UnAssignFullBodyTrackers()
         {
@@ -437,6 +434,18 @@ namespace Basis.Scripts.Device_Management.Devices
         public float Remap01ToMinus1To1(float value)
         {
             return (0.75f - value) * 2f - 0.75f;
+        }
+        public void LoadModelWithKey(string key)
+        {
+            var op = Addressables.LoadAssetAsync<GameObject>(key);
+            GameObject go = op.WaitForCompletion();
+            GameObject gameObject = GameObject.Instantiate(go);
+            gameObject.name = CommonDeviceIdentifier;
+            gameObject.transform.parent = this.transform;
+            if (gameObject.TryGetComponent(out BasisVisualTracker))
+            {
+                BasisVisualTracker.Initialization(this);
+            }
         }
     }
 }
