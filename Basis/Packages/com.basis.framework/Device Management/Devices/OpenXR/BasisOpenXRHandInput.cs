@@ -28,7 +28,7 @@ public class BasisOpenXRHandInput : BasisInputController
     {
         leftHandToIKRotationOffset = new float3(0, -90, -180);
         rightHandToIKRotationOffset = new float3(0, 90, -180);
-        RaycastRotationOffset = new float3(0, -90, 0);
+        RaycastRotationOffset = new float3(90, 0, 0);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         SetupInputActions(devicePath);
@@ -119,7 +119,7 @@ public class BasisOpenXRHandInput : BasisInputController
         UpdatePlayerControl();
         RaycastPosition = HandFinalPosition;
 
-        RaycastRotation = math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
+        RaycastRotation = math.mul(DeviceFinalRotation, Quaternion.Euler(RaycastRotationOffset));
     }
     private void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType updateType)
     {
