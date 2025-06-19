@@ -15,15 +15,15 @@ public class BasisDeviceLoaderAndSaver
     private const string JsonIdentifier = ".json";
     private static readonly string JsonAllTag = "*" + JsonIdentifier; // Made readonly for optimization
 
-    public static List<BasisDeviceMatchSettings> LoadDeviceAsync(string directoryPath)
+    public static List<DeviceSupportInformation> LoadDeviceAsync(string directoryPath)
     {
-        var loadedDevices = new List<BasisDeviceMatchSettings>();
+        var loadedDevices = new List<DeviceSupportInformation>();
 
         if (Directory.Exists(directoryPath))
         {
             string[] jsonFiles = Directory.GetFiles(directoryPath, JsonAllTag);
 
-            IEnumerable<BasisDeviceMatchSettings> loadTasks = jsonFiles.Select(jsonFile => LoadDeviceFromFileAsync(jsonFile));
+            IEnumerable<DeviceSupportInformation> loadTasks = jsonFiles.Select(jsonFile => LoadDeviceFromFileAsync(jsonFile));
             loadedDevices.AddRange(loadTasks.Where(device => device != null));
         }
         else
@@ -34,7 +34,7 @@ public class BasisDeviceLoaderAndSaver
         return loadedDevices;
     }
 
-    private static BasisDeviceMatchSettings LoadDeviceFromFileAsync(string jsonFile)
+    private static DeviceSupportInformation LoadDeviceFromFileAsync(string jsonFile)
     {
         if (!File.Exists(jsonFile))
         {
@@ -57,7 +57,7 @@ public class BasisDeviceLoaderAndSaver
                 }
 
                 // Deserialize the accumulated JSON data
-                return JsonUtility.FromJson<BasisDeviceMatchSettings>(jsonContent.ToString());
+                return JsonUtility.FromJson<DeviceSupportInformation>(jsonContent.ToString());
             }
         }
         catch (Exception ex)
@@ -67,7 +67,7 @@ public class BasisDeviceLoaderAndSaver
         }
     }
 
-    public static void SaveDevices(string directoryPath, List<BasisDeviceMatchSettings> devices)
+    public static void SaveDevices(string directoryPath, List<DeviceSupportInformation> devices)
     {
         // Safety checks
         if (string.IsNullOrWhiteSpace(directoryPath))
@@ -106,7 +106,7 @@ public class BasisDeviceLoaderAndSaver
         // Replace invalid characters with an underscore
         return Regex.Replace(fileName, pattern, "_");
     }
-    public static void SaveDeviceAsync(string filePath, BasisDeviceMatchSettings device)
+    public static void SaveDeviceAsync(string filePath, DeviceSupportInformation device)
     {
         try
         {
@@ -127,7 +127,7 @@ public class BasisDeviceLoaderAndSaver
                     loadedContent = reader.ReadToEnd();
                 }
 
-                var existingDevice = JsonUtility.FromJson<BasisDeviceMatchSettings>(loadedContent);
+                var existingDevice = JsonUtility.FromJson<DeviceSupportInformation>(loadedContent);
 
                 // Compare versions if necessary
                 if (existingDevice != null && existingDevice.VersionNumber > device.VersionNumber)

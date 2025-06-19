@@ -1,11 +1,8 @@
-﻿namespace Basis.Scripts.BasisSdk.Players
+namespace Basis.Scripts.BasisSdk.Players
 {
-    public partial class BasisLocalHeightInformation
+    public enum BasisSelectedHeightMode
     {
-        public enum BasisSelectedHeightMode
-        {
-            ArmSpan,
-            EyeHeight,
-        }
+        ArmSpan,
+        EyeHeight,
     }
 }

@@ -15,8 +15,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public bool HasOnUpdate = false;
         public Vector3[] BonePositions;
         public Quaternion[] BoneRotations;
-        public float3 ControllerPosition;
-        public quaternion ControllerRotation;
 
         public float3 LocalWristPosition;
         public quaternion HandWristRotation;
@@ -25,7 +23,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             leftHandToIKRotationOffset = new float3(0, 90, -180);
             rightHandToIKRotationOffset = new float3(0, -90, -180);
-            IkOffsetPosition = new float3(0, -0.05f, 0);
+            RaycastRotationOffset = new float3(0, -90, 0);
             if (HasOnUpdate && DeviceposeAction != null)
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;
@@ -111,26 +109,39 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
-            float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             UpdateHistoryBuffer();
 
+            float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             // Get controller pose
             DeviceFinalRotation = DeviceposeAction[inputSource].localRotation;
-            DeviceFinalPosition = DeviceposeAction[inputSource].localPosition * scale;
+            float3 RawDevice = DeviceposeAction[inputSource].localPosition;
+            DeviceFinalPosition = RawDevice * AvatarScale;
 
+            // Bone data
             LocalWristPosition = BonePositions[1];
             HandWristRotation = BoneRotations[1];
 
-            HandleHandFinalRotation();
-            float3 FinalPalmPosition = (IkOffsetPosition + LocalWristPosition) * scale;
-            // Transform hand position: Apply controller rotation to hand position, then add controller position
-            HandFinalPosition = DeviceFinalPosition - math.mul(DeviceFinalRotation, FinalPalmPosition);
+            // Final hand rotation = controller rotation * offset from wrist
+            HandFinalRotation = math.mul(DeviceFinalRotation, HandleHandFinalRotation(HandWristRotation));
 
+            // Calculate final hand position in scaled space
+            float3 wristOffset = math.mul(DeviceFinalRotation, LocalWristPosition);
+
+            float3 ScaledRawPos = RawDevice * AvatarScale;
+            float3 ScaledwristOffset = wristOffset * AvatarScale;
+
+            HandFinalPosition = (ScaledRawPos - ScaledwristOffset);
+
+            // Apply to control data
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
                 Control.IncomingData.position = HandFinalPosition;
                 Control.IncomingData.rotation = HandFinalRotation;
             }
+
+            RaycastPosition = HandFinalPosition;
+
+            RaycastRotation =  math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
         }
         #region Mostly Unused Steam
         protected SteamVR_HistoryBuffer historyBuffer = new SteamVR_HistoryBuffer(30);
@@ -169,7 +180,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             if (BasisVisualTracker == null && LoadedDeviceRequest == null)
             {
-                BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
                     LoadModelWithKey(Match.DeviceID);

@@ -56,7 +56,7 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         {
             if (BasisVisualTracker == null && LoadedDeviceRequest == null)
             {
-                BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
                     LoadModelWithKey(Match.DeviceID);

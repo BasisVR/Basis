@@ -79,7 +79,7 @@ namespace Basis.Scripts.Device_Management
         [SerializeField]
         public List<BasisStoredPreviousDevice> PreviouslyConnectedDevices = new List<BasisStoredPreviousDevice>();
         [SerializeField]
-        public List<BasisDeviceMatchSettings> UseAbleDeviceConfigs = new List<BasisDeviceMatchSettings>();
+        public List<DeviceSupportInformation> UseAbleDeviceConfigs = new List<DeviceSupportInformation>();
         [SerializeField]
         public BasisLocalInputActions InputActions;
         public static AsyncOperationHandle<BasisFallBackBoneData> BasisFallBackBoneDataAsync;

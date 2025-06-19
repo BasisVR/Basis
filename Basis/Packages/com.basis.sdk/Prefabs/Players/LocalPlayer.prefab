@@ -461,9 +461,21 @@ MonoBehaviour:
   m_GameObject: {fileID: 7399882423328331619}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b2ca35de189490844b1d7864bc416ffb, type: 3}
+  m_Script: {fileID: 11500000, guid: e74417ab1ea45f547b6134fbd0adc60d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  IgnoreRaycasting:
+    serializedVersion: 2
+    m_Bits: 4
+  ignoreRaycastLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  LocalPlayerAvatar:
+    serializedVersion: 2
+    m_Bits: 0
   raycastDistance: 5
   hoverRadius: 0.5
   OnlySortClosest: 1
@@ -473,7 +485,7 @@ MonoBehaviour:
   renderInteractLines: 1
   InteractableLayerMask:
     serializedVersion: 2
-    m_Bits: 289
+    m_Bits: 0
 --- !u!1 &8538648612911191307
 GameObject:
   m_ObjectHideFlags: 0
@@ -861,8 +873,8 @@ MonoBehaviour:
     hipsDifferenceQ: {x: 0, y: 0, z: 0, w: 1}
     smoothFactor: 30
     smoothedRotation: {x: 0, y: 0, z: 0, w: 0}
-  LocalMuscleDriver:
-    RestingOnePoseData:
+  LocalHandDriver:
+    Current:
       LeftThumb: []
       LeftIndex: []
       LeftMiddle: []
@@ -873,18 +885,6 @@ MonoBehaviour:
       RightMiddle: []
       RightRing: []
       RightLittle: []
-    CurrentOnPoseData:
-      LeftThumb: []
-      LeftIndex: []
-      LeftMiddle: []
-      LeftRing: []
-      LeftLittle: []
-      RightThumb: []
-      RightIndex: []
-      RightMiddle: []
-      RightRing: []
-      RightLittle: []
-    increment: 0.1
     LeftThumb: []
     LeftIndex: []
     LeftMiddle: []
@@ -896,20 +896,12 @@ MonoBehaviour:
     RightRing: []
     RightLittle: []
     LeftHand:
-      PalmPos: {x: 0, y: 0, z: 0}
-      WristPos: {x: 0, y: 0, z: 0}
-      PalmRot: {x: 0, y: 0, z: 0, w: 0}
-      WristRot: {x: 0, y: 0, z: 0, w: 0}
       ThumbPercentage: {x: 0, y: 0}
       IndexPercentage: {x: 0, y: 0}
       MiddlePercentage: {x: 0, y: 0}
       RingPercentage: {x: 0, y: 0}
       LittlePercentage: {x: 0, y: 0}
     RightHand:
-      PalmPos: {x: 0, y: 0, z: 0}
-      WristPos: {x: 0, y: 0, z: 0}
-      PalmRot: {x: 0, y: 0, z: 0, w: 0}
-      WristRot: {x: 0, y: 0, z: 0, w: 0}
       ThumbPercentage: {x: 0, y: 0}
       IndexPercentage: {x: 0, y: 0}
       MiddlePercentage: {x: 0, y: 0}
@@ -925,7 +917,6 @@ MonoBehaviour:
     LastRightMiddlePercentage: {x: -1.1, y: -1.1}
     LastRightRingPercentage: {x: -1.1, y: -1.1}
     LastRightLittlePercentage: {x: -1.1, y: -1.1}
-    CoordKeys: []
     LeftThumbAdditional:
       PoseData:
         LeftThumb: []
@@ -1057,8 +1048,7 @@ MonoBehaviour:
         RightLittle: []
       Coord: {x: 0, y: 0}
     LerpSpeed: 17
-    allHasProximal: 
-    allTransforms: []
+    Poses: []
   LocalEyeDriver:
     leftEyeInitialRotation:
       value:

@@ -10,22 +10,22 @@ public abstract class BasisInputController : BasisInput
 
     public float3 leftHandToIKRotationOffset;
     public float3 rightHandToIKRotationOffset;
-    public float3 IkOffsetPosition;
-    public void HandleHandFinalRotation()
+    public float3 RaycastRotationOffset;
+    public quaternion HandleHandFinalRotation(quaternion IncomingRotation)
     {
-        quaternion ConvertedRotation = HandFinalRotation;
+        quaternion outgoingRotation = IncomingRotation;
         if (TryGetRole(out BasisBoneTrackedRole AssignedRole))
         {
             switch (AssignedRole)
             {
                 case BasisBoneTrackedRole.LeftHand:
-                    ConvertedRotation = math.mul(HandFinalRotation, Quaternion.Euler(leftHandToIKRotationOffset));
+                    outgoingRotation = math.mul(IncomingRotation, Quaternion.Euler(leftHandToIKRotationOffset));
                     break;
                 case BasisBoneTrackedRole.RightHand:
-                    ConvertedRotation = math.mul(HandFinalRotation, Quaternion.Euler(rightHandToIKRotationOffset));
+                    outgoingRotation = math.mul(IncomingRotation, Quaternion.Euler(rightHandToIKRotationOffset));
                     break;
             }
         }
-        HandFinalRotation = math.mul(DeviceFinalRotation, ConvertedRotation);
+        return outgoingRotation;
     }
 }

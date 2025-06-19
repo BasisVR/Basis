@@ -35,12 +35,20 @@ namespace Basis.Scripts.Device_Management.Devices
         public BasisUIRaycast BasisUIRaycast;
         public AddressableGenericResource LoadedDeviceRequest;
         public event SimulationHandler AfterControlApply;
-        public BasisDeviceMatchSettings BasisDeviceMatchSettings;
+        public DeviceSupportInformation DeviceMatchSettings;
         [SerializeField]
         public BasisInputState CurrentInputState = new BasisInputState();
         [SerializeField]
         public BasisInputState LastInputState = new BasisInputState();
         public static BasisBoneTrackedRole[] CanHaveMultipleRoles = new BasisBoneTrackedRole[] { BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.RightHand };
+
+        public Vector3 RaycastPosition;
+        public Quaternion RaycastRotation;
+        public static string FallbackDeviceID = "FallbackSphere";
+        public GameObject BasisPointRaycasterRef;
+        public bool HasRaycaster = false;
+        public Quaternion InitialRotation;
+        public Quaternion InitialBoneRotation;
         public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
         {
             if (hasRoleAssigned)
@@ -97,8 +105,6 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisDebug.LogError("Attempted to find " + Role + " but it did not exist");
             }
         }
-        public Quaternion InitialRotation;
-        public Quaternion InitialBoneRotation;
         public void UnAssignRoleAndTracker()
         {
             if (Control != null)
@@ -106,7 +112,7 @@ namespace Basis.Scripts.Device_Management.Devices
                 Control.IncomingData.position = Vector3.zero;
                 Control.IncomingData.rotation = Quaternion.identity;
             }
-            if (BasisDeviceMatchSettings == null || BasisDeviceMatchSettings.HasTrackedRole == false)
+            if (DeviceMatchSettings == null || DeviceMatchSettings.HasTrackedRole == false)
             {
                 //unassign last
                 if (hasRoleAssigned)
@@ -129,11 +135,11 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public bool HasRaycastSupport()
         {
-            if (BasisDeviceMatchSettings == null)
+            if (DeviceMatchSettings == null)
             {
                 return false;
             }
-            return hasRoleAssigned && BasisDeviceMatchSettings.HasRayCastSupport;
+            return hasRoleAssigned && DeviceMatchSettings.HasRayCastSupport;
         }
         /// <summary>
         /// initalize the tracking of this input
@@ -153,11 +159,11 @@ namespace Basis.Scripts.Device_Management.Devices
             CommonDeviceIdentifier = unUniqueDeviceID;
             UniqueDeviceIdentifier = uniqueID;
             // lets check to see if there is a override from a devices matcher
-            BasisDeviceMatchSettings = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier, basisBoneTrackedRole, ForceAssignTrackedRole);
-            if (BasisDeviceMatchSettings.HasTrackedRole)
+            DeviceMatchSettings = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier, basisBoneTrackedRole, ForceAssignTrackedRole);
+            if (DeviceMatchSettings.HasTrackedRole)
             {
-                BasisDebug.Log("Overriding Tracker " + BasisDeviceMatchSettings.DeviceID, BasisDebug.LogTag.Input);
-                AssignRoleAndTracker(BasisDeviceMatchSettings.TrackedRole);
+                BasisDebug.Log("Overriding Tracker " + DeviceMatchSettings.DeviceID, BasisDebug.LogTag.Input);
+                AssignRoleAndTracker(DeviceMatchSettings.TrackedRole);
             }
             //reset the offsets, its up to the higher level to set this now.
             if (HasRaycastSupport())
@@ -400,7 +406,6 @@ namespace Basis.Scripts.Device_Management.Devices
                 return true;
             }
         }
-        public static string FallbackDeviceID = "FallbackSphere";
         public void HideTrackedVisual()
         {
             BasisDebug.Log("HideTrackedVisual", BasisDebug.LogTag.Input);
@@ -415,14 +420,12 @@ namespace Basis.Scripts.Device_Management.Devices
                 AddressableLoadFactory.ReleaseResource(LoadedDeviceRequest);
             }
         }
-        public GameObject BasisPointRaycasterRef;
-        public bool HasRaycaster = false;
         public void CreateRayCaster(BasisInput BaseInput)
         {
             BasisDebug.Log("Adding RayCaster " + BaseInput.UniqueDeviceIdentifier);
 
             BasisPointRaycasterRef = new GameObject(nameof(BasisPointRaycaster));
-            BasisPointRaycasterRef.transform.parent = this.transform;
+            BasisPointRaycasterRef.transform.parent = BasisLocalPlayer.Instance.transform;
             BasisPointRaycasterRef.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             BasisPointRaycaster = BasisHelpers.GetOrAddComponent<BasisPointRaycaster>(BasisPointRaycasterRef);
             BasisPointRaycaster.Initialize(BaseInput);

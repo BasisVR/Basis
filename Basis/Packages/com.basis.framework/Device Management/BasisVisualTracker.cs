@@ -10,9 +10,10 @@ namespace Basis.Scripts.Device_Management
         public BasisInput BasisInput;
         public Action TrackedSetup;
         public Quaternion ModelRotationOffset = Quaternion.identity;
-        public Vector3 ModelPositionOffset = Vector3.zero;
         public bool HasEvents = false;
+
         public Vector3 ScaleOfModel = Vector3.one;
+
         public void Initialization(BasisInput basisInput)
         {
             if (basisInput != null)
@@ -44,7 +45,7 @@ namespace Basis.Scripts.Device_Management
         public void UpdateVisualSizeAndOffset()
         {
             gameObject.transform.localScale = ScaleOfModel * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            gameObject.transform.SetLocalPositionAndRotation(ModelPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.EyeRatioPlayerToDefaultScale, ModelRotationOffset);
+            gameObject.transform.SetLocalPositionAndRotation(Vector3.zero, ModelRotationOffset);
         }
     }
 }

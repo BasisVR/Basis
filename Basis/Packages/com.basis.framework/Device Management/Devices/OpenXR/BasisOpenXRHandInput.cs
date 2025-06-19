@@ -26,9 +26,9 @@ public class BasisOpenXRHandInput : BasisInputController
     public const float TriggerDownAmount = 0.5f;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(0, 0, -180);
-        rightHandToIKRotationOffset = new float3(0, 0, -180);
-        IkOffsetPosition = new float3(0, -0.05f, 0);
+        leftHandToIKRotationOffset = new float3(0, -90, -180);
+        rightHandToIKRotationOffset = new float3(0, 90, -180);
+        RaycastRotationOffset = new float3(0, -90, 0);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         SetupInputActions(devicePath);
@@ -95,7 +95,6 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void DoPollData()
     {
-        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
         CurrentInputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
         CurrentInputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
         CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
@@ -105,20 +104,17 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
 
+
+        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
         DeviceFinalPosition = DeviceActionPosition.action.ReadValue<Vector3>() * scale;
         DeviceFinalRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
-
-        HandleHandFinalRotation();
-
-        float3 ModifiedOffset = math.mul(DeviceFinalRotation, IkOffsetPosition);
-
-        HandFinalPosition = (ModifiedOffset + LocalWristPosition) * scale;
+        HandFinalPosition = LocalWristPosition * scale;
 
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
             Control.IncomingData.position = HandFinalPosition;
-            Control.IncomingData.rotation = HandFinalRotation;
+            Control.IncomingData.rotation = HandleHandFinalRotation(DeviceFinalRotation);
         }
         UpdatePlayerControl();
     }
@@ -197,7 +193,33 @@ public class BasisOpenXRHandInput : BasisInputController
     {
         if (BasisVisualTracker == null && LoadedDeviceRequest == null)
         {
-            BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+            DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+            if (Match.CanDisplayPhysicalTracker)
+            {
+                LoadModelWithKey(Match.DeviceID);
+            }
+            else
+            {
+                if (UseFallbackModel())
+                {
+                    LoadModelWithKey(FallbackDeviceID);
+                }
+            }
+        }
+    }
+    /// <summary>
+    /// Duration does not work on OpenXRHands, in the future we should handle it for the user.
+    /// </summary>
+    /// <param name="duration"></param>
+    /// <param name="amplitude"></param>
+    /// <param name="frequency"></param>
+    public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+    {
+        Device.SendHapticImpulse(0, amplitude, duration);
+    }
+}
+/*
+ *             BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
             if (Match.CanDisplayPhysicalTracker)
             {
                 InputDeviceCharacteristics Hand = InputDeviceCharacteristics.None;
@@ -248,20 +270,4 @@ public class BasisOpenXRHandInput : BasisInputController
                     }
                 }
             }
-            if (UseFallbackModel())
-            {
-                LoadModelWithKey(FallbackDeviceID);
-            }
-        }
-    }
-    /// <summary>
-    /// Duration does not work on OpenXRHands, in the future we should handle it for the user.
-    /// </summary>
-    /// <param name="duration"></param>
-    /// <param name="amplitude"></param>
-    /// <param name="frequency"></param>
-    public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
-    {
-        Device.SendHapticImpulse(0, amplitude, duration);
-    }
-}
+*/

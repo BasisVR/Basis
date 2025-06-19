@@ -1,7 +1,6 @@
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -11,12 +10,8 @@ namespace Basis.Scripts.UI
 {
     public partial class BasisPointRaycaster : BaseRaycaster
     {
-        public Vector3 Direction = Vector3.forward;
         public float MaxDistance = 30;
-        public LayerMask Mask;
-        public QueryTriggerInteraction TriggerInteraction = QueryTriggerInteraction.UseGlobal;
         public bool UseWorldPosition = true;
-
         /// <summary>
         /// Modified externally by Eye Input
         /// </summary>
@@ -25,75 +20,42 @@ namespace Basis.Scripts.UI
         public RaycastHit ClosestRayCastHit { get; private set; }
         public RaycastHit[] PhysicHits { get; private set; }
         public int PhysicHitCount { get; private set; }
-        // NOTE: this needs to be >= max number of colliders it can potentiall hit a scene, otherwise it will behave oddly
-        public static int k_MaxPhysicHitCount = 128;
-
-
-        public BasisDeviceMatchSettings BasisDeviceMatchableNames;
         public BasisInput BasisInput;
-
         [Header("Debug")]
         public bool EnableDebug = false;
         public List<GameObject> _DebugHitObjects;
-
-
         public override Camera eventCamera => BasisLocalCameraDriver.Instance.Camera;
-        const string k_PlayerLayer = "Player";
-        const string k_IgnoreRayCastLayer = "Ignore Raycast";
-        const string k_LocalPlayerAvatarLayer = "LocalPlayerAvatar";
-
         public void Initialize(BasisInput basisInput)
         {
             BasisInput = basisInput;
-            BasisDeviceMatchableNames = BasisInput.BasisDeviceMatchSettings;
-            PhysicHits = new RaycastHit[k_MaxPhysicHitCount];
-
-            // Get the layer number for "Ignore Raycast" layer
-            int ignoreRaycastLayer = LayerMask.NameToLayer(k_IgnoreRayCastLayer);
-
-            // Get the layer number for "Player" layer
-            int playerLayer = LayerMask.NameToLayer(k_PlayerLayer);
-
-            int LocalPlayerAvatar = LayerMask.NameToLayer(k_LocalPlayerAvatarLayer);
-
-            // Create a LayerMask that includes all layers
-            LayerMask allLayers = ~0;
-
-            // Exclude the "Ignore Raycast" and "Player" layers using bitwise AND and NOT operations
-            Mask = allLayers & ~(1 << ignoreRaycastLayer) & ~(1 << playerLayer) & ~(1 << LocalPlayerAvatar);
+            PhysicHits = new RaycastHit[BasisPlayerInteract.k_MaxPhysicHitCount];
 
             // Create the ray with the adjusted starting position and direction
-            ray = new Ray(Vector3.zero, Direction);
+            UpdateRay();
         }
-
-        private Vector3 LastRotation;
+        public void UpdateRay()
+        {
+            this.transform.SetLocalPositionAndRotation(BasisInput.RaycastPosition, BasisInput.RaycastRotation);
+            // ray = new Ray(BasisInput.RaycastPosition, BasisInput.RaycastRotation * Vector3.forward);
+            ray = new Ray(this.transform.position,this.transform.forward);
+        }
+        /// <summary>
         /// <summary>
         /// Run after Input control apply, before `AfterControlApply`
         /// </summary>
         public void UpdateRaycast()
         {
-            if (LastRotation != BasisDeviceMatchableNames.RotationRaycastOffset)
-            {
-                this.transform.localRotation = Quaternion.Euler(BasisDeviceMatchableNames.RotationRaycastOffset);
-                LastRotation = BasisDeviceMatchableNames.RotationRaycastOffset;
-            }
             if (UseWorldPosition)
             {
-                transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
-                // Create the ray with the adjusted starting position and direction
-                ray = new Ray()
-                {
-                    origin = Position + (Rotation * BasisDeviceMatchableNames.PositionRayCastOffset),
-                    direction = transform.forward,
-                };
+                UpdateRay();
             }
             else
             {
                 // TODO: what? where does this come into play?
-                ray = BasisLocalCameraDriver.Instance.Camera.ScreenPointToRay(ScreenPoint, Camera.MonoOrStereoscopicEye.Mono);
+                ray = BasisLocalCameraDriver.Instance.Camera.ScreenPointToRay(ScreenPoint, BasisLocalCameraDriver.Instance.Camera.stereoActiveEye);
             }
 
-            PhysicHitCount = Physics.RaycastNonAlloc(ray, PhysicHits, MaxDistance, Mask, TriggerInteraction);
+            PhysicHitCount = Physics.RaycastNonAlloc(ray, PhysicHits, MaxDistance, BasisPlayerInteract.Mask, BasisPlayerInteract.TriggerInteraction);
             if (PhysicHitCount == 0)
             {
                 ClosestRayCastHit = new RaycastHit();
@@ -105,12 +67,12 @@ namespace Basis.Scripts.UI
                     int closestIndex = 0;
                     float minDistance = PhysicHits[0].distance;
 
-                    for (int i = 1; i < PhysicHitCount; i++)
+                    for (int Index = 1; Index < PhysicHitCount; Index++)
                     {
-                        if (PhysicHits[i].distance < minDistance)
+                        if (PhysicHits[Index].distance < minDistance)
                         {
-                            minDistance = PhysicHits[i].distance;
-                            closestIndex = i;
+                            minDistance = PhysicHits[Index].distance;
+                            closestIndex = Index;
                         }
                     }
 
