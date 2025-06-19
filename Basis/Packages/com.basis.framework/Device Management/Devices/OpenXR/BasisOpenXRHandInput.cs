@@ -117,6 +117,9 @@ public class BasisOpenXRHandInput : BasisInputController
             Control.IncomingData.rotation = HandleHandFinalRotation(DeviceFinalRotation);
         }
         UpdatePlayerControl();
+        RaycastPosition = HandFinalPosition;
+
+        RaycastRotation = math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
     }
     private void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType updateType)
     {
@@ -218,56 +221,3 @@ public class BasisOpenXRHandInput : BasisInputController
         Device.SendHapticImpulse(0, amplitude, duration);
     }
 }
-/*
- *             BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
-            if (Match.CanDisplayPhysicalTracker)
-            {
-                InputDeviceCharacteristics Hand = InputDeviceCharacteristics.None;
-                if (TryGetRole(out BasisBoneTrackedRole HandRole))
-                {
-                    switch (HandRole)
-                    {
-                        case BasisBoneTrackedRole.LeftHand:
-                            Hand = InputDeviceCharacteristics.Left;
-                            break;
-                        case BasisBoneTrackedRole.RightHand:
-                            Hand = InputDeviceCharacteristics.Right;
-                            break;
-                        default:
-                            LoadModelWithKey(FallbackDeviceID);
-                            return;
-                    }
-                    InputDeviceCharacteristics input = Hand | InputDeviceCharacteristics.Controller;
-                    List<UnityEngine.XR.InputDevice> inputDevices = new List<UnityEngine.XR.InputDevice>();
-                    InputDevices.GetDevicesWithCharacteristics(input, inputDevices);
-                    if (inputDevices.Count != 0)
-                    {
-                        Device = inputDevices[0];
-                        string LoadRequest;
-                        string HandString = Hand.ToString().ToLower();
-                        switch (Device.name)
-                        {
-                            case "Oculus Touch Controller OpenXR":
-                                LoadRequest = $"oculus_quest_plus_controller_{HandString}";
-                                break;
-                            case "Valve Index Controller OpenXR":
-                                LoadRequest = $"valve_controller_knu_{HandString}";
-                                break;
-                            case "Meta Quest Touch Pro Controller OpenXR":
-                                LoadRequest = $"oculus_quest_pro_controller_{HandString}";
-                                break;
-                            case "Meta Quest Touch Plus Controller OpenXR":
-                                LoadRequest = $"oculus_quest_plus_controller_{HandString}";
-                                break;
-                            default:
-                                LoadRequest = $"valve_controller_knu_{HandString}";
-                                break;
-                        }
-
-                        BasisDebug.Log("name was found to be " + LoadRequest + " for device " + Device.name + " picked from " + inputDevices.Count, BasisDebug.LogTag.Device);
-                        LoadModelWithKey(LoadRequest);
-                        return;
-                    }
-                }
-            }
-*/
