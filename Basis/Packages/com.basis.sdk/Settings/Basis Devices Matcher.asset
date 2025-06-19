@@ -46,7 +46,7 @@ MonoBehaviour:
     - '{indexcontroller}valve_controller_knu_2_0_left'
     - '{indexcontroller}valve_controller_knu_3_0_left'
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0, y: 0, z: 0}
@@ -61,7 +61,7 @@ MonoBehaviour:
     - '{indexcontroller}valve_controller_knu_2_0_right'
     - '{indexcontroller}valve_controller_knu_3_0_right'
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0, y: 0, z: 0}
@@ -89,7 +89,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0, y: 0, z: 0}
@@ -102,7 +102,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0, y: 0, z: 0}
@@ -141,7 +141,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_plus_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: -0.01, y: -0.03, z: -0.02}
@@ -154,7 +154,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_plus_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: -0.01, y: -0.03, z: -0.02}
@@ -167,7 +167,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
@@ -180,7 +180,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
@@ -193,7 +193,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_pro_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0.02, y: -0.025, z: -0.01}
@@ -206,7 +206,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_pro_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0.02, y: -0.025, z: -0.01}
@@ -219,7 +219,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest2_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
@@ -232,7 +232,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest2_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
@@ -258,7 +258,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - Left Hand OPENXR
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0, y: 0, z: 0}
@@ -271,7 +271,7 @@ MonoBehaviour:
     matchableDeviceIds:
     - Right Hand OPENXR
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
     PositionRayCastOffset: {x: 0, y: 0, z: 0}

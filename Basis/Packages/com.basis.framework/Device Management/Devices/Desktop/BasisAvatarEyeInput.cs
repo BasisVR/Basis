@@ -37,17 +37,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
                 BasisDebug.Log("Using Configured Height " + BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, BasisDebug.LogTag.Input);
-                LocalRawPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
-                LocalRawRotation = Quaternion.identity;
+                DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
             }
             else
             {
                 BasisDebug.Log("Using Fallback Height " + BasisLocalPlayer.FallbackSize, BasisDebug.LogTag.Input);
-                LocalRawPosition = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
-                LocalRawRotation = Quaternion.identity;
+                DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
             }
-            TransformFinalPosition = LocalRawPosition;
-            TransformFinalRotation = LocalRawRotation;
+            DeviceFinalRotation = Quaternion.identity;
             InitalizeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
             if (BasisHelpers.CheckInstance(Instance))
             {
@@ -59,14 +56,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             {
                 BasisLocalPlayer.Instance.OnLocalAvatarChanged += PlayerInitialized;
                 BasisLocalPlayer.Instance.OnPlayersHeightChanged += OnPlayersHeightChanged;
-                // BasisLocalPlayer.Instance.LocalAvatarDriver.CalibrationComplete += OnCalibration;
                 OnPlayersHeightChanged();
                 BasisCursorManagement.OnCursorStateChange += OnCursorStateChange;
                 BasisPointRaycaster.UseWorldPosition = false;
                 BasisVirtualSpine.Initialize();
                 HasEyeEvents = true;
             }
-            //  OnCalibration();
         }
 
         private void OnCursorStateChange(CursorLockMode cursor, bool newCursorVisible)
@@ -142,13 +137,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 {
                     BasisLocalInputActions.Instance.InputState.CopyTo(CurrentInputState);
                 }
-                // InputState.CopyTo(characterInputActions.InputState);
                 // Apply modulo operation to keep rotation within 0 to 360 range
                 rotationX %= 360f;
                 rotationY %= 360f;
                 // Clamp rotationY to stay within the specified range
                 rotationY = Mathf.Clamp(rotationY, minimumY, maximumY);
-                LocalRawRotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
+                Quaternion LocalRawRotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
                 Vector3 adjustedHeadPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight, InjectedZ);
                 if (!CrouchingLock)
                 {
@@ -162,8 +156,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 LocalRawPosition = adjustedHeadPosition;
                 Control.IncomingData.position = LocalRawPosition;
                 Control.IncomingData.rotation = LocalRawRotation;
-                TransformFinalPosition = LocalRawPosition;
-                TransformFinalRotation = LocalRawRotation;
+                DeviceFinalPosition = LocalRawPosition;
+                DeviceFinalRotation = LocalRawRotation;
                 UpdatePlayerControl();
             }
         }
@@ -171,30 +165,16 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             if (BasisVisualTracker == null && LoadedDeviceRequest == null)
             {
-                BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
-                    var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
-                    GameObject go = op.WaitForCompletion();
-                    GameObject gameObj = Instantiate(go, this.transform, true);
-                    gameObj.name = CommonDeviceIdentifier;
-                    if (gameObj.TryGetComponent(out BasisVisualTracker))
-                    {
-                        BasisVisualTracker.Initialization(this);
-                    }
+                    LoadModelWithKey(Match.DeviceID);
                 }
                 else
                 {
                     if (UseFallbackModel())
                     {
-                        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObj = Instantiate(go, this.transform, true);
-                        gameObj.name = CommonDeviceIdentifier;
-                        if (gameObj.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
+                        LoadModelWithKey(FallbackDeviceID);
                     }
                 }
             }

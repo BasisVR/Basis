@@ -13,7 +13,6 @@ using System.Threading.Tasks;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.Serialization;
 using static Basis.Scripts.Drivers.BasisBaseBoneDriver;
 namespace Basis.Scripts.BasisSdk.Players
 {
@@ -72,9 +71,9 @@ namespace Basis.Scripts.BasisSdk.Players
         [SerializeField]
         public BasisLocalAnimatorDriver LocalAnimatorDriver = new BasisLocalAnimatorDriver();
         //finger poses
-        [Header("Muscle Driver")]
+        [Header("Hand Driver")]
         [SerializeField]
-        public BasisMuscleDriver LocalMuscleDriver = new BasisMuscleDriver();
+        public BasisLocalHandDriver LocalHandDriver = new BasisLocalHandDriver();
         [Header("Eye Driver")]
         [SerializeField]
         public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();
@@ -92,6 +91,7 @@ namespace Basis.Scripts.BasisSdk.Players
             IsLocal = true;
             LocalBoneDriver.CreateInitialArrays(this.transform, true);
             LocalBoneDriver.Initialize(this);
+            LocalHandDriver.Initialize();
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);
             LocalCharacterDriver.Initialize(this);
@@ -214,9 +214,9 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisMicrophoneRecorder.OnHasSilence -= DriveAudioToViseme;
                 HasCalibrationEvents = false;
             }
-            if (LocalMuscleDriver != null)
+            if (LocalHandDriver != null)
             {
-                LocalMuscleDriver.DisposeAllJobsData();
+                LocalHandDriver.Dispose();
             }
             if (LocalEyeDriver != null)
             {
@@ -274,7 +274,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalAvatarDriver.SimulateIKDestinations(Rotation);
 
             //process Animator and IK processes.
-            LocalAvatarDriver.SimulateAnimatorAndIk();
+            LocalAvatarDriver.SimulateAnimatorAndIk(DeltaTime);
 
             //we move the player at the very end after everything has been processed.
             LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
@@ -293,7 +293,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.PostSimulateBonePositions();
 
             //handles fingers
-            LocalMuscleDriver.UpdateFingers(LocalAvatarDriver);
+            LocalHandDriver.UpdateFingers(LocalAvatarDriver.References);
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();

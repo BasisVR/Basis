@@ -1,7 +1,7 @@
 namespace Basis.Scripts.BasisSdk.Players
 {
     [System.Serializable]
-    public partial class BasisLocalHeightInformation
+    public class BasisLocalHeightInformation
     {
         public string AvatarName;
 

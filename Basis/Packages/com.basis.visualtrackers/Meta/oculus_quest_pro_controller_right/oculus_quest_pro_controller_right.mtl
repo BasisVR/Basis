@@ -1,8 +1,0 @@
-newmtl oculus_quest_pro_controller_right
-Kd 0.421692 0.421692 0.421692
-Ns 256
-d 1
-illum 2
-Ka 0 0 0
-Ks 0.04 0.04 0.04
-map_Kd oculus_quest_pro_controller_right_color.png

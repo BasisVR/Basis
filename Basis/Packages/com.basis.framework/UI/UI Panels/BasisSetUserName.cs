@@ -27,6 +27,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             UserNameTMP_InputField.text = BasisDataStore.LoadString(LoadFileName, string.Empty);
             Ready.onClick.AddListener(HasUserName);
+            AdvancedSettingsPanel.SetActive(false);
             if (AdvancedSettingsPanel != null)
             {
                 AdvancedSettings.onClick.AddListener(ToggleAdvancedSettings);

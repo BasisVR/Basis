@@ -1,4 +1,5 @@
-﻿using Unity.Mathematics;
+using Unity.Mathematics;
+using UnityEngine;
 
 namespace Basis.Scripts.Common
 {
@@ -14,5 +15,10 @@ namespace Basis.Scripts.Common
     {
         public quaternion rotation;
         public float3 position;
+        public BasisCalibratedCoords(Vector3 pos, Quaternion rot) : this()
+        {
+            this.position = pos;
+            this.rotation = rot;
+        }
     }
 }

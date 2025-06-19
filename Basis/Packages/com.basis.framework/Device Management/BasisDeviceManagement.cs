@@ -79,7 +79,7 @@ namespace Basis.Scripts.Device_Management
         [SerializeField]
         public List<BasisStoredPreviousDevice> PreviouslyConnectedDevices = new List<BasisStoredPreviousDevice>();
         [SerializeField]
-        public List<BasisDeviceMatchSettings> UseAbleDeviceConfigs = new List<BasisDeviceMatchSettings>();
+        public List<DeviceSupportInformation> UseAbleDeviceConfigs = new List<DeviceSupportInformation>();
         [SerializeField]
         public BasisLocalInputActions InputActions;
         public static AsyncOperationHandle<BasisFallBackBoneData> BasisFallBackBoneDataAsync;
@@ -331,15 +331,15 @@ namespace Basis.Scripts.Device_Management
         public void SetCameraRenderState(bool state)
         {
             BasisLocalCameraDriver.Instance.CameraData.allowXRRendering = state;
-            if (state)
-            {
-                BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.Both;
-            }
-            else
-            {
-                BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
-            }
-            BasisDebug.Log("Stereo Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
+            // if (state)
+            //{
+            //  BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.Both;
+            // }
+            //else
+            //{
+            //  BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
+            //}
+            // BasisDebug.Log("Stereo Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
         }
         public static void ShowTrackersAsync()
         {

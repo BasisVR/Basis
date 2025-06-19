@@ -12,11 +12,9 @@ using UnityEngine.UI;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisUIRaycast
+    public partial class BasisUIRaycast
     {
         public BasisPointRaycaster BasisPointRaycaster;
-
-
         public static LayerMask UILayer = LayerMask.NameToLayer("UI");
         public Material lineMaterial;
         public float lineWidth = 0.01f;
@@ -26,7 +24,7 @@ namespace Basis.Scripts.UI
         public GameObject highlightQuadInstance;
         
         public BasisInput BasisInput;
-        private BasisDeviceMatchSettings BasisDeviceMatchableNames;
+        private string DeviceName;
         public bool HasLineRenderer = false;
         public bool HasRedicalRenderer = false;
 
@@ -45,42 +43,19 @@ namespace Basis.Scripts.UI
         public List<RaycastResult> SortedRays = new List<RaycastResult>();
         public List<Canvas> Results = new List<Canvas>();
         public bool IgnoreReversedGraphics = true;        
-        
-        [Serializable]
-        public struct RaycastUIHitData
-        {
-            public RaycastUIHitData(Graphic graphic, Vector3 worldHitPosition, Vector2 screenPosition, float distance, int displayIndex)
-            {
-                this.graphic = graphic;
-                this.worldHitPosition = worldHitPosition;
-                this.screenPosition = screenPosition;
-                this.distance = distance;
-                this.displayIndex = displayIndex;
-            }
-            [SerializeField]
-            public Graphic graphic;
-            [SerializeField]
-            public Vector3 worldHitPosition;
-            [SerializeField]
-            public Vector2 screenPosition;
-            [SerializeField]
-            public float distance;
-            [SerializeField]
-            public int displayIndex;
-        }
 
         public void Initialize(BasisInput basisInput, BasisPointRaycaster pointRaycaster)
         {
             CurrentEventData = new BasisPointerEventData(EventSystem.current);
             BasisInput = basisInput;
             BasisPointRaycaster = pointRaycaster;
-            BasisDeviceMatchableNames = BasisInput.BasisDeviceMatchSettings;
+            DeviceName = BasisInput.DeviceMatchSettings.DeviceID;
             ApplyStaticDataToRaycastResult();
 
             HasLineRenderer = false;
             HasRedicalRenderer = false;
             // Create the ray with the adjusted starting position and direction
-            if (BasisDeviceMatchableNames.HasRayCastVisual)
+            if (basisInput.DeviceMatchSettings.HasRayCastVisual)
             {
                 // Add a Line Renderer component to the GameObject
                 LineRenderer = BasisHelpers.GetOrAddComponent<LineRenderer>(BasisPointRaycaster.gameObject);
@@ -102,7 +77,7 @@ namespace Basis.Scripts.UI
                 LineRenderer.numCornerVertices = 12;
                 LineRenderer.gameObject.layer = UILayer;
             }
-            if (BasisDeviceMatchableNames.HasRayCastRadical)
+            if (basisInput.DeviceMatchSettings.HasRayCastRadical)
             {
                 CreateRadical();
                 HasRedicalRenderer = true;
@@ -115,7 +90,7 @@ namespace Basis.Scripts.UI
             AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(LoadUIRedicalAddress);
             GameObject InMemory = handle.WaitForCompletion();
             GameObject gameObject = GameObject.Instantiate(InMemory);
-            gameObject.name = BasisDeviceMatchableNames.DeviceID + "_Redical";
+            gameObject.name = $"{DeviceName}_Redical";
             gameObject.transform.SetParent(BasisPointRaycaster.gameObject.transform);
             highlightQuadInstance = gameObject;
             if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
@@ -368,7 +343,7 @@ namespace Basis.Scripts.UI
             {
                 var graphic = graphics[i];
 
-                if (!ShouldTestGraphic(graphic, BasisPointRaycaster.Mask))
+                if (!ShouldTestGraphic(graphic,BasisPlayerInteract.Mask))
                     continue;
 
                 var raycastPadding = graphic.raycastPadding;

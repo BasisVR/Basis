@@ -132,6 +132,7 @@ namespace Basis.Scripts.Drivers
                 player.BasisAvatar.Animator.runtimeAnimatorController = RAC;
             }
             player.BasisAvatar.Animator.applyRootMotion = false;
+            //tpose
             PutAvatarIntoTPose();
             Builder = BasisHelpers.GetOrAddComponent<RigBuilder>(AvatarAnimatorParent);
             Builder.enabled = false;
@@ -148,15 +149,14 @@ namespace Basis.Scripts.Drivers
             {
                 HeadScale = Vector3.one;
             }
+            player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator, References);
             SetBodySettings(player.LocalBoneDriver);
             CalculateTransformPositions(player, player.LocalBoneDriver);
             ComputeOffsets(player.LocalBoneDriver);
-            player.LocalMuscleDriver.DisposeAllJobsData();
-            player.LocalMuscleDriver.Initialize(player.BasisAvatar.Animator);
 
             CalibrationComplete?.Invoke();
             player.LocalAnimatorDriver.Initialize(player);
-
+            //stop Tpose
             ResetAvatarAnimator();
             BasisAvatarIKStageCalibration.HasFBIKTrackers = false;
             if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Head, BasisBoneTrackedRole.Head))
@@ -639,10 +639,10 @@ namespace Basis.Scripts.Drivers
             Builder.layers.Add(RigLayer);
             return RigGameobject;
         }
-        public void SimulateAnimatorAndIk()
+        public void SimulateAnimatorAndIk(float DeltaTime)
         {
             Builder.SyncLayers();
-            PlayableGraph.Evaluate(Time.deltaTime);
+            PlayableGraph.Evaluate(DeltaTime);
         }
     }
 }
