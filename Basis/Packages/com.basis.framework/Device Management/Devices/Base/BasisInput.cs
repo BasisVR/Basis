@@ -132,6 +132,10 @@ namespace Basis.Scripts.Device_Management.Devices
         public void OnDestroy()
         {
             StopTracking();
+            if (BasisUIRaycast != null)
+            {
+                GameObject.Destroy(BasisPointRaycaster.gameObject);
+            }
         }
         public bool HasRaycastSupport()
         {

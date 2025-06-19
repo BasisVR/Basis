@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.XR;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.Gestures;
 using UnityEngine.XR.Management;
@@ -26,9 +25,9 @@ public class BasisOpenXRHandInput : BasisInputController
     public const float TriggerDownAmount = 0.5f;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(0, -90, -180);
-        rightHandToIKRotationOffset = new float3(0, 90, -180);
-        RaycastRotationOffset = new float3(90, 0, 0);
+        leftHandToIKRotationOffset = new float3(-90, -90, -90);
+        rightHandToIKRotationOffset = new float3(-90, 90, 90);
+        RaycastRotationOffset = new float3(0, 0, 0);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         SetupInputActions(devicePath);
@@ -114,12 +113,12 @@ public class BasisOpenXRHandInput : BasisInputController
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
             Control.IncomingData.position = HandFinalPosition;
-            Control.IncomingData.rotation = HandleHandFinalRotation(DeviceFinalRotation);
+            Control.IncomingData.rotation = HandleHandFinalRotation(HandFinalRotation);
         }
         UpdatePlayerControl();
         RaycastPosition = HandFinalPosition;
 
-        RaycastRotation = math.mul(DeviceFinalRotation, Quaternion.Euler(RaycastRotationOffset));
+        RaycastRotation = math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
     }
     private void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType updateType)
     {
