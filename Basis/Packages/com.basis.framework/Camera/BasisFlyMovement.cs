@@ -22,6 +22,7 @@ public class BasisFlyCamera
 
     private bool isActive = false;
     private bool isInitialized = false;
+    private bool isControlling;
 
     public void Initialize()
     {
@@ -42,7 +43,7 @@ public class BasisFlyCamera
     private void SetupInputActions()
     {
         // Create input action map
-        flyingCameraActionMap = new InputActionMap("FlyingCamera");
+        flyingCameraActionMap = new InputActionMap("FlyingCamera");;
 
         // Mouse look action (Vector2 composite for X/Y delta)
         mouseLookAction = flyingCameraActionMap.AddAction("MouseLook", InputActionType.Value, binding: "<Mouse>/delta");
@@ -75,6 +76,54 @@ public class BasisFlyCamera
         speedModifierAction.performed += OnSpeedModifier;
         speedModifierAction.canceled += OnSpeedModifier;
     }
+    public void DetectInput()
+    {
+        bool rightClickHeld = Mouse.current?.rightButton?.isPressed == true;
+
+        if (rightClickHeld && !isControlling)
+        {
+            isControlling = true;
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+        else if (!rightClickHeld && isControlling)
+        {
+            isControlling = false;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            // Clear inputs when control stops
+            mouseInput = Vector2.zero;
+            horizontalMoveInput = Vector2.zero;
+            verticalMoveInput = 0f;
+            isFastMovement = false;
+        }
+    }
+    public void SetControlState(bool controlling)
+    {
+        isControlling = controlling;
+
+        if (isControlling)
+        {
+            mouseLookAction?.Enable();
+            movementAction?.Enable();
+            verticalMovementAction?.Enable();
+            speedModifierAction?.Enable();
+        }
+        else
+        {
+            mouseLookAction?.Disable();
+            movementAction?.Disable();
+            verticalMovementAction?.Disable();
+            speedModifierAction?.Disable();
+
+            // clear any residual input
+            mouseInput = Vector2.zero;
+            horizontalMoveInput = Vector2.zero;
+            verticalMoveInput = 0f;
+            isFastMovement = false;
+        }
+    }
 
     public void Enable()
     {
@@ -90,6 +139,10 @@ public class BasisFlyCamera
         isActive = true;
         // Enable input actions
         flyingCameraActionMap?.Enable();
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        isControlling = false;
     }
 
     public void Disable()
