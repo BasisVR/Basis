@@ -129,7 +129,7 @@ MonoBehaviour:
   m_PrefilterSoftShadows: 0
   m_PrefilterScreenCoord: 1
   m_PrefilterNativeRenderPass: 1
-  m_PrefilterUseLegacyLightmaps: 0
+  m_PrefilterUseLegacyLightmaps: 1
   m_PrefilterBicubicLightmapSampling: 0
   m_ShaderVariantLogLevel: 0
   m_ShadowCascades: 1
