@@ -20,7 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using static BasisNetworkGenericMessages;
 using static DarkRift.Basis_Common.Serializable.SerializableBasis;
 using static SerializableBasis;
 namespace Basis.Scripts.Networking
