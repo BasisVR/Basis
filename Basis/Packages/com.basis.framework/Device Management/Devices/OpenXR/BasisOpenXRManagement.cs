@@ -105,6 +105,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 
             BasisDebug.Log("SDK stopped and all resources cleaned up.");
             InputSystem.onDeviceChange -= onDeviceChange;
+            BasisDeviceManagement.OnDeviceManagementLoop -= CheckTrackersPulse;
         }
 
         public override void BeginLoadSDK()
@@ -123,23 +124,22 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             CreatePhysicalHandTracker("Right Hand OPENXR", "Right Hand OPENXR", BasisBoneTrackedRole.RightHand);
             BasisDebug.Log("SDK started successfully.");
             InputSystem.onDeviceChange += onDeviceChange;
+            BasisDeviceManagement.OnDeviceManagementLoop += CheckTrackersPulse;  
         }
 
         private void onDeviceChange(InputDevice device, InputDeviceChange change)
         {
-            foreach (var internaldevice in InputSystem.devices)
+            int count = InputSystem.devices.Count;
+            for (int Index = 0; Index < count; Index++)
             {
+                InputDevice internaldevice = InputSystem.devices[Index];
                 TryAddTracker(internaldevice);
             }
+            trackerscount = Trackers.Count;
         }
-
-        public void Update()
-        {
-            CheckTrackersPulse();
-        }
+        public int trackerscount;
         public void CheckTrackersPulse()
         {
-            int trackerscount = Trackers.Count;
             for (int Index = 0; Index < trackerscount; Index++)
             {
                 BasisOpenxrDeviceTrackedInfo device = Trackers[Index];
@@ -149,7 +149,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
                     if (OpenXRTrackers.Contains(device.device) == false)
                     {
                         OpenXRTrackers.Add(device.device);
-                        CreatePhysicalFullBodyTracker(device.device, device.usage, $"{device.device.name}", $"{device.device.name} {device.device.deviceId}");
+                        CreatePhysicalFullBodyTracker(device.device, device.usage, $"{device.device.name}", $"{device.device.name} {device.device.deviceId} {device.usage}");
                     }
                 }
                 else
@@ -163,6 +163,12 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
                 }
             }
         }
+        /// <summary>
+        /// updates the data set but needs the count manual reset  trackerscount = Trackers.Count;
+        /// this is just another thing to stop redudent work
+        /// </summary>
+        /// <param name="device"></param>
+        /// <param name="usage"></param>
         private void TrackerAdded(InputDevice device, string usage)
         {
             BasisOpenxrDeviceTrackedInfo DeviceTrackedInfo = new BasisOpenxrDeviceTrackedInfo
@@ -173,7 +179,8 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             DeviceTrackedInfo.State = new InputActionProperty(new InputAction($"trackingState_{usage}", InputActionType.Value, $"<{DeviceTrackedInfo.layoutName}>{{{usage}}}/trackingState", expectedControlType: "Integer"));
             DeviceTrackedInfo.State.action.Enable();
             DeviceTrackedInfo.usage = usage;
-           Trackers.Add(DeviceTrackedInfo);
+            Trackers.Add(DeviceTrackedInfo);
+
         }
         public override string Type()
         {

@@ -3,7 +3,7 @@ using UnityEngine.InputSystem;
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {
     [System.Serializable]
-    public class BasisOpenxrDeviceTrackedInfo
+    public struct BasisOpenxrDeviceTrackedInfo
     {
         public string layoutName;
         public InputActionProperty State;

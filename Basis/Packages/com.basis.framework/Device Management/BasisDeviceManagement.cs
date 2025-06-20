@@ -84,6 +84,9 @@ namespace Basis.Scripts.Device_Management
         public BasisLocalInputActions InputActions;
         public static AsyncOperationHandle<BasisFallBackBoneData> BasisFallBackBoneDataAsync;
         public static AsyncOperationHandle<uLipSync.Profile> LipSyncProfile;
+        public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
+        public static volatile bool hasPendingActions = false;
+        public static Action OnDeviceManagementLoop;
         async void Start()
         {
             if (BasisHelpers.CheckInstance<BasisDeviceManagement>(Instance))
@@ -537,7 +540,5 @@ namespace Basis.Scripts.Device_Management
             mainThreadActions.Enqueue(action);
             hasPendingActions = true;
         }
-        public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
-        public static volatile bool hasPendingActions = false;
     }
 }
