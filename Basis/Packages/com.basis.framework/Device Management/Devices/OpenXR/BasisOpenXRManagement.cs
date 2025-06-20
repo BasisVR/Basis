@@ -9,14 +9,15 @@ using UnityEngine.InputSystem;
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {
     [Serializable]
-    public class BasisOpenXRManagement : BasisBaseTypeManagement
+    public partial class BasisOpenXRManagement : BasisBaseTypeManagement
     {
         [SerializeField]
         private List<BasisInput> controls = new List<BasisInput>();
         [SerializeField]
-        public List<InputDevice> OpenXRTrackers = new List<InputDevice>();
+        public HashSet<InputDevice> OpenXRTrackers = new HashSet<InputDevice>();
         [SerializeField]
-        public List<DeviceTrackedInfo> Trackers = new List<DeviceTrackedInfo>();
+        public List<BasisOpenxrDeviceTrackedInfo> Trackers = new List<BasisOpenxrDeviceTrackedInfo>();
+        [NonSerialized]
         private Dictionary<int, InputDevice> trackedDevices = new Dictionary<int, InputDevice>();
         public string[] HTCOpenXRViveTracker = new string[] { "HTC Vive Tracker (OpenXR)" };
         public string[] CommonUsagesWeAccept = new string[]
@@ -103,6 +104,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             OpenXRTrackers.Clear();
 
             BasisDebug.Log("SDK stopped and all resources cleaned up.");
+            InputSystem.onDeviceChange -= onDeviceChange;
         }
 
         public override void BeginLoadSDK()
@@ -120,60 +122,50 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             CreatePhysicalHandTracker("Left Hand OPENXR", "Left Hand OPENXR", BasisBoneTrackedRole.LeftHand);
             CreatePhysicalHandTracker("Right Hand OPENXR", "Right Hand OPENXR", BasisBoneTrackedRole.RightHand);
             BasisDebug.Log("SDK started successfully.");
+            InputSystem.onDeviceChange += onDeviceChange;
         }
+
+        private void onDeviceChange(InputDevice device, InputDeviceChange change)
+        {
+            foreach (var internaldevice in InputSystem.devices)
+            {
+                TryAddTracker(internaldevice);
+            }
+        }
+
         public void Update()
         {
             CheckTrackersPulse();
         }
         public void CheckTrackersPulse()
         {
-            foreach (var device in InputSystem.devices)
-            {
-                TryAddTracker(device);
-            }
-
             int trackerscount = Trackers.Count;
             for (int Index = 0; Index < trackerscount; Index++)
             {
-                BasisDebug.Log("Looping at index "  + Index);
-                DeviceTrackedInfo device = Trackers[Index];
-                if (device.State.action != null)
+                BasisOpenxrDeviceTrackedInfo device = Trackers[Index];
+                device.IsActive = device.State.action.ReadValue<int>();
+                if (device.IsActive != 0)
                 {
-                    device.IsActive = device.State.action.ReadValue<int>();
-                    if (device.IsActive != 0)
+                    if (OpenXRTrackers.Contains(device.device) == false)
                     {
-                        if (OpenXRTrackers.Contains(device.device) == false)
-                        {
-                            BasisDebug.Log("adding device " + Index);
-                            OpenXRTrackers.Add(device.device);
-                            CreatePhysicalFullBodyTracker(device.device, device.usage, $"{device.device.name}", $"{device.device.name} {device.device.deviceId}");
-                        }
+                        OpenXRTrackers.Add(device.device);
+                        CreatePhysicalFullBodyTracker(device.device, device.usage, $"{device.device.name}", $"{device.device.name} {device.device.deviceId}");
                     }
-                    else
+                }
+                else
+                {
+                    if (OpenXRTrackers.Contains(device.device))
                     {
-                        if (OpenXRTrackers.Contains(device.device))
-                        {
-                            BasisDebug.Log("removing device " + Index);
-                            string RemoveID = $"{device.device.name} {device.device.deviceId}";
-                            DestroyPhysicalTrackedDevice(RemoveID);
-                            OpenXRTrackers.Remove(device.device);
-                        }
+                        string RemoveID = $"{device.device.name} {device.device.deviceId}";
+                        DestroyPhysicalTrackedDevice(RemoveID);
+                        OpenXRTrackers.Remove(device.device);
                     }
                 }
             }
         }
-        [System.Serializable]
-        public class DeviceTrackedInfo
-        {
-            public string layoutName;
-            public InputActionProperty State;
-            public InputDevice device;
-            public string usage;
-            public int IsActive;
-        }
         private void TrackerAdded(InputDevice device, string usage)
         {
-            DeviceTrackedInfo DeviceTrackedInfo = new DeviceTrackedInfo
+            BasisOpenxrDeviceTrackedInfo DeviceTrackedInfo = new BasisOpenxrDeviceTrackedInfo
             {
                 layoutName = device.GetType().Name
             };
@@ -193,9 +185,16 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 
             if (HTCOpenXRViveTracker.Contains(addedTracker.displayName) && !trackedDevices.ContainsKey(addedTracker.deviceId))
             {
-                string matchedUsage = addedTracker.usages
-                    .Select(u => u.ToString())
-                    .FirstOrDefault(name => CommonUsagesWeAccept.Contains(name));
+                string matchedUsage = null;
+                foreach (UnityEngine.InputSystem.Utilities.InternedString usage in addedTracker.usages)
+                {
+                    string name = usage.ToString();
+                    if (CommonUsagesWeAccept.Contains(name))
+                    {
+                        matchedUsage = name;
+                        break;
+                    }
+                }
 
                 if (!string.IsNullOrEmpty(matchedUsage))
                 {
