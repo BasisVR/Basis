@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
@@ -22,7 +23,16 @@ namespace Basis.Scripts.UI
         public static string LoadMaterialAddress = "Assets/UI/Material/RayCastMaterial.mat";
         public static string LoadUIRedicalAddress = "Assets/UI/Prefabs/highlightQuad.prefab";
         public GameObject highlightQuadInstance;
-        
+        public ActiveStateOfHightlight HighlightState;
+        public enum ActiveStateOfHightlight
+        {
+            On,
+            Off,
+            NA
+
+        }
+
+
         public BasisInput BasisInput;
         private string DeviceName;
         public bool HasLineRenderer = false;
@@ -91,12 +101,14 @@ namespace Basis.Scripts.UI
             GameObject InMemory = handle.WaitForCompletion();
             GameObject gameObject = GameObject.Instantiate(InMemory);
             gameObject.name = $"{DeviceName}_Redical";
-            gameObject.transform.SetParent(BasisPointRaycaster.gameObject.transform);
+            gameObject.transform.SetParent(BasisLocalPlayer.Instance.transform);
             highlightQuadInstance = gameObject;
             if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
             {
                 Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
             }
+            highlightQuadInstance.gameObject.SetActive(false);
+            HighlightState = ActiveStateOfHightlight.NA;
         }
         public void ApplyStaticDataToRaycastResult()
         {
@@ -213,17 +225,29 @@ namespace Basis.Scripts.UI
                 {
                     if (BasisDeviceManagement.IsUserInDesktop() && BasisCursorManagement.ActiveLockState() != CursorLockMode.Locked)
                     {
-                        highlightQuadInstance.SetActive(false);
+                        if (HighlightState !=  ActiveStateOfHightlight.Off)
+                        {
+                            highlightQuadInstance.SetActive(false);
+                            HighlightState = ActiveStateOfHightlight.Off;
+                        }
                     }
                     else
                     {
-                        highlightQuadInstance.SetActive(true);
+                        if (HighlightState != ActiveStateOfHightlight.On)
+                        {
+                            highlightQuadInstance.SetActive(true);
+                            HighlightState = ActiveStateOfHightlight.On;
+                        }
                         highlightQuadInstance.transform.SetPositionAndRotation(PhysicHit.point, Quaternion.LookRotation(PhysicHit.normal));
                     }
                 }
                 else
                 {
-                    highlightQuadInstance.SetActive(false);
+                    if (HighlightState != ActiveStateOfHightlight.Off)
+                    {
+                        highlightQuadInstance.SetActive(false);
+                        HighlightState = ActiveStateOfHightlight.Off;
+                    }
                 }
             }
         }
@@ -239,6 +263,7 @@ namespace Basis.Scripts.UI
             if (HasRedicalRenderer)
             {
                 highlightQuadInstance.SetActive(false);
+                HighlightState = ActiveStateOfHightlight.Off;
             }
         }
         
