@@ -30,7 +30,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         private readonly BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
-
+        public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();
         public void Initialize(string ID = "Desktop Eye", string subSystems = "BasisDesktopManagement")
         {
             BasisDebug.Log("Initializing Avatar Eye", BasisDebug.LogTag.Input);
@@ -83,9 +83,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisLocalPlayer.Instance.OnLocalAvatarChanged -= PlayerInitialized;
                 BasisLocalPlayer.Instance.OnPlayersHeightChanged -= OnPlayersHeightChanged;
                 BasisCursorManagement.OnCursorStateChange -= OnCursorStateChange;
-                //  BasisLocalPlayer.Instance.LocalAvatarDriver.CalibrationComplete -= OnCalibration;
                 HasEyeEvents = false;
-
                 BasisVirtualSpine.DeInitialize();
             }
             base.OnDestroy();
@@ -132,7 +130,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (hasRoleAssigned)
             {
                 if (!LookRotationVector.Equals(Vector2.zero))
+                {
                     HandleLookRotation(LookRotationVector);
+                }
                 if (BasisLocalInputActions.Instance != null)
                 {
                     BasisLocalInputActions.Instance.InputState.CopyTo(CurrentInputState);
@@ -184,7 +184,5 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             BasisDebug.LogError("Eye Does not Support haptics!");
         }
-
-        public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();
     }
 }

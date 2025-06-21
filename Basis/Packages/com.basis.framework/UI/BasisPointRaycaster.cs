@@ -1,14 +1,12 @@
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
-
 namespace Basis.Scripts.UI
 {
-    public partial class BasisPointRaycaster : BaseRaycaster
+    public class BasisPointRaycaster : BaseRaycaster
     {
         public float MaxDistance = 30;
         public bool UseWorldPosition = true;
@@ -36,7 +34,6 @@ namespace Basis.Scripts.UI
         public void UpdateRay()
         {
             this.transform.SetLocalPositionAndRotation(BasisInput.RaycastPosition, BasisInput.RaycastRotation);
-            // ray = new Ray(BasisInput.RaycastPosition, BasisInput.RaycastRotation * Vector3.forward);
             ray = new Ray(this.transform.position,this.transform.forward);
         }
         /// <summary>

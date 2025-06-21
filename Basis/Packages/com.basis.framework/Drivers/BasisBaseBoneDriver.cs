@@ -21,7 +21,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// call this after updating the bone data
         /// </summary>
-        public void Simulate(float deltaTime,Transform transform)
+        public void Simulate(float deltaTime, Transform transform)
         {
             // sequence all other devices to run at the same time
             Matrix4x4 parentMatrix = transform.localToWorldMatrix;
@@ -40,7 +40,7 @@ namespace Basis.Scripts.Drivers
             // sequence all other devices to run at the same time
             float DeltaTime = Time.deltaTime;
             Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-           Quaternion Rotation = transform.rotation;
+            Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
@@ -153,7 +153,7 @@ namespace Basis.Scripts.Drivers
             HasControls = true;
             InitializeGizmos();
         }
-        public void SetupRole(int Index,Transform Parent, Color Color,out BasisBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
+        public void SetupRole(int Index, Transform Parent, Color Color, out BasisBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
         {
             role = (BasisBoneTrackedRole)Index;
             BasisBoneControl = new BasisBoneControl();
@@ -162,11 +162,11 @@ namespace Basis.Scripts.Drivers
         }
         public void InitializeGizmos()
         {
-           BasisGizmoManager.OnUseGizmosChanged += UpdateGizmoUsage;
+            BasisGizmoManager.OnUseGizmosChanged += UpdateGizmoUsage;
         }
         public void DeInitializeGizmos()
         {
-           BasisGizmoManager.OnUseGizmosChanged -= UpdateGizmoUsage;
+            BasisGizmoManager.OnUseGizmosChanged -= UpdateGizmoUsage;
         }
         public void UpdateGizmoUsage(bool State)
         {
@@ -178,7 +178,7 @@ namespace Basis.Scripts.Drivers
                 BasisBoneTrackedRole Role = trackedRoles[Index];
                 if (State)
                 {
-                    if(Role == BasisBoneTrackedRole.CenterEye && Application.isEditor == false)
+                    if (Role == BasisBoneTrackedRole.CenterEye && Application.isEditor == false)
                     {
                         continue;
                     }
@@ -255,7 +255,7 @@ namespace Basis.Scripts.Drivers
                 }
                 if (BasisLocalPlayer.Instance.LocalBoneDriver.FindTrackedRole(Control, out BasisBoneTrackedRole Role))
                 {
-                    if(Role == BasisBoneTrackedRole.CenterEye)
+                    if (Role == BasisBoneTrackedRole.CenterEye)
                     {
                         //ignoring center eye to stop you having issues in vr
                         return;
@@ -300,46 +300,46 @@ namespace Basis.Scripts.Drivers
         }
         public class OrderedDelegate
         {
-            private List<KeyValuePair<int, Action>> actions = new List<KeyValuePair<int, Action>>();
-            private bool isSorted = true;
-
-            // Add an action with a priority level.
+            private List<int> priorities = new List<int>();
+            private List<Action> actions = new List<Action>();
+            private List<int> executionOrder = new List<int>();
+            public int Count;
+            // Add action with priority
             public void AddAction(int priority, Action action)
             {
-                actions.Add(new KeyValuePair<int, Action>(priority, action));
-                isSorted = false;  // Mark as unsorted to avoid sorting on every add.
+                priorities.Add(priority);
+                actions.Add(action);
+                executionOrder.Add(executionOrder.Count); // New index appended
+                executionOrder.Sort((a, b) => priorities[a].CompareTo(priorities[b]));
+                Count = executionOrder.Count;
             }
 
-            // Remove a specific action from a given priority.
+            // Remove specific action at priority
             public void RemoveAction(int priority, Action action)
             {
-                for (int i = actions.Count - 1; i >= 0; i--)
+                for (int Index = actions.Count - 1; Index >= 0; Index--)
                 {
-                    if (actions[i].Key == priority && actions[i].Value == action)
+                    if (priorities[Index] == priority && actions[Index] == action)
                     {
-                        actions.RemoveAt(i);
+                        priorities.RemoveAt(Index);
+                        actions.RemoveAt(Index);
+                        executionOrder.RemoveAt(Index);
                         break;
                     }
                 }
+                executionOrder.Sort((a, b) => priorities[a].CompareTo(priorities[b]));
+                Count = executionOrder.Count;
             }
 
-            // Invoke all actions in order of priority.
+
+            // Call all actions in sorted order
             public void Invoke()
             {
-                // Sort only if we have added new items since the last invoke.
-                if (!isSorted)
+                for (int Index = 0; Index < Count; Index++)
                 {
-                    actions.Sort((a, b) => a.Key.CompareTo(b.Key));
-                    isSorted = true;
-                }
-
-                // Use a for loop instead of foreach to avoid allocations.
-                for (int i = 0; i < actions.Count; i++)
-                {
-                    actions[i].Value?.Invoke();
+                    actions[executionOrder[Index]]?.Invoke();
                 }
             }
-
         }
     }
 }
