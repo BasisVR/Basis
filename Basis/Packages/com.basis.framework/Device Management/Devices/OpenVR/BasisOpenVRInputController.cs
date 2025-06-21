@@ -23,7 +23,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             leftHandToIKRotationOffset = new float3(0, 90, -180);
             rightHandToIKRotationOffset = new float3(0, -90, -180);
-            RaycastRotationOffset = new float3(0, -90, 0);
+            RaycastRotationOffset = new float3(-90, -90, 0);
             if (HasOnUpdate && DeviceposeAction != null)
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;

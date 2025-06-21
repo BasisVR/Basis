@@ -62,7 +62,7 @@ public class BasisUIRaycastProcess
 
                             if (hit.gameObject != null)
                             {
-                                SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input.CurrentInputState, input.LastInputState);
+                                SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input);
                                 HasTarget = true;
                             }
                         }
@@ -87,7 +87,7 @@ public class BasisUIRaycastProcess
                 }
             }
         }
-    public void SimulateOnCanvas(RaycastResult raycastResult, RaycastUIHitData hit, BasisPointerEventData currentEventData, BasisInputState Current, BasisInputState LastCurrent)
+    public void SimulateOnCanvas(RaycastResult raycastResult, RaycastUIHitData hit, BasisPointerEventData currentEventData, BasisInput BaseInput)
     {
         if (hit.graphic != null)
         {
@@ -99,25 +99,26 @@ public class BasisUIRaycastProcess
             currentEventData.pressPosition = hit.screenPosition;
             currentEventData.pointerCurrentRaycast = raycastResult;
             currentEventData.pointerPressRaycast = raycastResult;
-            bool IsDownThisFrame = Current.Trigger == 1;
-            //BasisDebug.Log("running "  + raycastResult.gameObject);
-            if (IsDownThisFrame)
-            {
-                if (currentEventData.WasLastDown == false)
+            bool IsDownThisFrame = BaseInput.CurrentInputState.Trigger == 1;
+                //BasisDebug.Log("running "  + raycastResult.gameObject);
+                if (IsDownThisFrame)
                 {
-                    CheckOrApplySelectedGameobject(hit, currentEventData);
-                    currentEventData.WasLastDown = true;
-                    EffectiveMouseDown(hit, currentEventData);
+                    if (currentEventData.WasLastDown == false)
+                    {
+                        CheckOrApplySelectedGameobject(hit, currentEventData);
+                        currentEventData.WasLastDown = true;
+                        EffectiveMouseDown(hit, currentEventData);
+                        BaseInput.PlayHaptic(0.1f, 0.5f, 0.5f);
+                    }
                 }
-            }
-            else
-            {
-                if (currentEventData.WasLastDown)
+                else
                 {
-                    EffectiveMouseUp(hit, currentEventData);
-                    currentEventData.WasLastDown = false;
+                    if (currentEventData.WasLastDown)
+                    {
+                        EffectiveMouseUp(hit, currentEventData);
+                        currentEventData.WasLastDown = false;
+                    }
                 }
-            }
 
             ProcessScrollWheel(currentEventData);
             ProcessPointerMovement(currentEventData);

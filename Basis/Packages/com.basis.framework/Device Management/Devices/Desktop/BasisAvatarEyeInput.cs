@@ -179,10 +179,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 }
             }
         }
-
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
         {
-            BasisDebug.LogError("Eye Does not Support haptics!");
         }
     }
 }

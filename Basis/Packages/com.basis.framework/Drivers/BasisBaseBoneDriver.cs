@@ -304,40 +304,54 @@ namespace Basis.Scripts.Drivers
             private List<Action> actions = new List<Action>();
             private List<int> executionOrder = new List<int>();
             public int Count;
+
             // Add action with priority
             public void AddAction(int priority, Action action)
             {
                 priorities.Add(priority);
                 actions.Add(action);
-                executionOrder.Add(executionOrder.Count); // New index appended
-                executionOrder.Sort((a, b) => priorities[a].CompareTo(priorities[b]));
+                RebuildExecutionOrder();
                 Count = executionOrder.Count;
             }
 
             // Remove specific action at priority
             public void RemoveAction(int priority, Action action)
             {
-                for (int Index = actions.Count - 1; Index >= 0; Index--)
+                for (int i = actions.Count - 1; i >= 0; i--)
                 {
-                    if (priorities[Index] == priority && actions[Index] == action)
+                    if (priorities[i] == priority && actions[i] == action)
                     {
-                        priorities.RemoveAt(Index);
-                        actions.RemoveAt(Index);
-                        executionOrder.RemoveAt(Index);
+                        priorities.RemoveAt(i);
+                        actions.RemoveAt(i);
+                        RebuildExecutionOrder();
                         break;
                     }
                 }
-                executionOrder.Sort((a, b) => priorities[a].CompareTo(priorities[b]));
                 Count = executionOrder.Count;
             }
 
+            // Rebuild execution order based on current priorities
+            private void RebuildExecutionOrder()
+            {
+                executionOrder.Clear();
+                for (int i = 0; i < priorities.Count; i++)
+                {
+                    executionOrder.Add(i);
+                }
+
+                executionOrder.Sort((a, b) => priorities[a].CompareTo(priorities[b]));
+            }
 
             // Call all actions in sorted order
             public void Invoke()
             {
-                for (int Index = 0; Index < Count; Index++)
+                for (int i = 0; i < Count; i++)
                 {
-                    actions[executionOrder[Index]]?.Invoke();
+                    int actionIndex = executionOrder[i];
+                    if (actionIndex >= 0 && actionIndex < Count)
+                    {
+                        actions[actionIndex]?.Invoke();
+                    }
                 }
             }
         }

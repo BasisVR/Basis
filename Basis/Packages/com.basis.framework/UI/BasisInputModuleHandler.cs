@@ -113,7 +113,6 @@ namespace Basis.Scripts.UI
         public override void Process()
         {
             var localPlayer = BasisLocalPlayer.Instance;
-            var characterDriver = localPlayer == null ? null : localPlayer.LocalCharacterDriver;
             basisUIRaycastProcess.Simulate();
             // Process your input events here
             if (EventSystem.currentSelectedGameObject != null)
@@ -124,15 +123,10 @@ namespace Basis.Scripts.UI
                 {
                     if (HasHoverONInput == false)
                     {
-                        // Subscribe to the device change event
-                        //  Keyboard.current.onTextInput += OnTextInput;
                         HasHoverONInput = true;
-                        if (characterDriver != null)
-                        {
-                            MovementLock.Add(nameof(BasisInputModuleHandler));
-                            CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                        }
-                        if (BasisDeviceManagement.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.CurrentMode == "OpenXRLoader" || ForceKeyboard)
+                        MovementLock.Add(nameof(BasisInputModuleHandler));
+                        CrouchingLock.Add(nameof(BasisInputModuleHandler));
+                        if (BasisDeviceManagement.IsCurrentModeVR || ForceKeyboard)
                         {
                             if (BasisVirtualKeyboard.HasInstance == false)
                             {
@@ -147,12 +141,10 @@ namespace Basis.Scripts.UI
                     {
                         if (HasHoverONInput == false)
                         {
-                            // Subscribe to the device change event
-                            //  Keyboard.current.onTextInput += OnTextInput;
                             HasHoverONInput = true;
                             MovementLock.Add(nameof(BasisInputModuleHandler));
                             CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                            if (BasisDeviceManagement.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.CurrentMode == "OpenXRLoader" || ForceKeyboard)
+                            if (BasisDeviceManagement.IsCurrentModeVR || ForceKeyboard)
                             {
                                 if (BasisVirtualKeyboard.HasInstance == false)
                                 {
@@ -167,8 +159,6 @@ namespace Basis.Scripts.UI
             {
                 if (HasHoverONInput)
                 {
-                    // Unsubscribe from the key press event
-                    // Keyboard.current.onTextInput -= OnTextInput;
                     HasHoverONInput = false;
                     CurrentSelectedTMP_InputField = null;
                     CurrentSelectedInputField = null;
