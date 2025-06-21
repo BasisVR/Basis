@@ -65,6 +65,8 @@ namespace BattlePhaze.SettingsManager.Intergrations
         }
         public void ChangeVolume(float Value, string Name)
         {
+            BasisDebug.Log(Name + "set to" + Value)
+                ;
             Mixer.SetFloat(Name, Value);
         }
     }

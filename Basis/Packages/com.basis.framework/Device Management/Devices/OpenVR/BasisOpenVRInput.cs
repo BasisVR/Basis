@@ -82,5 +82,17 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             SteamVR_Actions.default_Haptic.Execute(0, duration, frequency, amplitude, inputSource);
         }
+        public override void PlaySoundEffect(string SoundEffectName, float Volume)
+        {
+            switch (SoundEffectName)
+            {
+                case "hover":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                    break;
+                case "press":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    break;
+            }
+        }
     }
 }

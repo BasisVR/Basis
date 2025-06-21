@@ -34,6 +34,8 @@ namespace Basis.Scripts.Device_Management
         public static BasisFallBackBoneData FBBD;
         public const string ProfilePath = "Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset";
         public static bool IsCurrentModeVR = CurrentMode == "OpenVRLoader" || CurrentMode == "OpenXRLoader";
+        public AudioClip HoverUI;
+        public AudioClip pressUI;
         public string DefaultMode()
         {
             if (IsMobile())

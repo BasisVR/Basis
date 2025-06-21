@@ -24,7 +24,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
             }
             FollowMovement.GetLocalPositionAndRotation(out Vector3 VOut, out Quaternion QOut);
             LocalRawPosition = VOut;
-          Quaternion LocalRawRotation = QOut;
+            Quaternion LocalRawRotation = QOut;
 
             float SPTDS = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
 
@@ -74,7 +74,20 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
         }
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
         {
-            BasisDebug.LogError("Simulate Does not Support haptics!");
+            //  BasisDebug.LogError("Simulate Does not Support haptics!");
+        }
+
+        public override void PlaySoundEffect(string SoundEffectName, float Volume)
+        {
+            switch (SoundEffectName)
+            {
+                case "hover":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                    break;
+                case "press":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    break;
+            }
         }
     }
 }

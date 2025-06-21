@@ -392,6 +392,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public abstract void ShowTrackedVisual();
         public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
+        public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
         public bool UseFallbackModel()
         {
             if (hasRoleAssigned == false)

@@ -74,5 +74,17 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         {
             BasisDebug.LogError("Spatial does not support Haptics Playback");
         }
+        public override void PlaySoundEffect(string SoundEffectName, float Volume)
+        {
+            switch (SoundEffectName)
+            {
+                case "hover":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                    break;
+                case "press":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    break;
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
+using BattlePhaze.SettingsManager.Intergrations;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -246,6 +247,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override void OnInteractStart(BasisInput input)
         {
+            input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume / 80);
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 // same input that was highlighting previously
