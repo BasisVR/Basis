@@ -5,8 +5,6 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
-using static Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation;
-
 public static class BasisHeightDriver
 {
     public static string FileNameAndExtension = "SavedHeight.BAS";
@@ -103,5 +101,28 @@ public static class BasisHeightDriver
     public static void SaveHeight(float EyeHeight)
     {
         BasisDataStore.SaveFloat(EyeHeight, FileNameAndExtension);
+    }
+    /// <summary>
+    /// Manually set and save a custom player height.
+    /// </summary>
+    /// <param name="customHeight">The custom eye height to set for the player.</param>
+    public static void SetCustomPlayerHeight(float customHeight)
+    {
+        if (customHeight <= 0)
+        {
+            BasisDebug.LogError("Invalid custom height. Must be greater than zero.");
+            return;
+        }
+
+        BasisDebug.Log($"Setting custom player eye height: {customHeight}", BasisDebug.LogTag.Avatar);
+
+        BasisLocalPlayer player = BasisLocalPlayer.Instance;
+        player.CurrentHeight.CustomAvatarEyeHeight = customHeight;
+        player.CurrentHeight.CustomPlayerEyeHeight = customHeight;
+
+        SaveHeight(customHeight);
+        SetPlayersEyeHeight(player, BasisSelectedHeightMode.Custom);
+
+        player.OnPlayersHeightChanged?.Invoke();
     }
 }

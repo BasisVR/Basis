@@ -4,5 +4,6 @@ namespace Basis.Scripts.BasisSdk.Players
     {
         ArmSpan,
         EyeHeight,
+        Custom
     }
 }

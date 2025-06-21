@@ -11,6 +11,9 @@ namespace Basis.Scripts.BasisSdk.Players
         public float PlayerArmSpan = BasisLocalPlayer.FallbackSize;
         public float AvatarArmSpan = BasisLocalPlayer.FallbackSize;
 
+        public float CustomPlayerEyeHeight = BasisLocalPlayer.FallbackSize;
+        public float CustomAvatarEyeHeight = BasisLocalPlayer.FallbackSize;
+
         public float EyeRatioPlayerToDefaultScale = 1f;
         public float EyeRatioAvatarToAvatarDefaultScale = 1f; // should be used for the player
 
@@ -24,7 +27,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public float SelectedAvatarToAvatarDefaultScale = 1f;
         public void PickRatio(BasisSelectedHeightMode Height)
         {
-            switch(Height)
+            switch (Height)
             {
                 case BasisSelectedHeightMode.ArmSpan:
                     SelectedPlayerHeight = PlayerArmSpan;
@@ -33,12 +36,19 @@ namespace Basis.Scripts.BasisSdk.Players
                     SelectedPlayerToDefaultScale = ArmRatioPlayerToDefaultScale;
                     SelectedAvatarToAvatarDefaultScale = ArmRatioAvatarToAvatarDefaultScale;
                     break;
-                    case BasisSelectedHeightMode.EyeHeight:
+                case BasisSelectedHeightMode.EyeHeight:
                     SelectedPlayerHeight = PlayerEyeHeight;
                     SelectedAvatarHeight = AvatarEyeHeight;
 
                     SelectedPlayerToDefaultScale = EyeRatioPlayerToDefaultScale;
                     SelectedAvatarToAvatarDefaultScale = EyeRatioAvatarToAvatarDefaultScale;
+                    break;
+                case BasisSelectedHeightMode.Custom:
+                    SelectedPlayerHeight = CustomPlayerEyeHeight;
+                    SelectedAvatarHeight = CustomAvatarEyeHeight;
+
+                    SelectedPlayerToDefaultScale = CustomPlayerEyeHeight;
+                    SelectedAvatarToAvatarDefaultScale = CustomAvatarEyeHeight;
                     break;
             }
         }
@@ -46,13 +56,9 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (target == null)
             {
+                BasisDebug.Log("Missing Target Height Information");
                 return;
             }
-            else
-            {
-                BasisDebug.Log("Missing Target Height Information");
-            }
-
             target.AvatarName = this.AvatarName;
             target.PlayerEyeHeight = this.PlayerEyeHeight;
             target.AvatarEyeHeight = this.AvatarEyeHeight;
@@ -62,6 +68,8 @@ namespace Basis.Scripts.BasisSdk.Players
             target.ArmRatioAvatarToAvatarDefaultScale = this.ArmRatioAvatarToAvatarDefaultScale;
             target.SelectedAvatarHeight = this.SelectedAvatarHeight;
             target.SelectedPlayerHeight = this.SelectedPlayerHeight;
+            target.CustomPlayerEyeHeight = this.CustomPlayerEyeHeight;
+            target.CustomAvatarEyeHeight = this.CustomAvatarEyeHeight;
         }
     }
 }

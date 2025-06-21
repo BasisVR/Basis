@@ -140,7 +140,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 // Clamp rotationY to stay within the specified range
                 rotationY = Mathf.Clamp(rotationY, minimumY, maximumY);
                 Quaternion LocalRawRotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
-                Vector3 adjustedHeadPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight, InjectedZ);
+                Vector3 adjustedHeadPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
                 if (!CrouchingLock)
                 {
                     // adjustment is 0-1 interpolated between configurable normalized minimum and the max avatar height
