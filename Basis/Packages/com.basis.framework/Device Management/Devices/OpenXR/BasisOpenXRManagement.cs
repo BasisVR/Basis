@@ -11,7 +11,7 @@ using UnityEngine.XR.Management;
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {
     [Serializable]
-    public partial class BasisOpenXRManagement : BasisBaseTypeManagement
+    public class BasisOpenXRManagement : BasisBaseTypeManagement
     {
         [SerializeField]
         private List<BasisInput> controls = new List<BasisInput>();
@@ -213,7 +213,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         }
         private void TryAddTracker(InputDevice addedTracker)
         {
-            BasisDebug.Log($"Trying to add tracker: {addedTracker.name}, ID: {addedTracker.deviceId}");
+           // BasisDebug.Log($"Trying to add tracker: {addedTracker.name}, ID: {addedTracker.deviceId}");
 
             if (HTCOpenXRViveTracker.Contains(addedTracker.displayName) && !trackedDevices.ContainsKey(addedTracker.deviceId))
             {
