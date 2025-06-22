@@ -28,6 +28,7 @@ namespace Basis.Scripts.Drivers
         private static string TPose = "Assets/Animator/Animated TPose.controller";
         public Action CalibrationComplete;
         public Action TposeStateChange;
+        [SerializeField]
         public BasisTransformMapping References = new BasisTransformMapping();
         public RuntimeAnimatorController SavedruntimeAnimatorController;
         public SkinnedMeshRenderer[] SkinnedMeshRenderer;
@@ -72,6 +73,7 @@ namespace Basis.Scripts.Drivers
         {
             FindSkinnedMeshRenders();
             BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Avatar.transform, ref References);
+            References.RecordPoses(Player.BasisAvatar.Animator);
             Player.FaceIsVisible = false;
             if (Avatar == null)
             {
@@ -335,6 +337,10 @@ namespace Basis.Scripts.Drivers
                     }
                 }
             }
+        }
+        public bool GetBonePositionRotation(Animator anim, HumanBodyBones bone)
+        {
+           return anim.GetBoneTransform(bone);
         }
         public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
         {

@@ -18,7 +18,7 @@ namespace BasisNetworkServer.Security
         private static readonly ConcurrentDictionary<string, BannedPlayer> BannedPlayers = new ConcurrentDictionary<string, BannedPlayer>();
         private static readonly HashSet<string> BannedUUIDs = new();
         private static readonly string BanFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "banned_players.xml");
-
+        public static bool UseFileOnDisc = true;
         public class BannedPlayer
         {
             public string UUID { get; set; }
@@ -51,8 +51,11 @@ namespace BasisNetworkServer.Security
         {
             try
             {
-                using FileStream fs = new(BanFilePath, FileMode.Create);
-                new XmlSerializer(typeof(List<BannedPlayer>)).Serialize(fs, BannedPlayers.Values.ToList());
+                if (UseFileOnDisc)
+                {
+                    using FileStream fs = new(BanFilePath, FileMode.Create);
+                    new XmlSerializer(typeof(List<BannedPlayer>)).Serialize(fs, BannedPlayers.Values.ToList());
+                }
             }
             catch (Exception ex)
             {
@@ -68,10 +71,13 @@ namespace BasisNetworkServer.Security
             }
             try
             {
-                using FileStream fs = new(BanFilePath, FileMode.Open);
-                var serializer = new XmlSerializer(typeof(List<BannedPlayer>));
-                var loadedList = (List<BannedPlayer>)serializer.Deserialize(fs);
-
+                List<BannedPlayer> loadedList = new List<BannedPlayer>();
+                if (UseFileOnDisc)
+                {
+                    using FileStream fs = new(BanFilePath, FileMode.Open);
+                    var serializer = new XmlSerializer(typeof(List<BannedPlayer>));
+                    loadedList = (List<BannedPlayer>)serializer.Deserialize(fs);
+                }
                 BannedPlayers.Clear();
                 BannedUUIDs.Clear();
 

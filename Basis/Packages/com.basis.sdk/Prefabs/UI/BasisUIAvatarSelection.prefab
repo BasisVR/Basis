@@ -597,7 +597,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &3843996678262047675
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -641,10 +641,9 @@ MonoBehaviour:
   preLoadedBundles:
   - UnlockPassword: LoadingAvatar
     BasisRemoteBundleEncrypted:
-      IsLocal: 1
-      CombinedURL: LoadingAvatar
+      RemoteBeeFileLocation: LoadingAvatar
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: LoadingAvatar
+      DownloadedBeeFileLocation: LoadingAvatar
     BasisBundleConnector:
       UniqueVersion: LoadingAvatar
       BasisBundleDescription:
@@ -653,10 +652,9 @@ MonoBehaviour:
       BasisBundleGenerated: []
   - UnlockPassword: 020bbc7e5979ad17c76861d3cd7d1852796f4f0892be6b7b1d3e117eb58901b6
     BasisRemoteBundleEncrypted:
-      IsLocal: 1
-      CombinedURL: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1342fd73ce5d4bd9a8344e373c5b7d9020250301.BEE
+      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1342fd73ce5d4bd9a8344e373c5b7d9020250301.BEE
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1342fd73ce5d4bd9a8344e373c5b7d9020250301.BEE
+      DownloadedBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1342fd73ce5d4bd9a8344e373c5b7d9020250301.BEE
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -665,10 +663,9 @@ MonoBehaviour:
       BasisBundleGenerated: []
   - UnlockPassword: ec41ae12e3ad75e9c560c39b2f0891b0b95097e85d5ae4ad7beaabad7094f46e
     BasisRemoteBundleEncrypted:
-      IsLocal: 1
-      CombinedURL: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
+      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
+      DownloadedBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -689,10 +686,9 @@ MonoBehaviour:
   SelectedBundle:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:

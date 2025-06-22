@@ -1,15 +1,55 @@
-using UnityEditor;
 using UnityEngine;
+using UnityEditor;
 using Basis.Scripts.BasisSdk.Players;
-using System.Threading.Tasks;
 
-public class BasisHeightEditor : Editor
+public class BasisHeightEditorWindow : EditorWindow
 {
-    // Menu item for recalculating the player's eye height
-    [MenuItem("Basis/Height/Recalculate Player Eye Height")]
-    public static void RecalculatePlayerEyeHeight()
+    private float customHeight = 1.7f; // Default custom height input
+
+    [MenuItem("Basis/Height/Height Editor Window")]
+    public static void ShowWindow()
     {
-        // Get the local player instance
+        GetWindow<BasisHeightEditorWindow>("Basis Height Tools");
+    }
+
+    private void OnGUI()
+    {
+        GUILayout.Label("Basis Player Height Tools", EditorStyles.boldLabel);
+        GUILayout.Space(10);
+
+        if (GUILayout.Button("Recalculate Player Eye Height"))
+        {
+            RecalculatePlayerEyeHeight();
+        }
+
+        if (GUILayout.Button("Capture Player Height"))
+        {
+            CapturePlayerHeight();
+        }
+
+        if (GUILayout.Button("Get Default or Load Player Height"))
+        {
+            GetDefaultOrLoadPlayerHeight();
+        }
+
+        if (GUILayout.Button("Save Player Height"))
+        {
+            SavePlayerHeight();
+        }
+
+        GUILayout.Space(20);
+        GUILayout.Label("Custom Height", EditorStyles.boldLabel);
+
+        customHeight = EditorGUILayout.FloatField("Custom Eye Height", customHeight);
+
+        if (GUILayout.Button("Set Custom Player Height"))
+        {
+            SetCustomPlayerHeight(customHeight);
+        }
+    }
+
+    private static void RecalculatePlayerEyeHeight()
+    {
         BasisLocalPlayer basisPlayer = BasisLocalPlayer.Instance;
 
         if (basisPlayer == null)
@@ -18,33 +58,24 @@ public class BasisHeightEditor : Editor
             return;
         }
 
-        // Call the method from the BasisHeightDriver class
-        BasisHeightDriver.SetPlayersEyeHeight(basisPlayer, BasisLocalHeightInformation.BasisSelectedHeightMode.EyeHeight);
+        BasisHeightDriver.SetPlayersEyeHeight(basisPlayer, BasisSelectedHeightMode.EyeHeight);
         BasisDebug.Log("Player eye height recalculated successfully.");
     }
 
-    // Menu item for capturing the player's height
-    [MenuItem("Basis/Height/Capture Player Height")]
-    public static void CapturePlayerHeight()
+    private static void CapturePlayerHeight()
     {
-        // Call the CapturePlayerHeight method from the BasisHeightDriver class
         BasisHeightDriver.CapturePlayerHeight();
         BasisDebug.Log("Player height captured successfully.");
     }
 
-    // Menu item for loading or getting default player height
-    [MenuItem("Basis/Height/Get Default or Load Player Height")]
-    public static void GetDefaultOrLoadPlayerHeight()
+    private static void GetDefaultOrLoadPlayerHeight()
     {
         float height = BasisHeightDriver.GetDefaultOrLoadPlayerHeight();
         BasisDebug.Log($"Loaded or default player height: {height}");
     }
 
-    // Menu item for saving player height
-    [MenuItem("Basis/Height/Save Player Height")]
-    public static void SavePlayerHeight()
+    private static void SavePlayerHeight()
     {
-        // Get the local player instance to retrieve the eye height
         BasisLocalPlayer basisPlayer = BasisLocalPlayer.Instance;
 
         if (basisPlayer == null)
@@ -53,8 +84,12 @@ public class BasisHeightEditor : Editor
             return;
         }
 
-        // Save the current player height
         BasisHeightDriver.SaveHeight(basisPlayer.CurrentHeight.SelectedPlayerHeight);
         BasisDebug.Log($"Player height saved: {basisPlayer.CurrentHeight.SelectedPlayerHeight}");
+    }
+
+    private static void SetCustomPlayerHeight(float customHeight)
+    {
+        BasisHeightDriver.SetCustomPlayerHeight(customHeight);
     }
 }

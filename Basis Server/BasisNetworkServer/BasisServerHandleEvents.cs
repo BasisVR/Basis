@@ -2,7 +2,6 @@ using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
 using BasisNetworkCore;
-using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkMessageProcessor;
 using BasisNetworkServer.Security;
 using LiteNetLib;
@@ -11,7 +10,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static SerializableBasis;
@@ -232,6 +230,7 @@ namespace BasisServerHandle
                 SendRemoteSpawnMessage(newPeer, ReadyMessage);
 
                 BasisNetworkResourceManagement.SendOutAllResources(newPeer);
+                BasisNetworkOwnership.SendOutOwnershipInformation(newPeer);
             }
             else
             {
@@ -261,6 +260,8 @@ namespace BasisServerHandle
         {
             OnAuthReceived?.Invoke(Reader, Peer);
         }
+        public static ServerEventHandler OnServerReceived;
+        public delegate void ServerEventHandler(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod);
         #region Avatar and Voice Handling
         public static void SendAvatarMessageToClients(NetPacketReader Reader, NetPeer Peer)
         {

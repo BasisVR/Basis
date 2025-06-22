@@ -629,7 +629,8 @@ MonoBehaviour:
   RightMousePressed: {fileID: -240064975923332847, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  basisLocalPlayer: {fileID: 0}
+  MouseSensitivity: 1
+  JoystickSensitivity: 1
   Input: {fileID: 297858091515769489}
   InputState:
     gripButton: 0
@@ -688,7 +689,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Actions: {fileID: -944628639613478452, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  m_NotificationBehavior: 0
+  m_NotificationBehavior: 3
   m_UIInputModule: {fileID: 0}
   m_DeviceLostEvent:
     m_PersistentCalls:
@@ -1646,7 +1647,7 @@ MonoBehaviour:
       DefaultPlatform: 0
       ExcludePlatform: 0
       ValueToggle: 0
-      EditorVisable: 0
+      EditorVisable: 1
     SupportedRenderPipeline: 030000000400000000000000
     Round: 1
     RoundTo: 0
@@ -1717,7 +1718,7 @@ MonoBehaviour:
     Name: Player Volume
     ValueDescriptor: 100%
     SelectedValueDefault: 50
-    ValueDefault: 70
+    ValueDefault: 80
     Explanation: 
     selectedValue: 80
     Type: 3
@@ -2461,21 +2462,21 @@ MonoBehaviour:
     Index: 21
     SelectableValueList: []
     Min: 0
-    Max: 0
+    Max: 80
   - Name: World Volume
     DefaultValue: 50
     SelectedValue: 55
     Index: 22
     SelectableValueList: []
     Min: 0
-    Max: 0
+    Max: 80
   - Name: Player Volume
     DefaultValue: 50
     SelectedValue: 80
     Index: 23
     SelectableValueList: []
     Min: 0
-    Max: 0
+    Max: 80
   - Name: Microphone Volume
     DefaultValue: 1
     SelectedValue: 1
@@ -2632,7 +2633,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FireOffNetwork: 1
   BakedInCommandLineArgs: []
-  CurrentMode: None
+  HoverUI: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
+  pressUI: {fileID: 8300000, guid: fa511589a725a1a4c98781edd2f0f176, type: 3}
   BasisDeviceNameMatcher: {fileID: 11400000, guid: 9b8e3db83cb310c40afaa430d0071a18, type: 2}
   AllInputDevices:
     _list: []
@@ -2675,6 +2677,24 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e66a79eb227d0d448870a4e95dc14eeb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  controls: []
+  Trackers: []
+  HTCOpenXRViveTracker:
+  - HTC Vive Tracker (OpenXR)
+  CommonUsagesWeAccept:
+  - Left Foot
+  - Right Foot
+  - Left Shoulder
+  - Right Shoulder
+  - Left Elbow
+  - Right Elbow
+  - Left Knee
+  - Right Knee
+  - Waist
+  - Chest
+  - Camera
+  - Keyboard
+  trackerscount: 0
 --- !u!114 &508802122937325065
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2735,10 +2755,9 @@ MonoBehaviour:
   DefaultScene:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -2748,10 +2767,9 @@ MonoBehaviour:
   DefaultAvatar:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:

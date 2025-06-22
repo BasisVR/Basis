@@ -87,12 +87,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.llealloo.audiolink": {
-      "version": "file:com.llealloo.audiolink",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.meta.xr.sdk.core": {
       "version": "72.0.0",
       "depth": 0,
@@ -131,7 +125,7 @@
       "dependencies": {}
     },
     "com.unity.addressables": {
-      "version": "2.4.6",
+      "version": "2.6.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -141,7 +135,7 @@
         "com.unity.modules.jsonserialize": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",
         "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.scriptablebuildpipeline": "2.3.8",
+        "com.unity.scriptablebuildpipeline": "2.4.0",
         "com.unity.modules.unitywebrequestassetbundle": "1.0.0"
       },
       "url": "https://packages.unity.com"
@@ -163,6 +157,19 @@
       "dependencies": {
         "com.unity.mathematics": "1.2.1",
         "com.unity.modules.jsonserialize": "1.0.0"
+      },
+      "url": "https://packages.unity.com"
+    },
+    "com.unity.cloud.gltfast": {
+      "version": "6.13.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.burst": "1.8.4",
+        "com.unity.collections": "1.2.4",
+        "com.unity.mathematics": "1.2.6",
+        "com.unity.modules.jsonserialize": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
@@ -296,7 +303,7 @@
       }
     },
     "com.unity.scriptablebuildpipeline": {
-      "version": "2.3.8",
+      "version": "2.4.0",
       "depth": 1,
       "source": "registry",
       "dependencies": {

@@ -27,12 +27,15 @@ namespace Basis.Scripts.Device_Management
         public const string InvalidConst = "Invalid";
         public string[] BakedInCommandLineArgs = new string[] { };
         public static string NetworkManagement = "NetworkManagement";
-        public string CurrentMode = "None";
+        public static string CurrentMode = "None";
         [SerializeField]
         public const string Desktop = "Desktop";
         public static string BoneData = "Assets/ScriptableObjects/BoneData.asset";
         public static BasisFallBackBoneData FBBD;
         public const string ProfilePath = "Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset";
+        public static bool IsCurrentModeVR = CurrentMode == "OpenVRLoader" || CurrentMode == "OpenXRLoader";
+        public AudioClip HoverUI;
+        public AudioClip pressUI;
         public string DefaultMode()
         {
             if (IsMobile())
@@ -56,11 +59,7 @@ namespace Basis.Scripts.Device_Management
         /// <returns></returns>
         public static bool IsUserInDesktop()
         {
-            if (BasisDeviceManagement.Instance == null)
-            {
-                return false;
-            }
-            if (Desktop == BasisDeviceManagement.Instance.CurrentMode)
+            if (Desktop == BasisDeviceManagement.CurrentMode)
             {
                 return true;
             }
@@ -83,11 +82,14 @@ namespace Basis.Scripts.Device_Management
         [SerializeField]
         public List<BasisStoredPreviousDevice> PreviouslyConnectedDevices = new List<BasisStoredPreviousDevice>();
         [SerializeField]
-        public List<BasisDeviceMatchSettings> UseAbleDeviceConfigs = new List<BasisDeviceMatchSettings>();
+        public List<DeviceSupportInformation> UseAbleDeviceConfigs = new List<DeviceSupportInformation>();
         [SerializeField]
         public BasisLocalInputActions InputActions;
         public static AsyncOperationHandle<BasisFallBackBoneData> BasisFallBackBoneDataAsync;
         public static AsyncOperationHandle<uLipSync.Profile> LipSyncProfile;
+        public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
+        public static volatile bool hasPendingActions = false;
+        public static Action OnDeviceManagementLoop;
         async void Start()
         {
             if (BasisHelpers.CheckInstance<BasisDeviceManagement>(Instance))
@@ -323,7 +325,7 @@ namespace Basis.Scripts.Device_Management
         }
         public static void SwitchSetMode(string Mode)
         {
-            if (Instance != null && Mode != Instance.CurrentMode)
+            if (Instance != null && Mode != CurrentMode)
             {
                 Instance.SwitchMode(Mode);
             }
@@ -335,15 +337,15 @@ namespace Basis.Scripts.Device_Management
         public void SetCameraRenderState(bool state)
         {
             BasisLocalCameraDriver.Instance.CameraData.allowXRRendering = state;
-            if (state)
-            {
-                BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.Both;
-            }
-            else
-            {
-                BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
-            }
-            BasisDebug.Log("Stero Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
+            // if (state)
+            //{
+            //  BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.Both;
+            // }
+            //else
+            //{
+            //  BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
+            //}
+            // BasisDebug.Log("Stereo Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
         }
         public static void ShowTrackersAsync()
         {
@@ -541,7 +543,5 @@ namespace Basis.Scripts.Device_Management
             mainThreadActions.Enqueue(action);
             hasPendingActions = true;
         }
-        public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
-        public static volatile bool hasPendingActions = false;
     }
 }

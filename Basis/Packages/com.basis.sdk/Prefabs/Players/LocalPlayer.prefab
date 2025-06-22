@@ -331,7 +331,6 @@ MonoBehaviour:
   UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.6745098}
   MutedColor: {r: 1, g: 0, b: 0, a: 0.6784314}
   LocalIsTransmitting: 0
-  IsNormalHead: 0
 --- !u!114 &3806033592985501336
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -462,18 +461,31 @@ MonoBehaviour:
   m_GameObject: {fileID: 7399882423328331619}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b2ca35de189490844b1d7864bc416ffb, type: 3}
+  m_Script: {fileID: 11500000, guid: e74417ab1ea45f547b6134fbd0adc60d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  raycastDistance: 1
+  IgnoreRaycasting:
+    serializedVersion: 2
+    m_Bits: 4
+  ignoreRaycastLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  playerLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  LocalPlayerAvatar:
+    serializedVersion: 2
+    m_Bits: 0
+  raycastDistance: 5
   hoverRadius: 0.5
+  OnlySortClosest: 1
   InteractInputs: []
   LineMaterial: {fileID: 0}
   interactLineWidth: 0.015
   renderInteractLines: 1
   InteractableLayerMask:
     serializedVersion: 2
-    m_Bits: 289
+    m_Bits: 0
 --- !u!1 &8538648612911191307
 GameObject:
   m_ObjectHideFlags: 0
@@ -533,10 +545,9 @@ MonoBehaviour:
   AvatarMetaData:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -604,13 +615,114 @@ MonoBehaviour:
     SelectedAvatarHeight: 1.7
     SelectedPlayerToDefaultScale: 1
     SelectedAvatarToAvatarDefaultScale: 1
-  CameraDriver: {fileID: 22857711927985140}
+  LocalCameraDriver: {fileID: 22857711927985140}
   LocalBoneDriver:
     ControlsLength: 0
     Controls: []
     trackedRoles: 
     HasControls: 0
   LocalAvatarDriver:
+    References:
+      AnimatorRoot: {fileID: 0}
+      HasAnimatorRoot: 0
+      Hips: {fileID: 0}
+      HasHips: 0
+      spine: {fileID: 0}
+      Hasspine: 0
+      chest: {fileID: 0}
+      Haschest: 0
+      Upperchest: {fileID: 0}
+      HasUpperchest: 0
+      neck: {fileID: 0}
+      Hasneck: 0
+      head: {fileID: 0}
+      Hashead: 0
+      LeftEye: {fileID: 0}
+      HasLeftEye: 0
+      RightEye: {fileID: 0}
+      HasRightEye: 0
+      leftShoulder: {fileID: 0}
+      HasleftShoulder: 0
+      leftUpperArm: {fileID: 0}
+      HasleftUpperArm: 0
+      leftLowerArm: {fileID: 0}
+      HasleftLowerArm: 0
+      leftHand: {fileID: 0}
+      HasleftHand: 0
+      RightShoulder: {fileID: 0}
+      HasRightShoulder: 0
+      RightUpperArm: {fileID: 0}
+      HasRightUpperArm: 0
+      RightLowerArm: {fileID: 0}
+      HasRightLowerArm: 0
+      rightHand: {fileID: 0}
+      HasrightHand: 0
+      LeftUpperLeg: {fileID: 0}
+      HasLeftUpperLeg: 0
+      LeftLowerLeg: {fileID: 0}
+      HasLeftLowerLeg: 0
+      leftFoot: {fileID: 0}
+      HasleftFoot: 0
+      leftToes: {fileID: 0}
+      HasleftToes: 0
+      RightUpperLeg: {fileID: 0}
+      HasRightUpperLeg: 0
+      RightLowerLeg: {fileID: 0}
+      HasRightLowerLeg: 0
+      rightFoot: {fileID: 0}
+      HasrightFoot: 0
+      rightToes: {fileID: 0}
+      HasrightToes: 0
+      LeftThumb:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftThumb: 000000
+      LeftIndex:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftIndex: 000000
+      LeftMiddle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftMiddle: 000000
+      LeftRing:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftRing: 000000
+      LeftLittle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftLittle: 000000
+      RightThumb:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightThumb: 000000
+      RightIndex:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightIndex: 000000
+      RightMiddle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightMiddle: 000000
+      RightRing:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightRing: 000000
+      RightLittle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightLittle: 000000
     SavedruntimeAnimatorController: {fileID: 0}
     SkinnedMeshRenderer: []
     Player: {fileID: 0}
@@ -676,18 +788,19 @@ MonoBehaviour:
     MaxExtendedDistance: 0
     AvatarUPDownDirectionCalibration: {x: 0, y: 0, z: 0}
   LocalCharacterDriver:
+    LocalPlayer: {fileID: 4587526044252889482}
     characterController: {fileID: 5548795088377030369}
-    bottomPointLocalspace: {x: 0, y: 0, z: 0}
-    LastbottomPoint: {x: 0, y: 0, z: 0}
+    bottomPointLocalSpace: {x: 0, y: 0, z: 0}
+    LastBottomPoint: {x: 0, y: 0, z: 0}
     groundedPlayer: 0
-    FastestRunSpeed: 4
-    SlowestPlayerSpeed: 0.5
+    MaximumMovementSpeed: 4
+    DefaultMovementSpeed: 2.5
+    MinimumMovementSpeed: 0.5
+    MinimumCrouchPercent: 0.5
     gravityValue: -9.81
     RaycastDistance: 0.2
     MinimumColliderSize: 0.01
-    MovementVector: {x: 0, y: 0}
     LastWasGrounded: 1
-    BlockMovement: 0
     IsFalling: 0
     HasJumpAction: 0
     jumpHeight: 1
@@ -699,9 +812,11 @@ MonoBehaviour:
     CurrentPosition: {x: 0, y: 0, z: 0}
     CurrentRotation: {x: 0, y: 0, z: 0, w: 0}
     Flags: 0
-    SpeedMultiplier: 0.5
-    CurrentSpeed: 0
+    <MovementSpeedScale>k__BackingField: 0
+    <MovementSpeedBoost>k__BackingField: 0
+    CrouchBlend: 1
     IsEnabled: 1
+    CurrentSpeed: 0
   LocalAnimatorDriver:
     basisAnimatorVariableApply:
       Animator: {fileID: 0}
@@ -710,6 +825,7 @@ MonoBehaviour:
         HashCurrentVerticalMovement: 0
         HashCurrentSpeed: 0
         HashCrouchedState: 0
+        HashCrouchBlend: 0
         HashMovingState: 0
         IsPaused: 0
         HashIsJumping: 0
@@ -717,6 +833,7 @@ MonoBehaviour:
         HashIsLanding: 0
       BasisAnimatorVariables:
         cachedAnimSpeed: 0
+        cachedCrouchBlend: 0
         cachedHorizontalMovement: 0
         cachedVerticalMovement: 0
         cachedIsMoving: 0
@@ -726,15 +843,17 @@ MonoBehaviour:
         IsJumping: 0
         IsFalling: 0
         IsCrouching: 0
+        CrouchBlend: 0
         AnimationsCurrentSpeed: 0
         isMoving: 0
         AngularVelocity: {x: 0, y: 0, z: 0}
         Velocity: {x: 0, y: 0, z: 0}
       IsStopped: 0
     Animator: {fileID: 0}
-    LargerThenVelocityCheck: 0.01
+    StationaryVelocityThreshold: 0.01
     LargerThenVelocityCheckRotation: 0.03
     ScaleMovementBy: 1
+    CrouchThreshold: 0.35
     dampeningFactor: 6
     AngularDampingFactor: 30
     currentVelocity: {x: 0, y: 0, z: 0}
@@ -754,8 +873,8 @@ MonoBehaviour:
     hipsDifferenceQ: {x: 0, y: 0, z: 0, w: 1}
     smoothFactor: 30
     smoothedRotation: {x: 0, y: 0, z: 0, w: 0}
-  LocalMuscleDriver:
-    RestingOnePoseData:
+  LocalHandDriver:
+    Current:
       LeftThumb: []
       LeftIndex: []
       LeftMiddle: []
@@ -766,18 +885,6 @@ MonoBehaviour:
       RightMiddle: []
       RightRing: []
       RightLittle: []
-    CurrentOnPoseData:
-      LeftThumb: []
-      LeftIndex: []
-      LeftMiddle: []
-      LeftRing: []
-      LeftLittle: []
-      RightThumb: []
-      RightIndex: []
-      RightMiddle: []
-      RightRing: []
-      RightLittle: []
-    increment: 0.2
     LeftThumb: []
     LeftIndex: []
     LeftMiddle: []
@@ -788,13 +895,13 @@ MonoBehaviour:
     RightMiddle: []
     RightRing: []
     RightLittle: []
-    LeftFinger:
+    LeftHand:
       ThumbPercentage: {x: 0, y: 0}
       IndexPercentage: {x: 0, y: 0}
       MiddlePercentage: {x: 0, y: 0}
       RingPercentage: {x: 0, y: 0}
       LittlePercentage: {x: 0, y: 0}
-    RightFinger:
+    RightHand:
       ThumbPercentage: {x: 0, y: 0}
       IndexPercentage: {x: 0, y: 0}
       MiddlePercentage: {x: 0, y: 0}
@@ -810,7 +917,6 @@ MonoBehaviour:
     LastRightMiddlePercentage: {x: -1.1, y: -1.1}
     LastRightRingPercentage: {x: -1.1, y: -1.1}
     LastRightLittlePercentage: {x: -1.1, y: -1.1}
-    CoordKeys: []
     LeftThumbAdditional:
       PoseData:
         LeftThumb: []
@@ -942,9 +1048,8 @@ MonoBehaviour:
         RightLittle: []
       Coord: {x: 0, y: 0}
     LerpSpeed: 17
-    allHasProximal: 
-    allTransforms: []
-  BasisLocalEyeDriver:
+    Poses: []
+  LocalEyeDriver:
     leftEyeInitialRotation:
       value:
         x: 0

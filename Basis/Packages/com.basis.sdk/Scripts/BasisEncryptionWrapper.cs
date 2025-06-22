@@ -21,21 +21,14 @@ public static class BasisEncryptionWrapper
         }
         finally
         {
-            reportProgress.ReportProgress(UniqueID, 100, "Failure");
+            reportProgress?.ReportProgress(UniqueID, 100, "Failure");
         }
     }
 
     public static async Task<byte[]> DecryptDataAsync(string UniqueID, byte[] dataToDecrypt, BasisPassword Randomizedpassword, BasisProgressReport reportProgress = null)
     {
-        try
-        {
-            var decryptedData = await Task.Run(async () => await Decrypt(UniqueID, Randomizedpassword.VP, dataToDecrypt,reportProgress)); // Run decryption on a separate thread
-            return decryptedData.Item1;
-        }
-        finally
-        {
-            reportProgress.ReportProgress(UniqueID, 100, "Failure");
-        }
+        (byte[], byte[], byte[]) decryptedData = await Task.Run(async () => await Decrypt(UniqueID, Randomizedpassword.VP, dataToDecrypt, reportProgress)); // Run decryption on a separate thread
+        return decryptedData.Item1;
     }
 
     private static async Task<byte[]> Encrypt(string UniqueID, BasisPassword password, byte[] dataToEncrypt, BasisProgressReport reportProgress = null)

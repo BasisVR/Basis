@@ -2,17 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Behaviour;
 using LiteNetLib;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Feature Networking")]
-    public class FeatureNetworking : MonoBehaviour
+    public class FeatureNetworking : BasisAvatarMonoBehaviour
     {
         public const byte NegotiationPacket = 255;
         public const byte ReservedPacket = 254;
-        
+
         public const byte ReservedPacket_RemoteRequestsInitializationMessage = 0;
 
         public delegate void InterpolatedDataChanged(float[] current);
@@ -21,12 +22,12 @@ namespace HVR.Basis.Comms
         public delegate void ResyncEveryoneRequested();
 
         [SerializeField] private FeatureNetPairing[] netPairings = new FeatureNetPairing[0]; // Unsafe: May contain malformed GUIDs, or null components, or non-networkable components.
-        [HideInInspector] [SerializeField] private BasisAvatar avatar;
+        [HideInInspector][SerializeField] private BasisAvatar avatar;
 
         private Dictionary<Guid, ICommsNetworkable> _guidToNetworkable;
         private Guid[] _orderedGuids;
         private byte[] _negotiationPacket;
-        
+
         private IFeatureReceiver[] _featureHandles; // May contain null values if the corresponding Feature fails to initialize. Iterate defensively
         private GameObject _holder;
         private bool _isWearer;
@@ -39,7 +40,7 @@ namespace HVR.Basis.Comms
             {
                 avatar.gameObject.AddComponent<HVRAvatarComms>();
             }
-            
+
             var rand = new System.Random();
             var safeNetPairings = netPairings
                 .Where(pairing => Guid.TryParse(pairing.guid, out _))
@@ -69,10 +70,10 @@ namespace HVR.Basis.Comms
                 // The order of the list of pairings should not matter between clients because of the Negotiation packet.
                 .OrderBy(_ => rand.Next())
                 .ToArray();
-            
+
             _guidToNetworkable = safeNetPairings.ToDictionary(pairing => new Guid(pairing.guid), pairing => (ICommsNetworkable)pairing.component);
             _orderedGuids = safeNetPairings.Select(pairing => new Guid(pairing.guid)).ToArray();
-            _negotiationPacket = new [] { NegotiationPacket }
+            _negotiationPacket = new[] { NegotiationPacket }
                 .Concat(safeNetPairings.SelectMany(pairing => new Guid(pairing.guid).ToByteArray()))
                 .ToArray();
             _remoteRequestsInitializationPacket = new[] { ReservedPacket, ReservedPacket_RemoteRequestsInitializationMessage };
@@ -105,7 +106,7 @@ namespace HVR.Basis.Comms
             streamed.avatar = avatar;
             streamed.valueArraySize = (byte)count; // TODO: Sanitize count to be within bounds
             _holder.SetActive(true);
-            
+
             var handle = new FeatureInterpolator(this, guidIndex, streamed, interpolatedDataChanged);
             streamed.OnInterpolatedDataChanged += handle.OnInterpolatedDataChanged;
             streamed.SetEncodingInfo(_isWearer, (byte)guidIndex); // TODO: Make sure upstream that guidIndex is within limits
@@ -115,7 +116,7 @@ namespace HVR.Basis.Comms
 
         public FeatureEvent NewEventDriven(int guidIndex, EventReceived eventReceived, ResyncRequested resyncRequested, ResyncEveryoneRequested resyncEveryoneRequested)
         {
-            var handle = new FeatureEvent(this, guidIndex, eventReceived, resyncRequested, resyncEveryoneRequested, avatar);
+            var handle = new FeatureEvent(this,this, guidIndex, eventReceived, resyncRequested, resyncEveryoneRequested, avatar);
             _featureHandles[guidIndex] = handle;
             return handle;
         }
@@ -143,7 +144,7 @@ namespace HVR.Basis.Comms
             {
                 var guid = _orderedGuids[index];
                 var networkable = _guidToNetworkable[guid];
-                
+
                 networkable.OnGuidAssigned(index, guid);
             }
         }
@@ -187,6 +188,18 @@ namespace HVR.Basis.Comms
                 }
             }
         }
+
+        public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
+        {
+        }
+
+        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+        {
+        }
+
+        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
+        {
+        }
     }
 
     public class FeatureEvent : IFeatureReceiver
@@ -199,8 +212,9 @@ namespace HVR.Basis.Comms
         private readonly FeatureNetworking.ResyncRequested _resyncRequested;
         private readonly FeatureNetworking.ResyncEveryoneRequested _resyncEveryoneRequested;
         private readonly BasisAvatar _avatar;
+        private readonly BasisAvatarMonoBehaviour _basisAvatarMonoBehaviour;
 
-        public FeatureEvent(FeatureNetworking featureNetworking, int guidIndex, FeatureNetworking.EventReceived eventReceived, FeatureNetworking.ResyncRequested resyncRequested, FeatureNetworking.ResyncEveryoneRequested resyncEveryoneRequested, BasisAvatar avatar)
+        public FeatureEvent(BasisAvatarMonoBehaviour MonoBehaviour,FeatureNetworking featureNetworking, int guidIndex, FeatureNetworking.EventReceived eventReceived, FeatureNetworking.ResyncRequested resyncRequested, FeatureNetworking.ResyncEveryoneRequested resyncEveryoneRequested, BasisAvatar avatar)
         {
             _featureNetworking = featureNetworking;
             _guidIndex = guidIndex;
@@ -208,8 +222,8 @@ namespace HVR.Basis.Comms
             _resyncRequested = resyncRequested;
             _resyncEveryoneRequested = resyncEveryoneRequested;
             _avatar = avatar;
+            _basisAvatarMonoBehaviour = MonoBehaviour;
         }
-
         public void Unregister()
         {
             _featureNetworking.Unregister(_guidIndex);
@@ -253,15 +267,14 @@ namespace HVR.Basis.Comms
 
             if (whoAskedNullable == null || whoAskedNullable.Length == 0)
             {
-                _avatar.ServerReductionSystemMessageSend(HVRAvatarComms.OurMessageIndex, buffer);
+                _basisAvatarMonoBehaviour.ServerReductionSystemMessageSend(buffer);
             }
             else
             {
-                _avatar.NetworkMessageSend(HVRAvatarComms.OurMessageIndex, buffer, DeliveryMethod, whoAskedNullable);
+                _basisAvatarMonoBehaviour.NetworkMessageSend(buffer, DeliveryMethod, whoAskedNullable);
             }
         }
     }
-
     public class FeatureInterpolator : IFeatureReceiver
     {
         private readonly FeatureNetworking _featureNetworking;

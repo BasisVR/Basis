@@ -3,6 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
+using BattlePhaze.SettingsManager.Intergrations;
 using System.Collections;
 using TMPro;
 using UnityEngine;
@@ -27,6 +28,7 @@ namespace Basis.Scripts.UI.NamePlate
         private WaitForEndOfFrame cachedEndOfFrame;
         public Color CurrentColor;
         public Transform Self;
+        public float InteractRange = 2f;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -198,23 +200,21 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override bool CanHover(BasisInput input)
         {
-            return !DisableInfluence &&
-                !IsPuppeted &&
+            return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
                 found.GetState() == InteractInputState.Ignored &&
-                IsWithinRange(found.BoneControl.OutgoingWorldData.position);
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
         public override bool CanInteract(BasisInput input)
         {
-            return !DisableInfluence &&
-                !IsPuppeted &&
+            return InteractableEnabled &&
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
                 found.GetState() == InteractInputState.Hovering &&
-                IsWithinRange(found.BoneControl.OutgoingWorldData.position);
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
 
         public override void OnHoverStart(BasisInput input)
@@ -247,6 +247,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public override void OnInteractStart(BasisInput input)
         {
+            input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume / 80);
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 // same input that was highlighting previously
@@ -309,7 +310,7 @@ namespace Basis.Scripts.UI.NamePlate
         public override bool IsInteractTriggered(BasisInput input)
         {
             // click or mostly triggered
-            return input.InputState.Trigger >= 0.9;
+            return input.CurrentInputState.Trigger >= 0.9;
         }
     }
 }

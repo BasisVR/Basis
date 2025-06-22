@@ -173,9 +173,9 @@ PlayerSettings:
     VisionOS: 0
     iPhone: 0
     tvOS: 0
-  overrideDefaultApplicationIdentifier: 0
-  AndroidBundleVersionCode: 38
-  AndroidMinSdkVersion: 29
+  overrideDefaultApplicationIdentifier: 1
+  AndroidBundleVersionCode: 44
+  AndroidMinSdkVersion: 32
   AndroidTargetSdkVersion: 32
   AndroidPreferredInstallLocation: 0
   aotOptions: 
@@ -496,7 +496,11 @@ PlayerSettings:
   - m_BuildTarget: Android
     m_StaticBatching: 0
     m_DynamicBatching: 0
-  m_BuildTargetShaderSettings: []
+  m_BuildTargetShaderSettings:
+  - m_BuildTarget: Standalone
+    m_ChunkSizeInMB: 16
+    m_MaxChunks: 0
+    m_OverrideDefaultSettings: 0
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: AndroidPlayer
     m_GraphicsJobs: 1
@@ -804,14 +808,14 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Android: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;AUDIOLINK;AUDIOLINK_V1
+    Android: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;AUDIOLINK;AUDIOLINK_V1;BASIS_FRAMEWORK_EXISTS
     EmbeddedLinux: 
     LinuxHeadlessSimulation: 
     Nintendo Switch: 
     PS4: 
     QNX: 
     Server: 
-    Standalone: STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;BASIS_OPENVR_SUPPORTED;AUDIOLINK;AUDIOLINK_V1;SETTINGS_MANAGER_UNIVERSAL
+    Standalone: STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;BASIS_OPENVR_SUPPORTED;AUDIOLINK;AUDIOLINK_V1;SETTINGS_MANAGER_UNIVERSAL;BASIS_FRAMEWORK_EXISTS
     WebGL: STEAMAUDIO_ENABLED
     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS
     XboxOne: 

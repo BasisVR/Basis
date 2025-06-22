@@ -32,6 +32,8 @@ public class BasisHandHeldCameraUI
     private const int FORMAT_EXR = 1;
     public GameObject PngSprite; // Sprite 1
     public GameObject ExrSprite; // Sprite 2
+    public GameObject DoFAutoSprite;
+    public GameObject DoFManualSprite;
     [Space(10)]
     public Slider ExposureSlider;
     private float[] exposureStops = new float[] { -3f, -2.5f, -2f, -1.5f, -1f, -0.5f, 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f };
@@ -51,8 +53,6 @@ public class BasisHandHeldCameraUI
     public Slider BloomThresholdSlider;
     public Slider ContrastSlider;
     public Slider SaturationSlider;
-    [Space(10)]
-    public Toggle depthIsActiveButton;
     [Space(10)]
     public BasisHandHeldCamera HHC;
     public async Task Initialize(BasisHandHeldCamera hhc)
@@ -86,7 +86,6 @@ public class BasisHandHeldCameraUI
 
         Resolution?.onValueChanged.AddListener(OnResolutionToggleChanged);
         Format?.onValueChanged.AddListener(OnFormatToggleChanged);
-        depthIsActiveButton?.onValueChanged.AddListener(ChangeDepthActiveState);
 
         FOVSlider?.onValueChanged.AddListener(ChangeFOV);
         ExposureSlider?.onValueChanged.AddListener(ChangeExposureCompensation);
@@ -131,39 +130,18 @@ public class BasisHandHeldCameraUI
         FOVSlider.value = HHC.captureCamera.fieldOfView;
     }
 
-    private void ChangeDepthActiveState(bool state)
-    {
-        if (HHC.MetaData.depthOfField != null)
-        {
-            HHC.MetaData.depthOfField.active = state;
-        }
-
-        DepthModeAutoButton.gameObject.SetActive(state);
-        DepthModeManualButton.gameObject.SetActive(state);
-
-        if (!state)
-        {
-            focusCursor?.gameObject.SetActive(false);
-            DepthApertureSlider.gameObject.SetActive(false);
-            DepthFocusDistanceSlider.gameObject.SetActive(false);
-        }
-        else
-        {
-            SetDepthMode(currentDepthMode); // Restore correct mode
-        }
-    }
     private void SetDepthMode(DepthMode mode)
     {
         currentDepthMode = mode;
 
-        bool isActive = depthIsActiveButton.isOn;
-        if (!isActive) return;
-
         bool useAuto = (mode == DepthMode.Auto);
 
-        focusCursor?.gameObject.SetActive(true);
+        focusCursor?.SetActive(HHC.MetaData.depthOfField.active);
         DepthApertureSlider.gameObject.SetActive(true);
         DepthFocusDistanceSlider.gameObject.SetActive(!useAuto);
+
+        if (DoFAutoSprite != null) DoFAutoSprite.SetActive(useAuto);
+        if (DoFManualSprite != null) DoFManualSprite.SetActive(!useAuto);
 
         BasisDebug.Log($"[DepthMode] Switched to {(useAuto ? "Auto" : "Manual")}");
     }
@@ -221,8 +199,12 @@ public class BasisHandHeldCameraUI
         {
             BasisHamburgerMenu.activeCameraInstance = null;
         }
+        var cameraInteractable = HHC.GetComponent<BasisHandHeldCameraInteractable>();
+        if (cameraInteractable != null)
+            cameraInteractable.ReleasePlayerLocks();
 
         GameObject.Destroy(HHC.gameObject);
+        Cursor.visible = false;
     }
 
     public const string CameraSettingsJson = "CameraSettings.json";
@@ -257,7 +239,6 @@ public class BasisHandHeldCameraUI
             depthAperture = DepthApertureSlider?.value ?? 1f,
             depthFocusDistance = DepthFocusDistanceSlider?.value ?? 10f,
             exposureIndex = Mathf.Clamp((int)(ExposureSlider?.value ?? 6), 0, exposureStops.Length - 1),
-            depthIsActive = depthIsActiveButton?.isOn ?? true
         };
     }
 
@@ -315,6 +296,7 @@ public class BasisHandHeldCameraUI
 
     private void ApplySettings(CameraSettings settings)
     {
+        HHC.BasisDOFInteractionHandler?.SetDoFState(settings.depthIsActive);
         try
         {
             // Update resolution UI
@@ -338,9 +320,6 @@ public class BasisHandHeldCameraUI
 
             if (Format != null)
                 Format.isOn = settings.formatIndex == FORMAT_EXR;
-
-            if (depthIsActiveButton != null)
-                depthIsActiveButton.isOn = settings.depthIsActive;
 
             // Camera setup — safe index access
             if (settings.resolutionIndex >= 0 && settings.resolutionIndex < HHC.MetaData.formats.Length)
@@ -393,7 +372,8 @@ public class BasisHandHeldCameraUI
             }
 
             ApplyPostProcessingSettings(settings);
-
+            SetDepthMode(settings.useManualFocus ? DepthMode.Manual : DepthMode.Auto);
+            focusCursor?.SetActive(settings.depthIsActive);
             BasisDebug.Log("[ApplySettings] Camera settings applied successfully.");
         }
         catch (Exception ex)
@@ -540,7 +520,7 @@ public class BasisHandHeldCameraUI
             saturation = 1f;
             depthAperture = 1f;
             depthFocusDistance = 10;
-            depthIsActive = true;
+            depthIsActive = false;
         }
         public int resolutionIndex = 0;
         public int formatIndex = 0;

@@ -1,20 +1,17 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
-using UnityEngine.XR;
-public class BasisOpenXRHandInput : BasisInput
+using UnityEngine.XR.Hands;
+using UnityEngine.XR.Hands.Gestures;
+using UnityEngine.XR.Management;
+public class BasisOpenXRHandInput : BasisInputController
 {
-    public BasisFingerPose FingerCurls;
     public InputActionProperty DeviceActionPosition;
     public InputActionProperty DeviceActionRotation;
-    public InputActionProperty PalmPosition;
-    public InputActionProperty PalmRotation;
     public InputActionProperty Trigger;
     public InputActionProperty Grip;
     public InputActionProperty PrimaryButton;
@@ -22,36 +19,29 @@ public class BasisOpenXRHandInput : BasisInput
     public InputActionProperty MenuButton;
     public InputActionProperty Primary2DAxis;
     public InputActionProperty Secondary2DAxis;
+    public UnityEngine.XR.InputDevice Device;
+    public XRHandSubsystem m_Subsystem;
+    public float3 LocalWristPosition;
+    public const float TriggerDownAmount = 0.5f;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
+        leftHandToIKRotationOffset = new float3(-90, -90, -90);
+        rightHandToIKRotationOffset = new float3(-90, 90, 90);
+        RaycastRotationOffset = new float3(0, 0, 0);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
-        string DevicePalmPath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
         SetupInputActions(devicePath);
-
-        switch (basisBoneTrackedRole)
-        {
-            case BasisBoneTrackedRole.LeftHand:
-                AvatarPositionOffset = new float3(0f, 0.05f, 0.05f);
-                AvatarRotationOffset = new float3(-90f, 45f, 0f);
-                break;
-            case BasisBoneTrackedRole.RightHand:
-                AvatarPositionOffset = new float3(0f, 0.05f, 0.05f);
-                AvatarRotationOffset = new float3(-75f, -45f, 0f);
-                break;
-        }
-
-        PalmPosition = new InputActionProperty(new InputAction($"{DevicePalmPath}/devicePosition", InputActionType.Value, $"{DevicePalmPath}/devicePosition", expectedControlType: "Vector3"));
-        PalmRotation = new InputActionProperty(new InputAction($"{DevicePalmPath}/deviceRotation", InputActionType.Value, $"{DevicePalmPath}/deviceRotation", expectedControlType: "Quaternion"));
-
-        PalmPosition.action.Enable();
-        PalmRotation.action.Enable();
 
         DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
         DeviceActionRotation = new InputActionProperty(new InputAction($"{devicePath}/deviceRotation", InputActionType.Value, $"{devicePath}/deviceRotation", expectedControlType: "Quaternion"));
 
         DeviceActionPosition.action.Enable();
         DeviceActionRotation.action.Enable();
+        m_Subsystem = XRGeneralSettings.Instance?.Manager?.activeLoader?.GetLoadedSubsystem<XRHandSubsystem>();
+        if (m_Subsystem != null)
+        {
+            m_Subsystem.updatedHands += OnHandUpdate;
+        }
     }
     private void SetupInputActions(string devicePath)
     {
@@ -71,167 +61,174 @@ public class BasisOpenXRHandInput : BasisInput
     }
     private void EnableInputActions()
     {
-        EnableInputAction(PalmPosition);
-        EnableInputAction(PalmRotation);
-        EnableInputAction(Trigger);
-        EnableInputAction(Grip);
-        EnableInputAction(PrimaryButton);
-        EnableInputAction(SecondaryButton);
-        EnableInputAction(MenuButton);
-        EnableInputAction(Primary2DAxis);
-        EnableInputAction(Secondary2DAxis);
+        foreach (var action in GetAllActions())
+        {
+            action.action?.Enable();
+        }
     }
     private void DisableInputActions()
     {
-        DisableInputAction(PalmPosition);
-        DisableInputAction(PalmRotation);
-        DisableInputAction(Trigger);
-        DisableInputAction(Grip);
-        DisableInputAction(PrimaryButton);
-        DisableInputAction(SecondaryButton);
-        DisableInputAction(MenuButton);
-        DisableInputAction(Primary2DAxis);
-        DisableInputAction(Secondary2DAxis);
+        foreach (var action in GetAllActions())
+        {
+            action.action?.Disable();
+        }
     }
-    private void EnableInputAction(InputActionProperty actionProperty) => actionProperty.action?.Enable();
-    private void DisableInputAction(InputActionProperty actionProperty) => actionProperty.action?.Disable();
-
+    private IEnumerable<InputActionProperty> GetAllActions()
+    {
+        yield return Trigger;
+        yield return Grip;
+        yield return PrimaryButton;
+        yield return SecondaryButton;
+        yield return MenuButton;
+        yield return Primary2DAxis;
+        yield return Secondary2DAxis;
+    }
     public new void OnDestroy()
     {
         DisableInputActions();
         base.OnDestroy();
+        if (m_Subsystem != null)
+        {
+            m_Subsystem.updatedHands -= OnHandUpdate;
+        }
     }
     public override void DoPollData()
     {
-        LocalRawPosition = DeviceActionPosition.action.ReadValue<Vector3>();
-        LocalRawRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+        CurrentInputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
+        CurrentInputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
 
-        TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-        TransformFinalRotation = LocalRawRotation;
 
-        InputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        InputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        DeviceFinalPosition = DeviceActionPosition.action.ReadValue<Vector3>() * scale;
+        DeviceFinalRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
-        InputState.GripButton = Grip.action?.ReadValue<float>() > 0.5f;
-        InputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
-        InputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > 0.5f;
-        InputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > 0.5f;
-        InputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > 0.5f;
+        HandFinalPosition = LocalWristPosition * scale;
 
-        InputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
-        if (hasRoleAssigned)
+        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
-            if (Control.HasTracked != BasisHasTracked.HasNoTracker)
-            {
-                // Apply position offset using math.mul for quaternion-vector multiplication
-                Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+            Control.IncomingData.position = HandFinalPosition;
+            Control.IncomingData.rotation = HandleHandFinalRotation(HandFinalRotation);
+        }
+        UpdatePlayerControl();
+        RaycastPosition = HandFinalPosition;
 
-                // Apply rotation offset using math.mul for quaternion multiplication
-                Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
+        RaycastRotation = math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
+    }
+    private void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType updateType)
+    {
+        if (updateType != XRHandSubsystem.UpdateType.BeforeRender)
+            return;
+
+        if (TryGetRole(out BasisBoneTrackedRole assignedRole))
+        {
+            switch (assignedRole)
+            {
+                case BasisBoneTrackedRole.LeftHand:
+                    if (subsystem.leftHand.isTracked)
+                    {
+                        UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out LocalWristPosition, out HandFinalRotation);
+                    }
+                    break;
+
+                case BasisBoneTrackedRole.RightHand:
+                    if (subsystem.rightHand.isTracked)
+                    {
+                        UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out LocalWristPosition, out HandFinalRotation);
+                    }
+                    break;
             }
         }
-        CalculateFingerCurls();
-        UpdatePlayerControl();
     }
 
-    private void CalculateFingerCurls()
+    private void UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, out float3 position, out quaternion rotation)
     {
-        FingerCurls.ThumbPercentage = new Vector2(InputState.GripButton ? -1f : 0.7f, 0);
-        FingerCurls.IndexPercentage = new Vector2(BasisBaseMuscleDriver.MapValue(InputState.Trigger, 0, 1, -1f, 0.7f), 0);
-        FingerCurls.MiddlePercentage = new Vector2(InputState.PrimaryButtonGetState ? -1f : 0.7f, 0);
-        FingerCurls.RingPercentage = new Vector2(InputState.SecondaryButtonGetState ? -1f : 0.7f, 0);
-        FingerCurls.LittlePercentage = new Vector2(InputState.SystemOrMenuButton ? 1 - 1f : 0.7f, 0);
+        XRHandJoint joint = hand.GetJoint(XRHandJointID.Wrist);
+        if (joint.TryGetPose(out Pose pose))
+        {
+            position = pose.position;
+            rotation = pose.rotation;
+        }
+        else
+        {
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+        }
+
+        fingerPose.ThumbPercentage[0] = RemapFingerValue(hand, XRHandFingerID.Thumb);
+        fingerPose.IndexPercentage[0] = RemapFingerValue(hand, XRHandFingerID.Index);
+        fingerPose.MiddlePercentage[0] = RemapFingerValue(hand, XRHandFingerID.Middle);
+        fingerPose.RingPercentage[0] = RemapFingerValue(hand, XRHandFingerID.Ring);
+        fingerPose.LittlePercentage[0] = RemapFingerValue(hand, XRHandFingerID.Little);
+    }
+
+    private float RemapFingerValue(XRHand hand, XRHandFingerID fingerID)
+    {
+        if (TryGetShapePercentage(hand, fingerID, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float value))
+        {
+            return Remap01ToMinus1To1(value);
+        }
+        return 0f;
+    }
+    public bool TryGetShapePercentage(XRHand hand, XRHandFingerID fingerID, XRFingerShapeTypes typesNeeded, XRFingerShapeType shapeType, out float value)
+    {
+        XRFingerShape fingerShape = hand.CalculateFingerShape(fingerID, typesNeeded);
+
+        switch (shapeType)
+        {
+            case XRFingerShapeType.FullCurl: return fingerShape.TryGetFullCurl(out value);
+            case XRFingerShapeType.BaseCurl: return fingerShape.TryGetBaseCurl(out value);
+            case XRFingerShapeType.TipCurl: return fingerShape.TryGetTipCurl(out value);
+            case XRFingerShapeType.Pinch: return fingerShape.TryGetPinch(out value);
+            case XRFingerShapeType.Spread: return fingerShape.TryGetSpread(out value);
+            default:
+                value = 0f;
+                return false;
+        }
     }
     public override void ShowTrackedVisual()
     {
         if (BasisVisualTracker == null && LoadedDeviceRequest == null)
         {
-            BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+            DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
             if (Match.CanDisplayPhysicalTracker)
             {
-                InputDeviceCharacteristics Hand = InputDeviceCharacteristics.None;
-                if (TryGetRole(out BasisBoneTrackedRole HandRole))
-                {
-                    switch (HandRole)
-                    {
-                        case BasisBoneTrackedRole.LeftHand:
-                            Hand = InputDeviceCharacteristics.Left;
-                            break;
-                        case BasisBoneTrackedRole.RightHand:
-                            Hand = InputDeviceCharacteristics.Right;
-                            break;
-                        default:
-                            useFallback();
-                            return;
-                    }
-                    InputDeviceCharacteristics input = Hand | InputDeviceCharacteristics.Controller;
-                    List<UnityEngine.XR.InputDevice> inputDevices = new List<UnityEngine.XR.InputDevice>();
-                    InputDevices.GetDevicesWithCharacteristics(input, inputDevices);
-                    if (inputDevices.Count != 0)
-                    {
-                        UnityEngine.XR.InputDevice Device = inputDevices[0];
-                        string LoadRequest;
-                        string HandString = Hand.ToString().ToLower();
-                        switch (Device.name)
-                        {
-                            case "Oculus Touch Controller OpenXR":
-                                LoadRequest = $"oculus_quest_plus_controller_{HandString}";
-                                break;
-                            case "Valve Index Controller OpenXR":
-                                LoadRequest = $"valve_controller_knu_{HandString}";
-                                break;
-                            case "Meta Quest Touch Pro Controller OpenXR":
-                                LoadRequest = $"oculus_quest_pro_controller_{HandString}";
-                                break;
-                            case "Meta Quest Touch Plus Controller OpenXR":
-                                LoadRequest = $"oculus_quest_plus_controller_{HandString}";
-                                break;
-                            default:
-                                LoadRequest = $"valve_controller_knu_{HandString}";
-                                break;
-                        }
-
-                        BasisDebug.Log("name was found to be " + LoadRequest + " for device " + Device.name + " picked from " + inputDevices.Count, BasisDebug.LogTag.Device);
-
-                        var op = Addressables.LoadAssetAsync<GameObject>(LoadRequest);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go);
-                        gameObject.name = CommonDeviceIdentifier;
-                        gameObject.transform.parent = this.transform;
-                        if (gameObject.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
-                    }
-                    else
-                    {
-                        useFallback();
-                    }
-                }
-                else
-                {
-                    useFallback();
-                }
+                LoadModelWithKey(Match.DeviceID);
             }
             else
             {
                 if (UseFallbackModel())
                 {
-                    useFallback();
+                    LoadModelWithKey(FallbackDeviceID);
                 }
             }
         }
     }
-    public void useFallback()
+    /// <summary>
+    /// Duration does not work on OpenXRHands, in the future we should handle it for the user.
+    /// </summary>
+    /// <param name="duration"></param>
+    /// <param name="amplitude"></param>
+    /// <param name="frequency"></param>
+    public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
     {
-        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-        GameObject go = op.WaitForCompletion();
-        GameObject gameObject = Object.Instantiate(go);
-        gameObject.name = CommonDeviceIdentifier;
-        gameObject.transform.parent = this.transform;
-        if (gameObject.TryGetComponent(out BasisVisualTracker))
+        Device.SendHapticImpulse(0, amplitude, duration);
+    }
+    public override void PlaySoundEffect(string SoundEffectName, float Volume)
+    {
+        switch (SoundEffectName)
         {
-            BasisVisualTracker.Initialization(this);
+            case "hover":
+                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                break;
+            case "press":
+                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                break;
         }
     }
 }

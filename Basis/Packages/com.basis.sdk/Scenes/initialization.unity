@@ -129,15 +129,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1521688259443178838, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.27392977
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1521688259443178838, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -0.15742171
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1521688259443178838, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 2.5556765
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1521688259443178838, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
       propertyPath: m_LocalRotation.w
@@ -174,10 +174,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 6945557231596396514, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2140192879}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
 --- !u!1 &1620637455
 GameObject:
@@ -229,32 +226,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &2140192875 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 6945557231596396514, guid: f84144c055f881f4797d59bd2802d4a4, type: 3}
-  m_PrefabInstance: {fileID: 1187098623}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &2140192879
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2140192875}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a77971dc49cce9541828138eb5e2270e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: 
-    AssetBundleDescription: 
-  SpawnPoint: {fileID: 0}
-  RespawnHeight: -100
-  RespawnCheckTimer: 0.1
-  Group: {fileID: 0}
-  MainCamera: {fileID: 0}
-  IsReady: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

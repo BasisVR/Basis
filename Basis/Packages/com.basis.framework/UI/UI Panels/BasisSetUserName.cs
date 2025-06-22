@@ -22,19 +22,22 @@ namespace Basis.Scripts.UI.UI_Panels
         public TMP_InputField Password;
         public Button UseLocalhost;
         public Toggle HostMode;
+        public TextMeshProUGUI ConnectText;
         public void Start()
         {
             UserNameTMP_InputField.text = BasisDataStore.LoadString(LoadFileName, string.Empty);
             Ready.onClick.AddListener(HasUserName);
+            AdvancedSettingsPanel.SetActive(false);
             if (AdvancedSettingsPanel != null)
             {
                 AdvancedSettings.onClick.AddListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.AddListener(UseLocalHost);
             }
+            HostMode.onValueChanged.AddListener(UseHostMode);
             BasisNetworkManagement.OnEnableInstanceCreate += LoadCurrentSettings;
             if (BasisDeviceManagement.Instance != null)
             {
-                this.transform.parent = BasisDeviceManagement.Instance.transform;
+                this.transform.SetParent(BasisDeviceManagement.Instance.transform,true);
             }
         }
 
@@ -44,6 +47,17 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 AdvancedSettings.onClick.RemoveListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.RemoveListener(UseLocalHost);
+            }
+        }
+        public void UseHostMode(bool IsDown)
+        {
+            if(IsDown)
+            {
+                ConnectText.text = "Host";
+            }
+            else
+            {
+                ConnectText.text = "Connect";
             }
         }
         public void UseLocalHost()
@@ -57,6 +71,7 @@ namespace Basis.Scripts.UI.UI_Panels
             Port.text = BasisNetworkManagement.Instance.Port.ToString();
             Password.text = BasisNetworkManagement.Instance.Password;
             HostMode.isOn = BasisNetworkManagement.Instance.IsHostMode;
+            UseHostMode(HostMode.isOn);
             if (BasisDeviceManagement.Instance != null)
             {
                 this.transform.SetParent(BasisDeviceManagement.Instance.transform);
@@ -105,7 +120,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisDebug.Log("using Local Asset Bundle or Addressable", BasisDebug.LogTag.Networking);
                 if (BundledContentHolder.Instance.UseAddressablesToLoadScene)
                 {
-                    await BasisSceneLoadDriver.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.CombinedURL);
+                    await BasisSceneLoadDriver.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
                 }
                 else
                 {

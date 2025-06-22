@@ -81,6 +81,7 @@ public class BasisPropSDKInspector : Editor
 
         // Add the result label to the UI
         uiElementsRoot.Add(resultLabel);
+       // BuildReportViewerWindow.ShowWindow();
     }
 
     // Method to clear the result label

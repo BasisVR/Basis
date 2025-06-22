@@ -1,32 +1,220 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 using static BasisEncryptionWrapper;
 public static class AssetBundleBuilder
 {
-    public static async Task<(BasisBundleGenerated, InformationHash)> BuildAssetBundle(string targetDirectory, BasisAssetBundleObject settings, string assetBundleName, string mode, string password, BuildTarget buildTarget, bool isEncrypted = true)
+    public static async Task<(BasisBundleGenerated, InformationHash)> BuildAssetBundle(AssetBundleBuild[] BundledData, string targetDirectory, BasisAssetBundleObject settings, string assetBundleName, string mode, string password, BuildTarget buildTarget, bool isEncrypted = true)
     {
         InformationHash Hash = new InformationHash();
         BasisBundleGenerated BasisBundleGenerated = new BasisBundleGenerated();
         EnsureDirectoryExists(targetDirectory);
         EditorUtility.DisplayProgressBar("Building Asset Bundles", "Initializing...", 0f);
-        AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(targetDirectory, settings.BuildAssetBundleOptions, buildTarget);
+
+        BuildAssetBundlesParameters buildAssetBundlesParameters = new BuildAssetBundlesParameters
+        {
+            outputPath = targetDirectory,
+            bundleDefinitions = BundledData,
+            targetPlatform = buildTarget,
+            extraScriptingDefines = null,
+            options = settings.BuildAssetBundleOptions,
+        };
+        AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(buildAssetBundlesParameters);
+
         if (manifest != null)
         {
             Hash = await ProcessAssetBundles(targetDirectory, settings, manifest, password, isEncrypted);
-            BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, password, buildTarget.ToString(),Hash.Length);
+            BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, password, buildTarget.ToString(), Hash.Length);
             DeleteManifestFiles(targetDirectory, buildTarget.ToString());
-
-
+            OnPostprocessBuild(BuildReport.GetLatestReport());
         }
         else
         {
             BasisDebug.LogError("AssetBundle build failed.");
         }
         EditorUtility.ClearProgressBar();
-        return new (BasisBundleGenerated, Hash);
+        return new(BasisBundleGenerated, Hash);
+    }
+    [System.Serializable]
+    public class SerializableBuildReport
+    {
+        public string summaryResult;
+        public string outputPath;
+        public double totalSizeMB;
+        public string platform;
+        public string TimeTaken;
+        public string SummarizeErrors;
+
+        [SerializeField]
+        public BasisStoredBuildStep[] steps;
+        [SerializeField]
+        public BasisBuildSummary summary;
+        [SerializeField]
+        public BasisBuildFile[] files;
+        [SerializeField]
+        public BasisPackedAssets[] packedAssets;
+        [System.Serializable]
+        public struct BasisStoredBuildStep
+        {
+            public string name;
+            public ulong durationTicks;
+            public int depth;
+            public TimeSpan duration => TimeSpan.FromTicks((long)durationTicks);
+            public BasisBuildStepMessage[] messages;
+
+        }
+
+        [System.Serializable]
+        public struct BasisBuildStepMessage
+        {
+            public LogType type;
+            public string content;
+        }
+
+        [System.Serializable]
+        public struct BasisBuildSummary
+        {
+            public long buildStartTimeTicks;
+            public ulong totalTimeTicks;
+            public string guid;
+            public BuildTarget platform;
+            public BuildTargetGroup platformGroup;
+            public BuildOptions options;
+            public string outputPath;
+            public ulong totalSize;
+            public int totalErrors;
+            public int totalWarnings;
+            public BuildResult result;
+            public BuildType buildType;
+            public bool multiProcessEnabled;
+            public TimeSpan totalTime => new TimeSpan((long)totalTimeTicks);
+        }
+
+        [System.Serializable]
+        public struct BasisBuildFile
+        {
+            public uint id;
+            public string path;
+            public string role;
+            public ulong size;
+        }
+        [System.Serializable]
+        public struct BasisPackedAssets
+        {
+            public string shortPath;
+            public ulong overhead;
+            public BasisPackedAssetInfo[] contents;
+        }
+        [System.Serializable]
+        public struct BasisPackedAssetInfo
+        {
+            public long id;
+            public string type;
+            public ulong packedSize;
+            public ulong offset;
+            public string sourceAssetGUID;
+            public string sourceAssetPath;
+        }
+    }
+
+    public static SerializableBuildReport OnPostprocessBuild(BuildReport report)
+    {
+        var files = report.GetFiles();
+        var sReport = new SerializableBuildReport
+        {
+            summaryResult = report.summary.result.ToString(),
+            outputPath = report.summary.outputPath,
+            totalSizeMB = report.summary.totalSize / (1024.0 * 1024.0),
+            platform = report.summary.platform.ToString(),
+            SummarizeErrors = report.SummarizeErrors(),
+            TimeTaken = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            summary = new SerializableBuildReport.BasisBuildSummary
+            {
+                buildStartTimeTicks = report.summary.buildStartedAt.Ticks,
+                totalTimeTicks = (ulong)report.summary.totalTime.Ticks,
+                guid = report.summary.guid.ToString(),
+                platform = report.summary.platform,
+                platformGroup = report.summary.platformGroup,
+                options = report.summary.options,
+                outputPath = report.summary.outputPath,
+                totalSize = report.summary.totalSize,
+                totalErrors = report.summary.totalErrors,
+                totalWarnings = report.summary.totalWarnings,
+                result = report.summary.result,
+                buildType = report.summary.buildType,
+                multiProcessEnabled = report.summary.multiProcessEnabled,
+                 
+            },
+
+            steps = report.steps.Select(step => new SerializableBuildReport.BasisStoredBuildStep
+            {
+                name = step.name,
+                durationTicks = (ulong)step.duration.Ticks,
+                depth = step.depth,
+                messages = step.messages.Select(msg => new SerializableBuildReport.BasisBuildStepMessage
+                {
+                    type = msg.type,
+                    content = msg.content
+                }).ToArray()
+            }).ToArray(),
+
+            files = files.Select(file => new SerializableBuildReport.BasisBuildFile
+            {
+                id = file.id,
+                path = file.path,
+                role = file.role,
+                size = file.size
+            }).ToArray(),
+
+            packedAssets = report.packedAssets.Select(packed => new SerializableBuildReport.BasisPackedAssets
+            {
+                overhead = packed.overhead,
+                shortPath = packed.shortPath,
+                contents = packed.contents.Select(content => new SerializableBuildReport.BasisPackedAssetInfo
+                {
+                    id = content.id,
+                    offset = content.offset,
+                    packedSize = content.packedSize,
+                    sourceAssetGUID = content.sourceAssetGUID.ToString(),
+                    sourceAssetPath = content.sourceAssetPath,
+                    type = content.type.FullName
+                }).ToArray()
+            }).ToArray()
+        };
+        if (!Directory.Exists(ReportDirectoryPath))
+            Directory.CreateDirectory(ReportDirectoryPath);
+
+        string reportPath = GetBuildReportPath(report.summary.platform);
+        string json = JsonUtility.ToJson(sReport, true);
+         File.WriteAllText(reportPath, json);
+
+        Debug.Log($"Build report saved to {reportPath}");
+        return sReport;
+    }
+   public static string ReportDirectoryPath = "BuildReport";
+    public static string GetBuildReportPath(BuildTarget platform)
+    {
+        return Path.Combine("BuildReport", $"BuildReport_{platform}.json");
+    }
+
+    public static async Task<SerializableBuildReport> LoadLatestBuildReport(BuildTarget platform)
+    {
+        string path = GetBuildReportPath(platform);
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning($"No saved build report found for platform {platform}.");
+            return null;
+        }
+
+        string json = await File.ReadAllTextAsync(path);
+        var sReport = JsonUtility.FromJson<SerializableBuildReport>(json);
+        Debug.Log($"Loaded build report for {platform}:\nResult: {sReport.summaryResult}\nOutput: {sReport.outputPath}\nSize: {sReport.totalSizeMB:F2} MB");
+        return sReport;
     }
     private static async Task<InformationHash> ProcessAssetBundles(string targetDirectory,BasisAssetBundleObject settings,AssetBundleManifest manifest,string password,bool isEncrypted)
     {
@@ -72,7 +260,6 @@ public static class AssetBundleBuilder
             }
         }
     }
-
     private static async Task<string> HandleEncryption(string filePath,string password,BasisAssetBundleObject settings,AssetBundleManifest manifest, bool isEncrypted)
     {
         if (isEncrypted)
@@ -180,33 +367,6 @@ public static class AssetBundleBuilder
         encryptionTimer.Stop();
         BasisDebug.Log("Encryption took " + encryptionTimer.ElapsedMilliseconds + " ms for " + EncryptedPath);
         return EncryptedPath;
-    }
-
-    public static string SetAssetBundleName(string assetPath, string uniqueID, BasisAssetBundleObject settings)
-    {
-        AssetImporter assetImporter = AssetImporter.GetAtPath(assetPath);
-        string assetBundleName = $"{uniqueID}";
-
-        if (assetImporter != null)
-        {
-            assetImporter.assetBundleName = assetBundleName;
-            return assetBundleName;
-        }
-        else
-        {
-            BasisDebug.LogError("Missing Asset Import for path " + assetPath);
-        }
-
-        return null;
-    }
-
-    public static void ResetAssetBundleName(string assetPath)
-    {
-        AssetImporter assetImporter = AssetImporter.GetAtPath(assetPath);
-        if (assetImporter != null && !string.IsNullOrEmpty(assetImporter.assetBundleName))
-        {
-            assetImporter.assetBundleName = null;
-        }
     }
     private static void EnsureDirectoryExists(string targetDirectory)
     {

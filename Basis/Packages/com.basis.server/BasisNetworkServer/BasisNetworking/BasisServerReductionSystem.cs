@@ -163,6 +163,13 @@ public partial class BasisServerReductionSystem
                             // Calculate the distance between the two points
                             float activeDistance = Distance(pulse.Position, playerData.Position);
                             // Adjust the timer interval based on the new syncRateMultiplier
+                            //wherer BSRSMillisecondDefaultInterval is the interval rate we send to players (fastest possible)
+                            //second part of the operation is adding latency to reduce sendout.
+                            //BSRBaseMultiplier = 1
+                            // activeDistance 5m
+                            //0.005f
+                            //   1 * 0.025  = 1 + (5 * 005f);
+                            // 50 * 1 * 0.025
                             int adjustedInterval = (int)(Configuration.BSRSMillisecondDefaultInterval * (Configuration.BSRBaseMultiplier + (activeDistance * Configuration.BSRSIncreaseRate)));
                             if (adjustedInterval > byte.MaxValue)
                             {
@@ -177,7 +184,7 @@ public partial class BasisServerReductionSystem
                                 playerData.serverSideSyncPlayerMessage.interval = ByteAdjusted;
                             }
                             int Size = playerID.localClient.GetPacketsCountInQueue(BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
-                            if (Size < MaxMessages)
+                            if (Size < MaxMessages && playerData.Writer != null)
                             {
                                 playerData.serverSideSyncPlayerMessage.Serialize(playerData.Writer);
                                 NetworkServer.SendOutValidated(playerID.localClient, playerData.Writer, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);

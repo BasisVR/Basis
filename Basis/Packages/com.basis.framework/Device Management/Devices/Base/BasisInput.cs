@@ -8,6 +8,7 @@ using Basis.Scripts.UI.UI_Panels;
 using System.Linq;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
 namespace Basis.Scripts.Device_Management.Devices
 {
@@ -21,15 +22,12 @@ namespace Basis.Scripts.Device_Management.Devices
         public bool HasControl = false;
         public string UniqueDeviceIdentifier;
         public string ClassName;
-        [Header("Raw data from tracker unmodified")]
+
+        [Header("Raw Position Of Device")]
         public float3 LocalRawPosition;
-        public quaternion LocalRawRotation;
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
-        public float3 TransformFinalPosition;
-        public quaternion TransformFinalRotation;
-        [Header("Avatar Offset Applied Per Frame")]
-        public float3 AvatarPositionOffset = Vector3.zero;
-        public float3 AvatarRotationOffset = Vector3.zero;
+        public float3 DeviceFinalPosition;
+        public quaternion DeviceFinalRotation;
 
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
@@ -37,12 +35,20 @@ namespace Basis.Scripts.Device_Management.Devices
         public BasisUIRaycast BasisUIRaycast;
         public AddressableGenericResource LoadedDeviceRequest;
         public event SimulationHandler AfterControlApply;
-        public BasisDeviceMatchSettings BasisDeviceMatchSettings;
+        public DeviceSupportInformation DeviceMatchSettings;
         [SerializeField]
-        public BasisInputState InputState = new BasisInputState();
+        public BasisInputState CurrentInputState = new BasisInputState();
         [SerializeField]
-        public BasisInputState LastState = new BasisInputState();
+        public BasisInputState LastInputState = new BasisInputState();
         public static BasisBoneTrackedRole[] CanHaveMultipleRoles = new BasisBoneTrackedRole[] { BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.RightHand };
+
+        public Vector3 RaycastPosition;
+        public Quaternion RaycastRotation;
+        public static string FallbackDeviceID = "FallbackSphere";
+        public GameObject BasisPointRaycasterRef;
+        public bool HasRaycaster = false;
+        public Quaternion InitialRotation;
+        public Quaternion InitialBoneRotation;
         public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
         {
             if (hasRoleAssigned)
@@ -99,8 +105,6 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisDebug.LogError("Attempted to find " + Role + " but it did not exist");
             }
         }
-        public Quaternion InitialRotation;
-        public Quaternion InitialBoneRotation;
         public void UnAssignRoleAndTracker()
         {
             if (Control != null)
@@ -108,7 +112,7 @@ namespace Basis.Scripts.Device_Management.Devices
                 Control.IncomingData.position = Vector3.zero;
                 Control.IncomingData.rotation = Quaternion.identity;
             }
-            if (BasisDeviceMatchSettings == null || BasisDeviceMatchSettings.HasTrackedRole == false)
+            if (DeviceMatchSettings == null || DeviceMatchSettings.HasTrackedRole == false)
             {
                 //unassign last
                 if (hasRoleAssigned)
@@ -128,14 +132,22 @@ namespace Basis.Scripts.Device_Management.Devices
         public void OnDestroy()
         {
             StopTracking();
+            if (BasisUIRaycast != null)
+            {
+                if (BasisUIRaycast.highlightQuadInstance != null)
+                {
+                    GameObject.Destroy(BasisUIRaycast.highlightQuadInstance.gameObject);
+                }
+                GameObject.Destroy(BasisPointRaycaster.gameObject);
+            }
         }
         public bool HasRaycastSupport()
         {
-            if (BasisDeviceMatchSettings == null)
+            if (DeviceMatchSettings == null)
             {
                 return false;
             }
-            return hasRoleAssigned && BasisDeviceMatchSettings.HasRayCastSupport;
+            return hasRoleAssigned && DeviceMatchSettings.HasRayCastSupport;
         }
         /// <summary>
         /// initalize the tracking of this input
@@ -150,21 +162,18 @@ namespace Basis.Scripts.Device_Management.Devices
             //unassign the old tracker
             UnAssignTracker();
             BasisDebug.Log("Finding ID " + unUniqueDeviceID, BasisDebug.LogTag.Input);
-            AvatarRotationOffset = Quaternion.identity.eulerAngles;
             //configure device identifier
             SubSystemIdentifier = subSystems;
             CommonDeviceIdentifier = unUniqueDeviceID;
             UniqueDeviceIdentifier = uniqueID;
             // lets check to see if there is a override from a devices matcher
-            BasisDeviceMatchSettings = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier, basisBoneTrackedRole, ForceAssignTrackedRole);
-            if (BasisDeviceMatchSettings.HasTrackedRole)
+            DeviceMatchSettings = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier, basisBoneTrackedRole, ForceAssignTrackedRole);
+            if (DeviceMatchSettings.HasTrackedRole)
             {
-                BasisDebug.Log("Overriding Tracker " + BasisDeviceMatchSettings.DeviceID, BasisDebug.LogTag.Input);
-                AssignRoleAndTracker(BasisDeviceMatchSettings.TrackedRole);
+                BasisDebug.Log("Overriding Tracker " + DeviceMatchSettings.DeviceID, BasisDebug.LogTag.Input);
+                AssignRoleAndTracker(DeviceMatchSettings.TrackedRole);
             }
             //reset the offsets, its up to the higher level to set this now.
-            AvatarPositionOffset = Vector3.zero;
-            AvatarRotationOffset = Vector3.zero;
             if (HasRaycastSupport())
             {
                 CreateRayCaster(this);
@@ -183,7 +192,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void ApplyFinalMovement()
         {
-            transform.SetLocalPositionAndRotation(TransformFinalPosition, TransformFinalRotation);
+            this.transform.SetLocalPositionAndRotation(DeviceFinalPosition, DeviceFinalRotation);
         }
         public void UnAssignFullBodyTrackers()
         {
@@ -288,15 +297,17 @@ namespace Basis.Scripts.Device_Management.Devices
             switch (trackedRole)
             {
                 case BasisBoneTrackedRole.LeftHand:
-                    float largestValue = Mathf.Abs(InputState.Primary2DAxis.x) > Mathf.Abs(InputState.Primary2DAxis.y)
-                        ? InputState.Primary2DAxis.x
-                        : InputState.Primary2DAxis.y;
+                    float largestValue = Mathf.Abs(CurrentInputState.Primary2DAxis.x) > Mathf.Abs(CurrentInputState.Primary2DAxis.y)
+                        ? CurrentInputState.Primary2DAxis.x
+                        : CurrentInputState.Primary2DAxis.y;
                     //0 to 1 largestValue
 
-                    BasisLocalPlayer.Instance.LocalCharacterDriver.SpeedMultiplier = largestValue;
-                    BasisLocalPlayer.Instance.LocalCharacterDriver.MovementVector = InputState.Primary2DAxis;
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.SetMovementSpeedMultiplier(largestValue);
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.SetMovementVector(CurrentInputState.Primary2DAxis);
+                    // todo: consider hoisting variable to be toggled by another user input (eg: thumbstick click)
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.UpdateMovementSpeed(true);
                     //only open ui after we have stopped pressing down on the secondary button
-                    if (InputState.SecondaryButtonGetState == false && LastState.SecondaryButtonGetState)
+                    if (CurrentInputState.SecondaryButtonGetState == false && LastInputState.SecondaryButtonGetState)
                     {
                         if (BasisHamburgerMenu.Instance == null)
                         {
@@ -307,7 +318,7 @@ namespace Basis.Scripts.Device_Management.Devices
                             BasisHamburgerMenu.Instance.CloseThisMenu();
                         }
                     }
-                    if (InputState.PrimaryButtonGetState == false && LastState.PrimaryButtonGetState)
+                    if (CurrentInputState.PrimaryButtonGetState == false && LastInputState.PrimaryButtonGetState)
                     {
                         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
                         {
@@ -316,14 +327,14 @@ namespace Basis.Scripts.Device_Management.Devices
                     }
                     break;
                 case BasisBoneTrackedRole.RightHand:
-                    BasisLocalPlayer.Instance.LocalCharacterDriver.Rotation = InputState.Primary2DAxis;
-                    if (InputState.PrimaryButtonGetState)
+                    BasisLocalPlayer.Instance.LocalCharacterDriver.Rotation = CurrentInputState.Primary2DAxis;
+                    if (CurrentInputState.PrimaryButtonGetState)
                     {
                         BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
                     }
                     break;
                 case BasisBoneTrackedRole.CenterEye:
-                    if (InputState.PrimaryButtonGetState == false && LastState.PrimaryButtonGetState)
+                    if (CurrentInputState.PrimaryButtonGetState == false && LastInputState.PrimaryButtonGetState)
                     {
                         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
                         {
@@ -381,9 +392,11 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void LastUpdatePlayerControl()
         {
-            InputState.CopyTo(LastState);
+            CurrentInputState.CopyTo(LastInputState);
         }
         public abstract void ShowTrackedVisual();
+        public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
+        public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
         public bool UseFallbackModel()
         {
             if (hasRoleAssigned == false)
@@ -402,7 +415,6 @@ namespace Basis.Scripts.Device_Management.Devices
                 return true;
             }
         }
-        public static string FallbackDeviceID = "FallbackSphere";
         public void HideTrackedVisual()
         {
             BasisDebug.Log("HideTrackedVisual", BasisDebug.LogTag.Input);
@@ -417,14 +429,12 @@ namespace Basis.Scripts.Device_Management.Devices
                 AddressableLoadFactory.ReleaseResource(LoadedDeviceRequest);
             }
         }
-        public GameObject BasisPointRaycasterRef;
-        public bool HasRaycaster = false;
         public void CreateRayCaster(BasisInput BaseInput)
         {
             BasisDebug.Log("Adding RayCaster " + BaseInput.UniqueDeviceIdentifier);
 
             BasisPointRaycasterRef = new GameObject(nameof(BasisPointRaycaster));
-            BasisPointRaycasterRef.transform.parent = this.transform;
+            BasisPointRaycasterRef.transform.parent = BasisLocalPlayer.Instance.transform;
             BasisPointRaycasterRef.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
             BasisPointRaycaster = BasisHelpers.GetOrAddComponent<BasisPointRaycaster>(BasisPointRaycasterRef);
             BasisPointRaycaster.Initialize(BaseInput);
@@ -432,6 +442,22 @@ namespace Basis.Scripts.Device_Management.Devices
             BasisUIRaycast = new BasisUIRaycast();
             BasisUIRaycast.Initialize(BaseInput, BasisPointRaycaster);
             HasRaycaster = true;
+        }
+        public float Remap01ToMinus1To1(float value)
+        {
+            return (0.75f - value) * 2f - 0.75f;
+        }
+        public void LoadModelWithKey(string key)
+        {
+            var op = Addressables.LoadAssetAsync<GameObject>(key);
+            GameObject go = op.WaitForCompletion();
+            GameObject gameObject = GameObject.Instantiate(go);
+            gameObject.name = CommonDeviceIdentifier;
+            gameObject.transform.parent = this.transform;
+            if (gameObject.TryGetComponent(out BasisVisualTracker))
+            {
+                BasisVisualTracker.Initialization(this);
+            }
         }
     }
 }
