@@ -195,7 +195,7 @@ public class BasisVirtualSpineDriver
         forward = math.normalize(forward);
 
         quaternion yawRotation = quaternion.LookRotationSafe(forward, new float3(0, 1, 0));
-        float3 offset = math.mul(yawRotation, boneControl.Offset);
+        float3 offset = math.mul(yawRotation, boneControl.ScaledOffset);
 
         boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + offset;
     }

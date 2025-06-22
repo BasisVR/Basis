@@ -148,7 +148,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     var crouchMinimum = BasisLocalPlayer.Instance.LocalCharacterDriver.MinimumCrouchPercent;
                     float heightAdjustment = (1 - crouchMinimum) * BasisLocalPlayer.Instance.LocalCharacterDriver.CrouchBlend + crouchMinimum;
                     // crouch is calculated from the ground up, so invert to move it to the avatar height context
-                    adjustedHeadPosition.y -= Control.TposeLocal.position.y * (1 - heightAdjustment);
+                    adjustedHeadPosition.y -= Control.TposeLocalScaled.position.y * (1 - heightAdjustment);
                 }
                 LocalRawPosition = adjustedHeadPosition;
                 Control.IncomingData.position = LocalRawPosition;

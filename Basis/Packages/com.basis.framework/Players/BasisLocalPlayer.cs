@@ -6,6 +6,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Eye_Follow;
+using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections.Generic;
@@ -313,26 +314,23 @@ namespace Basis.Scripts.BasisSdk.Players
             currentDistance = Vector3.Distance(headPosition, hipsPosition);
 
             // Use blended XZ center, but keep hips Y for grounded position
-            Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
-            blendedXZ.y = hipsPosition.y;
-            Vector3 centerPosition = blendedXZ;
-
+            Vector3 centerPosition = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
+            centerPosition.y = hipsPosition.y;
             if (currentDistance <= LocalAvatarDriver.MaxExtendedDistance)
             {
-                output = -BasisLocalBoneDriver.Hips.TposeLocal.position;
+                output = -BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
             }
             else
             {
                 Vector3 direction = (hipsPosition - headPosition).normalized;
                 float overshoot = currentDistance - LocalAvatarDriver.MaxExtendedDistance;
                 Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocal.position;
+                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
                 float3 correctedHips = TposeHips + correction;
                 output = -correctedHips;
             }
 
             Vector3 childWorldPosition = centerPosition + parentWorldRotation * output;
-
             BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
             return parentWorldRotation;
         }

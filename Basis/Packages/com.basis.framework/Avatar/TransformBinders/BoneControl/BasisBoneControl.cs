@@ -23,6 +23,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public int LineDrawIndex;
         public bool HasTarget = false;
         public float3 Offset;
+        public float3 ScaledOffset;
         public float LerpAmount;
 
         [SerializeField]
@@ -31,6 +32,9 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public BasisCalibratedCoords LastRunData = new BasisCalibratedCoords();
         [SerializeField]
         public BasisCalibratedCoords TposeLocal = new BasisCalibratedCoords();
+        //the scaled tpose is tpose * the avatar height change
+        [SerializeField]
+        public BasisCalibratedCoords TposeLocalScaled = new BasisCalibratedCoords();
         [SerializeField]
         public BasisCalibratedOffsetData InverseOffsetFromBone = new BasisCalibratedOffsetData();
         [SerializeField]
@@ -94,7 +98,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                         if (HasTarget)
                         {
                             // Apply the rotation offset using math.mul
-                            float3 customDirection = math.mul(Target.OutGoingData.rotation, Offset);
+                            float3 customDirection = math.mul(Target.OutGoingData.rotation, ScaledOffset);
 
                             // Calculate the target outgoing position with the rotated offset
                             float3 targetPosition = Target.OutGoingData.position + customDirection;

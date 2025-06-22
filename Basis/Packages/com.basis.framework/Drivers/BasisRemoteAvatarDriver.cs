@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
+using UnityEngine;
 
 namespace Basis.Scripts.Drivers
 {
@@ -33,16 +34,17 @@ namespace Basis.Scripts.Drivers
         }
         public void ComputeOffsets(BasisBaseBoneDriver BBD)
         {
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck,  40, 12, true);
+            Vector3 Scale = Vector3.one;
+            SetAndCreateLock(Scale, BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck, 40, 12, true);
 
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.CenterEye,  40, 12, true);
+            SetAndCreateLock(Scale, BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.CenterEye, 40, 12, true);
 
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth,  40, 12, true);
+            SetAndCreateLock(Scale, BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth, 40, 12, true);
 
 
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest,  40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine,  40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips, 40, 12, true);
+            SetAndCreateLock(Scale, BBD, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest, 40, 12, true);
+            SetAndCreateLock(Scale, BBD, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine, 40, 12, true);
+            SetAndCreateLock(Scale, BBD, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips, 40, 12, true);
         }
         public bool IsAble(BasisRemotePlayer remotePlayer)
         {
