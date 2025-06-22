@@ -1,5 +1,9 @@
 fileFormatVersion: 2
+<<<<<<<< HEAD:Basis/Packages/com.basis.sdk/Prefabs/UI/Accept Deny Panel.prefab.meta
 guid: 6339a6e83fe84c14d975b2a5a205b51a
+========
+guid: 32b8a5bd52f812842be423531decf6e9
+>>>>>>>> main:Basis/Packages/com.basis.sdk/Prefabs/UI/Circular Menu.prefab.meta
 PrefabImporter:
   externalObjects: {}
   userData: 

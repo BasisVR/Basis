@@ -334,5 +334,9 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
             return parentWorldRotation;
         }
+        public void ReScaleAvatar(float TargetHeight)
+        {
+            CurrentHeight.SelectedAvatarToAvatarDefaultScale = TargetHeight;
+        }
     }
 }
