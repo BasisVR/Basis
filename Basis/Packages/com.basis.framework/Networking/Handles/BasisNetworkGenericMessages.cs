@@ -42,7 +42,7 @@ public static class BasisNetworkGenericMessages
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);
         BasisNetworkManagement.Instance.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID);
-        BasisNetworkManagement.OwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
+        BasisNetworkManagement.OnOwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
     }
     public static void HandleOwnership(OwnershipTransferMessage OwnershipTransferMessage)
     {

@@ -1,6 +1,8 @@
 using LiteNetLib;
 using System;
+using System.Linq.Expressions;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Basis.Scripts.BasisSdk
 {
@@ -69,5 +71,32 @@ namespace Basis.Scripts.BasisSdk
         /// <param name="DeliveryMethod"></param>
 
         public delegate void SceneNetworkMessageSendEvent(ushort MessageIndex, byte[] buffer, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null);
+
+        public static bool SceneTraversalFindBasisScene(GameObject ObjectInScene, out BasisScene BasisScene)
+        {
+            if (ObjectInScene == null)
+            {
+                BasisDebug.LogError("Missing Gameobject In Scene Parameter!", BasisDebug.LogTag.Scene);
+                BasisScene = null;
+                return false;
+            }
+            Scene Scene = ObjectInScene.scene;
+            return SceneTraversalFindBasisScene(Scene, out BasisScene);
+        }
+        public static bool SceneTraversalFindBasisScene(Scene scene, out BasisScene BasisScene)
+        {
+            GameObject[] Root = scene.GetRootGameObjects();
+            foreach (GameObject root in Root)
+            {
+                BasisScene = root.GetComponentInChildren<BasisScene>();
+                if (BasisScene == null)
+                {
+                    continue;
+                }
+                return true;
+            }
+            BasisScene = null;
+            return false;
+        }
     }
 }

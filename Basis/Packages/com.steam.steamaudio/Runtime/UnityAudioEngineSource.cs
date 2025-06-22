@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright 2017-2023 Valve Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,7 +40,11 @@ namespace SteamAudio
         public override void Destroy()
         {
             var index = 28;
-            mAudioSource.SetSpatializerFloat(index, -1);
+
+            if (mAudioSource != null)
+            {
+                mAudioSource.SetSpatializerFloat(index, -1);
+            }
 
             if (mSteamAudioSource)
             {

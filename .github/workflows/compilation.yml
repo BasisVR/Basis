@@ -194,3 +194,30 @@ jobs:
           dotnet-version: '9.0.x'
       - name: dotnet test
         run: dotnet test --logger:"console;verbosity=detailed"
+
+  compile-unitypackages:
+    name: Build .unitypackage files
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Checkout repository"
+        timeout-minutes: 5
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Produce SDK unitypackage."
+        timeout-minutes: 5
+        run:
+          .github/scripts/unitypackagegen.sh sdk
+      - name: "Produce full unitypackage."
+        timeout-minutes: 5
+        run:
+          .github/scripts/unitypackagegen.sh full
+      - uses: actions/upload-artifact@v4
+        timeout-minutes: 5
+        with:
+          name: unitypackage_upload
+          path: |
+            Basis/Basis.sdk.unitypackage
+            Basis/Basis.full.unitypackage
+

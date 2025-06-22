@@ -55,10 +55,21 @@ public class BasisUIRaycastProcess
                         List<RaycastResult> RaycastResults = input.BasisUIRaycast.SortedRays;
                         // TODO: test things and make sure we dont need to re-sort using default sort algo since UI raycast uses a custom sort fn
                         // hitData.Sort((g1, g2) => g2.graphic.depth.CompareTo(g1.graphic.depth));
-                        RaycastResult hit = RaycastResults[0];
-                        hit.gameObject = hitData[0].graphic.gameObject;
-                        SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input.InputState, input.LastState);
-                        HasTarget = true;
+                        if (hitData.Count > 0 && RaycastResults.Count > 0)
+                        {
+                            RaycastResult hit = RaycastResults[0];
+                            hit.gameObject = hitData[0].graphic?.gameObject;
+
+                            if (hit.gameObject != null)
+                            {
+                                SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input.InputState, input.LastState);
+                                HasTarget = true;
+                            }
+                        }
+                        else
+                        {
+                            BasisDebug.LogWarning("[BasisUIRaycastProcess] Skipping raycast simulate — hit data or ray results missing.");
+                        }
                     }
                 }
             }

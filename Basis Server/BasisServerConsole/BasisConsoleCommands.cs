@@ -88,34 +88,41 @@ namespace BasisNetworkConsole
                 BNL.Log($"Usage: /config {field.Name.ToLower()} [value]");
             }
         }
-        // Handling console commands
-        public static void ProcessConsoleCommands()
+        private static Thread? consoleThread;
+
+        public static void StartConsoleListener()
         {
-            while (Program.isRunning)
+            consoleThread = new Thread(() =>
             {
-                string? input = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(input))
+                while (Program.isRunning)
                 {
-                    continue;
-                }
+                    string? input = Console.ReadLine()?.Trim();
+                    if (string.IsNullOrEmpty(input)) continue;
 
-                string[] parts = input.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0)
-                {
-                    continue;
-                }
+                    string[] parts = input.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
+                    string commandName = parts[0].ToLowerInvariant();
 
-                string commandName = parts[0].ToLower();
-                if (commands.ContainsKey(commandName))
-                {
-                    string[] args = parts.Length > 1 ? parts[1..] : Array.Empty<string>();
-                    commands[commandName].Handler(args);
+                    if (commands.TryGetValue(commandName, out var command))
+                    {
+                        string[] args = parts.Length > 1 ? parts.Skip(1).ToArray() : Array.Empty<string>();
+                        try
+                        {
+                            command.Handler(args);
+                        }
+                        catch (Exception ex)
+                        {
+                            BNL.Log($"Error executing command '{commandName}': {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        BNL.Log("Unknown command. Type /help for available commands.");
+                    }
                 }
-                else
-                {
-                    BNL.Log("Unknown command. Type /help for available commands.");
-                }
-            }
+            });
+
+            consoleThread.IsBackground = true;
+            consoleThread.Start();
         }
         // Example command handlers
         public static void HandleAddAdmin(string[] args)

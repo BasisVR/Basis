@@ -11,8 +11,8 @@ namespace Basis
         private const string ConfigFileName = "config.xml";
         private const string LogsFolderName = "Logs";
         private const string InitialResources = "initalresources";
-        private const int ThreadSleepTime = 15000;
         public static bool isRunning = true;
+        private static ManualResetEventSlim shutdownEvent = new ManualResetEventSlim(false);
         public static void Main(string[] args)
         {
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -30,68 +30,43 @@ namespace Basis
 
             BNL.Log("Server Booting");
 
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             Check = new BasisNetworkHealthCheck(config);
 
-            Task serverTask = Task.Run(() =>
-            {
-                try
-                {
-                    NetworkServer.StartServer(config);
-                    BasisLoadableLoader.LoadXML(InitialResources);
-                }
-                catch (Exception ex)
-                {
-                    BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
-                }
-            }, cancellationTokenSource.Token);
+            NetworkServer.StartServer(config);
+            BasisLoadableLoader.LoadXML(InitialResources);
 
             AppDomain.CurrentDomain.ProcessExit += async (sender, eventArgs) =>
             {
                 BNL.Log("Shutting down server...");
-                cancellationTokenSource.Cancel();
-
-                try { await serverTask; }
-                catch (Exception ex) { BNL.LogError($"Error during server shutdown: {ex.Message}"); }
+                isRunning = false;
+                shutdownEvent.Set(); // Signal the main thread to exit
 
                 if (config.EnableStatistics) BasisStatistics.StopWorkerThread();
                 await BasisServerSideLogging.ShutdownAsync();
                 BNL.Log("Server shut down successfully.");
             };
-            BasisConsoleCommands.RegisterCommand("/admin add", BasisConsoleCommands.HandleAddAdmin);
-            BasisConsoleCommands.RegisterCommand("/status", BasisConsoleCommands.HandleStatus);
-            BasisConsoleCommands.RegisterCommand("/shutdown", BasisConsoleCommands.HandleShutdown);
-            BasisConsoleCommands.RegisterCommand("/help", BasisConsoleCommands.HandleHelp);
-            //BasisConsoleCommands.RegisterConfigurationCommands(config);
-
-            // Start console command processing
-            Task.Run(() => BasisConsoleCommands.ProcessConsoleCommands());
-
-            while (isRunning)
+            if (config.EnableConsole)
             {
-                Thread.Sleep(ThreadSleepTime);
+                BasisConsoleCommands.RegisterCommand("/admin add", BasisConsoleCommands.HandleAddAdmin);
+                BasisConsoleCommands.RegisterCommand("/status", BasisConsoleCommands.HandleStatus);
+                BasisConsoleCommands.RegisterCommand("/shutdown", BasisConsoleCommands.HandleShutdown);
+                BasisConsoleCommands.RegisterCommand("/help", BasisConsoleCommands.HandleHelp);
+                BasisConsoleCommands.RegisterConfigurationCommands(config);
+
+                BasisConsoleCommands.StartConsoleListener();
             }
+            // Wait for shutdown signal
+            shutdownEvent.Wait();
         }
+
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            if (e.ExceptionObject is Exception exception)
-            {
-                BNL.LogError($"Fatal exception: {exception.Message}");
-                BNL.LogError($"Stack trace: {exception.StackTrace}");
-            }
-            else
-            {
-                BNL.LogError("An unknown fatal exception occurred.");
-            }
+            BNL.LogError($"Unhandled Exception: {e.ExceptionObject}");
         }
 
         private static void TaskScheduler_UnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
         {
-            foreach (var exception in e.Exception.InnerExceptions)
-            {
-                BNL.LogError($"Unobserved task exception: {exception.Message}");
-                BNL.LogError($"Stack trace: {exception.StackTrace}");
-            }
+            BNL.LogError($"Unobserved Task Exception: {e.Exception.Message}");
             e.SetObserved();
         }
     }

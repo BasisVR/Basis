@@ -31,6 +31,8 @@ namespace Basis.Scripts.Device_Management
         [SerializeField]
         public const string Desktop = "Desktop";
         public static string BoneData = "Assets/ScriptableObjects/BoneData.asset";
+        public static BasisFallBackBoneData FBBD;
+        public const string ProfilePath = "Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset";
         public string DefaultMode()
         {
             if (IsMobile())
@@ -178,7 +180,7 @@ namespace Basis.Scripts.Device_Management
         {
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out string ForcedDevicemanager);
             LoadFallbackData();
-            InstantiationParameters parameters = new InstantiationParameters();
+            InstantiationParameters parameters = new InstantiationParameters(this.transform,true);
             await BasisPlayerFactory.CreateLocalPlayer(parameters);
 
             if (string.IsNullOrEmpty(ForcedDevicemanager))
@@ -198,11 +200,10 @@ namespace Basis.Scripts.Device_Management
             }
             await OnInitializationCompleted?.Invoke();
         }
-        public static BasisFallBackBoneData FBBD;
         public void LoadFallbackData()
         {
             BasisFallBackBoneDataAsync = Addressables.LoadAssetAsync<BasisFallBackBoneData>(BoneData);
-            LipSyncProfile = Addressables.LoadAssetAsync<uLipSync.Profile>("Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset");
+            LipSyncProfile = Addressables.LoadAssetAsync<uLipSync.Profile>(ProfilePath);
             FBBD = BasisFallBackBoneDataAsync.WaitForCompletion();
             LipSyncProfile.WaitForCompletion();
         }

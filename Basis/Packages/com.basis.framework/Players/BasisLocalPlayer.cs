@@ -111,22 +111,14 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisMicrophoneRecorder.TryInitialize();
             PlayerReady = true;
             OnLocalPlayerCreatedAndReady?.Invoke();
-            BasisSceneFactory BasisSceneFactory = FindFirstObjectByType<BasisSceneFactory>(FindObjectsInactive.Exclude);
-            if (BasisSceneFactory != null)
+            BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
+            if (BasisScene != null)
             {
-                BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
-                if (BasisScene != null)
-                {
-                    BasisSceneFactory.Initalize(BasisScene);
-                }
-                else
-                {
-                    BasisDebug.LogError("Cant Find Basis Scene");
-                }
+                BasisSceneFactory.Initalize(BasisScene);
             }
             else
             {
-                BasisDebug.LogError("Cant Find Scene Factory");
+                BasisDebug.LogError("Cant Find Basis Scene");
             }
             BasisUILoadingBar.Initalize();
 
@@ -182,10 +174,10 @@ namespace Basis.Scripts.BasisSdk.Players
         }
         public void OnSceneLoadedCallback(Scene scene, LoadSceneMode mode)
         {
-            if (BasisSceneFactory.Instance != null && SpawnPlayerOnSceneLoad)
+            if (SpawnPlayerOnSceneLoad)
             {
                 //swap over to on scene load
-                BasisSceneFactory.Instance.SpawnPlayer(this);
+                BasisSceneFactory.SpawnPlayer(this);
             }
         }
         public async Task CreateAvatar(byte mode, BasisLoadableBundle BasisLoadableBundle)

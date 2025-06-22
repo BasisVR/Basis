@@ -49,7 +49,7 @@ namespace Basis.Network.Server.Ownership
                         {
                             NetDataWriter Writer = new NetDataWriter(true);
                             ownershipTransferMessage.Serialize(Writer);
-                            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableSequenced);
+                            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
                         }
                         else
                         {
@@ -85,7 +85,7 @@ namespace Basis.Network.Server.Ownership
                 ownershipTransferMessage.Serialize(Writer);
 
                 BNL.Log("OwnershipResponse " + ownershipTransferMessage.ownershipID + " for " + ownershipTransferMessage.playerIdMessage);
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableSequenced);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
             }
             else
             {
@@ -242,9 +242,24 @@ namespace Basis.Network.Server.Ownership
                         objectsToRemove.Add(entry.Key);
                     }
                 }
-                foreach (string client in objectsToRemove)
+                if (objectsToRemove.Count == 0)
                 {
-                    ownershipByObjectId.TryRemove(client, out ushort user);
+                    return;
+                }
+                OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
+                NetDataWriter Writer = new NetDataWriter(true);
+                foreach (string OwnershipId in objectsToRemove)
+                {
+                    if (ownershipByObjectId.TryRemove(OwnershipId, out ushort OwnerID))
+                    {
+                        Writer.Reset();
+                        ownershipTransferMessage.playerIdMessage = new SerializableBasis.PlayerIdMessage();
+                        ownershipTransferMessage.playerIdMessage.playerID = OwnerID;
+                        ownershipTransferMessage.ownershipID = OwnershipId;
+
+                        ownershipTransferMessage.Serialize(Writer);
+                        NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                    }
                 }
                 BNL.Log($"Player {playerId}'s ownership removed from {objectsToRemove.Count} objects.");
             }

@@ -6,11 +6,11 @@
     <td><div align="center"><h3><strong>Basis</strong></h3>
 The Social VR Framework</br>
 <a href="https://discord.gg/F35u3cUMqt"><strong>Join our Discord!»</strong></a></br></br>
-<a href="https://github.com/BasisVR/Basis/issues/new?labels=bug&template=bug-report---.md">Report Bug</a> - 
+<a href="https://github.com/BasisVR/Basis/issues/new?labels=bug&template=bug-report---.md">Report Bug</a> -
 <a href="https://github.com/BasisVR/Basis/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a></div></td>
  </tr>
 </table>
-     
+
  ## About Basis
 
 [Basis Philosophy](./PHILOSOPHY.md) <- read our Philosophy here!
@@ -25,14 +25,14 @@ We are actively working on Basis. If you like what you see please consider contr
 
  ## How you can Contribute
 
-After a half-year of development, we have only recently put Basis on github, which means while everything is operational, we still have to work on fixing plenty of bugs.
+After a year of development, we have only recently put Basis on github, which means while everything is operational, we still have to work on fixing plenty of bugs.
 
 Do you have a suggestion for improving Basis? Please Fork the repo and create a pull request! You can also open an issue with the tag “improvement”.
 Not sure how to contribute but still wanting to help out? Consider donating! We appreciate any help possible.
 
 <noscript><a href="https://liberapay.com/dooly/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript> [Github Sponsor](https://github.com/sponsors/dooly123)</br>[KoFi](https://ko-fi.com/dooly)</br>
 
-Please help shape the future of Basis and leave your mark on its foundation. 
+Please help shape the future of Basis and leave your mark on its foundation.
 
  #### Creating a Fork
 
@@ -43,7 +43,7 @@ Please help shape the future of Basis and leave your mark on its foundation.
 5. Open a Pull Request
 
  ## Installation
- 
+
 This project is currently using Unity 6 (6000.0.44f1)
 Other Unity versions may work but will require changes and adaptations.
 Currently, OPENXR and SteamVR are supported as well as OPENXR Quest.
@@ -116,18 +116,6 @@ This project also includes third-party trademarks as described in `Basis/Package
 
 ## Basis Trademark Guidelines
 
-Source code comprising the Basis Framework is released subject to the MIT license. However, we require permission to use the logo and the Basis/BasisVR/Basis Framework names.
-
-We encourage and authorize consumers of the framework to credit their projects with "Made with Basis" or "Built with Basis", or similar, to signal their usage. We request, however, that users of these marks to otherwise avoid claiming implicit or explicit affiliation or endorsement by the Basis Project without express written permission to do so.
-
-Additionally, we would also like to avoid confusion between consumers of the products built using the Basis Framework and the Basis Project itself whenever possible. For example, although projects naming themselves "Basis 2" or "Basis Pro" or similar may not violate the source code license, unauthorized use of the trademark may cause unnecessary confusion.
-
-We explicitly grant permission to use the name and logo for contributions made to the Basis Project, its documentation, or educational materials or tutorials for Basis. Additionally, we authorize use of the name and logo in text or video to truthfully refer to and/or link to the Basis Project and Framework.
-
-If there is any confusion about these permissions, please get in touch so we can help clarify or improve our guidelines.
-
-TL;DR:
-* MIT covers the code; name/logo remain trademarked.
-* Use “Built with Basis” descriptively—no implied endorsement.
-* Don’t name forks using the Basis name i.e. “Basis 2/Pro”, or use the logo without permission.
-* Contact us if unsure.
+"Basis", "BasisVR", "Basis Framework", and the Basis logo are marks representing the
+Basis Project. Please see [TRADEMARK.md](./TRADEMARK.md) for our policies our policies
+on their usage.

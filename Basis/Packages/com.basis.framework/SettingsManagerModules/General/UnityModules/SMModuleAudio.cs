@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 using UnityEngine.Audio;
 
@@ -7,6 +7,12 @@ namespace BattlePhaze.SettingsManager.Intergrations
     public class SMModuleAudio : SettingsManagerOption
     {
         public AudioMixer Mixer;
+        public AudioMixerGroup WorldDefaultMixer;
+        public static SMModuleAudio Instance;
+        public void Awake()
+        {
+           Instance = this;
+        }
         /// <summary>
         /// 0 to 1 rest or 0 to 100
         /// </summary>

@@ -597,7 +597,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!114 &3843996678262047675
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -663,12 +663,12 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  - UnlockPassword: 57010aaf35d7ed7ebcad86ec34fcf15607519a5b652a6b8a3057d27b60b9f393
+  - UnlockPassword: ec41ae12e3ad75e9c560c39b2f0891b0b95097e85d5ae4ad7beaabad7094f46e
     BasisRemoteBundleEncrypted:
       IsLocal: 1
-      CombinedURL: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1fad23a63de34ae9a722122ff63d265620250301.BEE
+      CombinedURL: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1fad23a63de34ae9a722122ff63d265620250301.BEE
+      LocalConnectorPath: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -2487,6 +2487,7 @@ GameObject:
   - component: {fileID: 519834381701191435}
   - component: {fileID: 3529272736209067827}
   - component: {fileID: 8945800543315161970}
+  - component: {fileID: 2487376463663435495}
   m_Layer: 5
   m_Name: Avatar Loadable
   m_TagString: Untagged
@@ -2597,6 +2598,20 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2487376463663435495
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5504761427362873086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00a301efd2caaf74db2299f106d75f7b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Button: {fileID: 8945800543315161970}
+  Text: {fileID: 6195557859069876901}
 --- !u!1 &5716835699556391665
 GameObject:
   m_ObjectHideFlags: 0
