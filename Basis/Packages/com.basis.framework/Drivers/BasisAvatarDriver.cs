@@ -410,6 +410,8 @@ namespace Basis.Scripts.Drivers
             bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(animator, WorldTpose);//out Vector3 WorldSpaceFloor
             bone.TposeLocal.position = bone.OutGoingData.position;
             bone.TposeLocal.rotation = bone.OutGoingData.rotation;
+
+
             if (IsApartOfSpineVertical(Role))
             {
                 bone.OutGoingData.position = new Vector3(0, bone.OutGoingData.position.y, bone.OutGoingData.position.z);
@@ -419,8 +421,11 @@ namespace Basis.Scripts.Drivers
             {
                 bone.TposeLocal.rotation = quaternion.identity;
             }
+
+            bone.TposeLocalScaled.position = BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentScaleValidated * bone.TposeLocal.position;
+            bone.TposeLocalScaled.rotation = bone.TposeLocal.rotation;
         }
-        public void SetAndCreateLock(BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
+        public void SetAndCreateLock(Vector3 CalibrationScale,BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
         {
             if (CreateLocks)
             {
@@ -433,7 +438,7 @@ namespace Basis.Scripts.Drivers
                 {
                     BasisDebug.LogError("Cant Find Bone " + LockToBoneRole);
                 }
-                BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
+                BaseBoneDriver.CreateRotationalLock(CalibrationScale, AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
             }
         }
         public int SkinnedMeshRendererLength;

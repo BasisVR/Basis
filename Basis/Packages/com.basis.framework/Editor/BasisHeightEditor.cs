@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEditor;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.TransformBinders.BoneControl;
+using Basis.Scripts.Drivers;
 
 public class BasisHeightEditorWindow : EditorWindow
 {
@@ -44,7 +46,7 @@ public class BasisHeightEditorWindow : EditorWindow
 
         if (GUILayout.Button("Set Custom Player Height"))
         {
-            SetCustomPlayerHeight(customHeight);
+            BasisHeightDriver.SetCustomPlayerHeight(customHeight);
         }
     }
 
@@ -86,10 +88,5 @@ public class BasisHeightEditorWindow : EditorWindow
 
         BasisHeightDriver.SaveHeight(basisPlayer.CurrentHeight.SelectedPlayerHeight);
         BasisDebug.Log($"Player height saved: {basisPlayer.CurrentHeight.SelectedPlayerHeight}");
-    }
-
-    private static void SetCustomPlayerHeight(float customHeight)
-    {
-        BasisHeightDriver.SetCustomPlayerHeight(customHeight);
     }
 }

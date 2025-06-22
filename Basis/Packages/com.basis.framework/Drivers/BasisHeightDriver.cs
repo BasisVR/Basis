@@ -29,7 +29,7 @@ public static class BasisHeightDriver
 
         if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl LeftHand, BasisBoneTrackedRole.LeftHand) && BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl RightHand, BasisBoneTrackedRole.RightHand))
         {
-            BasisLocalPlayer.Instance.CurrentHeight.AvatarArmSpan = Vector3.Distance(LeftHand.TposeLocal.position, RightHand.TposeLocal.position);
+            BasisLocalPlayer.Instance.CurrentHeight.AvatarArmSpan = Vector3.Distance(LeftHand.TposeLocalScaled.position, RightHand.TposeLocalScaled.position);
             BasisDebug.Log("Current Avatar Arm Span is " + BasisLocalPlayer.Instance.CurrentHeight.AvatarArmSpan);
         }
 
@@ -108,6 +108,7 @@ public static class BasisHeightDriver
     /// <param name="customHeight">The custom eye height to set for the player.</param>
     public static void SetCustomPlayerHeight(float customHeight)
     {
+        // Set the custom height in the driver
         if (customHeight <= 0)
         {
             BasisDebug.LogError("Invalid custom height. Must be greater than zero.");
@@ -117,12 +118,35 @@ public static class BasisHeightDriver
         BasisDebug.Log($"Setting custom player eye height: {customHeight}", BasisDebug.LogTag.Avatar);
 
         BasisLocalPlayer player = BasisLocalPlayer.Instance;
+        BasisLocalAvatarDriver LocalAvatarDriver = player.LocalAvatarDriver;
+        BasisLocalBoneDriver Driver = player.LocalBoneDriver;
+
         player.CurrentHeight.CustomAvatarEyeHeight = customHeight;
         player.CurrentHeight.CustomPlayerEyeHeight = customHeight;
 
         SaveHeight(customHeight);
         SetPlayersEyeHeight(player, BasisSelectedHeightMode.Custom);
+        // Get the avatar's default scale
+        Vector3 defaultScale = LocalAvatarDriver.AvatarDefaultScale;
 
+        // Compute the scale multiplier based on the desired height vs actual height
+        float heightScaleFactor = customHeight / player.CurrentHeight.AvatarEyeHeight;
+
+        // Scale uniformly based on default scale
+        Vector3 newScale = defaultScale * heightScaleFactor;
+
+        // Apply the new scale to the avatar
+        LocalAvatarDriver.SetAvatarheightOverride(newScale);
+        Vector3 CurrentScaleValidated = LocalAvatarDriver.CurrentScaleValidated;
+        int LengthCount = Driver.ControlsLength;
+        for (int Index = 0; Index < LengthCount; Index++)
+        {
+            BasisBoneControl Control = Driver.Controls[Index];
+            Control.TposeLocalScaled.position = CurrentScaleValidated * Control.TposeLocal.position;
+            Control.TposeLocalScaled.rotation = Control.TposeLocal.rotation;
+            Control.ScaledOffset = CurrentScaleValidated * Control.Offset;
+        }
+        LocalAvatarDriver.CalculateMaxExtended();
         player.OnPlayersHeightChanged?.Invoke();
     }
 }

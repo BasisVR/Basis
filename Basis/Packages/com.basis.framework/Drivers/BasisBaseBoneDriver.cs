@@ -219,14 +219,15 @@ namespace Basis.Scripts.Drivers
 
             return rainbowColors;
         }
-        public void CreateRotationalLock(BasisBoneControl addToBone, BasisBoneControl target, float lerpAmount, float positional = 40)
+        public void CreateRotationalLock(Vector3 CurrentScaleValidated, BasisBoneControl addToBone, BasisBoneControl target, float lerpAmount, float positional = 40)
         {
             addToBone.Target = target;
             addToBone.LerpAmountNormal = lerpAmount;
             addToBone.LerpAmountFastMovement = lerpAmount * 4;
             addToBone.AngleBeforeSpeedup = 25f;
             addToBone.HasRotationalTarget = target != null;
-            addToBone.Offset = addToBone.TposeLocal.position - target.TposeLocal.position;
+            addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
+            addToBone.ScaledOffset = CurrentScaleValidated * addToBone.Offset;
             addToBone.Target = target;
             addToBone.LerpAmount = positional;
             addToBone.HasTarget = target != null;
