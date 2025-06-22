@@ -145,8 +145,6 @@ PlayerSettings:
   - {fileID: 11400000, guid: cf469a9a31a25dc449c2537cb0b17ad6, type: 2}
   - {fileID: -944628639613478452, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   - {fileID: 11400000, guid: cbf2a9bc3df50124e9ab11af8774a1ce, type: 2}
-  - {fileID: 8430700007858905976, guid: 1d5aae00e097ba9419be9ec26ccae856, type: 2}
-  - {fileID: -75955278653016334, guid: ad3dbbd57db07a1488d166f19ed6e7dc, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -176,7 +174,7 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 45
+  AndroidBundleVersionCode: 46
   AndroidMinSdkVersion: 32
   AndroidTargetSdkVersion: 32
   AndroidPreferredInstallLocation: 0
