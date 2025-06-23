@@ -11,11 +11,6 @@ public static class BasisAnimationRiggingHelper
         Constraint.data.M_CalibratedOffset = TargetPositionOffset;
         Constraint.data.M_CalibratedRotation = TargetRotationOffset;
     }
-    public static void EnableTwoBoneIkHand(BasisTwoBoneIKConstraintHand Constraint, Vector3 TargetPositionOffset, Vector3 TargetRotationOffset)
-    {
-        Constraint.data.M_CalibratedOffset = TargetPositionOffset;
-        Constraint.data.M_CalibratedRotation = TargetRotationOffset;
-    }
     public static void Damp(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
     {
         driver.FindBone(out BasisBoneControl Target, Role);
@@ -148,11 +143,6 @@ public static class BasisAnimationRiggingHelper
 
         GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole.ToString()}");
         TwoBoneIKConstraint = BasisHelpers.GetOrAddComponent<BasisTwoBoneIKConstraintHand>(BoneRole);
-
-        Vector3 PositionOffset = new Vector3(0, 0, 0);
-
-        Quaternion RotationOffset = tip.rotation;//Quaternion.Inverse(TargetControl.OutgoingWorldData.rotation) *
-        EnableTwoBoneIkHand(TwoBoneIKConstraint, PositionOffset, RotationOffset.eulerAngles);
         Quaternion Rotation = TargetControl.OutgoingWorldData.rotation;
         TwoBoneIKConstraint.data.TargetPosition = TargetControl.OutgoingWorldData.position;
         TwoBoneIKConstraint.data.TargetRotation = Rotation.eulerAngles;

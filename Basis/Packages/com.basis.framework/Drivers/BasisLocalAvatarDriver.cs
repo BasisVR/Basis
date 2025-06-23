@@ -24,47 +24,6 @@ namespace Basis.Scripts.Drivers
         public BasisTwoBoneIKConstraintHand LeftHandTwoBoneIK;
         public BasisTwoBoneIKConstraintHand RightHandTwoBoneIK;
         public BasisTwoBoneIKConstraint UpperChestTwoBoneIK;
-        public void SimulateIKDestinations(Quaternion Rotation)
-        {
-            // --- IK Target ---
-            ApplyBoneIKTarget(HeadTwoBoneIK, BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position, BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation);
-            ApplyBoneIKTarget(LeftFootTwoBoneIK, BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.rotation);
-            ApplyBoneIKTarget(RightFootTwoBoneIK, BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.rotation);
-            ApplyBoneIKTarget(LeftHandTwoBoneIK, BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.rotation);
-            ApplyBoneIKTarget(RightHandTwoBoneIK, BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.rotation);
-
-            Vector3 Direction = Rotation * AvatarUPDownDirectionCalibration;
-            // --- IK Hint ---
-            ApplyBoneIKHint(HeadTwoBoneIK, BasisLocalBoneDriver.ChestControl.OutgoingWorldData.position, BasisLocalBoneDriver.ChestControl.OutgoingWorldData.rotation, Direction);
-
-            ApplyBoneIKHint(LeftFootTwoBoneIK, BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData.rotation, Direction);
-            ApplyBoneIKHint(RightFootTwoBoneIK, BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData.rotation, Direction);
-
-            ApplyBoneIKHint(LeftHandTwoBoneIK, BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.rotation);
-            ApplyBoneIKHint(RightHandTwoBoneIK, BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.rotation);
-        }
-        public void ApplyBoneIKHint(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation, Vector3 Direction)
-        {
-            Constraint.data.HintPosition = Position;
-            Constraint.data.HintRotation = Rotation.eulerAngles;
-            Constraint.data.m_HintDirection = Direction;
-        }
-        public void ApplyBoneIKHint(BasisTwoBoneIKConstraintHand Constraint, Vector3 Position, Quaternion Rotation)
-        {
-            Constraint.data.HintPosition = Position;
-            Constraint.data.HintRotation = Rotation.eulerAngles;
-        }
-        public void ApplyBoneIKTarget(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation)
-        {
-            Constraint.data.TargetPosition = Position;
-            Constraint.data.TargetRotation = Rotation.eulerAngles;
-        }
-        public void ApplyBoneIKTarget(BasisTwoBoneIKConstraintHand Constraint, Vector3 Position, Quaternion Rotation)
-        {
-            Constraint.data.TargetPosition = Position;
-            Constraint.data.TargetRotation = Rotation.eulerAngles;
-        }
-
         public Rig LeftToeRig;
         public Rig RightToeRig;
 
@@ -98,8 +57,49 @@ namespace Basis.Scripts.Drivers
         public string Locomotion = "Locomotion";
         public PlayableGraph PlayableGraph;
         public float MaxExtendedDistance;
-        public Vector3 AvatarUPDownDirectionCalibration;//for ik that goes up down (head,legs)
         public static BasisLocalAvatarDriver Instance;
+        public static bool IsNormalHead;
+        public Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms;
+        public void SimulateIKDestinations(Quaternion Rotation)
+        {
+            // --- IK Target ---
+            ApplyBoneIKTarget(HeadTwoBoneIK, BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position, BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation);
+            ApplyBoneIKTarget(LeftFootTwoBoneIK, BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.rotation);
+            ApplyBoneIKTarget(RightFootTwoBoneIK, BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.rotation);
+            ApplyBoneIKTarget(LeftHandTwoBoneIK, BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.rotation);
+            ApplyBoneIKTarget(RightHandTwoBoneIK, BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.rotation);
+
+            Vector3 Direction = Rotation * Vector3.right;
+            // --- IK Hint ---
+            ApplyBoneIKHint(HeadTwoBoneIK, BasisLocalBoneDriver.ChestControl.OutgoingWorldData.position, BasisLocalBoneDriver.ChestControl.OutgoingWorldData.rotation, Direction);
+
+            ApplyBoneIKHint(LeftFootTwoBoneIK, BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData.rotation, Direction);
+            ApplyBoneIKHint(RightFootTwoBoneIK, BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData.rotation, Direction);
+
+            ApplyBoneIKHint(LeftHandTwoBoneIK, BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.rotation);
+            ApplyBoneIKHint(RightHandTwoBoneIK, BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.rotation);
+        }
+        public void ApplyBoneIKHint(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation, Vector3 Direction)
+        {
+            Constraint.data.HintPosition = Position;
+            Constraint.data.HintRotation = Rotation.eulerAngles;
+            Constraint.data.m_HintDirection = Direction;
+        }
+        public void ApplyBoneIKHint(BasisTwoBoneIKConstraintHand Constraint, Vector3 Position, Quaternion Rotation)
+        {
+            Constraint.data.HintPosition = Position;
+            Constraint.data.HintRotation = Rotation.eulerAngles;
+        }
+        public void ApplyBoneIKTarget(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation)
+        {
+            Constraint.data.TargetPosition = Position;
+            Constraint.data.TargetRotation = Rotation.eulerAngles;
+        }
+        public void ApplyBoneIKTarget(BasisTwoBoneIKConstraintHand Constraint, Vector3 Position, Quaternion Rotation)
+        {
+            Constraint.data.TargetPosition = Position;
+            Constraint.data.TargetRotation = Rotation.eulerAngles;
+        }
         public void InitialLocalCalibration(BasisLocalPlayer player)
         {
             Instance = this;
@@ -174,12 +174,10 @@ namespace Basis.Scripts.Drivers
             StoredRolesTransforms = BasisAvatarIKStageCalibration.GetAllRolesAsTransform();
             player.BasisAvatarTransform.parent = player.transform;
             player.BasisAvatarTransform.SetLocalPositionAndRotation(-Hips.TposeLocal.position, Quaternion.identity);
-            AvatarUPDownDirectionCalibration = Vector3.right;
             MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.Head.TposeLocal.position, BasisLocalBoneDriver.Hips.TposeLocal.position);
             BuildBuilder();
             IsNormalHead = true;
         }
-        public static bool IsNormalHead;
         public static void ScaleHeadToNormal()
         {
             if (IsNormalHead)
@@ -214,7 +212,6 @@ namespace Basis.Scripts.Drivers
             Instance.References.head.localScale = HeadScaledDown;
             IsNormalHead = false;
         }
-        public Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms;
         public void BuildBuilder()
         {
             PlayableGraph = Player.BasisAvatar.Animator.playableGraph;
@@ -230,9 +227,6 @@ namespace Basis.Scripts.Drivers
                     if (CurrentlyTposing)
                     {
                         Layer.active = false;
-                    }
-                    else
-                    {
                     }
                 }
                 if (CurrentlyTposing == false)
@@ -300,10 +294,7 @@ namespace Basis.Scripts.Drivers
 
             SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth, 40, 30, true);
 
-
             SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest, 40, 30, true);
-
-
 
             SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine, 40, 14, true);
             SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips, 40, 14, true);
