@@ -298,7 +298,7 @@ namespace Basis.Scripts.Drivers
                 if (Camera.GetInstanceID() == CameraInstanceID)
                 {
                     transform.GetPositionAndRotation(out Position,out Rotation);
-                    BasisLocalAvatarDriver.ScaleheadToZero();
+                    BasisLocalAvatarDriver.ScaleHeadToZero();
                     if (CameraData.allowXRRendering)
                     {
                         Vector2 EyeTextureSize = new Vector2(XRSettings.eyeTextureWidth, XRSettings.eyeTextureHeight);

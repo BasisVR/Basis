@@ -142,7 +142,7 @@ public class BasisSDKMirror : MonoBehaviour
         UpdateCameraState(context, camera);
 
         OnCamerasFinished?.Invoke();
-        BasisLocalAvatarDriver.ScaleheadToZero();
+        BasisLocalAvatarDriver.ScaleHeadToZero();
     }
     private bool IsCameraAble(Camera camera)
     {

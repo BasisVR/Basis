@@ -26,6 +26,8 @@ namespace Basis.Scripts.Drivers
         public BasisTwoBoneIKConstraintHand RightHandTwoBoneIK;
         public BasisTwoBoneIKConstraint UpperChestTwoBoneIK;
 
+        public BasisLocalRigDriver LocalRigDriver;
+
         public void SimulateIKDestinations(Quaternion Rotation)
         {
             // --- IK Target ---
@@ -97,8 +99,6 @@ namespace Basis.Scripts.Drivers
 
         public RigLayer LeftShoulderLayer;
         public RigLayer RightShoulderLayer;
-        public List<Rig> Rigs = new List<Rig>();
-        public RigBuilder Builder;
         public List<RigTransform> AdditionalTransforms = new List<RigTransform>();
         public bool HasTPoseEvent = false;
         public string Locomotion = "Locomotion";
@@ -106,6 +106,7 @@ namespace Basis.Scripts.Drivers
         public float MaxExtendedDistance;
         public Vector3 AvatarUPDownDirectionCalibration;//for ik that goes up down (head,legs)
         public static BasisLocalAvatarDriver Instance;
+
         public void InitialLocalCalibration(BasisLocalPlayer player)
         {
             Instance = this;
@@ -125,10 +126,8 @@ namespace Basis.Scripts.Drivers
                 BasisDebug.LogError("Unable to Calibrate Local Avatar Missing Core Requirement (Animator,LocalPlayer Or Driver)");
                 return;
             }
-            CleanupBeforeContinue();
+            LocalRigDriver.Cleanup();
             AdditionalTransforms.Clear();
-            Rigs.Clear();
-            GameObject AvatarAnimatorParent = player.BasisAvatar.Animator.gameObject;
             player.BasisAvatar.Animator.updateMode = AnimatorUpdateMode.Normal;
             player.BasisAvatar.Animator.logWarnings = false;
             if (player.BasisAvatar.Animator.runtimeAnimatorController == null)
@@ -139,8 +138,6 @@ namespace Basis.Scripts.Drivers
             }
             player.BasisAvatar.Animator.applyRootMotion = false;
             PutAvatarIntoTPose();
-            Builder = BasisHelpers.GetOrAddComponent<RigBuilder>(AvatarAnimatorParent);
-            Builder.enabled = false;
             Calibration(player.BasisAvatar);
             BasisLocalPlayer.Instance.LocalBoneDriver.RemoveAllListeners();
             BasisLocalPlayer.Instance.BasisLocalEyeDriver.Initalize(this, player);
@@ -186,38 +183,25 @@ namespace Basis.Scripts.Drivers
             IsNormalHead = true;
         }
         public static bool IsNormalHead;
+
         public static void ScaleHeadToNormal()
         {
-            if (IsNormalHead)
+            if (IsNormalHead || Instance == null || !Instance.References.Hashead)
             {
                 return;
             }
-            if (Instance == null)
-            {
-                return;
-            }
-            if (Instance.References.Hashead == false)
-            {
-                return;
-            }
+            
             Instance.References.head.localScale = HeadScale;
             IsNormalHead = true;
         }
 
-        public static void ScaleheadToZero()
+        public static void ScaleHeadToZero()
         {
-            if (IsNormalHead == false)
+            if (!IsNormalHead || Instance == null || !Instance.References.Hashead)
             {
                 return;
             }
-            if (Instance == null)
-            {
-                return;
-            }
-            if (Instance.References.Hashead == false)
-            {
-                return;
-            }
+
             Instance.References.head.localScale = HeadScaledDown;
             IsNormalHead = false;
         }
@@ -228,78 +212,27 @@ namespace Basis.Scripts.Drivers
         {
             PlayableGraph = Player.BasisAvatar.Animator.playableGraph;
             PlayableGraph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
-            Builder.Build(PlayableGraph);
+            LocalRigDriver.Builder.Build(PlayableGraph);
         }
 
         public void OnTPose()
         {
-            if (Builder != null)
+            if (LocalRigDriver.Builder == null) return;
+
+            foreach (RigLayer Layer in LocalRigDriver.Builder.layers)
             {
-                foreach (RigLayer Layer in Builder.layers)
+                if (CurrentlyTposing)
                 {
-                    if (CurrentlyTposing)
-                    {
-                        Layer.active = false;
-                    }
-                    else
-                    {
-                    }
+                    Layer.active = false;
                 }
-                if (CurrentlyTposing == false)
-                {
-                    foreach (BasisBoneControl control in BasisLocalPlayer.Instance.LocalBoneDriver.Controls)
-                    {
-                        control.OnHasRigChanged?.Invoke();
-                    }
-                }
-            }
-        }
-        public void CleanupBeforeContinue()
-        {
-            if (RigSpineRig != null)
-            {
-                GameObject.Destroy(RigSpineRig.gameObject);
-            }
-            if (RigHeadRig != null)
-            {
-                GameObject.Destroy(RigHeadRig.gameObject);
-            }
-            if (LeftHandRig != null)
-            {
-                GameObject.Destroy(LeftHandRig.gameObject);
-            }
-            if (RightHandRig != null)
-            {
-                GameObject.Destroy(RightHandRig.gameObject);
-            }
-            if (LeftFootRig != null)
-            {
-                GameObject.Destroy(LeftFootRig.gameObject);
-            }
-            if (RightFootRig != null)
-            {
-                GameObject.Destroy(RightFootRig.gameObject);
-            }
-            if (ChestSpineRig != null)
-            {
-                GameObject.Destroy(ChestSpineRig.gameObject);
-            }
-            if (LeftShoulderRig != null)
-            {
-                GameObject.Destroy(LeftShoulderRig.gameObject);
-            }
-            if (RightShoulderRig != null)
-            {
-                GameObject.Destroy(RightShoulderRig.gameObject);
             }
 
-            if (LeftToeRig != null)
+            if (!CurrentlyTposing)
             {
-                GameObject.Destroy(LeftToeRig.gameObject);
-            }
-            if (RightToeRig != null)
-            {
-                GameObject.Destroy(RightToeRig.gameObject);
+                foreach (BasisBoneControl control in BasisLocalPlayer.Instance.LocalBoneDriver.Controls)
+                {
+                    control.OnHasRigChanged?.Invoke();
+                }
             }
         }
 
@@ -342,18 +275,11 @@ namespace Basis.Scripts.Drivers
 
         public bool IsAble()
         {
-            if (IsNull(Player))
+            if (IsNull(Player) || IsNull(Player.BasisAvatar) || IsNull(Player.BasisAvatar.Animator))
             {
                 return false;
             }
-            if (IsNull(Player.BasisAvatar))
-            {
-                return false;
-            }
-            if (IsNull(Player.BasisAvatar.Animator))
-            {
-                return false;
-            }
+
             return true;
         }
 
@@ -624,28 +550,9 @@ namespace Basis.Scripts.Drivers
             // BasisDebug.Log("Update Layer to State " + Layer.active + " for layer " + Layer);
         }
 
-        public GameObject CreateOrGetRig(string Role, bool Enabled, out Rig Rig, out RigLayer RigLayer)
-        {
-            foreach (RigLayer Layer in Builder.layers)
-            {
-                if (Layer.rig.name == $"Rig {Role}")
-                {
-                    RigLayer = Layer;
-                    Rig = Layer.rig;
-                    return Layer.rig.gameObject;
-                }
-            }
-            GameObject RigGameobject = BasisAnimationRiggingHelper.CreateAndSetParent(Player.BasisAvatar.Animator.transform, $"Rig {Role}");
-            Rig = BasisHelpers.GetOrAddComponent<Rig>(RigGameobject);
-            Rigs.Add(Rig);
-            RigLayer = new RigLayer(Rig, Enabled);
-            Builder.layers.Add(RigLayer);
-            return RigGameobject;
-        }
-
         public void SimulateAnimatorAndIk()
         {
-            Builder.SyncLayers();
+            LocalRigDriver.Builder.SyncLayers();
             PlayableGraph.Evaluate(Time.deltaTime);
         }
     }

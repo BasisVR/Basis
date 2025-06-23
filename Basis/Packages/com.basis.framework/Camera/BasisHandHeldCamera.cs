@@ -392,7 +392,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public void SetNormalAfterCapture()
     {
         ToggleToneMapping(TonemappingMode.Neutral);
-        BasisLocalAvatarDriver.ScaleheadToZero();
+        BasisLocalAvatarDriver.ScaleHeadToZero();
         SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
     }
     public async void SaveScreenshotAsync(Texture2D screenshot)
