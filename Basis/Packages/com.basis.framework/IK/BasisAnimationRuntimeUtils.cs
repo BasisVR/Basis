@@ -118,8 +118,7 @@ public static class BasisAnimationRuntimeUtils
         ReadWriteTransformHandle tip,
         AffineTransform target,
         AffineTransform hint,
-        bool hintWeight,
-        AffineTransform targetOffset
+        bool hintWeight
         )
     {
         Vector3 aPosition = root.GetPosition(stream);
@@ -129,8 +128,8 @@ public static class BasisAnimationRuntimeUtils
         Vector3 targetPos = target.translation;
         Quaternion targetRot = target.rotation;
 
-        Vector3 tPosition = targetPos + targetOffset.translation;
-        Quaternion tRotation = targetRot * targetOffset.rotation;
+        Vector3 tPosition = targetPos;
+        Quaternion tRotation = targetRot;
         Vector3 ab = bPosition - aPosition;
         Vector3 bc = cPosition - bPosition;
         Vector3 ac = cPosition - aPosition;

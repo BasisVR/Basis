@@ -46,27 +46,6 @@ namespace UnityEngine.Animations.Rigging
 
         string BasisITwoBoneIKConstraintHandData.HintrotationVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(HintRotation));
 
-        [SyncSceneToStream, SerializeField]
-        public Vector3 M_CalibratedOffset;
-        [SyncSceneToStream, SerializeField]
-        public Vector3 M_CalibratedRotation;
-
-        public Vector3 CalibratedOffset
-        {
-            get
-            {
-                return M_CalibratedOffset;
-            }
-        }
-
-        public Vector3 CalibratedRotation
-        {
-            get
-            {
-                return M_CalibratedRotation;
-            }
-        }
-
         /// <inheritdoc />
         bool IAnimationJobData.IsValid() => (m_Tip != null && m_Mid != null && m_Root != null && m_Tip.IsChildOf(m_Mid) && m_Mid.IsChildOf(m_Root));
 
@@ -117,9 +96,6 @@ namespace UnityEngine.Animations.Rigging
         public Vector3Property hintRotation;
         /// <summary>The transform handle for the target transform.</summary>
         public Vector3Property targetRotation;
-
-        /// <summary>The offset applied to the target transform if maintainTargetPositionOffset or maintainTargetRotationOffset is enabled.</summary>
-        public AffineTransform targetOffset;
         /// <summary>The weight for which hint transform has an effect on IK calculations. This is a value in between 0 and 1.</summary>
         public BoolProperty hintWeight;
 
@@ -144,7 +120,7 @@ namespace UnityEngine.Animations.Rigging
                 AffineTransform target = new AffineTransform(targetPosition.Get(stream), Quaternion.Euler(targetRotation.Get(stream)));
                 AffineTransform hint = new AffineTransform(hintPosition.Get(stream), Quaternion.Euler(hintRotation.Get(stream)));
                 //   BasisDebug.Log("Output Normal is " + BendNormalOutput);
-                BasisAnimationRuntimeUtils.SolveTwoBoneIKArms(stream, root, mid, tip, target, hint, hintWeight.Get(stream), targetOffset);
+                BasisAnimationRuntimeUtils.SolveTwoBoneIKArms(stream, root, mid, tip, target, hint, hintWeight.Get(stream));
             }
             else
             {
@@ -170,9 +146,6 @@ namespace UnityEngine.Animations.Rigging
         public Vector3 targetRotation { get; }
         public Vector3 hintPosition { get; }
         public Vector3 HintRotation { get; }
-
-        public Vector3 CalibratedOffset { get; }
-        public Vector3 CalibratedRotation { get; }
         /// <summary>The path to the hint weight property in the constraint component.</summary>
         string hintWeightFloatProperty { get; }
 
@@ -213,11 +186,7 @@ namespace UnityEngine.Animations.Rigging
 
                 hintPosition = Vector3Property.Bind(animator, component, data.HintpositionVector3Property),
                 hintRotation = Vector3Property.Bind(animator, component, data.HintrotationVector3Property),
-
-                targetOffset = AffineTransform.identity,
             };
-            job.targetOffset.translation =Vector3.zero;// data.CalibratedOffset; //dooly come back here!
-            job.targetOffset.rotation = Quaternion.identity; //Quaternion.Euler(data.CalibratedRotation);
             job.hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty);
 
             return job;

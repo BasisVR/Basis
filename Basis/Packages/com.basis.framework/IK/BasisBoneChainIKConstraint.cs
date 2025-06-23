@@ -12,14 +12,14 @@ namespace UnityEngine.Animations.Rigging
         [SerializeField] Transform m_Mid;
         [SerializeField] Transform m_Tip;
         [SyncSceneToStream, SerializeField]
-        public Vector3 TargetPosition;
-        [SyncSceneToStream, SerializeField]
-        public Vector3 TargetRotation;
-        [SyncSceneToStream, SerializeField]
         public Vector3 HintPosition;
         [SyncSceneToStream, SerializeField]
         public Vector3 HintRotation;
 
+        [SyncSceneToStream, SerializeField]
+        public Vector3 TargetPosition;
+        [SyncSceneToStream, SerializeField]
+        public Vector3 TargetRotation;
         Vector3 BasisIBoneChainIKConstraintData.targetPosition { get => TargetPosition; }
 
         Vector3 BasisIBoneChainIKConstraintData.targetRotation { get => TargetRotation; }

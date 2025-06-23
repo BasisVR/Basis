@@ -5,11 +5,13 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.XR.Hands;
+using UnityEngine.XR.Management;
 
 namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
 {
     [Serializable]
-    public partial class BasisOpenXRManagement : BasisBaseTypeManagement
+    public class BasisOpenXRManagement : BasisBaseTypeManagement
     {
         [SerializeField]
         private List<BasisInput> controls = new List<BasisInput>();
@@ -26,7 +28,10 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             "Left Elbow", "Right Elbow", "Left Knee", "Right Knee", "Waist",
             "Chest", "Camera", "Keyboard"
         };
-        private void CreatePhysicalHandTracker(string device, string uniqueID, BasisBoneTrackedRole role)
+        public XRHandSubsystem m_Subsystem;
+        public BasisOpenXRHandInput LeftHand;
+        public BasisOpenXRHandInput RightHand;
+        private BasisOpenXRHandInput CreatePhysicalHandTracker(string device, string uniqueID, BasisBoneTrackedRole role)
         {
             BasisDebug.Log($"Creating physical hand tracker: {uniqueID}, Role: {role}");
 
@@ -43,6 +48,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             controls.Add(basisXRInput);
 
             BasisDebug.Log($"Hand tracker created and added: {uniqueID}");
+            return basisXRInput;
         }
 
         private void CreatePhysicalHeadTracker(string device, string uniqueID)
@@ -106,6 +112,10 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             BasisDebug.Log("SDK stopped and all resources cleaned up.");
             InputSystem.onDeviceChange -= onDeviceChange;
             BasisDeviceManagement.OnDeviceManagementLoop -= CheckTrackersPulse;
+            if (m_Subsystem != null)
+            {
+                m_Subsystem.updatedHands -= OnHandUpdate;
+            }
         }
 
         public override void BeginLoadSDK()
@@ -120,11 +130,26 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
             BasisDeviceManagement.Instance.SetCameraRenderState(true);
 
             CreatePhysicalHeadTracker("Head OPENXR", "Head OPENXR");
-            CreatePhysicalHandTracker("Left Hand OPENXR", "Left Hand OPENXR", BasisBoneTrackedRole.LeftHand);
-            CreatePhysicalHandTracker("Right Hand OPENXR", "Right Hand OPENXR", BasisBoneTrackedRole.RightHand);
+            LeftHand = CreatePhysicalHandTracker("Left Hand OPENXR", "Left Hand OPENXR", BasisBoneTrackedRole.LeftHand);
+            RightHand = CreatePhysicalHandTracker("Right Hand OPENXR", "Right Hand OPENXR", BasisBoneTrackedRole.RightHand);
             BasisDebug.Log("SDK started successfully.");
             InputSystem.onDeviceChange += onDeviceChange;
-            BasisDeviceManagement.OnDeviceManagementLoop += CheckTrackersPulse;  
+            BasisDeviceManagement.OnDeviceManagementLoop += CheckTrackersPulse;
+            m_Subsystem = XRGeneralSettings.Instance?.Manager?.activeLoader?.GetLoadedSubsystem<XRHandSubsystem>();
+            if (m_Subsystem != null)
+            {
+                m_Subsystem.updatedHands += OnHandUpdate;
+            }
+        }
+
+        private void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType type)
+        {
+            if (type != XRHandSubsystem.UpdateType.BeforeRender)
+            {
+                return;
+            }
+            LeftHand.OnHandUpdate(subsystem, flags, type);
+            RightHand.OnHandUpdate(subsystem, flags, type);
         }
 
         private void onDeviceChange(InputDevice device, InputDeviceChange change)
@@ -188,7 +213,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         }
         private void TryAddTracker(InputDevice addedTracker)
         {
-            BasisDebug.Log($"Trying to add tracker: {addedTracker.name}, ID: {addedTracker.deviceId}");
+           // BasisDebug.Log($"Trying to add tracker: {addedTracker.name}, ID: {addedTracker.deviceId}");
 
             if (HTCOpenXRViveTracker.Contains(addedTracker.displayName) && !trackedDevices.ContainsKey(addedTracker.deviceId))
             {

@@ -203,7 +203,7 @@ namespace Basis.Scripts.Avatar
         }
         public static void RebuildNetworkIds(BasisPlayer Player, GameObject Output, BasisAvatar Avatar)
         {
-            Avatar.Behaviours = Output.GetComponentsInChildren<BasisAvatarMonoBehaviour>();
+            Avatar.Behaviours = Output.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
             int length = Avatar.Behaviours.Length;
             if (length > 256)
             {
@@ -274,6 +274,7 @@ namespace Basis.Scripts.Avatar
                             break;
                         }
                 }
+                RebuildNetworkIds(Player, InSceneLoadingAvatar, Avatar);
             }
             else
             {
