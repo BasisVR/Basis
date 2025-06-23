@@ -90,7 +90,7 @@ namespace Basis.Scripts.BasisSdk.Players
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
             LocalBoneDriver.CreateInitialArrays(this.transform, true);
-            LocalBoneDriver.Initialize(this);
+            LocalBoneDriver.Initialize();
             LocalHandDriver.Initialize();
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);

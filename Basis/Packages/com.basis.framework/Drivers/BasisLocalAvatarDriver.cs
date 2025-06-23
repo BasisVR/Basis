@@ -24,6 +24,10 @@ namespace Basis.Scripts.Drivers
         public BasisTwoBoneIKConstraintHand LeftHandTwoBoneIK;
         public BasisTwoBoneIKConstraintHand RightHandTwoBoneIK;
         public BasisTwoBoneIKConstraint UpperChestTwoBoneIK;
+
+        public BasisDamped LeftToeConstraint;
+        public BasisDamped RightToeConstraint;
+
         public Rig LeftToeRig;
         public Rig RightToeRig;
 
@@ -69,6 +73,10 @@ namespace Basis.Scripts.Drivers
             ApplyBoneIKTarget(LeftHandTwoBoneIK, BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.rotation);
             ApplyBoneIKTarget(RightHandTwoBoneIK, BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.rotation);
 
+
+            ApplyBoneIKTarget(LeftToeConstraint, BasisLocalBoneDriver.LeftToeControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftToeControl.OutgoingWorldData.rotation);
+            ApplyBoneIKTarget(RightToeConstraint, BasisLocalBoneDriver.RightToeControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightToeControl.OutgoingWorldData.rotation);
+
             Vector3 Direction = Rotation * Vector3.right;
             // --- IK Hint ---
             ApplyBoneIKHint(HeadTwoBoneIK, BasisLocalBoneDriver.ChestControl.OutgoingWorldData.position, BasisLocalBoneDriver.ChestControl.OutgoingWorldData.rotation, Direction);
@@ -94,6 +102,11 @@ namespace Basis.Scripts.Drivers
         {
             Constraint.data.TargetPosition = Position;
             Constraint.data.TargetRotation = Rotation.eulerAngles;
+        }
+        public void ApplyBoneIKTarget(BasisDamped basisDamped, Vector3 Position, Quaternion Rotation)
+        {
+            basisDamped.data.TargetPosition = Position;
+            basisDamped.data.TargetRotation = Rotation.eulerAngles;
         }
         public void ApplyBoneIKTarget(BasisTwoBoneIKConstraintHand Constraint, Vector3 Position, Quaternion Rotation)
         {
@@ -511,7 +524,7 @@ namespace Basis.Scripts.Drivers
             {
                 WriteUpEvents(new List<BasisBoneControl>() { Control }, LeftToeLayer);
             }
-            BasisAnimationRiggingHelper.Damp(this, driver, LeftToe, References.leftToes, BasisBoneTrackedRole.LeftToes, 0, 0);
+            LeftToeConstraint = BasisAnimationRiggingHelper.Damp(this, driver, LeftToe, References.leftToes, BasisBoneTrackedRole.LeftToes, 0, 0);
         }
         public void RightToe(BasisLocalBoneDriver driver)
         {
@@ -520,7 +533,7 @@ namespace Basis.Scripts.Drivers
             {
                 WriteUpEvents(new List<BasisBoneControl>() { Control }, RightToeLayer);
             }
-            BasisAnimationRiggingHelper.Damp(this, driver, RightToe, References.rightToes, BasisBoneTrackedRole.RightToes, 0, 0);
+            RightToeConstraint = BasisAnimationRiggingHelper.Damp(this, driver, RightToe, References.rightToes, BasisBoneTrackedRole.RightToes, 0, 0);
         }
         public void CalibrateRoles()
         {

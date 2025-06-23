@@ -20,9 +20,12 @@ namespace Basis.Scripts.Drivers
         public static BasisBoneControl RightLowerLegControl;
         public static BasisBoneControl LeftLowerArmControl;
         public static BasisBoneControl RightLowerArmControl;
+
+        public static BasisBoneControl LeftToeControl;
+        public static BasisBoneControl RightToeControl;
         public static bool HasEye;
 
-        public void Initialize(BasisLocalPlayer localPlayer)
+        public void Initialize()
         {
             HasEye = FindBone(out Eye, BasisBoneTrackedRole.CenterEye);
             FindBone(out Head, BasisBoneTrackedRole.Head);
@@ -41,6 +44,9 @@ namespace Basis.Scripts.Drivers
             FindBone(out RightLowerLegControl, BasisBoneTrackedRole.RightLowerLeg);
             FindBone(out LeftLowerArmControl, BasisBoneTrackedRole.LeftLowerArm);
             FindBone(out RightLowerArmControl, BasisBoneTrackedRole.RightLowerArm);
+
+            FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
+            FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
         }
         public void PostSimulateBonePositions()
         {
