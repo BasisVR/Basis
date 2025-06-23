@@ -25,8 +25,8 @@ namespace Basis.Scripts.Drivers
         public BasisTwoBoneIKConstraintHand RightHandTwoBoneIK;
         public BasisTwoBoneIKConstraint UpperChestTwoBoneIK;
 
-        public BasisDamped LeftToeConstraint;
-        public BasisDamped RightToeConstraint;
+        public BasisApplyTranslation LeftToeConstraint;
+        public BasisApplyTranslation RightToeConstraint;
 
         public Rig LeftToeRig;
         public Rig RightToeRig;
@@ -103,7 +103,7 @@ namespace Basis.Scripts.Drivers
             Constraint.data.TargetPosition = Position;
             Constraint.data.TargetRotation = Rotation.eulerAngles;
         }
-        public void ApplyBoneIKTarget(BasisDamped basisDamped, Vector3 Position, Quaternion Rotation)
+        public void ApplyBoneIKTarget(BasisApplyTranslation basisDamped, Vector3 Position, Quaternion Rotation)
         {
             basisDamped.data.TargetPosition = Position;
             basisDamped.data.TargetRotation = Rotation.eulerAngles;

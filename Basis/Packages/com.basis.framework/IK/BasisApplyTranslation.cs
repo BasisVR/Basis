@@ -37,7 +37,7 @@ public struct BasisDampedTransformData : IAnimationJobData, BasisIDampedTransfor
 /// </summary>
 [DisallowMultipleComponent, AddComponentMenu("Animation Rigging/Damped Transform")]
 [HelpURL("https://docs.unity3d.com/Packages/com.unity.animation.rigging@1.3/manual/constraints/DampedTransform.html")]
-public class BasisDamped : RigConstraint< BasisDampedTransformJob, BasisDampedTransformData, BasisJobBinder<BasisDampedTransformData>>
+public class BasisApplyTranslation : RigConstraint< BasisDampedTransformJob, BasisDampedTransformData, BasisJobBinder<BasisDampedTransformData>>
 {
     /// <inheritdoc />
     protected override void OnValidate()
@@ -83,8 +83,6 @@ namespace UnityEngine.Animations.Rigging
             if (w > 0f)
             {
                 AffineTransform sourceTx = new AffineTransform(targetPosition.Get(stream), Quaternion.Euler(targetRotation.Get(stream)));
-                BasisDebug.Log("Value is " + sourceTx.translation);
-
                 AffineTransform targetTx = sourceTx * localBindTx;
                 driven.SetGlobalTR(stream, targetTx.translation, targetTx.rotation);
             }

@@ -1,5 +1,5 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
+using UnityEngine;
 
 namespace Basis.Scripts.Drivers
 {
@@ -47,10 +47,6 @@ namespace Basis.Scripts.Drivers
 
             FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
             FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
-        }
-        public void PostSimulateBonePositions()
-        {
-            SimulateWorldDestinations(BasisLocalPlayer.Instance.transform);
         }
     }
 }

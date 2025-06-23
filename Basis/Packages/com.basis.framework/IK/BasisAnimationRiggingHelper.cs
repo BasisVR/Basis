@@ -11,11 +11,11 @@ public static class BasisAnimationRiggingHelper
         Constraint.data.M_CalibratedOffset = TargetPositionOffset;
         Constraint.data.M_CalibratedRotation = TargetRotationOffset;
     }
-    public static BasisDamped Damp(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
+    public static BasisApplyTranslation Damp(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
     {
         driver.FindBone(out BasisBoneControl Target, Role);
         GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
-        BasisDamped DT = BasisHelpers.GetOrAddComponent<BasisDamped>(DTData);
+        BasisApplyTranslation DT = BasisHelpers.GetOrAddComponent<BasisApplyTranslation>(DTData);
 
         DT.data.constrainedObject = Source;
         GeneratedRequiredTransforms(AvatarDriver, Source);
@@ -92,7 +92,7 @@ public static class BasisAnimationRiggingHelper
         TwoBoneIKConstraint.data.tip = tip;
         GeneratedRequiredTransforms(AvatarDriver, tip);
     }
-    public static void WriteUpWeights(BasisBoneControl Control, BasisDamped Constraint)
+    public static void WriteUpWeights(BasisBoneControl Control, BasisApplyTranslation Constraint)
     {
         Control.WeightsChanged += (delegate (float positionWeight, float rotationWeight)
         {
@@ -100,7 +100,7 @@ public static class BasisAnimationRiggingHelper
         });
     }
 
-    public static void UpdateIKRig(float PositionWeight, float RotationWeight, BasisDamped Constraint)
+    public static void UpdateIKRig(float PositionWeight, float RotationWeight, BasisApplyTranslation Constraint)
     {
         Constraint.weight = PositionWeight;
     }
