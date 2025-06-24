@@ -30,6 +30,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         public bool OverrideForceCalibration;
         public static bool HasMirror;
+        public BasisUIMovementDriver BasisUIMovementDriver;
         public override void InitalizeEvent()
         {
             Instance = this;
@@ -62,6 +63,7 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
             BasisUINeedsVisibleTrackers.Instance.Remove(this);
             BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+            BasisUIMovementDriver.DeInitalize();
         }
         private void OnBootModeChanged(string obj)
         {

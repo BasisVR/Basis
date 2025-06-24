@@ -301,58 +301,61 @@ namespace Basis.Scripts.Drivers
         }
         public class OrderedDelegate
         {
-            private List<int> priorities = new List<int>();
-            private List<Action> actions = new List<Action>();
-            private List<int> executionOrder = new List<int>();
-            public int Count;
+            private struct Entry
+            {
+                public int Priority;
+                public Action Action;
 
-            // Add action with priority
+                public Entry(int priority, Action action)
+                {
+                    Priority = priority;
+                    Action = action;
+                }
+            }
+
+            private readonly List<Entry> entries = new List<Entry>();
+            private List<int> executionOrder = new List<int>();
+            public int Count { get; private set; }
+
             public void AddAction(int priority, Action action)
             {
-                priorities.Add(priority);
-                actions.Add(action);
+                entries.Add(new Entry(priority, action));
                 RebuildExecutionOrder();
                 Count = executionOrder.Count;
             }
 
-            // Remove specific action at priority
             public void RemoveAction(int priority, Action action)
             {
-                for (int i = actions.Count - 1; i >= 0; i--)
+                for (int i = entries.Count - 1; i >= 0; i--)
                 {
-                    if (priorities[i] == priority && actions[i] == action)
+                    if (entries[i].Priority == priority && entries[i].Action == action)
                     {
-                        priorities.RemoveAt(i);
-                        actions.RemoveAt(i);
+                    //    BasisDebug.Log("removing Action at " + priority);
+                        entries.RemoveAt(i);
                         RebuildExecutionOrder();
-                        break;
+                        Count = executionOrder.Count;
+                        return;
                     }
                 }
-                Count = executionOrder.Count;
             }
 
-            // Rebuild execution order based on current priorities
             private void RebuildExecutionOrder()
             {
                 executionOrder.Clear();
-                for (int i = 0; i < priorities.Count; i++)
+                for (int i = 0; i < entries.Count; i++)
                 {
                     executionOrder.Add(i);
                 }
 
-                executionOrder.Sort((a, b) => priorities[a].CompareTo(priorities[b]));
+                executionOrder.Sort((a, b) => entries[a].Priority.CompareTo(entries[b].Priority));
             }
 
-            // Call all actions in sorted order
             public void Invoke()
             {
-                for (int i = 0; i < Count; i++)
+                for (int Index = 0; Index < Count; Index++)
                 {
-                    int actionIndex = executionOrder[i];
-                    if (actionIndex >= 0 && actionIndex < Count)
-                    {
-                        actions[actionIndex]?.Invoke();
-                    }
+                    int index = executionOrder[Index];
+                    entries[index].Action?.Invoke();
                 }
             }
         }

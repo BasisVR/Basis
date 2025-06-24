@@ -9,10 +9,10 @@ public class BasisUINotification : BasisUIBase
     public static string Path = "Packages/com.basis.sdk/Prefabs/UI/BasisUINotification.prefab";
     public static string CursorRequest = "BasisUINotification";
     public TextMeshProUGUI Text;
-    public BasisUIMovementDriver Driver;
+    public BasisUIMovementDriver BasisUIMovementDriver;
     public override void DestroyEvent()
     {
-        Driver.DeInitalize();
+        BasisUIMovementDriver.DeInitalize();
         BasisCursorManagement.LockCursor(CursorRequest);
     }
     public static void OpenNotification(string Reason, bool OverridePosition, Vector3 Position)
@@ -23,12 +23,12 @@ public class BasisUINotification : BasisUIBase
         Notification.Text.text = Reason;
         if (OverridePosition)
         {
-            Notification.Driver.enabled = false;
+            Notification.BasisUIMovementDriver.enabled = false;
             Notification.transform.position = Position;
         }
         else
         {
-            Notification.Driver.enabled = true;
+            Notification.BasisUIMovementDriver.enabled = true;
         }
     }
     public override void InitalizeEvent()

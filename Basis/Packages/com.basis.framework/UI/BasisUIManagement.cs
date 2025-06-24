@@ -7,7 +7,7 @@ public static class BasisUIManagement
     {
         if (basisUIBases.Contains(BasisUIBase) == false)
         {
-            BasisDebug.Log("adding Menu " + BasisUIBase.gameObject.name);
+          // BasisDebug.Log("adding Menu " + BasisUIBase.gameObject.name);
             basisUIBases.Add(BasisUIBase);
         }
         else

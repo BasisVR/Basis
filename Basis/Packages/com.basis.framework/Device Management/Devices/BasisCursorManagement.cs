@@ -69,7 +69,7 @@ public static class BasisCursorManagement
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        BasisDebug.Log("Cursor Unlocked");
+      //  BasisDebug.Log("Cursor Unlocked");
         cursorLockRequests.Remove(requestName);
         OnCursorStateChange?.Invoke(CursorLockMode.None, true);
     }
@@ -84,7 +84,7 @@ public static class BasisCursorManagement
 
         Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
-        BasisDebug.Log("Cursor Confined");
+      //  BasisDebug.Log("Cursor Confined");
         OnCursorStateChange?.Invoke(CursorLockMode.Confined, true);
     }
 

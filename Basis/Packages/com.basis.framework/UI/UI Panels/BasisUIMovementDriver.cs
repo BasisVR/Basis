@@ -1,6 +1,8 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
+using System;
+using System.Collections;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.UI_Panels
@@ -17,7 +19,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public float CurrentMaxDistanceInVRBeforeSnap;
         public float CurrentDistanceToVR;
         public Vector3 targetPosition;
-
+        public Coroutine Runtime;
         public void Start()
         {
             InitalScale = transform.localScale;
@@ -39,13 +41,17 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (SnapToPlayOnDistance)
             {
-                BasisLocalPlayer.Instance.OnPlayersHeightChanged -= StartWaitAndSetUILocation;
+                BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
+            BasisLocalPlayer.Instance.OnPlayersHeightChanged -= OnPlayersHeightChanged;
             if (hasLocalCreationEvent)
             {
                 BasisLocalPlayer.OnLocalPlayerCreated -= LocalPlayerGenerated;
                 hasLocalCreationEvent = false;
+            }
+            if(Runtime != null)
+            {
+                StopCoroutine(Runtime);
             }
         }
         public void LocalPlayerGenerated()
@@ -54,16 +60,25 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisLocalPlayer.Instance.AfterFinalMove.AddAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged += StartWaitAndSetUILocation;
+            BasisLocalPlayer.Instance.OnPlayersHeightChanged += OnPlayersHeightChanged;
             SetUILocation();
         }
-        public void StartWaitAndSetUILocation()
+        public void OnPlayersHeightChanged()
         {
             CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
             SetUILocation();
+            Runtime = StartCoroutine(DelaySetUI());
         }
+
+        private IEnumerator DelaySetUI()
+        { 
+             yield return null;
+            SetUILocation();
+        }
+
         public void UpdateUIFollow()
         {
+
             if (BasisDeviceManagement.IsUserInDesktop() == false)
             {
                 BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);

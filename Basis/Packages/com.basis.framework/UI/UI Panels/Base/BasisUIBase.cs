@@ -16,8 +16,8 @@ namespace Basis.Scripts.UI.UI_Panels
         public void CloseThisMenu()
         {
             BasisUIManagement.RemoveUI(this);
-            AddressableLoadFactory.ReleaseResource(LoadedMenu);
             DestroyEvent();
+            AddressableLoadFactory.ReleaseResource(LoadedMenu);
             Destroy(this.gameObject);
         }
         public static async Task OpenThisMenu(AddressableGenericResource resource)

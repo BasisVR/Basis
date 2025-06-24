@@ -1184,6 +1184,7 @@ MonoBehaviour:
   PersonalMirrorIcon: {fileID: 4293543267476797222}
   FullBodyParent: {fileID: 6150366187989676438}
   OverrideForceCalibration: 0
+  BasisUIMovementDriver: {fileID: 3604777480517620113}
 --- !u!114 &1537182542201181301
 MonoBehaviour:
   m_ObjectHideFlags: 0
