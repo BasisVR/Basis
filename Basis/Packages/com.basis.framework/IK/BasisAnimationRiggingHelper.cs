@@ -11,89 +11,16 @@ public static class BasisAnimationRiggingHelper
         Constraint.data.M_CalibratedOffset = TargetPositionOffset;
         Constraint.data.M_CalibratedRotation = TargetRotationOffset;
     }
-    public static void EnableTwoBoneIkHand(BasisTwoBoneIKConstraintHand Constraint, Vector3 TargetPositionOffset, Vector3 TargetRotationOffset)
-    {
-        Constraint.data.M_CalibratedOffset = TargetPositionOffset;
-        Constraint.data.M_CalibratedRotation = TargetRotationOffset;
-    }
-    public static void Damp(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
+    public static BasisApplyTranslation Damp(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
     {
         driver.FindBone(out BasisBoneControl Target, Role);
         GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
-        DampedTransform DT = BasisHelpers.GetOrAddComponent<DampedTransform>(DTData);
+        BasisApplyTranslation DT = BasisHelpers.GetOrAddComponent<BasisApplyTranslation>(DTData);
 
         DT.data.constrainedObject = Source;
-      //  DT.data.sourceObject = Target.BoneTransform;
-        DT.data.dampRotation = rotationWeight;
-        DT.data.dampPosition = positionWeight;
-        DT.data.maintainAim = false;
         GeneratedRequiredTransforms(AvatarDriver, Source);
         WriteUpWeights(Target, DT);
-    }
-    public static void MultiRotation(BasisLocalAvatarDriver AvatarDriver, GameObject Parent, Transform Source, Transform Target, float rotationWeight = 1)
-    {
-        GameObject DTData = CreateAndSetParent(Parent.transform, "Eye Target");
-        MultiAimConstraint DT = BasisHelpers.GetOrAddComponent<MultiAimConstraint>(DTData);
-        DT.data.constrainedObject = Source;
-        WeightedTransformArray Array = new WeightedTransformArray(0);
-        WeightedTransform Weighted = new WeightedTransform(null, rotationWeight);
-        Array.Add(Weighted);
-        DT.data.sourceObjects = Array;
-        DT.data.maintainOffset = false;
-        DT.data.aimAxis = MultiAimConstraintData.Axis.Z;
-        DT.data.upAxis = MultiAimConstraintData.Axis.Y;
-        DT.data.limits = new Vector2(-180, 180);
-        DT.data.constrainedXAxis = true;
-        DT.data.constrainedYAxis = true;
-        DT.data.constrainedZAxis = true;
-        GeneratedRequiredTransforms(AvatarDriver, Source);
-    }
-    public static void MultiRotation(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1)
-    {
-        driver.FindBone(out BasisBoneControl Target, Role);
-        GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
-        MultiAimConstraint DT = BasisHelpers.GetOrAddComponent<MultiAimConstraint>(DTData);
-        DT.data.constrainedObject = Source;
-        WeightedTransformArray Array = new WeightedTransformArray(0);
-        WeightedTransform Weighted = new WeightedTransform(null, rotationWeight);
-        Array.Add(Weighted);
-        DT.data.sourceObjects = Array;
-        DT.data.maintainOffset = false;
-        DT.data.aimAxis = MultiAimConstraintData.Axis.Z;
-        DT.data.upAxis = MultiAimConstraintData.Axis.Y;
-        DT.data.limits = new Vector2(-180, 180);
-        DT.data.constrainedXAxis = true;
-        DT.data.constrainedYAxis = true;
-        DT.data.constrainedZAxis = true;
-        GeneratedRequiredTransforms(AvatarDriver, Source);
-    }
-    public static void MultiPositional(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float positionWeight = 1)
-    {
-        driver.FindBone(out BasisBoneControl Target, Role);
-        GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
-        MultiPositionConstraint DT = BasisHelpers.GetOrAddComponent<MultiPositionConstraint>(DTData);
-        DT.data.constrainedObject = Source;
-        WeightedTransformArray Array = new WeightedTransformArray(0);
-        WeightedTransform Weighted = new WeightedTransform(null, positionWeight);
-        Array.Add(Weighted);
-        DT.data.sourceObjects = Array;
-        DT.data.maintainOffset = false;
-        DT.data.constrainedXAxis = true;
-        DT.data.constrainedYAxis = true;
-        DT.data.constrainedZAxis = true;
-        GeneratedRequiredTransforms(AvatarDriver, Source);
-    }
-    public static void OverrideTransform(BasisLocalAvatarDriver AvatarDriver, BasisBaseBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1, OverrideTransformData.Space Space = OverrideTransformData.Space.World)
-    {
-        driver.FindBone(out BasisBoneControl Target, Role);
-        GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
-        OverrideTransform DT = BasisHelpers.GetOrAddComponent<OverrideTransform>(DTData);
-        DT.data.constrainedObject = Source;
-        DT.data.sourceObject = null;
-        DT.data.rotationWeight = rotationWeight;
-        DT.data.positionWeight = positionWeight;
-        DT.data.space = Space;
-        GeneratedRequiredTransforms(AvatarDriver, Source);
+        return DT;
     }
     public static void TwistChain(BasisBaseBoneDriver driver, GameObject Parent, Transform root, Transform tip, BasisBoneTrackedRole Root, BasisBoneTrackedRole Tip, float rotationWeight = 1, float positionWeight = 1)
     {
@@ -148,11 +75,6 @@ public static class BasisAnimationRiggingHelper
 
         GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole.ToString()}");
         TwoBoneIKConstraint = BasisHelpers.GetOrAddComponent<BasisTwoBoneIKConstraintHand>(BoneRole);
-
-        Vector3 PositionOffset = new Vector3(0, 0, 0);
-
-        Quaternion RotationOffset = tip.rotation;//Quaternion.Inverse(TargetControl.OutgoingWorldData.rotation) *
-        EnableTwoBoneIkHand(TwoBoneIKConstraint, PositionOffset, RotationOffset.eulerAngles);
         Quaternion Rotation = TargetControl.OutgoingWorldData.rotation;
         TwoBoneIKConstraint.data.TargetPosition = TargetControl.OutgoingWorldData.position;
         TwoBoneIKConstraint.data.TargetRotation = Rotation.eulerAngles;
@@ -170,7 +92,7 @@ public static class BasisAnimationRiggingHelper
         TwoBoneIKConstraint.data.tip = tip;
         GeneratedRequiredTransforms(AvatarDriver, tip);
     }
-    public static void WriteUpWeights(BasisBoneControl Control, DampedTransform Constraint)
+    public static void WriteUpWeights(BasisBoneControl Control, BasisApplyTranslation Constraint)
     {
         Control.WeightsChanged += (delegate (float positionWeight, float rotationWeight)
         {
@@ -178,9 +100,9 @@ public static class BasisAnimationRiggingHelper
         });
     }
 
-    public static void UpdateIKRig(float PositionWeight, float RotationWeight, DampedTransform Constraint)
+    public static void UpdateIKRig(float PositionWeight, float RotationWeight, BasisApplyTranslation Constraint)
     {
-        // Constraint.weight = PositionWeight;
+        Constraint.weight = PositionWeight;
     }
     public static void GeneratedRequiredTransforms(BasisLocalAvatarDriver Driver, Transform BaseLevel)
     {

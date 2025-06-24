@@ -33,7 +33,6 @@ public partial class BasisPlayerInteract : MonoBehaviour
 
     public static string LoadMaterialAddress = "Interactable/InteractLineMat.mat";
     const int k_UpdatePriority = 201;
-    public LayerMask InteractableLayerMask;
     public static BasisPlayerInteract Instance;
     public void OnEnable()
     {
@@ -123,7 +122,7 @@ public partial class BasisPlayerInteract : MonoBehaviour
             InteractableObject hitInteractable = null;
             bool isValidRayHit =
                 interactInput.input.BasisPointRaycaster.FirstHit(out rayHit, raycastDistance) && // UI will block pickup interact
-                ((1 << rayHit.collider.gameObject.layer) & InteractableLayerMask) != 0 &&
+                ((1 << rayHit.collider.gameObject.layer) & Mask) != 0 &&
                 rayHit.collider.TryGetComponent(out hitInteractable);
 
             bool isValidHoverHit = false;
@@ -377,7 +376,7 @@ public partial class BasisPlayerInteract : MonoBehaviour
 
         // deskies cant hover grab :)
         // TODO: pass up max hits for config 
-        HoverSphere hoverSphere = new HoverSphere(interactOrigin.transform.position, hoverRadius, 128, InteractableLayerMask, !IsDesktopCenterEye(input), OnlySortClosest);
+        HoverSphere hoverSphere = new HoverSphere(interactOrigin.transform.position, hoverRadius, 128, Mask, !IsDesktopCenterEye(input), OnlySortClosest);
 
         interactOrigin.transform.SetParent(input.transform);
         interactOrigin.layer = IgnoreRaycasting;

@@ -69,14 +69,14 @@ namespace Basis.Scripts.Drivers
             Player.OnPreSimulateBones?.Invoke();
             SimulateWithoutLerp(Player.transform);
         }
-        public void SimulateWorldDestinations(Transform transform)
+        public void SimulateWorldDestinations(Matrix4x4 localToWorldMatrix, Quaternion Rotation)
         {
-            Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-            Quaternion Rotation = transform.rotation;
+         //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
+          //  Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 // Apply local transform to parent's world transform
-                Controls[Index].OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(Controls[Index].OutGoingData.position);
+                Controls[Index].OutgoingWorldData.position = localToWorldMatrix.MultiplyPoint3x4(Controls[Index].OutGoingData.position);
 
                 // Transform rotation via quaternion multiplication
                 Controls[Index].OutgoingWorldData.rotation = Rotation * Controls[Index].OutGoingData.rotation;
