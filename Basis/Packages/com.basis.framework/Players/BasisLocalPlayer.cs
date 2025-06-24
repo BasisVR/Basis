@@ -290,8 +290,6 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             //now that everything has been processed lets update WorldPosition in BoneDriver.
             //this is so AfterFinalMove can use world position coords. (stops Laggy pickups)
-            //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-            //  Quaternion Rotation = transform.rotation;
             LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix, Rotation);
 
             //handles fingers
@@ -317,8 +315,6 @@ namespace Basis.Scripts.BasisSdk.Players
             // Use blended XZ center, but keep hips Y for grounded position
             Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
             blendedXZ.y = hipsPosition.y;
-            Vector3 centerPosition = blendedXZ;
-
             if (currentDistance <= LocalAvatarDriver.MaxExtendedDistance)
             {
                 output = -BasisLocalBoneDriver.Hips.TposeLocal.position;
@@ -333,7 +329,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 output = -correctedHips;
             }
 
-            Vector3 childWorldPosition = centerPosition + parentWorldRotation * output;
+            Vector3 childWorldPosition = blendedXZ + parentWorldRotation * output;
 
             BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
             return parentWorldRotation;
