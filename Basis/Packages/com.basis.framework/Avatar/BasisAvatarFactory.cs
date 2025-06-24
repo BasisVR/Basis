@@ -253,6 +253,7 @@ namespace Basis.Scripts.Avatar
             var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatarToUse);
             var LoadingAvatar = op.WaitForCompletion();
             var InSceneLoadingAvatar = GameObject.Instantiate(LoadingAvatar, Player.transform.position, Quaternion.identity, Player.transform);
+
             if (InSceneLoadingAvatar.TryGetComponent(out BasisAvatar Avatar))
             {
                 DeleteLastAvatar(Player);

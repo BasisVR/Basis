@@ -126,40 +126,53 @@ public class BasisLocalHandDriver
         closestIndexArray = new NativeArray<int>(1, Allocator.Persistent);
         DistancesArray = new NativeArray<float>(Poses.Length, Allocator.Persistent);
     }
-    public void ReInitialize(Animator animator, BasisTransformMapping Mapping)
+    public void ReInitialize(Animator OriginalAnimator)
     {
+        BasisTransformMapping Mapping = new BasisTransformMapping();
+        GameObject CopyOfOrigionally = GameObject.Instantiate(OriginalAnimator.gameObject);
+        CopyOfOrigionally.gameObject.SetActive(false);
+        if (CopyOfOrigionally.TryGetComponent(out Animator Animator) == false)
+        {
+            GameObject.Destroy(CopyOfOrigionally);
+            return;
+        }
+        if (BasisTransformMapping.AutoDetectReferences(Animator, Animator.transform, ref Mapping) == false)
+        {
+            GameObject.Destroy(CopyOfOrigionally);
+            return;
+        }
         //safely does it
         // Aggregate data for all fingers
         Transform[] allTransforms = AggregateFingerTransforms(Mapping.LeftThumb, Mapping.LeftIndex, Mapping.LeftMiddle, Mapping.LeftRing, Mapping.LeftLittle, Mapping.RightThumb, Mapping.RightIndex, Mapping.RightMiddle, Mapping.RightRing, Mapping.RightLittle);
         bool[] allHasProximal = AggregateHasProximal(Mapping.HasLeftThumb, Mapping.HasLeftIndex, Mapping.HasLeftMiddle, Mapping.HasLeftRing, Mapping.HasLeftLittle, Mapping.HasRightThumb, Mapping.HasRightIndex, Mapping.HasRightMiddle, Mapping.HasRightRing, Mapping.HasRightLittle);
         // Initialize the HumanPoseHandler with the animator's avatar and transform
-        HumanPoseHandler poseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
+        HumanPoseHandler poseHandler = new HumanPoseHandler(Animator.avatar, Animator.transform);
         // Initialize the HumanPose
-        HumanPose pose = new HumanPose();
+        HumanPose Tpose = new HumanPose();
         // Get the current human pose
-        poseHandler.GetHumanPose(ref pose);
+        poseHandler.GetHumanPose(ref Tpose);
         // Assign muscle indices to each finger array using Array.Copy
         LeftThumb = new float[4];
-        System.Array.Copy(pose.muscles, 55, LeftThumb, 0, 4);
+        System.Array.Copy(Tpose.muscles, 55, LeftThumb, 0, 4);
         LeftIndex = new float[4];
-        System.Array.Copy(pose.muscles, 59, LeftIndex, 0, 4);
+        System.Array.Copy(Tpose.muscles, 59, LeftIndex, 0, 4);
         LeftMiddle = new float[4];
-        System.Array.Copy(pose.muscles, 63, LeftMiddle, 0, 4);
+        System.Array.Copy(Tpose.muscles, 63, LeftMiddle, 0, 4);
         LeftRing = new float[4];
-        System.Array.Copy(pose.muscles, 67, LeftRing, 0, 4);
+        System.Array.Copy(Tpose.muscles, 67, LeftRing, 0, 4);
         LeftLittle = new float[4];
-        System.Array.Copy(pose.muscles, 71, LeftLittle, 0, 4);
+        System.Array.Copy(Tpose.muscles, 71, LeftLittle, 0, 4);
 
         RightThumb = new float[4];
-        System.Array.Copy(pose.muscles, 75, RightThumb, 0, 4);
+        System.Array.Copy(Tpose.muscles, 75, RightThumb, 0, 4);
         RightIndex = new float[4];
-        System.Array.Copy(pose.muscles, 79, RightIndex, 0, 4);
+        System.Array.Copy(Tpose.muscles, 79, RightIndex, 0, 4);
         RightMiddle = new float[4];
-        System.Array.Copy(pose.muscles, 83, RightMiddle, 0, 4);
+        System.Array.Copy(Tpose.muscles, 83, RightMiddle, 0, 4);
         RightRing = new float[4];
-        System.Array.Copy(pose.muscles, 87, RightRing, 0, 4);
+        System.Array.Copy(Tpose.muscles, 87, RightRing, 0, 4);
         RightLittle = new float[4];
-        System.Array.Copy(pose.muscles, 91, RightLittle, 0, 4);
+        System.Array.Copy(Tpose.muscles, 91, RightLittle, 0, 4);
 
         RecordCurrentPose(ref Current, allTransforms, allHasProximal);
         CoordToPose.Clear();
@@ -172,7 +185,7 @@ public class BasisLocalHandDriver
         void AddPose(Vector2 coord)
         {
             BasisPoseData poseData = new BasisPoseData();
-            SetAndRecordPose(coord.x, ref poseData, coord.y, poseHandler, ref pose, allTransforms, allHasProximal);
+            SetAndRecordPose(coord.x, ref poseData, coord.y, poseHandler, ref Tpose, allTransforms, allHasProximal);
 
             BasisPoseDataAdditional poseAdd = new BasisPoseDataAdditional
             {
@@ -181,6 +194,9 @@ public class BasisLocalHandDriver
             };
             CoordToPose.TryAdd(poseAdd.Coord, poseAdd);
         }
+
+      //  poseHandler.SetHumanPose(ref Tpose);
+        GameObject.Destroy(CopyOfOrigionally);
     }
     public void UpdateFingers(BasisTransformMapping Map)
     {
