@@ -421,11 +421,11 @@ namespace Basis.Scripts.Drivers
             {
                 bone.TposeLocal.rotation = quaternion.identity;
             }
-
-            bone.TposeLocalScaled.position = BasisLocalPlayer.Instance.LocalAvatarDriver.ScaleAvatarModification.FinalScale * bone.TposeLocal.position;
+            //we dont want to touch scale until later, but we dump in the tpose data so its all consitent
+            bone.TposeLocalScaled.position = bone.TposeLocal.position;//BasisLocalPlayer.Instance.LocalAvatarDriver.ScaleAvatarModification.FinalScale
             bone.TposeLocalScaled.rotation = bone.TposeLocal.rotation;
         }
-        public void SetAndCreateLock(Vector3 CalibrationScale,BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
+        public void SetAndCreateLock(BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
         {
             if (CreateLocks)
             {
@@ -438,7 +438,7 @@ namespace Basis.Scripts.Drivers
                 {
                     BasisDebug.LogError("Cant Find Bone " + LockToBoneRole);
                 }
-                BaseBoneDriver.CreateRotationalLock(CalibrationScale, AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
+                BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
             }
         }
         public int SkinnedMeshRendererLength;

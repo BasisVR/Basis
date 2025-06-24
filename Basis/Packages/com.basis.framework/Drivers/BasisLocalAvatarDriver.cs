@@ -76,7 +76,7 @@ namespace Basis.Scripts.Drivers
             /// <summary>
             /// Set Scale
             /// </summary>
-            public Vector3 SetScale = Vector3.one;
+            public Vector3 ApplyScale = Vector3.one;
             /// <summary>
             /// Final Scale is Set Scale * DuringCalibrationScale
             /// </summary>
@@ -84,18 +84,18 @@ namespace Basis.Scripts.Drivers
             public void ReInitalize(Animator Animator)
             {
                 DuringCalibrationScale = Animator.transform.localScale;
-                SetScale = Vector3.one;
+                ApplyScale = Vector3.one;
                 FinalScale = DuringCalibrationScale;
             }
             public void SetAvatarheightOverride(Vector3 Scale)
             {
-                SetScale = Scale;
+                ApplyScale = Scale;
+                // Final scale = Default scale * Override scale (component-wise)
+                FinalScale = new Vector3(DuringCalibrationScale.x * ApplyScale.x, DuringCalibrationScale.y * ApplyScale.y, DuringCalibrationScale.z * ApplyScale.z);
                 if (BasisLocalPlayer.Instance.BasisAvatar != null)
                 {
-                    BasisLocalPlayer.Instance.BasisAvatar.transform.localScale = Scale;
+                    BasisLocalPlayer.Instance.BasisAvatar.transform.localScale = FinalScale;
                 }
-                // Final scale = Default scale * Override scale (component-wise)
-                FinalScale = new Vector3(DuringCalibrationScale.x * SetScale.x, DuringCalibrationScale.y * SetScale.y, DuringCalibrationScale.z * SetScale.z);
             }
         }
         public void SimulateIKDestinations(Quaternion Rotation)
@@ -149,6 +149,7 @@ namespace Basis.Scripts.Drivers
         }
         public void InitialLocalCalibration(BasisLocalPlayer player)
         {
+            player.CurrentHeight.PickRatio(BasisSelectedHeightMode.EyeHeight);
             Instance = this;
             BasisDebug.Log("InitialLocalCalibration");
             if (HasTPoseEvent == false)
@@ -205,7 +206,7 @@ namespace Basis.Scripts.Drivers
 
             CalculateTransformPositions(player, player.LocalBoneDriver);
 
-            ComputeOffsets(player.LocalBoneDriver, ScaleAvatarModification.FinalScale);
+            ComputeOffsets(player.LocalBoneDriver);
 
             player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator);
 
@@ -341,43 +342,43 @@ namespace Basis.Scripts.Drivers
                 GameObject.Destroy(RightToeRig.gameObject);
             }
         }
-        public void ComputeOffsets(BasisBaseBoneDriver BaseBoneDriver, Vector3 Scale)
+        public void ComputeOffsets(BasisBaseBoneDriver BaseBoneDriver)
         {
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.CenterEye, BasisBoneTrackedRole.Head, 40, 35, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck, 40, 35, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth, 40, 30, true);
+            SetAndCreateLock( BaseBoneDriver, BasisBoneTrackedRole.CenterEye, BasisBoneTrackedRole.Head, 40, 35, true);
+            SetAndCreateLock( BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck, 40, 35, true);
+            SetAndCreateLock( BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth, 40, 30, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest, 40, 30, true);
+            SetAndCreateLock( BaseBoneDriver, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest, 40, 30, true);
 
 
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips, 40, 14, true);
+            SetAndCreateLock( BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.LeftShoulder, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.RightShoulder, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.LeftShoulder, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.RightShoulder, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.LeftShoulder, BasisBoneTrackedRole.LeftUpperArm, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.RightShoulder, BasisBoneTrackedRole.RightUpperArm, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.LeftShoulder, BasisBoneTrackedRole.LeftUpperArm, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.RightShoulder, BasisBoneTrackedRole.RightUpperArm, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.LeftUpperArm, BasisBoneTrackedRole.LeftLowerArm, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.RightUpperArm, BasisBoneTrackedRole.RightLowerArm, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.LeftUpperArm, BasisBoneTrackedRole.LeftLowerArm, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.RightUpperArm, BasisBoneTrackedRole.RightLowerArm, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.LeftLowerArm, BasisBoneTrackedRole.LeftHand, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.RightLowerArm, BasisBoneTrackedRole.RightHand, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.LeftLowerArm, BasisBoneTrackedRole.LeftHand, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.RightLowerArm, BasisBoneTrackedRole.RightHand, 40, 14, true);
 
             //legs
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Hips, BasisBoneTrackedRole.LeftUpperLeg, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Hips, BasisBoneTrackedRole.RightUpperLeg, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Hips, BasisBoneTrackedRole.LeftUpperLeg, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.Hips, BasisBoneTrackedRole.RightUpperLeg, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.LeftUpperLeg, BasisBoneTrackedRole.LeftLowerLeg, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.RightUpperLeg, BasisBoneTrackedRole.RightLowerLeg, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.LeftUpperLeg, BasisBoneTrackedRole.LeftLowerLeg, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.RightUpperLeg, BasisBoneTrackedRole.RightLowerLeg, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.LeftLowerLeg, BasisBoneTrackedRole.LeftFoot, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.RightLowerLeg, BasisBoneTrackedRole.RightFoot, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.LeftLowerLeg, BasisBoneTrackedRole.LeftFoot, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.RightLowerLeg, BasisBoneTrackedRole.RightFoot, 40, 14, true);
 
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.LeftFoot, BasisBoneTrackedRole.LeftToes, 40, 14, true);
-            SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.RightFoot, BasisBoneTrackedRole.RightToes, 4, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.LeftFoot, BasisBoneTrackedRole.LeftToes, 40, 14, true);
+            SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.RightFoot, BasisBoneTrackedRole.RightToes, 4, 14, true);
         }
         public bool IsAble()
         {

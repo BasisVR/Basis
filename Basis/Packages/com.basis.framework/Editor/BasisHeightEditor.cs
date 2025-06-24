@@ -60,7 +60,7 @@ public class BasisHeightEditorWindow : EditorWindow
             return;
         }
 
-        BasisHeightDriver.SetPlayersEyeHeight(basisPlayer, BasisSelectedHeightMode.EyeHeight);
+        BasisHeightDriver.ChangeEyeHeightMode(basisPlayer, BasisSelectedHeightMode.EyeHeight);
         BasisDebug.Log("Player eye height recalculated successfully.");
     }
 
