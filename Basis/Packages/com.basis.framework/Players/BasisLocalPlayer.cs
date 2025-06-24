@@ -91,7 +91,7 @@ namespace Basis.Scripts.BasisSdk.Players
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
             LocalBoneDriver.CreateInitialArrays(this.transform, true);
-            LocalBoneDriver.Initialize(this);
+            LocalBoneDriver.Initialize();
             LocalHandDriver.Initialize();
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);
@@ -291,7 +291,9 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             //now that everything has been processed lets update WorldPosition in BoneDriver.
             //this is so AfterFinalMove can use world position coords. (stops Laggy pickups)
-            LocalBoneDriver.PostSimulateBonePositions();
+            //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
+            //  Quaternion Rotation = transform.rotation;
+            LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix, Rotation);
 
             //handles fingers
             LocalHandDriver.UpdateFingers(LocalAvatarDriver.References);

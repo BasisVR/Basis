@@ -449,7 +449,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void LoadModelWithKey(string key)
         {
-            var op = Addressables.LoadAssetAsync<GameObject>(key);
+            UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(key);
             GameObject go = op.WaitForCompletion();
             GameObject gameObject = GameObject.Instantiate(go);
             gameObject.name = CommonDeviceIdentifier;
