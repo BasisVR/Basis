@@ -147,6 +147,8 @@ namespace Basis.Scripts.Drivers
             player.BasisAvatar.Animator.applyRootMotion = false;
             //tpose
             PutAvatarIntoTPose();
+
+
             Builder = BasisHelpers.GetOrAddComponent<RigBuilder>(AvatarAnimatorParent);
             Builder.enabled = false;
             Calibration(player.BasisAvatar);
@@ -162,10 +164,14 @@ namespace Basis.Scripts.Drivers
             {
                 HeadScale = Vector3.one;
             }
-            player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator, References);
+
             SetBodySettings(player.LocalBoneDriver);
+
             CalculateTransformPositions(player, player.LocalBoneDriver);
+
             ComputeOffsets(player.LocalBoneDriver);
+
+            player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator);
 
             CalibrationComplete?.Invoke();
             player.LocalAnimatorDriver.Initialize(player);
