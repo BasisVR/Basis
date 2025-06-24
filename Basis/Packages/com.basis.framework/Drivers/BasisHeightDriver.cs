@@ -51,6 +51,7 @@ public static class BasisHeightDriver
         LocalPlayer.CurrentHeight.ArmRatioAvatarToAvatarDefaultScale = LocalPlayer.CurrentHeight.PlayerArmSpan / BasisLocalPlayer.DefaultAvatarArmSpan;
         LocalPlayer.CurrentHeight.ArmRatioPlayerToDefaultScale = LocalPlayer.CurrentHeight.AvatarArmSpan / BasisLocalPlayer.DefaultPlayerArmSpan;
 
+
         // Notify listeners that height recalculation is complete
         BasisDebug.Log($"Final Player Eye Height: {LocalPlayer.CurrentHeight.PlayerEyeHeight}", BasisDebug.LogTag.Avatar);
         LocalPlayer.CurrentHeight.PickRatio(SelectedHeightMode);
@@ -142,20 +143,17 @@ public static class BasisHeightDriver
         // Compute the scale factor relative to unscaled height
         float heightScaleFactor = customHeight / defaultEyeHeight;
 
-        // Uniformly scale all axes
-        Vector3 scaleOverride = new Vector3(heightScaleFactor, heightScaleFactor, heightScaleFactor);
-
         // Apply avatar scale
-        localAvatarDriver.ScaleAvatarModification.SetAvatarheightOverride(scaleOverride);
+        localAvatarDriver.ScaleAvatarModification.SetAvatarheightOverride(heightScaleFactor);
 
         // Recalculate bone transforms
         int lengthCount = driver.ControlsLength;
         for (int i = 0; i < lengthCount; i++)
         {
             BasisBoneControl control = driver.Controls[i];
-            control.TposeLocalScaled.position = scaleOverride * control.TposeLocal.position;
+            control.TposeLocalScaled.position = heightScaleFactor * control.TposeLocal.position;
             control.TposeLocalScaled.rotation = control.TposeLocal.rotation;
-            control.ScaledOffset = scaleOverride * control.Offset;
+            control.ScaledOffset = heightScaleFactor * control.Offset;
         }
 
         localAvatarDriver.CalculateMaxExtended();

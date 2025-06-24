@@ -76,7 +76,7 @@ namespace Basis.Scripts.Drivers
             /// <summary>
             /// Set Scale
             /// </summary>
-            public Vector3 ApplyScale = Vector3.one;
+            public float ApplyScale;
             /// <summary>
             /// Final Scale is Set Scale * DuringCalibrationScale
             /// </summary>
@@ -84,14 +84,14 @@ namespace Basis.Scripts.Drivers
             public void ReInitalize(Animator Animator)
             {
                 DuringCalibrationScale = Animator.transform.localScale;
-                ApplyScale = Vector3.one;
+                ApplyScale = 1;
                 FinalScale = DuringCalibrationScale;
             }
-            public void SetAvatarheightOverride(Vector3 Scale)
+            public void SetAvatarheightOverride(float Scale)
             {
                 ApplyScale = Scale;
                 // Final scale = Default scale * Override scale (component-wise)
-                FinalScale = new Vector3(DuringCalibrationScale.x * ApplyScale.x, DuringCalibrationScale.y * ApplyScale.y, DuringCalibrationScale.z * ApplyScale.z);
+                FinalScale = DuringCalibrationScale * Scale;
                 if (BasisLocalPlayer.Instance.BasisAvatar != null)
                 {
                     BasisLocalPlayer.Instance.BasisAvatar.transform.localScale = FinalScale;

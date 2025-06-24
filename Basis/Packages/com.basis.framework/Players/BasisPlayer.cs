@@ -24,8 +24,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public string UUID;
         public BasisAvatar BasisAvatar;
         public Transform BasisAvatarTransform;
-        public bool HasAvatarDriver;
-
         public event Action OnMetaDataUpdated;
         public event Action OnAvatarSwitched;
         public event Action OnAvatarSwitchedFallBack;
@@ -57,15 +55,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public static bool UseJiggles = true;
         public void InitalizeIKCalibration(BasisAvatarDriver BasisAvatarDriver)
         {
-            if (BasisAvatarDriver != null)
-            {
-                HasAvatarDriver = true;
-            }
-            else
-            {
-                BasisDebug.LogError("Mising CharacterIKCalibration");
-                HasAvatarDriver = false;
-            }
             if (UseJiggles)
             {
                 HasJiggles = false;

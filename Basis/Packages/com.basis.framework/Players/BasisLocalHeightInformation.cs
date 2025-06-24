@@ -47,8 +47,8 @@ namespace Basis.Scripts.BasisSdk.Players
                     SelectedPlayerHeight = CustomPlayerEyeHeight;
                     SelectedAvatarHeight = CustomAvatarEyeHeight;
 
-                    SelectedPlayerToDefaultScale = CustomPlayerEyeHeight;
-                    SelectedAvatarToAvatarDefaultScale = CustomAvatarEyeHeight;
+                    SelectedPlayerToDefaultScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / BasisLocalPlayer.DefaultAvatarEyeHeight;
+                    SelectedAvatarToAvatarDefaultScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarHeight / BasisLocalPlayer.DefaultPlayerEyeHeight;
                     break;
             }
         }

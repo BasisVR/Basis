@@ -273,6 +273,9 @@ namespace Basis.Scripts.Drivers
         }
         public void OnHeightChanged()
         {
+
+            //the normal users scale is 1.6m
+            //so a avatar the size of 
             this.transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
         }
         public void OnDisable()
@@ -293,7 +296,7 @@ namespace Basis.Scripts.Drivers
 
         public void BeginCameraRendering(ScriptableRenderContext context, Camera Camera)
         {
-            if (LocalPlayer.HasAvatarDriver && LocalPlayer.LocalAvatarDriver.References.Hashead)
+            if (LocalPlayer.LocalAvatarDriver.References.Hashead)
             {
                 if (Camera.GetInstanceID() == CameraInstanceID)
                 {
