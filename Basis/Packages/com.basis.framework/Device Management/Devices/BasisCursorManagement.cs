@@ -41,7 +41,7 @@ public static class BasisCursorManagement
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        BasisDebug.Log("Cursor Locked");
+       // BasisDebug.Log("Cursor Locked");
         cursorLockRequests.Add(requestName);
         OnCursorStateChange?.Invoke(CursorLockMode.Locked, false);
     }
