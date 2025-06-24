@@ -422,7 +422,7 @@ namespace Basis.Scripts.Drivers
                 bone.TposeLocal.rotation = quaternion.identity;
             }
 
-            bone.TposeLocalScaled.position = BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentScaleValidated * bone.TposeLocal.position;
+            bone.TposeLocalScaled.position = BasisLocalPlayer.Instance.LocalAvatarDriver.ScaleAvatarModification.FinalScale * bone.TposeLocal.position;
             bone.TposeLocalScaled.rotation = bone.TposeLocal.rotation;
         }
         public void SetAndCreateLock(Vector3 CalibrationScale,BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)

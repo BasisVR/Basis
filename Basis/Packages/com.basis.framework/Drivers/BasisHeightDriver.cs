@@ -127,7 +127,7 @@ public static class BasisHeightDriver
         SaveHeight(customHeight);
         SetPlayersEyeHeight(player, BasisSelectedHeightMode.Custom);
         // Get the avatar's default scale
-        Vector3 defaultScale = LocalAvatarDriver.AvatarDefaultScale;
+        Vector3 defaultScale = LocalAvatarDriver.ScaleAvatarModification.DuringCalibrationScale;
 
         // Compute the scale multiplier based on the desired height vs actual height
         float heightScaleFactor = customHeight / player.CurrentHeight.AvatarEyeHeight;
@@ -136,8 +136,8 @@ public static class BasisHeightDriver
         Vector3 newScale = defaultScale * heightScaleFactor;
 
         // Apply the new scale to the avatar
-        LocalAvatarDriver.SetAvatarheightOverride(newScale);
-        Vector3 CurrentScaleValidated = LocalAvatarDriver.CurrentScaleValidated;
+        LocalAvatarDriver.ScaleAvatarModification.SetAvatarheightOverride(newScale);
+        Vector3 CurrentScaleValidated = LocalAvatarDriver.ScaleAvatarModification.FinalScale;
         int LengthCount = Driver.ControlsLength;
         for (int Index = 0; Index < LengthCount; Index++)
         {

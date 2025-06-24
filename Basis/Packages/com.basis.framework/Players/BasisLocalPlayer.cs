@@ -317,14 +317,14 @@ namespace Basis.Scripts.BasisSdk.Players
             blendedXZ.y = hipsPosition.y;
             if (currentDistance <= LocalAvatarDriver.MaxExtendedDistance)
             {
-                output = -BasisLocalBoneDriver.Hips.TposeLocal.position;
+                output = -BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
             }
             else
             {
                 Vector3 direction = (hipsPosition - headPosition).normalized;
                 float overshoot = currentDistance - LocalAvatarDriver.MaxExtendedDistance;
                 Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocal.position;
+                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
                 float3 correctedHips = TposeHips + correction;
                 output = -correctedHips;
             }
