@@ -4055,7 +4055,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &6234093518117549443
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4100,6 +4100,11 @@ MonoBehaviour:
   hasLocalCreationEvent: 0
   Position: {x: 0, y: 0, z: 0}
   Rotation: {x: 0, y: 0, z: 0, w: 0}
+  SnapToPlayOnDistance: 0
+  MaxDistanceInVRBeforeSnap: 4
+  CurrentMaxDistanceInVRBeforeSnap: 0
+  CurrentDistanceToVR: 0
+  targetPosition: {x: 0, y: 0, z: 0}
 --- !u!114 &9049834266456267665
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -21385,7 +21385,6 @@ GameObject:
   - component: {fileID: 7522235755497681572}
   - component: {fileID: -8689619352384809884}
   - component: {fileID: 163077535810724808}
-  - component: {fileID: 120592055573627991}
   - component: {fileID: 8950482846793513484}
   m_Layer: 5
   m_Name: Settings UI
@@ -21667,6 +21666,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b2d850aa68a77142a3070c8c2a72ddd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  BasisUIMovementDriver: {fileID: -8689619352384809884}
 --- !u!114 &-8689619352384809884
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21683,6 +21683,11 @@ MonoBehaviour:
   hasLocalCreationEvent: 0
   Position: {x: 0, y: 0, z: 0}
   Rotation: {x: 0, y: 0, z: 0, w: 0}
+  SnapToPlayOnDistance: 0
+  MaxDistanceInVRBeforeSnap: 4
+  CurrentMaxDistanceInVRBeforeSnap: 0
+  CurrentDistanceToVR: 0
+  targetPosition: {x: 0, y: 0, z: 0}
 --- !u!114 &163077535810724808
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21696,19 +21701,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   fpsText: {fileID: 1683230402514716218}
---- !u!114 &120592055573627991
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5776740318662466287}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3d70abc58c9ac244ca780e8e3291b761, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxDistance: 4
 --- !u!114 &8950482846793513484
 MonoBehaviour:
   m_ObjectHideFlags: 0

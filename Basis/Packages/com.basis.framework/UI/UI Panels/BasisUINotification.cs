@@ -12,6 +12,7 @@ public class BasisUINotification : BasisUIBase
     public BasisUIMovementDriver Driver;
     public override void DestroyEvent()
     {
+        Driver.DeInitalize();
         BasisCursorManagement.LockCursor(CursorRequest);
     }
     public static void OpenNotification(string Reason, bool OverridePosition, Vector3 Position)

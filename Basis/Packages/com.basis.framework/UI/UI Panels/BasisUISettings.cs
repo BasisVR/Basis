@@ -5,10 +5,12 @@ namespace Basis.Scripts.UI.UI_Panels
     public class BasisUISettings : BasisUIBase
     {
         public static string SettingsPanel = "SettingsPanel";
+        public BasisUIMovementDriver BasisUIMovementDriver;
         public override void DestroyEvent()
         {
             BasisCursorManagement.LockCursor(nameof(BasisUISettings));
             BasisUINeedsVisibleTrackers.Instance.Remove(this);
+            BasisUIMovementDriver.DeInitalize();
         }
 
         public override void InitalizeEvent()

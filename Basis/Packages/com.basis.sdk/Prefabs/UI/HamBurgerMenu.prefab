@@ -1073,7 +1073,6 @@ GameObject:
   - component: {fileID: 8741384627589891417}
   - component: {fileID: 1537182542201181301}
   - component: {fileID: 3604777480517620113}
-  - component: {fileID: 4046119539326069189}
   - component: {fileID: 5037789959283694621}
   m_Layer: 5
   m_Name: HamBurgerMenu
@@ -1148,7 +1147,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &1722851449925555937
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1214,19 +1213,11 @@ MonoBehaviour:
   hasLocalCreationEvent: 0
   Position: {x: 0, y: 0, z: 0}
   Rotation: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &4046119539326069189
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4375996973627896563}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3d70abc58c9ac244ca780e8e3291b761, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxDistance: 4
+  SnapToPlayOnDistance: 1
+  MaxDistanceInVRBeforeSnap: 4
+  CurrentMaxDistanceInVRBeforeSnap: 0
+  CurrentDistanceToVR: 0
+  targetPosition: {x: 0, y: 0, z: 0}
 --- !u!114 &5037789959283694621
 MonoBehaviour:
   m_ObjectHideFlags: 0
