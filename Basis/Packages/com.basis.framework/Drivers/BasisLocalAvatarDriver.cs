@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.Playables;
+using UnityEngine.UIElements;
 
 namespace Basis.Scripts.Drivers
 {
@@ -154,7 +155,6 @@ namespace Basis.Scripts.Drivers
             Rigs.Clear();
             GameObject AvatarAnimatorParent = player.BasisAvatar.Animator.gameObject;
             AvatarDefaultScale = AvatarAnimatorParent.transform.localScale;
-            CurrentLocalScale = AvatarDefaultScale;
             SetAvatarheightOverride(AvatarDefaultScale);
             player.BasisAvatar.Animator.updateMode = AnimatorUpdateMode.Normal;
             player.BasisAvatar.Animator.logWarnings = false;
@@ -185,7 +185,7 @@ namespace Basis.Scripts.Drivers
             player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator, References);
             SetBodySettings(player.LocalBoneDriver);
             CalculateTransformPositions(player, player.LocalBoneDriver);
-            ComputeOffsets(player.LocalBoneDriver);
+            ComputeOffsets(player.LocalBoneDriver, CurrentScaleValidated);
 
             CalibrationComplete?.Invoke();
             player.LocalAnimatorDriver.Initialize(player);
@@ -323,15 +323,11 @@ namespace Basis.Scripts.Drivers
                 GameObject.Destroy(RightToeRig.gameObject);
             }
         }
-        public void ComputeOffsets(BasisBaseBoneDriver BaseBoneDriver)
+        public void ComputeOffsets(BasisBaseBoneDriver BaseBoneDriver, Vector3 Scale)
         {
-            Vector3 Scale = BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentScaleValidated;
-            //head
             SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.CenterEye, BasisBoneTrackedRole.Head, 40, 35, true);
             SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck, 40, 35, true);
-
             SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth, 40, 30, true);
-
 
             SetAndCreateLock(Scale, BaseBoneDriver, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest, 40, 30, true);
 
