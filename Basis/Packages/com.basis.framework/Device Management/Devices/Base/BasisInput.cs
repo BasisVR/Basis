@@ -133,6 +133,7 @@ namespace Basis.Scripts.Device_Management.Devices
             StopTracking();
             if (BasisUIRaycast != null)
             {
+                BasisUIRaycast.OnDeInitialize();
                 if (BasisUIRaycast.highlightQuadInstance != null)
                 {
                     GameObject.Destroy(BasisUIRaycast.highlightQuadInstance.gameObject);

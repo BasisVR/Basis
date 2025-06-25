@@ -76,8 +76,9 @@ namespace Basis.Scripts.UI
                 lineMaterial = InMemory;
                 // Set the Line Renderer properties
                 LineRenderer.material = lineMaterial;
-                LineRenderer.startWidth = lineWidth;
-                LineRenderer.endWidth = lineWidth;
+
+                HasOnPlayersHeightChanged = true;
+                LineRendererSizeApply();
 
                 // Set the number of points in the Line Renderer
                 LineRenderer.positionCount = 2;
@@ -86,6 +87,7 @@ namespace Basis.Scripts.UI
                 LineRenderer.numCapVertices = 12;
                 LineRenderer.numCornerVertices = 12;
                 LineRenderer.gameObject.layer = UILayer;
+                BasisLocalPlayer.Instance.OnPlayersHeightChanged += LineRendererSizeApply;
             }
             if (basisInput.DeviceMatchSettings.HasRayCastRadical)
             {
@@ -94,6 +96,20 @@ namespace Basis.Scripts.UI
             }
             CachedLinerRenderState = HasLineRenderer;
 
+        }
+        public void OnDeInitialize()
+        {
+            if (HasOnPlayersHeightChanged)
+            {
+                BasisLocalPlayer.Instance.OnPlayersHeightChanged -= LineRendererSizeApply;
+            }
+        }
+        public bool HasOnPlayersHeightChanged = false;
+        public void LineRendererSizeApply()
+        {
+            float Size = lineWidth * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            LineRenderer.startWidth = Size;
+            LineRenderer.endWidth = Size;
         }
         public void CreateRadical()
         {
