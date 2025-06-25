@@ -16,7 +16,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public Vector3[] BonePositions;
         public Quaternion[] BoneRotations;
 
-        public float3 LocalWristPosition;
+        public float3 HandWristPosition;
         public quaternion HandWristRotation;
 
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
@@ -111,27 +111,24 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             UpdateHistoryBuffer();
 
-            float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            // Bone data
+            HandWristPosition = BonePositions[1];
+            HandWristRotation = BoneRotations[1];
 
             // Get controller pose
             RawFinal.rotation = DeviceposeAction[inputSource].localRotation;
             RawFinal.position = DeviceposeAction[inputSource].localPosition;
 
+            float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
             DeviceFinal.position = RawFinal.position * AvatarScale;
 
-            // Bone data
-            LocalWristPosition = BonePositions[1];
-            HandWristRotation = BoneRotations[1];
+            // Calculate final hand position in scaled space
+            float3 ScaledwristOffset = math.mul(RawFinal.rotation, HandWristPosition) * AvatarScale;
 
             // Final hand rotation = controller rotation * offset from wrist
             HandFinal.rotation = math.mul(RawFinal.rotation, HandleHandFinalRotation(HandWristRotation));
-
-            // Calculate final hand position in scaled space
-            float3 wristOffset = math.mul(RawFinal.rotation, LocalWristPosition);
-
-            float3 ScaledwristOffset = wristOffset * AvatarScale;
-
-            HandFinal.position = (DeviceFinal.position - ScaledwristOffset);
+            HandFinal.position = DeviceFinal.position - ScaledwristOffset;
 
             ControlOnlyAsHand();
             ComputeRaycastDirection();
