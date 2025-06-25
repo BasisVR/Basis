@@ -54,7 +54,7 @@ namespace Basis.Scripts.Eye_Follow
             {
                 if (Player.IsLocal)
                 {
-                    Player.OnSpawnedEvent -= AfterTeleport;
+                    BasisLocalPlayer.OnSpawnedEvent -= AfterTeleport;
                 }
                 HasEvents = false;
             }
@@ -73,7 +73,7 @@ namespace Basis.Scripts.Eye_Follow
             {
                 if (Player.IsLocal)
                 {
-                    BasisLocalPlayer.Instance.OnSpawnedEvent += AfterTeleport;
+                    BasisLocalPlayer.OnSpawnedEvent += AfterTeleport;
                 }
                 HasEvents = true;
             }

@@ -23,8 +23,10 @@ namespace Basis.Scripts.UI.UI_Panels
         public Button UseLocalhost;
         public Toggle HostMode;
         public TextMeshProUGUI ConnectText;
+        public Vector3 InitalScale;
         public void Start()
         {
+            InitalScale = gameObject.transform.localScale;
             UserNameTMP_InputField.text = BasisDataStore.LoadString(LoadFileName, string.Empty);
             Ready.onClick.AddListener(HasUserName);
             AdvancedSettingsPanel.SetActive(false);
@@ -39,8 +41,17 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 this.transform.SetParent(BasisDeviceManagement.Instance.transform,true);
             }
-        }
 
+            ApplySize();
+            BasisLocalPlayer.OnPlayersHeightChanged += ApplySize;
+        }
+        public void ApplySize()
+        {
+            if (BasisLocalPlayer.Instance != null)
+            {
+                this.transform.localScale = InitalScale * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            }
+        }
         public void OnDestroy()
         {
             if (AdvancedSettingsPanel != null)
@@ -48,6 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 AdvancedSettings.onClick.RemoveListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.RemoveListener(UseLocalHost);
             }
+            BasisLocalPlayer.OnPlayersHeightChanged -= ApplySize;
         }
         public void UseHostMode(bool IsDown)
         {

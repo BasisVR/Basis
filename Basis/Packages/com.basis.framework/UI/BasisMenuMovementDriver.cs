@@ -48,8 +48,8 @@ namespace Basis.Scripts.UI.UI_Panels
                 hasGeneratedAction = false;
             }
 
-            BasisLocalPlayer.Instance.OnLocalAvatarChanged -= UpdateDelayedSetUI;
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged -= UpdateDelayedSetUI;
+            BasisLocalPlayer.OnLocalAvatarChanged -= UpdateDelayedSetUI;
+            BasisLocalPlayer.OnPlayersHeightChanged -= UpdateDelayedSetUI;
 
             LocalPlayer.AfterFinalMove.RemoveAction(101, UpdateUI);
         }
@@ -58,8 +58,8 @@ namespace Basis.Scripts.UI.UI_Panels
         public BasisBoneControl hand;
         private void OnLocalPlayerGenerated()
         {
-            BasisLocalPlayer.Instance.OnLocalAvatarChanged += UpdateDelayedSetUI;
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged += UpdateDelayedSetUI;
+            BasisLocalPlayer.OnLocalAvatarChanged += UpdateDelayedSetUI;
+            BasisLocalPlayer.OnPlayersHeightChanged += UpdateDelayedSetUI;
             if (LocalPlayer.LocalBoneDriver.FindBone(out hand, BasisBoneTrackedRole.LeftHand))
             {
             }

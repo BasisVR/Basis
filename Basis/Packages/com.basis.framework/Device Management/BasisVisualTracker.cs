@@ -22,8 +22,8 @@ namespace Basis.Scripts.Device_Management
                 UpdateVisualSizeAndOffset();
                 if (HasEvents == false)
                 {
-                    BasisLocalPlayer.Instance.OnLocalAvatarChanged += UpdateVisualSizeAndOffset;
-                    BasisLocalPlayer.Instance.OnPlayersHeightChanged += UpdateVisualSizeAndOffset;
+                    BasisLocalPlayer.OnLocalAvatarChanged += UpdateVisualSizeAndOffset;
+                    BasisLocalPlayer.OnPlayersHeightChanged += UpdateVisualSizeAndOffset;
                     HasEvents = true;
                 }
                 TrackedSetup?.Invoke();
@@ -33,8 +33,8 @@ namespace Basis.Scripts.Device_Management
         {
             if (HasEvents)
             {
-                BasisLocalPlayer.Instance.OnLocalAvatarChanged -= UpdateVisualSizeAndOffset;
-                BasisLocalPlayer.Instance.OnPlayersHeightChanged -= UpdateVisualSizeAndOffset;
+                BasisLocalPlayer.OnLocalAvatarChanged -= UpdateVisualSizeAndOffset;
+                BasisLocalPlayer.OnPlayersHeightChanged -= UpdateVisualSizeAndOffset;
                 HasEvents = false;
             }
         }

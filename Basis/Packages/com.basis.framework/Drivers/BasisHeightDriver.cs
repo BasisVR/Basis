@@ -55,7 +55,7 @@ public static class BasisHeightDriver
         // Notify listeners that height recalculation is complete
         BasisDebug.Log($"Final Player Eye Height: {LocalPlayer.CurrentHeight.PlayerEyeHeight}", BasisDebug.LogTag.Avatar);
         LocalPlayer.CurrentHeight.PickRatio(SelectedHeightMode);
-        LocalPlayer.OnPlayersHeightChanged?.Invoke();
+        BasisLocalPlayer.OnPlayersHeightChanged?.Invoke();
     }
     public static void CapturePlayerHeight()
     {
@@ -159,6 +159,6 @@ public static class BasisHeightDriver
         localAvatarDriver.CalculateMaxExtended();
 
         // Notify listeners
-        player.OnPlayersHeightChanged?.Invoke();
+        BasisLocalPlayer.OnPlayersHeightChanged?.Invoke();
     }
 }

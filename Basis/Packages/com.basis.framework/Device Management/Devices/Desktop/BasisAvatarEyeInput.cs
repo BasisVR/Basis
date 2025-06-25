@@ -49,8 +49,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             BasisCursorManagement.OverrideAbleLock(nameof(BasisAvatarEyeInput));
             if (HasEyeEvents == false)
             {
-                BasisLocalPlayer.Instance.OnLocalAvatarChanged += PlayerInitialized;
-                BasisLocalPlayer.Instance.OnPlayersHeightChanged += OnPlayersHeightChanged;
+                BasisLocalPlayer.OnLocalAvatarChanged += PlayerInitialized;
+                BasisLocalPlayer.OnPlayersHeightChanged += OnPlayersHeightChanged;
                 OnPlayersHeightChanged();
                 BasisCursorManagement.OnCursorStateChange += OnCursorStateChange;
                 BasisPointRaycaster.UseWorldPosition = false;
@@ -75,8 +75,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             if (HasEyeEvents)
             {
-                BasisLocalPlayer.Instance.OnLocalAvatarChanged -= PlayerInitialized;
-                BasisLocalPlayer.Instance.OnPlayersHeightChanged -= OnPlayersHeightChanged;
+                BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
+                BasisLocalPlayer.OnPlayersHeightChanged -= OnPlayersHeightChanged;
                 BasisCursorManagement.OnCursorStateChange -= OnCursorStateChange;
                 HasEyeEvents = false;
                 BasisVirtualSpine.DeInitialize();
@@ -101,7 +101,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
         public new void OnDisable()
         {
-            BasisLocalPlayer.Instance.OnLocalAvatarChanged -= PlayerInitialized;
+            BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
             base.OnDisable();
         }
 

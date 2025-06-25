@@ -43,7 +43,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged -= OnPlayersHeightChanged;
+            BasisLocalPlayer.OnPlayersHeightChanged -= OnPlayersHeightChanged;
             if (hasLocalCreationEvent)
             {
                 BasisLocalPlayer.OnLocalPlayerCreated -= LocalPlayerGenerated;
@@ -60,7 +60,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisLocalPlayer.Instance.AfterFinalMove.AddAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged += OnPlayersHeightChanged;
+            BasisLocalPlayer.OnPlayersHeightChanged += OnPlayersHeightChanged;
             SetUILocation();
         }
         public void OnPlayersHeightChanged()
