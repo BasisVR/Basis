@@ -126,7 +126,7 @@ namespace Basis.Scripts.UI
                         HasHoverONInput = true;
                         MovementLock.Add(nameof(BasisInputModuleHandler));
                         CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                        if (BasisDeviceManagement.IsCurrentModeVR || ForceKeyboard)
+                        if (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard)
                         {
                             if (BasisVirtualKeyboard.HasInstance == false)
                             {
@@ -144,7 +144,7 @@ namespace Basis.Scripts.UI
                             HasHoverONInput = true;
                             MovementLock.Add(nameof(BasisInputModuleHandler));
                             CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                            if (BasisDeviceManagement.IsCurrentModeVR || ForceKeyboard)
+                            if (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard)
                             {
                                 if (BasisVirtualKeyboard.HasInstance == false)
                                 {

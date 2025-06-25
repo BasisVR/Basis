@@ -33,7 +33,18 @@ namespace Basis.Scripts.Device_Management
         public static string BoneData = "Assets/ScriptableObjects/BoneData.asset";
         public static BasisFallBackBoneData FBBD;
         public const string ProfilePath = "Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset";
-        public static bool IsCurrentModeVR = CurrentMode == "OpenVRLoader" || CurrentMode == "OpenXRLoader";
+        public static bool IsCurrentModeVR()
+        {
+            switch (CurrentMode)
+            {
+                case "OpenVRLoader":
+                    return true;
+                case "OpenXRLoader":
+                    return true;
+                default:
+                    return false;
+            }
+        }
         public AudioClip HoverUI;
         public AudioClip pressUI;
         public string DefaultMode()
