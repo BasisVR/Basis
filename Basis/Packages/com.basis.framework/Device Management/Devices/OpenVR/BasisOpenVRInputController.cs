@@ -112,25 +112,26 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             UpdateHistoryBuffer();
 
             float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
             // Get controller pose
-            DeviceFinal.rotation = DeviceposeAction[inputSource].localRotation;
-            float3 RawDevice = DeviceposeAction[inputSource].localPosition;
-            float3 ScaledRaw = RawDevice * AvatarScale;
-            DeviceFinal.position = ScaledRaw;
+            RawFinal.rotation = DeviceposeAction[inputSource].localRotation;
+            RawFinal.position = DeviceposeAction[inputSource].localPosition;
+
+            DeviceFinal.position = RawFinal.position * AvatarScale;
 
             // Bone data
             LocalWristPosition = BonePositions[1];
             HandWristRotation = BoneRotations[1];
 
             // Final hand rotation = controller rotation * offset from wrist
-            HandFinal.rotation = math.mul(DeviceFinal.rotation, HandleHandFinalRotation(HandWristRotation));
+            HandFinal.rotation = math.mul(RawFinal.rotation, HandleHandFinalRotation(HandWristRotation));
 
             // Calculate final hand position in scaled space
-            float3 wristOffset = math.mul(DeviceFinal.rotation, LocalWristPosition);
+            float3 wristOffset = math.mul(RawFinal.rotation, LocalWristPosition);
 
             float3 ScaledwristOffset = wristOffset * AvatarScale;
 
-            HandFinal.position = (ScaledRaw - ScaledwristOffset);
+            HandFinal.position = (DeviceFinal.position - ScaledwristOffset);
 
             ControlOnlyAsHand();
             ComputeRaycastDirection();

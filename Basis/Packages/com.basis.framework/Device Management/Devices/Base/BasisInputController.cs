@@ -34,7 +34,7 @@ public abstract class BasisInputController : BasisInput
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
         {
             Control.IncomingData.position = HandFinal.position;
-            Control.IncomingData.rotation = HandleHandFinalRotation(HandFinal.rotation);
+            Control.IncomingData.rotation = HandFinal.rotation;
         }
     }
     public void ComputeRaycastDirection()

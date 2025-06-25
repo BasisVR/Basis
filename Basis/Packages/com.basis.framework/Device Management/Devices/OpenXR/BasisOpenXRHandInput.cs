@@ -113,7 +113,7 @@ public class BasisOpenXRHandInput : BasisInputController
         float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
         DeviceFinal.position = RawFinal.position * scale;
-        DeviceFinal.rotation = RawFinal.rotation;
+        DeviceFinal.rotation = HandleHandFinalRotation(RawFinal.rotation);
 
         HandFinal.position = HandRaw.position * scale;
 
