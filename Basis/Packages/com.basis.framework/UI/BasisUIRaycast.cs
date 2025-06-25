@@ -87,7 +87,7 @@ namespace Basis.Scripts.UI
                 LineRenderer.numCapVertices = 12;
                 LineRenderer.numCornerVertices = 12;
                 LineRenderer.gameObject.layer = UILayer;
-                BasisLocalPlayer.OnPlayersHeightChanged += LineRendererSizeApply;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += LineRendererSizeApply;
             }
             if (basisInput.DeviceMatchSettings.HasRayCastRadical)
             {
@@ -101,7 +101,7 @@ namespace Basis.Scripts.UI
         {
             if (HasOnPlayersHeightChanged)
             {
-                BasisLocalPlayer.OnPlayersHeightChanged -= LineRendererSizeApply;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= LineRendererSizeApply;
             }
         }
         public bool HasOnPlayersHeightChanged = false;

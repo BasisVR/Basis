@@ -75,7 +75,7 @@ namespace Basis.Scripts.Drivers
                 BasisMicrophoneRecorder.MainThreadOnHasSilence += MicrophoneNotTransmitting;
                 RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
                 BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
-                BasisLocalPlayer.OnPlayersHeightChanged += OnHeightChanged;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
                 InstanceExists?.Invoke();
                 HasEvents = true;
             }
@@ -213,7 +213,7 @@ namespace Basis.Scripts.Drivers
         {
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
-            BasisLocalPlayer.OnPlayersHeightChanged -= OnHeightChanged;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
             BasisMicrophoneRecorder.OnPausedAction -= OnPausedEvent;
             HasEvents = false;
             HasInstance = false;

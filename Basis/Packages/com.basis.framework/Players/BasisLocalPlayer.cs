@@ -8,6 +8,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.UI.UI_Panels;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Unity.Mathematics;
@@ -46,7 +47,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnLocalPlayerCreated;
         public static Action OnLocalAvatarChanged;
         public static Action OnSpawnedEvent;
-        public static Action OnPlayersHeightChanged;
+        public static Action OnPlayersHeightChangedNextFrame;
         public OrderedDelegate AfterFinalMove = new OrderedDelegate();
 
         public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
@@ -333,6 +334,24 @@ namespace Basis.Scripts.BasisSdk.Players
 
             BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
             return parentWorldRotation;
+        }
+
+
+
+        // Define the delegate type
+        public delegate void NextFrameAction();
+        /// <summary>
+        /// Executes the delegate in the next frame.
+        /// </summary>
+        public void ExecuteNextFrame(NextFrameAction action)
+        {
+            StartCoroutine(RunNextFrame(action));
+        }
+
+        private IEnumerator RunNextFrame(NextFrameAction action)
+        {
+            yield return null; // Waits for the next frame
+            action?.Invoke();
         }
     }
 }

@@ -1,10 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
-using System;
-using System.Collections;
 using UnityEngine;
-
 namespace Basis.Scripts.UI.UI_Panels
 {
     public class BasisUIMovementDriver : MonoBehaviour
@@ -19,7 +16,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public float CurrentMaxDistanceInVRBeforeSnap;
         public float CurrentDistanceToVR;
         public Vector3 targetPosition;
-        public Coroutine Runtime;
+
         public void Start()
         {
             InitalScale = transform.localScale;
@@ -29,7 +26,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
             else
             {
-                if (hasLocalCreationEvent == false)
+                if (!hasLocalCreationEvent)
                 {
                     BasisLocalPlayer.OnLocalPlayerCreated += LocalPlayerGenerated;
                     hasLocalCreationEvent = true;
@@ -37,21 +34,24 @@ namespace Basis.Scripts.UI.UI_Panels
             }
             CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap;
         }
+        public void OnDestroy()
+        {
+            DeInitalize();
+        }
+
         public void DeInitalize()
         {
             if (SnapToPlayOnDistance)
             {
                 BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.OnPlayersHeightChanged -= OnPlayersHeightChanged;
+
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= SetUILocation;
+
             if (hasLocalCreationEvent)
             {
                 BasisLocalPlayer.OnLocalPlayerCreated -= LocalPlayerGenerated;
                 hasLocalCreationEvent = false;
-            }
-            if(Runtime != null)
-            {
-                StopCoroutine(Runtime);
             }
         }
         public void LocalPlayerGenerated()
@@ -60,29 +60,16 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisLocalPlayer.Instance.AfterFinalMove.AddAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.OnPlayersHeightChanged += OnPlayersHeightChanged;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += SetUILocation;
             SetUILocation();
         }
-        public void OnPlayersHeightChanged()
-        {
-            CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
-            SetUILocation();
-            Runtime = StartCoroutine(DelaySetUI());
-        }
-
-        private IEnumerator DelaySetUI()
-        { 
-             yield return null;
-            SetUILocation();
-        }
-
         public void UpdateUIFollow()
         {
-
-            if (BasisDeviceManagement.IsUserInDesktop() == false)
+            if (!BasisDeviceManagement.IsUserInDesktop())
             {
                 BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
                 CurrentDistanceToVR = Vector3.Distance(Position, targetPosition);
+
                 if (CurrentDistanceToVR > CurrentMaxDistanceInVRBeforeSnap)
                 {
                     SetUILocation();
@@ -93,29 +80,28 @@ namespace Basis.Scripts.UI.UI_Panels
                 SetUILocation();
             }
         }
+
         public void SetUILocation()
         {
-            // Get the current position and rotation from the BasisLocalCameraDriver
             BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
-            if(BasisLocalPlayer.Instance == null)
+
+            if (BasisLocalPlayer.Instance == null)
             {
                 return;
             }
-            // Extract the yaw (rotation around the vertical axis) and ignore pitch and roll
+
             Vector3 eulerRotation = Rotation.eulerAngles;
-            eulerRotation.z = 0f; // Remove roll
+            eulerRotation.z = 0f;
 
             float Scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
-            // Create a new quaternion with the adjusted rotation
             Quaternion horizontalRotation = Quaternion.Euler(eulerRotation);
-
             Vector3 adjustedOffset = new Vector3(WorldOffset.x, 0, WorldOffset.z) * Scale;
             targetPosition = Position + (horizontalRotation * adjustedOffset);
 
-            // Set the position and the adjusted horizontal rotation
             transform.SetPositionAndRotation(targetPosition, horizontalRotation);
             transform.localScale = InitalScale * Scale;
-        }
 
+            CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
+        }
     }
 }

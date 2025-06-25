@@ -4,7 +4,6 @@ using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.UI.NamePlate;
-using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 public class BasisEventDriver : MonoBehaviour

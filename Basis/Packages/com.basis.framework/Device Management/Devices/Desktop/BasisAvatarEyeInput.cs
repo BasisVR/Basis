@@ -50,7 +50,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (HasEyeEvents == false)
             {
                 BasisLocalPlayer.OnLocalAvatarChanged += PlayerInitialized;
-                BasisLocalPlayer.OnPlayersHeightChanged += OnPlayersHeightChanged;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
                 OnPlayersHeightChanged();
                 BasisCursorManagement.OnCursorStateChange += OnCursorStateChange;
                 BasisPointRaycaster.UseWorldPosition = false;
@@ -76,7 +76,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (HasEyeEvents)
             {
                 BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
-                BasisLocalPlayer.OnPlayersHeightChanged -= OnPlayersHeightChanged;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
                 BasisCursorManagement.OnCursorStateChange -= OnCursorStateChange;
                 HasEyeEvents = false;
                 BasisVirtualSpine.DeInitialize();

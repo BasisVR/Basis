@@ -43,7 +43,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             ApplySize();
-            BasisLocalPlayer.OnPlayersHeightChanged += ApplySize;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
         }
         public void ApplySize()
         {
@@ -59,7 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 AdvancedSettings.onClick.RemoveListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.RemoveListener(UseLocalHost);
             }
-            BasisLocalPlayer.OnPlayersHeightChanged -= ApplySize;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySize;
         }
         public void UseHostMode(bool IsDown)
         {
