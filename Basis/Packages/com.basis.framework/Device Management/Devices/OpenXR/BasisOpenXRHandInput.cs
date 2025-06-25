@@ -31,8 +31,8 @@ public class BasisOpenXRHandInput : BasisInputController
         rightHandToIKRotationOffset = new float3(0, 90, -180);
 
         RaycastRotationOffset = new float3(-90, 0, 0);
-        LeftHandPalmCorrection = new Vector3(0, 0, 90);
-        RightHandPalmCorrection = new Vector3(0,0,-90);
+        LeftHandPalmCorrection = new Vector3(0, 270, -90);
+        RightHandPalmCorrection = new Vector3(180,270,-90);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         SetupInputActions(devicePath);
