@@ -22,9 +22,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public float InjectedZ = 0;
         public bool HasEyeEvents = false;
         public float InjectedZRot = 0;
-
         public Vector2 LookRotationVector = Vector2.zero;
-
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         private readonly BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
         public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();

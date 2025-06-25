@@ -116,7 +116,6 @@ public class BasisOpenXRHandInput : BasisInputController
         DeviceFinal.rotation = RawFinal.rotation;
 
         HandFinal.position = HandRaw.position * scale;
-        HandFinal.rotation = HandRaw.rotation;
 
         ControlOnlyAsHand();
         UpdatePlayerControl();
@@ -140,12 +139,12 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.leftHand.isTracked)
                     {
                         UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
+                        HandFinal.rotation = HandRaw.rotation;
                     }
                     else
                     {
                         HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
                         HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
-
                         HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
 
                         var LeftHand = BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
@@ -160,12 +159,12 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.rightHand.isTracked)
                     {
                         UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
+                        HandFinal.rotation = HandRaw.rotation;
                     }
                     else
                     {
                         HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
                         HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
-
                         HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
 
                         var RightHand = BasisLocalPlayer.Instance.LocalHandDriver.RightHand;
