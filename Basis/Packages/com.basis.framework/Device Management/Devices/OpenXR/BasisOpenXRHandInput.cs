@@ -27,9 +27,10 @@ public class BasisOpenXRHandInput : BasisInputController
     public Vector3 RightHandPalmCorrection;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(-90, -90, -90);
-        rightHandToIKRotationOffset = new float3(-90, 90, 90);
-        RaycastRotationOffset = new float3(0, 0, 0);
+        leftHandToIKRotationOffset = new float3(0, -90, -180);
+        rightHandToIKRotationOffset = new float3(0, 90, -180);
+
+        RaycastRotationOffset = new float3(-90, 0, 0);
         LeftHandPalmCorrection = new Vector3(0, 0, 90);
         RightHandPalmCorrection = new Vector3(0,0,-90);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
@@ -113,7 +114,7 @@ public class BasisOpenXRHandInput : BasisInputController
         float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
         DeviceFinal.position = RawFinal.position * scale;
-        DeviceFinal.rotation = HandleHandFinalRotation(RawFinal.rotation);
+        DeviceFinal.rotation = RawFinal.rotation;
 
         HandFinal.position = HandRaw.position * scale;
 
@@ -139,7 +140,7 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.leftHand.isTracked)
                     {
                         UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandRaw.rotation;
+                        HandFinal.rotation = HandleHandFinalRotation(RawFinal.rotation);
                     }
                     else
                     {
@@ -159,7 +160,7 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.rightHand.isTracked)
                     {
                         UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandRaw.rotation;
+                        HandFinal.rotation = HandleHandFinalRotation(RawFinal.rotation);
                     }
                     else
                     {
