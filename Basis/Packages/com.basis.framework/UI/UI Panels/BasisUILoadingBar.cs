@@ -162,7 +162,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         private void InstanceExists()
         {
-            this.transform.parent = BasisLocalCameraDriver.Instance.CanvasTransform;
+            this.transform.parent = BasisLocalCameraDriver.Instance.ParentOfUI;
             this.transform.SetLocalPositionAndRotation(Position, Rotation);
             this.transform.localScale = Scale;
         }

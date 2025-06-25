@@ -33,12 +33,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     {
                         deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
 
-                        RawFinal.position = deviceTransform.pos;
-                        RawFinal.rotation = deviceTransform.rot;
+                        UnscaledDeviceCoord.position = deviceTransform.pos;
+                        UnscaledDeviceCoord.rotation = deviceTransform.rot;
 
-                        DeviceFinal.rotation = RawFinal.rotation;
-                        DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-
+                        ConvertToScaledDeviceCoord();
                         ControlOnlyAsDevice();
                         if (HasInputSource)
                         {
@@ -80,15 +78,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

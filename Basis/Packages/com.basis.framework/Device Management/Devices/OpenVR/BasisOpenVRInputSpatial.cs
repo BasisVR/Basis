@@ -34,12 +34,10 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         {
             if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
             {
-                RawFinal.rotation = resultPose.rotation;
-                RawFinal.position = (float3)resultPose.position;
+                UnscaledDeviceCoord.rotation = resultPose.rotation;
+                UnscaledDeviceCoord.position = (float3)resultPose.position;
 
-                DeviceFinal.rotation = RawFinal.rotation;
-                DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-
+                ConvertToScaledDeviceCoord();
                 if (TryGetRole(out var CurrentRole) && CurrentRole == BasisBoneTrackedRole.CenterEye)
                 {
                     BasisOpenVRInputEye.Simulate();
@@ -72,15 +70,7 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

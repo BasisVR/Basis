@@ -43,12 +43,10 @@ public class BasisOpenXRHeadInput : BasisInput
 
     public override void DoPollData()
     {
-        if (Position.action != null) RawFinal.position = Position.action.ReadValue<Vector3>();
-        if (Rotation.action != null) RawFinal.rotation = Rotation.action.ReadValue<Quaternion>();
+        UnscaledDeviceCoord.position = Position.action.ReadValue<Vector3>();
+        UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
 
-        DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-        DeviceFinal.rotation = RawFinal.rotation;
-
+        ConvertToScaledDeviceCoord();
         ControlOnlyAsDevice();
         UpdatePlayerControl();
     }
@@ -72,18 +70,10 @@ public class BasisOpenXRHeadInput : BasisInput
     }
     public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
     {
-        BasisDebug.LogError("XRHead does not support Haptics Playback");
+       // BasisDebug.LogError("XRHead does not support Haptics Playback");
     }
     public override void PlaySoundEffect(string SoundEffectName, float Volume)
     {
-        switch (SoundEffectName)
-        {
-            case "hover":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                break;
-            case "press":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                break;
-        }
+        PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
     }
 }

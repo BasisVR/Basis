@@ -108,15 +108,12 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
 
-        RawFinal.position = DeviceActionPosition.action.ReadValue<Vector3>();
-        RawFinal.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+        UnscaledDeviceCoord.position = DeviceActionPosition.action.ReadValue<Vector3>();
+        UnscaledDeviceCoord.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
-        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        ConvertToScaledDeviceCoord();
 
-        DeviceFinal.position = RawFinal.position * scale;
-        DeviceFinal.rotation = RawFinal.rotation;
-
-        HandFinal.position = HandRaw.position * scale;
+        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
         ControlOnlyAsHand();
         UpdatePlayerControl();
@@ -140,7 +137,7 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.leftHand.isTracked)
                     {
                         UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandleHandFinalRotation(RawFinal.rotation);
+                        HandFinal.rotation = HandleHandFinalRotation(UnscaledDeviceCoord.rotation);
                     }
                     else
                     {
@@ -160,7 +157,7 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.rightHand.isTracked)
                     {
                         UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandleHandFinalRotation(RawFinal.rotation);
+                        HandFinal.rotation = HandleHandFinalRotation(UnscaledDeviceCoord.rotation);
                     }
                     else
                     {
@@ -257,14 +254,6 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void PlaySoundEffect(string SoundEffectName, float Volume)
     {
-        switch (SoundEffectName)
-        {
-            case "hover":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                break;
-            case "press":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                break;
-        }
+        PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
     }
 }

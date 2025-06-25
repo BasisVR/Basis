@@ -1,4 +1,3 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -15,9 +14,7 @@ public class BasisOpenXRTracker : BasisInput
         InitalizeTracking(UniqueID, UnUniqueID + usage, subSystems, false, BasisBoneTrackedRole.CenterEye);
         var layoutName = device.GetType().Name;
         Position = new InputActionProperty(new InputAction($"Position_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/devicePosition", expectedControlType: "Vector3"));
-
         Rotation = new InputActionProperty(new InputAction($"Rotation_{usage}", InputActionType.Value, $"<{layoutName}>{{{usage}}}/deviceRotation", expectedControlType: "Quaternion"));
-
         Position.action.Enable();
         Rotation.action.Enable();
     }
@@ -33,12 +30,10 @@ public class BasisOpenXRTracker : BasisInput
     }
     public override void DoPollData()
     {
-        if (Position.action != null) RawFinal.position = Position.action.ReadValue<Vector3>();
-        if (Rotation.action != null) RawFinal.rotation = Rotation.action.ReadValue<Quaternion>();
+        if (Position.action != null) UnscaledDeviceCoord.position = Position.action.ReadValue<Vector3>();
+        if (Rotation.action != null) UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
 
-        DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-        DeviceFinal.rotation = RawFinal.rotation;
-
+        ConvertToScaledDeviceCoord();
         ControlOnlyAsDevice();
         UpdatePlayerControl();
     }
@@ -62,18 +57,9 @@ public class BasisOpenXRTracker : BasisInput
     }
     public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
     {
-        BasisDebug.LogError("Tracker does not support Haptics Playback");
     }
     public override void PlaySoundEffect(string SoundEffectName, float Volume)
     {
-        switch (SoundEffectName)
-        {
-            case "hover":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                break;
-            case "press":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                break;
-        }
+        PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
     }
 }

@@ -116,19 +116,19 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             HandWristRotation = BoneRotations[1];
 
             // Get controller pose
-            RawFinal.rotation = DeviceposeAction[inputSource].localRotation;
-            RawFinal.position = DeviceposeAction[inputSource].localPosition;
+            UnscaledDeviceCoord.rotation = DeviceposeAction[inputSource].localRotation;
+            UnscaledDeviceCoord.position = DeviceposeAction[inputSource].localPosition;
 
             float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
-            DeviceFinal.position = RawFinal.position * AvatarScale;
+            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * AvatarScale;
 
             // Calculate final hand position in scaled space
-            float3 ScaledwristOffset = math.mul(RawFinal.rotation, HandWristPosition) * AvatarScale;
+            float3 ScaledwristOffset = math.mul(UnscaledDeviceCoord.rotation, HandWristPosition) * AvatarScale;
 
             // Final hand rotation = controller rotation * offset from wrist
-            HandFinal.rotation = math.mul(RawFinal.rotation, HandleHandFinalRotation(HandWristRotation));
-            HandFinal.position = DeviceFinal.position - ScaledwristOffset;
+            HandFinal.rotation = math.mul(UnscaledDeviceCoord.rotation, HandleHandFinalRotation(HandWristRotation));
+            HandFinal.position = ScaledDeviceCoord.position - ScaledwristOffset;
 
             ControlOnlyAsHand();
             ComputeRaycastDirection();
@@ -190,15 +190,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

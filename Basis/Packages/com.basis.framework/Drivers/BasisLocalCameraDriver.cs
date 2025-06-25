@@ -28,7 +28,7 @@ namespace Basis.Scripts.Drivers
         public static event System.Action InstanceExists;
         public BasisLockToInput BasisLockToInput;
         public bool HasEvents = false;
-        public Transform CanvasTransform;
+        public Transform ParentOfUI;
         public SpriteRenderer SpriteRendererIcon;
         public Transform SpriteRendererIconTransform;
         public Sprite SpriteMicrophoneOn;
@@ -53,6 +53,8 @@ namespace Basis.Scripts.Drivers
         public Color UnMutedMutedIconColorActive = Color.white;
         public Color UnMutedMutedIconColorInactive = Color.grey;
         public Color MutedColor = Color.grey;
+
+        public Vector3 UILocalScale;
         public void OnEnable()
         {
             if (BasisHelpers.CheckInstance(Instance))
@@ -60,6 +62,7 @@ namespace Basis.Scripts.Drivers
                 Instance = this;
                 HasInstance = true;
             }
+            UILocalScale = ParentOfUI.lossyScale;
             Camera.nearClipPlane = NearClip;
             Camera.farClipPlane = 1500;
             CameraInstanceID = Camera.GetInstanceID();
@@ -89,7 +92,28 @@ namespace Basis.Scripts.Drivers
             SpriteRendererIcon.gameObject.SetActive(true);
             SettingsManager.Instance.Initalize(true);
         }
-
+        /// <summary>
+        /// Sets the global/world scale of a transform by adjusting its localScale.
+        /// </summary>
+        /// <param name="transform">The transform to scale.</param>
+        /// <param name="globalScale">The desired global/world scale.</param>
+        public void SetGlobalScale(Transform transform, Vector3 globalScale)
+        {
+            if (transform.parent == null)
+            {
+                transform.localScale = globalScale;
+            }
+            else
+            {
+                // Calculate the scale relative to the parent
+                Vector3 parentScale = transform.parent.lossyScale;
+                transform.localScale = new Vector3(
+                    globalScale.x / parentScale.x,
+                    globalScale.y / parentScale.y,
+                    globalScale.z / parentScale.z
+                );
+            }
+        }
         public void MicrophoneTransmitting()
         {
             SpriteRendererIcon.color = UnMutedMutedIconColorActive;
@@ -277,6 +301,7 @@ namespace Basis.Scripts.Drivers
             //the normal users scale is 1.6m
             //so a avatar the size of 
             this.transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            SetGlobalScale(ParentOfUI, UILocalScale);
         }
         public void OnDisable()
         {
@@ -305,13 +330,13 @@ namespace Basis.Scripts.Drivers
                     if (CameraData.allowXRRendering)
                     {
                         Vector2 EyeTextureSize = new Vector2(XRSettings.eyeTextureWidth, XRSettings.eyeTextureHeight);
-                        CanvasTransform.localPosition = CalculatePosition(EyeTextureSize, VRMicrophoneOffset);
+                        ParentOfUI.localPosition = CalculatePosition(EyeTextureSize, VRMicrophoneOffset);
                     }
                     else
                     {
                         Vector3 worldPoint = Camera.ViewportToWorldPoint(DesktopMicrophoneViewportPosition);
                         Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);//asume this transform is also camera position
-                        CanvasTransform.localPosition = localPos;
+                        ParentOfUI.localPosition = localPos;
                     }
                 }
                 else

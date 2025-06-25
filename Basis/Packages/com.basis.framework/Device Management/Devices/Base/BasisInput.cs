@@ -24,10 +24,10 @@ namespace Basis.Scripts.Device_Management.Devices
         public string ClassName;
 
         [Header("Raw Position Of Device")]
-        public BasisCalibratedCoords RawFinal = new BasisCalibratedCoords();
+        public BasisCalibratedCoords UnscaledDeviceCoord = new BasisCalibratedCoords();
 
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
-        public BasisCalibratedCoords DeviceFinal = new BasisCalibratedCoords();
+        public BasisCalibratedCoords ScaledDeviceCoord = new BasisCalibratedCoords();
 
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
@@ -192,7 +192,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void ApplyFinalMovement()
         {
-            this.transform.SetLocalPositionAndRotation(DeviceFinal.position, DeviceFinal.rotation);
+            this.transform.SetLocalPositionAndRotation(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation);
         }
         public void UnAssignFullBodyTrackers()
         {
@@ -397,6 +397,19 @@ namespace Basis.Scripts.Device_Management.Devices
         public abstract void ShowTrackedVisual();
         public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
         public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
+
+        public void PlaySoundEffectDefaultImplementation(string SoundEffectName, float Volume)
+        {
+            switch (SoundEffectName)
+            {
+                case "hover":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
+                    break;
+                case "press":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    break;
+            }
+        }
         public bool UseFallbackModel()
         {
             if (hasRoleAssigned == false)
@@ -459,15 +472,20 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisVisualTracker.Initialization(this);
             }
         }
+        public void ConvertToScaledDeviceCoord()
+        {
+            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+        }
         public void ControlOnlyAsDevice()
         {
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
             {
                 // Apply position offset using math.mul for quaternion-vector multiplication
-                Control.IncomingData.position = DeviceFinal.position;
+                Control.IncomingData.position = ScaledDeviceCoord.position;
 
                 // Apply rotation offset using math.mul for quaternion multiplication
-                Control.IncomingData.rotation = DeviceFinal.rotation;
+                Control.IncomingData.rotation = ScaledDeviceCoord.rotation;
             }
 
         }
