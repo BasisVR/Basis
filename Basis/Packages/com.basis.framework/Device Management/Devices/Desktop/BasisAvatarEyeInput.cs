@@ -34,14 +34,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
                 BasisDebug.Log("Using Configured Height " + BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, BasisDebug.LogTag.Input);
-                DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
+                DeviceFinal.position = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
             }
             else
             {
                 BasisDebug.Log("Using Fallback Height " + BasisLocalPlayer.FallbackSize, BasisDebug.LogTag.Input);
-                DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
+                DeviceFinal.position = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
             }
-            DeviceFinalRotation = Quaternion.identity;
+            DeviceFinal.rotation = Quaternion.identity;
             InitalizeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
             if (BasisHelpers.CheckInstance(Instance))
             {
@@ -139,8 +139,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 rotationY %= 360f;
                 // Clamp rotationY to stay within the specified range
                 rotationY = Mathf.Clamp(rotationY, minimumY, maximumY);
-                Quaternion LocalRawRotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
-                Vector3 adjustedHeadPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
+
+                RawFinal.rotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
+                RawFinal.position = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
                 if (!CrouchingLock)
                 {
                     // adjustment is 0-1 interpolated between configurable normalized minimum and the max avatar height
@@ -148,13 +149,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     var crouchMinimum = BasisLocalPlayer.Instance.LocalCharacterDriver.MinimumCrouchPercent;
                     float heightAdjustment = (1 - crouchMinimum) * BasisLocalPlayer.Instance.LocalCharacterDriver.CrouchBlend + crouchMinimum;
                     // crouch is calculated from the ground up, so invert to move it to the avatar height context
-                    adjustedHeadPosition.y -= Control.TposeLocalScaled.position.y * (1 - heightAdjustment);
+                    RawFinal.position.y -= Control.TposeLocalScaled.position.y * (1 - heightAdjustment);
                 }
-                LocalRawPosition = adjustedHeadPosition;
-                Control.IncomingData.position = LocalRawPosition;
-                Control.IncomingData.rotation = LocalRawRotation;
-                DeviceFinalPosition = LocalRawPosition;
-                DeviceFinalRotation = LocalRawRotation;
+
+                DeviceFinal.position = RawFinal.position;
+                DeviceFinal.rotation = RawFinal.rotation;
+
+                ControlOnlyAsDevice();
                 UpdatePlayerControl();
             }
         }

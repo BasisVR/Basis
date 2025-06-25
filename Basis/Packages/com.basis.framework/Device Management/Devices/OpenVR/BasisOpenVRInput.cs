@@ -32,18 +32,14 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     if (deviceGamePose.bPoseIsValid)
                     {
                         deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
-                        LocalRawPosition = deviceTransform.pos;
-                        DeviceFinalRotation = deviceTransform.rot;
 
-                        DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-                        {
-                            // Apply position offset using math.mul for quaternion-vector multiplication
-                            Control.IncomingData.position = DeviceFinalPosition;
+                        RawFinal.position = deviceTransform.pos;
+                        RawFinal.rotation = deviceTransform.rot;
 
-                            // Apply rotation offset using math.mul for quaternion multiplication
-                            Control.IncomingData.rotation = DeviceFinalRotation;
-                        }
+                        DeviceFinal.rotation = RawFinal.rotation;
+                        DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
+                        ControlOnlyAsDevice();
                         if (HasInputSource)
                         {
                             CurrentInputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);

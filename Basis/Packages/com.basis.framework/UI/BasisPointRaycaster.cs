@@ -33,7 +33,7 @@ namespace Basis.Scripts.UI
         }
         public void UpdateRay()
         {
-            this.transform.SetLocalPositionAndRotation(BasisInput.RaycastPosition, BasisInput.RaycastRotation);
+            this.transform.SetLocalPositionAndRotation(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation);
             ray = new Ray(this.transform.position,this.transform.forward);
         }
         /// <summary>

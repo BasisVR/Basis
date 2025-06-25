@@ -62,7 +62,7 @@ public static class BasisHeightDriver
         Basis.Scripts.TransformBinders.BasisLockToInput basisLockToInput = BasisLocalCameraDriver.Instance?.BasisLockToInput;
         if (basisLockToInput?.AttachedInput != null)
         {
-            BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight = basisLockToInput.AttachedInput.LocalRawPosition.y;
+            BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight = basisLockToInput.AttachedInput.RawFinal.position.y;
             BasisDebug.Log($"Player's raw eye height recalculated: {BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight}", BasisDebug.LogTag.Avatar);
         }
         else
@@ -72,7 +72,7 @@ public static class BasisHeightDriver
         }
         if (BasisDeviceManagement.Instance.FindDevice(out BasisInput LeftHand, BasisBoneTrackedRole.LeftHand) && BasisDeviceManagement.Instance.FindDevice(out BasisInput RightHand, BasisBoneTrackedRole.RightHand))
         {
-            BasisLocalPlayer.Instance.CurrentHeight.PlayerArmSpan = Vector3.Distance(LeftHand.LocalRawPosition, RightHand.LocalRawPosition);
+            BasisLocalPlayer.Instance.CurrentHeight.PlayerArmSpan = Vector3.Distance(LeftHand.RawFinal.position, RightHand.RawFinal.position);
             BasisDebug.Log("Current Arm Span is " + BasisLocalPlayer.Instance.CurrentHeight.PlayerArmSpan);
         }
         else

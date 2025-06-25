@@ -113,35 +113,27 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             // Get controller pose
-            DeviceFinalRotation = DeviceposeAction[inputSource].localRotation;
+            DeviceFinal.rotation = DeviceposeAction[inputSource].localRotation;
             float3 RawDevice = DeviceposeAction[inputSource].localPosition;
-            DeviceFinalPosition = RawDevice * AvatarScale;
+            float3 ScaledRaw = RawDevice * AvatarScale;
+            DeviceFinal.position = ScaledRaw;
 
             // Bone data
             LocalWristPosition = BonePositions[1];
             HandWristRotation = BoneRotations[1];
 
             // Final hand rotation = controller rotation * offset from wrist
-            HandFinalRotation = math.mul(DeviceFinalRotation, HandleHandFinalRotation(HandWristRotation));
+            HandFinal.rotation = math.mul(DeviceFinal.rotation, HandleHandFinalRotation(HandWristRotation));
 
             // Calculate final hand position in scaled space
-            float3 wristOffset = math.mul(DeviceFinalRotation, LocalWristPosition);
+            float3 wristOffset = math.mul(DeviceFinal.rotation, LocalWristPosition);
 
-            float3 ScaledRawPos = RawDevice * AvatarScale;
             float3 ScaledwristOffset = wristOffset * AvatarScale;
 
-            HandFinalPosition = (ScaledRawPos - ScaledwristOffset);
+            HandFinal.position = (ScaledRaw - ScaledwristOffset);
 
-            // Apply to control data
-            if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-            {
-                Control.IncomingData.position = HandFinalPosition;
-                Control.IncomingData.rotation = HandFinalRotation;
-            }
-
-            RaycastPosition = HandFinalPosition;
-
-            RaycastRotation =  math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
+            ControlOnlyAsHand();
+            ComputeRaycastDirection();
         }
         #region Mostly Unused Steam
         protected SteamVR_HistoryBuffer historyBuffer = new SteamVR_HistoryBuffer(30);

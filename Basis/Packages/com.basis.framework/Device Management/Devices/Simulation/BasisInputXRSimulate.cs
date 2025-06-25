@@ -23,24 +23,24 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
                 FollowMovement.SetLocalPositionAndRotation(newPosition, LerpRotation);
             }
             FollowMovement.GetLocalPositionAndRotation(out Vector3 VOut, out Quaternion QOut);
-            LocalRawPosition = VOut;
+            DeviceFinal.position = VOut;
             Quaternion LocalRawRotation = QOut;
 
             float SPTDS = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
 
-            LocalRawPosition /= SPTDS;
+            DeviceFinal.position /= SPTDS;
 
-            DeviceFinalPosition = LocalRawPosition * SPTDS;
-            DeviceFinalRotation = LocalRawRotation;
+            DeviceFinal.position = DeviceFinal.position * SPTDS;
+            DeviceFinal.rotation = LocalRawRotation;
             if (hasRoleAssigned)
             {
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                 {
                     // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = DeviceFinalPosition;
+                    Control.IncomingData.position = DeviceFinal.position;
 
                     // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = DeviceFinalRotation;
+                    Control.IncomingData.rotation = DeviceFinal.rotation;
                 }
             }
             UpdatePlayerControl();

@@ -2,11 +2,11 @@ using Basis.Scripts.Addressable_Driver;
 using Basis.Scripts.Addressable_Driver.Factory;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
 using System.Linq;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
@@ -24,10 +24,10 @@ namespace Basis.Scripts.Device_Management.Devices
         public string ClassName;
 
         [Header("Raw Position Of Device")]
-        public float3 LocalRawPosition;
+        public BasisCalibratedCoords RawFinal = new BasisCalibratedCoords();
+
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
-        public float3 DeviceFinalPosition;
-        public quaternion DeviceFinalRotation;
+        public BasisCalibratedCoords DeviceFinal = new BasisCalibratedCoords();
 
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
@@ -41,14 +41,13 @@ namespace Basis.Scripts.Device_Management.Devices
         [SerializeField]
         public BasisInputState LastInputState = new BasisInputState();
         public static BasisBoneTrackedRole[] CanHaveMultipleRoles = new BasisBoneTrackedRole[] { BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.RightHand };
-
-        public Vector3 RaycastPosition;
-        public Quaternion RaycastRotation;
         public static string FallbackDeviceID = "FallbackSphere";
         public GameObject BasisPointRaycasterRef;
         public bool HasRaycaster = false;
         public Quaternion InitialRotation;
         public Quaternion InitialBoneRotation;
+
+        public BasisCalibratedCoords RaycastCoord;
         public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
         {
             if (hasRoleAssigned)
@@ -192,7 +191,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void ApplyFinalMovement()
         {
-            this.transform.SetLocalPositionAndRotation(DeviceFinalPosition, DeviceFinalRotation);
+            this.transform.SetLocalPositionAndRotation(DeviceFinal.position, DeviceFinal.rotation);
         }
         public void UnAssignFullBodyTrackers()
         {
@@ -458,6 +457,18 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 BasisVisualTracker.Initialization(this);
             }
+        }
+        public void ControlOnlyAsDevice()
+        {
+            if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
+            {
+                // Apply position offset using math.mul for quaternion-vector multiplication
+                Control.IncomingData.position = DeviceFinal.position;
+
+                // Apply rotation offset using math.mul for quaternion multiplication
+                Control.IncomingData.rotation = DeviceFinal.rotation;
+            }
+
         }
     }
 }

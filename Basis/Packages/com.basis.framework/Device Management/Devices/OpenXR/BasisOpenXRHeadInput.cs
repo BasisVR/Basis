@@ -43,22 +43,13 @@ public class BasisOpenXRHeadInput : BasisInput
 
     public override void DoPollData()
     {
-        if (Position.action != null) LocalRawPosition = Position.action.ReadValue<Vector3>();
-        if (Rotation.action != null) DeviceFinalRotation = Rotation.action.ReadValue<Quaternion>();
+        if (Position.action != null) RawFinal.position = Position.action.ReadValue<Vector3>();
+        if (Rotation.action != null) RawFinal.rotation = Rotation.action.ReadValue<Quaternion>();
 
-        DeviceFinalPosition = BasisLocalPlayer.Instance?.CurrentHeight != null
-            ? LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale
-            : LocalRawPosition;
+        DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        DeviceFinal.rotation = RawFinal.rotation;
 
-        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-        {
-            // Apply position offset using math.mul for quaternion-vector multiplication
-            Control.IncomingData.position = DeviceFinalPosition;
-
-            // Apply rotation offset using math.mul for quaternion multiplication
-            Control.IncomingData.rotation = DeviceFinalRotation;
-        }
-
+        ControlOnlyAsDevice();
         UpdatePlayerControl();
     }
     public override void ShowTrackedVisual()

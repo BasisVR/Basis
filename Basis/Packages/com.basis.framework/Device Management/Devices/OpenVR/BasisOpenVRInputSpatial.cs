@@ -34,22 +34,18 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         {
             if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
             {
-                LocalRawPosition = (float3)resultPose.position;
-                DeviceFinalRotation = resultPose.rotation;
-                if (TryGetRole(out var CurrentRole))
-                {
-                    if (CurrentRole == BasisBoneTrackedRole.CenterEye)
-                    {
-                        BasisOpenVRInputEye.Simulate();
-                    }
-                    // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = DeviceFinalPosition;
+                RawFinal.rotation = resultPose.rotation;
+                RawFinal.position = (float3)resultPose.position;
 
-                    // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = DeviceFinalRotation;
+                DeviceFinal.rotation = RawFinal.rotation;
+                DeviceFinal.position = RawFinal.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
+                if (TryGetRole(out var CurrentRole) && CurrentRole == BasisBoneTrackedRole.CenterEye)
+                {
+                    BasisOpenVRInputEye.Simulate();
                 }
             }
-            DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            ControlOnlyAsDevice();
             UpdatePlayerControl();
         }
         public override void ShowTrackedVisual()
