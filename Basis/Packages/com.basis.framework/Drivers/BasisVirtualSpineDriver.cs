@@ -187,15 +187,15 @@ public class BasisVirtualSpineDriver
     private void ApplyPositionControl(BasisBoneControl boneControl)
     {
 
-        quaternion targetRotation = boneControl.Target.OutGoingData.rotation;
+        Quaternion targetRotation = boneControl.Target.OutGoingData.rotation;
 
         // Extract yaw-only forward vector
         float3 forward = math.mul(targetRotation, new float3(0, 0, 1));
         forward.y = 0;
         forward = math.normalize(forward);
 
-        quaternion yawRotation = quaternion.LookRotationSafe(forward, new float3(0, 1, 0));
-        float3 offset = math.mul(yawRotation, boneControl.ScaledOffset);
+        Quaternion yawRotation = quaternion.LookRotationSafe(forward, new float3(0, 1, 0));
+        Vector3 offset = math.mul(yawRotation, boneControl.ScaledOffset);
 
         boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + offset;
     }

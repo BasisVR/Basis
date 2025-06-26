@@ -179,7 +179,7 @@ public class BasisOpenXRHandInput : BasisInputController
         }
     }
 
-    private void UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, out float3 position, out quaternion rotation)
+    private void UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, out Vector3 position, out Quaternion rotation)
     {
         XRHandJoint joint = hand.GetJoint(XRHandJointID.Wrist);
         if (joint.TryGetPose(out Pose pose))

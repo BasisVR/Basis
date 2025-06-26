@@ -28,7 +28,7 @@ namespace Basis.Scripts.Drivers
             Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
-                Controls[Index].ComputeMovement(parentMatrix, Rotation, deltaTime);
+                Controls[Index].ComputeMovementLocal(parentMatrix, Rotation, deltaTime);
             }
             if (BasisGizmoManager.UseGizmos)
             {
@@ -45,7 +45,19 @@ namespace Basis.Scripts.Drivers
             {
                 Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
                 Controls[Index].LastRunData.rotation = Controls[Index].OutGoingData.rotation;
-                Controls[Index].ComputeMovement(parentMatrix, Rotation, DeltaTime);
+                Controls[Index].ComputeMovementLocal(parentMatrix, Rotation, DeltaTime);
+            }
+            if (BasisGizmoManager.UseGizmos)
+            {
+                DrawGizmos();
+            }
+        }
+        public void SimulateRemote()
+        {
+            // sequence all other devices to run at the same time
+            for (int Index = 0; Index < ControlsLength; Index++)
+            {
+                Controls[Index].ComputeMovementRemote();
             }
             if (BasisGizmoManager.UseGizmos)
             {
@@ -58,6 +70,11 @@ namespace Basis.Scripts.Drivers
             {
                 DrawGizmos(Controls[Index]);
             }
+        }
+        public void SimulateAndApplyRemote(BasisPlayer Player)
+        {
+            Player.OnPreSimulateBones?.Invoke();
+            SimulateRemote();
         }
         public void SimulateAndApply(BasisPlayer Player, float deltaTime)
         {

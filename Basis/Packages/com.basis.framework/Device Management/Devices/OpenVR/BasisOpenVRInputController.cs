@@ -124,7 +124,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             ScaledDeviceCoord.position = UnscaledDeviceCoord.position * AvatarScale;
 
             // Calculate final hand position in scaled space
-            float3 ScaledwristOffset = math.mul(UnscaledDeviceCoord.rotation, HandWristPosition) * AvatarScale;
+            Vector3 ScaledwristOffset = math.mul(UnscaledDeviceCoord.rotation, HandWristPosition) * AvatarScale;
 
             // Final hand rotation = controller rotation * offset from wrist
             HandFinal.rotation = math.mul(UnscaledDeviceCoord.rotation, HandleHandFinalRotation(HandWristRotation));

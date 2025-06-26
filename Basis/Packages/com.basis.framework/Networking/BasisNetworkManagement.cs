@@ -197,17 +197,12 @@ namespace Basis.Scripts.Networking
             if (NetworkRunning)
             {
                 double TimeAsDouble = Time.timeAsDouble;
-                float deltaTime = Time.deltaTime;
-                if (float.IsNaN(deltaTime))
-                {
-                    return;
-                }
                 // Complete tasks and apply results
                 for (int Index = 0; Index < ReceiverCount; Index++)
                 {
                     if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiversSnapshot[Index].Apply(TimeAsDouble, deltaTime);
+                        ReceiversSnapshot[Index].Apply(TimeAsDouble);
                     }
                 }
             }

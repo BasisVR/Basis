@@ -27,7 +27,7 @@ namespace Basis.Scripts.Eye_Follow
         public Transform HeadTransform;
         public BasisCalibratedCoords LeftEyeInitallocalSpace;
         public BasisCalibratedCoords RightEyeInitallocalSpace;
-        public float3 RandomizedPosition; // Target position to look at
+        public Vector3 RandomizedPosition; // Target position to look at
 
         public bool HasLeftEye = false;
         public bool HasRightEye = false;
@@ -36,11 +36,11 @@ namespace Basis.Scripts.Eye_Follow
         public bool RightEyeHasGizmo;
         public int LeftEyeGizmoIndex;
         public int RightEyeGizmoIndex;
-        public float3 LeftEyeTargetWorld;
-        public float3 RightEyeTargetWorld;
-        public float3 CenterTargetWorld;
-        public float3 AppliedOffset;
-        public float3 EyeForwards = new float3(0, 0, 1);
+        public Vector3 LeftEyeTargetWorld;
+        public Vector3 RightEyeTargetWorld;
+        public Vector3 CenterTargetWorld;
+        public Vector3 AppliedOffset;
+        public Vector3 EyeForwards = new float3(0, 0, 1);
 
         public float CurrentLookAroundInterval;
         public float timer; // Timer to track look-around interval
@@ -190,11 +190,11 @@ namespace Basis.Scripts.Eye_Follow
                 }
 
                 HeadTransform.GetPositionAndRotation(out Vector3 headPosition, out Quaternion headRotation);
-                float3 float3headPosition = headPosition;
-                quaternion QHeadRotation = headRotation;
-                quaternion InversedHeadRotation = math.inverse(headRotation);
+                Vector3 float3headPosition = headPosition;
+                Quaternion QHeadRotation = headRotation;
+                Quaternion InversedHeadRotation = math.inverse(headRotation);
                 // Calculate the randomized target position using float3 for optimized math operations
-                float3 targetPosition = float3headPosition + math.mul(QHeadRotation, EyeForwards) + AppliedOffset;
+                Vector3 targetPosition = float3headPosition + (QHeadRotation * EyeForwards) + AppliedOffset;
 
                 // Check distance for teleporting, otherwise smooth move
                 if (math.distance(targetPosition, CenterTargetWorld) > DistanceBeforeTeleport || wasDisabled)

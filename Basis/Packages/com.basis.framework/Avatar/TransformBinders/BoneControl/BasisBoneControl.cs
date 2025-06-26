@@ -51,35 +51,48 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
         public bool IsHintRoleIgnoreRotation = false;
         [BurstCompile]
-        public void ComputeMovement(Matrix4x4 parentMatrix, Quaternion Rotation, float DeltaTime)
+        public void ComputeMovementLocal(Matrix4x4 parentMatrix, Quaternion Rotation, float DeltaTime)
         {
             if (HasBone)
             {
-                if (HasTracked == BasisHasTracked.HasTracker)
+                if (hasTrackerDriver == BasisHasTracked.HasTracker)
                 {
-
-                    ///this needs to be refactored to understand each part of the body and a generic mode.
-                    ///start off with a distance limiter for the hips.
-                    ///could also be a step at the end for every targeted type
+                    // This needs to be refactored to understand each part of the body and a generic mode.
+                    // Start off with a distance limiter for the hips.
+                    // Could also be a step at the end for every targeted type
                     if (InverseOffsetFromBone.Use)
                     {
                         if (IsHintRoleIgnoreRotation == false)
                         {
                             // Update the position of the secondary transform to maintain the initial offset
-                            OutGoingData.position = Vector3.Lerp(OutGoingData.position, IncomingData.position + math.mul(IncomingData.rotation, InverseOffsetFromBone.position), trackersmooth);
+                            OutGoingData.position = Vector3.Lerp(
+                                OutGoingData.position,
+                                IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position,
+                                trackersmooth
+                            );
+
                             // Update the rotation of the secondary transform to maintain the initial offset
-                            OutGoingData.rotation = Quaternion.Slerp(OutGoingData.rotation, math.mul(IncomingData.rotation, InverseOffsetFromBone.rotation), trackersmooth);
+                            OutGoingData.rotation = Quaternion.Slerp(
+                                OutGoingData.rotation,
+                                IncomingData.rotation * InverseOffsetFromBone.rotation,
+                                trackersmooth
+                            );
                         }
                         else
                         {
                             OutGoingData.rotation = Quaternion.identity;
+
                             // Update the position of the secondary transform to maintain the initial offset
-                            OutGoingData.position = Vector3.Lerp(OutGoingData.position, IncomingData.position + math.mul(IncomingData.rotation, InverseOffsetFromBone.position), trackersmooth);
+                            OutGoingData.position = Vector3.Lerp(
+                                OutGoingData.position,
+                                IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position,
+                                trackersmooth
+                            );
                         }
                     }
                     else
                     {
-                        ///this is going to the generic always accurate fake skeleton
+                        // This is going to the generic always accurate fake skeleton
                         OutGoingData.rotation = IncomingData.rotation;
                         OutGoingData.position = IncomingData.position;
                     }
@@ -88,8 +101,8 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 {
                     if (!HasVirtualOverride)
                     {
-                        //this is essentially the default behaviour, most of it is normally Virtually Overriden
-                        //relying on a one size fits all shoe is wrong and as of such we barely use this anymore.
+                        // This is essentially the default behaviour, most of it is normally Virtually Overriden
+                        // Relying on a one size fits all shoe is wrong and as of such we barely use this anymore.
                         if (HasRotationalTarget)
                         {
                             OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, LastRunData.rotation, Target.OutGoingData.rotation);
@@ -97,11 +110,11 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
                         if (HasTarget)
                         {
-                            // Apply the rotation offset using math.mul
-                            float3 customDirection = math.mul(Target.OutGoingData.rotation, ScaledOffset);
+                            // Apply the rotation offset using *
+                            Vector3 customDirection = Target.OutGoingData.rotation * ScaledOffset;
 
                             // Calculate the target outgoing position with the rotated offset
-                            float3 targetPosition = Target.OutGoingData.position + customDirection;
+                            Vector3 targetPosition = Target.OutGoingData.position + customDirection;
 
                             float lerpFactor = ClampInterpolationFactor(LerpAmount, DeltaTime);
 
@@ -110,6 +123,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                         }
                     }
                 }
+
                 OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(OutGoingData.position);
 
                 // Transform rotation via quaternion multiplication
@@ -118,6 +132,35 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 LastRunData.position = OutGoingData.position;
                 LastRunData.rotation = OutGoingData.rotation;
             }
+        }
+        public void ComputeMovementRemote()
+        {
+            if (hasTrackerDriver == BasisHasTracked.HasTracker)
+            {
+                OutGoingData.rotation = IncomingData.rotation;
+                OutGoingData.position = IncomingData.position;
+            }
+            else
+            {
+                if (HasRotationalTarget)
+                {
+                    OutGoingData.rotation = Target.OutGoingData.rotation;
+                }
+                if (HasTarget)
+                {
+                    var targetRotation = Target.OutGoingData.rotation;
+                    var targetPosition = Target.OutGoingData.position;
+
+                    Vector3 offset = targetRotation * ScaledOffset;
+                    OutGoingData.position = targetPosition + offset;
+                }
+            }
+
+            // Cache the position before transforming
+            OutgoingWorldData.position = OutGoingData.position;//parentMatrix.MultiplyPoint3x4(localPosition);
+
+            // Use direct multiplication for rotation
+            OutgoingWorldData.rotation = OutGoingData.rotation;//rotation
         }
         [BurstCompile]
         public Quaternion ApplyLerpToQuaternion(float DeltaTime, Quaternion CurrentRotation, Quaternion FutureRotation)
