@@ -12,9 +12,9 @@ public static class BasisNetworkHandleRemoval
             {
                 if (NetworkedPlayer.Player.IsLocal == false)
                 {
-                    BasisNetworkManagement.RemovePlayer(DisconnectValue);//detach from sequences
                     BasisNetworkManagement.MainThreadContext.Post(_ =>
                     {
+                        BasisNetworkManagement.RemovePlayer(DisconnectValue);
                         BasisNetworkPlayer.OnRemotePlayerLeft?.Invoke(NetworkedPlayer, (Basis.Scripts.BasisSdk.Players.BasisRemotePlayer)NetworkedPlayer.Player);//tell scripts delete time
                         NetworkedPlayer.DeInitialize();//shutdown the networking
                         if (NetworkedPlayer.Player.BasisAvatar != null)//nuke avatar first

@@ -38,9 +38,11 @@ namespace Basis.Scripts.Networking
         public static ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new ConcurrentDictionary<ushort, BasisNetworkPlayer>();
         public static ConcurrentDictionary<ushort, BasisNetworkReceiver> RemotePlayers = new ConcurrentDictionary<ushort, BasisNetworkReceiver>();
         public static HashSet<ushort> JoiningPlayers = new HashSet<ushort>();
+
         [SerializeField]
-        public static BasisNetworkReceiver[] ReceiverArray;
+        public static BasisNetworkReceiver[] ReceiversSnapshot;
         public static int ReceiverCount = 0;
+
         public static SynchronizationContext MainThreadContext;
         public static NetPeer LocalPlayerPeer;
         public BasisNetworkTransmitter Transmitter;
@@ -64,8 +66,8 @@ namespace Basis.Scripts.Networking
                     if (NetPlayer.Player.IsLocal == false)
                     {
                         RemotePlayers.TryAdd(NetPlayer.NetId, (BasisNetworkReceiver)NetPlayer);
-                        BasisNetworkManagement.ReceiverArray = RemotePlayers.Values.ToArray();
-                        ReceiverCount = ReceiverArray.Length;
+                        BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
+                        ReceiverCount = ReceiversSnapshot.Length;
                         BasisDebug.Log("ReceiverCount was " + ReceiverCount);
                     }
                 }
@@ -86,8 +88,8 @@ namespace Basis.Scripts.Networking
             if (Instance != null)
             {
                 RemotePlayers.TryRemove(NetID, out BasisNetworkReceiver A);
-                BasisNetworkManagement.ReceiverArray = RemotePlayers.Values.ToArray();
-                ReceiverCount = ReceiverArray.Length;
+                BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
+                ReceiverCount = ReceiversSnapshot.Length;
                 //BasisDebug.Log("ReceiverCount was " + ReceiverCount);
                 return Players.Remove(NetID, out var B);
             }
@@ -165,10 +167,10 @@ namespace Basis.Scripts.Networking
             OwnershipPairing.Clear();
             BasisNetworkServerRunner = null;
 
-            if (BasisNetworkManagement.ReceiverArray != null)
+            if (BasisNetworkManagement.ReceiversSnapshot != null)
             {
-                Array.Clear(BasisNetworkManagement.ReceiverArray, 0, BasisNetworkManagement.ReceiverArray.Length);
-                BasisNetworkManagement.ReceiverArray = null;
+                Array.Clear(BasisNetworkManagement.ReceiversSnapshot, 0, BasisNetworkManagement.ReceiversSnapshot.Length);
+                BasisNetworkManagement.ReceiversSnapshot = null;
             }
 
             BasisDebug.Log("BasisNetworkManagement has been successfully shutdown.", BasisDebug.LogTag.Networking);
@@ -182,9 +184,9 @@ namespace Basis.Scripts.Networking
                 // Schedule multithreaded tasks
                 for (int Index = 0; Index < ReceiverCount; Index++)
                 {
-                    if (ReceiverArray[Index] != null)
+                    if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiverArray[Index].Compute(TimeAsDouble);
+                        ReceiversSnapshot[Index].Compute(TimeAsDouble);
                     }
                 }
                 BasisNetworkProfiler.Update();
@@ -203,9 +205,9 @@ namespace Basis.Scripts.Networking
                 // Complete tasks and apply results
                 for (int Index = 0; Index < ReceiverCount; Index++)
                 {
-                    if (ReceiverArray[Index] != null)
+                    if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiverArray[Index].Apply(TimeAsDouble, deltaTime);
+                        ReceiversSnapshot[Index].Apply(TimeAsDouble, deltaTime);
                     }
                 }
             }

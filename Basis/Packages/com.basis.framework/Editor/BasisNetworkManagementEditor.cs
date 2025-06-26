@@ -80,12 +80,12 @@ public class BasisNetworkManagementEditor : Editor
         receiverArrayFoldout = EditorGUILayout.Foldout(receiverArrayFoldout, "Receiver Array Data", true);
         if (receiverArrayFoldout)
         {
-            if (BasisNetworkManagement.ReceiverArray != null && BasisNetworkManagement.ReceiverArray.Length > 0)
+            if (BasisNetworkManagement.ReceiversSnapshot != null && BasisNetworkManagement.ReceiversSnapshot.Length > 0)
             {
-                EditorGUILayout.LabelField($"Receiver Array Length: {BasisNetworkManagement.ReceiverArray.Length}");
-                selectedReceiverIndex = EditorGUILayout.IntSlider("Select Receiver", selectedReceiverIndex, 0, BasisNetworkManagement.ReceiverArray.Length - 1);
+                EditorGUILayout.LabelField($"Receiver Array Length: {BasisNetworkManagement.ReceiversSnapshot.Length}");
+                selectedReceiverIndex = EditorGUILayout.IntSlider("Select Receiver", selectedReceiverIndex, 0, BasisNetworkManagement.ReceiversSnapshot.Length - 1);
 
-                var receiver = BasisNetworkManagement.ReceiverArray[selectedReceiverIndex];
+                var receiver = BasisNetworkManagement.ReceiversSnapshot[selectedReceiverIndex];
                 if (receiver != null)
                 {
                     EditorGUILayout.BeginVertical("box");

@@ -37,6 +37,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Contrib\Handles\Dn
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Contrib\Handles\Common\Common.csproj", "{F3A336BB-330D-4C3B-9B75-C36802DC4162}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasisNetworkClientConsole", "BasisNetworkClientConsole\BasisNetworkClientConsole\BasisNetworkClientConsole.csproj", "{511D95B4-C53E-4C4E-9A8A-ED613F5C823E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -95,6 +97,10 @@ Global
 		{F3A336BB-330D-4C3B-9B75-C36802DC4162}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F3A336BB-330D-4C3B-9B75-C36802DC4162}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F3A336BB-330D-4C3B-9B75-C36802DC4162}.Release|Any CPU.Build.0 = Release|Any CPU
+		{511D95B4-C53E-4C4E-9A8A-ED613F5C823E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{511D95B4-C53E-4C4E-9A8A-ED613F5C823E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{511D95B4-C53E-4C4E-9A8A-ED613F5C823E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{511D95B4-C53E-4C4E-9A8A-ED613F5C823E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -116,5 +122,6 @@ Global
 		{795F2254-4758-40CF-B508-E087542A59AD} = {26746063-DA31-4124-BD82-035D248DD0EB}
 		{2C19D6AB-5A44-43DF-958D-EA20B0051711} = {26746063-DA31-4124-BD82-035D248DD0EB}
 		{F3A336BB-330D-4C3B-9B75-C36802DC4162} = {2EC38097-9623-48A5-96C6-9778D04DDF5C}
+		{511D95B4-C53E-4C4E-9A8A-ED613F5C823E} = {153BDCB8-6E62-4BB4-A8FD-DD4B6A8FB0AE}
 	EndGlobalSection
 EndGlobal

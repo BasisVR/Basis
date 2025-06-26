@@ -118,7 +118,13 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 try
                 {
-                    Receivers.BasisNetworkReceiver Rec = BasisNetworkManagement.ReceiverArray[Index];
+                    Receivers.BasisNetworkReceiver Rec = BasisNetworkManagement.ReceiversSnapshot[Index];
+                    if(Rec == null)
+                    {
+                        //this can happen when a remote player leaves during this iteration from the other thread.
+                        //no need to error
+                        continue;
+                    }
                     //first handle avatar itself
                     if (Rec.RemotePlayer.InAvatarRange != AvatarIndex[Index])
                     {
@@ -253,7 +259,7 @@ namespace Basis.Scripts.Networking.Transmitters
             }
             for (int Index = 0; Index < BasisNetworkManagement.ReceiverCount; Index++)
             {
-                targetPositions[Index] = BasisNetworkManagement.ReceiverArray[Index].MouthBone.OutgoingWorldData.position;
+                targetPositions[Index] = BasisNetworkManagement.ReceiversSnapshot[Index].MouthBone.OutgoingWorldData.position;
             }
             smallestDistance[0] = float.MaxValue;
             distanceJobHandle = distanceJob.Schedule(targetPositions.Length, 64);

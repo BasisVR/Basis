@@ -5,6 +5,7 @@ using BasisNetworkClient;
 using BasisNetworkClientConsole;
 using LiteNetLib;
 using LiteNetLib.Utils;
+using System;
 using System.Text;
 using System.Xml.Linq;
 using static BasisNetworkPrimitiveCompression;
@@ -51,7 +52,7 @@ namespace Basis
                     List<NetPeer> tempPeers = new List<NetPeer>();
 
                     // Iterate through clients sequentially
-                    for (int i = 0; i < clientCount; i++)
+                    for (int Index = 0; Index < clientCount; Index++)
                     {
                         try
                         {
@@ -151,7 +152,7 @@ namespace Basis
             }
         }
         public static Vector3[]? PlayersCurrentPosition;
-        public static void SendMovement(NetPeer LocalPLayer,int Index)
+        public static void SendMovement(NetPeer LocalPLayer, int Index)
         {
             if (LocalPLayer != null)
             {
@@ -163,6 +164,8 @@ namespace Basis
                 WriteVectorFloatToBytes(PlayersCurrentPosition[Index], ref AvatarMessage, ref Offset);
                 WriteQuaternionToBytes(Rotation, ref AvatarMessage, ref Offset, RotationCompression);
                 WriteUShortsToBytes(UshortArray, ref AvatarMessage, ref Offset);
+                CompressScale(1, ref AvatarMessage, ref Offset);
+
                 if (AvatarMessage.Length == 0)
                 {
                     BNL.LogError("trying to sending a message without a length NetworkReceiveEvent!");
@@ -172,6 +175,20 @@ namespace Basis
                     LocalPLayer.Send(AvatarMessage, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
                 }
             }
+        }
+        public static void CompressScale(float Scale, ref byte[] bytes, ref int Offset)
+        {
+            //we can squeeze out more 
+            const float MinimumValueSupported = 0.005f;
+            const float MaximumValueSupported = 150;
+            const float valueDiffence = MaximumValueSupported - MinimumValueSupported;
+
+            //basis does not support ununiform scaling, if your avatar is not uniform you need to get help. - dooly
+            float value = Math.Clamp(Scale, MinimumValueSupported, MaximumValueSupported);
+            float normalized = (value - MinimumValueSupported) / valueDiffence; // 0..1
+            ushort ScaleUshort = (ushort)(normalized * ushortRangeDifference);
+
+            WriteUShortToBytes(ScaleUshort, ref AvatarMessage, ref Offset);
         }
         public class BasisClientLogger : INetLogger
         {

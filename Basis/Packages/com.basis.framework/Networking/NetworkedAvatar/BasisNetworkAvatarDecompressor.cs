@@ -2,9 +2,7 @@ using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Profiler;
 using System;
-using UnityEngine.UIElements;
 using static SerializableBasis;
-using Vector3 = UnityEngine.Vector3;
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
     public static class BasisNetworkAvatarDecompressor

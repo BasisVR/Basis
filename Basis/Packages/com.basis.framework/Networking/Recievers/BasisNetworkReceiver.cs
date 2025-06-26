@@ -90,20 +90,17 @@ namespace Basis.Scripts.Networking.Receivers
                     BasisDebug.LogError("Last == null tried to dequeue", BasisDebug.LogTag.Networking);
 
                 }
-                try
+                if (First != null)
+                {
+                    OutputVectors[0] = First.Position;
+                    OutputVectors[1] = First.Scale;
+                    musclesPreEuro.CopyFrom(First.Muscles);
+                }
+                if (Last != null)
                 {
                     TargetVectors[0] = Last.Position;
                     TargetVectors[1] = Last.Scale;
-
-                    OutputVectors[0] = First.Position;                  // Vector3 Scale = GetScale();
-                    OutputVectors[1] = First.Scale;
-                    musclesPreEuro.CopyFrom(First.Muscles);
                     targetMuscles.CopyFrom(Last.Muscles);
-                }
-                catch (Exception ex)
-                {
-                    // Log the full exception details, including stack trace
-                    BasisDebug.LogError($"Error in Vector Set Or Muscle Set: {ex.Message}\nStack Trace:\n{ex.StackTrace}");
                 }
                 AvatarJob.Time = interpolationTime;
 
@@ -123,6 +120,14 @@ namespace Basis.Scripts.Networking.Receivers
         public void Apply(double TimeAsDouble, float DeltaTime)
         {
             if (PoseHandler == null)
+            {
+                return;
+            }
+            if(First == null)
+            {
+                return;
+            }
+            if (Last == null)
             {
                 return;
             }
