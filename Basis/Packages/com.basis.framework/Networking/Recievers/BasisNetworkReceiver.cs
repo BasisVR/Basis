@@ -63,11 +63,6 @@ namespace Basis.Scripts.Networking.Receivers
         {
             if (HasAvatarQueue)
             {
-                // Complete previously scheduled jobs to avoid scheduling over incomplete ones
-                if (AvatarHandle.IsCompleted) AvatarHandle.Complete();
-                if (musclesHandle.IsCompleted) musclesHandle.Complete();
-                if (EuroFilterHandle.IsCompleted) EuroFilterHandle.Complete();
-
                 // Calculate interpolation time
                 interpolationTime = Mathf.Clamp01((float)((TimeAsDouble - TimeInThePast) / TimeBeforeCompletion));
                 if (First == null)
@@ -123,7 +118,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 return;
             }
-            if(First == null)
+            if (First == null)
             {
                 return;
             }
@@ -141,7 +136,7 @@ namespace Basis.Scripts.Networking.Receivers
                     EuroFilterHandle.Complete();
 
 
-                    bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform,Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
+                    bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
 
                     if (ReadyState)
                     {
@@ -187,7 +182,7 @@ namespace Basis.Scripts.Networking.Receivers
         }
         public void EnQueueAvatarBuffer(ref BasisAvatarBuffer avatarBuffer)
         {
-            if(avatarBuffer == null)
+            if (avatarBuffer == null)
             {
                 BasisDebug.LogError("Missing Avatar Buffer!");
                 return;
@@ -207,7 +202,7 @@ namespace Basis.Scripts.Networking.Receivers
                 HasAvatarQueue = true;
             }
         }
-        public bool ApplyPoseData(Transform AnimatorsTransform,Animator animator, float3 Scale, float3 Position, Quaternion Rotation, NativeArray<float> Muscles)
+        public bool ApplyPoseData(Transform AnimatorsTransform, Animator animator, float3 Scale, float3 Position, Quaternion Rotation, NativeArray<float> Muscles)
         {
             // Directly adjust scaling by applying the inverse of the AvatarHumanScale
             Vector3 Scaling = Vector3.one / animator.humanScale;  // Initial scaling with human scale inverse
@@ -230,25 +225,6 @@ namespace Basis.Scripts.Networking.Receivers
             // Adjust the local scale of the animator's transform
             AnimatorsTransform.localScale = Scale;  // Directly adjust scale with output scaling
             return true;
-        }
-        public Vector3 GetScale()
-        {
-            if (Player != null && Player.BasisAvatar != null)
-            {
-                Vector3 Scale = Player.BasisAvatarTransform.localScale;
-                if (Scale != Vector3.zero)
-                {
-                    return Scale;
-                }
-                else
-                {
-                    return Vector3.one;
-                }
-            }
-            else
-            {
-                return Vector3.one;
-            }
         }
         public static Vector3 Divide(Vector3 a, Vector3 b)
         {
@@ -278,7 +254,7 @@ namespace Basis.Scripts.Networking.Receivers
             RemotePlayer.CACM = ServerAvatarChangeMessage.clientAvatarChangeMessage;
             BasisLoadableBundle BasisLoadableBundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(ServerAvatarChangeMessage.clientAvatarChangeMessage.byteArray);
 
-           await RemotePlayer.CreateAvatar(ServerAvatarChangeMessage.clientAvatarChangeMessage.loadMode, BasisLoadableBundle);
+            await RemotePlayer.CreateAvatar(ServerAvatarChangeMessage.clientAvatarChangeMessage.loadMode, BasisLoadableBundle);
         }
         public override void Initialize()
         {
@@ -313,8 +289,8 @@ namespace Basis.Scripts.Networking.Receivers
         {
             for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)
             {
-                positionFilters[Index] = new float2(0,0);
-                derivativeFilters[Index] = new float2(0,0);
+                positionFilters[Index] = new float2(0, 0);
+                derivativeFilters[Index] = new float2(0, 0);
             }
 
             oneEuroFilterJob = new BasisOneEuroFilterParallelJob
@@ -335,6 +311,9 @@ namespace Basis.Scripts.Networking.Receivers
         }
         public override void DeInitialize()
         {
+            EuroFilterHandle.Complete();
+            AvatarHandle.Complete();
+            musclesHandle.Complete();
             // Dispose vector data if initialized
             if (OutputVectors != null && OutputVectors.IsCreated) OutputVectors.Dispose();
             if (TargetVectors != null && TargetVectors.IsCreated) TargetVectors.Dispose();
@@ -344,13 +323,12 @@ namespace Basis.Scripts.Networking.Receivers
             if (positionFilters != null && positionFilters.IsCreated) positionFilters.Dispose();
             if (derivativeFilters != null && derivativeFilters.IsCreated) derivativeFilters.Dispose();
 
-            // Unsubscribe from events if required
             if (RemotePlayer != null && HasEvents && RemotePlayer.RemoteAvatarDriver != null)
             {
                 RemotePlayer.RemoteAvatarDriver.CalibrationComplete -= OnCalibration;
                 HasEvents = false;
             }
-            // Handle audio receiver module cleanup
+
             AudioReceiverModule?.OnDestroy();
         }
     }

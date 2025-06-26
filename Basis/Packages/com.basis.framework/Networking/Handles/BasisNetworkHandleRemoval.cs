@@ -7,7 +7,7 @@ public static class BasisNetworkHandleRemoval
     {
         if (reader.TryGetUShort(out ushort DisconnectValue))
         {
-            BasisDebug.Log($"trying to remove Networked Player {DisconnectValue}");
+           // BasisDebug.Log($"trying to remove Networked Player {DisconnectValue}");
             if (BasisNetworkManagement.Players.TryGetValue(DisconnectValue, out BasisNetworkPlayer NetworkedPlayer))
             {
                 if (NetworkedPlayer.Player.IsLocal == false)
