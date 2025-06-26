@@ -4,7 +4,7 @@ using UnityEngine;
 
 public static class BasisAudioClipPool
 {
-    private static int maxPooledClips = 1024;//max connections at one time so pool for that makes sense.
+    private static int maxPooledClips = 16;//how many pooled sources.
 
     private static Queue<AudioClip> pool = new Queue<AudioClip>();
 
@@ -16,9 +16,14 @@ public static class BasisAudioClipPool
 
         if (pool.Count > 0)
         {
-            AudioClip Clip = pool.Dequeue();
-            Clip.name = $"player [{LinkedPlayer}]";
-            return Clip;
+            AudioClip clip = pool.Dequeue();
+            float[] emptySamples = new float[clip.samples * clip.channels];
+
+            Array.Fill(emptySamples, 1.0f);
+
+            clip.SetData(emptySamples, 0);
+            clip.name = $"player [{LinkedPlayer}]";
+            return clip;
         }
         else
         {
@@ -28,7 +33,6 @@ public static class BasisAudioClipPool
             });
         }
     }
-
     /// <summary>
     /// Returns an AudioClip to the pool for reuse.
     /// </summary>
