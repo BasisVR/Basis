@@ -140,6 +140,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 93e1db65c6ab98040aeed79fd3ee335b
+    m_Address: Packages/com.basis.sdk/Prefabs/Players/AudioSource.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 98a748106e6c47748a99038c99c23bb8
     m_Address: LoadingAvatar
     m_ReadOnly: 0

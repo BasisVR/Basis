@@ -141,7 +141,7 @@ namespace Basis.Scripts.Networking.Receivers
                     EuroFilterHandle.Complete();
 
 
-                    bool ReadyState = ApplyPoseData(Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
+                    bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform,Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
 
                     if (ReadyState)
                     {
@@ -155,7 +155,7 @@ namespace Basis.Scripts.Networking.Receivers
                     RemotePlayer.RemoteBoneDriver.SimulateAndApply(RemotePlayer, DeltaTime);
                     RemotePlayer.RemoteBoneDriver.CalculateBoneData();
                     BasisCalibratedCoords Coords = RemotePlayer.RemoteBoneDriver.Mouth.OutgoingWorldData;
-                    AudioReceiverModule.AudioSourceTransform.SetPositionAndRotation(Coords.position, Coords.rotation);
+                    AudioReceiverModule.MoveAudio(Coords);
                 }
                 if (interpolationTime >= 1 && PayloadQueue.TryDequeue(out BasisAvatarBuffer result))
                 {
@@ -207,7 +207,7 @@ namespace Basis.Scripts.Networking.Receivers
                 HasAvatarQueue = true;
             }
         }
-        public bool ApplyPoseData(Animator animator, float3 Scale, float3 Position, Quaternion Rotation, NativeArray<float> Muscles)
+        public bool ApplyPoseData(Transform AnimatorsTransform,Animator animator, float3 Scale, float3 Position, Quaternion Rotation, NativeArray<float> Muscles)
         {
             // Directly adjust scaling by applying the inverse of the AvatarHumanScale
             Vector3 Scaling = Vector3.one / animator.humanScale;  // Initial scaling with human scale inverse
@@ -228,7 +228,7 @@ namespace Basis.Scripts.Networking.Receivers
             Array.Copy(MuscleFinalStageOutput, BasisAvatarMuscleRange.FirstBuffer, HumanPose.muscles, BasisAvatarMuscleRange.SecondBuffer, BasisAvatarMuscleRange.SizeAfterGap);
             Array.Copy(Eyes, 0, HumanPose.muscles, BasisAvatarMuscleRange.FirstBuffer, 4);
             // Adjust the local scale of the animator's transform
-            animator.transform.localScale = Scale;  // Directly adjust scale with output scaling
+            AnimatorsTransform.localScale = Scale;  // Directly adjust scale with output scaling
             return true;
         }
         public Vector3 GetScale()
@@ -302,7 +302,7 @@ namespace Basis.Scripts.Networking.Receivers
             ForceUpdateFilters();
 
             RemotePlayer = (BasisRemotePlayer)Player;
-            AudioReceiverModule.OnEnable(this);
+            AudioReceiverModule.Initalize(this);
             if (HasEvents == false)
             {
                 RemotePlayer.RemoteAvatarDriver.CalibrationComplete += OnCalibration;
@@ -331,7 +331,7 @@ namespace Basis.Scripts.Networking.Receivers
         }
         public void OnCalibration()
         {
-            AudioReceiverModule.OnCalibration(this);
+            AudioReceiverModule.AvatarChanged(this);
         }
         public override void DeInitialize()
         {

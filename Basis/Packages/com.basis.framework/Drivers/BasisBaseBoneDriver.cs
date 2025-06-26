@@ -62,12 +62,12 @@ namespace Basis.Scripts.Drivers
         public void SimulateAndApply(BasisPlayer Player, float deltaTime)
         {
             Player.OnPreSimulateBones?.Invoke();
-            Simulate(deltaTime, Player.transform);
+            Simulate(deltaTime, Player.PlayerSelf);
         }
         public void SimulateAndApplyWithoutLerp(BasisPlayer Player)
         {
             Player.OnPreSimulateBones?.Invoke();
-            SimulateWithoutLerp(Player.transform);
+            SimulateWithoutLerp(Player.PlayerSelf);
         }
         public void SimulateWorldDestinations(Matrix4x4 localToWorldMatrix, Quaternion Rotation)
         {

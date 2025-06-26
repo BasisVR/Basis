@@ -8,6 +8,7 @@ namespace Basis.Scripts.Drivers
     public class BasisRemoteBoneDriver : BasisBaseBoneDriver
     {
         public BasisRemotePlayer RemotePlayer;
+        public Transform RemotePlayerTransform;
         public Transform HeadAvatar;
         public Transform HipsAvatar;
         public BasisBoneControl Head;
@@ -31,7 +32,7 @@ namespace Basis.Scripts.Drivers
         }
         public void CalculateBoneData()
         {
-            Vector3 RRT = RemotePlayer.transform.position;
+            Vector3 RRT = RemotePlayerTransform.position;
             if (Head.HasBone && HasHead)
             {
                 HeadAvatar.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
@@ -52,6 +53,7 @@ namespace Basis.Scripts.Drivers
             HipsAvatar = RemotePlayer.BasisAvatar.Animator.GetBoneTransform(HumanBodyBones.Hips);
             HasHips = HipsAvatar != null;
             this.RemotePlayer = remotePlayer;
+            this.RemotePlayerTransform = RemotePlayer.transform;
         }
     }
 }

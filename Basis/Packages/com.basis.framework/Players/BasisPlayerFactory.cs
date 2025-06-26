@@ -13,6 +13,7 @@ namespace Basis.Scripts.Player
         {
             BasisPlayer Player = await CreatePlayer(RemotePlayerId, InstantiationParameters);
             BasisLocalPlayer CreatedLocalPlayer = (BasisLocalPlayer)Player;
+            CreatedLocalPlayer.PlayerSelf = CreatedLocalPlayer.transform;
             await CreatedLocalPlayer.LocalInitialize();
             return CreatedLocalPlayer;
         }
@@ -20,6 +21,7 @@ namespace Basis.Scripts.Player
         {
             BasisPlayer Player = await CreatePlayer(LocalPlayerId, InstantiationParameters);
             BasisRemotePlayer CreatedRemotePlayer = (BasisRemotePlayer)Player;
+            CreatedRemotePlayer.PlayerSelf = CreatedRemotePlayer.transform;
             await CreatedRemotePlayer.RemoteInitialize(AvatarURL, PlayerMetaDataMessage);
             return CreatedRemotePlayer;
         }

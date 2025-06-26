@@ -22,7 +22,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool HasEvents = false;
         public bool OutOfRangeFromLocal = false;
         public ClientAvatarChangeMessage CACM;
-        public Transform NetworkedVoice;
         public bool InAvatarRange = true;
         public byte AlwaysRequestedMode;//0 downloading 1 local
         [HideInInspector]
