@@ -76,7 +76,7 @@ namespace Basis.Scripts.Networking.Compression
         }
 
         // Manual ushort to bytes conversion (without BitConverter)
-        private unsafe static void WriteUShortToBytes(ushort value, ref byte[] bytes, ref int offset)
+        public unsafe static void WriteUShortToBytes(ushort value, ref byte[] bytes, ref int offset)
         {
             // Manually write the bytes
             bytes[offset] = (byte)(value & 0xFF);
@@ -84,7 +84,7 @@ namespace Basis.Scripts.Networking.Compression
             offset += 2;
         }
         // Manual float to bytes conversion (without BitConverter)
-        private unsafe static void WriteFloatToBytes(float value, ref byte[] bytes, ref int offset)
+        public unsafe static void WriteFloatToBytes(float value, ref byte[] bytes, ref int offset)
         {
             // Convert the float to a uint using its bitwise representation
             uint intValue = *((uint*)&value);
@@ -115,7 +115,7 @@ namespace Basis.Scripts.Networking.Compression
         }
 
         // Manual bytes to float conversion (without BitConverter)
-        private unsafe static float ReadFloatFromBytes(ref byte[] bytes, ref int offset)
+        public unsafe static float ReadFloatFromBytes(ref byte[] bytes, ref int offset)
         {
             // Reconstruct the uint from the byte array
             uint intValue = (uint)(bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24));
@@ -143,7 +143,7 @@ namespace Basis.Scripts.Networking.Compression
         }
 
         // Manual bytes to ushort conversion (without BitConverter)
-        private static ushort ReadUShortFromBytes(ref byte[] bytes, ref int offset)
+        public static ushort ReadUShortFromBytes(ref byte[] bytes, ref int offset)
         {
             // Reconstruct the ushort from the byte array
             ushort result = (ushort)(bytes[offset] | (bytes[offset + 1] << 8));
@@ -151,7 +151,7 @@ namespace Basis.Scripts.Networking.Compression
             return result;
         }
         // Ensure the byte array is large enough to hold the data
-        private static void EnsureSize(ref byte[] bytes, int requiredSize)
+        public static void EnsureSize(ref byte[] bytes, int requiredSize)
         {
             if (bytes == null || bytes.Length < requiredSize)
             {
@@ -162,7 +162,7 @@ namespace Basis.Scripts.Networking.Compression
         }
 
         // Ensure the byte array is large enough for reading
-        private static void EnsureSize(byte[] bytes, int requiredSize)
+        public static void EnsureSize(byte[] bytes, int requiredSize)
         {
             if (bytes.Length < requiredSize)
             {
@@ -171,7 +171,7 @@ namespace Basis.Scripts.Networking.Compression
         }
 
         // Object pool for byte arrays to avoid allocation during runtime
-        private class ObjectPool<T>
+        public class ObjectPool<T>
         {
             private readonly Func<T> createFunc;
             private readonly Stack<T> pool;
@@ -272,7 +272,18 @@ namespace Basis.Scripts.Networking.Compression
             }
             offset += LengthUshortBytes;
         }
+        public unsafe static void WriteUShortToBytes(ushort value, ref byte[] bytes, ref int offset)
+        {
+            const int ushortSize = sizeof(ushort); // = 2
+            EnsureSize(ref bytes, offset + ushortSize);
 
+            fixed (byte* ptr = &bytes[offset])
+            {
+                *(ushort*)ptr = value;
+            }
+
+            offset += ushortSize;
+        }
         public unsafe static void ReadMusclesFromBytes(ref byte[] bytes, ref ushort[] muscles, ref int offset)
         {
             if (muscles == null || muscles.Length != LocalAvatarSyncMessage.StoredBones)

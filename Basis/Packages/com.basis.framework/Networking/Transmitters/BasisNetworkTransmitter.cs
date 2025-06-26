@@ -69,7 +69,6 @@ namespace Basis.Scripts.Networking.Transmitters
         {
             SendingOutAvatarData.Clear();
         }
-
         void SendOutLatest()
         {
             timer += Time.deltaTime;

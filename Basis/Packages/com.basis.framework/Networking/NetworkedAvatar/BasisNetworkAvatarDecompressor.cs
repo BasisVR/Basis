@@ -72,12 +72,18 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 avatarBuffer.Muscles[Index] = Decompress(baseReceiver.CopyData[Index], BasisAvatarMuscleRange.MinMuscle[Index], BasisAvatarMuscleRange.MaxMuscle[Index]);
             }
-            avatarBuffer.Scale = Vector3.one;
+            ushort Scale = BasisUnityBitPackerExtensions.ReadUShortFromBytes(ref syncMessage.array, ref Offset);
+
+            const float MinimumValueSupported = 0.005f;
+            const float MaximumValueSupported = 150;
+
+            avatarBuffer.Scale = Decompress(Scale, MinimumValueSupported, MaximumValueSupported);
+
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Length);
             avatarBuffer.SecondsInterval = 0.01f;
             baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
-            int Count = syncMessage.AdditionalAvatarDataSize;//1
-                                                             //  BasisDebug.Log($"AdditionalAvatarDatas was {Count}");
+            int Count = syncMessage.AdditionalAvatarDataSize;
+            //  BasisDebug.Log($"AdditionalAvatarDatas was {Count}");
             if (baseReceiver.Player != null && baseReceiver.Player.BasisAvatar != null)
             {
                 for (int Index = 0; Index < Count; Index++)
