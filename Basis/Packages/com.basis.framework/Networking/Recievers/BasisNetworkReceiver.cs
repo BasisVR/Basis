@@ -92,11 +92,11 @@ namespace Basis.Scripts.Networking.Receivers
                 }
                 try
                 {
-                    TargetVectors[0] = Last.Position; // Target position at index 0
-                    OutputVectors[0] = First.Position; // Position at index 0
-                    Vector3 Scale = GetScale();
-                    OutputVectors[1] = Scale;    // Scale at index 1
-                    TargetVectors[1] = Scale;    // Target scale at index 1
+                    TargetVectors[0] = Last.Position;
+                    TargetVectors[1] = Last.Scale;
+
+                    OutputVectors[0] = First.Position;                  // Vector3 Scale = GetScale();
+                    OutputVectors[1] = First.Scale;
                     musclesPreEuro.CopyFrom(First.Muscles);
                     targetMuscles.CopyFrom(Last.Muscles);
                 }

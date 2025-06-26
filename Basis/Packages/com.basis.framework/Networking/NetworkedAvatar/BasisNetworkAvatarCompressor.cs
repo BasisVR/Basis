@@ -32,6 +32,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 Transmit.PoseHandler = new HumanPoseHandler(Anim.avatar, Anim.transform);
             }
+            if (Transmit.LASM.array == null || Transmit.LASM.array.Length == 0)
+            {
+                Transmit.LASM.array = new byte[LocalAvatarSyncMessage.AvatarSyncSize];
+            }
             // Retrieve the human pose from the Animator
             Transmit.PoseHandler.GetHumanPose(ref Transmit.HumanPose);
 
@@ -60,6 +64,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             float[] FloatArray = new float[LocalAvatarSyncMessage.StoredBones];
             ushort[] UshortArray = new ushort[LocalAvatarSyncMessage.StoredBones];
             LocalAvatarSyncMessage = new LocalAvatarSyncMessage();
+            if (LocalAvatarSyncMessage.array == null || LocalAvatarSyncMessage.array.Length == 0)
+            {
+                LocalAvatarSyncMessage.array = new byte[LocalAvatarSyncMessage.AvatarSyncSize];
+            }
             CompressAvatarData(ref FloatArray, ref UshortArray, ref LocalAvatarSyncMessage, PoseHandler, HumanPose, Anim);
         }
         [BurstCompile]

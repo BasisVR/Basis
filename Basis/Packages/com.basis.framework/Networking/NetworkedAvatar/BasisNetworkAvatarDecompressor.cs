@@ -2,6 +2,7 @@ using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Profiler;
 using System;
+using UnityEngine.UIElements;
 using static SerializableBasis;
 using Vector3 = UnityEngine.Vector3;
 namespace Basis.Scripts.Networking.NetworkedAvatar
@@ -29,7 +30,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 avatarBuffer.Muscles[Index] = Decompress(baseReceiver.CopyData[Index], BasisAvatarMuscleRange.MinMuscle[Index], BasisAvatarMuscleRange.MaxMuscle[Index]);
             }
-            avatarBuffer.Scale = Vector3.one;
+            ushort Scale = BasisUnityBitPackerExtensions.ReadUShortFromBytes(ref syncMessage.avatarSerialization.array, ref Offset);
+
+            const float MinimumValueSupported = 0.005f;
+            const float MaximumValueSupported = 150;
+            avatarBuffer.Scale = Decompress(Scale, MinimumValueSupported, MaximumValueSupported);
+
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Length);
             avatarBuffer.SecondsInterval = syncMessage.interval / 1000.0f;
             baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
