@@ -70,7 +70,7 @@ public static class BasisPlayerSettingsManager
         if (BasisPlayerSettingsData.Default.VolumeLevel == settings.VolumeLevel
             && BasisPlayerSettingsData.Default.AvatarVisible == settings.AvatarVisible)
         {
-            BasisDebug.Log("Player Settings where default no need to store a copy");
+         //   BasisDebug.Log("Player Settings where default no need to store a copy");
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);

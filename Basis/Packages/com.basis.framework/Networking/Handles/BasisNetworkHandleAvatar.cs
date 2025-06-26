@@ -20,7 +20,9 @@ public static class BasisNetworkHandleAvatar
         }
         else
         {
-            BasisDebug.Log($"Missing Player For Avatar Update {SSM.playerIdMessage.playerID}");
+       //this fires when the network does not yet have a player to accept data.
+       //this can happen from a mistake or from the reliable packet not having notified yet.
+       //BasisDebug.Log($"Missing Player For Avatar Update {SSM.playerIdMessage.playerID}");
         }
         Message.Enqueue(SSM);
         if (Message.Count > 256)

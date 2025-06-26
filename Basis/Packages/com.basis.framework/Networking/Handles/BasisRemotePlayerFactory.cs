@@ -14,7 +14,7 @@ namespace Basis.Scripts.Networking
     {
         public static async Task HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader,Transform Parent)
         {
-            BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
+           // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
             ServerReadyMessage ServerReadyMessage = new ServerReadyMessage();
             ServerReadyMessage.Deserialize(reader);
 
@@ -40,14 +40,14 @@ namespace Basis.Scripts.Networking
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
                 if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
                 {
-                    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
+                //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
                 }
                 else
                 {
                     BasisDebug.LogError("Critical issue could not add player to data");
                     return null;
                 }
-                BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
+              //  BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
                 BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
 
                 BasisNetworkManagement.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);

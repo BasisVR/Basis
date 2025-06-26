@@ -68,7 +68,7 @@ namespace Basis.Scripts.Networking
                         RemotePlayers.TryAdd(NetPlayer.NetId, (BasisNetworkReceiver)NetPlayer);
                         BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
                         ReceiverCount = ReceiversSnapshot.Length;
-                        BasisDebug.Log("ReceiverCount was " + ReceiverCount);
+                      //  BasisDebug.Log("ReceiverCount was " + ReceiverCount);
                     }
                 }
                 else
@@ -300,14 +300,14 @@ namespace Basis.Scripts.Networking
                         // Create the local networked player asynchronously.
                         this.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
                         LocalNetworkedPlayer = new BasisNetworkTransmitter();
-                        BasisDebug.Log("Network Id Updated " + LocalPlayerPeer.RemoteId);
+                     //   BasisDebug.Log("Network Id Updated " + LocalPlayerPeer.RemoteId);
 
                         LocalNetworkedPlayer.ProvideNetworkKey(LocalPlayerID);
                         // Initialize the local networked player.
                         LocalInitalize(LocalNetworkedPlayer, BasisLocalPlayer.Instance);
                         if (AddPlayer(LocalNetworkedPlayer))
                         {
-                            BasisDebug.Log($"Added local player {LocalPlayerID}");
+                          //  BasisDebug.Log($"Added local player {LocalPlayerID}");
                         }
                         else
                         {

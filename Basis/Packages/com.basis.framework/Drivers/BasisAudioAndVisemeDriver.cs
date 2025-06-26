@@ -31,7 +31,7 @@ namespace Basis.Scripts.Drivers
             Player = BasisPlayer;
             if (Avatar == null)
             {
-               BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
+             //  BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh == null)

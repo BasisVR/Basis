@@ -97,8 +97,8 @@ namespace Basis.Scripts.Networking.Receivers
             if (BasisRemoteVisemeAudioDriver == null)
             {
                 BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
-                BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
             }
+            BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
             BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
         }
         public void StopAudio()
@@ -140,7 +140,7 @@ namespace Basis.Scripts.Networking.Receivers
                 Gain = (short)(Volume * 1024);
             }
 
-            BasisDebug.Log("Set Gain To " + Gain);
+           // BasisDebug.Log("Set Gain To " + Gain);
             OpusDecoderExtensions.SetGain(decoder, Gain);
         }
         public void OnAudioFilterRead(float[] data, int channels, int length)
