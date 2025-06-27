@@ -2597,7 +2597,7 @@ GameObject:
   - component: {fileID: 8988764245560573337}
   - component: {fileID: 6910429841152494025}
   m_Layer: 0
-  m_Name: BootManager
+  m_Name: BasisFramework
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

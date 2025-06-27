@@ -12,7 +12,7 @@ namespace Basis.Scripts.Networking
 {
     public static class BasisRemotePlayerFactory
     {
-        public static async Task HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader,Transform Parent)
+        public static async Task HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader, InstantiationParameters Parent)
         {
            // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
             ServerReadyMessage ServerReadyMessage = new ServerReadyMessage();
@@ -31,9 +31,7 @@ namespace Basis.Scripts.Networking
 
                 // Start both tasks simultaneously
                 Task<BasisRemotePlayer> createRemotePlayerTask = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
-                BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver();
-
-                BasisNetworkReceiver.ProvideNetworkKey(ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(ServerReadyMessage.playerIdMessage.playerID);
                 // Retrieve the results
                 BasisRemotePlayer remote = await createRemotePlayerTask;
                 // Continue with the rest of the code
@@ -87,11 +85,6 @@ namespace Basis.Scripts.Networking
             }
             BasisNetworkReceiver.Initialize();//fires events and makes us network compatible
             BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(BasisNetworkReceiver, ServerReadyMessage.localReadyMessage.localAvatarSyncMessage, ServerReadyMessage.playerIdMessage.playerID);
-        }
-        public static async Task<BasisNetworkPlayer> CreateRemotePlayer(ServerReadyMessage ServerReadyMessage,Transform Parent)
-        {
-            InstantiationParameters instantiationParameters = new InstantiationParameters(Vector3.zero, Quaternion.identity, Parent);
-            return await CreateRemotePlayer(ServerReadyMessage, instantiationParameters);
         }
     }
 }

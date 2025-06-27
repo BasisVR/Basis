@@ -97,6 +97,7 @@ namespace Basis.Scripts.UI.UI_Panels
             if (!string.IsNullOrEmpty(UserNameTMP_InputField.text))
             {
                 BasisLocalPlayer.Instance.DisplayName = UserNameTMP_InputField.text;
+                BasisLocalPlayer.Instance.SetSafeDisplayname();
                 BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, LoadFileName);
                 if (BasisNetworkManagement.Instance != null)
                 {

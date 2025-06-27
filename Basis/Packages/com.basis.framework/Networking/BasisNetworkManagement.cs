@@ -19,6 +19,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 using static DarkRift.Basis_Common.Serializable.SerializableBasis;
 using static SerializableBasis;
@@ -52,6 +53,7 @@ namespace Basis.Scripts.Networking
         public static Action OnEnableInstanceCreate;
         public static BasisNetworkManagement Instance;
         public static Dictionary<string, ushort> OwnershipPairing = new Dictionary<string, ushort>();
+       public static InstantiationParameters instantiationParameters;
         /// <summary>
         /// allows a local host to be the server
         /// </summary>
@@ -101,6 +103,7 @@ namespace Basis.Scripts.Networking
             {
                 Instance = this;
             }
+            instantiationParameters = new InstantiationParameters(Vector3.zero, Quaternion.identity, BasisDeviceManagement.Instance.transform);
             BasisAvatarMuscleRange.Initalize();
             MainThreadContext = SynchronizationContext.Current;
             // Initialize AvatarBuffer
@@ -294,10 +297,7 @@ namespace Basis.Scripts.Networking
                         ushort LocalPlayerID = (ushort)peer.RemoteId;
                         // Create the local networked player asynchronously.
                         this.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
-                        LocalNetworkedPlayer = new BasisNetworkTransmitter();
-                     //   BasisDebug.Log("Network Id Updated " + LocalPlayerPeer.RemoteId);
-
-                        LocalNetworkedPlayer.ProvideNetworkKey(LocalPlayerID);
+                        LocalNetworkedPlayer = new BasisNetworkTransmitter(LocalPlayerID);
                         // Initialize the local networked player.
                         LocalInitalize(LocalNetworkedPlayer, BasisLocalPlayer.Instance);
                         if (AddPlayer(LocalNetworkedPlayer))
@@ -502,7 +502,7 @@ namespace Basis.Scripts.Networking
                     }
                     BasisNetworkManagement.MainThreadContext.Post(async _ =>
                     {
-                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, this.transform);
+                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, instantiationParameters);
                         Reader.Recycle();
                     }, null);
                     break;
@@ -516,7 +516,7 @@ namespace Basis.Scripts.Networking
                     BasisNetworkManagement.MainThreadContext.Post(async _ =>
                     {
                         //this one is called first and is also generally where the issues are.
-                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, this.transform);
+                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, instantiationParameters);
                         Reader.Recycle();
                     }, null);
                     break;

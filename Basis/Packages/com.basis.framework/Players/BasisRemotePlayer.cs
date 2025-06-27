@@ -19,6 +19,8 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisRemoteAvatarDriver RemoteAvatarDriver = new BasisRemoteAvatarDriver();
         [SerializeField]
         public BasisNetworkReceiver NetworkReceiver;
+        [SerializeField]
+        public BasisRemoteNamePlate RemoteNamePlate;
         public bool HasEvents = false;
         public bool OutOfRangeFromLocal = false;
         public ClientAvatarChangeMessage CACM;
@@ -30,6 +32,8 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             CACM = cACM;
             DisplayName = PlayerMetaDataMessage.playerDisplayName;
+            SetSafeDisplayname();
+            this.name = DisplayName;
             UUID = PlayerMetaDataMessage.playerUUID;
             IsLocal = false;
             RemoteBoneDriver.CreateInitialArrays(this.transform, false);

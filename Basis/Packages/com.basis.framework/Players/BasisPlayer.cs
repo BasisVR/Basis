@@ -1,5 +1,6 @@
 using Basis.Scripts.Drivers;
 using System;
+using System.Text.RegularExpressions;
 using System.Threading;
 using UnityEngine;
 namespace Basis.Scripts.BasisSdk.Players
@@ -22,6 +23,7 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public string DisplayName;
         public string UUID;
+        public string SafeDisplayName;
         public BasisAvatar BasisAvatar;
         public Transform BasisAvatarTransform;
         public Transform PlayerSelf;//yes caching myself is faster.
@@ -54,7 +56,13 @@ namespace Basis.Scripts.BasisSdk.Players
         [SerializeField]
         public BasisFacialBlinkDriver FacialBlinkDriver = new BasisFacialBlinkDriver();
         public static bool UseJiggles = true;
-        public void InitalizeIKCalibration(BasisAvatarDriver BasisAvatarDriver)
+
+        public void SetSafeDisplayname()
+        {
+            // Regex pattern to match any <...> tags
+            SafeDisplayName = Regex.Replace(DisplayName, "<.*?>", string.Empty);
+        }
+        public void AvatarInitalize()
         {
             if (UseJiggles)
             {

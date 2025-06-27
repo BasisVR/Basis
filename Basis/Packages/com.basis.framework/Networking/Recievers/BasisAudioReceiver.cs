@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using OpusSharp.Core;
@@ -55,7 +56,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> Loadable = Addressables.LoadAssetAsync<GameObject>(AudioSource);
                 GameObject LoadableAudioSource = Loadable.WaitForCompletion();
-                GameObject ActualAudio = GameObject.Instantiate(LoadableAudioSource);
+                GameObject ActualAudio = GameObject.Instantiate(LoadableAudioSource,BasisDeviceManagement.Instance.transform);
                 AudioSourceTransform = ActualAudio.transform;
                 HasTransform = true;
                 if (audioSource == null)

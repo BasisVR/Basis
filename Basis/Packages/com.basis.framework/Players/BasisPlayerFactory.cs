@@ -27,8 +27,7 @@ namespace Basis.Scripts.Player
         }
         public static async Task<BasisPlayer> CreatePlayer(string PlayerAddressableID, InstantiationParameters InstantiationParameters)
         {
-            ChecksRequired Required = new ChecksRequired();
-            Required.UseContentRemoval = false;
+            ChecksRequired Required = new ChecksRequired(false, false, false);
             var data = await AddressableResourceProcess.LoadAsGameObjectsAsync(PlayerAddressableID, InstantiationParameters, Required, BundledContentHolder.Selector.System);
             List<GameObject> Gameobjects = data.Item1;
             if (Gameobjects.Count != 0)

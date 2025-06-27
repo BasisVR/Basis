@@ -7,10 +7,7 @@ public static class BasisPersonalMirrorFactory
 {
     public static async Task<BasisPersonalMirror> CreateMirror(InstantiationParameters InstantiationParameters, string Path = "Packages/com.basis.sdk/Prefabs/UI/Personal Mirror Prefab/PersonalMirror.prefab")
     {
-        ChecksRequired Required = new ChecksRequired
-        {
-            UseContentRemoval = false
-        };
+        ChecksRequired Required = new ChecksRequired(false, false, false);
         var data = await AddressableResourceProcess.LoadAsGameObjectsAsync(Path, InstantiationParameters, Required, BundledContentHolder.Selector.System);
         List<GameObject> Gameobjects = data.Item1;
         if (Gameobjects.Count != 0)

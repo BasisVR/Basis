@@ -41,6 +41,7 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer = basisRemotePlayer;
             HipTarget = hipTarget;
             MouthTarget = BasisRemotePlayer.RemoteBoneDriver.Mouth;
+            BasisRemotePlayer.RemoteNamePlate = this;
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
             BasisRemotePlayer.AudioReceived += OnAudioReceived;
             BasisRemotePlayer.OnAvatarSwitched += RebuildRenderCheck;

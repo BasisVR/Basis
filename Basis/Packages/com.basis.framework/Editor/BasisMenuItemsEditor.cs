@@ -290,11 +290,7 @@ public static class BasisMenuItemsEditor
     }
     public async static void CreateTestRemotePlayer(ServerReadyMessage ServerReadyMessage)
     {
-        BasisNetworkManagement NetworkConnector = BasisNetworkManagement.Instance;
-        if (NetworkConnector != null)
-        {
-            await BasisRemotePlayerFactory.CreateRemotePlayer(ServerReadyMessage, NetworkConnector.transform);
-        }
+        await BasisRemotePlayerFactory.CreateRemotePlayer(ServerReadyMessage, BasisNetworkManagement.instantiationParameters);
     }
     // Group 1: Authentication and Player Metadata
     [Serializable]

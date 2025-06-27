@@ -1,12 +1,9 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
-using System.Collections.Generic;
-using System.Security.Policy;
 using TMPro;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace Basis.Scripts.UI.NamePlate
 {
@@ -276,7 +273,7 @@ namespace Basis.Scripts.UI.NamePlate
                 if (NamePlate.IsVisible)
                 {
                     cachedDirection = NamePlate.HipTarget.OutgoingWorldData.position;
-                    cachedDirection.y += NamePlate.MouthTarget.TposeLocal.position.y / YHeightMultiplier;
+                    cachedDirection.y += NamePlate.MouthTarget.TposeLocalScaled.position.y / YHeightMultiplier;
                     dirToCamera = Position - cachedDirection;
                     cachedRotation = Quaternion.Euler(x, math.atan2(dirToCamera.x, dirToCamera.z) * Mathf.Rad2Deg, z);
                     NamePlate.Self.SetPositionAndRotation(cachedDirection, cachedRotation);

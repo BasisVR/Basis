@@ -37,13 +37,13 @@ namespace Basis.Scripts.Networking.Transmitters
         public LocalAvatarSyncMessage LASM = new LocalAvatarSyncMessage();
         public float UnClampedInterval;
 
-        public float DefaultInterval = 0.0333333333333333f;
-        public float BaseMultiplier = 1f; // Starting multiplier.
-        public float IncreaseRate = 0.005f; // Rate of increase per unit distance.
+        public static float DefaultInterval = 0.0333333333333333f;
+        public static float BaseMultiplier = 1f; // Starting multiplier.
+        public static float IncreaseRate = 0.005f; // Rate of increase per unit distance.
         public BasisDistanceJobs distanceJob = new BasisDistanceJobs();
         public JobHandle distanceJobHandle;
         public int IndexLength = -1;
-        public float SlowestSendRate = 2.5f;
+        public static float SlowestSendRate = 2.5f;
         public NetDataWriter AvatarSendWriter = new NetDataWriter(true, LocalAvatarSyncMessage.AvatarSyncSize + 1);
         public bool[] MicrophoneRangeIndex;
         public bool[] LastMicrophoneRangeIndex;
@@ -57,6 +57,11 @@ namespace Basis.Scripts.Networking.Transmitters
         public float[] CalculatedDistances;
         public static Action AfterAvatarChanges;
         public const float SmallestOutgoingInterval = 0.005f;
+        public BasisNetworkTransmitter(ushort PlayerID)
+        {
+            PlayerIDMessage.playerID = PlayerID;
+            hasID = true;
+        }
         /// <summary>
         /// schedules data going out. replaces existing byte index.
         /// </summary>

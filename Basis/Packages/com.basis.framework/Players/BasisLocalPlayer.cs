@@ -253,7 +253,7 @@ namespace Basis.Scripts.BasisSdk.Players
                     LocalVisemeDriver.uLipSyncBlendShape.maxVolume = -1.5f;
                     LocalVisemeDriver.uLipSyncBlendShape.minVolume = -2.5f;
                 }
-            }
+            } 
         }
         public void SimulateOnLateUpdate()
         {

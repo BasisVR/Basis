@@ -9,10 +9,8 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
-using System.Data;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.UIElements;
 using static BasisNetworkGenericMessages;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
@@ -35,7 +33,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public BasisBoneControl MouthBone;
         public BasisPlayer Player;
         [SerializeField]
-        public PlayerIdMessage PlayerIDMessage;
+        public PlayerIdMessage PlayerIDMessage = new PlayerIdMessage();
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -176,11 +174,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
             }
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarDataMessage, netDataWriter.Length);
-        }
-        public void ProvideNetworkKey(ushort PlayerID)
-        {
-            PlayerIDMessage.playerID = PlayerID;
-            hasID = true;
         }
         public static bool AvatarToPlayer(BasisAvatar Avatar, out BasisPlayer BasisPlayer)
         {
@@ -376,6 +369,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// this occurs after a remote user has removed
         /// </summary>
         public static Action<BasisNetworkPlayer, BasisRemotePlayer> OnRemotePlayerLeft;
+
         public string displayName
         {
             get

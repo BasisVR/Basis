@@ -51,23 +51,18 @@ public class BasisUIAdminPanel : BasisUIBase
         AdminButtons.Clear();
         foreach (BasisNetworkPlayer Player in BasisNetworkManagement.Players.Values)
         {
-            var buttonObject = Instantiate(ButtonPrefab.gameObject, Parent);            buttonObject.name = Player.Player.DisplayName;
+            var buttonObject = Instantiate(ButtonPrefab.gameObject, Parent);
+            buttonObject.name = Player.Player.DisplayName;
             buttonObject.SetActive(true);
             if (buttonObject.TryGetComponent<BasisUIAdminButton>(out BasisUIAdminButton BasisUIAdminButton))
             {
                 AdminButtons.Add(BasisUIAdminButton);
 
                 BasisUIAdminButton.Button.onClick.AddListener(() => OnClick(Player));
-                string cleanDisplayName = StripRichText(Player.Player.DisplayName);
-                BasisUIAdminButton.DisplayName.text = cleanDisplayName;
+                BasisUIAdminButton.DisplayName.text = Player.Player.SafeDisplayName;
                 BasisUIAdminButton.PlayerUUID.text = $"{Player.Player.UUID}";
                 BasisUIAdminButton.NetworkID.text = $"{Player.NetId}";
             }
-        }
-        string StripRichText(string input)
-        {
-            // Regex pattern to match any <...> tags
-            return Regex.Replace(input, "<.*?>", string.Empty);
         }
     }
     private void BindButtons()

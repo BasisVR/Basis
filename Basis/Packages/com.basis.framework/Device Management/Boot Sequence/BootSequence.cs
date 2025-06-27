@@ -12,7 +12,7 @@ namespace Basis.Scripts.Boot_Sequence
     public static class BootSequence
     {
         public static GameObject LoadedBootManager;
-        public static string BootManager = "BootManager";
+        public static string BasisFramework = "BasisFramework";
         public static bool HasEvents = false;
         public static bool WillBoot = true;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -31,23 +31,19 @@ namespace Basis.Scripts.Boot_Sequence
         }
         public static async Task OnAddressablesInitializationComplete()
         {
-            ChecksRequired Required = new ChecksRequired
-            {
-                UseContentRemoval = false,
-                DisableAnimatorEvents = false
-            };
-            var data = await AddressableResourceProcess.LoadAsGameObjectsAsync(BootManager, new UnityEngine.ResourceManagement.ResourceProviders.InstantiationParameters(), Required, BundledContentHolder.Selector.System);
+            ChecksRequired Required = new ChecksRequired(false, false, false);
+            var data = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisFramework, new UnityEngine.ResourceManagement.ResourceProviders.InstantiationParameters(), Required, BundledContentHolder.Selector.System);
             List<GameObject> Gameobjects = data.Item1;
             if (Gameobjects.Count != 0)
             {
                 foreach (GameObject gameObject in Gameobjects)
                 {
-                    gameObject.name = BootManager;
+                    gameObject.name = BasisFramework;
                 }
             }
             else
             {
-                BasisDebug.LogError("Missing " + BootManager);
+                BasisDebug.LogError("Missing " + BasisFramework);
             }
         }
     }

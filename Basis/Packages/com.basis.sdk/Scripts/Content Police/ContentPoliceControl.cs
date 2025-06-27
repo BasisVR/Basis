@@ -104,4 +104,11 @@ public struct ChecksRequired
     public bool UseContentRemoval;
     public bool DisableAnimatorEvents;
     public bool RemoveColliders;
+
+    public ChecksRequired(bool useContentRemoval, bool disableAnimatorEvents, bool removeColliders)
+    {
+        UseContentRemoval = useContentRemoval;
+        DisableAnimatorEvents = disableAnimatorEvents;
+        RemoveColliders = removeColliders;
+    }
 }
