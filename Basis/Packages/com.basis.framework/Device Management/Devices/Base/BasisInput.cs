@@ -182,7 +182,7 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 BasisLocalPlayer.Instance.OnPreSimulateBones += PollData;
                 BasisLocalPlayer.Instance.OnAvatarSwitched += UnAssignFullBodyTrackers;
-                BasisLocalPlayer.Instance.AfterFinalMove.AddAction(98, ApplyFinalMovement);
+                BasisLocalPlayer.AfterFinalMove.AddAction(98, ApplyFinalMovement);
                 HasEvents = true;
             }
             else
@@ -249,7 +249,7 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 BasisLocalPlayer.Instance.OnPreSimulateBones -= PollData;
                 BasisLocalPlayer.Instance.OnAvatarSwitched -= UnAssignFullBodyTrackers;
-                BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(98, ApplyFinalMovement);
+                BasisLocalPlayer.AfterFinalMove.RemoveAction(98, ApplyFinalMovement);
                 HasEvents = false;
             }
             else

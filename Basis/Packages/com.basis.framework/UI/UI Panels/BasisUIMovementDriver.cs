@@ -43,7 +43,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (SnapToPlayOnDistance)
             {
-                BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
+                BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
             }
 
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= SetUILocation;
@@ -58,7 +58,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (SnapToPlayOnDistance)
             {
-                BasisLocalPlayer.Instance.AfterFinalMove.AddAction(120, UpdateUIFollow);
+                BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUIFollow);
             }
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame += SetUILocation;
             SetUILocation();

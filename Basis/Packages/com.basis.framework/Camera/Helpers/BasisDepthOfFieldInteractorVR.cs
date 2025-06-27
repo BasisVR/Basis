@@ -26,15 +26,12 @@ public class BasisDepthOfFieldInteractorVR : MonoBehaviour
 
     private void OnEnable()
     {
-        if (BasisLocalPlayer.Instance != null)
-            BasisLocalPlayer.Instance.AfterFinalMove.AddAction(UpdateOrder, PollInputs);
-        else
-            BasisDebug.LogWarning("BasisLocalPlayer.Instance is null in OnEnable().");
+        BasisLocalPlayer.AfterFinalMove.AddAction(UpdateOrder, PollInputs);
     }
 
     private void OnDisable()
     {
-        BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(UpdateOrder, PollInputs);
+        BasisLocalPlayer.AfterFinalMove.RemoveAction(UpdateOrder, PollInputs);
     }
     private bool IsDesktopCenterEye(BasisInput input)
     {

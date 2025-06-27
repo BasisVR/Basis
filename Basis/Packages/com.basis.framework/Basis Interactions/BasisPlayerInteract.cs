@@ -48,7 +48,7 @@ public partial class BasisPlayerInteract : MonoBehaviour
     private void Start()
     {
         Instance = this;
-        BasisLocalPlayer.Instance.AfterFinalMove.AddAction(k_UpdatePriority, PollSystem);
+        BasisLocalPlayer.AfterFinalMove.AddAction(k_UpdatePriority, PollSystem);
         var Devices = BasisDeviceManagement.Instance.AllInputDevices;
         Devices.OnListAdded += OnInputChanged;
         Devices.OnListItemRemoved += OnInputRemoved;
@@ -62,7 +62,7 @@ public partial class BasisPlayerInteract : MonoBehaviour
         {
             asyncOperationLineMaterial.Release();
         }
-        BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(k_UpdatePriority, PollSystem);
+        BasisLocalPlayer.AfterFinalMove.RemoveAction(k_UpdatePriority, PollSystem);
         var Device = BasisDeviceManagement.Instance.AllInputDevices;
         Device.OnListAdded -= OnInputChanged;
         Device.OnListItemRemoved -= OnInputRemoved;

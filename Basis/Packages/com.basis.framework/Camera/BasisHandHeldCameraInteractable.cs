@@ -100,7 +100,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
         transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
-        BasisLocalPlayer.Instance.AfterFinalMove.AddAction(202, UpdateCamera);
+        BasisLocalPlayer.AfterFinalMove.AddAction(202, UpdateCamera);
 
         cameraPinConstraint = new BasisParentConstraint();
         cameraPinConstraint.sources = new BasisParentConstraint.SourceData[] { new() { weight = 1f } };
@@ -541,7 +541,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         OnInteractStartEvent -= OnInteractDesktopTweak;
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
 
-        BasisLocalPlayer.Instance.AfterFinalMove.RemoveAction(202, UpdateCamera);
+        BasisLocalPlayer.AfterFinalMove.RemoveAction(202, UpdateCamera);
 
 
         if (pauseMove)

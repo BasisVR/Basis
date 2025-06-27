@@ -48,7 +48,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnLocalAvatarChanged;
         public static Action OnSpawnedEvent;
         public static Action OnPlayersHeightChangedNextFrame;
-        public OrderedDelegate AfterFinalMove = new OrderedDelegate();
+        public static OrderedDelegate AfterFinalMove = new OrderedDelegate();
 
         public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
         public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();

@@ -1,5 +1,3 @@
-using UnityEngine;
-using LiteNetLib;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Profiler;
@@ -83,23 +81,13 @@ namespace Basis.Scripts.Networking.Transmitters
                 AudioSegmentData.Serialize(writer);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, AudioSegmentData.LengthUsed);
                 SendOutVoice(writer);
-                Local.AudioReceived?.Invoke(true);
+                BasisLocalPlayer.Instance.AudioReceived?.Invoke(true);
             }
             else
             {
                 //  UnityEngine.BasisDebug.Log("Rejecting out going Audio");
             }
         }
-        /*
-        public NetDataWriter GenerateWriter()
-        {
-            NetDataWriter writer = new NetDataWriter();
-            writer.Put(BasisNetworkCommons.VoiceChannel);
-            sequenceNumber = (byte)((sequenceNumber + 1) & 0x3F);
-            writer.Put(sequenceNumber);
-            return writer;
-        }
-        */
         private void SendSilenceOverNetwork()
         {
             if (NetworkedPlayer.HasReasonToSendAudio)
@@ -109,7 +97,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 audioSilentSegmentData.Serialize(writer);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, writer.Length);
                 SendOutVoice(writer);
-                Local.AudioReceived?.Invoke(false);
+                BasisLocalPlayer.Instance.AudioReceived?.Invoke(false);
             }
         }
         public void SendOutVoice(NetDataWriter writer)

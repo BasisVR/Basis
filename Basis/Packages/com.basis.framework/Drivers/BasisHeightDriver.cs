@@ -151,16 +151,16 @@ public static class BasisHeightDriver
 
         // Recalculate bone transforms
         int lengthCount = driver.ControlsLength;
-        for (int i = 0; i < lengthCount; i++)
+        for (int Index = 0; Index < lengthCount; Index++)
         {
-            BasisBoneControl control = driver.Controls[i];
+            BasisBoneControl control = driver.Controls[Index];
             control.TposeLocalScaled.position = heightScaleFactor * control.TposeLocal.position;
             control.TposeLocalScaled.rotation = control.TposeLocal.rotation;
             control.ScaledOffset = heightScaleFactor * control.Offset;
         }
 
         localAvatarDriver.CalculateMaxExtended();
-        BasisLocalPlayer.Instance.ExecuteNextFrame((BasisLocalPlayer.NextFrameAction)(() =>
+        player.ExecuteNextFrame((BasisLocalPlayer.NextFrameAction)(() =>
         {
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame?.Invoke();
         }));
