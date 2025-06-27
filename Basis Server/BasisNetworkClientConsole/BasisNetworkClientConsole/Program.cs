@@ -22,7 +22,7 @@ namespace Basis
         public static string Ip = "localhost";
         public static int Port = 4296;
         public static int clientCount = 250;
-
+        public static Random rng = new Random();
         public static void Main(string[] args)
         {
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -98,7 +98,7 @@ namespace Basis
                         }
 
                         // Optional: Delay between connections to avoid overwhelming the server.
-                        await Task.Delay(100); // Adjust the delay if necessary
+                        await Task.Delay(25); // Adjust the delay if necessary
                     }
 
                     NetClients.AddRange(tempClients);
@@ -147,8 +147,9 @@ namespace Basis
                     NetPeer? peer = peersSnapshot[Index];
                     SendMovement(peer, Index);
                 }
-
-                Thread.Sleep(33);
+                int sleepTime = rng.Next(33, 61); // 33–60 ms
+                Thread.Sleep(sleepTime);
+                //Thread.Sleep(33);
             }
         }
         public static Vector3[]? PlayersCurrentPosition;
@@ -202,12 +203,12 @@ namespace Basis
                     case NetLogLevel.Error:
                         BNL.LogError(str);
                         break;
-                    case NetLogLevel.Trace:
+                    //case NetLogLevel.Trace:
                         //  BNL.Log(str);
-                        break;
-                    case NetLogLevel.Info:
+                      //  break;
+                   // case NetLogLevel.Info:
                         //   BNL.Log(str);
-                        break;
+                      // break;
                 }
             }
         }

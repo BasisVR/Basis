@@ -288,13 +288,14 @@ namespace BasisServerHandle
             Reader.Recycle();
             BasisSavedState.AddLastData(Peer, LocalAvatarSyncMessage);
             ReadOnlySpan<NetPeer> Peers = BasisPlayerArray.GetSnapshot();
+
+            ServerSideSyncPlayerMessage ssspm = CreateServerSideSyncPlayerMessage(LocalAvatarSyncMessage, (ushort)Peer.Id);
             foreach (NetPeer client in Peers)
             {
                 if (client.Id == Peer.Id)
                 {
                     continue;
                 }
-                ServerSideSyncPlayerMessage ssspm = CreateServerSideSyncPlayerMessage(LocalAvatarSyncMessage, (ushort)Peer.Id);
                 BasisServerReductionSystem.AddOrUpdatePlayer(client, ssspm, Peer);
             }
         }
