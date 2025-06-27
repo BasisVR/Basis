@@ -18,7 +18,7 @@ namespace Basis.Scripts.Drivers
             Calibration(remotePlayer.BasisAvatar);
             remotePlayer.EyeFollow.Initalize(this, remotePlayer);
             SetAllMatrixRecalculation(false);
-            updateWhenOffscreen(false);
+            UpdateWhenOffscreen(false);
             remotePlayer.BasisAvatar.Animator.logWarnings = false;
             for (int Index = 0; Index < SkinnedMeshRenderer.Length; Index++)
             {

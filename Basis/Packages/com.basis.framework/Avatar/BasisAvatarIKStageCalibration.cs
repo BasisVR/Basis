@@ -57,7 +57,7 @@ namespace Basis.Scripts.Avatar
                     trackInputRoles.Add(Role);
                 }
             }
-            List<CalibrationConnector> connectors = new List<CalibrationConnector>();
+            List<BasisCalibrationConnector> connectors = new List<BasisCalibrationConnector>();
             int AllInputDevicesCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
             for (int Index = 0; Index < AllInputDevicesCount; Index++)
             {
@@ -68,7 +68,7 @@ namespace Basis.Scripts.Avatar
                     {
                         //in use un assign first
                         baseInput.UnAssignFullBodyTrackers();
-                        CalibrationConnector calibrationConnector = new CalibrationConnector
+                        BasisCalibrationConnector calibrationConnector = new BasisCalibrationConnector
                         {
                             BasisInput = baseInput,
                             Distance = float.MaxValue
@@ -78,7 +78,7 @@ namespace Basis.Scripts.Avatar
                 }
                 else//no assigned role
                 {
-                    CalibrationConnector calibrationConnector = new CalibrationConnector
+                    BasisCalibrationConnector calibrationConnector = new BasisCalibrationConnector
                     {
                         BasisInput = baseInput,
                         Distance = float.MaxValue
@@ -138,7 +138,7 @@ namespace Basis.Scripts.Avatar
             int CandidateCount = mapping.Candidates.Count;
             for (int Index = 0; Index < CandidateCount; Index++)
             {
-                CalibrationConnector Connector = mapping.Candidates[Index];
+                BasisCalibrationConnector Connector = mapping.Candidates[Index];
                 if (BasisInputs.Contains(Connector.BasisInput) == false)
                 {
                     if (roles.Contains(mapping.BasisBoneControlRole) == false)
@@ -258,5 +258,100 @@ namespace Basis.Scripts.Avatar
                     return 0;
             }
         }
+        public static BasisGeneralLocation FindGeneralLocation(BasisBoneTrackedRole Role)
+        {
+
+            switch (Role)
+            {
+                case BasisBoneTrackedRole.CenterEye:
+                    return BasisGeneralLocation.Center;
+                case BasisBoneTrackedRole.Head:
+                    return BasisGeneralLocation.Center;
+                case BasisBoneTrackedRole.Neck:
+                    return BasisGeneralLocation.Center;
+                case BasisBoneTrackedRole.Chest:
+                    return BasisGeneralLocation.Center;
+                case BasisBoneTrackedRole.Hips:
+                    return BasisGeneralLocation.Center;
+                case BasisBoneTrackedRole.Spine:
+                    return BasisGeneralLocation.Center;
+                case BasisBoneTrackedRole.Mouth:
+                    return BasisGeneralLocation.Center;
+
+                case BasisBoneTrackedRole.RightUpperLeg:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightLowerLeg:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightFoot:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightShoulder:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightUpperArm:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightLowerArm:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightHand:
+                    return BasisGeneralLocation.Right;
+                case BasisBoneTrackedRole.RightToes:
+                    return BasisGeneralLocation.Right;
+
+                case BasisBoneTrackedRole.LeftHand:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftShoulder:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftLowerArm:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftFoot:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftUpperLeg:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftLowerLeg:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftUpperArm:
+                    return BasisGeneralLocation.Left;
+                case BasisBoneTrackedRole.LeftToes:
+                    return BasisGeneralLocation.Left;
+
+                default:
+                    Console.WriteLine("Unknown role " + Role);
+                    return BasisGeneralLocation.Center;
+            }
+        }
+        public static BasisBoneTrackedRole[] desiredOrder = new BasisBoneTrackedRole[]
+        {
+        BasisBoneTrackedRole.Hips,
+        BasisBoneTrackedRole.RightFoot,
+        BasisBoneTrackedRole.LeftFoot,
+        BasisBoneTrackedRole.LeftLowerLeg,
+        BasisBoneTrackedRole.RightLowerLeg,
+        BasisBoneTrackedRole.LeftLowerArm,
+        BasisBoneTrackedRole.RightLowerArm,
+
+        BasisBoneTrackedRole.CenterEye,
+        BasisBoneTrackedRole.Chest,
+
+        BasisBoneTrackedRole.Head,
+        BasisBoneTrackedRole.Neck,
+
+        BasisBoneTrackedRole.LeftHand,
+        BasisBoneTrackedRole.RightHand,
+
+        BasisBoneTrackedRole.LeftToes,
+        BasisBoneTrackedRole.RightToes,
+
+        BasisBoneTrackedRole.LeftUpperArm,
+        BasisBoneTrackedRole.RightUpperArm,
+        BasisBoneTrackedRole.LeftUpperLeg,
+        BasisBoneTrackedRole.RightUpperLeg,
+        BasisBoneTrackedRole.LeftShoulder,
+        BasisBoneTrackedRole.RightShoulder,
+        };
     }
+    public class BasisCalibrationConnector
+    {
+        [SerializeField]
+        public BasisInput BasisInput;
+        public float Distance;
+    }
+
 }

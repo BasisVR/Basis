@@ -8,7 +8,7 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 namespace Basis.Scripts.Drivers
 {
-    public static class BasisSceneLoadDriver
+    public static class BasisSceneLoad
     {
         public static BasisProgressReport progressCallback = new BasisProgressReport();
         /// <summary>

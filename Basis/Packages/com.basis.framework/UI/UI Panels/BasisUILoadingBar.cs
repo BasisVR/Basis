@@ -45,13 +45,13 @@ namespace Basis.Scripts.UI.UI_Panels
 
         public static void Initalize()
         {
-            BasisSceneLoadDriver.progressCallback.OnProgressReport += ProgressReport;
+            BasisSceneLoad.progressCallback.OnProgressReport += ProgressReport;
             BasisLocalPlayer.Instance.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
         }
 
         public static void DeInitalize()
         {
-            BasisSceneLoadDriver.progressCallback.OnProgressReport -= ProgressReport;
+            BasisSceneLoad.progressCallback.OnProgressReport -= ProgressReport;
             BasisLocalPlayer.Instance.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
         }
 

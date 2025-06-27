@@ -5,7 +5,7 @@ using Basis.Scripts.Device_Management;
 using System.Threading;
 using Unity.Collections;
 using Unity.Jobs;
-public static class BasisMicrophoneRecorder
+public static class BasisLocalMicrophoneDriver
 {
     private static int head = 0;
     private static int bufferLength;

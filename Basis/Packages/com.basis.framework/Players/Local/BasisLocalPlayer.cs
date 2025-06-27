@@ -48,7 +48,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnLocalAvatarChanged;
         public static Action OnSpawnedEvent;
         public static Action OnPlayersHeightChangedNextFrame;
-        public static OrderedDelegate AfterFinalMove = new OrderedDelegate();
+        public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();
 
         public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
         public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
@@ -87,10 +87,10 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
-            BasisMicrophoneRecorder.OnPausedAction += OnPausedEvent;
+            BasisLocalMicrophoneDriver.OnPausedAction += OnPausedEvent;
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
-            LocalBoneDriver.CreateInitialArrays(this.transform, true);
+            LocalBoneDriver.CreateInitialArrays(true);
             LocalBoneDriver.Initialize();
             LocalHandDriver.Initialize();
 
@@ -112,7 +112,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
-            BasisMicrophoneRecorder.TryInitialize();
+            BasisLocalMicrophoneDriver.TryInitialize();
             PlayerReady = true;
             OnLocalPlayerCreatedAndReady?.Invoke();
             BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
@@ -196,8 +196,8 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalVisemeDriver.TryInitialize(this);
             if (HasCalibrationEvents == false)
             {
-                BasisMicrophoneRecorder.OnHasAudio += DriveAudioToViseme;
-                BasisMicrophoneRecorder.OnHasSilence += DriveAudioToViseme;
+                BasisLocalMicrophoneDriver.OnHasAudio += DriveAudioToViseme;
+                BasisLocalMicrophoneDriver.OnHasSilence += DriveAudioToViseme;
                 HasCalibrationEvents = true;
             }
         }
@@ -211,8 +211,8 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             if (HasCalibrationEvents)
             {
-                BasisMicrophoneRecorder.OnHasAudio -= DriveAudioToViseme;
-                BasisMicrophoneRecorder.OnHasSilence -= DriveAudioToViseme;
+                BasisLocalMicrophoneDriver.OnHasAudio -= DriveAudioToViseme;
+                BasisLocalMicrophoneDriver.OnHasSilence -= DriveAudioToViseme;
                 HasCalibrationEvents = false;
             }
             if (LocalHandDriver != null)
@@ -227,14 +227,14 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 FacialBlinkDriver.OnDestroy();
             }
-            BasisMicrophoneRecorder.OnPausedAction -= OnPausedEvent;
+            BasisLocalMicrophoneDriver.OnPausedAction -= OnPausedEvent;
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
             BasisUILoadingBar.DeInitalize();
         }
         public void DriveAudioToViseme()
         {
-            LocalVisemeDriver.ProcessAudioSamples(BasisMicrophoneRecorder.processBufferArray, 1, BasisMicrophoneRecorder.processBufferArray.Length);
+            LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray, 1, BasisLocalMicrophoneDriver.processBufferArray.Length);
         }
         private void OnPausedEvent(bool IsPaused)
         {

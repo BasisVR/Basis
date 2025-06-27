@@ -36,7 +36,7 @@ namespace Basis.Scripts.BasisSdk.Players
             this.name = DisplayName;
             UUID = PlayerMetaDataMessage.playerUUID;
             IsLocal = false;
-            RemoteBoneDriver.CreateInitialArrays(this.transform, false);
+            RemoteBoneDriver.CreateInitialArrays(false);
             RemoteBoneDriver.InitializeRemote();
             if (HasEvents == false)
             {

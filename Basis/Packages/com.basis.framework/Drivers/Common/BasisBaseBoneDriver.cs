@@ -18,6 +18,8 @@ namespace Basis.Scripts.Drivers
         [SerializeField]
         public BasisBoneTrackedRole[] trackedRoles;
         public bool HasControls = false;
+        public static float DefaultGizmoSize = 0.05f;
+        public static float HandGizmoSize = 0.015f;
         /// <summary>
         /// call this after updating the bone data
         /// </summary>
@@ -88,8 +90,8 @@ namespace Basis.Scripts.Drivers
         }
         public void SimulateWorldDestinations(Matrix4x4 localToWorldMatrix, Quaternion Rotation)
         {
-         //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-          //  Quaternion Rotation = transform.rotation;
+            //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
+            //  Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 // Apply local transform to parent's world transform
@@ -138,7 +140,7 @@ namespace Basis.Scripts.Drivers
             Role = BasisBoneTrackedRole.CenterEye;
             return false;
         }
-        public void CreateInitialArrays(Transform Parent, bool IsLocal)
+        public void CreateInitialArrays(bool IsLocal)
         {
             trackedRoles = new BasisBoneTrackedRole[] { };
             Controls = new BasisBoneControl[] { };
@@ -156,13 +158,13 @@ namespace Basis.Scripts.Drivers
             List<BasisBoneTrackedRole> Roles = new List<BasisBoneTrackedRole>();
             for (int Index = 0; Index < Length; Index++)
             {
-                SetupRole(Index, Parent, Colors[Index], out BasisBoneControl Control, out BasisBoneTrackedRole Role);
+                SetupRole(Index, Colors[Index], out BasisBoneControl Control, out BasisBoneTrackedRole Role);
                 newControls.Add(Control);
                 Roles.Add(Role);
             }
             if (IsLocal == false)
             {
-                SetupRole(22, Parent, Color.blue, out BasisBoneControl Control, out BasisBoneTrackedRole Role);
+                SetupRole(22, Color.blue, out BasisBoneControl Control, out BasisBoneTrackedRole Role);
                 newControls.Add(Control);
                 Roles.Add(Role);
             }
@@ -170,7 +172,7 @@ namespace Basis.Scripts.Drivers
             HasControls = true;
             InitializeGizmos();
         }
-        public void SetupRole(int Index, Transform Parent, Color Color, out BasisBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
+        public void SetupRole(int Index, Color Color, out BasisBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
         {
             role = (BasisBoneTrackedRole)Index;
             BasisBoneControl = new BasisBoneControl();
@@ -249,16 +251,10 @@ namespace Basis.Scripts.Drivers
             addToBone.LerpAmount = positional;
             addToBone.HasTarget = target != null;
         }
-        public static Vector3 ConvertToAvatarSpaceInitial(Animator animator, Vector3 WorldSpace)// out Vector3 FloorPosition
+        public static Vector3 ConvertToAvatarSpaceInitial(Transform Transform, Vector3 WorldSpace)// out Vector3 FloorPosition
         {
-            return BasisHelpers.ConvertToLocalSpace(WorldSpace, animator.transform.position);
+            return BasisHelpers.ConvertToLocalSpace(WorldSpace, Transform.position);
         }
-        public static Vector3 ConvertToWorldSpace(Vector3 WorldSpace, Vector3 LocalSpace)
-        {
-            return BasisHelpers.ConvertFromLocalSpace(LocalSpace, WorldSpace);
-        }
-        public static float DefaultGizmoSize = 0.05f;
-        public static float HandGizmoSize = 0.015f;
         public void DrawGizmos(BasisBoneControl Control)
         {
             if (Control.HasBone)
@@ -271,7 +267,7 @@ namespace Basis.Scripts.Drivers
                         BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
                     }
                 }
-                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindTrackedRole(Control, out BasisBoneTrackedRole Role))
+                if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
                 {
                     if (Role == BasisBoneTrackedRole.CenterEye)
                     {
@@ -288,7 +284,7 @@ namespace Basis.Scripts.Drivers
                 }
                 if (BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentlyTposing)
                 {
-                    if (BasisLocalPlayer.Instance.LocalBoneDriver.FindTrackedRole(Control, out BasisBoneTrackedRole role))
+                    if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
                     {
                         if (Role == BasisBoneTrackedRole.CenterEye)
                         {
@@ -313,66 +309,6 @@ namespace Basis.Scripts.Drivers
                             }
                         }
                     }
-                }
-            }
-        }
-        public class OrderedDelegate
-        {
-            private struct Entry
-            {
-                public int Priority;
-                public Action Action;
-
-                public Entry(int priority, Action action)
-                {
-                    Priority = priority;
-                    Action = action;
-                }
-            }
-
-            private readonly List<Entry> entries = new List<Entry>();
-            private List<int> executionOrder = new List<int>();
-            public int Count { get; private set; }
-
-            public void AddAction(int priority, Action action)
-            {
-                entries.Add(new Entry(priority, action));
-                RebuildExecutionOrder();
-                Count = executionOrder.Count;
-            }
-
-            public void RemoveAction(int priority, Action action)
-            {
-                for (int i = entries.Count - 1; i >= 0; i--)
-                {
-                    if (entries[i].Priority == priority && entries[i].Action == action)
-                    {
-                    //    BasisDebug.Log("removing Action at " + priority);
-                        entries.RemoveAt(i);
-                        RebuildExecutionOrder();
-                        Count = executionOrder.Count;
-                        return;
-                    }
-                }
-            }
-
-            private void RebuildExecutionOrder()
-            {
-                executionOrder.Clear();
-                for (int i = 0; i < entries.Count; i++)
-                {
-                    executionOrder.Add(i);
-                }
-
-                executionOrder.Sort((a, b) => entries[a].Priority.CompareTo(entries[b].Priority));
-            }
-
-            public void Invoke()
-            {
-                for (int Index = 0; Index < Count; Index++)
-                {
-                    int index = executionOrder[Index];
-                    entries[index].Action?.Invoke();
                 }
             }
         }

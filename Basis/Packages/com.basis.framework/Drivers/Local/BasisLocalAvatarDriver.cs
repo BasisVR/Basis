@@ -192,7 +192,7 @@ namespace Basis.Scripts.Drivers
             BasisLocalPlayer.Instance.LocalBoneDriver.RemoveAllListeners();
             BasisLocalPlayer.Instance.LocalEyeDriver.Initalize(this, player);
             SetMatrixOverride();
-            updateWhenOffscreen(true);
+            UpdateWhenOffscreen(true);
             if (References.Hashead)
             {
                 HeadScale = References.head.localScale;

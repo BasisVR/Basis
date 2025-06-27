@@ -133,11 +133,11 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisDebug.Log("using Local Asset Bundle or Addressable", BasisDebug.LogTag.Networking);
                 if (BundledContentHolder.Instance.UseAddressablesToLoadScene)
                 {
-                    await BasisSceneLoadDriver.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
+                    await BasisSceneLoad.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
                 }
                 else
                 {
-                    await BasisSceneLoadDriver.LoadSceneAssetBundle(BundledContentHolder.Instance.DefaultScene);
+                    await BasisSceneLoad.LoadSceneAssetBundle(BundledContentHolder.Instance.DefaultScene);
                 }
             }
         }

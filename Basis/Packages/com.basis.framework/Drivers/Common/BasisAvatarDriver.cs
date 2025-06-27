@@ -14,6 +14,18 @@ namespace Basis.Scripts.Drivers
     [System.Serializable]
     public abstract class BasisAvatarDriver
     {
+        private const string TPose = "Assets/Animator/Animated TPose.controller";
+        public Action CalibrationComplete;
+        public Action TposeStateChange;
+        [SerializeField]
+        public BasisTransformMapping References = new BasisTransformMapping();
+        public RuntimeAnimatorController SavedruntimeAnimatorController;
+        public SkinnedMeshRenderer[] SkinnedMeshRenderer;
+        public BasisPlayer Player;
+        public bool CurrentlyTposing = false;
+        public bool HasEvents = false;
+        public List<int> ActiveMatrixOverrides = new List<int>();
+        public int SkinnedMeshRendererLength;
         public float ActiveAvatarEyeHeight()
         {
             if (BasisLocalPlayer.Instance.BasisAvatar != null)
@@ -25,17 +37,6 @@ namespace Basis.Scripts.Drivers
                 return BasisLocalPlayer.FallbackSize;
             }
         }
-        private static string TPose = "Assets/Animator/Animated TPose.controller";
-        public Action CalibrationComplete;
-        public Action TposeStateChange;
-        [SerializeField]
-        public BasisTransformMapping References = new BasisTransformMapping();
-        public RuntimeAnimatorController SavedruntimeAnimatorController;
-        public SkinnedMeshRenderer[] SkinnedMeshRenderer;
-        public BasisPlayer Player;
-        public bool CurrentlyTposing = false;
-        public bool HasEvents = false;
-        public List<int> ActiveMatrixOverrides = new List<int>();
         public void TryActiveMatrixOverride(int InstanceID)
         {
             if (ActiveMatrixOverrides.Contains(InstanceID) == false)
@@ -118,22 +119,6 @@ namespace Basis.Scripts.Drivers
             SavedruntimeAnimatorController = null;
             CurrentlyTposing = false;
             TposeStateChange?.Invoke();
-        }
-        public Bounds GetBounds(Transform animatorParent)
-        {
-            // Get all renderers in the parent GameObject
-            Renderer[] renderers = animatorParent.GetComponentsInChildren<Renderer>();
-            int length = renderers.Length;
-            if (length == 0)
-            {
-                return new Bounds(Vector3.zero, new Vector3(0.3f, BasisLocalPlayer.FallbackSize, 0.3f));
-            }
-            Bounds bounds = renderers[0].bounds;
-            for (int Index = 1; Index < length; Index++)
-            {
-                bounds.Encapsulate(renderers[Index].bounds);
-            }
-            return bounds;
         }
         public static bool TryConvertToBoneTrackingRole(HumanBodyBones body, out BasisBoneTrackedRole result)
         {
@@ -301,20 +286,21 @@ namespace Basis.Scripts.Drivers
         public void CalculateTransformPositions(BasisPlayer BasisPlayer, BasisBaseBoneDriver driver)
         {
             //  BasisDebug.Log("CalculateTransformPositions", BasisDebug.LogTag.Avatar);
+            Transform Transform = BasisPlayer.BasisAvatar.Animator.transform;
             for (int Index = 0; Index < driver.ControlsLength; Index++)
             {
                 BasisBoneControl Control = driver.Controls[Index];
                 if (driver.trackedRoles[Index] == BasisBoneTrackedRole.CenterEye)
                 {
                     GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarEyePosition, out float3 TposeWorld);
-                    SetInitialData(BasisPlayer.BasisAvatar.Animator, Control, driver.trackedRoles[Index], TposeWorld);
+                    SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
                 }
                 else
                 {
                     if (driver.trackedRoles[Index] == BasisBoneTrackedRole.Mouth)
                     {
                         GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarMouthPosition, out float3 TposeWorld);
-                        SetInitialData(BasisPlayer.BasisAvatar.Animator, Control, driver.trackedRoles[Index], TposeWorld);
+                        SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
                     }
                     else
                     {
@@ -323,7 +309,7 @@ namespace Basis.Scripts.Drivers
                             if (TryConvertToHumanoidRole(driver.trackedRoles[Index], out HumanBodyBones HumanBones))
                             {
                                 GetBoneRotAndPos(BasisPlayer.transform, BasisPlayer.BasisAvatar.Animator, HumanBones, FallBackBone.PositionPercentage, out quaternion Rotation, out float3 TposeWorld, out bool UsedFallback);
-                                SetInitialData(BasisPlayer.BasisAvatar.Animator, Control, driver.trackedRoles[Index], TposeWorld);
+                                SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
                             }
                             else
                             {
@@ -337,10 +323,6 @@ namespace Basis.Scripts.Drivers
                     }
                 }
             }
-        }
-        public bool GetBonePositionRotation(Animator anim, HumanBodyBones bone)
-        {
-           return anim.GetBoneTransform(bone);
         }
         public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
         {
@@ -405,13 +387,11 @@ namespace Basis.Scripts.Drivers
                 return false;
             }
         }
-        public void SetInitialData(Animator animator, BasisBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
+        public void SetInitialData(Transform Transform, BasisBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
         {
-            bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(animator, WorldTpose);//out Vector3 WorldSpaceFloor
+            bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(Transform, WorldTpose);
             bone.TposeLocal.position = bone.OutGoingData.position;
             bone.TposeLocal.rotation = bone.OutGoingData.rotation;
-
-
             if (IsApartOfSpineVertical(Role))
             {
                 bone.OutGoingData.position = new Vector3(0, bone.OutGoingData.position.y, bone.OutGoingData.position.z);
@@ -421,15 +401,13 @@ namespace Basis.Scripts.Drivers
             {
                 bone.TposeLocal.rotation = quaternion.identity;
             }
-            //we dont want to touch scale until later, but we dump in the tpose data so its all consitent
-            bone.TposeLocalScaled.position = bone.TposeLocal.position;//BasisLocalPlayer.Instance.LocalAvatarDriver.ScaleAvatarModification.FinalScale
+            bone.TposeLocalScaled.position = bone.TposeLocal.position;
             bone.TposeLocalScaled.rotation = bone.TposeLocal.rotation;
         }
         public void SetAndCreateLock(BasisBaseBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
         {
             if (CreateLocks)
             {
-
                 if (BaseBoneDriver.FindBone(out BasisBoneControl AssignedToAddToBone, AssignedTo) == false)
                 {
                     BasisDebug.LogError("Cant Find Bone " + AssignedTo);
@@ -441,7 +419,6 @@ namespace Basis.Scripts.Drivers
                 BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
             }
         }
-        public int SkinnedMeshRendererLength;
         public void FindSkinnedMeshRenders()
         {
             SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
@@ -456,7 +433,7 @@ namespace Basis.Scripts.Drivers
             }
             //  BasisDebug.Log($"Matrix ReCalculation State set to {State}");
         }
-        public void updateWhenOffscreen(bool State)
+        public void UpdateWhenOffscreen(bool State)
         {
             for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
             {

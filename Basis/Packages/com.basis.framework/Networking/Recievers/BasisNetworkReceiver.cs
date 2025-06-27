@@ -138,7 +138,6 @@ namespace Basis.Scripts.Networking.Receivers
                     if (ReadyState)
                     {
                         PoseHandler.SetHumanPose(ref HumanPose);
-                        RemotePlayer.
                     }
                     else
                     {

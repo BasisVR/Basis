@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 public class BasisOpenXRHeadInput : BasisInput
 {
     public BasisOpenXRInputEye BasisOpenXRInputEye;
-    public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();
+    public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
     public InputActionProperty Position;
     public InputActionProperty Rotation;
 
