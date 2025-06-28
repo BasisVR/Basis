@@ -1,11 +1,6 @@
 fileFormatVersion: 2
-<<<<<<<< HEAD:Basis/Packages/com.basis.framework.editor/package.json.meta
-guid: 833464b103798324bb516e4e6aa20e59
-PackageManifestImporter:
-========
-guid: 031b3051f02b4b245a28c7257eb279fe
+guid: 6832037950d5dd04db401ac1de31e0b7
 TextScriptImporter:
->>>>>>>> doolys-branch:Basis/Assets/AddressableAssetsData/link.xml.meta
   externalObjects: {}
   userData: 
   assetBundleName: 
