@@ -30,6 +30,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.framework.editor": {
+      "version": "file:com.basis.framework.editor",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.gizmos": {
       "version": "file:com.basis.gizmos",
       "depth": 0,
