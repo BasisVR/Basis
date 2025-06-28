@@ -1647,7 +1647,7 @@ MonoBehaviour:
       DefaultPlatform: 0
       ExcludePlatform: 0
       ValueToggle: 0
-      EditorVisable: 1
+      EditorVisable: 0
     SupportedRenderPipeline: 030000000400000000000000
     Round: 1
     RoundTo: 0
@@ -2057,7 +2057,7 @@ MonoBehaviour:
       DefaultPlatform: 0
       ExcludePlatform: 0
       ValueToggle: 0
-      EditorVisable: 1
+      EditorVisable: 0
     SupportedRenderPipeline: 030000000400000000000000
     Round: 0
     RoundTo: 0
@@ -2694,6 +2694,8 @@ MonoBehaviour:
   - Chest
   - Camera
   - Keyboard
+  LeftHand: {fileID: 0}
+  RightHand: {fileID: 0}
   trackerscount: 0
 --- !u!114 &508802122937325065
 MonoBehaviour:

@@ -240,74 +240,33 @@ MonoBehaviour:
         x: 0
         y: 0
         z: 0
+      ScaledOffset:
+        x: 0
+        y: 0
+        z: 0
       LerpAmount: 0
       OutGoingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
       LastRunData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
       TposeLocal:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
+      TposeLocalScaled:
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
       InverseOffsetFromBone:
         Use: 0
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
       IncomingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
       OutgoingWorldData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
       GizmoReference: -1
       HasGizmo: 0
       TposeGizmoReference: -1
@@ -431,11 +390,7 @@ MonoBehaviour:
     - 0
     UshortArray: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
     UnClampedInterval: 0
-    DefaultInterval: 0.033333335
-    BaseMultiplier: 1
-    IncreaseRate: 0.0075
     IndexLength: -1
-    SlowestSendRate: 2.5
     MicrophoneRangeIndex: 
     LastMicrophoneRangeIndex: 
     HearingIndex: 
@@ -452,7 +407,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 6628459906978635983}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 161554c19f252554381f719b6d345b97, type: 3}
+  m_Script: {fileID: 11500000, guid: 2a9a5b2b27c8d764187201bb321b6985, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   NormalColor: {r: 0.25490198, g: 0.25490198, b: 0.25490198, a: 0.4509804}

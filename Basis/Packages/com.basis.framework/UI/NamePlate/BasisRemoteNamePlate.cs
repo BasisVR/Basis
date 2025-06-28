@@ -36,7 +36,7 @@ namespace Basis.Scripts.UI.NamePlate
         /// <param name="basisRemotePlayer"></param>
         public void Initalize(BasisBoneControl hipTarget, BasisRemotePlayer basisRemotePlayer)
         {
-            cachedReturnDelay = new WaitForSeconds(RemoteNamePlateDriver.returnDelay);
+            cachedReturnDelay = new WaitForSeconds(BasisRemoteNamePlateDriver.returnDelay);
             cachedEndOfFrame = new WaitForEndOfFrame();
             BasisRemotePlayer = basisRemotePlayer;
             HipTarget = hipTarget;
@@ -47,8 +47,8 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer.OnAvatarSwitched += RebuildRenderCheck;
             BasisRemotePlayer.OnAvatarSwitchedFallBack += RebuildRenderCheck;
             Self = this.transform;
-            RemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
-            RemoteNamePlateDriver.Instance.AddNamePlate(this);
+            BasisRemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
+            BasisRemoteNamePlateDriver.Instance.AddNamePlate(this);
             LoadingText.enableVertexGradient = false;
 
         }
@@ -95,8 +95,8 @@ namespace Basis.Scripts.UI.NamePlate
             if (IsVisible)
             {
                 Color targetColor = BasisRemotePlayer.OutOfRangeFromLocal
-                    ? hasRealAudio ? RemoteNamePlateDriver.StaticOutOfRangeColor : RemoteNamePlateDriver.StaticNormalColor
-                    : hasRealAudio ? RemoteNamePlateDriver.StaticIsTalkingColor : RemoteNamePlateDriver.StaticNormalColor;
+                    ? hasRealAudio ? BasisRemoteNamePlateDriver.StaticOutOfRangeColor : BasisRemoteNamePlateDriver.StaticNormalColor
+                    : hasRealAudio ? BasisRemoteNamePlateDriver.StaticIsTalkingColor : BasisRemoteNamePlateDriver.StaticNormalColor;
                 BasisNetworkManagement.MainThreadContext.Post(_ =>
                 {
                     if (this != null)
@@ -121,10 +121,10 @@ namespace Basis.Scripts.UI.NamePlate
             CurrentColor = Renderer.sharedMaterials[0].color;
             float elapsedTime = 0f;
 
-            while (elapsedTime < RemoteNamePlateDriver.transitionDuration)
+            while (elapsedTime < BasisRemoteNamePlateDriver.transitionDuration)
             {
                 elapsedTime += Time.deltaTime;
-                float lerpProgress = Mathf.Clamp01(elapsedTime / RemoteNamePlateDriver.transitionDuration);
+                float lerpProgress = Mathf.Clamp01(elapsedTime / BasisRemoteNamePlateDriver.transitionDuration);
                 Renderer.materials[0].color = Color.Lerp(CurrentColor, targetColor, lerpProgress);
                 yield return cachedEndOfFrame;
             }
@@ -143,7 +143,7 @@ namespace Basis.Scripts.UI.NamePlate
         private IEnumerator DelayedReturnToNormal()
         {
             yield return cachedReturnDelay;
-            yield return StartCoroutine(TransitionColor(RemoteNamePlateDriver.StaticNormalColor));
+            yield return StartCoroutine(TransitionColor(BasisRemoteNamePlateDriver.StaticNormalColor));
             returnToNormalCoroutine = null;
         }
         public new void OnDestroy()
@@ -151,7 +151,7 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
             BasisRemotePlayer.AudioReceived -= OnAudioReceived;
             DeInitalizeCallToRender();
-            RemoteNamePlateDriver.Instance.RemoveNamePlate(this);
+            BasisRemoteNamePlateDriver.Instance.RemoveNamePlate(this);
             base.OnDestroy();
         }
         public void DeInitalizeCallToRender()

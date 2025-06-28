@@ -7,12 +7,12 @@ using UnityEngine;
 
 namespace Basis.Scripts.UI.NamePlate
 {
-    public class RemoteNamePlateDriver : MonoBehaviour
+    public class BasisRemoteNamePlateDriver : MonoBehaviour
     {
         // Use an array for better performance
         private static BasisRemoteNamePlate[] RemoteNamePlates = new BasisRemoteNamePlate[0];
         private static int count = 0; // Track the number of active elements
-        public static RemoteNamePlateDriver Instance;
+        public static BasisRemoteNamePlateDriver Instance;
         public Color NormalColor;
         public Color IsTalkingColor;
         public Color OutOfRangeColor;
@@ -31,7 +31,9 @@ namespace Basis.Scripts.UI.NamePlate
         public TextMeshPro Text;
         public Material TransParentNamePlateMaterial;
         public Material OpaqueNamePlateMaterial;
+        [HideInInspector]
         public Material SelectedNamePlateMaterial;
+        [HideInInspector]
         public Mesh RoundedCornersMesh;
         public void Awake()
         {

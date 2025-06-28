@@ -123,11 +123,16 @@ public static class BasisLocalMicrophoneDriver
         }
         if (!Microphone.devices.Contains(newMicrophone))
         {
-            BasisDebug.LogError("Microphone " + newMicrophone + " not found!");
+            //   BasisDebug.LogError("Microphone " + newMicrophone + " not found!");
             if (Microphone.devices.Length != 0)
             {
                 newMicrophone = Microphone.devices[0];
                 BasisDebug.LogError("Falling Back To Microphone " + newMicrophone);
+            }
+            else
+            {
+                BasisDebug.LogError("Microphone " + newMicrophone + " not found! and Alternative not found");
+                return;
             }
         }
         bool isRecording = Microphone.IsRecording(newMicrophone);
