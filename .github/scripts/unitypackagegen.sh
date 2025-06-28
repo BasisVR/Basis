@@ -18,9 +18,10 @@ if [[ "$1" == "full" ]]; then
 
   # Need this for framework (But only framework)
   SUBFOLDERS+=":Packages/com.basis.framework:
+              Packages/com.basis.framework.editor:
               Packages/com.basis.settingsmanager:
               Packages/com.basis.gizmos:
-               Packages/com.basis.console:
+              Packages/com.basis.console:
               Packages/com.basis.visualtrackers:
               Packages/com.basis.addressables:
               Packages/com.steam.steamvr:
