@@ -1,12 +1,10 @@
 using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using OpusSharp.Core;
 using OpusSharp.Core.Extensions;
-using SteamAudio;
 using System;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -17,7 +15,6 @@ namespace Basis.Scripts.Networking.Receivers
     public class BasisAudioReceiver
     {
         public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
-        public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
         [SerializeField]
         public AudioSource audioSource;
         [SerializeField]
@@ -34,6 +31,8 @@ namespace Basis.Scripts.Networking.Receivers
         public BasisNetworkPlayer BasisNetworkPlayer;
         //everything can safely share the same silent data as we only copy it.
         public static float[] silentData;
+
+        public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
         public void OnDecode(byte[] data, int length)
         {
             if (HasTransform)//only process the audio if we actually need it!
@@ -58,6 +57,7 @@ namespace Basis.Scripts.Networking.Receivers
                 GameObject LoadableAudioSource = Loadable.WaitForCompletion();
                 GameObject ActualAudio = GameObject.Instantiate(LoadableAudioSource,BasisDeviceManagement.Instance.transform);
                 AudioSourceTransform = ActualAudio.transform;
+                AudioSourceTransform.name = $"[Audio] {BasisNetworkPlayer.Player.DisplayName}";
                 HasTransform = true;
                 if (audioSource == null)
                 {
