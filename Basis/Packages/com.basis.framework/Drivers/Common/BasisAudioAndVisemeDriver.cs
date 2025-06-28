@@ -1,10 +1,7 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
-using UnityEngine;
 using uLipSync;
 using System.Collections.Generic;
-using UnityEngine.AddressableAssets;
-using UnityEngine.ResourceManagement.AsyncOperations;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 namespace Basis.Scripts.Drivers
@@ -20,7 +17,6 @@ namespace Basis.Scripts.Drivers
         public uLipSync.uLipSync uLipSync;
         public uLipSyncBlendShape uLipSyncBlendShape;
         public List<BasisPhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<BasisPhonemeBlendShapeInfo>();
-        private uLipSync.Profile profile;
         public bool FirstTime = false;
         public bool WasSuccessful;
         public int HashInstanceID = -1;
