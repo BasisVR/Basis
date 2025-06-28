@@ -25,7 +25,8 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisNetworkReceiver NetworkReceiver;
         [Header("Name Plate")]
         [SerializeField]
-        public BasisRemoteNamePlate RemoteNamePlate;
+        public BasisRemoteNamePlate RemoteNamePlate = null;
+        public bool HasRemoteNamePlate = false;
         public bool HasEvents = false;
         public bool OutOfRangeFromLocal = false;
         public ClientAvatarChangeMessage CACM;

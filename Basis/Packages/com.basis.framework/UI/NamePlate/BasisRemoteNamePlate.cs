@@ -1,12 +1,16 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
 using BattlePhaze.SettingsManager.Intergrations;
+using System;
 using System.Collections;
 using TMPro;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.UIElements;
 namespace Basis.Scripts.UI.NamePlate
 {
     public class BasisRemoteNamePlate : InteractableObject
@@ -42,13 +46,13 @@ namespace Basis.Scripts.UI.NamePlate
             HipTarget = hipTarget;
             MouthTarget = BasisRemotePlayer.RemoteBoneDriver.Mouth;
             BasisRemotePlayer.RemoteNamePlate = this;
+            BasisRemotePlayer.HasRemoteNamePlate = true;
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
             BasisRemotePlayer.AudioReceived += OnAudioReceived;
             BasisRemotePlayer.OnAvatarSwitched += RebuildRenderCheck;
             BasisRemotePlayer.OnAvatarSwitchedFallBack += RebuildRenderCheck;
             Self = this.transform;
             BasisRemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
-            BasisRemoteNamePlateDriver.Instance.AddNamePlate(this);
             LoadingText.enableVertexGradient = false;
 
         }
@@ -151,7 +155,6 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
             BasisRemotePlayer.AudioReceived -= OnAudioReceived;
             DeInitalizeCallToRender();
-            BasisRemoteNamePlateDriver.Instance.RemoveNamePlate(this);
             base.OnDestroy();
         }
         public void DeInitalizeCallToRender()
@@ -312,6 +315,21 @@ namespace Basis.Scripts.UI.NamePlate
         {
             // click or mostly triggered
             return input.CurrentInputState.Trigger >= 0.9;
+        }
+        public static float x;
+        public static float z;
+        public static Vector3 dirToCamera;
+        public static Vector3 cachedDirection;
+        public static Quaternion cachedRotation;
+        public static float YHeightMultiplier = 1.25f;
+        public void Simulate()
+        {
+            Vector3 Position = BasisLocalCameraDriver.Position;
+            cachedDirection = HipTarget.OutGoingData.position;
+            cachedDirection.y += MouthTarget.TposeLocalScaled.position.y / YHeightMultiplier;
+            dirToCamera = Position - cachedDirection;
+            cachedRotation = Quaternion.Euler(x, math.atan2(dirToCamera.x, dirToCamera.z) * Mathf.Rad2Deg, z);
+            Self.SetPositionAndRotation(cachedDirection, cachedRotation);
         }
     }
 }

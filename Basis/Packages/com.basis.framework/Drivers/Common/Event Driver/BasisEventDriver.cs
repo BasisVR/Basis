@@ -57,7 +57,6 @@ public class BasisEventDriver : MonoBehaviour
         }
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
         BasisNetworkManagement.SimulateNetworkApply();
-        BasisRemoteNamePlateDriver.SimulateNamePlates();
     }
     private void OnBeforeRender()
     {

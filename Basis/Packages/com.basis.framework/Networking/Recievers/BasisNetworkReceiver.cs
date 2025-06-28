@@ -148,6 +148,10 @@ namespace Basis.Scripts.Networking.Receivers
                     }
                     RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(Scale);
                     AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
+                    if (RemotePlayer.HasRemoteNamePlate)
+                    {
+                        RemotePlayer.RemoteNamePlate.Simulate();
+                    }
                 }
                 if (interpolationTime >= 1 && PayloadQueue.TryDequeue(out BasisAvatarBuffer result))
                 {
