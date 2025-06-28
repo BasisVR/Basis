@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
+using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -15,6 +16,7 @@ namespace Basis.Scripts.Networking.Receivers
     [System.Serializable]
     public class BasisNetworkReceiver : BasisNetworkPlayer
     {
+        public BasisRemoteBoneControl MouthBone;
         public ushort[] CopyData = new ushort[LocalAvatarSyncMessage.StoredBones];
         [SerializeField]
         public BasisAudioReceiver AudioReceiverModule = new BasisAudioReceiver();
@@ -146,7 +148,7 @@ namespace Basis.Scripts.Networking.Receivers
 
                     RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(RemotePlayer);
                     RemotePlayer.RemoteBoneDriver.CalculateBoneData();
-                    AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutgoingWorldData);
+                    AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
                 }
                 if (interpolationTime >= 1 && PayloadQueue.TryDequeue(out BasisAvatarBuffer result))
                 {

@@ -11,8 +11,8 @@ namespace Basis.Scripts.UI.NamePlate
 {
     public class BasisRemoteNamePlate : InteractableObject
     {
-        public BasisBoneControl HipTarget;
-        public BasisBoneControl MouthTarget;
+        public BasisRemoteBoneControl HipTarget;
+        public BasisRemoteBoneControl MouthTarget;
         public SpriteRenderer LoadingBar;
         public MeshFilter Filter;
         public TextMeshPro LoadingText;
@@ -34,7 +34,7 @@ namespace Basis.Scripts.UI.NamePlate
         /// </summary>
         /// <param name="hipTarget"></param>
         /// <param name="basisRemotePlayer"></param>
-        public void Initalize(BasisBoneControl hipTarget, BasisRemotePlayer basisRemotePlayer)
+        public void Initalize(BasisRemoteBoneControl hipTarget, BasisRemotePlayer basisRemotePlayer)
         {
             cachedReturnDelay = new WaitForSeconds(BasisRemoteNamePlateDriver.returnDelay);
             cachedEndOfFrame = new WaitForEndOfFrame();

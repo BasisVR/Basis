@@ -55,7 +55,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         #endregion
         #region Player Change Callbacks
-        public BasisBoneControl hand;
+        public BasisLocalBoneControl hand;
         private void OnLocalPlayerGenerated()
         {
             BasisLocalPlayer.OnLocalAvatarChanged += UpdateDelayedSetUI;

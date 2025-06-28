@@ -5,22 +5,22 @@ using UnityEngine;
 [System.Serializable]
 public class BasisLocalVirtualSpineDriver
 {
-    [SerializeField] public BasisBoneControl CenterEye;
-    [SerializeField] public BasisBoneControl Head;
-    [SerializeField] public BasisBoneControl Neck;
-    [SerializeField] public BasisBoneControl Chest;
-    [SerializeField] public BasisBoneControl Spine;
-    [SerializeField] public BasisBoneControl Hips;
-    [SerializeField] public BasisBoneControl RightShoulder;
-    [SerializeField] public BasisBoneControl LeftShoulder;
-    [SerializeField] public BasisBoneControl LeftLowerArm;
-    [SerializeField] public BasisBoneControl RightLowerArm;
-    [SerializeField] public BasisBoneControl LeftLowerLeg;
-    [SerializeField] public BasisBoneControl RightLowerLeg;
-    [SerializeField] public BasisBoneControl LeftHand;
-    [SerializeField] public BasisBoneControl RightHand;
-    [SerializeField] public BasisBoneControl LeftFoot;
-    [SerializeField] public BasisBoneControl RightFoot;
+    [SerializeField] public BasisLocalBoneControl CenterEye;
+    [SerializeField] public BasisLocalBoneControl Head;
+    [SerializeField] public BasisLocalBoneControl Neck;
+    [SerializeField] public BasisLocalBoneControl Chest;
+    [SerializeField] public BasisLocalBoneControl Spine;
+    [SerializeField] public BasisLocalBoneControl Hips;
+    [SerializeField] public BasisLocalBoneControl RightShoulder;
+    [SerializeField] public BasisLocalBoneControl LeftShoulder;
+    [SerializeField] public BasisLocalBoneControl LeftLowerArm;
+    [SerializeField] public BasisLocalBoneControl RightLowerArm;
+    [SerializeField] public BasisLocalBoneControl LeftLowerLeg;
+    [SerializeField] public BasisLocalBoneControl RightLowerLeg;
+    [SerializeField] public BasisLocalBoneControl LeftHand;
+    [SerializeField] public BasisLocalBoneControl RightHand;
+    [SerializeField] public BasisLocalBoneControl LeftFoot;
+    [SerializeField] public BasisLocalBoneControl RightFoot;
     public float NeckRotationSpeed = 40;
     public float ChestRotationSpeed = 25;
     public float SpineRotationSpeed = 30;
@@ -52,7 +52,7 @@ public class BasisLocalVirtualSpineDriver
         BasisLocalPlayer.Instance.OnPreSimulateBones += OnSimulateHead;
     }
 
-    private void TryAssignBone(BasisBoneTrackedRole role, out BasisBoneControl bone, bool hasVirtualOverride)
+    private void TryAssignBone(BasisBoneTrackedRole role, out BasisLocalBoneControl bone, bool hasVirtualOverride)
     {
         var boneDriver = BasisLocalPlayer.Instance.LocalBoneDriver;
         if (boneDriver.FindBone(out bone, role) && hasVirtualOverride)
@@ -110,7 +110,7 @@ public class BasisLocalVirtualSpineDriver
         ApplyPositionControl(Spine);
         ApplyPositionControl(Hips);
     }
-    private void ApplyPositionControl(BasisBoneControl boneControl)
+    private void ApplyPositionControl(BasisLocalBoneControl boneControl)
     {
 
         Quaternion targetRotation = boneControl.Target.OutGoingData.rotation;

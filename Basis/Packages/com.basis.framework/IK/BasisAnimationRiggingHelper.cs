@@ -13,7 +13,7 @@ public static class BasisAnimationRiggingHelper
     }
     public static BasisApplyTranslation Damp(BasisLocalAvatarDriver AvatarDriver, BasisLocalBoneDriver driver, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
     {
-        driver.FindBone(out BasisBoneControl Target, Role);
+        driver.FindBone(out BasisLocalBoneControl Target, Role);
         GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
         BasisApplyTranslation DT = BasisHelpers.GetOrAddComponent<BasisApplyTranslation>(DTData);
 
@@ -24,8 +24,8 @@ public static class BasisAnimationRiggingHelper
     }
     public static void TwistChain(BasisLocalBoneDriver driver, GameObject Parent, Transform root, Transform tip, BasisBoneTrackedRole Root, BasisBoneTrackedRole Tip, float rotationWeight = 1, float positionWeight = 1)
     {
-        driver.FindBone(out BasisBoneControl RootTarget, Root);
-        driver.FindBone(out BasisBoneControl TipTarget, Tip);
+        driver.FindBone(out BasisLocalBoneControl RootTarget, Root);
+        driver.FindBone(out BasisLocalBoneControl TipTarget, Tip);
         GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Root.ToString()}");
         TwistChainConstraint DT = BasisHelpers.GetOrAddComponent<TwistChainConstraint>(DTData);
         Keyframe[] Frame = new Keyframe[2];
@@ -41,7 +41,7 @@ public static class BasisAnimationRiggingHelper
     }
     public static void CreateTwoBone(BasisLocalAvatarDriver AvatarDriver, BasisLocalBoneDriver driver, GameObject Parent, Transform root, Transform mid, Transform tip, BasisBoneTrackedRole TargetRole, BasisBoneTrackedRole BendRole, bool UseBoneRole, out BasisTwoBoneIKConstraint TwoBoneIKConstraint, bool maintainTargetPositionOffset, bool maintainTargetRotationOffset)
     {
-        driver.FindBone(out BasisBoneControl TargetControl, TargetRole);
+        driver.FindBone(out BasisLocalBoneControl TargetControl, TargetRole);
 
 
         GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole.ToString()}");
@@ -56,7 +56,7 @@ public static class BasisAnimationRiggingHelper
         TwoBoneIKConstraint.data.TargetRotation = Rotation.eulerAngles;
         if (UseBoneRole)
         {
-            if (driver.FindBone(out BasisBoneControl HintControl, BendRole))
+            if (driver.FindBone(out BasisLocalBoneControl HintControl, BendRole))
             {
                 Quaternion HintRotation = HintControl.OutgoingWorldData.rotation;
                 TwoBoneIKConstraint.data.HintPosition = HintControl.OutgoingWorldData.position;
@@ -70,7 +70,7 @@ public static class BasisAnimationRiggingHelper
     }
     public static void CreateTwoBoneHand(BasisLocalAvatarDriver AvatarDriver, BasisLocalBoneDriver driver, GameObject Parent, Transform root, Transform mid, Transform tip, BasisBoneTrackedRole TargetRole, BasisBoneTrackedRole BendRole, bool UseBoneRole, out BasisTwoBoneIKConstraintHand TwoBoneIKConstraint, bool maintainTargetPositionOffset, bool maintainTargetRotationOffset)
     {
-        driver.FindBone(out BasisBoneControl TargetControl, TargetRole);
+        driver.FindBone(out BasisLocalBoneControl TargetControl, TargetRole);
 
 
         GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole.ToString()}");
@@ -80,7 +80,7 @@ public static class BasisAnimationRiggingHelper
         TwoBoneIKConstraint.data.TargetRotation = Rotation.eulerAngles;
         if (UseBoneRole)
         {
-            if (driver.FindBone(out BasisBoneControl HintControl, BendRole))
+            if (driver.FindBone(out BasisLocalBoneControl HintControl, BendRole))
             {
                 Quaternion HintRotation = HintControl.OutgoingWorldData.rotation;
                 TwoBoneIKConstraint.data.HintPosition = HintControl.OutgoingWorldData.position;
@@ -92,7 +92,7 @@ public static class BasisAnimationRiggingHelper
         TwoBoneIKConstraint.data.tip = tip;
         GeneratedRequiredTransforms(AvatarDriver, tip);
     }
-    public static void WriteUpWeights(BasisBoneControl Control, BasisApplyTranslation Constraint)
+    public static void WriteUpWeights(BasisLocalBoneControl Control, BasisApplyTranslation Constraint)
     {
         Control.WeightsChanged += (delegate (float positionWeight, float rotationWeight)
         {

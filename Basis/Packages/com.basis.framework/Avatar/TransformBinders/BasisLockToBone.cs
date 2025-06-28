@@ -9,7 +9,7 @@ namespace Basis.Scripts.TransformBinders
     {
         public BasisLocalPlayer BasisLocalPlayer;
         public BasisLocalBoneDriver CharacterTransformDriver;
-        public BasisBoneControl BoneControl;
+        public BasisLocalBoneControl BoneControl;
         public BasisBoneTrackedRole Role = BasisBoneTrackedRole.Head;
         public bool hasCharacterTransformDriver = false;
         public bool HasBoneControl = false;

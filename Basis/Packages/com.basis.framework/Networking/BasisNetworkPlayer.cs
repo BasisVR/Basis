@@ -30,7 +30,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public HumanPose HumanPose = new HumanPose();
         [SerializeField]
         public HumanPoseHandler PoseHandler;
-        public BasisBoneControl MouthBone;
         public BasisPlayer Player;
         [SerializeField]
         public PlayerIdMessage PlayerIDMessage = new PlayerIdMessage();
@@ -290,7 +289,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Control, Role))
+                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Control, Role))
                 {
                     position = Control.OutgoingWorldData.position;
                     rotation = Control.OutgoingWorldData.rotation;

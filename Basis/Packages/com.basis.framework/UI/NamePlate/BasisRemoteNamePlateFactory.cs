@@ -26,7 +26,7 @@ namespace Basis.Scripts.UI.NamePlate
                             return;
                         }
                         BasisRemoteNamePlate.transform.SetParent(Player.transform, false);
-                        if (Player.RemoteBoneDriver.FindBone(out BasisBoneControl Hips, BasisBoneTrackedRole.Hips))
+                        if (Player.RemoteBoneDriver.FindBone(out BasisRemoteBoneControl Hips, BasisBoneTrackedRole.Hips))
                         {
                             BasisRemoteNamePlate.Initalize(Hips, Player);
                         }

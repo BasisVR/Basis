@@ -18,7 +18,7 @@ namespace Basis.Scripts.Device_Management.Devices
         public string SubSystemIdentifier;
         [SerializeField] private BasisBoneTrackedRole trackedRole;
         [SerializeField] public bool hasRoleAssigned;
-        public BasisBoneControl Control = new BasisBoneControl();
+        public BasisLocalBoneControl Control = new BasisLocalBoneControl();
         public bool HasControl = false;
         public string UniqueDeviceIdentifier;
         public string ClassName;

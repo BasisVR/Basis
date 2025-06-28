@@ -7,17 +7,16 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 {
     [System.Serializable]
     [BurstCompile]
-    public class BasisBoneControl
+    public class BasisLocalBoneControl
     {
         [SerializeField]
         public string name;
         [NonSerialized]
-        public BasisBoneControl Target;
+        public BasisLocalBoneControl Target;
 
         public float LerpAmountNormal;
         public float LerpAmountFastMovement;
         public float AngleBeforeSpeedup;
-        public bool HasRotationalTarget = false;
 
         public bool HasLineDraw;
         public int LineDrawIndex;
@@ -103,13 +102,9 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                     {
                         // This is essentially the default behaviour, most of it is normally Virtually Overriden
                         // Relying on a one size fits all shoe is wrong and as of such we barely use this anymore.
-                        if (HasRotationalTarget)
-                        {
-                            OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, LastRunData.rotation, Target.OutGoingData.rotation);
-                        }
-
                         if (HasTarget)
                         {
+                            OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, LastRunData.rotation, Target.OutGoingData.rotation);
                             // Apply the rotation offset using *
                             Vector3 customDirection = Target.OutGoingData.rotation * ScaledOffset;
 
@@ -132,35 +127,6 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 LastRunData.position = OutGoingData.position;
                 LastRunData.rotation = OutGoingData.rotation;
             }
-        }
-        public void ComputeMovementRemote()
-        {
-            if (hasTrackerDriver == BasisHasTracked.HasTracker)
-            {
-                OutGoingData.rotation = IncomingData.rotation;
-                OutGoingData.position = IncomingData.position;
-            }
-            else
-            {
-                if (HasRotationalTarget)
-                {
-                    OutGoingData.rotation = Target.OutGoingData.rotation;
-                }
-                if (HasTarget)
-                {
-                    var targetRotation = Target.OutGoingData.rotation;
-                    var targetPosition = Target.OutGoingData.position;
-
-                    Vector3 offset = targetRotation * ScaledOffset;
-                    OutGoingData.position = targetPosition + offset;
-                }
-            }
-
-            // Cache the position before transforming
-            OutgoingWorldData.position = OutGoingData.position;//parentMatrix.MultiplyPoint3x4(localPosition);
-
-            // Use direct multiplication for rotation
-            OutgoingWorldData.rotation = OutGoingData.rotation;//rotation
         }
         [BurstCompile]
         public Quaternion ApplyLerpToQuaternion(float DeltaTime, Quaternion CurrentRotation, Quaternion FutureRotation)

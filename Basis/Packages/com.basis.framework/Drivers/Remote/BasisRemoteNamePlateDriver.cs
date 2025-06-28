@@ -274,7 +274,7 @@ namespace Basis.Scripts.UI.NamePlate
                 BasisRemoteNamePlate NamePlate = RemoteNamePlates[Index];
                 if (NamePlate.IsVisible)
                 {
-                    cachedDirection = NamePlate.HipTarget.OutgoingWorldData.position;
+                    cachedDirection = NamePlate.HipTarget.OutGoingData.position;
                     cachedDirection.y += NamePlate.MouthTarget.TposeLocalScaled.position.y / YHeightMultiplier;
                     dirToCamera = Position - cachedDirection;
                     cachedRotation = Quaternion.Euler(x, math.atan2(dirToCamera.x, dirToCamera.z) * Mathf.Rad2Deg, z);

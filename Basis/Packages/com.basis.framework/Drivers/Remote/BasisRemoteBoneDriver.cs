@@ -17,13 +17,13 @@ namespace Basis.Scripts.Drivers
         public Transform RemotePlayerTransform;
         public Transform HeadAvatar;
         public Transform HipsAvatar;
-        public BasisBoneControl Head;
-        public BasisBoneControl Hips;
-        public BasisBoneControl Mouth;
+        public BasisRemoteBoneControl Head;
+        public BasisRemoteBoneControl Hips;
+        public BasisRemoteBoneControl Mouth;
         public bool HasHead;
         public bool HasHips;
         [SerializeField]
-        public BasisBoneControl[] Controls;
+        public BasisRemoteBoneControl[] Controls;
         [SerializeField]
         public BasisBoneTrackedRole[] trackedRoles;
         public bool HasControls = false;
@@ -67,7 +67,7 @@ namespace Basis.Scripts.Drivers
             this.RemotePlayer = remotePlayer;
             this.RemotePlayerTransform = RemotePlayer.transform;
         }
-        public bool FindBone(out BasisBoneControl control, BasisBoneTrackedRole Role)
+        public bool FindBone(out BasisRemoteBoneControl control, BasisBoneTrackedRole Role)
         {
             int Index = Array.IndexOf(trackedRoles, Role);
 
@@ -76,7 +76,7 @@ namespace Basis.Scripts.Drivers
                 control = Controls[Index];
                 return true;
             }
-            control = new BasisBoneControl();
+            control = new BasisRemoteBoneControl();
             return false;
         }
         public void SimulateAndApplyRemote(BasisPlayer Player)
@@ -103,7 +103,7 @@ namespace Basis.Scripts.Drivers
                 DrawGizmos(Controls[Index]);
             }
         }
-        public bool FindTrackedRole(BasisBoneControl control, out BasisBoneTrackedRole Role)
+        public bool FindTrackedRole(BasisRemoteBoneControl control, out BasisBoneTrackedRole Role)
         {
             int Index = Array.IndexOf(Controls, control);
 
@@ -116,16 +116,16 @@ namespace Basis.Scripts.Drivers
             Role = BasisBoneTrackedRole.CenterEye;
             return false;
         }
-        public void DrawGizmos(BasisBoneControl Control)
+        public void DrawGizmos(BasisRemoteBoneControl Control)
         {
             if (Control.HasBone)
             {
-                Vector3 BonePosition = Control.OutgoingWorldData.position;
+                Vector3 BonePosition = Control.OutGoingData.position;
                 if (Control.HasTarget)
                 {
                     if (Control.HasLineDraw)
                     {
-                        BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
+                        BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutGoingData.position);
                     }
                 }
                 if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
@@ -176,7 +176,7 @@ namespace Basis.Scripts.Drivers
         public void CreateInitialArrays(bool IsLocal)
         {
             trackedRoles = new BasisBoneTrackedRole[] { };
-            Controls = new BasisBoneControl[] { };
+            Controls = new BasisRemoteBoneControl[] { };
             int Length;
             if (IsLocal)
             {
@@ -187,17 +187,17 @@ namespace Basis.Scripts.Drivers
                 Length = 6;
             }
             Color[] Colors = GenerateRainbowColors(Length);
-            List<BasisBoneControl> newControls = new List<BasisBoneControl>();
+            List<BasisRemoteBoneControl> newControls = new List<BasisRemoteBoneControl>();
             List<BasisBoneTrackedRole> Roles = new List<BasisBoneTrackedRole>();
             for (int Index = 0; Index < Length; Index++)
             {
-                SetupRole(Index, Colors[Index], out BasisBoneControl Control, out BasisBoneTrackedRole Role);
+                SetupRole(Index, Colors[Index], out BasisRemoteBoneControl Control, out BasisBoneTrackedRole Role);
                 newControls.Add(Control);
                 Roles.Add(Role);
             }
             if (IsLocal == false)
             {
-                SetupRole(22, Color.blue, out BasisBoneControl Control, out BasisBoneTrackedRole Role);
+                SetupRole(22, Color.blue, out BasisRemoteBoneControl Control, out BasisBoneTrackedRole Role);
                 newControls.Add(Control);
                 Roles.Add(Role);
             }
@@ -205,20 +205,20 @@ namespace Basis.Scripts.Drivers
             HasControls = true;
             InitializeGizmos();
         }
-        public void AddRange(BasisBoneControl[] newControls, BasisBoneTrackedRole[] newRoles)
+        public void AddRange(BasisRemoteBoneControl[] newControls, BasisBoneTrackedRole[] newRoles)
         {
             Controls = Controls.Concat(newControls).ToArray();
             trackedRoles = trackedRoles.Concat(newRoles).ToArray();
             ControlsLength = Controls.Length;
         }
-        public void SetupRole(int Index, Color Color, out BasisBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
+        public void SetupRole(int Index, Color Color, out BasisRemoteBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
         {
             role = (BasisBoneTrackedRole)Index;
-            BasisBoneControl = new BasisBoneControl();
+            BasisBoneControl = new BasisRemoteBoneControl();
             BasisBoneControl.Initialize();
             FillOutBasicInformation(BasisBoneControl, role.ToString(), Color);
         }
-        public void FillOutBasicInformation(BasisBoneControl Control, string Name, Color Color)
+        public void FillOutBasicInformation(BasisRemoteBoneControl Control, string Name, Color Color)
         {
             Control.name = Name;
             Control.Color = Color;
@@ -249,7 +249,7 @@ namespace Basis.Scripts.Drivers
             // BasisDebug.Log("updating State!");
             for (int Index = 0; Index < ControlsLength; Index++)
             {
-                BasisBoneControl Control = Controls[Index];
+                BasisRemoteBoneControl Control = Controls[Index];
                 BasisBoneTrackedRole Role = trackedRoles[Index];
                 if (State)
                 {
@@ -257,10 +257,10 @@ namespace Basis.Scripts.Drivers
                     {
                         continue;
                     }
-                    Vector3 BonePosition = Control.OutgoingWorldData.position;
+                    Vector3 BonePosition = Control.OutGoingData.position;
                     if (Control.HasTarget)
                     {
-                        if (BasisGizmoManager.CreateLineGizmo(out Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position, 0.03f, Control.Color))
+                        if (BasisGizmoManager.CreateLineGizmo(out Control.LineDrawIndex, BonePosition, Control.Target.OutGoingData.position, 0.03f, Control.Color))
                         {
                             Control.HasLineDraw = true;
                         }
@@ -277,17 +277,12 @@ namespace Basis.Scripts.Drivers
                 }
             }
         }
-        public void CreateRotationalLock(BasisBoneControl addToBone, BasisBoneControl target, float lerpAmount, float positional = 40)
+        public void CreateRotationalLock(BasisRemoteBoneControl addToBone, BasisRemoteBoneControl target)
         {
             addToBone.Target = target;
-            addToBone.LerpAmountNormal = lerpAmount;
-            addToBone.LerpAmountFastMovement = lerpAmount * 4;
-            addToBone.AngleBeforeSpeedup = 25f;
-            addToBone.HasRotationalTarget = target != null;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
             addToBone.Target = target;
-            addToBone.LerpAmount = positional;
             addToBone.HasTarget = target != null;
         }
     }

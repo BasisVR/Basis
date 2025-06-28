@@ -11,14 +11,14 @@ namespace Basis.Scripts.Avatar
     public class BasisTrackerMapping
     {
         [SerializeField]
-        public BasisBoneControl TargetControl;
+        public BasisLocalBoneControl TargetControl;
         [SerializeField]
         public BasisBoneTrackedRole BasisBoneControlRole;
         [SerializeField]
         public List<BasisCalibrationConnector> Candidates = new List<BasisCalibrationConnector>();
         public List<Vector3> Stored = new List<Vector3>();
         public Vector3 CalibrationPoint;
-        public BasisTrackerMapping(BasisBoneControl Bone, Transform AvatarTransform, BasisBoneTrackedRole Role, List<BasisCalibrationConnector> calibration, float calibrationMaxDistance)
+        public BasisTrackerMapping(BasisLocalBoneControl Bone, Transform AvatarTransform, BasisBoneTrackedRole Role, List<BasisCalibrationConnector> calibration, float calibrationMaxDistance)
         {
             if (AvatarTransform == null)
             {

@@ -27,7 +27,7 @@ public static class BasisHeightDriver
         LocalPlayer.CurrentHeight.AvatarEyeHeight = LocalPlayer.LocalAvatarDriver?.ActiveAvatarEyeHeight() ?? BasisLocalPlayer.FallbackSize;
         BasisDebug.Log($"Avatar height: {LocalPlayer.CurrentHeight.SelectedAvatarHeight}, Player eye height: {LocalPlayer.CurrentHeight.SelectedPlayerHeight}", BasisDebug.LogTag.Avatar);
 
-        if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl LeftHand, BasisBoneTrackedRole.LeftHand) && BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl RightHand, BasisBoneTrackedRole.RightHand))
+        if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand) && BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl RightHand, BasisBoneTrackedRole.RightHand))
         {
             BasisLocalPlayer.Instance.CurrentHeight.AvatarArmSpan = Vector3.Distance(LeftHand.TposeLocalScaled.position, RightHand.TposeLocalScaled.position);
             BasisDebug.Log("Current Avatar Arm Span is " + BasisLocalPlayer.Instance.CurrentHeight.AvatarArmSpan);
@@ -153,7 +153,7 @@ public static class BasisHeightDriver
         int lengthCount = driver.ControlsLength;
         for (int Index = 0; Index < lengthCount; Index++)
         {
-            BasisBoneControl control = driver.Controls[Index];
+            BasisLocalBoneControl control = driver.Controls[Index];
             control.TposeLocalScaled.position = heightScaleFactor * control.TposeLocal.position;
             control.TposeLocalScaled.rotation = control.TposeLocal.rotation;
             control.ScaledOffset = heightScaleFactor * control.Offset;

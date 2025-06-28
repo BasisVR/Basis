@@ -12,23 +12,23 @@ namespace Basis.Scripts.Drivers
     [System.Serializable]
     public class BasisLocalBoneDriver
     {
-        public static BasisBoneControl Head;
-        public static BasisBoneControl Hips;
-        public static BasisBoneControl Eye;
-        public static BasisBoneControl Mouth;
-        public static BasisBoneControl HeadControl;
-        public static BasisBoneControl LeftFootControl;
-        public static BasisBoneControl RightFootControl;
-        public static BasisBoneControl LeftHandControl;
-        public static BasisBoneControl RightHandControl;
-        public static BasisBoneControl ChestControl;
-        public static BasisBoneControl LeftLowerLegControl;
-        public static BasisBoneControl RightLowerLegControl;
-        public static BasisBoneControl LeftLowerArmControl;
-        public static BasisBoneControl RightLowerArmControl;
+        public static BasisLocalBoneControl Head;
+        public static BasisLocalBoneControl Hips;
+        public static BasisLocalBoneControl Eye;
+        public static BasisLocalBoneControl Mouth;
+        public static BasisLocalBoneControl HeadControl;
+        public static BasisLocalBoneControl LeftFootControl;
+        public static BasisLocalBoneControl RightFootControl;
+        public static BasisLocalBoneControl LeftHandControl;
+        public static BasisLocalBoneControl RightHandControl;
+        public static BasisLocalBoneControl ChestControl;
+        public static BasisLocalBoneControl LeftLowerLegControl;
+        public static BasisLocalBoneControl RightLowerLegControl;
+        public static BasisLocalBoneControl LeftLowerArmControl;
+        public static BasisLocalBoneControl RightLowerArmControl;
 
-        public static BasisBoneControl LeftToeControl;
-        public static BasisBoneControl RightToeControl;
+        public static BasisLocalBoneControl LeftToeControl;
+        public static BasisLocalBoneControl RightToeControl;
         public static bool HasEye;
 
         public void Initialize()
@@ -57,7 +57,7 @@ namespace Basis.Scripts.Drivers
         //figures out how to get the mouth bone and eye position
         public int ControlsLength;
         [SerializeField]
-        public BasisBoneControl[] Controls;
+        public BasisLocalBoneControl[] Controls;
         [SerializeField]
         public BasisBoneTrackedRole[] trackedRoles;
         public bool HasControls = false;
@@ -135,13 +135,13 @@ namespace Basis.Scripts.Drivers
                 Controls[Index].WeightsChanged = null;
             }
         }
-        public void AddRange(BasisBoneControl[] newControls, BasisBoneTrackedRole[] newRoles)
+        public void AddRange(BasisLocalBoneControl[] newControls, BasisBoneTrackedRole[] newRoles)
         {
             Controls = Controls.Concat(newControls).ToArray();
             trackedRoles = trackedRoles.Concat(newRoles).ToArray();
             ControlsLength = Controls.Length;
         }
-        public bool FindBone(out BasisBoneControl control, BasisBoneTrackedRole Role)
+        public bool FindBone(out BasisLocalBoneControl control, BasisBoneTrackedRole Role)
         {
             int Index = Array.IndexOf(trackedRoles, Role);
 
@@ -150,10 +150,10 @@ namespace Basis.Scripts.Drivers
                 control = Controls[Index];
                 return true;
             }
-            control = new BasisBoneControl();
+            control = new BasisLocalBoneControl();
             return false;
         }
-        public bool FindTrackedRole(BasisBoneControl control, out BasisBoneTrackedRole Role)
+        public bool FindTrackedRole(BasisLocalBoneControl control, out BasisBoneTrackedRole Role)
         {
             int Index = Array.IndexOf(Controls, control);
 
@@ -169,7 +169,7 @@ namespace Basis.Scripts.Drivers
         public void CreateInitialArrays(bool IsLocal)
         {
             trackedRoles = new BasisBoneTrackedRole[] { };
-            Controls = new BasisBoneControl[] { };
+            Controls = new BasisLocalBoneControl[] { };
             int Length;
             if (IsLocal)
             {
@@ -180,17 +180,17 @@ namespace Basis.Scripts.Drivers
                 Length = 6;
             }
             Color[] Colors = GenerateRainbowColors(Length);
-            List<BasisBoneControl> newControls = new List<BasisBoneControl>();
+            List<BasisLocalBoneControl> newControls = new List<BasisLocalBoneControl>();
             List<BasisBoneTrackedRole> Roles = new List<BasisBoneTrackedRole>();
             for (int Index = 0; Index < Length; Index++)
             {
-                SetupRole(Index, Colors[Index], out BasisBoneControl Control, out BasisBoneTrackedRole Role);
+                SetupRole(Index, Colors[Index], out BasisLocalBoneControl Control, out BasisBoneTrackedRole Role);
                 newControls.Add(Control);
                 Roles.Add(Role);
             }
             if (IsLocal == false)
             {
-                SetupRole(22, Color.blue, out BasisBoneControl Control, out BasisBoneTrackedRole Role);
+                SetupRole(22, Color.blue, out BasisLocalBoneControl Control, out BasisBoneTrackedRole Role);
                 newControls.Add(Control);
                 Roles.Add(Role);
             }
@@ -198,10 +198,10 @@ namespace Basis.Scripts.Drivers
             HasControls = true;
             InitializeGizmos();
         }
-        public void SetupRole(int Index, Color Color, out BasisBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
+        public void SetupRole(int Index, Color Color, out BasisLocalBoneControl BasisBoneControl, out BasisBoneTrackedRole role)
         {
             role = (BasisBoneTrackedRole)Index;
-            BasisBoneControl = new BasisBoneControl();
+            BasisBoneControl = new BasisLocalBoneControl();
             BasisBoneControl.Initialize();
             FillOutBasicInformation(BasisBoneControl, role.ToString(), Color);
         }
@@ -219,7 +219,7 @@ namespace Basis.Scripts.Drivers
             // BasisDebug.Log("updating State!");
             for (int Index = 0; Index < ControlsLength; Index++)
             {
-                BasisBoneControl Control = Controls[Index];
+                BasisLocalBoneControl Control = Controls[Index];
                 BasisBoneTrackedRole Role = trackedRoles[Index];
                 if (State)
                 {
@@ -247,7 +247,7 @@ namespace Basis.Scripts.Drivers
                 }
             }
         }
-        public void FillOutBasicInformation(BasisBoneControl Control, string Name, Color Color)
+        public void FillOutBasicInformation(BasisLocalBoneControl Control, string Name, Color Color)
         {
             Control.name = Name;
             Control.Color = Color;
@@ -264,13 +264,12 @@ namespace Basis.Scripts.Drivers
 
             return rainbowColors;
         }
-        public void CreateRotationalLock(BasisBoneControl addToBone, BasisBoneControl target, float lerpAmount, float positional = 40)
+        public void CreateRotationalLock(BasisLocalBoneControl addToBone, BasisLocalBoneControl target, float lerpAmount, float positional = 40)
         {
             addToBone.Target = target;
             addToBone.LerpAmountNormal = lerpAmount;
             addToBone.LerpAmountFastMovement = lerpAmount * 4;
             addToBone.AngleBeforeSpeedup = 25f;
-            addToBone.HasRotationalTarget = target != null;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
             addToBone.Target = target;
@@ -281,7 +280,7 @@ namespace Basis.Scripts.Drivers
         {
             return BasisHelpers.ConvertToLocalSpace(WorldSpace, Transform.position);
         }
-        public void DrawGizmos(BasisBoneControl Control)
+        public void DrawGizmos(BasisLocalBoneControl Control)
         {
             if (Control.HasBone)
             {

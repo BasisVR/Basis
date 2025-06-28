@@ -44,12 +44,12 @@ namespace Basis.Scripts.Drivers
         }
         public void ComputeOffsets(BasisRemoteBoneDriver BBD)
         {
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck, 40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.CenterEye, 40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth, 40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest, 40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine, 40, 12, true);
-            SetAndCreateLock(BBD, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips, 40, 12, true);
+            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Neck);
+            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.CenterEye);
+            SetAndCreateLock(BBD, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Mouth);
+            SetAndCreateLock(BBD, BasisBoneTrackedRole.Neck, BasisBoneTrackedRole.Chest);
+            SetAndCreateLock(BBD, BasisBoneTrackedRole.Chest, BasisBoneTrackedRole.Spine);
+            SetAndCreateLock(BBD, BasisBoneTrackedRole.Spine, BasisBoneTrackedRole.Hips);
         }
         public bool IsAble(BasisRemotePlayer remotePlayer)
         {
@@ -117,7 +117,7 @@ namespace Basis.Scripts.Drivers
             float3 bottom = Transform.position;
             for (int Index = 0; Index < driver.ControlsLength; Index++)
             {
-                BasisBoneControl Control = driver.Controls[Index];
+                BasisRemoteBoneControl Control = driver.Controls[Index];
                 if (driver.trackedRoles[Index] == BasisBoneTrackedRole.CenterEye)
                 {
                     GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarEyePosition, bottom, out float3 TposeWorld);
@@ -160,7 +160,7 @@ namespace Basis.Scripts.Drivers
                 if (boneTransform == null)
                 {
                     Rotation = driver.rotation;
-                    Position = BasisAvatar.Animator.transform.position;
+                    Position = driver.position;
                     Position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(BasisAvatar), heightPercentage);
                     UsedFallback = true;
                 }
@@ -175,7 +175,7 @@ namespace Basis.Scripts.Drivers
             else
             {
                 Rotation = driver.rotation;
-                Position = BasisAvatar.Animator.transform.position;
+                Position = driver.position;
                 Position = new Vector3(0, Position.y, 0);
                 Position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(BasisAvatar), heightPercentage);
                 Position = new Vector3(0, Position.y, 0);
@@ -204,7 +204,7 @@ namespace Basis.Scripts.Drivers
                 return false;
             }
         }
-        public void SetInitialData(Transform Transform, BasisBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
+        public void SetInitialData(Transform Transform, BasisRemoteBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
         {
             bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(Transform, WorldTpose);
             bone.TposeLocal.position = bone.OutGoingData.position;
@@ -221,20 +221,17 @@ namespace Basis.Scripts.Drivers
             bone.TposeLocalScaled.position = bone.TposeLocal.position;
             bone.TposeLocalScaled.rotation = bone.TposeLocal.rotation;
         }
-        public void SetAndCreateLock(BasisRemoteBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo, float PositionLerpAmount, float QuaternionLerpAmount, bool CreateLocks = true)
+        public void SetAndCreateLock(BasisRemoteBoneDriver BaseBoneDriver, BasisBoneTrackedRole LockToBoneRole, BasisBoneTrackedRole AssignedTo)
         {
-            if (CreateLocks)
+            if (BaseBoneDriver.FindBone(out BasisRemoteBoneControl AssignedToAddToBone, AssignedTo) == false)
             {
-                if (BaseBoneDriver.FindBone(out BasisBoneControl AssignedToAddToBone, AssignedTo) == false)
-                {
-                    BasisDebug.LogError("Cant Find Bone " + AssignedTo);
-                }
-                if (BaseBoneDriver.FindBone(out BasisBoneControl LockToBone, LockToBoneRole) == false)
-                {
-                    BasisDebug.LogError("Cant Find Bone " + LockToBoneRole);
-                }
-                BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone, PositionLerpAmount, QuaternionLerpAmount);
+                BasisDebug.LogError("Cant Find Bone " + AssignedTo);
             }
+            if (BaseBoneDriver.FindBone(out BasisRemoteBoneControl LockToBone, LockToBoneRole) == false)
+            {
+                BasisDebug.LogError("Cant Find Bone " + LockToBoneRole);
+            }
+            BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone);
         }
         public void UpdateWhenOffscreen(bool State)
         {

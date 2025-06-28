@@ -1,6 +1,7 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
+using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
@@ -21,6 +22,7 @@ namespace Basis.Scripts.Networking.Transmitters
         public float timer = 0f;
         public float interval = 0.0333333333333333f;
         public float SmallestDistanceToAnotherPlayer;
+        public BasisLocalBoneControl MouthBone;
         [SerializeField]
         public BasisAudioTransmission AudioTransmission = new BasisAudioTransmission();
         public NativeArray<float3> targetPositions;
@@ -264,7 +266,7 @@ namespace Basis.Scripts.Networking.Transmitters
             }
             for (int Index = 0; Index < BasisNetworkManagement.ReceiverCount; Index++)
             {
-                targetPositions[Index] = BasisNetworkManagement.ReceiversSnapshot[Index].MouthBone.OutgoingWorldData.position;
+                targetPositions[Index] = BasisNetworkManagement.ReceiversSnapshot[Index].MouthBone.OutGoingData.position;
             }
             smallestDistance[0] = float.MaxValue;
             distanceJobHandle = distanceJob.Schedule(targetPositions.Length, 64);

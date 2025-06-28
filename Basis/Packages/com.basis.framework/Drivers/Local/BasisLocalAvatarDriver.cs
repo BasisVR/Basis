@@ -218,15 +218,15 @@ namespace Basis.Scripts.Drivers
             //stop Tpose
             ResetAvatarAnimator();
             BasisAvatarIKStageCalibration.HasFBIKTrackers = false;
-            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Head, BasisBoneTrackedRole.Head))
+            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Head, BasisBoneTrackedRole.Head))
             {
                 Head.HasRigLayer = BasisHasRigLayer.HasRigLayer;
             }
-            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Hips, BasisBoneTrackedRole.Hips))
+            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Hips, BasisBoneTrackedRole.Hips))
             {
                 Hips.HasRigLayer = BasisHasRigLayer.HasRigLayer;
             }
-            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Spine, BasisBoneTrackedRole.Spine))
+            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Spine, BasisBoneTrackedRole.Spine))
             {
                 Spine.HasRigLayer = BasisHasRigLayer.HasRigLayer;
             }
@@ -290,7 +290,7 @@ namespace Basis.Scripts.Drivers
                 }
                 if (CurrentlyTposing == false)
                 {
-                    foreach (BasisBoneControl control in BasisLocalPlayer.Instance.LocalBoneDriver.Controls)
+                    foreach (BasisLocalBoneControl control in BasisLocalPlayer.Instance.LocalBoneDriver.Controls)
                     {
                         control.OnHasRigChanged?.Invoke();
                     }
@@ -424,12 +424,12 @@ namespace Basis.Scripts.Drivers
         {
             GameObject HeadRig = CreateOrGetRig("Rig Chest", true, out RigSpineRig, out RigSpineLayer);
             BasisAnimationRiggingHelper.TwistChain(driver, HeadRig, References.Hips, References.neck, BasisBoneTrackedRole.Hips, BasisBoneTrackedRole.Neck, 1, 1);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl Neck, BasisBoneTrackedRole.Neck))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl Neck, BasisBoneTrackedRole.Neck))
             {
                 controls.Add(Neck);
             }
-            if (driver.FindBone(out BasisBoneControl Head, BasisBoneTrackedRole.Head))
+            if (driver.FindBone(out BasisLocalBoneControl Head, BasisBoneTrackedRole.Head))
             {
                 controls.Add(Head);
             }
@@ -458,12 +458,12 @@ namespace Basis.Scripts.Drivers
 
                 }
             }
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl Head, BasisBoneTrackedRole.Head))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl Head, BasisBoneTrackedRole.Head))
             {
                 controls.Add(Head);
             }
-            if (driver.FindBone(out BasisBoneControl Chest, BasisBoneTrackedRole.Chest))
+            if (driver.FindBone(out BasisLocalBoneControl Chest, BasisBoneTrackedRole.Chest))
             {
                 controls.Add(Chest);
             }
@@ -477,8 +477,8 @@ namespace Basis.Scripts.Drivers
         {
             GameObject RightShoulder = CreateOrGetRig("RightShoulder", false, out RightShoulderRig, out RightShoulderLayer);
             BasisAnimationRiggingHelper.Damp(this, driver, RightShoulder, References.RightShoulder, BasisBoneTrackedRole.RightShoulder, 1, 1);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl RightShoulderRole, BasisBoneTrackedRole.RightShoulder))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl RightShoulderRole, BasisBoneTrackedRole.RightShoulder))
             {
                 controls.Add(RightShoulderRole);
             }
@@ -492,8 +492,8 @@ namespace Basis.Scripts.Drivers
         {
             GameObject LeftShoulder = CreateOrGetRig("LeftShoulder", false, out LeftShoulderRig, out LeftShoulderLayer);
             BasisAnimationRiggingHelper.Damp(this, driver, LeftShoulder, References.leftShoulder, BasisBoneTrackedRole.LeftShoulder, 1, 1);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl LeftShoulderRole, BasisBoneTrackedRole.LeftShoulder))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl LeftShoulderRole, BasisBoneTrackedRole.LeftShoulder))
             {
                 controls.Add(LeftShoulderRole);
             }
@@ -502,12 +502,12 @@ namespace Basis.Scripts.Drivers
         public void LeftHand(BasisLocalBoneDriver driver)
         {
             GameObject Hands = CreateOrGetRig("LeftUpperArm, LeftLowerArm, LeftHand", false, out LeftHandRig, out LeftHandLayer);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl LeftHand, BasisBoneTrackedRole.LeftHand))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand))
             {
                 controls.Add(LeftHand);
             }
-            if (driver.FindBone(out BasisBoneControl LeftLowerArm, BasisBoneTrackedRole.LeftLowerArm))
+            if (driver.FindBone(out BasisLocalBoneControl LeftLowerArm, BasisBoneTrackedRole.LeftLowerArm))
             {
                 controls.Add(LeftLowerArm);
             }
@@ -517,12 +517,12 @@ namespace Basis.Scripts.Drivers
         public void RightHand(BasisLocalBoneDriver driver)
         {
             GameObject Hands = CreateOrGetRig("RightUpperArm, RightLowerArm, RightHand", false, out RightHandRig, out RightHandLayer);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl RightHand, BasisBoneTrackedRole.RightHand))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl RightHand, BasisBoneTrackedRole.RightHand))
             {
                 controls.Add(RightHand);
             }
-            if (driver.FindBone(out BasisBoneControl RightLowerArm, BasisBoneTrackedRole.RightLowerArm))
+            if (driver.FindBone(out BasisLocalBoneControl RightLowerArm, BasisBoneTrackedRole.RightLowerArm))
             {
                 controls.Add(RightLowerArm);
             }
@@ -532,12 +532,12 @@ namespace Basis.Scripts.Drivers
         public void LeftFoot(BasisLocalBoneDriver driver)
         {
             GameObject feet = CreateOrGetRig("LeftUpperLeg, LeftLowerLeg, LeftFoot", false, out LeftFootRig, out LeftFootLayer);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl LeftFoot, BasisBoneTrackedRole.LeftFoot))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl LeftFoot, BasisBoneTrackedRole.LeftFoot))
             {
                 controls.Add(LeftFoot);
             }
-            if (driver.FindBone(out BasisBoneControl LeftLowerLeg, BasisBoneTrackedRole.LeftLowerLeg))
+            if (driver.FindBone(out BasisLocalBoneControl LeftLowerLeg, BasisBoneTrackedRole.LeftLowerLeg))
             {
                 controls.Add(LeftLowerLeg);
             }
@@ -549,12 +549,12 @@ namespace Basis.Scripts.Drivers
         public void RightFoot(BasisLocalBoneDriver driver)
         {
             GameObject feet = CreateOrGetRig("RightUpperLeg, RightLowerLeg, RightFoot", false, out RightFootRig, out RightFootLayer);
-            List<BasisBoneControl> controls = new List<BasisBoneControl>();
-            if (driver.FindBone(out BasisBoneControl RightFoot, BasisBoneTrackedRole.RightFoot))
+            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
+            if (driver.FindBone(out BasisLocalBoneControl RightFoot, BasisBoneTrackedRole.RightFoot))
             {
                 controls.Add(RightFoot);
             }
-            if (driver.FindBone(out BasisBoneControl RightLowerLeg, BasisBoneTrackedRole.RightLowerLeg))
+            if (driver.FindBone(out BasisLocalBoneControl RightLowerLeg, BasisBoneTrackedRole.RightLowerLeg))
             {
                 controls.Add(RightLowerLeg);
             }
@@ -566,18 +566,18 @@ namespace Basis.Scripts.Drivers
         public void LeftToe(BasisLocalBoneDriver driver)
         {
             GameObject LeftToe = CreateOrGetRig("LeftToe", false, out LeftToeRig, out LeftToeLayer);
-            if (driver.FindBone(out BasisBoneControl Control, BasisBoneTrackedRole.LeftToes))
+            if (driver.FindBone(out BasisLocalBoneControl Control, BasisBoneTrackedRole.LeftToes))
             {
-                WriteUpEvents(new List<BasisBoneControl>() { Control }, LeftToeLayer);
+                WriteUpEvents(new List<BasisLocalBoneControl>() { Control }, LeftToeLayer);
             }
             LeftToeConstraint = BasisAnimationRiggingHelper.Damp(this, driver, LeftToe, References.leftToes, BasisBoneTrackedRole.LeftToes, 0, 0);
         }
         public void RightToe(BasisLocalBoneDriver driver)
         {
             GameObject RightToe = CreateOrGetRig("RightToe", false, out RightToeRig, out RightToeLayer);
-            if (driver.FindBone(out BasisBoneControl Control, BasisBoneTrackedRole.RightToes))
+            if (driver.FindBone(out BasisLocalBoneControl Control, BasisBoneTrackedRole.RightToes))
             {
-                WriteUpEvents(new List<BasisBoneControl>() { Control }, RightToeLayer);
+                WriteUpEvents(new List<BasisLocalBoneControl>() { Control }, RightToeLayer);
             }
             RightToeConstraint = BasisAnimationRiggingHelper.Damp(this, driver, RightToe, References.rightToes, BasisBoneTrackedRole.RightToes, 0, 0);
         }
@@ -651,7 +651,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         /// <param name="Controls">List of BasisBoneControl objects</param>
         /// <param name="Layer">The RigLayer to update</param>
-        public void WriteUpEvents(List<BasisBoneControl> Controls, RigLayer Layer)
+        public void WriteUpEvents(List<BasisLocalBoneControl> Controls, RigLayer Layer)
         {
             foreach (var control in Controls)
             {
@@ -665,7 +665,7 @@ namespace Basis.Scripts.Drivers
         }
 
         // Define a method to update the active state of the Layer based on the list of controls
-        void UpdateLayerActiveState(List<BasisBoneControl> Controls, RigLayer Layer)
+        void UpdateLayerActiveState(List<BasisLocalBoneControl> Controls, RigLayer Layer)
         {
             // Check if any control in the list has HasRigLayer set to true
             Layer.active = Controls.Any(control => control.HasRigLayer == BasisHasRigLayer.HasRigLayer);
@@ -810,7 +810,7 @@ namespace Basis.Scripts.Drivers
             Transform Transform = BasisPlayer.BasisAvatar.Animator.transform;
             for (int Index = 0; Index < driver.ControlsLength; Index++)
             {
-                BasisBoneControl Control = driver.Controls[Index];
+                BasisLocalBoneControl Control = driver.Controls[Index];
                 if (driver.trackedRoles[Index] == BasisBoneTrackedRole.CenterEye)
                 {
                     GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarEyePosition, out float3 TposeWorld);
@@ -908,7 +908,7 @@ namespace Basis.Scripts.Drivers
                 return false;
             }
         }
-        public void SetInitialData(Transform Transform, BasisBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
+        public void SetInitialData(Transform Transform, BasisLocalBoneControl bone, BasisBoneTrackedRole Role, Vector3 WorldTpose)
         {
             bone.OutGoingData.position = BasisLocalBoneDriver.ConvertToAvatarSpaceInitial(Transform, WorldTpose);
             bone.TposeLocal.position = bone.OutGoingData.position;
@@ -929,11 +929,11 @@ namespace Basis.Scripts.Drivers
         {
             if (CreateLocks)
             {
-                if (BaseBoneDriver.FindBone(out BasisBoneControl AssignedToAddToBone, AssignedTo) == false)
+                if (BaseBoneDriver.FindBone(out BasisLocalBoneControl AssignedToAddToBone, AssignedTo) == false)
                 {
                     BasisDebug.LogError("Cant Find Bone " + AssignedTo);
                 }
-                if (BaseBoneDriver.FindBone(out BasisBoneControl LockToBone, LockToBoneRole) == false)
+                if (BaseBoneDriver.FindBone(out BasisLocalBoneControl LockToBone, LockToBoneRole) == false)
                 {
                     BasisDebug.LogError("Cant Find Bone " + LockToBoneRole);
                 }

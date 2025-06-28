@@ -59,6 +59,8 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public BasisNetworkServerRunner BasisNetworkServerRunner = null;
         public static bool NetworkRunning = false;
+        public static BasisNetworkTransmitter LocalNetworkedPlayer;
+        public bool IsRunning = true;
         public static bool AddPlayer(BasisNetworkPlayer NetPlayer)
         {
             if (Instance != null)
@@ -320,8 +322,7 @@ namespace Basis.Scripts.Networking
                 }), null);
             });
         }
-        public static BasisNetworkPlayer LocalNetworkedPlayer;
-        public static void LocalInitalize(BasisNetworkPlayer BasisNetworkPlayer, BasisLocalPlayer BasisLocalPlayer)
+        public static void LocalInitalize(BasisNetworkTransmitter BasisNetworkPlayer, BasisLocalPlayer BasisLocalPlayer)
         {
             BasisNetworkPlayer.Player = BasisLocalPlayer;
             if (BasisLocalPlayer.LocalAvatarDriver != null)
@@ -339,7 +340,6 @@ namespace Basis.Scripts.Networking
             }
             BasisNetworkManagement.Instance.Transmitter = (BasisNetworkTransmitter)BasisNetworkPlayer;
         }
-        public bool IsRunning = true;
         private async void PeerDisconnectedEvent(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             BasisDebug.Log($"Client disconnected from server [{peer.Id}]");
