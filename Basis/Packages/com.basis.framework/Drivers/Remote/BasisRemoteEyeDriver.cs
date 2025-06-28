@@ -2,7 +2,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using UnityEngine;
 [System.Serializable]
-public class BasisRemoteEyeFollow 
+public class BasisRemoteEyeDriver 
 {
     public bool Override = false;
     // Adjustable parameterss

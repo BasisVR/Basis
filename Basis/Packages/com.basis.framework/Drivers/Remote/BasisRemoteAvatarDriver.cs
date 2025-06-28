@@ -19,6 +19,7 @@ namespace Basis.Scripts.Drivers
         public BasisPlayer Player;
         public bool HasEvents = false;
         public int SkinnedMeshRendererLength;
+        public Vector3 AvatarInitalScale = Vector3.one;
         public void RemoteCalibration(BasisRemotePlayer remotePlayer)
         {
             if (!IsAble(remotePlayer))
@@ -29,7 +30,32 @@ namespace Basis.Scripts.Drivers
             {
                 //  BasisDebug.Log("RemoteCalibration Underway", BasisDebug.LogTag.Avatar);
             }
-            Calibration(remotePlayer.BasisAvatar);
+            SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
+            AvatarInitalScale = Player.BasisAvatar.transform.localScale;
+            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, remotePlayer.BasisAvatar.transform, ref References);
+            References.RecordPoses(Player.BasisAvatar.Animator);
+            Player.FaceIsVisible = false;
+            if (remotePlayer.BasisAvatar == null)
+            {
+                BasisDebug.LogError("Missing Avatar On Remote", BasisDebug.LogTag.Avatar);
+            }
+            if (remotePlayer.BasisAvatar.FaceVisemeMesh == null)
+            {
+                BasisDebug.Log("Missing Face for " + Player.DisplayName, BasisDebug.LogTag.Avatar);
+            }
+            Player.UpdateFaceVisibility(remotePlayer.BasisAvatar.FaceVisemeMesh.isVisible);
+            if (Player.FaceRenderer != null)
+            {
+                GameObject.Destroy(Player.FaceRenderer);
+            }
+            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(remotePlayer.BasisAvatar.FaceVisemeMesh.gameObject);
+            Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
+
+            if (BasisFacialBlinkDriver.MeetsRequirements(remotePlayer.BasisAvatar))
+            {
+                Player.FacialBlinkDriver.Initialize(Player, remotePlayer.BasisAvatar);
+            }
             remotePlayer.EyeFollow.Initalize(this, remotePlayer);
             UpdateWhenOffscreen(false);
             remotePlayer.BasisAvatar.Animator.logWarnings = false;
@@ -82,35 +108,6 @@ namespace Basis.Scripts.Drivers
                 return BasisLocalPlayer.FallbackSize;
             }
         }
-        public void Calibration(BasisAvatar Avatar)
-        {
-            SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
-            SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
-            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, Avatar.transform, ref References);
-            References.RecordPoses(Player.BasisAvatar.Animator);
-            Player.FaceIsVisible = false;
-            if (Avatar == null)
-            {
-                BasisDebug.LogError("Missing Avatar");
-            }
-            if (Avatar.FaceVisemeMesh == null)
-            {
-                BasisDebug.Log("Missing Face for " + Player.DisplayName, BasisDebug.LogTag.Avatar);
-            }
-            Player.UpdateFaceVisibility(Avatar.FaceVisemeMesh.isVisible);
-            if (Player.FaceRenderer != null)
-            {
-                GameObject.Destroy(Player.FaceRenderer);
-            }
-            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Avatar.FaceVisemeMesh.gameObject);
-            Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
-
-            if (BasisFacialBlinkDriver.MeetsRequirements(Avatar))
-            {
-                Player.FacialBlinkDriver.Initialize(Player, Avatar);
-            }
-        }
-
         public void CalculateTransformPositions(BasisPlayer BasisPlayer, BasisRemoteBoneDriver driver)
         {
             Transform Transform = BasisPlayer.BasisAvatar.Animator.transform;

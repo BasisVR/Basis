@@ -12,7 +12,7 @@ namespace Basis.Scripts.BasisSdk.Players
     public class BasisRemotePlayer : BasisPlayer
     {
         [SerializeField]
-        public BasisRemoteEyeFollow EyeFollow = new BasisRemoteEyeFollow();
+        public BasisRemoteEyeDriver EyeFollow = new BasisRemoteEyeDriver();
         [SerializeField]
         public BasisRemoteBoneDriver RemoteBoneDriver = new BasisRemoteBoneDriver();
         [SerializeField]

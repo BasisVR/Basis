@@ -136,7 +136,8 @@ namespace Basis.Scripts.Networking.Receivers
 
 
                     //  bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
-                    bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, EuroValuesOutput);
+                    Vector3 Scale = OutputVectors[1];
+                    bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, Scale, OutputVectors[0], OutputRotation, EuroValuesOutput);
                     if (ReadyState)
                     {
                         PoseHandler.SetHumanPose(ref HumanPose);
@@ -145,9 +146,7 @@ namespace Basis.Scripts.Networking.Receivers
                     {
                         BasisDebug.LogError("Not Ready For Pose Set!");
                     }
-
-                    RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(RemotePlayer);
-                    RemotePlayer.RemoteBoneDriver.CalculateBoneData();
+                    RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(Scale);
                     AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
                 }
                 if (interpolationTime >= 1 && PayloadQueue.TryDequeue(out BasisAvatarBuffer result))

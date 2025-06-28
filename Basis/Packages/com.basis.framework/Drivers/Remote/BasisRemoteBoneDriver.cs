@@ -79,10 +79,27 @@ namespace Basis.Scripts.Drivers
             control = new BasisRemoteBoneControl();
             return false;
         }
-        public void SimulateAndApplyRemote(BasisPlayer Player)
+        Vector3 LastScale = Vector3.zero;
+        Vector3 LastInitalScale = Vector3.zero;
+        public void SimulateAndApplyRemote(Vector3 NowScale)
         {
-            Player.OnPreSimulateBones?.Invoke();
+            Vector3 InitalScale = RemotePlayer.RemoteAvatarDriver.AvatarInitalScale;
+            if (LastInitalScale != InitalScale || LastScale != InitalScale)
+            {
+                LastInitalScale = InitalScale;
+                LastScale = NowScale;
+
+                Vector3 NewScale = Vector3.Scale(InitalScale, NowScale);
+
+                for (int Index = 0; Index < ControlsLength; Index++)
+                {
+                    BasisRemoteBoneControl control = Controls[Index];
+                    control.TposeLocalScaled.position = Vector3.Scale(control.TposeLocal.position, NewScale);
+                }
+            }
+            RemotePlayer.OnPreSimulateBones?.Invoke();
             SimulateRemote();
+            CalculateBoneData();
         }
         public void SimulateRemote()
         {
