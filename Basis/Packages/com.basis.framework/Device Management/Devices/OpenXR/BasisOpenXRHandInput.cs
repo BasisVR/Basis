@@ -9,6 +9,8 @@ using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.Gestures;
 public class BasisOpenXRHandInput : BasisInputController
 {
+    public Vector3 LeftHandPalmCorrection;
+    public Vector3 RightHandPalmCorrection;
     public InputActionProperty DeviceActionPosition;
     public InputActionProperty DeviceActionRotation;
     public InputActionProperty Trigger;
@@ -22,31 +24,22 @@ public class BasisOpenXRHandInput : BasisInputController
     public const float TriggerDownAmount = 0.5f;
     public InputActionProperty PalmPoseActionPosition;
     public InputActionProperty PalmPoseActionRotation;
-
-    public Vector3 LeftHandPalmCorrection;
-    public Vector3 RightHandPalmCorrection;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(0, -90, -180);
-        rightHandToIKRotationOffset = new float3(0, 90, -180);
-
+        leftHandToIKRotationOffset = new float3(-90, 0, -180);
+        rightHandToIKRotationOffset = new float3(-90,0, -180);
         RaycastRotationOffset = new float3(-90, 0, 0);
         LeftHandPalmCorrection = new Vector3(0, 270, -90);
         RightHandPalmCorrection = new Vector3(180,270,-90);
+
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
+        string devicePosePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
         SetupInputActions(devicePath);
-
         DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
         DeviceActionRotation = new InputActionProperty(new InputAction($"{devicePath}/deviceRotation", InputActionType.Value, $"{devicePath}/deviceRotation", expectedControlType: "Quaternion"));
-
-
-        //<PalmPose>{LeftHand}/palmPosition
-        string devicePosePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
         PalmPoseActionPosition = new InputActionProperty(new InputAction($"{devicePosePath}/PosePosition", InputActionType.Value, $"{devicePosePath}/palmPosition", expectedControlType: "Vector3"));
         PalmPoseActionRotation = new InputActionProperty(new InputAction($"{devicePosePath}/PoseRotation", InputActionType.Value, $"{devicePosePath}/palmRotation", expectedControlType: "Quaternion"));
-        ///input/palm_ext/pose
-
         PalmPoseActionPosition.action.Enable();
         PalmPoseActionRotation.action.Enable();
         DeviceActionPosition.action.Enable();
@@ -112,9 +105,6 @@ public class BasisOpenXRHandInput : BasisInputController
         UnscaledDeviceCoord.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
         ConvertToScaledDeviceCoord();
-
-        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-
         ControlOnlyAsHand();
         UpdatePlayerControl();
         ComputeRaycastDirection();
@@ -137,19 +127,16 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.leftHand.isTracked)
                     {
                         UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandleHandFinalRotation(UnscaledDeviceCoord.rotation);
+                        HandFinal.rotation = HandleHandFinalRotation(HandRaw.rotation);
+                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
                     }
                     else
                     {
                         HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
                         HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
                         HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
-
-                        var LeftHand = BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
-                        LeftHand.IndexPercentage[0] = Remap01ToMinus1To1(CurrentInputState.Trigger);
-                        LeftHand.MiddlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
-                        LeftHand.RingPercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
-                        LeftHand.LittlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
+                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand);
                     }
                     break;
 
@@ -157,28 +144,28 @@ public class BasisOpenXRHandInput : BasisInputController
                     if (subsystem.rightHand.isTracked)
                     {
                         UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandleHandFinalRotation(UnscaledDeviceCoord.rotation);
+                        HandFinal.rotation = HandleHandFinalRotation(HandRaw.rotation);
+                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
                     }
                     else
                     {
                         HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
                         HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
                         HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
-
-                        var RightHand = BasisLocalPlayer.Instance.LocalHandDriver.RightHand;
-
-                      //  RightHand.ThumbPercentage[0] = Remap01ToMinus1To1(CurrentInputState.PrimaryButtonGetState);
-                        RightHand.IndexPercentage[0] = Remap01ToMinus1To1(CurrentInputState.Trigger);
-                        RightHand.MiddlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
-                        RightHand.RingPercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
-                        RightHand.LittlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
-
+                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.RightHand);
                     }
                     break;
             }
         }
     }
-
+    public void FallbackHand(BasisFingerPose Hand)
+    {
+        Hand.IndexPercentage[0] = Remap01ToMinus1To1(CurrentInputState.Trigger);
+        Hand.MiddlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
+        Hand.RingPercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
+        Hand.LittlePercentage[0] = Remap01ToMinus1To1(CurrentInputState.SecondaryTrigger);
+    }
     private void UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, out Vector3 position, out Quaternion rotation)
     {
         XRHandJoint joint = hand.GetJoint(XRHandJointID.Wrist);
@@ -199,7 +186,6 @@ public class BasisOpenXRHandInput : BasisInputController
         fingerPose.RingPercentage[0] = RemapFingerValue(hand, XRHandFingerID.Ring);
         fingerPose.LittlePercentage[0] = RemapFingerValue(hand, XRHandFingerID.Little);
     }
-
     private float RemapFingerValue(XRHand hand, XRHandFingerID fingerID)
     {
         if (TryGetShapePercentage(hand, fingerID, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float value))
