@@ -56,7 +56,7 @@ namespace Basis.Scripts.Drivers
             {
                 Player.FacialBlinkDriver.Initialize(Player, remotePlayer.BasisAvatar);
             }
-            remotePlayer.EyeFollow.Initalize(this, remotePlayer);
+            remotePlayer.RemoteEyeDriver.Initalize(this, remotePlayer);
             UpdateWhenOffscreen(false);
             remotePlayer.BasisAvatar.Animator.logWarnings = false;
             for (int Index = 0; Index < SkinnedMeshRenderer.Length; Index++)

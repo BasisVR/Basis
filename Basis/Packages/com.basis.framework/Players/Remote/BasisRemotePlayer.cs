@@ -11,14 +11,19 @@ namespace Basis.Scripts.BasisSdk.Players
     [System.Serializable]
     public class BasisRemotePlayer : BasisPlayer
     {
+        [Header("Eye Driver")]
         [SerializeField]
-        public BasisRemoteEyeDriver EyeFollow = new BasisRemoteEyeDriver();
+        public BasisRemoteEyeDriver RemoteEyeDriver = new BasisRemoteEyeDriver();
+        [Header("Bone Driver")]
         [SerializeField]
         public BasisRemoteBoneDriver RemoteBoneDriver = new BasisRemoteBoneDriver();
+        [Header("Avatar Driver")]
         [SerializeField]
         public BasisRemoteAvatarDriver RemoteAvatarDriver = new BasisRemoteAvatarDriver();
+        [Header("Receiver")]
         [SerializeField]
         public BasisNetworkReceiver NetworkReceiver;
+        [Header("Name Plate")]
         [SerializeField]
         public BasisRemoteNamePlate RemoteNamePlate;
         public bool HasEvents = false;
@@ -106,9 +111,9 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 FacialBlinkDriver.OnDestroy();
             }
-            if (EyeFollow != null)
+            if (RemoteEyeDriver != null)
             {
-                EyeFollow.OnDestroy();
+                RemoteEyeDriver.OnDestroy();
             }
             RemoteBoneDriver.DeInitializeGizmos();
         }

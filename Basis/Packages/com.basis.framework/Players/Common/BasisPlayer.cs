@@ -50,9 +50,10 @@ namespace Basis.Scripts.BasisSdk.Players
         public byte AvatarLoadMode;//0 downloading 1 local
         [HideInInspector]
         public BasisLoadableBundle AvatarMetaData;
-
+        [Header("Jiggle Driver")]
         [SerializeField]
         public BasisAvatarStrainJiggleDriver BasisAvatarStrainJiggleDriver = new BasisAvatarStrainJiggleDriver();
+        [Header("Blink Driver")]
         [SerializeField]
         public BasisFacialBlinkDriver FacialBlinkDriver = new BasisFacialBlinkDriver();
         public static bool UseJiggles = true;

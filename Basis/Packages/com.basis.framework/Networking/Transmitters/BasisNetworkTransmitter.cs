@@ -161,7 +161,7 @@ namespace Basis.Scripts.Networking.Transmitters
                         }
                         Rec.RemotePlayer.BasisAvatarStrainJiggleDriver.Simulate(CalculatedDistances[Index]);
                     }
-                    Rec.RemotePlayer.EyeFollow.Simulate();
+                    Rec.RemotePlayer.RemoteEyeDriver.Simulate();
                     Rec.RemotePlayer.FacialBlinkDriver.Simulate();
                 }
                 catch (Exception ex)
