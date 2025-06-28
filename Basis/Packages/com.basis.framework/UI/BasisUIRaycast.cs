@@ -31,8 +31,6 @@ namespace Basis.Scripts.UI
             NA
 
         }
-
-
         public BasisInput BasisInput;
         private string DeviceName;
         public bool HasLineRenderer = false;
@@ -52,8 +50,9 @@ namespace Basis.Scripts.UI
         [SerializeField]
         public List<RaycastResult> SortedRays = new List<RaycastResult>();
         public List<Canvas> Results = new List<Canvas>();
-        public bool IgnoreReversedGraphics = true;        
-
+        public bool IgnoreReversedGraphics = true;
+        public Vector3 highlightQuadInitalSize;
+        public bool HasOnPlayersHeightChanged = false;
         public void Initialize(BasisInput basisInput, BasisPointRaycaster pointRaycaster)
         {
             CurrentEventData = new BasisPointerEventData(EventSystem.current);
@@ -64,6 +63,7 @@ namespace Basis.Scripts.UI
 
             HasLineRenderer = false;
             HasRedicalRenderer = false;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
             // Create the ray with the adjusted starting position and direction
             if (basisInput.DeviceMatchSettings.HasRayCastVisual)
             {
@@ -76,9 +76,8 @@ namespace Basis.Scripts.UI
                 lineMaterial = InMemory;
                 // Set the Line Renderer properties
                 LineRenderer.material = lineMaterial;
-                LineRenderer.startWidth = lineWidth;
-                LineRenderer.endWidth = lineWidth;
 
+                HasOnPlayersHeightChanged = true;
                 // Set the number of points in the Line Renderer
                 LineRenderer.positionCount = 2;
                 HasLineRenderer = true;
@@ -89,26 +88,44 @@ namespace Basis.Scripts.UI
             }
             if (basisInput.DeviceMatchSettings.HasRayCastRadical)
             {
-                CreateRadical();
+                AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(LoadUIRedicalAddress);
+                GameObject InMemory = handle.WaitForCompletion();
+                GameObject gameObject = GameObject.Instantiate(InMemory);
+                gameObject.name = $"{DeviceName}_Redical";
+                gameObject.transform.SetParent(BasisLocalPlayer.Instance.transform);
+                highlightQuadInitalSize = gameObject.transform.localScale;
+                highlightQuadInstance = gameObject;
+                if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
+                {
+                    Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+                }
+                highlightQuadInstance.gameObject.SetActive(false);
+                HighlightState = ActiveStateOfHightlight.NA;
                 HasRedicalRenderer = true;
             }
-            CachedLinerRenderState = HasLineRenderer;
+            OnPlayersHeightChanged();
 
+            CachedLinerRenderState = HasLineRenderer;
         }
-        public void CreateRadical()
+        public void OnDeInitialize()
         {
-            AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(LoadUIRedicalAddress);
-            GameObject InMemory = handle.WaitForCompletion();
-            GameObject gameObject = GameObject.Instantiate(InMemory);
-            gameObject.name = $"{DeviceName}_Redical";
-            gameObject.transform.SetParent(BasisLocalPlayer.Instance.transform);
-            highlightQuadInstance = gameObject;
-            if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
+            if (HasOnPlayersHeightChanged)
             {
-                Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
             }
-            highlightQuadInstance.gameObject.SetActive(false);
-            HighlightState = ActiveStateOfHightlight.NA;
+        }
+        public void OnPlayersHeightChanged()
+        {
+            if (LineRenderer != null)
+            {
+                float Size = lineWidth * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                LineRenderer.startWidth = Size;
+                LineRenderer.endWidth = Size;
+            }
+            if (highlightQuadInstance != null)
+            {
+                highlightQuadInstance.transform.localScale = highlightQuadInitalSize * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            }
         }
         public void ApplyStaticDataToRaycastResult()
         {
@@ -167,7 +184,7 @@ namespace Basis.Scripts.UI
             {
                 UpdateRayCastResult();//sets all RaycastResult data
                 UpdateLineRenderer();//updates the line denderer
-                UpdateRadicalRenderer();// moves the redical renderer
+                UpdateRadicalRenderer();// moves the Redical renderer
             }
             else
             {

@@ -9,7 +9,7 @@ namespace Basis.Scripts.TransformBinders
     public class BasisLockToInput : MonoBehaviour
     {
         public BasisBoneTrackedRole TrackedRole;
-        public BasisInput AttachedInput = null;
+        public BasisInput BasisInput = null;
         public bool HasEvent = false;
         public void Awake()
         {
@@ -40,7 +40,7 @@ namespace Basis.Scripts.TransformBinders
         }
         private void ResetIfNeeded(BasisInput input)
         {
-            if (AttachedInput == null || AttachedInput == input)
+            if (BasisInput == null || BasisInput == input)
             {
                 BasisDebug.Log("ReParenting Camera", BasisDebug.LogTag.Device);
                 this.transform.parent = BasisLocalPlayer.Instance.transform;
@@ -61,8 +61,8 @@ namespace Basis.Scripts.TransformBinders
                     {
                         if (role == TrackedRole)
                         {
-                            AttachedInput = Input;
-                            this.transform.parent = AttachedInput.transform;
+                            BasisInput = Input;
+                            this.transform.parent = BasisInput.transform;
                             this.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
                             this.transform.localScale = Vector3.one;
                             return;

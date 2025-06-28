@@ -16,7 +16,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public Vector3[] BonePositions;
         public Quaternion[] BoneRotations;
 
-        public float3 LocalWristPosition;
+        public float3 HandWristPosition;
         public quaternion HandWristRotation;
 
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
@@ -111,37 +111,27 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             UpdateHistoryBuffer();
 
-            float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            // Get controller pose
-            DeviceFinalRotation = DeviceposeAction[inputSource].localRotation;
-            float3 RawDevice = DeviceposeAction[inputSource].localPosition;
-            DeviceFinalPosition = RawDevice * AvatarScale;
-
             // Bone data
-            LocalWristPosition = BonePositions[1];
+            HandWristPosition = BonePositions[1];
             HandWristRotation = BoneRotations[1];
 
-            // Final hand rotation = controller rotation * offset from wrist
-            HandFinalRotation = math.mul(DeviceFinalRotation, HandleHandFinalRotation(HandWristRotation));
+            // Get controller pose
+            UnscaledDeviceCoord.rotation = DeviceposeAction[inputSource].localRotation;
+            UnscaledDeviceCoord.position = DeviceposeAction[inputSource].localPosition;
+
+            float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
+            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * AvatarScale;
 
             // Calculate final hand position in scaled space
-            float3 wristOffset = math.mul(DeviceFinalRotation, LocalWristPosition);
+            Vector3 ScaledwristOffset = math.mul(UnscaledDeviceCoord.rotation, HandWristPosition) * AvatarScale;
 
-            float3 ScaledRawPos = RawDevice * AvatarScale;
-            float3 ScaledwristOffset = wristOffset * AvatarScale;
+            // Final hand rotation = controller rotation * offset from wrist
+            HandFinal.rotation = math.mul(UnscaledDeviceCoord.rotation, HandleHandFinalRotation(HandWristRotation));
+            HandFinal.position = ScaledDeviceCoord.position - ScaledwristOffset;
 
-            HandFinalPosition = (ScaledRawPos - ScaledwristOffset);
-
-            // Apply to control data
-            if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-            {
-                Control.IncomingData.position = HandFinalPosition;
-                Control.IncomingData.rotation = HandFinalRotation;
-            }
-
-            RaycastPosition = HandFinalPosition;
-
-            RaycastRotation =  math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
+            ControlOnlyAsHand();
+            ComputeRaycastDirection();
         }
         #region Mostly Unused Steam
         protected SteamVR_HistoryBuffer historyBuffer = new SteamVR_HistoryBuffer(30);
@@ -200,15 +190,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

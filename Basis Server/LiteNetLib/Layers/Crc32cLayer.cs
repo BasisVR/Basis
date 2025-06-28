@@ -1,4 +1,4 @@
-﻿using LiteNetLib.Utils;
+using LiteNetLib.Utils;
 using System;
 using System.Net;
 
@@ -24,7 +24,7 @@ namespace LiteNetLib.Layers
             int checksumPoint = length - CRC32C.ChecksumSize;
             if (CRC32C.Compute(data, 0, checksumPoint) != BitConverter.ToUInt32(data, checksumPoint))
             {
-                NetDebug.Write("[NM] DataReceived checksum: bad!");
+               // NetDebug.Write("[NM] DataReceived checksum: bad!");
                 //Set length to 0 to have netManager drop the packet.
                 length = 0;
                 return;

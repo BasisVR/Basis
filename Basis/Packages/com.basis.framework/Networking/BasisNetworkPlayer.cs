@@ -9,10 +9,8 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
-using System.Data;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.UIElements;
 using static BasisNetworkGenericMessages;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
@@ -32,10 +30,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public HumanPose HumanPose = new HumanPose();
         [SerializeField]
         public HumanPoseHandler PoseHandler;
-        public BasisBoneControl MouthBone;
         public BasisPlayer Player;
         [SerializeField]
-        public PlayerIdMessage PlayerIDMessage;
+        public PlayerIdMessage PlayerIDMessage = new PlayerIdMessage();
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -177,11 +174,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarDataMessage, netDataWriter.Length);
         }
-        public void ProvideNetworkKey(ushort PlayerID)
-        {
-            PlayerIDMessage.playerID = PlayerID;
-            hasID = true;
-        }
         public static bool AvatarToPlayer(BasisAvatar Avatar, out BasisPlayer BasisPlayer)
         {
             return BasisNetworkManagement.AvatarToPlayer(Avatar, out BasisPlayer);
@@ -297,7 +289,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl Control, Role))
+                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Control, Role))
                 {
                     position = Control.OutgoingWorldData.position;
                     rotation = Control.OutgoingWorldData.rotation;
@@ -376,6 +368,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// this occurs after a remote user has removed
         /// </summary>
         public static Action<BasisNetworkPlayer, BasisRemotePlayer> OnRemotePlayerLeft;
+
         public string displayName
         {
             get

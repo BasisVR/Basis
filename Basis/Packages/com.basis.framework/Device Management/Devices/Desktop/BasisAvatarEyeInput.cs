@@ -22,26 +22,24 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public float InjectedZ = 0;
         public bool HasEyeEvents = false;
         public float InjectedZRot = 0;
-
         public Vector2 LookRotationVector = Vector2.zero;
-
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         private readonly BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
-        public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();
+        public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
         public void Initialize(string ID = "Desktop Eye", string subSystems = "BasisDesktopManagement")
         {
             BasisDebug.Log("Initializing Avatar Eye", BasisDebug.LogTag.Input);
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
                 BasisDebug.Log("Using Configured Height " + BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, BasisDebug.LogTag.Input);
-                DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
+                ScaledDeviceCoord.position = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
             }
             else
             {
                 BasisDebug.Log("Using Fallback Height " + BasisLocalPlayer.FallbackSize, BasisDebug.LogTag.Input);
-                DeviceFinalPosition = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
+                ScaledDeviceCoord.position = new Vector3(InjectedX, BasisLocalPlayer.FallbackSize, InjectedZ);
             }
-            DeviceFinalRotation = Quaternion.identity;
+            ScaledDeviceCoord.rotation = Quaternion.identity;
             InitalizeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
             if (BasisHelpers.CheckInstance(Instance))
             {
@@ -51,8 +49,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             BasisCursorManagement.OverrideAbleLock(nameof(BasisAvatarEyeInput));
             if (HasEyeEvents == false)
             {
-                BasisLocalPlayer.Instance.OnLocalAvatarChanged += PlayerInitialized;
-                BasisLocalPlayer.Instance.OnPlayersHeightChanged += OnPlayersHeightChanged;
+                BasisLocalPlayer.OnLocalAvatarChanged += PlayerInitialized;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
                 OnPlayersHeightChanged();
                 BasisCursorManagement.OnCursorStateChange += OnCursorStateChange;
                 BasisPointRaycaster.UseWorldPosition = false;
@@ -77,8 +75,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             if (HasEyeEvents)
             {
-                BasisLocalPlayer.Instance.OnLocalAvatarChanged -= PlayerInitialized;
-                BasisLocalPlayer.Instance.OnPlayersHeightChanged -= OnPlayersHeightChanged;
+                BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
                 BasisCursorManagement.OnCursorStateChange -= OnCursorStateChange;
                 HasEyeEvents = false;
                 BasisVirtualSpine.DeInitialize();
@@ -103,7 +101,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
         public new void OnDisable()
         {
-            BasisLocalPlayer.Instance.OnLocalAvatarChanged -= PlayerInitialized;
+            BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
             base.OnDisable();
         }
 
@@ -139,8 +137,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 rotationY %= 360f;
                 // Clamp rotationY to stay within the specified range
                 rotationY = Mathf.Clamp(rotationY, minimumY, maximumY);
-                Quaternion LocalRawRotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
-                Vector3 adjustedHeadPosition = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
+
+                UnscaledDeviceCoord.rotation = Quaternion.Euler(rotationY, rotationX, InjectedZRot);
+                UnscaledDeviceCoord.position = new Vector3(InjectedX, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, InjectedZ);
                 if (!CrouchingLock)
                 {
                     // adjustment is 0-1 interpolated between configurable normalized minimum and the max avatar height
@@ -148,13 +147,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     var crouchMinimum = BasisLocalPlayer.Instance.LocalCharacterDriver.MinimumCrouchPercent;
                     float heightAdjustment = (1 - crouchMinimum) * BasisLocalPlayer.Instance.LocalCharacterDriver.CrouchBlend + crouchMinimum;
                     // crouch is calculated from the ground up, so invert to move it to the avatar height context
-                    adjustedHeadPosition.y -= Control.TposeLocal.position.y * (1 - heightAdjustment);
+                    UnscaledDeviceCoord.position.y -= Control.TposeLocalScaled.position.y * (1 - heightAdjustment);
                 }
-                LocalRawPosition = adjustedHeadPosition;
-                Control.IncomingData.position = LocalRawPosition;
-                Control.IncomingData.rotation = LocalRawRotation;
-                DeviceFinalPosition = LocalRawPosition;
-                DeviceFinalRotation = LocalRawRotation;
+
+                ScaledDeviceCoord.position = UnscaledDeviceCoord.position;
+                ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+
+                ControlOnlyAsDevice();
                 UpdatePlayerControl();
             }
         }
@@ -181,15 +180,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

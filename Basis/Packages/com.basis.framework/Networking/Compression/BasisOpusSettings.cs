@@ -38,7 +38,6 @@ public static class RemoteOpusSettings
     public static OpusPredefinedValues OpusApplication = OpusPredefinedValues.OPUS_APPLICATION_AUDIO;
 
     public const int NetworkSampleRate = 48000;
-    public static int PlayBackSampleRate = AudioSettings.outputSampleRate;
     /// <summary>
     /// we only ever need one channel
     /// </summary>

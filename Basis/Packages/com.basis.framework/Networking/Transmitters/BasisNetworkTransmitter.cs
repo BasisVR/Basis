@@ -1,6 +1,7 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
+using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
@@ -21,6 +22,7 @@ namespace Basis.Scripts.Networking.Transmitters
         public float timer = 0f;
         public float interval = 0.0333333333333333f;
         public float SmallestDistanceToAnotherPlayer;
+        public BasisLocalBoneControl MouthBone;
         [SerializeField]
         public BasisAudioTransmission AudioTransmission = new BasisAudioTransmission();
         public NativeArray<float3> targetPositions;
@@ -37,13 +39,13 @@ namespace Basis.Scripts.Networking.Transmitters
         public LocalAvatarSyncMessage LASM = new LocalAvatarSyncMessage();
         public float UnClampedInterval;
 
-        public float DefaultInterval = 0.0333333333333333f;
-        public float BaseMultiplier = 1f; // Starting multiplier.
-        public float IncreaseRate = 0.005f; // Rate of increase per unit distance.
+        public static float DefaultInterval = 0.0333333333333333f;
+        public static float BaseMultiplier = 1f; // Starting multiplier.
+        public static float IncreaseRate = 0.005f; // Rate of increase per unit distance.
         public BasisDistanceJobs distanceJob = new BasisDistanceJobs();
         public JobHandle distanceJobHandle;
         public int IndexLength = -1;
-        public float SlowestSendRate = 2.5f;
+        public static float SlowestSendRate = 2.5f;
         public NetDataWriter AvatarSendWriter = new NetDataWriter(true, LocalAvatarSyncMessage.AvatarSyncSize + 1);
         public bool[] MicrophoneRangeIndex;
         public bool[] LastMicrophoneRangeIndex;
@@ -57,6 +59,11 @@ namespace Basis.Scripts.Networking.Transmitters
         public float[] CalculatedDistances;
         public static Action AfterAvatarChanges;
         public const float SmallestOutgoingInterval = 0.005f;
+        public BasisNetworkTransmitter(ushort PlayerID)
+        {
+            PlayerIDMessage.playerID = PlayerID;
+            hasID = true;
+        }
         /// <summary>
         /// schedules data going out. replaces existing byte index.
         /// </summary>
@@ -69,7 +76,6 @@ namespace Basis.Scripts.Networking.Transmitters
         {
             SendingOutAvatarData.Clear();
         }
-
         void SendOutLatest()
         {
             timer += Time.deltaTime;
@@ -119,7 +125,13 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 try
                 {
-                    Receivers.BasisNetworkReceiver Rec = BasisNetworkManagement.ReceiverArray[Index];
+                    Receivers.BasisNetworkReceiver Rec = BasisNetworkManagement.ReceiversSnapshot[Index];
+                    if(Rec == null)
+                    {
+                        //this can happen when a remote player leaves during this iteration from the other thread.
+                        //no need to error
+                        continue;
+                    }
                     //first handle avatar itself
                     if (Rec.RemotePlayer.InAvatarRange != AvatarIndex[Index])
                     {
@@ -149,7 +161,7 @@ namespace Basis.Scripts.Networking.Transmitters
                         }
                         Rec.RemotePlayer.BasisAvatarStrainJiggleDriver.Simulate(CalculatedDistances[Index]);
                     }
-                    Rec.RemotePlayer.EyeFollow.Simulate();
+                    Rec.RemotePlayer.RemoteEyeDriver.Simulate();
                     Rec.RemotePlayer.FacialBlinkDriver.Simulate();
                 }
                 catch (Exception ex)
@@ -254,7 +266,7 @@ namespace Basis.Scripts.Networking.Transmitters
             }
             for (int Index = 0; Index < BasisNetworkManagement.ReceiverCount; Index++)
             {
-                targetPositions[Index] = BasisNetworkManagement.ReceiverArray[Index].MouthBone.OutgoingWorldData.position;
+                targetPositions[Index] = BasisNetworkManagement.ReceiversSnapshot[Index].MouthBone.OutGoingData.position;
             }
             smallestDistance[0] = float.MaxValue;
             distanceJobHandle = distanceJob.Schedule(targetPositions.Length, 64);

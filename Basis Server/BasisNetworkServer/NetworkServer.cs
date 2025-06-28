@@ -74,10 +74,10 @@ public static class NetworkServer
                 case NetLogLevel.Error:
                     BNL.LogError(str);
                     break;
-                case NetLogLevel.Trace:
+               // case NetLogLevel.Trace:
                   //  BNL.Log(str);
                     break;
-                case NetLogLevel.Info:
+              //  case NetLogLevel.Info:
                  //   BNL.Log(str);
                     break;
             }
@@ -156,7 +156,7 @@ public static class NetworkServer
         {
             if (MessageIndex <= BasisNetworkCommons.TotalChannels)
             {
-                Peer.Send(Writer, MessageIndex, DeliveryMethod);
+                Peer.Send(Writer.Data,0,Writer.Length, MessageIndex, DeliveryMethod);
               //  BNL.Log($"sent {MessageIndex}");
             }
             else

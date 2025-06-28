@@ -23,24 +23,24 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
                 FollowMovement.SetLocalPositionAndRotation(newPosition, LerpRotation);
             }
             FollowMovement.GetLocalPositionAndRotation(out Vector3 VOut, out Quaternion QOut);
-            LocalRawPosition = VOut;
+            ScaledDeviceCoord.position = VOut;
             Quaternion LocalRawRotation = QOut;
 
             float SPTDS = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
 
-            LocalRawPosition /= SPTDS;
+            ScaledDeviceCoord.position /= SPTDS;
 
-            DeviceFinalPosition = LocalRawPosition * SPTDS;
-            DeviceFinalRotation = LocalRawRotation;
+            ScaledDeviceCoord.position = ScaledDeviceCoord.position * SPTDS;
+            ScaledDeviceCoord.rotation = LocalRawRotation;
             if (hasRoleAssigned)
             {
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                 {
                     // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = DeviceFinalPosition;
+                    Control.IncomingData.position = ScaledDeviceCoord.position;
 
                     // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = DeviceFinalRotation;
+                    Control.IncomingData.rotation = ScaledDeviceCoord.rotation;
                 }
             }
             UpdatePlayerControl();
@@ -79,15 +79,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
 
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

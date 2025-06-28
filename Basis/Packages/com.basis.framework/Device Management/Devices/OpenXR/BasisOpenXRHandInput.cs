@@ -19,7 +19,6 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty Primary2DAxis;
     public InputActionProperty Secondary2DAxis;
     public UnityEngine.XR.InputDevice Device;
-    public float3 LocalWristPosition;
     public const float TriggerDownAmount = 0.5f;
     public InputActionProperty PalmPoseActionPosition;
     public InputActionProperty PalmPoseActionRotation;
@@ -28,11 +27,12 @@ public class BasisOpenXRHandInput : BasisInputController
     public Vector3 RightHandPalmCorrection;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(-90, -90, -90);
-        rightHandToIKRotationOffset = new float3(-90, 90, 90);
-        RaycastRotationOffset = new float3(0, 0, 0);
-        LeftHandPalmCorrection = new Vector3(0, 0, 90);
-        RightHandPalmCorrection = new Vector3(0,0,-90);
+        leftHandToIKRotationOffset = new float3(0, -90, -180);
+        rightHandToIKRotationOffset = new float3(0, 90, -180);
+
+        RaycastRotationOffset = new float3(-90, 0, 0);
+        LeftHandPalmCorrection = new Vector3(0, 270, -90);
+        RightHandPalmCorrection = new Vector3(180,270,-90);
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         SetupInputActions(devicePath);
@@ -108,22 +108,16 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
 
+        UnscaledDeviceCoord.position = DeviceActionPosition.action.ReadValue<Vector3>();
+        UnscaledDeviceCoord.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
 
-        float scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-        DeviceFinalPosition = DeviceActionPosition.action.ReadValue<Vector3>() * scale;
-        DeviceFinalRotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+        ConvertToScaledDeviceCoord();
 
-        HandFinalPosition = LocalWristPosition * scale;
+        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
-        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-        {
-            Control.IncomingData.position = HandFinalPosition;
-            Control.IncomingData.rotation = HandleHandFinalRotation(HandFinalRotation);
-        }
+        ControlOnlyAsHand();
         UpdatePlayerControl();
-        RaycastPosition = HandFinalPosition;
-
-        RaycastRotation = math.mul(HandFinalRotation, Quaternion.Euler(RaycastRotationOffset));
+        ComputeRaycastDirection();
     }
     /// <summary>
     /// meta/ unity need to pull something out of there ass here,
@@ -142,13 +136,14 @@ public class BasisOpenXRHandInput : BasisInputController
                 case BasisBoneTrackedRole.LeftHand:
                     if (subsystem.leftHand.isTracked)
                     {
-                        UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out LocalWristPosition, out HandFinalRotation);
+                        UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
+                        HandFinal.rotation = HandleHandFinalRotation(UnscaledDeviceCoord.rotation);
                     }
                     else
                     {
-                        LocalWristPosition = PalmPoseActionPosition.action.ReadValue<Vector3>();
-                        HandFinalRotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
-                        HandFinalRotation = math.mul(HandFinalRotation, Quaternion.Euler(LeftHandPalmCorrection));
+                        HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
+                        HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
+                        HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
 
                         var LeftHand = BasisLocalPlayer.Instance.LocalHandDriver.LeftHand;
                         LeftHand.IndexPercentage[0] = Remap01ToMinus1To1(CurrentInputState.Trigger);
@@ -161,13 +156,14 @@ public class BasisOpenXRHandInput : BasisInputController
                 case BasisBoneTrackedRole.RightHand:
                     if (subsystem.rightHand.isTracked)
                     {
-                        UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out LocalWristPosition, out HandFinalRotation);
+                        UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
+                        HandFinal.rotation = HandleHandFinalRotation(UnscaledDeviceCoord.rotation);
                     }
                     else
                     {
-                        LocalWristPosition = PalmPoseActionPosition.action.ReadValue<Vector3>();
-                        HandFinalRotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
-                        HandFinalRotation = math.mul(HandFinalRotation, Quaternion.Euler(RightHandPalmCorrection));
+                        HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
+                        HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
+                        HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
 
                         var RightHand = BasisLocalPlayer.Instance.LocalHandDriver.RightHand;
 
@@ -183,7 +179,7 @@ public class BasisOpenXRHandInput : BasisInputController
         }
     }
 
-    private void UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, out float3 position, out quaternion rotation)
+    private void UpdateHandPose(XRHand hand, BasisFingerPose fingerPose, out Vector3 position, out Quaternion rotation)
     {
         XRHandJoint joint = hand.GetJoint(XRHandJointID.Wrist);
         if (joint.TryGetPose(out Pose pose))
@@ -258,14 +254,6 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void PlaySoundEffect(string SoundEffectName, float Volume)
     {
-        switch (SoundEffectName)
-        {
-            case "hover":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                break;
-            case "press":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                break;
-        }
+        PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
     }
 }

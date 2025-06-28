@@ -30,6 +30,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.framework.editor": {
+      "version": "file:com.basis.framework.editor",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.gizmos": {
       "version": "file:com.basis.gizmos",
       "depth": 0,
@@ -151,7 +157,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
-      "version": "1.8.21",
+      "version": "1.8.23",
       "depth": 1,
       "source": "registry",
       "dependencies": {

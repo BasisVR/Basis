@@ -312,7 +312,7 @@ MonoBehaviour:
   DefaultCameraFov: 80
   BasisLockToInput: {fileID: 3806033592985501336}
   HasEvents: 0
-  CanvasTransform: {fileID: 7984352310526030848}
+  ParentOfUI: {fileID: 7984352310526030848}
   SpriteRendererIcon: {fileID: 8202654958605531215}
   SpriteRendererIconTransform: {fileID: 2290955745392714449}
   SpriteMicrophoneOn: {fileID: 21300000, guid: df4c5b7b152475f48adb88ead5775eb0, type: 3}
@@ -344,7 +344,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TrackedRole: 0
-  AttachedInput: {fileID: 0}
+  BasisInput: {fileID: 0}
   HasEvent: 0
 --- !u!82 &3487408718883139867
 AudioSource:
@@ -467,9 +467,6 @@ MonoBehaviour:
   IgnoreRaycasting:
     serializedVersion: 2
     m_Bits: 4
-  ignoreRaycastLayer:
-    serializedVersion: 2
-    m_Bits: 0
   playerLayer:
     serializedVersion: 2
     m_Bits: 0
@@ -483,9 +480,6 @@ MonoBehaviour:
   LineMaterial: {fileID: 0}
   interactLineWidth: 0.015
   renderInteractLines: 1
-  InteractableLayerMask:
-    serializedVersion: 2
-    m_Bits: 0
 --- !u!1 &8538648612911191307
 GameObject:
   m_ObjectHideFlags: 0
@@ -536,7 +530,6 @@ MonoBehaviour:
   UUID: 
   BasisAvatar: {fileID: 0}
   BasisAvatarTransform: {fileID: 0}
-  HasAvatarDriver: 0
   FaceIsVisible: 0
   FaceRenderer: {fileID: 0}
   HasJiggles: 0
@@ -593,6 +586,8 @@ MonoBehaviour:
     AvatarEyeHeight: 1.64
     PlayerArmSpan: 1.7
     AvatarArmSpan: 1.7
+    CustomPlayerEyeHeight: 1.7
+    CustomAvatarEyeHeight: 1.7
     EyeRatioPlayerToDefaultScale: 1
     EyeRatioAvatarToAvatarDefaultScale: 1
     ArmRatioPlayerToDefaultScale: 1
@@ -607,6 +602,8 @@ MonoBehaviour:
     AvatarEyeHeight: 1.64
     PlayerArmSpan: 1.7
     AvatarArmSpan: 1.7
+    CustomPlayerEyeHeight: 1.7
+    CustomAvatarEyeHeight: 1.7
     EyeRatioPlayerToDefaultScale: 1
     EyeRatioAvatarToAvatarDefaultScale: 1
     ArmRatioPlayerToDefaultScale: 1
@@ -736,6 +733,8 @@ MonoBehaviour:
     LeftHandTwoBoneIK: {fileID: 0}
     RightHandTwoBoneIK: {fileID: 0}
     UpperChestTwoBoneIK: {fileID: 0}
+    LeftToeConstraint: {fileID: 0}
+    RightToeConstraint: {fileID: 0}
     LeftToeRig: {fileID: 0}
     RightToeRig: {fileID: 0}
     RigSpineRig: {fileID: 0}
@@ -786,7 +785,10 @@ MonoBehaviour:
     HasTPoseEvent: 0
     Locomotion: Locomotion
     MaxExtendedDistance: 0
-    AvatarUPDownDirectionCalibration: {x: 0, y: 0, z: 0}
+    ScaleAvatarModification:
+      DuringCalibrationScale: {x: 1, y: 1, z: 1}
+      ApplyScale: 0
+      FinalScale: {x: 1, y: 1, z: 1}
   LocalCharacterDriver:
     LocalPlayer: {fileID: 4587526044252889482}
     characterController: {fileID: 5548795088377030369}

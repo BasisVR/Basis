@@ -452,7 +452,7 @@ namespace LiteNetLib
             try
             {
                 socket.Bind(ep);
-                NetDebug.Write(NetLogLevel.Trace, $"[B]Successfully binded to port: {((IPEndPoint)socket.LocalEndPoint).Port}, AF: {socket.AddressFamily}");
+              //  NetDebug.Write(NetLogLevel.Trace, $"[B]Successfully binded to port: {((IPEndPoint)socket.LocalEndPoint).Port}, AF: {socket.AddressFamily}");
 
                 //join multicast
                 if (ep.AddressFamily == AddressFamily.InterNetworkV6)
@@ -571,7 +571,7 @@ namespace LiteNetLib
                     case SocketError.Interrupted:
                         return 0;
                     case SocketError.MessageSize:
-                        NetDebug.Write(NetLogLevel.Trace, $"[SRD] 10040, datalen: {length}");
+                     //   NetDebug.Write(NetLogLevel.Trace, $"[SRD] 10040, datalen: {length}");
                         return 0;
 
                     case SocketError.HostUnreachable:

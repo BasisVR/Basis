@@ -66,7 +66,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3a3df1983396db742b32634900a6e4ad
-    m_Address: BootManager
+    m_Address: BasisFramework
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -137,6 +137,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 938a74e0852c65a46b1e41fd00424827
     m_Address: Packages/com.basis.gizmos/GizmoShader.shadergraph
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 93e1db65c6ab98040aeed79fd3ee335b
+    m_Address: Packages/com.basis.sdk/Prefabs/Players/AudioSource.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -19,6 +19,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 using static DarkRift.Basis_Common.Serializable.SerializableBasis;
 using static SerializableBasis;
@@ -38,9 +39,11 @@ namespace Basis.Scripts.Networking
         public static ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new ConcurrentDictionary<ushort, BasisNetworkPlayer>();
         public static ConcurrentDictionary<ushort, BasisNetworkReceiver> RemotePlayers = new ConcurrentDictionary<ushort, BasisNetworkReceiver>();
         public static HashSet<ushort> JoiningPlayers = new HashSet<ushort>();
+
         [SerializeField]
-        public static BasisNetworkReceiver[] ReceiverArray;
+        public static BasisNetworkReceiver[] ReceiversSnapshot;
         public static int ReceiverCount = 0;
+
         public static SynchronizationContext MainThreadContext;
         public static NetPeer LocalPlayerPeer;
         public BasisNetworkTransmitter Transmitter;
@@ -50,11 +53,14 @@ namespace Basis.Scripts.Networking
         public static Action OnEnableInstanceCreate;
         public static BasisNetworkManagement Instance;
         public static Dictionary<string, ushort> OwnershipPairing = new Dictionary<string, ushort>();
+       public static InstantiationParameters instantiationParameters;
         /// <summary>
         /// allows a local host to be the server
         /// </summary>
         public BasisNetworkServerRunner BasisNetworkServerRunner = null;
         public static bool NetworkRunning = false;
+        public static BasisNetworkTransmitter LocalNetworkedPlayer;
+        public bool IsRunning = true;
         public static bool AddPlayer(BasisNetworkPlayer NetPlayer)
         {
             if (Instance != null)
@@ -64,9 +70,9 @@ namespace Basis.Scripts.Networking
                     if (NetPlayer.Player.IsLocal == false)
                     {
                         RemotePlayers.TryAdd(NetPlayer.NetId, (BasisNetworkReceiver)NetPlayer);
-                        BasisNetworkManagement.ReceiverArray = RemotePlayers.Values.ToArray();
-                        ReceiverCount = ReceiverArray.Length;
-                        BasisDebug.Log("ReceiverCount was " + ReceiverCount);
+                        BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
+                        ReceiverCount = ReceiversSnapshot.Length;
+                      //  BasisDebug.Log("ReceiverCount was " + ReceiverCount);
                     }
                 }
                 else
@@ -86,8 +92,8 @@ namespace Basis.Scripts.Networking
             if (Instance != null)
             {
                 RemotePlayers.TryRemove(NetID, out BasisNetworkReceiver A);
-                BasisNetworkManagement.ReceiverArray = RemotePlayers.Values.ToArray();
-                ReceiverCount = ReceiverArray.Length;
+                BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
+                ReceiverCount = ReceiversSnapshot.Length;
                 //BasisDebug.Log("ReceiverCount was " + ReceiverCount);
                 return Players.Remove(NetID, out var B);
             }
@@ -99,6 +105,7 @@ namespace Basis.Scripts.Networking
             {
                 Instance = this;
             }
+            instantiationParameters = new InstantiationParameters(Vector3.zero, Quaternion.identity, BasisDeviceManagement.Instance.transform);
             BasisAvatarMuscleRange.Initalize();
             MainThreadContext = SynchronizationContext.Current;
             // Initialize AvatarBuffer
@@ -165,10 +172,10 @@ namespace Basis.Scripts.Networking
             OwnershipPairing.Clear();
             BasisNetworkServerRunner = null;
 
-            if (BasisNetworkManagement.ReceiverArray != null)
+            if (BasisNetworkManagement.ReceiversSnapshot != null)
             {
-                Array.Clear(BasisNetworkManagement.ReceiverArray, 0, BasisNetworkManagement.ReceiverArray.Length);
-                BasisNetworkManagement.ReceiverArray = null;
+                Array.Clear(BasisNetworkManagement.ReceiversSnapshot, 0, BasisNetworkManagement.ReceiversSnapshot.Length);
+                BasisNetworkManagement.ReceiversSnapshot = null;
             }
 
             BasisDebug.Log("BasisNetworkManagement has been successfully shutdown.", BasisDebug.LogTag.Networking);
@@ -182,9 +189,9 @@ namespace Basis.Scripts.Networking
                 // Schedule multithreaded tasks
                 for (int Index = 0; Index < ReceiverCount; Index++)
                 {
-                    if (ReceiverArray[Index] != null)
+                    if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiverArray[Index].Compute(TimeAsDouble);
+                        ReceiversSnapshot[Index].Compute(TimeAsDouble);
                     }
                 }
                 BasisNetworkProfiler.Update();
@@ -195,17 +202,12 @@ namespace Basis.Scripts.Networking
             if (NetworkRunning)
             {
                 double TimeAsDouble = Time.timeAsDouble;
-                float deltaTime = Time.deltaTime;
-                if (float.IsNaN(deltaTime))
-                {
-                    return;
-                }
                 // Complete tasks and apply results
                 for (int Index = 0; Index < ReceiverCount; Index++)
                 {
-                    if (ReceiverArray[Index] != null)
+                    if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiverArray[Index].Apply(TimeAsDouble, deltaTime);
+                        ReceiversSnapshot[Index].Apply(TimeAsDouble);
                     }
                 }
             }
@@ -297,15 +299,12 @@ namespace Basis.Scripts.Networking
                         ushort LocalPlayerID = (ushort)peer.RemoteId;
                         // Create the local networked player asynchronously.
                         this.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
-                        LocalNetworkedPlayer = new BasisNetworkTransmitter();
-                        BasisDebug.Log("Network Id Updated " + LocalPlayerPeer.RemoteId);
-
-                        LocalNetworkedPlayer.ProvideNetworkKey(LocalPlayerID);
+                        LocalNetworkedPlayer = new BasisNetworkTransmitter(LocalPlayerID);
                         // Initialize the local networked player.
                         LocalInitalize(LocalNetworkedPlayer, BasisLocalPlayer.Instance);
                         if (AddPlayer(LocalNetworkedPlayer))
                         {
-                            BasisDebug.Log($"Added local player {LocalPlayerID}");
+                          //  BasisDebug.Log($"Added local player {LocalPlayerID}");
                         }
                         else
                         {
@@ -323,8 +322,7 @@ namespace Basis.Scripts.Networking
                 }), null);
             });
         }
-        public static BasisNetworkPlayer LocalNetworkedPlayer;
-        public static void LocalInitalize(BasisNetworkPlayer BasisNetworkPlayer, BasisLocalPlayer BasisLocalPlayer)
+        public static void LocalInitalize(BasisNetworkTransmitter BasisNetworkPlayer, BasisLocalPlayer BasisLocalPlayer)
         {
             BasisNetworkPlayer.Player = BasisLocalPlayer;
             if (BasisLocalPlayer.LocalAvatarDriver != null)
@@ -342,7 +340,6 @@ namespace Basis.Scripts.Networking
             }
             BasisNetworkManagement.Instance.Transmitter = (BasisNetworkTransmitter)BasisNetworkPlayer;
         }
-        public bool IsRunning = true;
         private async void PeerDisconnectedEvent(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             BasisDebug.Log($"Client disconnected from server [{peer.Id}]");
@@ -505,7 +502,7 @@ namespace Basis.Scripts.Networking
                     }
                     BasisNetworkManagement.MainThreadContext.Post(async _ =>
                     {
-                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, this.transform);
+                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, instantiationParameters);
                         Reader.Recycle();
                     }, null);
                     break;
@@ -519,7 +516,7 @@ namespace Basis.Scripts.Networking
                     BasisNetworkManagement.MainThreadContext.Post(async _ =>
                     {
                         //this one is called first and is also generally where the issues are.
-                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, this.transform);
+                        await BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, instantiationParameters);
                         Reader.Recycle();
                     }, null);
                     break;

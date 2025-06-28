@@ -32,18 +32,12 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     if (deviceGamePose.bPoseIsValid)
                     {
                         deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
-                        LocalRawPosition = deviceTransform.pos;
-                        DeviceFinalRotation = deviceTransform.rot;
 
-                        DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-                        {
-                            // Apply position offset using math.mul for quaternion-vector multiplication
-                            Control.IncomingData.position = DeviceFinalPosition;
+                        UnscaledDeviceCoord.position = deviceTransform.pos;
+                        UnscaledDeviceCoord.rotation = deviceTransform.rot;
 
-                            // Apply rotation offset using math.mul for quaternion multiplication
-                            Control.IncomingData.rotation = DeviceFinalRotation;
-                        }
+                        ConvertToScaledDeviceCoord();
+                        ControlOnlyAsDevice();
                         if (HasInputSource)
                         {
                             CurrentInputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
@@ -84,15 +78,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

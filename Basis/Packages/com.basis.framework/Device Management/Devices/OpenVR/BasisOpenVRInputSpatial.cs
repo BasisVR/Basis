@@ -12,7 +12,7 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
     {
         public TrackedPoseDriver.TrackedPose TrackedPose = TrackedPoseDriver.TrackedPose.Center;
         public BasisOpenVRInputEye BasisOpenVRInputEye;
-        public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();
+        public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
         public void Initialize(TrackedPoseDriver.TrackedPose trackedPose, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
             TrackedPose = trackedPose;
@@ -34,22 +34,16 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         {
             if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
             {
-                LocalRawPosition = (float3)resultPose.position;
-                DeviceFinalRotation = resultPose.rotation;
-                if (TryGetRole(out var CurrentRole))
-                {
-                    if (CurrentRole == BasisBoneTrackedRole.CenterEye)
-                    {
-                        BasisOpenVRInputEye.Simulate();
-                    }
-                    // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = DeviceFinalPosition;
+                UnscaledDeviceCoord.rotation = resultPose.rotation;
+                UnscaledDeviceCoord.position = (float3)resultPose.position;
 
-                    // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = DeviceFinalRotation;
+                ConvertToScaledDeviceCoord();
+                if (TryGetRole(out var CurrentRole) && CurrentRole == BasisBoneTrackedRole.CenterEye)
+                {
+                    BasisOpenVRInputEye.Simulate();
                 }
             }
-            DeviceFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            ControlOnlyAsDevice();
             UpdatePlayerControl();
         }
         public override void ShowTrackedVisual()
@@ -76,15 +70,7 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         }
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
-            switch (SoundEffectName)
-            {
-                case "hover":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                    break;
-                case "press":
-                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                    break;
-            }
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

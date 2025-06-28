@@ -139,7 +139,7 @@ public static class BasisNetworkSpawnItem
             UnlockPassword = localLoadResource.UnlockPassword,
         };
 
-        Scene scene = await BasisSceneLoadDriver.LoadSceneAssetBundle(loadBundle);
+        Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
         BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
         SceneTraverseNetIdAssign(scene, localLoadResource);
         SpawnedScenes.TryAdd(localLoadResource.LoadedNetID, scene);

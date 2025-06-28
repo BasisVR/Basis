@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 public class BasisOpenXRHeadInput : BasisInput
 {
     public BasisOpenXRInputEye BasisOpenXRInputEye;
-    public BasisVirtualSpineDriver BasisVirtualSpine = new BasisVirtualSpineDriver();
+    public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
     public InputActionProperty Position;
     public InputActionProperty Rotation;
 
@@ -43,22 +43,11 @@ public class BasisOpenXRHeadInput : BasisInput
 
     public override void DoPollData()
     {
-        if (Position.action != null) LocalRawPosition = Position.action.ReadValue<Vector3>();
-        if (Rotation.action != null) DeviceFinalRotation = Rotation.action.ReadValue<Quaternion>();
+        UnscaledDeviceCoord.position = Position.action.ReadValue<Vector3>();
+        UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
 
-        DeviceFinalPosition = BasisLocalPlayer.Instance?.CurrentHeight != null
-            ? LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale
-            : LocalRawPosition;
-
-        if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
-        {
-            // Apply position offset using math.mul for quaternion-vector multiplication
-            Control.IncomingData.position = DeviceFinalPosition;
-
-            // Apply rotation offset using math.mul for quaternion multiplication
-            Control.IncomingData.rotation = DeviceFinalRotation;
-        }
-
+        ConvertToScaledDeviceCoord();
+        ControlOnlyAsDevice();
         UpdatePlayerControl();
     }
     public override void ShowTrackedVisual()
@@ -81,18 +70,10 @@ public class BasisOpenXRHeadInput : BasisInput
     }
     public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
     {
-        BasisDebug.LogError("XRHead does not support Haptics Playback");
+       // BasisDebug.LogError("XRHead does not support Haptics Playback");
     }
     public override void PlaySoundEffect(string SoundEffectName, float Volume)
     {
-        switch (SoundEffectName)
-        {
-            case "hover":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.HoverUI, transform.position, Volume);
-                break;
-            case "press":
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
-                break;
-        }
+        PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
     }
 }

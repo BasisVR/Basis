@@ -14,13 +14,13 @@ public static class BasisAvatarMuscleRange
         MinMuscle = new float[LocalAvatarSyncMessage.StoredBones];
         MaxMuscle = new float[LocalAvatarSyncMessage.StoredBones];
         RangeMuscle = new float[LocalAvatarSyncMessage.StoredBones];
-        for (int i = 0, j = 0; i < LocalAvatarSyncMessage.StoredBones; i++)
+        for (int Index = 0, MuscleIndex = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)
         {
-            if (i < FirstBuffer || i > SecondBuffer)
+            if (Index < FirstBuffer || Index > SecondBuffer)
             {
-                MinMuscle[j] = HumanTrait.GetMuscleDefaultMin(i);
-                MaxMuscle[j] = HumanTrait.GetMuscleDefaultMax(i);
-                j++;
+                MinMuscle[MuscleIndex] = HumanTrait.GetMuscleDefaultMin(Index);
+                MaxMuscle[MuscleIndex] = HumanTrait.GetMuscleDefaultMax(Index);
+                MuscleIndex++;
             }
         }
         for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)

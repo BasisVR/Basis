@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
@@ -158,7 +158,7 @@ namespace LiteNetLib
         // ===========================================
         internal static void PrintInterfaceInfos()
         {
-            NetDebug.WriteForce(NetLogLevel.Info, $"IPv6Support: { NetManager.IPv6Support}");
+         //   NetDebug.WriteForce(NetLogLevel.Info, $"IPv6Support: { NetManager.IPv6Support}");
             try
             {
                 foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
@@ -168,16 +168,16 @@ namespace LiteNetLib
                         if (ip.Address.AddressFamily == AddressFamily.InterNetwork ||
                             ip.Address.AddressFamily == AddressFamily.InterNetworkV6)
                         {
-                            NetDebug.WriteForce(
-                                NetLogLevel.Info,
-                                $"Interface: {ni.Name}, Type: {ni.NetworkInterfaceType}, Ip: {ip.Address}, OpStatus: {ni.OperationalStatus}");
+                          //  NetDebug.WriteForce(
+                             //   NetLogLevel.Info,
+                             //   $"Interface: {ni.Name}, Type: {ni.NetworkInterfaceType}, Ip: {ip.Address}, OpStatus: {ni.OperationalStatus}");
                         }
                     }
                 }
             }
             catch (Exception e)
             {
-                NetDebug.WriteForce(NetLogLevel.Info, $"Error while getting interface infos: {e}");
+             //   NetDebug.WriteForce(NetLogLevel.Info, $"Error while getting interface infos: {e}");
             }
         }
 
