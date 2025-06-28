@@ -5,11 +5,11 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-
 namespace Basis.Scripts.Avatar
 {
     public static partial class BasisAvatarIKStageCalibration
     {
+        public static bool HasFBIKTrackers = false;
         private static List<BasisBoneTrackedRole> GetAllRoles()
         {
             List<BasisBoneTrackedRole> rolesToDiscover = new List<BasisBoneTrackedRole>();
@@ -19,9 +19,9 @@ namespace Basis.Scripts.Avatar
             }
             // Create a dictionary for quick index lookup
             Dictionary<BasisBoneTrackedRole, int> orderLookup = new Dictionary<BasisBoneTrackedRole, int>();
-            for (int i = 0; i < desiredOrder.Length; i++)
+            for (int Index = 0; Index < desiredOrder.Length; Index++)
             {
-                orderLookup[desiredOrder[i]] = i;
+                orderLookup[desiredOrder[Index]] = Index;
             }
 
             // Assign a large index value to roles not in the desired order
@@ -129,7 +129,6 @@ namespace Basis.Scripts.Avatar
             BasisLocalPlayer.Instance.LocalAvatarDriver.CalibrateRoles();//not needed but still doing just incase
             BasisLocalPlayer.Instance.LocalAnimatorDriver.AssignHipsFBTracker();
         }
-        public static bool HasFBIKTrackers = false;
         public static void RunThroughConnectors(BasisTrackerMapping mapping, ref List<BasisInput> BasisInputs, ref List<BasisBoneTrackedRole> roles)
         {
             // List to store the calibration actions
@@ -168,7 +167,8 @@ namespace Basis.Scripts.Avatar
             }
 
             // Execute all stored calibration actions
-            for (int Index = 0; Index < calibrationActions.Count; Index++)
+            int Count =  calibrationActions.Count;
+            for (int Index = 0; Index < Count; Index++)
             {
                 Action action = calibrationActions[Index];
                 action();
@@ -256,65 +256,6 @@ namespace Basis.Scripts.Avatar
                 default:
                     BasisDebug.LogError("Unknown role " + role);
                     return 0;
-            }
-        }
-        public static BasisGeneralLocation FindGeneralLocation(BasisBoneTrackedRole Role)
-        {
-
-            switch (Role)
-            {
-                case BasisBoneTrackedRole.CenterEye:
-                    return BasisGeneralLocation.Center;
-                case BasisBoneTrackedRole.Head:
-                    return BasisGeneralLocation.Center;
-                case BasisBoneTrackedRole.Neck:
-                    return BasisGeneralLocation.Center;
-                case BasisBoneTrackedRole.Chest:
-                    return BasisGeneralLocation.Center;
-                case BasisBoneTrackedRole.Hips:
-                    return BasisGeneralLocation.Center;
-                case BasisBoneTrackedRole.Spine:
-                    return BasisGeneralLocation.Center;
-                case BasisBoneTrackedRole.Mouth:
-                    return BasisGeneralLocation.Center;
-
-                case BasisBoneTrackedRole.RightUpperLeg:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightLowerLeg:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightFoot:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightShoulder:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightUpperArm:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightLowerArm:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightHand:
-                    return BasisGeneralLocation.Right;
-                case BasisBoneTrackedRole.RightToes:
-                    return BasisGeneralLocation.Right;
-
-                case BasisBoneTrackedRole.LeftHand:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftShoulder:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftLowerArm:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftFoot:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftUpperLeg:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftLowerLeg:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftUpperArm:
-                    return BasisGeneralLocation.Left;
-                case BasisBoneTrackedRole.LeftToes:
-                    return BasisGeneralLocation.Left;
-
-                default:
-                    Console.WriteLine("Unknown role " + Role);
-                    return BasisGeneralLocation.Center;
             }
         }
         public static BasisBoneTrackedRole[] desiredOrder = new BasisBoneTrackedRole[]
