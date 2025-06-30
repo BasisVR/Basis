@@ -484,7 +484,7 @@ namespace LiteNetLib
 
         private void ProcessEvent(NetEvent evt)
         {
-            NetDebug.Write("[NM] Processing event: " + evt.Type);
+          //  NetDebug.Write("[NM] Processing event: " + evt.Type);
             bool emptyData = evt.DataReader.IsNull;
             switch (evt.Type)
             {
@@ -693,7 +693,7 @@ namespace LiteNetLib
 
             if (request.Result == ConnectionRequestResult.RejectForce)
             {
-                NetDebug.Write(NetLogLevel.Trace, "[NM] Peer connect reject force.");
+              //  NetDebug.Write(NetLogLevel.Trace, "[NM] Peer connect reject force.");
                 if (rejectData != null && length > 0)
                 {
                     var shutdownPacket = PoolGetWithProperty(PacketProperty.Disconnect, length);
@@ -719,14 +719,14 @@ namespace LiteNetLib
                     netPeer = new NetPeer(this, request.RemoteEndPoint, GetNextPeerId());
                     netPeer.Reject(request.InternalPacket, rejectData, start, length);
                     AddPeer(netPeer);
-                    NetDebug.Write(NetLogLevel.Trace, "[NM] Peer connect reject.");
+                  //  NetDebug.Write(NetLogLevel.Trace, "[NM] Peer connect reject.");
                 }
                 else //Accept
                 {
                     netPeer = new NetPeer(this, request, GetNextPeerId());
                     AddPeer(netPeer);
                     CreateEvent(NetEvent.EType.Connect, netPeer);
-                    NetDebug.Write(NetLogLevel.Trace, $"[NM] Received peer connection Id: {netPeer.ConnectTime}, EP: {netPeer}");
+                 //   NetDebug.Write(NetLogLevel.Trace, $"[NM] Received peer connection Id: {netPeer.ConnectTime}, EP: {netPeer}");
                 }
                 _requestsDict.Remove(request.RemoteEndPoint);
             }
@@ -748,7 +748,7 @@ namespace LiteNetLib
             if (netPeer != null)
             {
                 var processResult = netPeer.ProcessConnectRequest(connRequest);
-                NetDebug.Write($"ConnectRequest LastId: {netPeer.ConnectTime}, NewId: {connRequest.ConnectionTime}, EP: {remoteEndPoint}, Result: {processResult}");
+               // NetDebug.Write($"ConnectRequest LastId: {netPeer.ConnectTime}, NewId: {connRequest.ConnectionTime}, EP: {remoteEndPoint}, Result: {processResult}");
 
                 switch (processResult)
                 {
@@ -778,7 +778,7 @@ namespace LiteNetLib
             }
             else
             {
-                NetDebug.Write($"ConnectRequest Id: {connRequest.ConnectionTime}, EP: {remoteEndPoint}");
+              //  NetDebug.Write($"ConnectRequest Id: {connRequest.ConnectionTime}, EP: {remoteEndPoint}");
             }
 
             ConnectionRequest req;
@@ -792,7 +792,7 @@ namespace LiteNetLib
                 req = new ConnectionRequest(remoteEndPoint, connRequest, this);
                 _requestsDict.Add(remoteEndPoint, req);
             }
-            NetDebug.Write($"[NM] Creating request event: {connRequest.ConnectionTime}");
+          //  NetDebug.Write($"[NM] Creating request event: {connRequest.ConnectionTime}");
             CreateEvent(NetEvent.EType.ConnectionRequest, connectionRequest: req);
         }
 
@@ -863,7 +863,7 @@ namespace LiteNetLib
             {
                 if (packet.Size < 48)
                 {
-                    NetDebug.Write(NetLogLevel.Trace, $"NTP response too short: {packet.Size}");
+                  //  NetDebug.Write(NetLogLevel.Trace, $"NTP response too short: {packet.Size}");
                     return;
                 }
 
@@ -876,7 +876,7 @@ namespace LiteNetLib
                 }
                 catch (InvalidOperationException ex)
                 {
-                    NetDebug.Write(NetLogLevel.Trace, $"NTP response error: {ex.Message}");
+                    NetDebug.Write(NetLogLevel.Error, $"NTP response error: {ex.Message}");
                     ntpPacket = null;
                 }
 
@@ -956,7 +956,7 @@ namespace LiteNetLib
                             //send NetworkChanged packet
                             netPeer.ResetMtu();
                             SendRaw(NetConnectAcceptPacket.MakeNetworkChanged(netPeer), remoteEndPoint);
-                            NetDebug.Write($"PeerNotFound sending connection info: {remoteEndPoint}");
+                          //  NetDebug.Write($"PeerNotFound sending connection info: {remoteEndPoint}");
                         }
                         else if (packet.Size == 2 && packet.RawData[1] == 1)
                         {
@@ -971,7 +971,7 @@ namespace LiteNetLib
 
                         if (AllowPeerAddressChange)
                         {
-                            NetDebug.Write($"[NM] Looks like address change: {packet.Size}");
+                           // NetDebug.Write($"[NM] Looks like address change: {packet.Size}");
                             var remoteData = NetConnectAcceptPacket.FromData(packet);
                             if (remoteData != null &&
                                 remoteData.PeerNetworkChanged &&
@@ -988,7 +988,7 @@ namespace LiteNetLib
                                     {
                                         peer.InitiateEndPointChange();
                                         CreateEvent(NetEvent.EType.PeerAddressChanged, peer, remoteEndPoint);
-                                        NetDebug.Write("[NM] PeerNotFound change address of remote peer");
+                                     //   NetDebug.Write("[NM] PeerNotFound change address of remote peer");
                                     }
                                     isOldPeer = true;
                                 }
@@ -1607,7 +1607,7 @@ namespace LiteNetLib
         {
             if (!_isRunning)
                 return;
-            NetDebug.Write("[NM] Stop");
+           // NetDebug.Write("[NM] Stop");
 
             //Send last disconnect
             for (var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)

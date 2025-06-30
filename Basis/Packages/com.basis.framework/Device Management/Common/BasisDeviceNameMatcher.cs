@@ -9,10 +9,10 @@ namespace Basis.Scripts.Device_Management
     public class BasisDeviceNameMatcher : ScriptableObject
     {
         [SerializeField]
-        public List<BasisDeviceMatchSettings> BasisDevice = new List<BasisDeviceMatchSettings>();
-        public BasisDeviceMatchSettings GetAssociatedDeviceMatchableNames(string nameToMatch, BasisBoneTrackedRole FallBackRole = BasisBoneTrackedRole.CenterEye, bool UseFallbackROle = false)
+        public List<DeviceSupportInformation> BasisDevice = new List<DeviceSupportInformation>();
+        public DeviceSupportInformation GetAssociatedDeviceMatchableNames(string nameToMatch, BasisBoneTrackedRole FallBackRole = BasisBoneTrackedRole.CenterEye, bool UseFallbackROle = false)
         {
-            foreach (BasisDeviceMatchSettings DeviceEntry in BasisDevice)
+            foreach (DeviceSupportInformation DeviceEntry in BasisDevice)
             {
                 string[] Matched = DeviceEntry.MatchableDeviceIdsLowered().ToArray();
                 if (Matched.Contains(nameToMatch.ToLower()))
@@ -20,7 +20,7 @@ namespace Basis.Scripts.Device_Management
                     return DeviceEntry;
                 }
             }
-            BasisDeviceMatchSettings Settings = new BasisDeviceMatchSettings
+            DeviceSupportInformation Settings = new DeviceSupportInformation
             {
                 VersionNumber = 1,
                 DeviceID = nameToMatch,
@@ -36,9 +36,9 @@ namespace Basis.Scripts.Device_Management
             BasisDebug.LogError("Unable to find Configuration for device Generating " + nameToMatch);
             return Settings;
         }
-        public BasisDeviceMatchSettings GetAssociatedDeviceMatchableNamesNoCreate(string nameToMatch)
+        public DeviceSupportInformation GetAssociatedDeviceMatchableNamesNoCreate(string nameToMatch)
         {
-            foreach (BasisDeviceMatchSettings deviceEntry in BasisDevice)
+            foreach (DeviceSupportInformation deviceEntry in BasisDevice)
             {
                 string[] matched = deviceEntry.MatchableDeviceIdsLowered().ToArray();
                 if (matched.Contains(nameToMatch.ToLower()))
@@ -51,9 +51,9 @@ namespace Basis.Scripts.Device_Management
             Debug.LogWarning("Configuration for device not found: " + nameToMatch);
             return null;
         }
-        public BasisDeviceMatchSettings GetAssociatedDeviceMatchableNamesNoCreate(string nameToMatch, BasisDeviceMatchSettings CheckAgainst)
+        public DeviceSupportInformation GetAssociatedDeviceMatchableNamesNoCreate(string nameToMatch, DeviceSupportInformation CheckAgainst)
         {
-            foreach (BasisDeviceMatchSettings deviceEntry in BasisDevice)
+            foreach (DeviceSupportInformation deviceEntry in BasisDevice)
             {
                 string[] matched = deviceEntry.MatchableDeviceIdsLowered().ToArray();
                 if (matched.Contains(nameToMatch.ToLower()))

@@ -32,6 +32,8 @@ public class BasisHandHeldCameraUI
     private const int FORMAT_EXR = 1;
     public GameObject PngSprite; // Sprite 1
     public GameObject ExrSprite; // Sprite 2
+    public GameObject DoFAutoSprite;
+    public GameObject DoFManualSprite;
     [Space(10)]
     public Slider ExposureSlider;
     private float[] exposureStops = new float[] { -3f, -2.5f, -2f, -1.5f, -1f, -0.5f, 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f };
@@ -138,6 +140,9 @@ public class BasisHandHeldCameraUI
         DepthApertureSlider.gameObject.SetActive(true);
         DepthFocusDistanceSlider.gameObject.SetActive(!useAuto);
 
+        if (DoFAutoSprite != null) DoFAutoSprite.SetActive(useAuto);
+        if (DoFManualSprite != null) DoFManualSprite.SetActive(!useAuto);
+
         BasisDebug.Log($"[DepthMode] Switched to {(useAuto ? "Auto" : "Manual")}");
     }
 
@@ -194,8 +199,12 @@ public class BasisHandHeldCameraUI
         {
             BasisHamburgerMenu.activeCameraInstance = null;
         }
+        var cameraInteractable = HHC.GetComponent<BasisHandHeldCameraInteractable>();
+        if (cameraInteractable != null)
+            cameraInteractable.ReleasePlayerLocks();
 
         GameObject.Destroy(HHC.gameObject);
+        Cursor.visible = false;
     }
 
     public const string CameraSettingsJson = "CameraSettings.json";

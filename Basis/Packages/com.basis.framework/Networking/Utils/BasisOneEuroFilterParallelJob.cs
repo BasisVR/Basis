@@ -17,9 +17,9 @@ using UnityEngine;
 [BurstCompile]
 public struct BasisOneEuroFilterParallelJob : IJobParallelFor
 {
-    [ReadOnly]
-    public NativeArray<float> InputValues;
-    public NativeArray<float> OutputValues;
+    // [ReadOnly]
+    // public NativeArray<float> InputValues;
+    public NativeArray<float> Values;
 
     public float MinCutoff;
     public float Beta;
@@ -31,10 +31,10 @@ public struct BasisOneEuroFilterParallelJob : IJobParallelFor
 
     public void Execute(int index)
     {
-	    float frequency = 1.0f / DeltaTime;
+        float frequency = 1.0f / DeltaTime;
 
         // Estimate variation
-        float inputValue = InputValues[index];
+        float inputValue = Values[index];
         float dValue = (inputValue - PositionFilters[index].x) * frequency;
         float edValue = FilterDerivativeWithAlpha(dValue, Alpha(DerivativeCutoff, frequency), index);
         DerivativeFilters[index] = new float2(dValue, edValue);
@@ -43,8 +43,8 @@ public struct BasisOneEuroFilterParallelJob : IJobParallelFor
         float cutoff = MinCutoff + Beta * Mathf.Abs(edValue);
 
         // Filter input value
-        OutputValues[index] = FilterPositionWithAlpha(inputValue, Alpha(cutoff, frequency), index);
-        PositionFilters[index] = new float2(inputValue, OutputValues[index]);
+        Values[index] = FilterPositionWithAlpha(inputValue, Alpha(cutoff, frequency), index);
+        PositionFilters[index] = new float2(inputValue, Values[index]);
     }
 
     private float Alpha(float cutoff, float frequency)
@@ -56,11 +56,11 @@ public struct BasisOneEuroFilterParallelJob : IJobParallelFor
 
     private float FilterPositionWithAlpha(float inputValue, float alpha, int index)
     {
-	    return alpha * inputValue + (1.0f - alpha) * PositionFilters[index].y;
+        return alpha * inputValue + (1.0f - alpha) * PositionFilters[index].y;
     }
 
     private float FilterDerivativeWithAlpha(float dValue, float alpha, int index)
     {
-	    return alpha * dValue + (1.0f - alpha) * DerivativeFilters[index].y;
+        return alpha * dValue + (1.0f - alpha) * DerivativeFilters[index].y;
     }
 }

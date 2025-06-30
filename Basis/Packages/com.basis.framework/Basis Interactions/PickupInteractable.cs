@@ -1,9 +1,9 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices;
-using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
+using BattlePhaze.SettingsManager.Intergrations;
 using System;
 using System.Linq;
 using UnityEngine;
@@ -180,6 +180,7 @@ public class PickupInteractable : InteractableObject
     }
     public override void OnInteractStart(BasisInput input)
     {
+        input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume / 80);
         // TODO: request net ownership
 
         // clean up interacting ourselves (system wont do this for us)

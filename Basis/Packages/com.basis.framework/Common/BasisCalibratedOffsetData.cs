@@ -1,4 +1,4 @@
-﻿using Unity.Mathematics;
+using UnityEngine;
 
 namespace Basis.Scripts.Common
 {
@@ -6,13 +6,18 @@ namespace Basis.Scripts.Common
     public struct BasisCalibratedOffsetData
     {
         public bool Use;
-        public quaternion rotation;
-        public float3 position;
+        public Quaternion rotation;
+        public Vector3 position;
     }
     [System.Serializable]
     public struct BasisCalibratedCoords
     {
-        public quaternion rotation;
-        public float3 position;
+        public Quaternion rotation;
+        public Vector3 position;
+        public BasisCalibratedCoords(Vector3 pos, Quaternion rot) : this()
+        {
+            this.position = pos;
+            this.rotation = rot;
+        }
     }
 }

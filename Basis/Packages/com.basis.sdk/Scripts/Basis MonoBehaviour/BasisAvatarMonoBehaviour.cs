@@ -12,7 +12,7 @@ namespace Basis.Scripts.Behaviour
         [HideInInspector]
         public BasisAvatar Avatar;
         public bool IsLocallyOwned;
-        public void OnNetworkAssign(byte messageIndex,BasisAvatar avatar,bool IsLocal)
+        public void OnNetworkAssign(byte messageIndex, BasisAvatar avatar, bool IsLocal)
         {
             MessageIndex = messageIndex;
             Avatar = avatar;
@@ -37,7 +37,7 @@ namespace Basis.Scripts.Behaviour
             }
             else
             {
-                BasisDebug.LogError("Behaviour is not Initalized");
+                //    BasisDebug.LogError("Behaviour is not Initalized");
             }
         }
         /// <summary>
@@ -52,10 +52,10 @@ namespace Basis.Scripts.Behaviour
             }
             else
             {
-                BasisDebug.LogError("Behaviour is not Initalized");
+                //  BasisDebug.LogError("Behaviour is not Initalized");
             }
         }
-        public void ServerReductionSystemMessageSend( byte[] buffer = null)
+        public void ServerReductionSystemMessageSend(byte[] buffer = null)
         {
             if (IsInitalized)
             {
@@ -63,7 +63,7 @@ namespace Basis.Scripts.Behaviour
             }
             else
             {
-                BasisDebug.LogError("Behaviour is not Initalized");
+                //   BasisDebug.LogError("Behaviour is not Initalized");
             }
         }
     }

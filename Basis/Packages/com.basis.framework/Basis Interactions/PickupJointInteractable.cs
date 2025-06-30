@@ -1,4 +1,5 @@
 using Basis.Scripts.Device_Management.Devices;
+using BattlePhaze.SettingsManager.Intergrations;
 using UnityEngine;
 
 public class PickupJointInteractable : InteractableObject
@@ -101,6 +102,7 @@ public class PickupJointInteractable : InteractableObject
 
     public override void OnInteractStart(BasisInput input)
     {
+        input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume / 80);
         // save object distance and rotation
         anchor = input.transform;
         offsetDistance = Vector3.Distance(transform.position, input.transform.position);

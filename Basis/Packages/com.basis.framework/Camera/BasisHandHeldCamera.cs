@@ -473,9 +473,11 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         MetaData.tonemapping.mode.value = mappingMode;
     }
 
-    private void OnBootModeChanged(string obj)
+    private new void OnBootModeChanged(string obj)
     {
         OverrideDesktopOutput();
+
+       // base.OnBootModeChanged(obj);
     }
 
     private void UnsubscribeMeshRendererCheck()

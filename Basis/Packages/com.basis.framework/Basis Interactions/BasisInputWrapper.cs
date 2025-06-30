@@ -43,7 +43,7 @@ public struct BasisInputWrapper
         // UnityEngine.Debug.Log($"New Input: {source != null}, {source.TryGetRole(out BasisBoneTrackedRole r)}, {BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl c, r)}, {r}", source.gameObject);
         if (source != null &&
             source.TryGetRole(out BasisBoneTrackedRole role) &&
-            BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl control, role)
+            BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role)
         )
         {
             wrapper.Source = source;
@@ -57,7 +57,7 @@ public struct BasisInputWrapper
 
     public BasisInput Source;
 
-    public BasisBoneControl BoneControl { get; set; }
+    public BasisLocalBoneControl BoneControl { get; set; }
     public BasisBoneTrackedRole Role { get; set; }
 
     [SerializeField]

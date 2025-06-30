@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using Basis.Scripts.Networking.Compression;
 using LiteNetLib.Utils;
 using static SerializableBasis;
@@ -13,5 +13,6 @@ public partial class BasisServerReductionSystem
         public ServerSideSyncPlayerMessage serverSideSyncPlayerMessage;
         public NetDataWriter Writer;
         public Vector3 Position;
+        public byte LastInterval;
     }
 }

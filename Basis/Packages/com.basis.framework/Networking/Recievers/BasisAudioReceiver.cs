@@ -1,76 +1,110 @@
 using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using OpusSharp.Core;
 using OpusSharp.Core.Extensions;
-using SteamAudio;
 using System;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace Basis.Scripts.Networking.Receivers
 {
     [System.Serializable]
     public class BasisAudioReceiver
     {
-        public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver;
-        public OpusDecoder decoder;
+        public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
         [SerializeField]
         public AudioSource audioSource;
         [SerializeField]
         public BasisAudioAndVisemeDriver visemeDriver = new BasisAudioAndVisemeDriver();
-        public BasisVoiceRingBuffer InOrderRead;
-        public SteamAudioSource SteamAudioSource;
+        public BasisVoiceRingBuffer InOrderRead = new BasisVoiceRingBuffer();
         public bool IsPlaying = false;
-        public float[] pcmBuffer;
+        public float[] pcmBuffer = new float[RemoteOpusSettings.SampleLength];
         public int pcmLength;
-        public bool IsReady;
-        public float[] silentData;
         public byte lastReadIndex = 0;
         public Transform AudioSourceTransform;
-
         public float[] resampledSegment;
+        public bool HasTransform = false;
+        const string AudioSource = "Packages/com.basis.sdk/Prefabs/Players/AudioSource.prefab";
+        public BasisNetworkPlayer BasisNetworkPlayer;
+        //everything can safely share the same silent data as we only copy it.
+        public static float[] silentData;
+
+        public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
         public void OnDecode(byte[] data, int length)
         {
-            pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.NetworkSampleRate, false);
-            InOrderRead.Add(pcmBuffer, pcmLength);
+            if (HasTransform)//only process the audio if we actually need it!
+            {
+                pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.NetworkSampleRate, false);
+                InOrderRead.Add(pcmBuffer, pcmLength);
+            }
         }
         public void OnDecodeSilence()
         {
-            InOrderRead.Add(silentData, RemoteOpusSettings.FrameSize);
+            if (HasTransform)//only process the audio if we actually need it!
+            {
+                InOrderRead.Add(silentData, RemoteOpusSettings.FrameSize);
+            }
         }
-        public async void OnEnable(BasisNetworkPlayer networkedPlayer)
-        {
-            if (silentData == null || silentData.Length != RemoteOpusSettings.FrameSize)
-            {
-                silentData = new float[RemoteOpusSettings.FrameSize];
-                Array.Fill(silentData, 0f);
-            }
-            // Initialize settings and audio source
-            if (audioSource == null)
-            {
-                BasisRemotePlayer remotePlayer = (BasisRemotePlayer)networkedPlayer.Player;
-                AudioSourceTransform = remotePlayer.NetworkedVoice;
-                audioSource = BasisHelpers.GetOrAddComponent<AudioSource>(AudioSourceTransform.gameObject);
-            }
-            audioSource.loop = true;
-            InOrderRead = new BasisVoiceRingBuffer();
-            // Create AudioClip
-            audioSource.clip = AudioClip.Create($"player [{networkedPlayer.NetId}]", RemoteOpusSettings.FrameSize * (2 * 2), RemoteOpusSettings.Channels, RemoteOpusSettings.PlayBackSampleRate, false, (buf) =>
-            {
-                Array.Fill(buf, 1.0f);
-            });
-            // Ensure decoder is initialized and subscribe to events
-            pcmLength = RemoteOpusSettings.FrameSize;
-            pcmBuffer = new float[RemoteOpusSettings.SampleLength];
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
-            StartAudio();
-            // Perform calibration
-            OnCalibration(networkedPlayer);
 
+        public async void LoadAudioSource(BasisNetworkPlayer networkedPlayer)
+        {
+            if (AudioSourceTransform == null)
+            {
+                UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> Loadable = Addressables.LoadAssetAsync<GameObject>(AudioSource);
+                GameObject LoadableAudioSource = Loadable.WaitForCompletion();
+                GameObject ActualAudio = GameObject.Instantiate(LoadableAudioSource,BasisDeviceManagement.Instance.transform);
+                AudioSourceTransform = ActualAudio.transform;
+                AudioSourceTransform.name = $"[Audio] {BasisNetworkPlayer.Player.DisplayName}";
+                HasTransform = true;
+                if (audioSource == null)
+                {
+                    audioSource = BasisHelpers.GetOrAddComponent<AudioSource>(AudioSourceTransform.gameObject);
+                    audioSource.loop = true;
+                    // Initialize settings and audio source
+                    audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.NetId);
+                }
+                audioSource.Play();
+            }
+            IsPlaying = true;
+            AvatarChanged(networkedPlayer);
             BasisPlayerSettingsData BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(networkedPlayer.Player.UUID);
             ChangeRemotePlayersVolumeSettings(BasisPlayerSettingsData.VolumeLevel);
-            IsReady = true;
+        }
+        public void UnloadAudioSource()
+        {
+            if (audioSource != null && audioSource.clip != null)
+            {
+                audioSource.Stop();
+                BasisAudioClipPool.Return(audioSource.clip);
+            }
+            if (AudioSourceTransform != null)
+            {
+                GameObject.Destroy(AudioSourceTransform.gameObject);
+                AudioSourceTransform = null;
+                HasTransform = false;
+                BasisRemoteVisemeAudioDriver = null;
+            }
+            IsPlaying = false;
+        }
+        public void MoveAudio(BasisCalibratedCoords Coords)
+        {
+            if (HasTransform)
+            {
+                AudioSourceTransform.SetPositionAndRotation(Coords.position, Coords.rotation);
+            }
+        }
+        public static int outputSampleRate;
+        public void Initalize(BasisNetworkPlayer networkedPlayer)
+        {
+            outputSampleRate = UnityEngine.AudioSettings.outputSampleRate;
+            if (silentData == null)
+            {
+                silentData = new float[RemoteOpusSettings.FrameSize];
+            }
+            BasisNetworkPlayer = networkedPlayer;
         }
         public void OnDestroy()
         {
@@ -80,45 +114,43 @@ namespace Basis.Scripts.Networking.Receivers
                 decoder.Dispose();
                 decoder = null;
             }
-            if(SteamAudioSource != null)
-            {
-                GameObject.Destroy(SteamAudioSource);
-            }
+            UnloadAudioSource();
+        }
+        public void AvatarChanged(BasisNetworkPlayer networkedPlayer)
+        {
             if (audioSource != null)
             {
-                audioSource.Stop();
-                GameObject.Destroy(audioSource);
-            }
-        }
-        public void OnCalibration(BasisNetworkPlayer networkedPlayer)
-        {
-            // Ensure viseme driver is initialized for audio processing
-            visemeDriver.TryInitialize(networkedPlayer.Player);
-            if (BasisRemoteVisemeAudioDriver == null)
-            {
-                BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
+                // Ensure viseme driver is initialized for audio processing
+                visemeDriver.TryInitialize(networkedPlayer.Player);
+                if (BasisRemoteVisemeAudioDriver == null)
+                {
+                    BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
+                }
                 BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
+                BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
             }
-            BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
         }
         public void StopAudio()
         {
-            IsPlaying = false;
-            audioSource.Stop();
+            UnloadAudioSource();
         }
         public void StartAudio()
         {
-            IsPlaying = true;
-            audioSource.Play();
+            if (BasisNetworkPlayer != null)
+            {
+                LoadAudioSource(BasisNetworkPlayer);
+            }
         }
         public void ChangeRemotePlayersVolumeSettings(float Volume = 1.0f, float dopplerLevel = 0, float spatialBlend = 1.0f, bool spatialize = true, bool spatializePostEffects = true)
         {
             // Set spatial and doppler settings
-            audioSource.spatialize = spatialize;
-            audioSource.spatializePostEffects = spatializePostEffects;
-            audioSource.spatialBlend = spatialBlend;
-            audioSource.dopplerLevel = dopplerLevel;
-
+            if (audioSource != null)
+            {
+                audioSource.spatialize = spatialize;
+                audioSource.spatializePostEffects = spatializePostEffects;
+                audioSource.spatialBlend = spatialBlend;
+                audioSource.dopplerLevel = dopplerLevel;
+            }
             short Gain;
 
             if (Volume <= 0f)
@@ -139,9 +171,9 @@ namespace Basis.Scripts.Networking.Receivers
                 audioSource.volume = 1f;
                 Gain = (short)(Volume * 1024);
             }
-
-            BasisDebug.Log("Set Gain To " + Gain);
+            // BasisDebug.Log("Set Gain To " + Gain);
             OpusDecoderExtensions.SetGain(decoder, Gain);
+
         }
         public void OnAudioFilterRead(float[] data, int channels, int length)
         {
@@ -153,8 +185,6 @@ namespace Basis.Scripts.Networking.Receivers
                 Array.Fill(data, 0);
                 return;
             }
-
-            int outputSampleRate = RemoteOpusSettings.PlayBackSampleRate;
 
             if (RemoteOpusSettings.NetworkSampleRate == outputSampleRate)
             {

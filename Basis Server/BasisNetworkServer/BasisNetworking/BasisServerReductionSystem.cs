@@ -21,7 +21,7 @@ public partial class BasisServerReductionSystem
     /// <param name="serverSideSyncPlayer"></param>
     public static void AddOrUpdatePlayer(NetPeer playerID, ServerSideSyncPlayerMessage playerToUpdate, NetPeer serverSideSyncPlayer)
     {
-        SyncedToPlayerPulse playerData =  PlayerSync.GetPulse(serverSideSyncPlayer.Id);
+        SyncedToPlayerPulse playerData = PlayerSync.GetPulse(serverSideSyncPlayer.Id);
         Vector3 Position = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(playerToUpdate);
         //stage 1 lets update whoever send us this datas last player information
         if (playerData != null)
@@ -176,13 +176,15 @@ public partial class BasisServerReductionSystem
                                 adjustedInterval = byte.MaxValue;
                             }
                             byte ByteAdjusted = (byte)adjustedInterval;
-                            if (playerData.serverSideSyncPlayerMessage.interval != ByteAdjusted)
+                            if (playerData.LastInterval != ByteAdjusted)
                             {
+                                playerData.LastInterval = ByteAdjusted;
                                 //  Console.WriteLine("Adjusted Interval is" + adjustedInterval);
                                 playerData.timer.Change(adjustedInterval, adjustedInterval);
                                 //how long does this data need to last for
-                                playerData.serverSideSyncPlayerMessage.interval = ByteAdjusted;
                             }
+                            playerData.serverSideSyncPlayerMessage.interval = ByteAdjusted;
+
                             int Size = playerID.localClient.GetPacketsCountInQueue(BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
                             if (Size < MaxMessages && playerData.Writer != null)
                             {

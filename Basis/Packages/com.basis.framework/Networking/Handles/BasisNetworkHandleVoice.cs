@@ -13,6 +13,7 @@ public static class BasisNetworkHandleVoice
     private static CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
     private const int TimeoutMilliseconds = 1000;
     public static ConcurrentQueue<ServerAudioSegmentMessage> Message = new ConcurrentQueue<ServerAudioSegmentMessage>();
+    public const int MaxStoredServerAudioSegmentMessage = 250;
     public static async Task HandleAudioUpdate(LiteNetLib.NetPacketReader Reader)
     {
         // Cancel any ongoing task
@@ -53,7 +54,7 @@ public static class BasisNetworkHandleVoice
                     BasisDebug.Log($"Missing Player For Message {audioUpdate.playerIdMessage.playerID}");
                 }
                 Message.Enqueue(audioUpdate);
-                while (Message.Count > 250)
+                while (Message.Count > MaxStoredServerAudioSegmentMessage)
                 {
                     Message.TryDequeue(out ServerAudioSegmentMessage seg);
                 }

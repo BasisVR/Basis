@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Diagnostics;
@@ -27,6 +28,8 @@ public class BasisConsoleLogger : BasisUIBase
     public Button MouseLock;
     public static BasisConsoleLogger Instance;
     public static bool IsActive = false;
+
+    public TextMeshProUGUI VersionAndInfo;
     private void Awake()
     {
         if (BasisHelpers.CheckInstance(Instance))
@@ -43,6 +46,15 @@ public class BasisConsoleLogger : BasisUIBase
         MouseLock.onClick.AddListener(ToggleMouse);
         FindCrashButton.onClick.AddListener(OpenLatestCrashReportFolder);
         IsActive = true;
+
+        VersionAndInfo.text =
+            $"Version: {Application.version} | " +
+            $"Unity Version: {Application.unityVersion} | " +
+            $"Platform: {Application.platform} | " +
+            $"Mode: {BasisDeviceManagement.CurrentMode} | " +
+            $"Build GUID: {Application.buildGUID} | " +
+            $"Log Path: {Application.consoleLogPath} | " +
+            $"Data Path: {Application.dataPath}";
     }
     public Canvas Canvas;
     private void OpenLatestCrashReportFolder()

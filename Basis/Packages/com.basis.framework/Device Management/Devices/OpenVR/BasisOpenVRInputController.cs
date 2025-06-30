@@ -3,21 +3,27 @@ using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using Valve.VR;
-
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
 {
     [DefaultExecutionOrder(15001)]
-    public class BasisOpenVRInputController : BasisInput
+    public class BasisOpenVRInputController : BasisInputController
     {
         public OpenVRDevice Device;
         public SteamVR_Input_Sources inputSource;
         public SteamVR_Action_Pose DeviceposeAction = SteamVR_Input.GetAction<SteamVR_Action_Pose>("Pose");
-        public BasisOpenVRInputSkeleton SkeletonHandInput = null;
         public bool HasOnUpdate = false;
+        public Vector3[] BonePositions;
+        public Quaternion[] BoneRotations;
+
+        public float3 HandWristPosition;
+        public quaternion HandWristRotation;
+
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
+            leftHandToIKRotationOffset = new float3(0, 90, -180);
+            rightHandToIKRotationOffset = new float3(0, -90, -180);
+            RaycastRotationOffset = new float3(-90, -90, 0);
             if (HasOnUpdate && DeviceposeAction != null)
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;
@@ -34,11 +40,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     HasOnUpdate = true;
                 }
             }
-            if (inputSource == SteamVR_Input_Sources.LeftHand || inputSource == SteamVR_Input_Sources.RightHand)
-            {
-                SkeletonHandInput = new BasisOpenVRInputSkeleton();
-                SkeletonHandInput.Initalize(this);
-            }
             BasisDebug.Log("set Controller to inputSource " + inputSource + " bone role " + basisBoneTrackedRole);
         }
         public new void OnDestroy()
@@ -47,10 +48,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;
                 HasOnUpdate = false;
-            }
-            if (SkeletonHandInput != null)
-            {
-                SkeletonHandInput.DeInitalize();
             }
             historyBuffer.Clear();
             base.OnDestroy();
@@ -69,30 +66,72 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 CurrentInputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
                 CurrentInputState.Secondary2DAxis = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
                 CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
+                switch (inputSource)
+                {
+                    case SteamVR_Input_Sources.LeftHand:
+                        {
+                            SteamVR_Action_Skeleton LeftHand = SteamVR_Actions.default_SkeletonLeftHand;
+                            UpdateHandPose(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, LeftHand, inputSource);
+                            break;
+                        }
+
+                    case SteamVR_Input_Sources.RightHand:
+                        {
+                            SteamVR_Action_Skeleton RightHand = SteamVR_Actions.default_SkeletonRightHand;
+                            UpdateHandPose(BasisLocalPlayer.Instance.LocalHandDriver.RightHand, RightHand, inputSource);
+                            break;
+                        }
+                }
                 UpdatePlayerControl();
             }
         }
+        private void UpdateHandPose(BasisFingerPose hand, SteamVR_Action_Skeleton skeletonAction, SteamVR_Input_Sources SteamVR_Input_Sources)
+        {
+            BonePositions = skeletonAction.bonePositions;
+            BoneRotations = skeletonAction.boneRotations;
+            float[] Curls = skeletonAction.GetFingerCurls();
+            float[] Splays = skeletonAction.GetFingerSplays();
+
+            hand.ThumbPercentage[0] = Remap01ToMinus1To1(Curls[0]);
+            hand.IndexPercentage[0] = Remap01ToMinus1To1(Curls[1]);
+            hand.MiddlePercentage[0] = Remap01ToMinus1To1(Curls[2]);
+            hand.RingPercentage[0] = Remap01ToMinus1To1(Curls[3]);
+            hand.LittlePercentage[0] = Remap01ToMinus1To1(Curls[4]);
+
+            //someone else can solve this
+            //its Distance between each finger.
+            hand.ThumbPercentage[1] = 0;
+            hand.IndexPercentage[1] = 0;// Remap01ToMinus1To1(Splays[0]);
+            hand.MiddlePercentage[1] = 0;// Remap01ToMinus1To1(Splays[1]);
+            hand.RingPercentage[1] = 0;// Remap01ToMinus1To1(Splays[2]);
+            hand.LittlePercentage[1] = 0;// Remap01ToMinus1To1(Splays[3]);
+        }
+
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
             UpdateHistoryBuffer();
-            if (HasOnUpdate)
-            {
-                LocalRawPosition = DeviceposeAction[inputSource].localPosition;
-                LocalRawRotation = DeviceposeAction[inputSource].localRotation;
-            }
-            TransformFinalPosition = LocalRawPosition * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            TransformFinalRotation = LocalRawRotation;
-            if (hasRoleAssigned)
-            {
-                if (Control.HasTracked != BasisHasTracked.HasNoTracker)
-                {
-                    // Apply position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
 
-                    // Apply rotation offset using math.mul for quaternion multiplication
-                    Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
-                }
-            }
+            // Bone data
+            HandWristPosition = BonePositions[1];
+            HandWristRotation = BoneRotations[1];
+
+            // Get controller pose
+            UnscaledDeviceCoord.rotation = DeviceposeAction[inputSource].localRotation;
+            UnscaledDeviceCoord.position = DeviceposeAction[inputSource].localPosition;
+
+            float AvatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
+            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * AvatarScale;
+
+            // Calculate final hand position in scaled space
+            Vector3 ScaledwristOffset = math.mul(UnscaledDeviceCoord.rotation, HandWristPosition) * AvatarScale;
+
+            // Final hand rotation = controller rotation * offset from wrist
+            HandFinal.rotation = math.mul(UnscaledDeviceCoord.rotation, HandleHandFinalRotation(HandWristRotation));
+            HandFinal.position = ScaledDeviceCoord.position - ScaledwristOffset;
+
+            ControlOnlyAsHand();
+            ComputeRaycastDirection();
         }
         #region Mostly Unused Steam
         protected SteamVR_HistoryBuffer historyBuffer = new SteamVR_HistoryBuffer(30);
@@ -131,32 +170,16 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         {
             if (BasisVisualTracker == null && LoadedDeviceRequest == null)
             {
-                BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
-                    var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
-                    GameObject go = op.WaitForCompletion();
-                    GameObject gameObject = Object.Instantiate(go);
-                    gameObject.name = CommonDeviceIdentifier;
-                    gameObject.transform.parent = this.transform;
-                    if (gameObject.TryGetComponent(out BasisVisualTracker))
-                    {
-                        BasisVisualTracker.Initialization(this);
-                    }
+                    LoadModelWithKey(Match.DeviceID);
                 }
                 else
                 {
                     if (UseFallbackModel())
                     {
-                        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go);
-                        gameObject.name = CommonDeviceIdentifier;
-                        gameObject.transform.parent = this.transform;
-                        if (gameObject.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
+                        LoadModelWithKey(FallbackDeviceID);
                     }
                 }
             }
@@ -164,6 +187,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
         {
             SteamVR_Actions.default_Haptic.Execute(0, duration, frequency, amplitude, inputSource);
+        }
+        public override void PlaySoundEffect(string SoundEffectName, float Volume)
+        {
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }
