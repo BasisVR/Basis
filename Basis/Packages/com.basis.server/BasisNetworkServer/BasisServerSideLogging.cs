@@ -29,7 +29,7 @@ namespace Basis.Network
         /// <param name="PathOutput"></param>
         public static void Initialize(Configuration config, string logDirectory)
         {
-            UseLogging = config.UsingLoggingFile;
+            UseLogging = config.HasFileSupport;
             LogDirectory = logDirectory;
             BNL.LogOutput += Log;
             BNL.LogWarningOutput += LogWarning;

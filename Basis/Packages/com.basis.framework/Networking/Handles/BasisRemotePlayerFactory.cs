@@ -48,7 +48,7 @@ namespace Basis.Scripts.Networking
                     return null;
                 }
                 BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
-                BasisNetworkManagement.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
+                BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
 
                 BasisNetworkManagement.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
                 remote.LoadAvatarFromInitial(avatarID);

@@ -163,15 +163,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -181,6 +182,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397060
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -199,10 +202,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 21929887}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -442,6 +445,10 @@ PrefabInstance:
       value: 3.71
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
       value: 0
       objectReference: {fileID: 0}
@@ -532,6 +539,10 @@ PrefabInstance:
     - target: {fileID: 2600401473938556946, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: m_ExcludeLayers.m_Bits
       value: 192
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
@@ -639,15 +650,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -657,6 +669,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397059
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -675,10 +689,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 462462406}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -828,15 +842,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -846,6 +861,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397058
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -864,10 +881,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 556741047}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1109,15 +1126,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 0
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -1127,6 +1145,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397056
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -1145,10 +1165,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 564221581}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1210,6 +1230,10 @@ PrefabInstance:
     - target: {fileID: 2600401473938556946, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: m_Center.y
       value: 1.03
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
@@ -1366,6 +1390,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6918077497000395064, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.291
@@ -1465,15 +1493,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 0
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -1483,6 +1512,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397057
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -1501,10 +1532,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1232611343}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1602,10 +1633,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1336315009}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1736,15 +1767,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -1754,6 +1786,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397061
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -1914,10 +1948,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1472934484}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2048,15 +2082,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 0
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -2066,6 +2101,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397065
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -2258,15 +2295,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -2276,6 +2314,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397063
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -2294,10 +2334,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1568311656}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2526,6 +2566,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
       value: 0
       objectReference: {fileID: 0}
@@ -2586,63 +2630,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
---- !u!1001 &1954488299
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.785
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.773
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8495108801776137362, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_Name
-      value: PersonalMirror
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
 --- !u!1 &1983638905
 GameObject:
   m_ObjectHideFlags: 0
@@ -2671,10 +2658,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1983638905}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2805,15 +2792,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -2823,6 +2811,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397062
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -2862,10 +2852,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2063075830}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2996,15 +2986,16 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 0
   CanSelfSteal: 1
+  CanNetworkSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
   minLinearVelocity: 0.1
   interactEndLinearVelocityMultiplier: 1
@@ -3014,6 +3005,8 @@ MonoBehaviour:
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 8572486966948397064
+  InteractRange: 1
+  currentPlayer: {fileID: 0}
   references:
     version: 2
     RefIds:
@@ -3089,6 +3082,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 8913244321027071087, guid: 59eac2e4af8e4e44d9efa5bac62e0100, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3119,4 +3116,3 @@ SceneRoots:
   - {fileID: 857767427}
   - {fileID: 564221580}
   - {fileID: 1262652855}
-  - {fileID: 1954488299}

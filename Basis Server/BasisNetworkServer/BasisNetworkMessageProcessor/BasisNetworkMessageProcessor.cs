@@ -228,7 +228,13 @@ namespace BasisNetworkServer.BasisNetworkMessageProcessor
                         }
                         reader.Recycle();
                         break;
-
+                    case BasisNetworkCommons.ServerBoundMessage:
+                        if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
+                        {
+                            BasisServerHandleEvents.OnServerReceived?.Invoke(peer, reader, deliveryMethod);
+                        }
+                        reader.Recycle();
+                        break;
                     default:
                         BNL.LogError($"Unknown channel: {channel} " + reader.AvailableBytes);
                         reader.Recycle();

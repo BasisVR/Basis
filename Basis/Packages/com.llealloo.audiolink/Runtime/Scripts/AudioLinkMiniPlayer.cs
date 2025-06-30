@@ -1,21 +1,21 @@
 ﻿#if UDONSHARP
 using System;
 
-using UdonSharp;
+
 
 using UnityEngine;
 
 using VRC.SDK3.Components.Video;
 using VRC.SDK3.Video.Components.AVPro;
 using VRC.SDK3.Video.Components.Base;
-using VRC.SDKBase;
+
 using VRC.Udon.Common;
 
 namespace AudioLink
 {
     [AddComponentMenu("AudioLink/AudioLink Mini Player")]
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-    public class AudioLinkMiniPlayer : UdonSharpBehaviour
+    public class AudioLinkMiniPlayer : MonoBehaviour
     {
         [Header("Options")]
         [Tooltip("Optional default URL to play on world load")]
@@ -487,7 +487,7 @@ namespace AudioLink
 
         public bool _IsAdmin()
         {
-            VRCPlayerApi player = Networking.LocalPlayer;
+            BasisPlayer player = Networking.LocalPlayer;
             if (!VRC.SDKBase.Utilities.IsValid(player))
                 return false;
 
@@ -496,7 +496,7 @@ namespace AudioLink
 
         public bool _CanTakeControl()
         {
-            VRCPlayerApi player = Networking.LocalPlayer;
+            BasisPlayer player = Networking.LocalPlayer;
             if (!VRC.SDKBase.Utilities.IsValid(player))
                 return false;
 

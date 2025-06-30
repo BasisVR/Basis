@@ -30,7 +30,7 @@ namespace BattlePhaze.SettingsManager.Integrations
         public void ChangeVerticalSync(string quality)
         {
             CurrentMode = quality;
-            if (BasisDeviceManagement.Instance.CurrentMode == BasisDeviceManagement.Desktop)
+            if (BasisDeviceManagement.CurrentMode == BasisDeviceManagement.Desktop)
             {
                 switch (quality)
                 {

@@ -331,7 +331,6 @@ MonoBehaviour:
   UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.6745098}
   MutedColor: {r: 1, g: 0, b: 0, a: 0.6784314}
   LocalIsTransmitting: 0
-  IsNormalHead: 0
 --- !u!114 &3806033592985501336
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -465,8 +464,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2ca35de189490844b1d7864bc416ffb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  raycastDistance: 1
+  raycastDistance: 5
   hoverRadius: 0.5
+  OnlySortClosest: 1
   InteractInputs: []
   LineMaterial: {fileID: 0}
   interactLineWidth: 0.015
@@ -533,10 +533,9 @@ MonoBehaviour:
   AvatarMetaData:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -604,7 +603,7 @@ MonoBehaviour:
     SelectedAvatarHeight: 1.7
     SelectedPlayerToDefaultScale: 1
     SelectedAvatarToAvatarDefaultScale: 1
-  CameraDriver: {fileID: 22857711927985140}
+  LocalCameraDriver: {fileID: 22857711927985140}
   LocalBoneDriver:
     ControlsLength: 0
     Controls: []
@@ -676,18 +675,19 @@ MonoBehaviour:
     MaxExtendedDistance: 0
     AvatarUPDownDirectionCalibration: {x: 0, y: 0, z: 0}
   LocalCharacterDriver:
+    LocalPlayer: {fileID: 4587526044252889482}
     characterController: {fileID: 5548795088377030369}
-    bottomPointLocalspace: {x: 0, y: 0, z: 0}
-    LastbottomPoint: {x: 0, y: 0, z: 0}
+    bottomPointLocalSpace: {x: 0, y: 0, z: 0}
+    LastBottomPoint: {x: 0, y: 0, z: 0}
     groundedPlayer: 0
-    FastestRunSpeed: 4
-    SlowestPlayerSpeed: 0.5
+    MaximumMovementSpeed: 4
+    DefaultMovementSpeed: 2.5
+    MinimumMovementSpeed: 0.5
+    MinimumCrouchPercent: 0.5
     gravityValue: -9.81
     RaycastDistance: 0.2
     MinimumColliderSize: 0.01
-    MovementVector: {x: 0, y: 0}
     LastWasGrounded: 1
-    BlockMovement: 0
     IsFalling: 0
     HasJumpAction: 0
     jumpHeight: 1
@@ -699,9 +699,11 @@ MonoBehaviour:
     CurrentPosition: {x: 0, y: 0, z: 0}
     CurrentRotation: {x: 0, y: 0, z: 0, w: 0}
     Flags: 0
-    SpeedMultiplier: 0.5
-    CurrentSpeed: 0
+    <MovementSpeedScale>k__BackingField: 0
+    <MovementSpeedBoost>k__BackingField: 0
+    CrouchBlend: 1
     IsEnabled: 1
+    CurrentSpeed: 0
   LocalAnimatorDriver:
     basisAnimatorVariableApply:
       Animator: {fileID: 0}
@@ -710,6 +712,7 @@ MonoBehaviour:
         HashCurrentVerticalMovement: 0
         HashCurrentSpeed: 0
         HashCrouchedState: 0
+        HashCrouchBlend: 0
         HashMovingState: 0
         IsPaused: 0
         HashIsJumping: 0
@@ -717,6 +720,7 @@ MonoBehaviour:
         HashIsLanding: 0
       BasisAnimatorVariables:
         cachedAnimSpeed: 0
+        cachedCrouchBlend: 0
         cachedHorizontalMovement: 0
         cachedVerticalMovement: 0
         cachedIsMoving: 0
@@ -726,15 +730,17 @@ MonoBehaviour:
         IsJumping: 0
         IsFalling: 0
         IsCrouching: 0
+        CrouchBlend: 0
         AnimationsCurrentSpeed: 0
         isMoving: 0
         AngularVelocity: {x: 0, y: 0, z: 0}
         Velocity: {x: 0, y: 0, z: 0}
       IsStopped: 0
     Animator: {fileID: 0}
-    LargerThenVelocityCheck: 0.01
+    StationaryVelocityThreshold: 0.01
     LargerThenVelocityCheckRotation: 0.03
     ScaleMovementBy: 1
+    CrouchThreshold: 0.35
     dampeningFactor: 6
     AngularDampingFactor: 30
     currentVelocity: {x: 0, y: 0, z: 0}
@@ -794,12 +800,16 @@ MonoBehaviour:
       MiddlePercentage: {x: 0, y: 0}
       RingPercentage: {x: 0, y: 0}
       LittlePercentage: {x: 0, y: 0}
+      jointPositions: []
+      jointRotations: []
     RightFinger:
       ThumbPercentage: {x: 0, y: 0}
       IndexPercentage: {x: 0, y: 0}
       MiddlePercentage: {x: 0, y: 0}
       RingPercentage: {x: 0, y: 0}
       LittlePercentage: {x: 0, y: 0}
+      jointPositions: []
+      jointRotations: []
     LastLeftThumbPercentage: {x: -1.1, y: -1.1}
     LastLeftIndexPercentage: {x: -1.1, y: -1.1}
     LastLeftMiddlePercentage: {x: -1.1, y: -1.1}
@@ -944,7 +954,7 @@ MonoBehaviour:
     LerpSpeed: 17
     allHasProximal: 
     allTransforms: []
-  BasisLocalEyeDriver:
+  LocalEyeDriver:
     leftEyeInitialRotation:
       value:
         x: 0

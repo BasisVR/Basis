@@ -7,10 +7,6 @@ namespace Basis
     class Program
     {
         public static BasisNetworkHealthCheck Check;
-
-        private const string ConfigFileName = "config.xml";
-        private const string LogsFolderName = "Logs";
-        private const string InitialResources = "initalresources";
         public static bool isRunning = true;
         private static ManualResetEventSlim shutdownEvent = new ManualResetEventSlim(false);
         public static void Main(string[] args)
@@ -18,22 +14,57 @@ namespace Basis
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-            string configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string configDir = Path.Combine(baseDir, Configuration.ConfigFolderName);
+            if (!Directory.Exists(configDir))
+            {
+                Directory.CreateDirectory(configDir);
+            }
+            string configFilePath = Path.Combine(configDir, "config.xml");
             Configuration config = Configuration.LoadFromXml(configFilePath);
             config.ProcessEnvironmentalOverrides();
 
             ThreadPool.SetMinThreads(config.MinThreadPoolThreads, config.MinThreadPoolThreads);
             ThreadPool.SetMaxThreads(config.MaxThreadPoolThreads, config.MaxThreadPoolThreads);
 
-            string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, LogsFolderName);
+            string folderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.LogsFolderName);
             BasisServerSideLogging.Initialize(config, folderPath);
 
             BNL.Log("Server Booting");
-
             Check = new BasisNetworkHealthCheck(config);
 
             NetworkServer.StartServer(config);
-            BasisLoadableLoader.LoadXML(InitialResources);
+            
+            // Handle legacy resource directory name migrations and similar.
+            // after a version bump or two this should be removed
+            string[] legacyPaths = new string[] {
+                "initalresources",    // dooly spelling
+                "initialressources",  // if you're french
+                "intialresources",   // another common typo
+            };
+            
+            string correctPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.InitialResourcesFolderName);
+
+            foreach (string legacyName in legacyPaths)
+            {
+                string legacyFullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, legacyName);
+                
+                if (Directory.Exists(legacyFullPath) && !Directory.Exists(correctPath))
+                {
+                    try
+                    {
+                        BNL.Log($"Found legacy '{legacyName}' directory, migrating to '{Configuration.InitialResourcesFolderName}'...");
+                        Directory.Move(legacyFullPath, correctPath);
+                        BNL.Log("Directory migration completed successfully");
+                        break; // Exit after first successful migration
+                    }
+                    catch (Exception ex)
+                    {
+                        BNL.LogError($"Failed to migrate legacy directory '{legacyName}': {ex.Message}");
+                    }
+                }
+            }
+            BasisLoadableLoader.LoadXML(Configuration.InitialResourcesFolderName);
 
             AppDomain.CurrentDomain.ProcessExit += async (sender, eventArgs) =>
             {
@@ -47,12 +78,13 @@ namespace Basis
             };
             if (config.EnableConsole)
             {
-                BasisConsoleCommands.RegisterCommand("/admin add", BasisConsoleCommands.HandleAddAdmin);
-                BasisConsoleCommands.RegisterCommand("/status", BasisConsoleCommands.HandleStatus);
-                BasisConsoleCommands.RegisterCommand("/shutdown", BasisConsoleCommands.HandleShutdown);
-                BasisConsoleCommands.RegisterCommand("/help", BasisConsoleCommands.HandleHelp);
+                BasisConsoleCommands.RegisterCommand("/admin add", "Adds a user as an admin.", BasisConsoleCommands.HandleAddAdmin);
+                BasisConsoleCommands.RegisterCommand("/players", "Lists all connected players.", BasisConsoleCommands.HandleShowPlayers);
+                BasisConsoleCommands.RegisterCommand("/status", "Shows the current server status.", BasisConsoleCommands.HandleStatus);
+                BasisConsoleCommands.RegisterCommand("/shutdown", "Shuts down the server.", BasisConsoleCommands.HandleShutdown);
+                BasisConsoleCommands.RegisterCommand("/help", "Displays all available commands.", BasisConsoleCommands.HandleHelp);
+                BasisConsoleCommands.RegisterCommand("/clear", "Clears the console", BasisConsoleCommands.HandleClear);
                 BasisConsoleCommands.RegisterConfigurationCommands(config);
-
                 BasisConsoleCommands.StartConsoleListener();
             }
             // Wait for shutdown signal

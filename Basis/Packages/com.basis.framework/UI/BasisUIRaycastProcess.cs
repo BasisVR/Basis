@@ -48,7 +48,7 @@ public class BasisUIRaycastProcess
                 BasisInput input = Inputs[Index];
                 if (input.HasRaycaster && input.BasisUIRaycast.WasCorrectLayer)
                 {
-                    EffectiveMouseAction |= input.BasisUIRaycast.CurrentEventData.WasLastDown == false && input.InputState.Trigger == 1;
+                    EffectiveMouseAction |= input.BasisUIRaycast.CurrentEventData.WasLastDown == false && input.CurrentInputState.Trigger == 1;
                     if (input.BasisUIRaycast.HadRaycastUITarget)
                     {
                         List<RaycastUIHitData> hitData = input.BasisUIRaycast.SortedGraphics;
@@ -62,7 +62,7 @@ public class BasisUIRaycastProcess
 
                             if (hit.gameObject != null)
                             {
-                                SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input.InputState, input.LastState);
+                                SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input.CurrentInputState, input.LastInputState);
                                 HasTarget = true;
                             }
                         }

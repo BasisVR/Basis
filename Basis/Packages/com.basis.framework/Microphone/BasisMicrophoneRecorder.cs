@@ -38,7 +38,7 @@ public static class BasisMicrophoneRecorder
     public static float[] rmsValues;
     public static int rmsIndex = 0;
     public static float averageRms;
-#if !UNITY_ANDROID
+#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
     public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
 #endif
     public static int minFreq = 48000;
@@ -66,7 +66,7 @@ public static class BasisMicrophoneRecorder
         {
             VAJ.processBufferArray.Dispose();
         }
-#if !UNITY_ANDROID
+#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
         Denoiser.Dispose();
 #endif
     }
@@ -91,7 +91,7 @@ public static class BasisMicrophoneRecorder
                 BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
                 HasEvents = true;
             }
-            SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.Instance.CurrentMode);
+            SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.CurrentMode);
             ResetMicrophones(SMDMicrophone.SelectedMicrophone);
             ConfigureDenoiser(SMDMicrophone.SelectedDenoiserMicrophone);
             StartProcessingThread();  // Start the processing thread once
@@ -124,7 +124,11 @@ public static class BasisMicrophoneRecorder
         if (!Microphone.devices.Contains(newMicrophone))
         {
             BasisDebug.LogError("Microphone " + newMicrophone + " not found!");
-            return;
+            if (Microphone.devices.Length != 0)
+            {
+                newMicrophone = Microphone.devices[0];
+                BasisDebug.LogError("Falling Back To Microphone " + newMicrophone);
+            }
         }
         bool isRecording = Microphone.IsRecording(newMicrophone);
         BasisDebug.Log(isRecording ? $"Is Recording {MicrophoneDevice}" : $"Is not Recording {MicrophoneDevice}");
@@ -373,7 +377,7 @@ public static class BasisMicrophoneRecorder
     }
     public static void ApplyDeNoise()
     {
-#if !UNITY_ANDROID
+#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
         Denoiser.Denoise(processBufferArray);
 #endif
     }

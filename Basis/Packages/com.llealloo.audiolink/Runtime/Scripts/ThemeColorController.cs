@@ -5,12 +5,12 @@ using System;
 namespace AudioLink
 {
 #if UDONSHARP
-    using UdonSharp;
+    
 
-    using VRC.SDKBase;
+    
 
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
-    public class ThemeColorController : UdonSharpBehaviour
+    public class ThemeColorController : MonoBehaviour
 #else
     public class ThemeColorController : MonoBehaviour
 #endif
@@ -49,7 +49,7 @@ namespace AudioLink
         private bool _processGUIEvents = true;
 
 #if UDONSHARP
-        private VRCPlayerApi localPlayer;
+        private BasisPlayer localPlayer;
 #endif
 
         // A view-controller for customThemeColors

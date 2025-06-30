@@ -1,6 +1,9 @@
+using System;
+using Basis.Scripts.Animator_Driver;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
 using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
@@ -9,22 +12,25 @@ namespace Basis.Scripts.BasisCharacterController
     [System.Serializable]
     public class BasisLocalCharacterDriver
     {
+        public BasisLocalPlayer LocalPlayer;
+        [System.NonSerialized] public BasisLocalAnimatorDriver LocalAnimatorDriver;
+
         public CharacterController characterController;
-        public Vector3 bottomPointLocalspace;
-        public Vector3 LastbottomPoint;
+        public Vector3 bottomPointLocalSpace;
+        public Vector3 LastBottomPoint;
         public bool groundedPlayer;
-        [SerializeField] public float FastestRunSpeed = 4;
-        [SerializeField] public float SlowestPlayerSpeed = 0.5f;
+        [SerializeField] public float MaximumMovementSpeed = 4;
+        [SerializeField] public float DefaultMovementSpeed = 2.5f;
+        [SerializeField] public float MinimumMovementSpeed = 0.5f;
+        [SerializeField, Range(0f, 1f)] public float MinimumCrouchPercent = 0.5f;
         [SerializeField] public float gravityValue = -9.81f;
         [SerializeField] public float RaycastDistance = 0.2f;
         [SerializeField] public float MinimumColliderSize = 0.01f;
-        [SerializeField] public Vector2 MovementVector;
         private Quaternion currentRotation;
         private float eyeHeight;
         public SimulationHandler JustJumped;
         public SimulationHandler JustLanded;
         public bool LastWasGrounded = true;
-        public bool BlockMovement = false;
         public bool IsFalling;
         public bool HasJumpAction = false;
         public float jumpHeight = 1.0f; // Jump height set to 1 meter
@@ -33,6 +39,7 @@ namespace Basis.Scripts.BasisCharacterController
         public float RotationSpeed = 200;
         public bool HasEvents = false;
         public float pushPower = 1f;
+        private const float CrouchDeltaCoefficient = 0.01f;
         private const float SnapTurnAbsoluteThreshold = 0.8f;
         private bool UseSnapTurn => SMModuleControllerSettings.SnapTurnAngle != -1;
         private float SnapTurnAngle => SMModuleControllerSettings.SnapTurnAngle;
@@ -41,24 +48,53 @@ namespace Basis.Scripts.BasisCharacterController
         public Vector3 CurrentPosition;
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
-        public float SpeedMultiplier = 0.5f;
+
+        public Vector2 MovementVector { get; private set; }
+        /// <summary>
+        /// A value between 0 and 1 representing the relative speed of player movement.
+        /// </summary>
+        [field: SerializeField] public float MovementSpeedScale { get; private set; }
+        [field: SerializeField] public float MovementSpeedBoost { get; private set; }
+        private float DefaultMovementSpeedMultiplier = 0.625f;
+        private float MaximumMovementSpeedBoost = 1.6f;
+
+        /// <summary>
+        /// A value between 0 and 1 representing the character's crouch state, where 0 is fully crouched and 1 is fully standing.
+        /// </summary>
+        public float CrouchBlend = 1f;
+
+        /// <summary>
+        /// Value updated by <see cref="SetCrouchBlendDelta"/> which triggers <see cref="UpdateCrouchBlend"/> implicitly each simulation frame.
+        /// This is generally used by event based input systems where a start and stop event are called, but per-frame updates are not.
+        /// </summary>
+        private float CrouchBlendDelta = 0f;
+
+        /// <summary>
+        /// Indicates whether the character is considered crouching based on the CrouchBlend value being less than the defined threshold.
+        /// </summary>
+        public bool IsCrouching => CrouchBlend <= LocalAnimatorDriver.CrouchThreshold;
+        public bool IsRunning => CurrentSpeed > DefaultMovementSpeed;
+        private bool UseMaxSpeed => BasisLocalInputActions.Instance.IsRunHeld;
+
+        private BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
+        private BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+
         public void OnDestroy()
         {
-            if (HasEvents)
-            {
-                HasEvents = false;
-            }
+            if (HasEvents) HasEvents = false;
         }
-        public void Initialize(BasisLocalPlayer LocalPlayer)
+
+        public void Initialize(BasisLocalPlayer localPlayer)
         {
-            LocalPlayer.LocalCharacterDriver = this;
+            LocalPlayer = localPlayer;
+            LocalAnimatorDriver = localPlayer.LocalAnimatorDriver;
             characterController.minMoveDistance = 0;
             characterController.skinWidth = 0.01f;
-            if (HasEvents == false)
-            {
-                HasEvents = true;
-            }
+            if (!HasEvents) HasEvents = true;
+            MaximumMovementSpeedBoost = MaximumMovementSpeed / DefaultMovementSpeed;
+            SetMovementSpeedMultiplier(GetMultiplierForMovementSpeed(DefaultMovementSpeed));
         }
+
         public void OnControllerColliderHit(ControllerColliderHit hit)
         {
             // Check if the hit object has a Rigidbody and if it is not kinematic
@@ -75,13 +111,15 @@ namespace Basis.Scripts.BasisCharacterController
             // Apply the force to the object
             body.AddForce(pushDir * pushPower, ForceMode.Impulse);
         }
-        public void SimulateMovement(float DeltaTime,Transform PlayersTransform)
+
+        public bool IsEnabled = true;
+        public void SimulateMovement(float DeltaTime, Transform PlayersTransform)
         {
             if(!IsEnabled)
             {
                 return;
             }
-            LastbottomPoint = bottomPointLocalspace;
+            LastBottomPoint = bottomPointLocalSpace;
             CalculateCharacterSize();
             HandleMovement(DeltaTime, PlayersTransform);
             GroundCheck();
@@ -132,7 +170,7 @@ namespace Basis.Scripts.BasisCharacterController
             PlayersTransform.SetPositionAndRotation(FinalRotation, rotation * CurrentRotation);
 
             float HeightOffset = (characterController.height / 2) - characterController.radius;
-            bottomPointLocalspace = FinalRotation + (characterController.center - new Vector3(0, HeightOffset, 0));
+            bottomPointLocalSpace = FinalRotation + (characterController.center - new Vector3(0, HeightOffset, 0));
         }
 
         public void HandleJump()
@@ -155,17 +193,52 @@ namespace Basis.Scripts.BasisCharacterController
 
             LastWasGrounded = groundedPlayer;
         }
-        public float CurrentSpeed;
-        public bool IsEnabled = true;
 
+        public void CrouchToggle()
+        {
+            // check what the animator driver considers to be crouching, and standup if crouch threshold is matched, otherwise, full crouch
+            CrouchBlend = CrouchingLock || CrouchBlend <= LocalAnimatorDriver.CrouchThreshold ? 1f : 0f;
+            UpdateMovementSpeed(UseMaxSpeed);
+        }
+
+        public void SetCrouchBlendDelta(float delta)
+        {
+            CrouchBlendDelta = delta;
+        }
+
+        public void UpdateCrouchBlend(float delta)
+        {
+            CrouchBlend = CrouchingLock ? 1f : math.clamp(CrouchBlend + delta * CrouchDeltaCoefficient, 0, 1);
+            UpdateMovementSpeed(UseMaxSpeed);
+        }
+
+        public void UpdateMovementSpeed(bool maxSpeed)
+        {
+            var topSpeed = maxSpeed ? 1f : DefaultMovementSpeedMultiplier;
+            var boostSpeed = maxSpeed ? MaximumMovementSpeedBoost : 1f;
+            // inverse of crouch blend so standing is the least value, multiply by the boost that running gives
+            MovementSpeedBoost = (1 - CrouchBlend) * boostSpeed;
+            SetMovementSpeedMultiplier(topSpeed * CrouchBlend * MovementVector.magnitude);
+        }
+
+        public float GetMultiplierForMovementSpeed(float speed)
+        {
+            return math.unlerp(MinimumMovementSpeed, MaximumMovementSpeed, speed);
+        }
+        public void SetMovementSpeedMultiplier(float multiplier, bool constrain = true)
+        {
+            MovementSpeedScale = multiplier;
+            if (constrain) MovementSpeedScale = math.clamp(MovementSpeedScale, 0, 1);
+        }
+
+        public void SetMovementVector(Vector2 movement)
+        {
+            MovementVector = movement;
+        }
+
+        public float CurrentSpeed;
         public void HandleMovement(float DeltaTime,Transform PlayersTransform)
         {
-            if (BlockMovement)
-            {
-                HasJumpAction = false;
-                return;
-            }
-
             // Cache current rotation and zero out x and z components
             currentRotation = BasisLocalBoneDriver.Head.OutgoingWorldData.rotation;
             Vector3 rotationEulerAngles = currentRotation.eulerAngles;
@@ -174,14 +247,18 @@ namespace Basis.Scripts.BasisCharacterController
 
             Quaternion flattenedRotation = Quaternion.Euler(rotationEulerAngles);
 
+            if (CrouchBlendDelta != 0) UpdateCrouchBlend(CrouchBlendDelta);
             // Calculate horizontal movement direction
             Vector3 horizontalMoveDirection = new Vector3(MovementVector.x, 0, MovementVector.y).normalized;
 
-            SpeedMultiplier = math.abs(SpeedMultiplier);
-            CurrentSpeed = math.lerp(SlowestPlayerSpeed, FastestRunSpeed, SpeedMultiplier);
-            CurrentSpeed = math.clamp(CurrentSpeed, 0, FastestRunSpeed);
+            CurrentSpeed = math.lerp(MinimumMovementSpeed, MaximumMovementSpeed, MovementSpeedScale) + MinimumMovementSpeed * MovementSpeedBoost;
 
             Vector3 totalMoveDirection = flattenedRotation * horizontalMoveDirection * CurrentSpeed * DeltaTime;
+            if (MovementLock)
+            {
+                HasJumpAction = false;
+                totalMoveDirection = Vector3.zero;
+            }
 
             // Handle jumping and falling
             if (groundedPlayer && HasJumpAction)

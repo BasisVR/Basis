@@ -48,45 +48,52 @@ public class BasisParentConstraint
 
         float totalWeight = 0f;
         Vector3 weightedPos = Vector3.zero;
-        Quaternion weightedRot = Quaternion.identity;
-
-        for (int Index = 0; Index < sources.Length; Index++)
+        Vector4 weightedQuat = Vector4.zero;
+        
+        for (int index = 0; index < sources.Length; index++)
         {
-            ref SourceData source = ref sources[Index];
+            ref SourceData source = ref sources[index];
             if (source.weight <= 0f) continue;
-
-            // pos offset is in local space to the sorce
+            
             Vector3 worldOffset = source.rotation * source.positionOffset;
             weightedPos += (source.position + worldOffset) * source.weight;
-
+            
+            // Rotation - accumulate as 4D vectors
             Quaternion worldRotation = source.rotation * source.rotationOffset;
-            if (totalWeight == 0f)
+            
+            // Ensure quaternions are in same hemisphere (handle q and -q representing same rotation)
+            if (totalWeight > 0f && Vector4.Dot(weightedQuat.normalized, new Vector4(worldRotation.x, worldRotation.y, worldRotation.z, worldRotation.w)) < 0f)
             {
-                weightedRot = worldRotation;
+                worldRotation = new Quaternion(-worldRotation.x, -worldRotation.y, -worldRotation.z, -worldRotation.w);
             }
-            else
-            {
-                weightedRot = Quaternion.Slerp(weightedRot, worldRotation, source.weight / (totalWeight + source.weight));
-            }
-
+            
+            weightedQuat += new Vector4(worldRotation.x, worldRotation.y, worldRotation.z, worldRotation.w) * source.weight;
             totalWeight += source.weight;
         }
-
-        // apply weighted average
+        
+        // Normalize results
         if (totalWeight > 0f)
         {
             weightedPos /= totalWeight;
+            weightedQuat /= totalWeight;
+            
+            // Convert back to quaternion and normalize
+            Quaternion blendedRot = new Quaternion(weightedQuat.x, weightedQuat.y, weightedQuat.z, weightedQuat.w).normalized;
+            
+            // Apply global weight
+            pos = Vector3.Lerp(_restPosition, weightedPos, GlobalWeight);
+            rot = Quaternion.Slerp(_restRotation, blendedRot, GlobalWeight);
+            return true;
         }
-
-        // global weight interpolates original with the calculated transform
-        pos = Vector3.Lerp(_restPosition, weightedPos, GlobalWeight);
-        rot = Quaternion.Slerp(_restRotation, weightedRot, GlobalWeight);
-
-        return true;
+        
+        pos = _restPosition;
+        rot = _restRotation;
+        return false;
     }
 
     public void UpdateSourcePositionAndRotation(int Index, Vector3 position, Quaternion rotation)
     {
+        if (Index < 0 || Index >= sources.Length) return;
         var source = sources[Index];
         source.position = position;
         source.rotation = rotation;
@@ -95,6 +102,7 @@ public class BasisParentConstraint
 
     public void SetOffsetPositionAndRotation(int Index, Vector3 positionOffset, Quaternion rotationOffset)
     {
+        if (Index < 0 || Index >= sources.Length) return;
         var source = sources[Index];
         source.positionOffset = positionOffset;
         source.rotationOffset = rotationOffset;

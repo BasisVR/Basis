@@ -78,12 +78,13 @@ namespace Basis
             };
             if (config.EnableConsole)
             {
-                BasisConsoleCommands.RegisterCommand("/admin add", BasisConsoleCommands.HandleAddAdmin);
-                BasisConsoleCommands.RegisterCommand("/status", BasisConsoleCommands.HandleStatus);
-                BasisConsoleCommands.RegisterCommand("/shutdown", BasisConsoleCommands.HandleShutdown);
-                BasisConsoleCommands.RegisterCommand("/help", BasisConsoleCommands.HandleHelp);
+                BasisConsoleCommands.RegisterCommand("/admin add", "Adds a user as an admin.", BasisConsoleCommands.HandleAddAdmin);
+                BasisConsoleCommands.RegisterCommand("/players", "Lists all connected players.", BasisConsoleCommands.HandleShowPlayers);
+                BasisConsoleCommands.RegisterCommand("/status", "Shows the current server status.", BasisConsoleCommands.HandleStatus);
+                BasisConsoleCommands.RegisterCommand("/shutdown", "Shuts down the server.", BasisConsoleCommands.HandleShutdown);
+                BasisConsoleCommands.RegisterCommand("/help", "Displays all available commands.", BasisConsoleCommands.HandleHelp);
+                BasisConsoleCommands.RegisterCommand("/clear", "Clears the console", BasisConsoleCommands.HandleClear);
                 BasisConsoleCommands.RegisterConfigurationCommands(config);
-
                 BasisConsoleCommands.StartConsoleListener();
             }
             // Wait for shutdown signal

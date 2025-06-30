@@ -70,7 +70,7 @@ namespace HVR.Basis.Comms
             if (isWearer)
             {
                 acquisition.RegisterAddresses(OurAddresses, OnAddressUpdated);
-                _eyeFollowDriverLateInit = BasisLocalPlayer.Instance.BasisLocalEyeDriver;
+                _eyeFollowDriverLateInit = BasisLocalPlayer.Instance.LocalEyeDriver;
             }
         }
 

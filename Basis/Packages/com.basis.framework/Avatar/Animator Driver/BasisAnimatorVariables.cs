@@ -6,6 +6,7 @@ namespace Basis.Scripts.Animator_Driver
     public struct BasisAnimatorVariables
     {
         public float cachedAnimSpeed;
+        public float cachedCrouchBlend;
         public float cachedHorizontalMovement;
         public float cachedVerticalMovement;
 
@@ -17,6 +18,7 @@ namespace Basis.Scripts.Animator_Driver
         public bool IsJumping;
         public bool IsFalling;
         public bool IsCrouching;
+        public float CrouchBlend;
         public float AnimationsCurrentSpeed;
         public bool isMoving;
         public Vector3 AngularVelocity;

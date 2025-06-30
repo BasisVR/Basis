@@ -49,7 +49,7 @@ namespace Basis.Scripts.Drivers
         public Vector3 largerScale;
         public static Vector3 LeftEye;
         public static Vector3 RightEye;
-        
+
         public Color UnMutedMutedIconColorActive = Color.white;
         public Color UnMutedMutedIconColorInactive = Color.grey;
         public Color MutedColor = Color.grey;
@@ -273,7 +273,7 @@ namespace Basis.Scripts.Drivers
         }
         public void OnHeightChanged()
         {
-            transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            this.transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
         }
         public void OnDisable()
         {
@@ -297,8 +297,8 @@ namespace Basis.Scripts.Drivers
             {
                 if (Camera.GetInstanceID() == CameraInstanceID)
                 {
-                    transform.GetPositionAndRotation(out Position,out Rotation);
-                    BasisLocalAvatarDriver.ScaleHeadToZero();
+                    this.transform.GetPositionAndRotation(out Position,out Rotation);
+                    BasisLocalAvatarDriver.ScaleheadToZero();
                     if (CameraData.allowXRRendering)
                     {
                         Vector2 EyeTextureSize = new Vector2(XRSettings.eyeTextureWidth, XRSettings.eyeTextureHeight);
@@ -307,7 +307,7 @@ namespace Basis.Scripts.Drivers
                     else
                     {
                         Vector3 worldPoint = Camera.ViewportToWorldPoint(DesktopMicrophoneViewportPosition);
-                        Vector3 localPos = transform.InverseTransformPoint(worldPoint);//asume this transform is also camera position
+                        Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);//asume this transform is also camera position
                         CanvasTransform.localPosition = localPos;
                     }
                 }

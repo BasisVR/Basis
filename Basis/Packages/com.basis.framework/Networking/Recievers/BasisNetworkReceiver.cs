@@ -148,7 +148,7 @@ namespace Basis.Scripts.Networking.Receivers
                     }
 
                     RemotePlayer.RemoteBoneDriver.SimulateAndApply(RemotePlayer, DeltaTime);
-                    RemotePlayer.RemoteBoneDriver.CalculateHeadBoneData();
+                    RemotePlayer.RemoteBoneDriver.CalculateBoneData();
                     BasisCalibratedCoords Coords = RemotePlayer.RemoteBoneDriver.Mouth.OutgoingWorldData;
                     AudioReceiverModule.AudioSourceTransform.SetPositionAndRotation(Coords.position, Coords.rotation);
                 }

@@ -11,4 +11,6 @@ public struct BasisFingerPose
     public Vector2 MiddlePercentage;
     public Vector2 RingPercentage;
     public Vector2 LittlePercentage;
+    public Vector3[] jointPositions;
+    public Quaternion[] jointRotations;
 }

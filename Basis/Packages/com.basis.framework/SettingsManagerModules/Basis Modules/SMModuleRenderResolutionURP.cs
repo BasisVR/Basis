@@ -81,7 +81,7 @@ public class SMModuleRenderResolutionURP : SettingsManagerOption
 #if UNITY_ANDROID
 #else
         RenderScale = renderScale;
-        if (BasisDeviceManagement.Instance.CurrentMode == BasisDeviceManagement.Desktop)
+        if (BasisDeviceManagement.CurrentMode == BasisDeviceManagement.Desktop)
         {
             UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
             if (Asset.renderScale != RenderScale)

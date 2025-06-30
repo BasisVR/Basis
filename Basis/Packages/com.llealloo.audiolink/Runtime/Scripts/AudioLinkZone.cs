@@ -1,6 +1,6 @@
 ﻿#if UDONSHARP
-using VRC.SDKBase;
-using UdonSharp;
+
+
 #endif
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -9,7 +9,7 @@ namespace AudioLink
 {
     [RequireComponent(typeof(Collider))]
 #if UDONSHARP
-    public class AudioLinkZone : UdonSharpBehaviour
+    public class AudioLinkZone : MonoBehaviour
 #else
     public class AudioLinkZone : MonoBehaviour
 #endif
@@ -24,7 +24,7 @@ namespace AudioLink
         public bool enableTarget = true;
 
 #if UDONSHARP
-        public override void OnPlayerTriggerEnter(VRCPlayerApi player)
+        public override void OnPlayerTriggerEnter(BasisPlayer player)
         {
             if (!player.IsValid() || !player.isLocal) return;
 #else

@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Behaviour;
 using LiteNetLib;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Internal/Streamed Avatar Feature")]
-    public class StreamedAvatarFeature : MonoBehaviour
+    public class StreamedAvatarFeature : BasisAvatarMonoBehaviour
     {
         private const int HeaderBytes = 2;
         private const int SubHeaderBytes = HeaderBytes - 1;
@@ -178,11 +179,11 @@ namespace HVR.Basis.Comms
             }
             if (recipientsNullable == null || recipientsNullable.Length == 0)
             {
-                avatar.ServerReductionSystemMessageSend(HVRAvatarComms.OurMessageIndex, buffer);
+                ServerReductionSystemMessageSend(buffer);
             }
             else
             {
-                avatar.NetworkMessageSend(HVRAvatarComms.OurMessageIndex, buffer, DeliveryMethod, recipientsNullable);
+                NetworkMessageSend( buffer, DeliveryMethod, recipientsNullable);
             }
         }
 
@@ -226,6 +227,18 @@ namespace HVR.Basis.Comms
                 DeltaTime = DeltaTimeUsedForResyncs,
                 FloatValues = current
             }, whoAsked);
+        }
+
+        public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
+        {
+        }
+
+        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+        {
+        }
+
+        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
+        {
         }
     }
 

@@ -35,7 +35,7 @@ public class Configuration
     public bool MtuDiscovery = true;
     public bool DisconnectOnUnreachable = true;
     public bool AllowPeerAddressChange = true;
-    public bool UsingLoggingFile = true;
+    public bool HasFileSupport = true;
     public string HealthCheckHost = "localhost";
     public ushort HealthCheckPort = 10666;
     public string HealthPath = "/health";

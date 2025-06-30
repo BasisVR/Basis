@@ -88,5 +88,9 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
                 }
             }
         }
+        public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+        {
+            BasisDebug.LogError("Simulate Does not Support haptics!");
+        }
     }
 }
