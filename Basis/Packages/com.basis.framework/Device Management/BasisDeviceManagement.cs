@@ -181,7 +181,7 @@ namespace Basis.Scripts.Device_Management
                 }
             }
 
-            if (match.Count == 0)
+            if (match.Count == 0 && name != "Exiting")
             {
                 BasisDebug.LogWarning($"No matches found for name '{name}'.", BasisDebug.LogTag.Device);
                 return false;
@@ -423,7 +423,10 @@ namespace Basis.Scripts.Device_Management
 
             if (!TryFindBasisBaseTypeManagement(type, out List<BasisBaseTypeManagement> matchedType))
             {
-                BasisDebug.LogWarning($"No BasisBaseTypeManagement found for type '{type}'.", BasisDebug.LogTag.Device);
+                if (type != "Exiting")
+                {
+                    BasisDebug.LogWarning($"No BasisBaseTypeManagement found for type '{type}'.", BasisDebug.LogTag.Device);
+                }
             }
             else if (matchedType == null || matchedType.Count == 0)
             {

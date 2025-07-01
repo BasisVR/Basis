@@ -50,6 +50,22 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     private bool isPlayerManuallyUnlocked = false;
     private bool desktopSetup = false;
     private CameraPinSpace previousPinState = CameraPinSpace.HandHeld;
+    private Vector3 currentVelocity = Vector3.zero;
+    private Vector3 targetVelocity = Vector3.zero;
+    private Vector3 velocityMomentum = Vector3.zero;
+    private float rotationMomentum = 0f;
+
+    private float currentPitch = 0f;
+    private float currentYaw = 0f;
+    private float targetPitch = 0f;
+    private float targetYaw = 0f;
+
+    private Vector3 smoothedPosition = Vector3.zero;
+    private Quaternion smoothedRotation = Quaternion.identity;
+
+
+
+    private bool pauseMove = false;
     /// <summary>
     /// Space the camera is pinned to
     /// </summary>
@@ -91,8 +107,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         }
         else
         {
-            cameraStartingLocalPos = HHC.captureCamera.transform.localPosition;
-            cameraStartingLocalRot = HHC.captureCamera.transform.localRotation;
+            HHC.captureCamera.transform.GetLocalPositionAndRotation(out cameraStartingLocalPos, out cameraStartingLocalRot);
         }
 
         OnInteractStartEvent += OnInteractDesktopTweak;
@@ -119,7 +134,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     }
     private void OnHeightChanged()
     {
-    transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
     }
     private void UpdateCamera()
     {
@@ -133,8 +148,9 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
 
             flyCamera.DetectInput();
 
-            Vector3 inPos = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.position;
-            Quaternion inRot = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.rotation;
+           BasisCalibratedCoords Coords = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData;
+            Vector3 inPos = Coords.position;
+            Quaternion inRot = Coords.rotation;
 
             if (BasisLocalCameraDriver.HasInstance)
             {
@@ -207,9 +223,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                     // zero out source
                     cameraPinConstraint.UpdateSourcePositionAndRotation(0, Vector3.zero, Quaternion.identity);
                     cameraPinConstraint.SetOffsetPositionAndRotation(0, Vector3.zero, Quaternion.identity);
-
-                    HHC.captureCamera.transform.localPosition = cameraStartingLocalPos;
-                    HHC.captureCamera.transform.localRotation = cameraStartingLocalRot;
+                    HHC.captureCamera.transform.SetLocalPositionAndRotation(cameraStartingLocalPos, cameraStartingLocalRot);
                 }
                 break;
             case CameraPinSpace.PlaySpace:
@@ -265,24 +279,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         // User can respawn camera if they want it
         Destroy(gameObject);
     }
-
-
-    private Vector3 currentVelocity = Vector3.zero;
-    private Vector3 targetVelocity = Vector3.zero;
-    private Vector3 velocityMomentum = Vector3.zero;
-    private float rotationMomentum = 0f;
-    
-    private float currentPitch = 0f;
-    private float currentYaw = 0f;
-    private float targetPitch = 0f;
-    private float targetYaw = 0f;
-    
-    private Vector3 smoothedPosition = Vector3.zero;
-    private Quaternion smoothedRotation = Quaternion.identity;
-    
-
-
-    private bool pauseMove = false;
     private void PollDesktopControl(BasisInput DesktopEye)
     {
         if (DesktopEye == null) return;
@@ -355,8 +351,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         MovementLock.Remove(className);
         CrouchingLock.Remove(className);
     }
-
-
     private void MoveCameraFlying()
     {
         float deltaTime = Time.deltaTime;
