@@ -26,11 +26,13 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty PalmPoseActionRotation;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(-90, 0, -180);
-        rightHandToIKRotationOffset = new float3(-90,0, -180);
-        RaycastRotationOffset = new float3(-90, 0, 0);
+        leftHandToIKRotationOffset = new Vector3(-90, 0, -180);
+        rightHandToIKRotationOffset = new Vector3(-90,0, -180);
         LeftHandPalmCorrection = new Vector3(0, 270, -90);
         RightHandPalmCorrection = new Vector3(180,270,-90);
+
+        LeftRaycastRotationOffset = new Vector3(30, -90, 0);
+        RightRaycastRotationOffset = new Vector3(150, -90, 0);
 
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";

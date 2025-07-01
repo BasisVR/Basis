@@ -21,9 +21,12 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
-            leftHandToIKRotationOffset = new float3(0, 90, -180);
-            rightHandToIKRotationOffset = new float3(0, -90, -180);
-            RaycastRotationOffset = new float3(-90, -90, 0);
+            leftHandToIKRotationOffset = new Vector3(180, 0, -120);
+            rightHandToIKRotationOffset = new Vector3(180, 0, 120);
+
+            LeftRaycastRotationOffset = new Vector3(30, -90, 0);
+            RightRaycastRotationOffset = new Vector3(150,-90,0);
+
             if (HasOnUpdate && DeviceposeAction != null)
             {
                 DeviceposeAction[inputSource].onUpdate -= SteamVR_Behavior_Pose_OnUpdate;
@@ -124,10 +127,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             ScaledDeviceCoord.position = UnscaledDeviceCoord.position * AvatarScale;
 
             // Calculate final hand position in scaled space
-            Vector3 ScaledwristOffset = math.mul(UnscaledDeviceCoord.rotation, HandWristPosition) * AvatarScale;
+            Vector3 ScaledwristOffset = (UnscaledDeviceCoord.rotation * HandWristPosition) * AvatarScale;
 
             // Final hand rotation = controller rotation * offset from wrist
-            HandFinal.rotation = math.mul(UnscaledDeviceCoord.rotation, HandleHandFinalRotation(HandWristRotation));
+            HandFinal.rotation = UnscaledDeviceCoord.rotation * HandleHandFinalRotation(HandWristRotation);
             HandFinal.position = ScaledDeviceCoord.position - ScaledwristOffset;
 
             ControlOnlyAsHand();
