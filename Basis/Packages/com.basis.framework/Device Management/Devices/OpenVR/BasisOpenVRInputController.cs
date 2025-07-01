@@ -128,11 +128,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             // Calculate final hand position in scaled space
             Vector3 ScaledwristOffset = (UnscaledDeviceCoord.rotation * HandWristPosition) * AvatarScale;
-
             // Final hand rotation = controller rotation * offset from wrist
             HandFinal.rotation = UnscaledDeviceCoord.rotation * HandleHandFinalRotation(HandWristRotation);
             HandFinal.position = ScaledDeviceCoord.position - ScaledwristOffset;
 
+            UpdateRaycastOffset();
             ControlOnlyAsHand();
             ComputeRaycastDirection();
         }

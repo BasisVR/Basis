@@ -24,15 +24,28 @@ public abstract class BasisInputController : BasisInput
             {
                 case BasisBoneTrackedRole.LeftHand:
                     outgoingRotation = IncomingRotation * Quaternion.Euler(leftHandToIKRotationOffset);
-                    ActiveRaycastOffset = Quaternion.Euler(LeftRaycastRotationOffset);
                     break;
                 case BasisBoneTrackedRole.RightHand:
                     outgoingRotation = IncomingRotation * Quaternion.Euler(rightHandToIKRotationOffset);
-                    ActiveRaycastOffset = Quaternion.Euler(RightRaycastRotationOffset);
                     break;
             }
         }
         return outgoingRotation;
+    }
+    public void UpdateRaycastOffset()
+    {
+        if (TryGetRole(out BasisBoneTrackedRole AssignedRole))
+        {
+            switch (AssignedRole)
+            {
+                case BasisBoneTrackedRole.LeftHand:
+                    ActiveRaycastOffset = Quaternion.Euler(LeftRaycastRotationOffset);
+                    break;
+                case BasisBoneTrackedRole.RightHand:
+                    ActiveRaycastOffset = Quaternion.Euler(RightRaycastRotationOffset);
+                    break;
+            }
+        }
     }
 
     public void ControlOnlyAsHand()
