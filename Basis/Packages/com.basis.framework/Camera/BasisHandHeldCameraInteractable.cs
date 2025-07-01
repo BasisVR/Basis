@@ -9,6 +9,7 @@ using Basis.Scripts.BasisSdk.Players;
 public abstract class BasisHandHeldCameraInteractable : PickupInteractable
 {
     public BasisHandHeldCamera HHC;
+    private BasisHandHeldCameraUI cameraUI;
     [Header("Camera Settings")]
     public CameraPinSpace PinSpace = CameraPinSpace.HandHeld;
 
@@ -39,6 +40,10 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
     private Vector3 cameraStartingLocalPos; // local space
     private Quaternion cameraStartingLocalRot; // local space
+
+    // modes
+    private CameraOrientation currentOrientation = CameraOrientation.Landscape;
+    private float orientationCheckCooldown = 0f;
 
     [SerializeReference]
     private BasisParentConstraint cameraPinConstraint;
@@ -92,7 +97,9 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
 
         //Player Movement locking for UI Selection
         string className = nameof(BasisHandHeldCameraInteractable);
-        LockPlayer(className);
+        bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
+        if (inDesktop)
+            LockPlayer(className);
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
@@ -124,6 +131,10 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
 
         flyCamera = new BasisFlyCamera();
     }
+    public void SetCameraUI(BasisHandHeldCameraUI ui)
+    {
+        cameraUI = ui;
+    }
     private void OnInteractDesktopTweak(BasisInput _input)
     {
         if (BasisDeviceManagement.IsUserInDesktop())
@@ -139,6 +150,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     private void UpdateCamera()
     {
         bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
+        CheckCameraOrientation();
         if (inDesktop)
         {
             if (Inputs.desktopCenterEye.Source == null)
@@ -187,7 +199,33 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         }
         PollCameraPin(Inputs.desktopCenterEye.Source);
     }
+    private void CheckCameraOrientation()
+    {
+        // Delay between checks to reduce UI toggle jitter
+        if (Time.time < orientationCheckCooldown)
+            return;
 
+        float roll = HHC.captureCamera.transform.eulerAngles.z;
+        if (roll > 180f) roll -= 360f; // Normalize to [-180, 180]
+
+        CameraOrientation newOrientation = Mathf.Abs(roll) > 45f ? CameraOrientation.Portrait : CameraOrientation.Landscape;
+
+        if (newOrientation != currentOrientation)
+        {
+            currentOrientation = newOrientation;
+            orientationCheckCooldown = Time.time + 0.5f; // Add cooldown to prevent flip-flopping
+            HandleOrientationChanged(currentOrientation);
+        }
+    }
+    private void HandleOrientationChanged(CameraOrientation newOrientation)
+    {
+        if (cameraUI != null)
+        {
+            cameraUI.SetUIOrientation(newOrientation);
+        }
+
+        BasisDebug.Log($"[Camera UI] Orientation changed to {newOrientation}");
+    }
     public override bool IsInteractingWith(BasisInput input)
     {
         var found = Inputs.FindExcludeExtras(input);
@@ -282,6 +320,9 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     private void PollDesktopControl(BasisInput DesktopEye)
     {
         if (DesktopEye == null) return;
+        bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
+        if (!inDesktop) return;
+
         string className = nameof(BasisHandHeldCameraInteractable);
 
         bool isMiddleClick = DesktopEye.CurrentInputState.Secondary2DAxisClick;
@@ -328,7 +369,8 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                 else if (!isRightClickHeld && isPlayerManuallyUnlocked)
                 {
                     isPlayerManuallyUnlocked = false;
-                    LockPlayer(className);
+                    if (inDesktop)
+                        LockPlayer(className);
                 }
             }
         }
