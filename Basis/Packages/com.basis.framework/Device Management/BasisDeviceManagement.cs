@@ -441,6 +441,7 @@ namespace Basis.Scripts.Device_Management
                     m.StartSDK();
                 }
             }
+            CurrentMode = type;
         }
         public bool TryAdd(BasisInput basisXRInput)
         {

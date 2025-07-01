@@ -1,5 +1,4 @@
 using Basis.Scripts.Common;
-using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using UnityEngine;
@@ -49,6 +48,8 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     const float cameraDefaultScale = 0.0003f;
 
     private bool isPlayerManuallyUnlocked = false;
+    private bool desktopSetup = false;
+    private CameraPinSpace previousPinState = CameraPinSpace.HandHeld;
     /// <summary>
     /// Space the camera is pinned to
     /// </summary>
@@ -108,7 +109,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
 
         flyCamera = new BasisFlyCamera();
     }
-
     private void OnInteractDesktopTweak(BasisInput _input)
     {
         if (BasisDeviceManagement.IsUserInDesktop())
@@ -117,31 +117,26 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
             RequiresUpdateLoop = false;
         }
     }
-
     private void OnHeightChanged()
     {
-            transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+    transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
     }
-
-    private bool desktopSetup = false;
-    private CameraPinSpace previousPinState = CameraPinSpace.HandHeld;
     private void UpdateCamera()
     {
-
         bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
-
         if (inDesktop)
         {
-            if (Inputs.desktopCenterEye.Source == null) return;
+            if (Inputs.desktopCenterEye.Source == null)
+            {
+                return;
+            }
+
             flyCamera.DetectInput();
 
-            Vector3 inPos;
-            Quaternion inRot;
+            Vector3 inPos = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.position;
+            Quaternion inRot = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.rotation;
 
-            inPos = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.position;
-            inRot = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.rotation;
-
-            if (BasisLocalCameraDriver.Instance != null && BasisLocalCameraDriver.Instance.Camera != null)
+            if (BasisLocalCameraDriver.HasInstance)
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
 
@@ -162,8 +157,10 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                     desktopSetup = true;
                 }
             }
-            else return;
-    
+            else
+            {
+                return;
+            }
             // always constrain to head movement
             InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
             
@@ -172,8 +169,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                 transform.SetPositionAndRotation(pos, rot);
             }
         }
-
-        // 
         PollCameraPin(Inputs.desktopCenterEye.Source);
     }
 
