@@ -380,8 +380,6 @@ public partial class BasisPlayerInteract : MonoBehaviour
 
         interactOrigin.transform.SetParent(input.transform);
         interactOrigin.layer = IgnoreRaycasting;
-        // TODO: custom config to use center of palm instead of raycast offset (IK palm? but that breaks input on a bad avi upload, no?)
-        //revist
         interactOrigin.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
         lineRenderer.enabled = false;
         lineRenderer.material = LineMaterial;

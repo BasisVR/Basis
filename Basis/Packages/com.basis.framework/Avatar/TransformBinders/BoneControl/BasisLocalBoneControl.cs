@@ -64,29 +64,17 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                         if (IsHintRoleIgnoreRotation == false)
                         {
                             // Update the position of the secondary transform to maintain the initial offset
-                            OutGoingData.position = Vector3.Lerp(
-                                OutGoingData.position,
-                                IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position,
-                                trackersmooth
-                            );
+                            OutGoingData.position = Vector3.Lerp(OutGoingData.position, IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position, trackersmooth);
 
                             // Update the rotation of the secondary transform to maintain the initial offset
-                            OutGoingData.rotation = Quaternion.Slerp(
-                                OutGoingData.rotation,
-                                IncomingData.rotation * InverseOffsetFromBone.rotation,
-                                trackersmooth
-                            );
+                            OutGoingData.rotation = Quaternion.Slerp(OutGoingData.rotation, IncomingData.rotation * InverseOffsetFromBone.rotation, trackersmooth);
                         }
                         else
                         {
                             OutGoingData.rotation = Quaternion.identity;
 
                             // Update the position of the secondary transform to maintain the initial offset
-                            OutGoingData.position = Vector3.Lerp(
-                                OutGoingData.position,
-                                IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position,
-                                trackersmooth
-                            );
+                            OutGoingData.position = Vector3.Lerp(OutGoingData.position, IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position, trackersmooth);
                         }
                     }
                     else

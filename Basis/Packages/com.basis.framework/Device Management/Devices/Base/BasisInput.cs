@@ -16,19 +16,18 @@ namespace Basis.Scripts.Device_Management.Devices
     {
         public bool HasEvents = false;
         public string SubSystemIdentifier;
-        [SerializeField] private BasisBoneTrackedRole trackedRole;
-        [SerializeField] public bool hasRoleAssigned;
+        [SerializeField]
+        private BasisBoneTrackedRole trackedRole;
+        [SerializeField]
+        public bool hasRoleAssigned;
         public BasisLocalBoneControl Control = new BasisLocalBoneControl();
         public bool HasControl = false;
         public string UniqueDeviceIdentifier;
         public string ClassName;
-
         [Header("Raw Position Of Device")]
         public BasisCalibratedCoords UnscaledDeviceCoord = new BasisCalibratedCoords();
-
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
         public BasisCalibratedCoords ScaledDeviceCoord = new BasisCalibratedCoords();
-
         public string CommonDeviceIdentifier;
         public BasisVisualTracker BasisVisualTracker;
         public BasisPointRaycaster BasisPointRaycaster;//used to raycast against things like UI
@@ -44,111 +43,7 @@ namespace Basis.Scripts.Device_Management.Devices
         public static string FallbackDeviceID = "FallbackSphere";
         public GameObject BasisPointRaycasterRef;
         public bool HasRaycaster = false;
-        public Quaternion InitialRotation;
-        public Quaternion InitialBoneRotation;
-
         public BasisCalibratedCoords RaycastCoord;
-        public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
-        {
-            if (hasRoleAssigned)
-            {
-                BasisBoneTrackedRole = trackedRole;
-                return true;
-            }
-            BasisBoneTrackedRole = BasisBoneTrackedRole.CenterEye;
-            return false;
-        }
-        public void AssignRoleAndTracker(BasisBoneTrackedRole Role)
-        {
-            hasRoleAssigned = true;
-            int InputsCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
-            for (int Index = 0; Index < InputsCount; Index++)
-            {
-                BasisInput Input = BasisDeviceManagement.Instance.AllInputDevices[Index];
-                if (Input.TryGetRole(out BasisBoneTrackedRole found) && Input != this)
-                {
-                    if (found == Role)
-                    {
-                        if (CanHaveMultipleRoles.Contains(found) == false)
-                        {
-                            BasisDebug.LogError("Already Found tracker for  " + Role, BasisDebug.LogTag.Input);
-                            return;
-                        }
-                        else
-                        {
-                            BasisDebug.Log("Has Multiple Roles assigned for " + found + " most likely ok.", BasisDebug.LogTag.Input);
-                        }
-                    }
-                }
-            }
-            trackedRole = Role;
-            if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out Control, trackedRole))
-            {
-                HasControl = true;
-            }
-            if (HasControl)
-            {
-                if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))//we dont want to offset these ones
-                {
-                    InitialRotation = Quaternion.Inverse(transform.rotation);
-                    InitialBoneRotation = Control.OutgoingWorldData.rotation;
-                    Control.InverseOffsetFromBone.position = Quaternion.Inverse(transform.rotation) * ((Vector3)Control.OutgoingWorldData.position - transform.position);
-                    Control.InverseOffsetFromBone.rotation = InitialRotation * InitialBoneRotation;
-                    Control.InverseOffsetFromBone.Use = true;
-                    Control.IsHintRoleIgnoreRotation = BasisBoneTrackedRoleCommonCheck.CheckIfHintRole(trackedRole);
-                }
-                SetRealTrackers(BasisHasTracked.HasTracker, BasisHasRigLayer.HasRigLayer);
-            }
-            else
-            {
-                BasisDebug.LogError("Attempted to find " + Role + " but it did not exist");
-            }
-        }
-        public void UnAssignRoleAndTracker()
-        {
-            if (Control != null)
-            {
-                Control.IncomingData.position = Vector3.zero;
-                Control.IncomingData.rotation = Quaternion.identity;
-            }
-            if (DeviceMatchSettings == null || DeviceMatchSettings.HasTrackedRole == false)
-            {
-                //unassign last
-                if (hasRoleAssigned)
-                {
-                    SetRealTrackers(BasisHasTracked.HasNoTracker, BasisHasRigLayer.HasNoRigLayer);
-                }
-                hasRoleAssigned = false;
-                trackedRole = BasisBoneTrackedRole.CenterEye;
-                Control = null;
-                HasControl = false;
-            }
-        }
-        public void OnDisable()
-        {
-            StopTracking();
-        }
-        public void OnDestroy()
-        {
-            StopTracking();
-            if (BasisUIRaycast != null)
-            {
-                BasisUIRaycast.OnDeInitialize();
-                if (BasisUIRaycast.highlightQuadInstance != null)
-                {
-                    GameObject.Destroy(BasisUIRaycast.highlightQuadInstance.gameObject);
-                }
-                GameObject.Destroy(BasisPointRaycaster.gameObject);
-            }
-        }
-        public bool HasRaycastSupport()
-        {
-            if (DeviceMatchSettings == null)
-            {
-                return false;
-            }
-            return hasRoleAssigned && DeviceMatchSettings.HasRayCastSupport;
-        }
         /// <summary>
         /// initalize the tracking of this input
         /// </summary>
@@ -189,6 +84,92 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 BasisDebug.Log("has device events assigned already " + UniqueDeviceIdentifier, BasisDebug.LogTag.Input);
             }
+        }
+        public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
+        {
+            if (hasRoleAssigned)
+            {
+                BasisBoneTrackedRole = trackedRole;
+                return true;
+            }
+            BasisBoneTrackedRole = BasisBoneTrackedRole.CenterEye;
+            return false;
+        }
+        public void AssignRoleAndTracker(BasisBoneTrackedRole Role)
+        {
+            hasRoleAssigned = true;
+            int InputsCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
+            for (int Index = 0; Index < InputsCount; Index++)
+            {
+                BasisInput Input = BasisDeviceManagement.Instance.AllInputDevices[Index];
+                if (Input.TryGetRole(out BasisBoneTrackedRole found) && Input != this)
+                {
+                    if (found == Role)
+                    {
+                        if (CanHaveMultipleRoles.Contains(found) == false)
+                        {
+                            BasisDebug.LogError("Already Found tracker for  " + Role, BasisDebug.LogTag.Input);
+                            return;
+                        }
+                        else
+                        {
+                            BasisDebug.Log("Has Multiple Roles assigned for " + found + " most likely ok.", BasisDebug.LogTag.Input);
+                        }
+                    }
+                }
+            }
+            trackedRole = Role;
+            HasControl = BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out Control, trackedRole);
+            if (HasControl)
+            {
+                if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))//we dont want to offset these ones
+                {
+                    transform.GetPositionAndRotation(out BasisInverseOffsetData.TrackerPosition, out BasisInverseOffsetData.TrackerRotation);
+                    BasisInverseOffsetData.InitialInverseTrackRotation = Quaternion.Inverse(BasisInverseOffsetData.TrackerRotation);
+                    BasisInverseOffsetData.InitialControlRotation = Control.OutgoingWorldData.rotation;
+                    //this looks sus
+                    Control.InverseOffsetFromBone.position = BasisInverseOffsetData.InitialInverseTrackRotation * (Control.OutgoingWorldData.position - BasisInverseOffsetData.TrackerPosition);
+                    Control.InverseOffsetFromBone.rotation = BasisInverseOffsetData.InitialInverseTrackRotation * BasisInverseOffsetData.InitialControlRotation;
+                    Control.InverseOffsetFromBone.Use = true;
+                    Control.IsHintRoleIgnoreRotation = BasisBoneTrackedRoleCommonCheck.CheckIfHintRole(trackedRole);
+                }
+                SetRealTrackers(BasisHasTracked.HasTracker, BasisHasRigLayer.HasRigLayer);
+            }
+            else
+            {
+                BasisDebug.LogError("Attempted to find " + Role + " but it did not exist", BasisDebug.LogTag.Input);
+            }
+        }
+        [SerializeField]
+        public BasisInverseOffsetFromBoneData BasisInverseOffsetData;
+
+        public void UnAssignRoleAndTracker()
+        {
+            if (Control != null)
+            {
+                Control.IncomingData.position = Vector3.zero;
+                Control.IncomingData.rotation = Quaternion.identity;
+            }
+            if (DeviceMatchSettings == null || DeviceMatchSettings.HasTrackedRole == false)
+            {
+                //unassign last
+                if (hasRoleAssigned)
+                {
+                    SetRealTrackers(BasisHasTracked.HasNoTracker, BasisHasRigLayer.HasNoRigLayer);
+                }
+                hasRoleAssigned = false;
+                trackedRole = BasisBoneTrackedRole.CenterEye;
+                Control = null;
+                HasControl = false;
+            }
+        }
+        public bool HasRaycastSupport()
+        {
+            if (DeviceMatchSettings == null)
+            {
+                return false;
+            }
+            return hasRoleAssigned && DeviceMatchSettings.HasRayCastSupport;
         }
         public void ApplyFinalMovement()
         {
@@ -291,7 +272,6 @@ namespace Basis.Scripts.Device_Management.Devices
             LastUpdatePlayerControl();
             DoPollData();
         }
-        public abstract void DoPollData();
         public void UpdatePlayerControl()
         {
             switch (trackedRole)
@@ -394,10 +374,6 @@ namespace Basis.Scripts.Device_Management.Devices
         {
             CurrentInputState.CopyTo(LastInputState);
         }
-        public abstract void ShowTrackedVisual();
-        public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
-        public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
-
         public void PlaySoundEffectDefaultImplementation(string SoundEffectName, float Volume)
         {
             switch (SoundEffectName)
@@ -489,5 +465,26 @@ namespace Basis.Scripts.Device_Management.Devices
             }
 
         }
+        public void OnDisable()
+        {
+            StopTracking();
+        }
+        public void OnDestroy()
+        {
+            StopTracking();
+            if (BasisUIRaycast != null)
+            {
+                BasisUIRaycast.OnDeInitialize();
+                if (BasisUIRaycast.highlightQuadInstance != null)
+                {
+                    GameObject.Destroy(BasisUIRaycast.highlightQuadInstance.gameObject);
+                }
+                GameObject.Destroy(BasisPointRaycaster.gameObject);
+            }
+        }
+        public abstract void DoPollData();
+        public abstract void ShowTrackedVisual();
+        public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
+        public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
     }
 }

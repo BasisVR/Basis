@@ -288,7 +288,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 SteamVR_BehaviourGameobject = new GameObject(SteamVRBehaviour);
             }
-
+            SteamVR_BehaviourGameobject.transform.parent = this.transform;
             // Initialize SteamVR components
             SteamVR_Behaviour = BasisHelpers.GetOrAddComponent<SteamVR_Behaviour>(SteamVR_BehaviourGameobject);
             SteamVR_Render = BasisHelpers.GetOrAddComponent<SteamVR_Render>(SteamVR_BehaviourGameobject);
