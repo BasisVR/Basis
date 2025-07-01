@@ -66,7 +66,7 @@ namespace Basis.Scripts.Animator_Driver
 
         public void SimulateAnimator(float DeltaTime)
         {
-            if (LocalPlayer.LocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
+            if (BasisLocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
             {
                 if (basisAnimatorVariableApply.IsStopped == false)
                 {

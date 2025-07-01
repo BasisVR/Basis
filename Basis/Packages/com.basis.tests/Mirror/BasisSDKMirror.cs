@@ -10,6 +10,7 @@ using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections;
 using Unity.Mathematics;
+
 public class BasisSDKMirror : MonoBehaviour
 {
     [Header("Main Settings")]
@@ -142,7 +143,7 @@ public class BasisSDKMirror : MonoBehaviour
         UpdateCameraState(context, camera);
 
         OnCamerasFinished?.Invoke();
-        BasisLocalAvatarDriver.ScaleHeadToZero();
+        BasisLocalAvatarDriver.ScaleheadToZero();
     }
     private bool IsCameraAble(Camera camera)
     {

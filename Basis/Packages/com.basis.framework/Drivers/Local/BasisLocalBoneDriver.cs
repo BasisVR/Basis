@@ -307,7 +307,7 @@ namespace Basis.Scripts.Drivers
                         }
                     }
                 }
-                if (BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentlyTposing)
+                if (BasisLocalAvatarDriver.CurrentlyTposing)
                 {
                     if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
                     {

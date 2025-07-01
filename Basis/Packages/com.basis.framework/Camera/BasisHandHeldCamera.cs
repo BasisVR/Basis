@@ -464,7 +464,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public void SetNormalAfterCapture()
     {
         ToggleToneMapping(TonemappingMode.Neutral);
-        BasisLocalAvatarDriver.ScaleHeadToZero();
+        BasisLocalAvatarDriver.ScaleheadToZero();
         SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
     }
 
@@ -476,8 +476,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     private new void OnBootModeChanged(string obj)
     {
         OverrideDesktopOutput();
-
-       // base.OnBootModeChanged(obj);
     }
 
     private void UnsubscribeMeshRendererCheck()
