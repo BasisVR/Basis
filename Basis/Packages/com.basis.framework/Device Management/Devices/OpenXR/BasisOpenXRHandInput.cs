@@ -26,27 +26,20 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty PalmPoseActionRotation;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
-        leftHandToIKRotationOffset = new float3(-90, 0, -180);
-        rightHandToIKRotationOffset = new float3(-90,0, -180);
-        RaycastRotationOffset = new float3(-90, 0, 0);
-        LeftHandPalmCorrection = new Vector3(0, 270, -90);
-        RightHandPalmCorrection = new Vector3(180,270,-90);
+        leftHandToIKRotationOffset = new Vector3(0, 90, -30);
+        rightHandToIKRotationOffset = new Vector3(0, -90,30);
+
+        LeftHandPalmCorrection = new Vector3(-90, 90, -30);
+
+        RightHandPalmCorrection = new Vector3(-90,90,-150);
+
+        LeftRaycastRotationOffset = new Vector3(30, -90, 0);
+        RightRaycastRotationOffset = new Vector3(150, -90, 0);
 
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         string devicePosePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
-        SetupInputActions(devicePath);
-        DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
-        DeviceActionRotation = new InputActionProperty(new InputAction($"{devicePath}/deviceRotation", InputActionType.Value, $"{devicePath}/deviceRotation", expectedControlType: "Quaternion"));
-        PalmPoseActionPosition = new InputActionProperty(new InputAction($"{devicePosePath}/PosePosition", InputActionType.Value, $"{devicePosePath}/palmPosition", expectedControlType: "Vector3"));
-        PalmPoseActionRotation = new InputActionProperty(new InputAction($"{devicePosePath}/PoseRotation", InputActionType.Value, $"{devicePosePath}/palmRotation", expectedControlType: "Quaternion"));
-        PalmPoseActionPosition.action.Enable();
-        PalmPoseActionRotation.action.Enable();
-        DeviceActionPosition.action.Enable();
-        DeviceActionRotation.action.Enable();
-    }
-    private void SetupInputActions(string devicePath)
-    {
+
         if (string.IsNullOrEmpty(devicePath))
         {
             Debug.LogError("Device path is null or empty.");
@@ -59,6 +52,15 @@ public class BasisOpenXRHandInput : BasisInputController
         MenuButton = new InputActionProperty(new InputAction(devicePath + "/menuButton", InputActionType.Button, devicePath + "/menuButton", expectedControlType: "Button"));
         Primary2DAxis = new InputActionProperty(new InputAction(devicePath + "/primary2DAxis", InputActionType.Value, devicePath + "/primary2DAxis", expectedControlType: "Vector2"));
         Secondary2DAxis = new InputActionProperty(new InputAction(devicePath + "/secondary2DAxis", InputActionType.Value, devicePath + "/secondary2DAxis", expectedControlType: "Vector2"));
+        DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
+        DeviceActionRotation = new InputActionProperty(new InputAction($"{devicePath}/deviceRotation", InputActionType.Value, $"{devicePath}/deviceRotation", expectedControlType: "Quaternion"));
+
+        PalmPoseActionPosition = new InputActionProperty(new InputAction($"{devicePosePath}/PosePosition", InputActionType.Value, $"{devicePosePath}/palmPosition", expectedControlType: "Vector3"));
+        PalmPoseActionRotation = new InputActionProperty(new InputAction($"{devicePosePath}/PoseRotation", InputActionType.Value, $"{devicePosePath}/palmRotation", expectedControlType: "Quaternion"));
+        PalmPoseActionPosition.action.Enable();
+        PalmPoseActionRotation.action.Enable();
+        DeviceActionPosition.action.Enable();
+        DeviceActionRotation.action.Enable();
         EnableInputActions();
     }
     private void EnableInputActions()
@@ -106,6 +108,7 @@ public class BasisOpenXRHandInput : BasisInputController
 
         ConvertToScaledDeviceCoord();
         ControlOnlyAsHand();
+        UpdateRaycastOffset();
         UpdatePlayerControl();
         ComputeRaycastDirection();
     }
@@ -139,7 +142,6 @@ public class BasisOpenXRHandInput : BasisInputController
                         FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand);
                     }
                     break;
-
                 case BasisBoneTrackedRole.RightHand:
                     if (subsystem.rightHand.isTracked)
                     {

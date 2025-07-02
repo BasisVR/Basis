@@ -79,18 +79,18 @@ public static class BasisAnimationRiggingHelper
 
         GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole.ToString()}");
         TwoBoneIKConstraint = BasisHelpers.GetOrAddComponent<BasisTwoBoneIKConstraintHand>(BoneRole);
-        Quaternion Rotation = TargetControl.OutgoingWorldData.rotation;
+        TwoBoneIKConstraint.data.M_CalibratedOffset = new Vector3(0, 0, 0);
+        TwoBoneIKConstraint.data.M_CalibratedRotation = tip.rotation.eulerAngles;
         TwoBoneIKConstraint.data.TargetPosition = TargetControl.OutgoingWorldData.position;
-        TwoBoneIKConstraint.data.TargetRotation = Rotation.eulerAngles;
-        if (UseBoneRole)
+        TwoBoneIKConstraint.data.TargetRotation = TargetControl.OutgoingWorldData.rotation.eulerAngles;
+
+        if (UseBoneRole && player.LocalBoneDriver.FindBone(out BasisLocalBoneControl HintControl, BendRole))
         {
-            if (player.LocalBoneDriver.FindBone(out BasisLocalBoneControl HintControl, BendRole))
-            {
-                Quaternion HintRotation = HintControl.OutgoingWorldData.rotation;
-                TwoBoneIKConstraint.data.HintPosition = HintControl.OutgoingWorldData.position;
-                TwoBoneIKConstraint.data.HintRotation = HintRotation.eulerAngles;
-            }
+            Quaternion HintRotation = HintControl.OutgoingWorldData.rotation;
+            TwoBoneIKConstraint.data.HintPosition = HintControl.OutgoingWorldData.position;
+            TwoBoneIKConstraint.data.HintRotation = HintRotation.eulerAngles;
         }
+  
         TwoBoneIKConstraint.data.root = root;
         TwoBoneIKConstraint.data.mid = mid;
         TwoBoneIKConstraint.data.tip = tip;

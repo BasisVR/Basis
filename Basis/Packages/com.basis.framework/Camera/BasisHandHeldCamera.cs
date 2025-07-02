@@ -22,6 +22,8 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     public TextMeshProUGUI countdownText;
     [SerializeField] public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
     [SerializeField] public BasisDepthOfFieldInteractionHandler BasisDOFInteractionHandler;
+    [SerializeField] private BasisHandHeldCameraInteractable interactable;
+    [SerializeField] private BasisHandHeldCameraUI cameraUIReference;
 
     [Header("Settings")]
     [Tooltip("Width of the captured photo")]
@@ -131,6 +133,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         basisMeshRendererCheck = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Renderer.gameObject);
         basisMeshRendererCheck.Check += VisibilityFlag;
         await HandHeld.Initialize(this);
+        interactable.SetCameraUI(HandHeld);
     }
 
     private void InitializeTonemapping()

@@ -155,6 +155,11 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (activeCameraInstance != null)
             {
+                var cameraInteractable = activeCameraInstance.GetComponent<BasisHandHeldCameraInteractable>();
+                if (cameraInteractable != null)
+                {
+                    cameraInteractable.ReleasePlayerLocks();
+                }
                 GameObject.Destroy(activeCameraInstance);
                 BasisDebug.Log("[OpenCamera] Destroyed previous camera instance.");
                 activeCameraInstance = null;

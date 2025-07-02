@@ -69,6 +69,11 @@ public class PickupInteractable : InteractableObject
 
     public Action<PickUpUseMode> OnPickupUse;
 
+    private Vector3 linearVelocity;
+    private Vector3 angularVelocity;
+
+    private Vector3 _previousPosition;
+    private Quaternion _previousRotation;
     public enum PickUpUseMode
     {
         OnPickUpUseUp,
@@ -217,8 +222,11 @@ public class PickupInteractable : InteractableObject
                 transform.GetPositionAndRotation(out Vector3 restPos, out Quaternion restRot);
                 InputConstraint.SetRestPositionAndRotation(restPos, restRot);
 
-                var offsetPos = Quaternion.Inverse(inRot) * (transform.position - inPos);
-                var offsetRot = Quaternion.Inverse(inRot) * transform.rotation;
+                transform.GetPositionAndRotation(out Vector3 ActivePosition, out Quaternion ActiveRotation);
+
+                var offsetPos = Quaternion.Inverse(inRot) * (ActivePosition - inPos);
+                var offsetRot = Quaternion.Inverse(inRot) * ActiveRotation;
+
                 InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
 
                 // Debug.Log($"[OnInteractStart] Frame: {Time.frameCount}, Input Source Rot: {inRot.eulerAngles}, Object Rot: {transform.rotation.eulerAngles}, Calculated Offset: {offsetRot.eulerAngles}");
@@ -311,12 +319,6 @@ public class PickupInteractable : InteractableObject
         RigidRef.linearVelocity = linear;
         RigidRef.angularVelocity = angular;
     }
-
-    private Vector3 linearVelocity;
-    private Vector3 angularVelocity;
-    
-    private Vector3 _previousPosition;
-    private Quaternion _previousRotation;
 
     private void CalculateVelocity(Vector3 pos, Quaternion rot)
     {
@@ -549,10 +551,6 @@ public class PickupInteractable : InteractableObject
     public void OnValidate()
     {
         string errPrefix = "Pickup Interactable needs component defined on self or given a reference for ";
-        // if (RigidRef == null && !TryGetComponent(out Rigidbody _))
-        // {
-        //     Debug.LogWarning(errPrefix + "Rigidbody, ignore if not using rigidbodies and expecing raw transforms", gameObject);
-        // }
         if (ColliderRef == null && !TryGetComponent(out Collider _))
         {
             Debug.LogWarning(errPrefix + "Collider", gameObject);
