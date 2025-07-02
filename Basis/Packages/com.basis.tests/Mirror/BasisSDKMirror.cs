@@ -10,6 +10,7 @@ using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections;
 using Unity.Mathematics;
+
 public class BasisSDKMirror : MonoBehaviour
 {
     [Header("Main Settings")]

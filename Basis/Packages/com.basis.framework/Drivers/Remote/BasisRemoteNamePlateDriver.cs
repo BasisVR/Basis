@@ -1,15 +1,12 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.Drivers;
 using TMPro;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.NamePlate
 {
     public class BasisRemoteNamePlateDriver : MonoBehaviour
     {
-        private static int count = 0; // Track the number of active elements
         public static BasisRemoteNamePlateDriver Instance;
         public Color NormalColor;
         public Color IsTalkingColor;

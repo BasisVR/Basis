@@ -62,6 +62,9 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Calibration And Avatar Driver")]
         [SerializeField]
         public BasisLocalAvatarDriver LocalAvatarDriver = new BasisLocalAvatarDriver();
+        [Header("Rig Driver")]
+        [SerializeField]
+        public BasisLocalRigDriver LocalRigDriver = new BasisLocalRigDriver();
         //how the player is able to move and have physics applied to them
         [Header("Character Driver")]
         [SerializeField]
@@ -80,6 +83,7 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Mouth & Visemes Driver")]
         [SerializeField]
         public BasisAudioAndVisemeDriver LocalVisemeDriver = new BasisAudioAndVisemeDriver();
+
         public async Task LocalInitialize()
         {
             if (BasisHelpers.CheckInstance(Instance))
@@ -124,8 +128,8 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisDebug.LogError("Cant Find Basis Scene");
             }
             BasisUILoadingBar.Initalize();
-
         }
+
         public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
         {
             if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisOnDiscInformation info))
@@ -157,6 +161,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
         }
+
         public void Teleport(Vector3 position, Quaternion rotation)
         {
             BasisAvatarStrainJiggleDriver.PrepareTeleport();
@@ -171,6 +176,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisAvatarStrainJiggleDriver.FinishTeleport();
             OnSpawnedEvent?.Invoke();
         }
+
         public void OnSceneLoadedCallback(Scene scene, LoadSceneMode mode)
         {
             if (SpawnPlayerOnSceneLoad)
@@ -179,17 +185,20 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisSceneFactory.SpawnPlayer(this);
             }
         }
+
         public async Task CreateAvatar(byte LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle);
             BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
             OnLocalAvatarChanged?.Invoke();
         }
+
         public async Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             byte LoadByte = (byte)LoadMode;
             await CreateAvatar(LoadByte, BasisLoadableBundle);
         }
+
         public void OnCalibration()
         {
             LocalVisemeDriver.TryInitialize(this);
@@ -200,6 +209,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 HasCalibrationEvents = true;
             }
         }
+
         public void OnDestroy()
         {
             if (HasEvents)
@@ -231,10 +241,12 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.DeInitializeGizmos();
             BasisUILoadingBar.DeInitalize();
         }
+
         public void DriveAudioToViseme()
         {
             LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray, 1, BasisLocalMicrophoneDriver.processBufferArray.Length);
         }
+
         private void OnPausedEvent(bool IsPaused)
         {
             if (IsPaused)
@@ -254,10 +266,12 @@ namespace Basis.Scripts.BasisSdk.Players
                 }
             } 
         }
+
         public void SimulateOnLateUpdate()
         {
             FacialBlinkDriver.Simulate();
         }
+
         public void SimulateOnRender()
         {
             float DeltaTime = Time.deltaTime;
@@ -271,10 +285,10 @@ namespace Basis.Scripts.BasisSdk.Players
             //moves Avatar Transform to where it belongs
             Quaternion Rotation = MoveAvatar();
             //Simulate Final Destination of IK
-            LocalAvatarDriver.SimulateIKDestinations(Rotation);
+            LocalAvatarDriver.SimulateIKDestinations(Rotation, LocalRigDriver);
 
             //process Animator and IK processes.
-            LocalAvatarDriver.SimulateAnimatorAndIk(DeltaTime);
+            LocalAvatarDriver.SimulateAnimatorAndIk(DeltaTime, LocalRigDriver);
 
             //we move the player at the very end after everything has been processed.
             LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
@@ -298,6 +312,7 @@ namespace Basis.Scripts.BasisSdk.Players
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();
         }
+
         public Quaternion MoveAvatar()
         {
             if (BasisAvatar == null)
@@ -335,10 +350,9 @@ namespace Basis.Scripts.BasisSdk.Players
             return parentWorldRotation;
         }
 
-
-
         // Define the delegate type
         public delegate void NextFrameAction();
+
         /// <summary>
         /// Executes the delegate in the next frame.
         /// </summary>

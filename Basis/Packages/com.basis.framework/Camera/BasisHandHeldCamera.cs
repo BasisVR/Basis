@@ -479,8 +479,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     private new void OnBootModeChanged(string obj)
     {
         OverrideDesktopOutput();
-
-       // base.OnBootModeChanged(obj);
     }
 
     private void UnsubscribeMeshRendererCheck()
