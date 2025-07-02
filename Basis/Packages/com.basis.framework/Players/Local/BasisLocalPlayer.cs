@@ -11,7 +11,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 namespace Basis.Scripts.BasisSdk.Players
@@ -40,6 +39,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnSpawnedEvent;
         public static Action OnPlayersHeightChangedNextFrame;
         public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();
+
         [Header("Camera Driver")]
         [SerializeField]
         public BasisLocalCameraDriver LocalCameraDriver;
@@ -81,7 +81,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
-            BasisLocalMicrophoneDriver.OnPausedAction += OnPausedEvent;
+            BasisLocalMicrophoneDriver.OnPausedAction += LocalVisemeDriver.OnPausedEvent;
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
             LocalBoneDriver.CreateInitialArrays(true);
@@ -227,7 +227,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 FacialBlinkDriver.OnDestroy();
             }
-            BasisLocalMicrophoneDriver.OnPausedAction -= OnPausedEvent;
+            BasisLocalMicrophoneDriver.OnPausedAction -= LocalVisemeDriver.OnPausedEvent;
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
             BasisUILoadingBar.DeInitalize();
@@ -236,26 +236,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public void DriveAudioToViseme()
         {
             LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray, 1, BasisLocalMicrophoneDriver.processBufferArray.Length);
-        }
-
-        private void OnPausedEvent(bool IsPaused)
-        {
-            if (IsPaused)
-            {
-                if (LocalVisemeDriver.uLipSyncBlendShape != null)
-                {
-                    LocalVisemeDriver.uLipSyncBlendShape.maxVolume = 0;
-                    LocalVisemeDriver.uLipSyncBlendShape.minVolume = 0;
-                }
-            }
-            else
-            {
-                if (LocalVisemeDriver.uLipSyncBlendShape != null)
-                {
-                    LocalVisemeDriver.uLipSyncBlendShape.maxVolume = -1.5f;
-                    LocalVisemeDriver.uLipSyncBlendShape.minVolume = -2.5f;
-                }
-            } 
         }
 
         public void SimulateOnLateUpdate()
@@ -299,7 +279,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix, Rotation);
 
             //handles fingers
-            LocalHandDriver.UpdateFingers(LocalAvatarDriver.References);
+            LocalHandDriver.UpdateFingers(BasisLocalAvatarDriver.References);
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();

@@ -195,5 +195,24 @@ namespace Basis.Scripts.Drivers
             }
             uLipSync.OnDataReceived(data, channels, Length);
         }
+        public void OnPausedEvent(bool IsPaused)
+        {
+            if (IsPaused)
+            {
+                if (uLipSyncBlendShape != null)
+                {
+                    uLipSyncBlendShape.maxVolume = 0;
+                    uLipSyncBlendShape.minVolume = 0;
+                }
+            }
+            else
+            {
+                if (uLipSyncBlendShape != null)
+                {
+                    uLipSyncBlendShape.maxVolume = -1.5f;
+                    uLipSyncBlendShape.minVolume = -2.5f;
+                }
+            }
+        }
     }
 }

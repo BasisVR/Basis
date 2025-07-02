@@ -286,9 +286,9 @@ namespace Basis.Scripts.Drivers
         }
         public void OnDisable()
         {
-            if (LocalPlayer.LocalAvatarDriver != null && LocalPlayer.LocalAvatarDriver.References != null && LocalPlayer.LocalAvatarDriver.References.head != null)
+            if (BasisLocalAvatarDriver.References != null && BasisLocalAvatarDriver.References.head != null)
             {
-                LocalPlayer.LocalAvatarDriver.References.head.localScale = BasisLocalAvatarDriver.HeadScale;
+                BasisLocalAvatarDriver.References.head.localScale = BasisLocalAvatarDriver.HeadScale;
             }
             if (HasEvents)
             {
@@ -302,7 +302,7 @@ namespace Basis.Scripts.Drivers
 
         public void BeginCameraRendering(ScriptableRenderContext context, Camera Camera)
         {
-            if (LocalPlayer.LocalAvatarDriver.References.Hashead)
+            if (BasisLocalAvatarDriver.References.Hashead)
             {
                 if (Camera.GetInstanceID() == CameraInstanceID)
                 {

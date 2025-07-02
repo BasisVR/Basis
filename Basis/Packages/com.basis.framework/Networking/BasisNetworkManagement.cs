@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking.Transmitters;
@@ -327,10 +328,10 @@ namespace Basis.Scripts.Networking
             BasisNetworkPlayer.Player = BasisLocalPlayer;
             if (BasisLocalPlayer.LocalAvatarDriver != null)
             {
-                if (BasisLocalPlayer.LocalAvatarDriver.HasEvents == false)
+                if (BasisLocalAvatarDriver.HasEvents == false)
                 {
-                    BasisLocalPlayer.LocalAvatarDriver.CalibrationComplete += BasisNetworkPlayer.OnAvatarCalibrationLocal;
-                    BasisLocalPlayer.LocalAvatarDriver.HasEvents = true;
+                    BasisLocalAvatarDriver.CalibrationComplete += BasisNetworkPlayer.OnAvatarCalibrationLocal;
+                    BasisLocalAvatarDriver.HasEvents = true;
                 }
                 BasisLocalPlayer.LocalBoneDriver.FindBone(out BasisNetworkPlayer.MouthBone, BasisBoneTrackedRole.Mouth);
             }

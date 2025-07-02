@@ -116,7 +116,7 @@ public static class BasisAnimationRiggingHelper
         if (BaseLevel != null)
         {
             Transform currentTransform = BaseLevel.parent;
-            while (currentTransform != null && currentTransform != player.LocalAvatarDriver.References.Hips)
+            while (currentTransform != null && currentTransform != BasisLocalAvatarDriver.References.Hips)
             {
                 // Add component if the current transform doesn't have it
                 if (currentTransform.TryGetComponent<RigTransform>(out RigTransform RigTransform))

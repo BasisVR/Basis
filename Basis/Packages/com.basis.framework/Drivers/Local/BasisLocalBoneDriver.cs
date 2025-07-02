@@ -30,7 +30,15 @@ namespace Basis.Scripts.Drivers
         public static BasisLocalBoneControl LeftToeControl;
         public static BasisLocalBoneControl RightToeControl;
         public static bool HasEye;
-
+        //figures out how to get the mouth bone and eye position
+        public int ControlsLength;
+        [SerializeField]
+        public BasisLocalBoneControl[] Controls;
+        [SerializeField]
+        public BasisBoneTrackedRole[] trackedRoles;
+        public bool HasControls = false;
+        public static float DefaultGizmoSize = 0.05f;
+        public static float HandGizmoSize = 0.015f;
         public void Initialize()
         {
             HasEye = FindBone(out Eye, BasisBoneTrackedRole.CenterEye);
@@ -54,15 +62,6 @@ namespace Basis.Scripts.Drivers
             FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
             FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
         }
-        //figures out how to get the mouth bone and eye position
-        public int ControlsLength;
-        [SerializeField]
-        public BasisLocalBoneControl[] Controls;
-        [SerializeField]
-        public BasisBoneTrackedRole[] trackedRoles;
-        public bool HasControls = false;
-        public static float DefaultGizmoSize = 0.05f;
-        public static float HandGizmoSize = 0.015f;
         /// <summary>
         /// call this after updating the bone data
         /// </summary>
