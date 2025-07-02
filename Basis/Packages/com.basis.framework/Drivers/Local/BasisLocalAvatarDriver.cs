@@ -19,53 +19,26 @@ namespace Basis.Scripts.Drivers
 	{
 		public static Vector3 HeadScale = Vector3.one;
 		public static Vector3 HeadScaledDown = Vector3.zero;
-
-		//public BasisLocalRigDriver RigDriver;
-
 		public bool HasTPoseEvent = false;
 		public string Locomotion = "Locomotion";
 		public float MaxExtendedDistance;
 		public static BasisLocalAvatarDriver Instance;
 		public static bool IsNormalHead;
 		public Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms;
-
 		public static bool CurrentlyTposing = false;
+		public Action CalibrationComplete;
+		public Action TposeStateChange;
+		[SerializeField]
+		public BasisTransformMapping References = new BasisTransformMapping();
+		public RuntimeAnimatorController SavedruntimeAnimatorController;
+		public SkinnedMeshRenderer[] SkinnedMeshRenderer;
+		public BasisPlayer Player;
+		public bool HasEvents = false;
+		public List<int> ActiveMatrixOverrides = new List<int>();
+		public int SkinnedMeshRendererLength;
 
 		[SerializeField]
-		public BasisScaleAvatarModification ScaleAvatarModification = new BasisScaleAvatarModification();
-
-		[Serializable]
-		public class BasisScaleAvatarModification
-		{
-			/// <summary>
-			/// set during calibration
-			/// </summary>
-			public Vector3 DuringCalibrationScale = Vector3.one;
-			/// <summary>
-			/// Set Scale
-			/// </summary>
-			public float ApplyScale;
-			/// <summary>
-			/// Final Scale is Set Scale * DuringCalibrationScale
-			/// </summary>
-			public Vector3 FinalScale = Vector3.one;
-			public void ReInitalize(Animator Animator)
-			{
-				DuringCalibrationScale = Animator.transform.localScale;
-				ApplyScale = 1;
-				FinalScale = DuringCalibrationScale;
-			}
-			public void SetAvatarheightOverride(float Scale)
-			{
-				ApplyScale = Scale;
-				// Final scale = Default scale * Override scale (component-wise)
-				FinalScale = DuringCalibrationScale * Scale;
-				if (BasisLocalPlayer.Instance.BasisAvatar != null)
-				{
-					BasisLocalPlayer.Instance.BasisAvatar.transform.localScale = FinalScale;
-				}
-			}
-		}
+		public BasisAvatarScaleModifier ScaleAvatarModification = new BasisAvatarScaleModifier();
 
 		public void InitialLocalCalibration(BasisLocalPlayer player)
 		{
@@ -246,18 +219,6 @@ namespace Basis.Scripts.Drivers
 		{
 			MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.Head.TposeLocalScaled.position, BasisLocalBoneDriver.Hips.TposeLocalScaled.position);
 		}
-
-		public Action CalibrationComplete;
-		public Action TposeStateChange;
-		[SerializeField]
-		public BasisTransformMapping References = new BasisTransformMapping();
-		public RuntimeAnimatorController SavedruntimeAnimatorController;
-		public SkinnedMeshRenderer[] SkinnedMeshRenderer;
-		public BasisPlayer Player;
-		public bool HasEvents = false;
-		public List<int> ActiveMatrixOverrides = new List<int>();
-		public int SkinnedMeshRendererLength;
-
 		public float ActiveAvatarEyeHeight()
 		{
 			if (BasisLocalPlayer.Instance.BasisAvatar != null)
@@ -525,27 +486,6 @@ namespace Basis.Scripts.Drivers
 				SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
 				Render.updateWhenOffscreen = State;
 			}
-		}
-
-		// Delegate methods to RigDriver
-		public void SimulateIKDestinations(Quaternion Rotation, BasisLocalRigDriver localRigDriver)
-		{
-			localRigDriver?.SimulateIKDestinations(Rotation);
-		}
-
-		public void SimulateAnimatorAndIk(float DeltaTime, BasisLocalRigDriver localRigDriver)
-		{
-			localRigDriver?.SimulateAnimatorAndIk(DeltaTime);
-		}
-
-		public void CalibrateRoles(BasisLocalRigDriver localRigDriver)
-		{
-			localRigDriver?.CalibrateRoles();
-		}
-
-		public void ApplyHint(BasisBoneTrackedRole RoleWithHint, bool weight, BasisLocalRigDriver localRigDriver)
-		{
-			localRigDriver?.ApplyHint(RoleWithHint, weight);
 		}
 	}
 }

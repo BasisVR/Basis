@@ -285,10 +285,10 @@ namespace Basis.Scripts.BasisSdk.Players
             //moves Avatar Transform to where it belongs
             Quaternion Rotation = MoveAvatar();
             //Simulate Final Destination of IK
-            LocalAvatarDriver.SimulateIKDestinations(Rotation, LocalRigDriver);
+            LocalRigDriver.SimulateIKDestinations(Rotation);
 
             //process Animator and IK processes.
-            LocalAvatarDriver.SimulateAnimatorAndIk(DeltaTime, LocalRigDriver);
+            LocalRigDriver.SimulateAnimatorAndIk(DeltaTime);
 
             //we move the player at the very end after everything has been processed.
             LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
