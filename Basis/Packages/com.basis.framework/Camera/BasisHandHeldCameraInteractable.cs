@@ -5,8 +5,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.BasisSdk.Interactions;
 
-public abstract class BasisHandHeldCameraInteractable : PickupInteractable
+public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
 {
     public BasisHandHeldCamera HHC;
     private BasisHandHeldCameraUI cameraUI;
@@ -126,7 +127,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         BasisLocalPlayer.AfterFinalMove.AddAction(202, UpdateCamera);
 
         cameraPinConstraint = new BasisParentConstraint();
-        cameraPinConstraint.sources = new BasisParentConstraint.SourceData[] { new() { weight = 1f } };
+        cameraPinConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
         cameraPinConstraint.Enabled = false;
 
         flyCamera = new BasisFlyCamera();
@@ -229,13 +230,13 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     public override bool IsInteractingWith(BasisInput input)
     {
         var found = Inputs.FindExcludeExtras(input);
-        return found.HasValue && found.Value.GetState() == InteractInputState.Interacting;
+        return found.HasValue && found.Value.GetState() == BasisInteractInputState.Interacting;
     }
 
     public override bool IsHoveredBy(BasisInput input)
     {
         var found = Inputs.FindExcludeExtras(input);
-        return found.HasValue && found.Value.GetState() == InteractInputState.Hovering;
+        return found.HasValue && found.Value.GetState() == BasisInteractInputState.Hovering;
     }
 
     // this is cached, use it

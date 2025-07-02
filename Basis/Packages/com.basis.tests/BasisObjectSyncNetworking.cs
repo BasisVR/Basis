@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -23,7 +24,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
 
     public float LerpMultiplier = 3f;
     public BasisContentBase ContentConnector;
-    public InteractableObject InteractableObjects;
+    public BasisInteractableObject InteractableObjects;
     public DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced;
     public DataFormat DataFormat = DataFormat.Binary;
     public void Awake()
@@ -35,7 +36,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         {
             ContentConnector.OnNetworkIDSet += OnNetworkIDSet;
         }
-        InteractableObjects = this.transform.GetComponentInChildren<InteractableObject>();
+        InteractableObjects = this.transform.GetComponentInChildren<BasisInteractableObject>();
         if (InteractableObjects != null)
         {
             InteractableObjects.OnInteractStartEvent += OnInteractStartEvent;

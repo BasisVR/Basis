@@ -154,6 +154,7 @@ MonoBehaviour:
   FaceVisemeMovement: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
   BlinkViseme: ffffffffffffffff
   laughterBlendTarget: -1
+  Behaviours: []
   IsOwnedLocally: 0
   Renders:
   - {fileID: 5332160820655396527}
@@ -193,8 +194,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a1afcdfed596cd4f94cbd8548524a7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  avatar: {fileID: 7617675277052637975}
-  MessageIndexTest: 3
+  IsInitalized: 0
+  MessageIndex: 0
+  Avatar: {fileID: 0}
+  IsLocallyOwned: 0
   Recipients: 010002000300040005000600
   BasisPlayer: {fileID: 0}
   Isready: 0

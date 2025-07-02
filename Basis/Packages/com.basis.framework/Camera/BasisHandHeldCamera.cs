@@ -9,6 +9,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Interactions;
 
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
@@ -195,9 +196,9 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         OnPickupUse += OnPickupUseCapture;
     }
 
-    public void OnPickupUseCapture(PickUpUseMode mode)
+    public void OnPickupUseCapture(BasisPickUpUseMode mode)
     {
-        if (mode == PickUpUseMode.OnPickUpUseDown)
+        if (mode == BasisPickUpUseMode.OnPickUpUseDown)
         {
             CapturePhoto();
         }
