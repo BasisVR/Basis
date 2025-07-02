@@ -487,5 +487,47 @@ namespace Basis.Scripts.Drivers
 				Render.updateWhenOffscreen = State;
 			}
 		}
-	}
+
+        public float currentDistance;
+        public Vector3 direction;
+        public float overshoot;
+        public Vector3 correction;
+        public Vector3 output;
+        public Quaternion MoveAvatar(BasisAvatar BasisAvatar)
+        {
+            if (BasisAvatar == null)
+            {
+                return Quaternion.identity;
+            }
+
+            // World positions
+            Vector3 headPosition = BasisLocalBoneDriver.Head.OutgoingWorldData.position;
+            Vector3 hipsPosition = BasisLocalBoneDriver.Hips.OutgoingWorldData.position;
+            Quaternion parentWorldRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation;
+
+            currentDistance = Vector3.Distance(headPosition, hipsPosition);
+
+            // Use blended XZ center, but keep hips Y for grounded position
+            Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
+            blendedXZ.y = hipsPosition.y;
+            if (currentDistance <= MaxExtendedDistance)
+            {
+                output = -BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
+            }
+            else
+            {
+                Vector3 direction = (hipsPosition - headPosition).normalized;
+                float overshoot = currentDistance - MaxExtendedDistance;
+                Vector3 correction = direction * overshoot;
+                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
+                float3 correctedHips = TposeHips + correction;
+                output = -correctedHips;
+            }
+
+            Vector3 childWorldPosition = blendedXZ + parentWorldRotation * output;
+
+            BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
+            return parentWorldRotation;
+        }
+    }
 }

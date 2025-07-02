@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -66,8 +67,7 @@ namespace Basis.Scripts.Drivers
 			this.player = player;
 			this.references = references;
 		}
-
-		public void SimulateIKDestinations(Quaternion Rotation)
+        public void SimulateIKDestinations(Quaternion Rotation, float DeltaTime)
 		{
 			// --- IK Target ---
 			ApplyBoneIKTarget(HeadTwoBoneIK, BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position, BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation);
@@ -88,7 +88,10 @@ namespace Basis.Scripts.Drivers
 
 			ApplyBoneIKHint(LeftHandTwoBoneIK, BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.position, BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.rotation);
 			ApplyBoneIKHint(RightHandTwoBoneIK, BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.position, BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.rotation);
-		}
+            // --- Do IK on animator ---
+            Builder.SyncLayers();
+            PlayableGraph.Evaluate(DeltaTime);
+        }
 
 		public void ApplyBoneIKHint(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation, Vector3 Direction)
 		{
@@ -484,12 +487,6 @@ namespace Basis.Scripts.Drivers
 			RigLayer = new RigLayer(Rig, Enabled);
 			Builder.layers.Add(RigLayer);
 			return RigGameobject;
-		}
-
-		public void SimulateAnimatorAndIk(float DeltaTime)
-		{
-			Builder.SyncLayers();
-			PlayableGraph.Evaluate(DeltaTime);
 		}
 	}
 }

@@ -36,11 +36,6 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public bool HasCalibrationEvents = false;
         public bool ToggleAvatarSim = false;
-        public float currentDistance;
-        public float3 direction;
-        public float overshoot;
-        public float3 correction;
-        public float3 output;
 
         public static Action OnLocalPlayerCreatedAndReady;
         public static Action OnLocalPlayerCreated;
@@ -282,13 +277,14 @@ namespace Basis.Scripts.BasisSdk.Players
 
             //moves all bones to where they belong
             LocalBoneDriver.SimulateAndApply(this, DeltaTime);
-            //moves Avatar Transform to where it belongs
-            Quaternion Rotation = MoveAvatar();
-            //Simulate Final Destination of IK
-            LocalRigDriver.SimulateIKDestinations(Rotation);
 
+            //moves Avatar Hip Transform to where it belongs
+            Quaternion Rotation = LocalAvatarDriver.MoveAvatar(BasisAvatar);
+
+            //Simulate Final Destination of IK
+            //then
             //process Animator and IK processes.
-            LocalRigDriver.SimulateAnimatorAndIk(DeltaTime);
+            LocalRigDriver.SimulateIKDestinations(Rotation, DeltaTime);
 
             //we move the player at the very end after everything has been processed.
             LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
@@ -311,43 +307,6 @@ namespace Basis.Scripts.BasisSdk.Players
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();
-        }
-
-        public Quaternion MoveAvatar()
-        {
-            if (BasisAvatar == null)
-            {
-                return Quaternion.identity;
-            }
-
-            // World positions
-            Vector3 headPosition = BasisLocalBoneDriver.Head.OutgoingWorldData.position;
-            Vector3 hipsPosition = BasisLocalBoneDriver.Hips.OutgoingWorldData.position;
-            Quaternion parentWorldRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation;
-
-            currentDistance = Vector3.Distance(headPosition, hipsPosition);
-
-            // Use blended XZ center, but keep hips Y for grounded position
-            Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
-            blendedXZ.y = hipsPosition.y;
-            if (currentDistance <= LocalAvatarDriver.MaxExtendedDistance)
-            {
-                output = -BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
-            }
-            else
-            {
-                Vector3 direction = (hipsPosition - headPosition).normalized;
-                float overshoot = currentDistance - LocalAvatarDriver.MaxExtendedDistance;
-                Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
-                float3 correctedHips = TposeHips + correction;
-                output = -correctedHips;
-            }
-
-            Vector3 childWorldPosition = blendedXZ + parentWorldRotation * output;
-
-            BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
-            return parentWorldRotation;
         }
 
         // Define the delegate type
