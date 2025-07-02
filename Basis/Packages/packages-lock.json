@@ -12,6 +12,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.common": {
+      "version": "file:com.basis.common",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.console": {
       "version": "file:com.basis.console",
       "depth": 0,
@@ -20,6 +26,12 @@
     },
     "com.basis.corenetworking": {
       "version": "file:com.basis.server",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.basis.eventdriver": {
+      "version": "file:com.basis.eventdriver",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
@@ -44,6 +56,18 @@
     },
     "com.basis.odinserializer": {
       "version": "file:com.basis.odinserializer",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.basis.openvr": {
+      "version": "file:com.basis.openvr",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.basis.openxr": {
+      "version": "file:com.basis.openxr",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

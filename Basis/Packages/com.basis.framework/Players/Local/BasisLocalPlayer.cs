@@ -27,15 +27,12 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public static float DefaultPlayerArmSpan = FallbackSize;
         public static float DefaultAvatarArmSpan = FallbackSize;
-        [SerializeField]
-        public LayerMask GroundMask;
-        public static string LoadFileNameAndExtension = "LastUsedAvatar.BAS";
-        public bool HasEvents = false;
-        public bool SpawnPlayerOnSceneLoad = true;
-        public const string DefaultAvatar = "LoadingAvatar";
 
-        public bool HasCalibrationEvents = false;
-        public bool ToggleAvatarSim = false;
+        public static string LoadFileNameAndExtension = "LastUsedAvatar.BAS";
+        public static bool HasEvents = false;
+        public static bool SpawnPlayerOnSceneLoad = true;
+        public const string DefaultAvatar = "LoadingAvatar";
+        public static bool HasCalibrationEvents = false;
 
         public static Action OnLocalPlayerCreatedAndReady;
         public static Action OnLocalPlayerCreated;
@@ -43,9 +40,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnSpawnedEvent;
         public static Action OnPlayersHeightChangedNextFrame;
         public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();
-
-        public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
-        public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
         [Header("Camera Driver")]
         [SerializeField]
         public BasisLocalCameraDriver LocalCameraDriver;
@@ -78,7 +72,9 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Mouth & Visemes Driver")]
         [SerializeField]
         public BasisAudioAndVisemeDriver LocalVisemeDriver = new BasisAudioAndVisemeDriver();
-
+        [Header("Height Information")]
+        public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
+        public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
         public async Task LocalInitialize()
         {
             if (BasisHelpers.CheckInstance(Instance))
