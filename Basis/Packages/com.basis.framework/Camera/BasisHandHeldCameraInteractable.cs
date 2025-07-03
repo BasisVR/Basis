@@ -582,9 +582,10 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
             MovementLock.Remove(nameof(BasisHandHeldCameraInteractable));
             CrouchingLock.Remove(nameof(BasisHandHeldCameraInteractable));
         }
-
-        Destroy(HighlightClone);
-
+        if (HighlightClone != null)
+        {
+            Destroy(HighlightClone);
+        }
         if (asyncOperationHighlightMat.IsValid())
         {
             asyncOperationHighlightMat.Release();
