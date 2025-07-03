@@ -29,6 +29,10 @@ if [[ "$1" == "full" ]]; then
               Packages/com.naelstrof.jigglephysics:
               Packages/com.hecomi.ulipsync:
               Packages/com.xiph.rnnoise:
+              Packages/com.basis.common:
+              Packages/com.basis.eventdriver:
+              Packages/com.basis.openvr:
+              Packages/com.basis.openxr:
               Packages/com.avionblock.opussharp"
 elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
