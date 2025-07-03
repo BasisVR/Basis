@@ -3,15 +3,18 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
 using UnityEngine;
+
 public abstract class BasisInputController : BasisInput
 {
     [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
     public BasisCalibratedCoords HandFinal = new BasisCalibratedCoords();
     public BasisCalibratedCoords HandRaw = new BasisCalibratedCoords();
 
-    public float3 leftHandToIKRotationOffset;
-    public float3 rightHandToIKRotationOffset;
-    public float3 RaycastRotationOffset;
+    public Vector3 leftHandToIKRotationOffset;
+    public Vector3 rightHandToIKRotationOffset;
+    public Vector3 LeftRaycastRotationOffset;
+    public Vector3 RightRaycastRotationOffset;
+    public Quaternion ActiveRaycastOffset;
     public quaternion HandleHandFinalRotation(quaternion IncomingRotation)
     {
         quaternion outgoingRotation = IncomingRotation;
@@ -20,15 +23,31 @@ public abstract class BasisInputController : BasisInput
             switch (AssignedRole)
             {
                 case BasisBoneTrackedRole.LeftHand:
-                    outgoingRotation = math.mul(IncomingRotation, Quaternion.Euler(leftHandToIKRotationOffset));
+                    outgoingRotation = IncomingRotation * Quaternion.Euler(leftHandToIKRotationOffset);
                     break;
                 case BasisBoneTrackedRole.RightHand:
-                    outgoingRotation = math.mul(IncomingRotation, Quaternion.Euler(rightHandToIKRotationOffset));
+                    outgoingRotation = IncomingRotation * Quaternion.Euler(rightHandToIKRotationOffset);
                     break;
             }
         }
         return outgoingRotation;
     }
+    public void UpdateRaycastOffset()
+    {
+        if (TryGetRole(out BasisBoneTrackedRole AssignedRole))
+        {
+            switch (AssignedRole)
+            {
+                case BasisBoneTrackedRole.LeftHand:
+                    ActiveRaycastOffset = Quaternion.Euler(LeftRaycastRotationOffset);
+                    break;
+                case BasisBoneTrackedRole.RightHand:
+                    ActiveRaycastOffset = Quaternion.Euler(RightRaycastRotationOffset);
+                    break;
+            }
+        }
+    }
+
     public void ControlOnlyAsHand()
     {
         if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
@@ -37,10 +56,10 @@ public abstract class BasisInputController : BasisInput
             Control.IncomingData.rotation = HandFinal.rotation;
         }
     }
+
     public void ComputeRaycastDirection()
     {
         RaycastCoord.position = HandFinal.position;
-
-        RaycastCoord.rotation = math.mul(HandFinal.rotation, Quaternion.Euler(RaycastRotationOffset));
+        RaycastCoord.rotation = HandFinal.rotation * ActiveRaycastOffset;
     }
 }

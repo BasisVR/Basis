@@ -1,5 +1,4 @@
 using Basis.Scripts.Common;
-using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using UnityEngine;
@@ -54,6 +53,24 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     const float cameraDefaultScale = 0.0003f;
 
     private bool isPlayerManuallyUnlocked = false;
+    private bool desktopSetup = false;
+    private CameraPinSpace previousPinState = CameraPinSpace.HandHeld;
+    private Vector3 currentVelocity = Vector3.zero;
+    private Vector3 targetVelocity = Vector3.zero;
+    private Vector3 velocityMomentum = Vector3.zero;
+    private float rotationMomentum = 0f;
+
+    private float currentPitch = 0f;
+    private float currentYaw = 0f;
+    private float targetPitch = 0f;
+    private float targetYaw = 0f;
+
+    private Vector3 smoothedPosition = Vector3.zero;
+    private Quaternion smoothedRotation = Quaternion.identity;
+
+
+
+    private bool pauseMove = false;
     /// <summary>
     /// Space the camera is pinned to
     /// </summary>
@@ -97,8 +114,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         }
         else
         {
-            cameraStartingLocalPos = HHC.captureCamera.transform.localPosition;
-            cameraStartingLocalRot = HHC.captureCamera.transform.localRotation;
+            HHC.captureCamera.transform.GetLocalPositionAndRotation(out cameraStartingLocalPos, out cameraStartingLocalRot);
         }
 
         OnInteractStartEvent += OnInteractDesktopTweak;
@@ -127,31 +143,28 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
             RequiresUpdateLoop = false;
         }
     }
-
     private void OnHeightChanged()
     {
-            transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
     }
-
-    private bool desktopSetup = false;
-    private CameraPinSpace previousPinState = CameraPinSpace.HandHeld;
     private void UpdateCamera()
     {
         bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
         CheckCameraOrientation();
-
         if (inDesktop)
         {
-            if (Inputs.desktopCenterEye.Source == null) return;
+            if (Inputs.desktopCenterEye.Source == null)
+            {
+                return;
+            }
+
             flyCamera.DetectInput();
 
-            Vector3 inPos;
-            Quaternion inRot;
+           BasisCalibratedCoords Coords = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData;
+            Vector3 inPos = Coords.position;
+            Quaternion inRot = Coords.rotation;
 
-            inPos = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.position;
-            inRot = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData.rotation;
-
-            if (BasisLocalCameraDriver.Instance != null && BasisLocalCameraDriver.Instance.Camera != null)
+            if (BasisLocalCameraDriver.HasInstance)
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
 
@@ -172,8 +185,10 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                     desktopSetup = true;
                 }
             }
-            else return;
-    
+            else
+            {
+                return;
+            }
             // always constrain to head movement
             InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
             
@@ -182,8 +197,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                 transform.SetPositionAndRotation(pos, rot);
             }
         }
-
-        // 
         PollCameraPin(Inputs.desktopCenterEye.Source);
     }
     private void CheckCameraOrientation()
@@ -248,9 +261,7 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
                     // zero out source
                     cameraPinConstraint.UpdateSourcePositionAndRotation(0, Vector3.zero, Quaternion.identity);
                     cameraPinConstraint.SetOffsetPositionAndRotation(0, Vector3.zero, Quaternion.identity);
-
-                    HHC.captureCamera.transform.localPosition = cameraStartingLocalPos;
-                    HHC.captureCamera.transform.localRotation = cameraStartingLocalRot;
+                    HHC.captureCamera.transform.SetLocalPositionAndRotation(cameraStartingLocalPos, cameraStartingLocalRot);
                 }
                 break;
             case CameraPinSpace.PlaySpace:
@@ -306,24 +317,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         // User can respawn camera if they want it
         Destroy(gameObject);
     }
-
-
-    private Vector3 currentVelocity = Vector3.zero;
-    private Vector3 targetVelocity = Vector3.zero;
-    private Vector3 velocityMomentum = Vector3.zero;
-    private float rotationMomentum = 0f;
-    
-    private float currentPitch = 0f;
-    private float currentYaw = 0f;
-    private float targetPitch = 0f;
-    private float targetYaw = 0f;
-    
-    private Vector3 smoothedPosition = Vector3.zero;
-    private Quaternion smoothedRotation = Quaternion.identity;
-    
-
-
-    private bool pauseMove = false;
     private void PollDesktopControl(BasisInput DesktopEye)
     {
         if (DesktopEye == null) return;
@@ -400,8 +393,6 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
         MovementLock.Remove(className);
         //CrouchingLock.Remove(className);
     }
-
-
     private void MoveCameraFlying()
     {
         float deltaTime = Time.deltaTime;
