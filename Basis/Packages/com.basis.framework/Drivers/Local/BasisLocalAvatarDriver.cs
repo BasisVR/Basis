@@ -132,7 +132,7 @@ namespace Basis.Scripts.Drivers
 			StoredRolesTransforms = BasisAvatarIKStageCalibration.GetAllRolesAsTransform();
 			player.BasisAvatarTransform.parent = player.transform;
 			player.BasisAvatarTransform.SetLocalPositionAndRotation(-Hips.TposeLocal.position, Quaternion.identity);
-			MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.Head.TposeLocal.position, BasisLocalBoneDriver.Hips.TposeLocal.position);
+			MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.HeadControl.TposeLocal.position, BasisLocalBoneDriver.HipsControl.TposeLocal.position);
 			player.LocalRigDriver.BuildBuilder();
 			IsNormalHead = true;
 		}
@@ -219,7 +219,7 @@ namespace Basis.Scripts.Drivers
 
 		public void CalculateMaxExtended()
 		{
-			MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.Head.TposeLocalScaled.position, BasisLocalBoneDriver.Hips.TposeLocalScaled.position);
+			MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position, BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position);
 		}
 		public float ActiveAvatarEyeHeight()
 		{
@@ -497,9 +497,9 @@ namespace Basis.Scripts.Drivers
             }
 
             // World positions
-            Vector3 headPosition = BasisLocalBoneDriver.Head.OutgoingWorldData.position;
-            Vector3 hipsPosition = BasisLocalBoneDriver.Hips.OutgoingWorldData.position;
-            Quaternion parentWorldRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation;
+            Vector3 headPosition = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position;
+            Vector3 hipsPosition = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.position;
+            Quaternion parentWorldRotation = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation;
 
             currentDistance = Vector3.Distance(headPosition, hipsPosition);
 
@@ -508,14 +508,14 @@ namespace Basis.Scripts.Drivers
             blendedXZ.y = hipsPosition.y;
             if (currentDistance <= MaxExtendedDistance)
             {
-                output = -BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
+                output = -BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
             }
             else
             {
                 Vector3 direction = (hipsPosition - headPosition).normalized;
                 float overshoot = currentDistance - MaxExtendedDistance;
                 Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
+                Vector3 TposeHips = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
                 float3 correctedHips = TposeHips + correction;
                 output = -correctedHips;
             }

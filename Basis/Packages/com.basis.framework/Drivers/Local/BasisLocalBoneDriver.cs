@@ -12,11 +12,10 @@ namespace Basis.Scripts.Drivers
     [System.Serializable]
     public class BasisLocalBoneDriver
     {
-        public static BasisLocalBoneControl Head;
-        public static BasisLocalBoneControl Hips;
-        public static BasisLocalBoneControl Eye;
-        public static BasisLocalBoneControl Mouth;
         public static BasisLocalBoneControl HeadControl;
+        public static BasisLocalBoneControl HipsControl;
+        public static BasisLocalBoneControl EyeControl;
+        public static BasisLocalBoneControl MouthControl;
         public static BasisLocalBoneControl LeftFootControl;
         public static BasisLocalBoneControl RightFootControl;
         public static BasisLocalBoneControl LeftHandControl;
@@ -41,24 +40,19 @@ namespace Basis.Scripts.Drivers
         public static float HandGizmoSize = 0.015f;
         public void Initialize()
         {
-            HasEye = FindBone(out Eye, BasisBoneTrackedRole.CenterEye);
-            FindBone(out Head, BasisBoneTrackedRole.Head);
-            FindBone(out Hips, BasisBoneTrackedRole.Hips);
-            FindBone(out Mouth, BasisBoneTrackedRole.Mouth);
-
-            // --- Bone Lookup ---
+            HasEye = FindBone(out EyeControl, BasisBoneTrackedRole.CenterEye);
             FindBone(out HeadControl, BasisBoneTrackedRole.Head);
+            FindBone(out HipsControl, BasisBoneTrackedRole.Hips);
+            FindBone(out MouthControl, BasisBoneTrackedRole.Mouth);
             FindBone(out LeftFootControl, BasisBoneTrackedRole.LeftFoot);
             FindBone(out RightFootControl, BasisBoneTrackedRole.RightFoot);
             FindBone(out LeftHandControl, BasisBoneTrackedRole.LeftHand);
             FindBone(out RightHandControl, BasisBoneTrackedRole.RightHand);
-
             FindBone(out ChestControl, BasisBoneTrackedRole.Chest);
             FindBone(out LeftLowerLegControl, BasisBoneTrackedRole.LeftLowerLeg);
             FindBone(out RightLowerLegControl, BasisBoneTrackedRole.RightLowerLeg);
             FindBone(out LeftLowerArmControl, BasisBoneTrackedRole.LeftLowerArm);
             FindBone(out RightLowerArmControl, BasisBoneTrackedRole.RightLowerArm);
-
             FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
             FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
         }
@@ -115,8 +109,6 @@ namespace Basis.Scripts.Drivers
         }
         public void SimulateWorldDestinations(Matrix4x4 localToWorldMatrix, Quaternion Rotation)
         {
-            //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-            //  Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 // Apply local transform to parent's world transform

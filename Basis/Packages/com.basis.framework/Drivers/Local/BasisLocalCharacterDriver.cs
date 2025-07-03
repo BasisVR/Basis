@@ -153,7 +153,7 @@ namespace Basis.Scripts.BasisCharacterController
 
 
             // Get the current rotation and position of the player
-            Vector3 pivot = BasisLocalBoneDriver.Eye.OutgoingWorldData.position;
+            Vector3 pivot = BasisLocalBoneDriver.EyeControl.OutgoingWorldData.position;
             Vector3 upAxis = Vector3.up;
 
             // Calculate direction from the pivot to the current position
@@ -240,7 +240,7 @@ namespace Basis.Scripts.BasisCharacterController
         public void HandleMovement(float DeltaTime,Transform PlayersTransform)
         {
             // Cache current rotation and zero out x and z components
-            currentRotation = BasisLocalBoneDriver.Head.OutgoingWorldData.rotation;
+            currentRotation = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
             Vector3 rotationEulerAngles = currentRotation.eulerAngles;
             rotationEulerAngles.x = 0;
             rotationEulerAngles.z = 0;
@@ -284,7 +284,7 @@ namespace Basis.Scripts.BasisCharacterController
         }
         public void CalculateCharacterSize()
         {
-            eyeHeight = BasisLocalBoneDriver.HasEye ? BasisLocalBoneDriver.Eye.OutGoingData.position.y : BasisLocalPlayer.FallbackSize;
+            eyeHeight = BasisLocalBoneDriver.HasEye ? BasisLocalBoneDriver.EyeControl.OutGoingData.position.y : BasisLocalPlayer.FallbackSize;
             float adjustedHeight = eyeHeight;
             adjustedHeight = Mathf.Max(adjustedHeight, MinimumColliderSize);
             SetCharacterHeight(adjustedHeight);
@@ -294,7 +294,7 @@ namespace Basis.Scripts.BasisCharacterController
             characterController.height = height;
             float SkinModifiedHeight = height / 2;
 
-            characterController.center = BasisLocalBoneDriver.HasEye ? new Vector3(BasisLocalBoneDriver.Eye.OutGoingData.position.x, SkinModifiedHeight, BasisLocalBoneDriver.Eye.OutGoingData.position.z) : new Vector3(0, SkinModifiedHeight, 0);
+            characterController.center = BasisLocalBoneDriver.HasEye ? new Vector3(BasisLocalBoneDriver.EyeControl.OutGoingData.position.x, SkinModifiedHeight, BasisLocalBoneDriver.EyeControl.OutGoingData.position.z) : new Vector3(0, SkinModifiedHeight, 0);
         }
     }
 }
