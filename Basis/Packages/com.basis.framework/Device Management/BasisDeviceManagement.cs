@@ -27,10 +27,26 @@ namespace Basis.Scripts.Device_Management
         public const string InvalidConst = "Invalid";
         public string[] BakedInCommandLineArgs = new string[] { };
         public static string NetworkManagement = "NetworkManagement";
-        public string CurrentMode = "None";
+        public static string CurrentMode = "None";
         [SerializeField]
         public const string Desktop = "Desktop";
         public static string BoneData = "Assets/ScriptableObjects/BoneData.asset";
+        public static BasisFallBackBoneData FBBD;
+        public const string ProfilePath = "Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset";
+        public static bool IsCurrentModeVR()
+        {
+            switch (CurrentMode)
+            {
+                case "OpenVRLoader":
+                    return true;
+                case "OpenXRLoader":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        public AudioClip HoverUI;
+        public AudioClip pressUI;
         public string DefaultMode()
         {
             if (IsMobile())
@@ -54,11 +70,7 @@ namespace Basis.Scripts.Device_Management
         /// <returns></returns>
         public static bool IsUserInDesktop()
         {
-            if (BasisDeviceManagement.Instance == null)
-            {
-                return false;
-            }
-            if (Desktop == BasisDeviceManagement.Instance.CurrentMode)
+            if (Desktop == BasisDeviceManagement.CurrentMode)
             {
                 return true;
             }
@@ -81,11 +93,14 @@ namespace Basis.Scripts.Device_Management
         [SerializeField]
         public List<BasisStoredPreviousDevice> PreviouslyConnectedDevices = new List<BasisStoredPreviousDevice>();
         [SerializeField]
-        public List<BasisDeviceMatchSettings> UseAbleDeviceConfigs = new List<BasisDeviceMatchSettings>();
+        public List<DeviceSupportInformation> UseAbleDeviceConfigs = new List<DeviceSupportInformation>();
         [SerializeField]
         public BasisLocalInputActions InputActions;
         public static AsyncOperationHandle<BasisFallBackBoneData> BasisFallBackBoneDataAsync;
         public static AsyncOperationHandle<uLipSync.Profile> LipSyncProfile;
+        public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
+        public static volatile bool hasPendingActions = false;
+        public static Action OnDeviceManagementLoop;
         async void Start()
         {
             if (BasisHelpers.CheckInstance<BasisDeviceManagement>(Instance))
@@ -166,7 +181,7 @@ namespace Basis.Scripts.Device_Management
                 }
             }
 
-            if (match.Count == 0)
+            if (match.Count == 0 && name != "Exiting")
             {
                 BasisDebug.LogWarning($"No matches found for name '{name}'.", BasisDebug.LogTag.Device);
                 return false;
@@ -178,7 +193,7 @@ namespace Basis.Scripts.Device_Management
         {
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out string ForcedDevicemanager);
             LoadFallbackData();
-            InstantiationParameters parameters = new InstantiationParameters();
+            InstantiationParameters parameters = new InstantiationParameters(this.transform,true);
             await BasisPlayerFactory.CreateLocalPlayer(parameters);
 
             if (string.IsNullOrEmpty(ForcedDevicemanager))
@@ -198,11 +213,10 @@ namespace Basis.Scripts.Device_Management
             }
             await OnInitializationCompleted?.Invoke();
         }
-        public static BasisFallBackBoneData FBBD;
         public void LoadFallbackData()
         {
             BasisFallBackBoneDataAsync = Addressables.LoadAssetAsync<BasisFallBackBoneData>(BoneData);
-            LipSyncProfile = Addressables.LoadAssetAsync<uLipSync.Profile>("Packages/com.hecomi.ulipsync/Assets/Profiles/uLipSync-Profile-Sample.asset");
+            LipSyncProfile = Addressables.LoadAssetAsync<uLipSync.Profile>(ProfilePath);
             FBBD = BasisFallBackBoneDataAsync.WaitForCompletion();
             LipSyncProfile.WaitForCompletion();
         }
@@ -302,8 +316,7 @@ namespace Basis.Scripts.Device_Management
         }
         public static async Task LoadGameobject(string playerAddressableID, InstantiationParameters instantiationParameters)
         {
-            ChecksRequired Required = new ChecksRequired();
-            Required.UseContentRemoval = false;
+            ChecksRequired Required = new ChecksRequired(false, false, false);
             (List<GameObject>, Addressable_Driver.AddressableGenericResource) data = await AddressableResourceProcess.LoadAsGameObjectsAsync(playerAddressableID, instantiationParameters, Required, BundledContentHolder.Selector.System);
             List<GameObject> gameObjects = data.Item1;
 
@@ -322,7 +335,7 @@ namespace Basis.Scripts.Device_Management
         }
         public static void SwitchSetMode(string Mode)
         {
-            if (Instance != null && Mode != Instance.CurrentMode)
+            if (Instance != null && Mode != CurrentMode)
             {
                 Instance.SwitchMode(Mode);
             }
@@ -334,15 +347,15 @@ namespace Basis.Scripts.Device_Management
         public void SetCameraRenderState(bool state)
         {
             BasisLocalCameraDriver.Instance.CameraData.allowXRRendering = state;
-            if (state)
-            {
-                BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.Both;
-            }
-            else
-            {
-                BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
-            }
-            BasisDebug.Log("Stero Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
+            // if (state)
+            //{
+            //  BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.Both;
+            // }
+            //else
+            //{
+            //  BasisLocalCameraDriver.Instance.Camera.stereoTargetEye = StereoTargetEyeMask.None;
+            //}
+            // BasisDebug.Log("Stereo Set To " + BasisLocalCameraDriver.Instance.Camera.stereoTargetEye);
         }
         public static void ShowTrackersAsync()
         {
@@ -410,7 +423,10 @@ namespace Basis.Scripts.Device_Management
 
             if (!TryFindBasisBaseTypeManagement(type, out List<BasisBaseTypeManagement> matchedType))
             {
-                BasisDebug.LogWarning($"No BasisBaseTypeManagement found for type '{type}'.", BasisDebug.LogTag.Device);
+                if (type != "Exiting")
+                {
+                    BasisDebug.LogWarning($"No BasisBaseTypeManagement found for type '{type}'.", BasisDebug.LogTag.Device);
+                }
             }
             else if (matchedType == null || matchedType.Count == 0)
             {
@@ -428,6 +444,7 @@ namespace Basis.Scripts.Device_Management
                     m.StartSDK();
                 }
             }
+            CurrentMode = type;
         }
         public bool TryAdd(BasisInput basisXRInput)
         {
@@ -540,7 +557,5 @@ namespace Basis.Scripts.Device_Management
             mainThreadActions.Enqueue(action);
             hasPendingActions = true;
         }
-        public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
-        public static volatile bool hasPendingActions = false;
     }
 }

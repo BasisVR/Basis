@@ -18,11 +18,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - '{htc}vr_tracker_vive_3_0'
     HasRayCastSupport: 0
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -31,11 +29,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - '{htc}vr_tracker_vive_1_0'
     HasRayCastSupport: 0
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -46,11 +42,9 @@ MonoBehaviour:
     - '{indexcontroller}valve_controller_knu_2_0_left'
     - '{indexcontroller}valve_controller_knu_3_0_left'
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 63, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -61,11 +55,9 @@ MonoBehaviour:
     - '{indexcontroller}valve_controller_knu_2_0_right'
     - '{indexcontroller}valve_controller_knu_3_0_right'
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 63, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -76,11 +68,9 @@ MonoBehaviour:
     - tundra_tracker
     - tracker tundra
     HasRayCastSupport: 0
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -89,11 +79,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -102,11 +90,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -118,8 +104,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 0
     HasInteractVisual: 1
@@ -131,8 +115,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 0
     HasInteractVisual: 1
@@ -141,11 +123,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_plus_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: -0.01, y: -0.03, z: -0.02}
-    RotationRaycastOffset: {x: 44.5, y: -12.11, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -154,11 +134,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_plus_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: -0.01, y: -0.03, z: -0.02}
-    RotationRaycastOffset: {x: 44.5, y: -12.11, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -167,11 +145,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
-    RotationRaycastOffset: {x: 72.5, y: -42.3, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -180,11 +156,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
-    RotationRaycastOffset: {x: 72.5, y: -42.3, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -193,11 +167,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_pro_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0.02, y: -0.025, z: -0.01}
-    RotationRaycastOffset: {x: 25, y: 15, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -206,11 +178,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest_pro_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0.02, y: -0.025, z: -0.01}
-    RotationRaycastOffset: {x: 25, y: 15, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -219,11 +189,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest2_controller_left
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
-    RotationRaycastOffset: {x: 72.5, y: -42.3, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -232,11 +200,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - oculus_quest2_controller_right
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: -0.04, y: -0.02, z: -0.03}
-    RotationRaycastOffset: {x: 72.5, y: -42.3, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -248,8 +214,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 0
     HasInteractVisual: 1
@@ -258,11 +222,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - Left Hand OPENXR
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 18
     HasInteractVisual: 1
@@ -271,11 +233,9 @@ MonoBehaviour:
     matchableDeviceIds:
     - Right Hand OPENXR
     HasRayCastSupport: 1
-    CanDisplayPhysicalTracker: 1
+    CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 1
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 1
     TrackedRole: 19
     HasInteractVisual: 1
@@ -287,8 +247,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -300,8 +258,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -313,8 +269,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -326,8 +280,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
@@ -339,8 +291,6 @@ MonoBehaviour:
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 1
     HasRayCastRadical: 0
-    PositionRayCastOffset: {x: 0, y: 0, z: 0}
-    RotationRaycastOffset: {x: 0, y: 0, z: 0}
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1

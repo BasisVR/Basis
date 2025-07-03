@@ -22,35 +22,6 @@ public static class BasisAssetBundlePipeline
     public static BeforeBuildSceneHandler OnBeforeBuildScene;
     public static AfterBuildHandler OnAfterBuildScene;
     public static BuildErrorHandler OnBuildErrorScene;
-    public static void ClearOutExistingSets()
-    {
-        // Get all asset paths in the project
-        string[] allAssetPaths = AssetDatabase.GetAllAssetPaths();
-
-        // Loop through each asset path
-        foreach (string assetPath in allAssetPaths)
-        {
-            // Get the AssetImporter for the asset at this path
-            AssetImporter importer = AssetImporter.GetAtPath(assetPath);
-
-            if (importer != null && !string.IsNullOrEmpty(importer.assetBundleName))
-            {
-                // Clear the assetBundleName for the asset
-                importer.assetBundleName = string.Empty;
-
-                // Apply the modified asset importer settings
-                importer.SaveAndReimport();
-
-                Debug.Log("Cleared AssetBundle for asset: " + assetPath);
-            }
-        }
-
-        // After clearing all AssetBundle names, optionally refresh the AssetDatabase
-        AssetDatabase.RemoveUnusedAssetBundleNames();
-        AssetDatabase.Refresh();
-
-        Debug.Log("All AssetBundle names cleared from Importer settings.");
-    }
     public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))> BuildAssetBundle(GameObject originalPrefab, BasisAssetBundleObject settings, string Password, BuildTarget Target)
     {
         return await BuildAssetBundle(false, originalPrefab, new Scene(), settings, Password, Target);
@@ -62,12 +33,15 @@ public static class BasisAssetBundlePipeline
     }
     public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))> BuildAssetBundle(bool isScene, GameObject asset, Scene scene, BasisAssetBundleObject settings, string Password, BuildTarget Target)
     {
+#if UNITY_EDITOR_LINUX
+        ScriptingImplementation ResetTo = ScriptingImplementation.Mono2x;
+#else
         ScriptingImplementation ResetTo = ScriptingImplementation.IL2CPP;
+#endif
         if (EditorUserBuildSettings.activeBuildTarget != Target)
         {
             EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(Target), Target);
         }
-        ClearOutExistingSets(); // Removes all bundle names
         string targetDirectory = Path.Combine(settings.AssetBundleDirectory, Target.ToString());
         TemporaryStorageHandler.ClearTemporaryStorage(targetDirectory);
         TemporaryStorageHandler.EnsureDirectoryExists(targetDirectory);
@@ -81,7 +55,7 @@ public static class BasisAssetBundlePipeline
             if (isScene)
             {
                 OnBeforeBuildScene?.Invoke(scene, settings);
-                assetPath = TemporaryStorageHandler.SaveSceneToTemporaryStorage(scene, settings, out uniqueID);
+                assetPath = TemporaryStorageHandler.SaveScene(scene, settings, out uniqueID);
             }
             else
             {
@@ -94,21 +68,19 @@ public static class BasisAssetBundlePipeline
                     GameObject.DestroyImmediate(prefab);
                 }
             }
-
-            string assetBundleName = AssetBundleBuilder.SetAssetBundleName(assetPath, uniqueID, settings);
-            (BasisBundleGenerated, AssetBundleBuilder.InformationHash) value = await AssetBundleBuilder.BuildAssetBundle(targetDirectory, settings, assetBundleName, isScene ? "Scene" : "GameObject", Password, Target);
-
-            AssetBundleBuilder.ResetAssetBundleName(assetPath);
+            AssetBundleBuild Build =  new AssetBundleBuild() {  assetBundleName = uniqueID, assetNames = new string[] { assetPath } };
+            AssetBundleBuild[] Builds = new AssetBundleBuild[] { Build };
+            (BasisBundleGenerated, AssetBundleBuilder.InformationHash) value = await AssetBundleBuilder.BuildAssetBundle(Builds,targetDirectory, settings, uniqueID, isScene ? "Scene" : "GameObject", Password, Target);
             TemporaryStorageHandler.ClearTemporaryStorage(settings.TemporaryStorage);
             AssetDatabase.Refresh();
 
             if (isScene)
             {
-                OnAfterBuildScene?.Invoke(assetBundleName);
+                OnAfterBuildScene?.Invoke(uniqueID);
             }
             else
             {
-                OnAfterBuildPrefab?.Invoke(assetBundleName);
+                OnAfterBuildPrefab?.Invoke(uniqueID);
             }
 
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;

@@ -12,9 +12,9 @@ namespace Basis.Scripts.Networking
 {
     public static class BasisRemotePlayerFactory
     {
-        public static async Task HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader,Transform Parent)
+        public static async Task HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader, InstantiationParameters Parent)
         {
-            BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
+           // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
             ServerReadyMessage ServerReadyMessage = new ServerReadyMessage();
             ServerReadyMessage.Deserialize(reader);
 
@@ -31,26 +31,22 @@ namespace Basis.Scripts.Networking
 
                 // Start both tasks simultaneously
                 Task<BasisRemotePlayer> createRemotePlayerTask = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
-                BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver();
-
-                BasisNetworkReceiver.ProvideNetworkKey(ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(ServerReadyMessage.playerIdMessage.playerID);
                 // Retrieve the results
                 BasisRemotePlayer remote = await createRemotePlayerTask;
                 // Continue with the rest of the code
-                RemoteInitialization(BasisNetworkReceiver, remote);
+                RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
                 if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
                 {
-                    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
+                //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
                 }
                 else
                 {
                     BasisDebug.LogError("Critical issue could not add player to data");
                     return null;
                 }
-                BasisNetworkReceiver.Initialize();//fires events and makes us network compatible
-                BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
-                BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(BasisNetworkReceiver, ServerReadyMessage.localReadyMessage.localAvatarSyncMessage, ServerReadyMessage.playerIdMessage.playerID);
-                BasisNetworkManagement.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
+              //  BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
 
                 BasisNetworkManagement.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
                 remote.LoadAvatarFromInitial(avatarID);
@@ -63,7 +59,7 @@ namespace Basis.Scripts.Networking
                 return null;
             }
         }
-        public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer)
+        public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer, ServerReadyMessage ServerReadyMessage)
         {
             BasisNetworkReceiver.Player = RemotePlayer;
             RemotePlayer.NetworkReceiver = BasisNetworkReceiver;
@@ -87,11 +83,8 @@ namespace Basis.Scripts.Networking
             {
                 BasisDebug.LogError("Missing CharacterIKCalibration");
             }
-        }
-        public static async Task<BasisNetworkPlayer> CreateRemotePlayer(ServerReadyMessage ServerReadyMessage,Transform Parent)
-        {
-            InstantiationParameters instantiationParameters = new InstantiationParameters(Vector3.zero, Quaternion.identity, Parent);
-            return await CreateRemotePlayer(ServerReadyMessage, instantiationParameters);
+            BasisNetworkReceiver.Initialize();//fires events and makes us network compatible
+            BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(BasisNetworkReceiver, ServerReadyMessage.localReadyMessage.localAvatarSyncMessage, ServerReadyMessage.playerIdMessage.playerID);
         }
     }
 }

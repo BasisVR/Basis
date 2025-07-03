@@ -149,7 +149,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 21929887}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -163,29 +163,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 21929891}
+  RigidRef: {fileID: 21929890}
   InputConstraint:
-    rid: 8572486966948397060
+    rid: 1028902784308609143
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397060
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609143
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -199,10 +200,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 21929887}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -442,6 +443,10 @@ PrefabInstance:
       value: 3.71
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
       value: 0
       objectReference: {fileID: 0}
@@ -532,6 +537,10 @@ PrefabInstance:
     - target: {fileID: 2600401473938556946, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: m_ExcludeLayers.m_Bits
       value: 192
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
@@ -625,7 +634,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 462462406}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -639,29 +648,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 462462410}
+  RigidRef: {fileID: 462462409}
   InputConstraint:
-    rid: 8572486966948397059
+    rid: 1028902784308609147
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397059
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609147
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -675,10 +685,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 462462406}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -814,7 +824,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 556741047}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -828,29 +838,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 556741051}
+  RigidRef: {fileID: 556741050}
   InputConstraint:
-    rid: 8572486966948397058
+    rid: 1028902784308609146
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397058
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609146
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -864,10 +875,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 556741047}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1095,7 +1106,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 564221581}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -1109,8 +1120,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -1118,20 +1128,22 @@ MonoBehaviour:
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
-  GenerateColliderMesh: 0
-  minLinearVelocity: 0.1
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 564221582}
+  RigidRef: {fileID: 564221584}
   InputConstraint:
-    rid: 8572486966948397056
+    rid: 1028902784308609144
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397056
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609144
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -1145,10 +1157,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 564221581}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1210,6 +1222,10 @@ PrefabInstance:
     - target: {fileID: 2600401473938556946, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: m_Center.y
       value: 1.03
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
@@ -1366,6 +1382,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6918077497000395064, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: m_LocalPosition.x
       value: -1.291
@@ -1451,7 +1471,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1232611343}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -1465,8 +1485,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -1474,20 +1493,22 @@ MonoBehaviour:
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
-  GenerateColliderMesh: 0
-  minLinearVelocity: 0.1
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 1232611344}
+  RigidRef: {fileID: 1232611346}
   InputConstraint:
-    rid: 8572486966948397057
+    rid: 1028902784308609145
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397057
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609145
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -1501,10 +1522,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1232611343}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1602,10 +1623,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1336315009}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -1722,7 +1743,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1336315009}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -1736,29 +1757,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 1336315013}
+  RigidRef: {fileID: 1336315012}
   InputConstraint:
-    rid: 8572486966948397061
+    rid: 1028902784308609137
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397061
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609137
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -1914,10 +1936,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1472934484}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2034,7 +2056,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1472934484}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -2048,29 +2070,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
-  CanSelfSteal: 0
+  KinematicWhileInteracting: 1
+  CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 1336315013}
+  RigidRef: {fileID: 1336315012}
   InputConstraint:
-    rid: 8572486966948397065
+    rid: 1028902784308609138
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397065
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609138
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -2244,7 +2267,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1568311656}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -2258,29 +2281,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 1336315013}
+  RigidRef: {fileID: 1336315012}
   InputConstraint:
-    rid: 8572486966948397063
+    rid: 1028902784308609139
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397063
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609139
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -2294,10 +2318,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1568311656}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2526,6 +2550,10 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5036961803400065188, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
       propertyPath: KinematicWhileInteracting
       value: 0
       objectReference: {fileID: 0}
@@ -2586,63 +2614,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 2d8f3575614e0d7419c84f967185cdac, type: 3}
---- !u!1001 &1954488299
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.785
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0.773
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1391509528021517971, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8495108801776137362, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
-      propertyPath: m_Name
-      value: PersonalMirror
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 1701187c6a784ab4f8030c14149b0bce, type: 3}
 --- !u!1 &1983638905
 GameObject:
   m_ObjectHideFlags: 0
@@ -2671,10 +2642,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1983638905}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2791,7 +2762,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1983638905}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -2805,29 +2776,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 1336315013}
+  RigidRef: {fileID: 1336315012}
   InputConstraint:
-    rid: 8572486966948397062
+    rid: 1028902784308609140
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397062
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609140
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -2862,10 +2834,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2063075830}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -2982,7 +2954,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 2063075830}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   Inputs:
@@ -2996,29 +2968,30 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  disableInfluence: 0
-  InteractRange: 1
+  interactableEnabled: 1
   Equippable: 0
   IsPuppeted: 0
-  KinematicWhileInteracting: 0
+  KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
-  minLinearVelocity: 0.1
+  minLinearVelocity: 0.5
   interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.1
+  minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
-  RigidRef: {fileID: 0}
+  ColliderRef: {fileID: 1336315013}
+  RigidRef: {fileID: 1336315012}
   InputConstraint:
-    rid: 8572486966948397064
+    rid: 1028902784308609141
+  InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 8572486966948397064
-      type: {class: BasisParentConstraint, ns: , asm: Basis}
+    - rid: 1028902784308609141
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -3089,6 +3062,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 8913244321027071087, guid: 59eac2e4af8e4e44d9efa5bac62e0100, type: 3}
+      propertyPath: interactableEnabled
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3119,4 +3096,3 @@ SceneRoots:
   - {fileID: 857767427}
   - {fileID: 564221580}
   - {fileID: 1262652855}
-  - {fileID: 1954488299}

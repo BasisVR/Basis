@@ -128,5 +128,25 @@ namespace Basis.Scripts.BasisSdk.Helpers
 
             return new float4(cNormal.x, cNormal.y, cNormal.z, -math.dot(cPos, cNormal));
         }
+        public static void ConvertData(Transform parentTransform, float scale, Vector3 localRawPosition, Quaternion localRawRotation, Vector3 TposePosition, Quaternion TposeRotation, out Vector3 convertedPosition, out quaternion convertedRotation)
+        {
+            localRawPosition -= TposePosition;
+            localRawRotation *= Quaternion.Inverse(TposeRotation);
+            float3 scaledPosition = localRawPosition * scale;
+            quaternion localRotation = localRawRotation;
+
+            convertedPosition = parentTransform.localToWorldMatrix.MultiplyPoint3x4(scaledPosition);
+            convertedRotation = parentTransform.rotation * localRotation;
+        }
+        public static void ConvertData(Matrix4x4 parentTransform,Quaternion Rotation, float scale, Vector3 localRawPosition, Quaternion localRawRotation, Vector3 TposePosition, Quaternion TposeRotation, out Vector3 convertedPosition, out quaternion convertedRotation)
+        {
+            localRawPosition -= TposePosition;
+            localRawRotation *= Quaternion.Inverse(TposeRotation);
+            float3 scaledPosition = localRawPosition * scale;
+            quaternion localRotation = localRawRotation;
+
+            convertedPosition = parentTransform.MultiplyPoint3x4(scaledPosition);
+            convertedRotation = Rotation * localRotation;
+        }
     }
 }

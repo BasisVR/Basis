@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
@@ -217,12 +217,12 @@ namespace LiteNetLib
         //We got introduce and must punch
         private void OnNatIntroductionResponse(NatIntroduceResponsePacket req)
         {
-            NetDebug.Write(NetLogLevel.Trace, "[NAT] introduction received");
+           // NetDebug.Write(NetLogLevel.Trace, "[NAT] introduction received");
 
             // send internal punch
             var punchPacket = new NatPunchPacket {Token = req.Token};
             Send(punchPacket, req.Internal);
-            NetDebug.Write(NetLogLevel.Trace, $"[NAT] internal punch sent to {req.Internal}");
+           // NetDebug.Write(NetLogLevel.Trace, $"[NAT] internal punch sent to {req.Internal}");
 
             // hack for some routers
             _socket.Ttl = 2;
@@ -232,14 +232,14 @@ namespace LiteNetLib
             _socket.Ttl = NetConstants.SocketTTL;
             punchPacket.IsExternal = true;
             Send(punchPacket, req.External);
-            NetDebug.Write(NetLogLevel.Trace, $"[NAT] external punch sent to {req.External}");
+           // NetDebug.Write(NetLogLevel.Trace, $"[NAT] external punch sent to {req.External}");
         }
 
         //We got punch and can connect
         private void OnNatPunch(NatPunchPacket req, IPEndPoint senderEndPoint)
         {
             //Read info
-            NetDebug.Write(NetLogLevel.Trace, $"[NAT] punch received from {senderEndPoint} - additional info: {req.Token}");
+           // NetDebug.Write(NetLogLevel.Trace, $"[NAT] punch received from {senderEndPoint} - additional info: {req.Token}");
 
             //Release punch success to client; enabling him to Connect() to Sender if token is ok
             if(UnsyncedEvents)

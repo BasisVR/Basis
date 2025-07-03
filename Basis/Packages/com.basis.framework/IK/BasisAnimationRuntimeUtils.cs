@@ -112,15 +112,15 @@ public static class BasisAnimationRuntimeUtils
     /// <param name="hintWeight">The weight for which hint transform has an effect on IK calculations. This is a value in between 0 and 1.</param>
     /// <param name="targetOffset">The offset applied to the target transform.</param>
     public static void SolveTwoBoneIKArms(
-        AnimationStream stream,
-        ReadWriteTransformHandle root,
-        ReadWriteTransformHandle mid,
-        ReadWriteTransformHandle tip,
-        AffineTransform target,
-        AffineTransform hint,
-        bool hintWeight,
-        AffineTransform targetOffset
-        )
+            AnimationStream stream,
+            ReadWriteTransformHandle root,
+            ReadWriteTransformHandle mid,
+            ReadWriteTransformHandle tip,
+            AffineTransform target,
+            AffineTransform hint,
+            bool hintWeight,
+            AffineTransform targetOffset
+            )
     {
         Vector3 aPosition = root.GetPosition(stream);
         Vector3 bPosition = mid.GetPosition(stream);
@@ -190,9 +190,9 @@ public static class BasisAnimationRuntimeUtils
                 if (abProj.sqrMagnitude > (maxReach * maxReach * 0.001f) && ahProj.sqrMagnitude > 0f)
                 {
                     Quaternion hintR = QuaternionExt.FromToRotation(abProj, ahProj);
-                   // hintR.x *= hintWeight;
-                  //  hintR.y *= hintWeight;
-                   // hintR.z *= hintWeight;
+                    // hintR.x *= hintWeight;
+                    //  hintR.y *= hintWeight;
+                    // hintR.z *= hintWeight;
                     hintR = QuaternionExt.NormalizeSafe(hintR);
                     root.SetRotation(stream, hintR * root.GetRotation(stream));
                 }

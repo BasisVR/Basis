@@ -1,5 +1,4 @@
 using LiteNetLib;
-using BytesMessage = Basis.Network.Core.Serializable.SerializableBasis.BytesMessage;
 namespace Basis.Network.Server.Auth
 {
     /// <summary>
@@ -23,5 +22,7 @@ namespace Basis.Network.Server.Auth
         public bool RemoveNetPeerAsAdmin(string UUID);
         public bool NetIDToUUID(NetPeer Peer, out string UUID);
         public bool UUIDToNetID(string UUID, out NetPeer Peer);
+
+        public static bool HasFileSupport = false;
     }
 }

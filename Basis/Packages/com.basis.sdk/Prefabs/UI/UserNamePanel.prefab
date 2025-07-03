@@ -569,8 +569,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: '
 
-    <size=50%>These settings are very <color=#FFA7A7>experimental</color>
-    and may break things, please use with caution!'
+    <size=50%>please use with caution!'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 98857fb5827ece748ae5394a1ad8342d, type: 2}
   m_sharedMaterial: {fileID: 1150190466599654131, guid: 98857fb5827ece748ae5394a1ad8342d, type: 2}
@@ -2188,7 +2187,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0, g: 0, b: 0, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -3042,7 +3041,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UserNameTMP_InputField: {fileID: 4878091726375581371}
   Ready: {fileID: 7868681224681406568}
-  UseAddressables: 0
   AdvancedSettings: {fileID: 3620331647213534057}
   AdvancedSettingsPanel: {fileID: 7345067995383593187}
   IPaddress: {fileID: 7064524275758642703}
@@ -3050,6 +3048,7 @@ MonoBehaviour:
   Password: {fileID: 7342387192712509897}
   UseLocalhost: {fileID: 303848508383678836}
   HostMode: {fileID: 5016190070041225366}
+  ConnectText: {fileID: 853691693064836016}
 --- !u!1 &5024693311933502499
 GameObject:
   m_ObjectHideFlags: 0
@@ -3378,7 +3377,7 @@ GameObject:
   - component: {fileID: 5697029871011890725}
   - component: {fileID: 2115803409761755332}
   m_Layer: 5
-  m_Name: Password Text (1)
+  m_Name: Host Mode Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4321,7 +4320,7 @@ GameObject:
   - component: {fileID: 7823736808169910644}
   - component: {fileID: 5016190070041225366}
   m_Layer: 5
-  m_Name: Toggle
+  m_Name: Host Mode
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4370,8 +4369,8 @@ MonoBehaviour:
   m_Transition: 1
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
-    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
-    m_PressedColor: {r: 0.44313726, g: 0.44313726, b: 0.44313726, a: 1}
+    m_HighlightedColor: {r: 0.8396226, g: 0.53466535, b: 0.55455387, a: 1}
+    m_PressedColor: {r: 0.44313726, g: 0.2627451, b: 0.27450982, a: 1}
     m_SelectedColor: {r: 0.44313726, g: 0.44313726, b: 0.44313726, a: 1}
     m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
     m_ColorMultiplier: 1

@@ -29,8 +29,7 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 3207512861414392396}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3578141255088103770
@@ -48,122 +47,40 @@ MonoBehaviour:
   DisplayName: 
   UUID: 
   BasisAvatar: {fileID: 0}
+  BasisAvatarTransform: {fileID: 0}
+  FaceIsVisible: 0
+  FaceRenderer: {fileID: 0}
+  HasJiggles: 0
+  IsConsideredFallBackAvatar: 1
+  AvatarLoadMode: 0
   AvatarMetaData:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  HasAvatarDriver: 0
-  FaceIsVisible: 0
-  FaceRenderer: {fileID: 0}
-  AvatarLoadMode: 0
   BasisAvatarStrainJiggleDriver:
-    player: {fileID: 0}
     Jiggler: {fileID: 0}
     JiggleRigRendererLOD: {fileID: 0}
-  Mouth:
-    name: 
-    LerpAmountNormal: 0
-    LerpAmountFastMovement: 0
-    AngleBeforeSpeedup: 0
-    HasRotationalTarget: 0
-    HasLineDraw: 0
-    LineDrawIndex: 0
-    HasTarget: 0
-    Offset:
-      x: 0
-      y: 0
-      z: 0
-    LerpAmount: 0
-    OutGoingData:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    LastRunData:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    TposeLocal:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    InverseOffsetFromBone:
-      Use: 0
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    IncomingData:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    OutgoingWorldData:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    GizmoReference: -1
-    HasGizmo: 0
-    TposeGizmoReference: -1
-    TposeHasGizmo: 0
-    HasVirtualOverride: 0
-    trackersmooth: 25
-    IsHintRoleIgnoreRotation: 0
-    gizmoColor: {r: 0, g: 0, b: 1, a: 1}
-    HasEvents: 0
-    positionWeight: 1
-    rotationWeight: 1
-    hasTrackerDriver: 1
-    hasRigLayer: 1
-  HasJiggles: 0
+  FacialBlinkDriver:
+    meshRenderer: {fileID: 0}
+    minBlinkInterval: 5
+    maxBlinkInterval: 25
+    blinkDuration: 0.2
+    visemeTransitionDuration: 0.05
+    blendShapeIndex: 
+    blendShapeCount: 0
+    LinkedPlayer: {fileID: 0}
+  EyeFollow:
+    Override: 0
+    LinkedPlayer: {fileID: 0}
+    IsEnabled: 0
   RemoteBoneDriver:
     ControlsLength: 0
     Controls: []
@@ -182,6 +99,10 @@ MonoBehaviour:
       LineDrawIndex: 0
       HasTarget: 0
       Offset:
+        x: 0
+        y: 0
+        z: 0
+      ScaledOffset:
         x: 0
         y: 0
         z: 0
@@ -209,6 +130,17 @@ MonoBehaviour:
           y: 0
           z: 0
       TposeLocal:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      TposeLocalScaled:
         rotation:
           value:
             x: 0
@@ -279,6 +211,10 @@ MonoBehaviour:
         x: 0
         y: 0
         z: 0
+      ScaledOffset:
+        x: 0
+        y: 0
+        z: 0
       LerpAmount: 0
       OutGoingData:
         rotation:
@@ -303,6 +239,126 @@ MonoBehaviour:
           y: 0
           z: 0
       TposeLocal:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      TposeLocalScaled:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      InverseOffsetFromBone:
+        Use: 0
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      IncomingData:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      OutgoingWorldData:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      GizmoReference: -1
+      HasGizmo: 0
+      TposeGizmoReference: -1
+      TposeHasGizmo: 0
+      HasVirtualOverride: 0
+      trackersmooth: 25
+      IsHintRoleIgnoreRotation: 0
+      gizmoColor: {r: 0, g: 0, b: 1, a: 1}
+      HasEvents: 0
+      positionWeight: 1
+      rotationWeight: 1
+      hasTrackerDriver: 1
+      hasRigLayer: 1
+    Mouth:
+      name: 
+      LerpAmountNormal: 0
+      LerpAmountFastMovement: 0
+      AngleBeforeSpeedup: 0
+      HasRotationalTarget: 0
+      HasLineDraw: 0
+      LineDrawIndex: 0
+      HasTarget: 0
+      Offset:
+        x: 0
+        y: 0
+        z: 0
+      ScaledOffset:
+        x: 0
+        y: 0
+        z: 0
+      LerpAmount: 0
+      OutGoingData:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      LastRunData:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      TposeLocal:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      TposeLocalScaled:
         rotation:
           value:
             x: 0
@@ -363,6 +419,107 @@ MonoBehaviour:
     HasHead: 0
     HasHips: 0
   RemoteAvatarDriver:
+    References:
+      AnimatorRoot: {fileID: 0}
+      HasAnimatorRoot: 0
+      Hips: {fileID: 0}
+      HasHips: 0
+      spine: {fileID: 0}
+      Hasspine: 0
+      chest: {fileID: 0}
+      Haschest: 0
+      Upperchest: {fileID: 0}
+      HasUpperchest: 0
+      neck: {fileID: 0}
+      Hasneck: 0
+      head: {fileID: 0}
+      Hashead: 0
+      LeftEye: {fileID: 0}
+      HasLeftEye: 0
+      RightEye: {fileID: 0}
+      HasRightEye: 0
+      leftShoulder: {fileID: 0}
+      HasleftShoulder: 0
+      leftUpperArm: {fileID: 0}
+      HasleftUpperArm: 0
+      leftLowerArm: {fileID: 0}
+      HasleftLowerArm: 0
+      leftHand: {fileID: 0}
+      HasleftHand: 0
+      RightShoulder: {fileID: 0}
+      HasRightShoulder: 0
+      RightUpperArm: {fileID: 0}
+      HasRightUpperArm: 0
+      RightLowerArm: {fileID: 0}
+      HasRightLowerArm: 0
+      rightHand: {fileID: 0}
+      HasrightHand: 0
+      LeftUpperLeg: {fileID: 0}
+      HasLeftUpperLeg: 0
+      LeftLowerLeg: {fileID: 0}
+      HasLeftLowerLeg: 0
+      leftFoot: {fileID: 0}
+      HasleftFoot: 0
+      leftToes: {fileID: 0}
+      HasleftToes: 0
+      RightUpperLeg: {fileID: 0}
+      HasRightUpperLeg: 0
+      RightLowerLeg: {fileID: 0}
+      HasRightLowerLeg: 0
+      rightFoot: {fileID: 0}
+      HasrightFoot: 0
+      rightToes: {fileID: 0}
+      HasrightToes: 0
+      LeftThumb:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftThumb: 000000
+      LeftIndex:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftIndex: 000000
+      LeftMiddle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftMiddle: 000000
+      LeftRing:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftRing: 000000
+      LeftLittle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasLeftLittle: 000000
+      RightThumb:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightThumb: 000000
+      RightIndex:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightIndex: 000000
+      RightMiddle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightMiddle: 000000
+      RightRing:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightRing: 000000
+      RightLittle:
+      - {fileID: 0}
+      - {fileID: 0}
+      - {fileID: 0}
+      HasRightLittle: 000000
     SavedruntimeAnimatorController: {fileID: 0}
     SkinnedMeshRenderer: []
     Player: {fileID: 3578141255088103770}
@@ -370,10 +527,7 @@ MonoBehaviour:
     HasEvents: 0
     ActiveMatrixOverrides: 
     SkinnedMeshRendererLength: 0
-    BasisRemoteEyeFollowBase: {fileID: 0}
   NetworkReceiver:
-    Ready: 0
-    Offset: 0
     MouthBone:
       name: 
       LerpAmountNormal: 0
@@ -384,6 +538,10 @@ MonoBehaviour:
       LineDrawIndex: 0
       HasTarget: 0
       Offset:
+        x: 0
+        y: 0
+        z: 0
+      ScaledOffset:
         x: 0
         y: 0
         z: 0
@@ -411,6 +569,17 @@ MonoBehaviour:
           y: 0
           z: 0
       TposeLocal:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 0
+        position:
+          x: 0
+          y: 0
+          z: 0
+      TposeLocalScaled:
         rotation:
           value:
             x: 0
@@ -473,17 +642,30 @@ MonoBehaviour:
     CopyData: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
     AudioReceiverModule:
       BasisRemoteVisemeAudioDriver: {fileID: 0}
-      audioSource: {fileID: 3357262618114472881}
-      visemeDriver: {fileID: 0}
-      SteamAudioSource: {fileID: 6717546729411187846}
+      audioSource: {fileID: 0}
+      visemeDriver:
+        smoothAmount: 70
+        HasViseme: 
+        BlendShapeCount: 0
+        Player: {fileID: 0}
+        Avatar: {fileID: 0}
+        uLipSync: {fileID: 0}
+        uLipSyncBlendShape: {fileID: 0}
+        phonemeBlendShapeTable: []
+        FirstTime: 0
+        WasSuccessful: 0
+        HashInstanceID: -1
+        uLipSyncEnabledState: 1
+      SteamAudioSource: {fileID: 0}
       IsPlaying: 0
       pcmBuffer: []
       pcmLength: 0
       IsReady: 0
       silentData: []
       lastReadIndex: 0
-      AudioSourceTransform: {fileID: 3207512861414392396}
+      AudioSourceTransform: {fileID: 0}
       resampledSegment: []
+      HasTransform: 0
     delayTime: 0.10000000149011612
     RemotePlayer: {fileID: 3578141255088103770}
     HasEvents: 0
@@ -586,13 +768,8 @@ MonoBehaviour:
     interpolationTime: 0
     TimeBeforeCompletion: 0
     TimeInThePast: 0
-    HasAvatarInitialized: 0
-    MinCutoff: 0.001
-    Beta: 5
-    DerivativeCutoff: 1
-    updateFilters: 0
+    HasAvatarQueue: 0
     enableEuroFilter: 1
-    PositionOffset: {x: 0, y: 0, z: 0}
     LogFirstError: 0
     Eyes:
     - 0
@@ -600,259 +777,18 @@ MonoBehaviour:
     - 0
     - 0
   HasEvents: 0
-  LockAvatarFromChanging: 0
   OutOfRangeFromLocal: 0
-  NetworkedVoice: {fileID: 3207512861414392396}
+  InAvatarRange: 1
+  AlwaysRequestedMode: 0
   AlwaysRequestedAvatar:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
-      IsLocal: 0
-      CombinedURL: 
+      RemoteBeeFileLocation: 
     BasisLocalEncryptedBundle:
-      LocalConnectorPath: 
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  AlwaysRequestedMode: 0
---- !u!1 &5669630751523980901
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 3207512861414392396}
-  - component: {fileID: 3357262618114472881}
-  - component: {fileID: 6717546729411187846}
-  m_Layer: 3
-  m_Name: AudioSource
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &3207512861414392396
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5669630751523980901}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 3249565482574355061}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!82 &3357262618114472881
-AudioSource:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5669630751523980901}
-  m_Enabled: 1
-  serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: -2845339637905098028, guid: 471a0209081144d4da2426822e8a0b47, type: 2}
-  m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 0}
-  m_PlayOnAwake: 1
-  m_Volume: 1
-  m_Pitch: 1
-  Loop: 1
-  Mute: 0
-  Spatialize: 1
-  SpatializePostEffects: 1
-  Priority: 128
-  DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 15
-  Pan2D: 0
-  rolloffMode: 2
-  BypassEffects: 0
-  BypassListenerEffects: 0
-  BypassReverbZones: 0
-  rolloffCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0.035828657
-      value: 1
-      inSlope: -2.2142456
-      outSlope: -2.2142456
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0.8832598
-    - serializedVersion: 3
-      time: 0.23906149
-      value: 0.574646
-      inSlope: -2.304989
-      outSlope: -2.304989
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.35260352
-      outWeight: 0
-    - serializedVersion: 3
-      time: 0.37239483
-      value: 0.32788086
-      inSlope: -1.0681823
-      outSlope: -1.0681823
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.7161809
-      outWeight: 0
-    - serializedVersion: 3
-      time: 0.62145287
-      value: 0.14447021
-      inSlope: -0.5149982
-      outSlope: -0.5149982
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.38931724
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: -0.031343754
-      outSlope: -0.031343754
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.2218376
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  panLevelCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  spreadCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  reverbZoneMixCustomCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 1
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0.33333334
-      outWeight: 0.33333334
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
---- !u!114 &6717546729411187846
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5669630751523980901}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 59c3684b22f00604a97bb68037fcf4cd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  directBinaural: 1
-  interpolation: 1
-  perspectiveCorrection: 0
-  distanceAttenuation: 1
-  distanceAttenuationInput: 0
-  distanceAttenuationValue: 1
-  airAbsorption: 1
-  airAbsorptionInput: 0
-  airAbsorptionLow: 1
-  airAbsorptionMid: 1
-  airAbsorptionHigh: 1
-  directivity: 1
-  directivityInput: 0
-  dipoleWeight: 0.25
-  dipolePower: 1
-  directivityValue: 1
-  occlusion: 1
-  occlusionInput: 0
-  occlusionType: 1
-  occlusionRadius: 1
-  occlusionSamples: 16
-  occlusionValue: 1
-  transmission: 1
-  transmissionType: 0
-  transmissionInput: 0
-  transmissionLow: 1
-  transmissionMid: 1
-  transmissionHigh: 1
-  maxTransmissionSurfaces: 4
-  directMixLevel: 1
-  reflections: 0
-  reflectionsType: 0
-  useDistanceCurveForReflections: 1
-  currentBakedSource: {fileID: 0}
-  reverbTimeLow: 0
-  reverbTimeMid: 0
-  reverbTimeHigh: 0
-  hybridReverbEQLow: 1
-  hybridReverbEQMid: 1
-  hybridReverbEQHigh: 1
-  hybridReverbDelay: 0
-  applyHRTFToReflections: 1
-  reflectionsMixLevel: 0.1
-  pathing: 0
-  pathingProbeBatch: {fileID: 0}
-  pathValidation: 1
-  findAlternatePaths: 1
-  pathingEQ:
-  - 1
-  - 1
-  - 1
-  pathingSH:
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  applyHRTFToPathing: 0
-  pathingMixLevel: 1

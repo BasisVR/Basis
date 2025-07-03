@@ -11,11 +11,7 @@ namespace Basis.Scripts.UI.NamePlate
     {
         public static async Task LoadRemoteNamePlate(BasisRemotePlayer Player, string RemoteNamePlate = "Assets/UI/Prefabs/NamePlate.prefab")
         {
-            ChecksRequired Required = new ChecksRequired
-            {
-                UseContentRemoval = false,
-                DisableAnimatorEvents = false
-            };
+            ChecksRequired Required = new ChecksRequired(false, false, false);
             var data = await AddressableResourceProcess.LoadAsGameObjectsAsync(RemoteNamePlate, new UnityEngine.ResourceManagement.ResourceProviders.InstantiationParameters(), Required, BundledContentHolder.Selector.System);
             List<GameObject> Gameobjects = data.Item1;
             if (Gameobjects.Count != 0)
@@ -26,13 +22,17 @@ namespace Basis.Scripts.UI.NamePlate
                     {
                         if (Player == null)
                         {
-                           GameObject.Destroy(gameObject);
+                            GameObject.Destroy(gameObject);
                             return;
                         }
                         BasisRemoteNamePlate.transform.SetParent(Player.transform, false);
-                        if (Player.RemoteBoneDriver.FindBone(out BasisBoneControl Hips, BasisBoneTrackedRole.Hips))
+                        if (Player.RemoteBoneDriver.FindBone(out BasisRemoteBoneControl Hips, BasisBoneTrackedRole.Hips))
                         {
                             BasisRemoteNamePlate.Initalize(Hips, Player);
+                        }
+                        else
+                        {
+                            BasisDebug.LogError("Missing Hips!");
                         }
                     }
                 }

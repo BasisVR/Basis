@@ -1,26 +1,27 @@
+using Basis.Scripts.Common;
 using UnityEngine;
 
 [System.Serializable]
 public struct BasisPoseData
 {
     [SerializeField]
-    public BasisMuscleLocalPose[] LeftThumb;
+    public BasisCalibratedCoords[] LeftThumb;
     [SerializeField]
-    public BasisMuscleLocalPose[] LeftIndex;
+    public BasisCalibratedCoords[] LeftIndex;
     [SerializeField]
-    public BasisMuscleLocalPose[] LeftMiddle;
+    public BasisCalibratedCoords[] LeftMiddle;
     [SerializeField]
-    public BasisMuscleLocalPose[] LeftRing;
+    public BasisCalibratedCoords[] LeftRing;
     [SerializeField]
-    public BasisMuscleLocalPose[] LeftLittle;
+    public BasisCalibratedCoords[] LeftLittle;
     [SerializeField]
-    public BasisMuscleLocalPose[] RightThumb;
+    public BasisCalibratedCoords[] RightThumb;
     [SerializeField]
-    public BasisMuscleLocalPose[] RightIndex;
+    public BasisCalibratedCoords[] RightIndex;
     [SerializeField]
-    public BasisMuscleLocalPose[] RightMiddle;
+    public BasisCalibratedCoords[] RightMiddle;
     [SerializeField]
-    public BasisMuscleLocalPose[] RightRing;
+    public BasisCalibratedCoords[] RightRing;
     [SerializeField]
-    public BasisMuscleLocalPose[] RightLittle;
+    public BasisCalibratedCoords[] RightLittle;
 }

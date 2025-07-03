@@ -2,7 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
 using BasisNetworkCore;
-using BasisNetworkServer.BasisNetworking;
+using BasisNetworkServer.BasisNetworkMessageProcessor;
 using BasisNetworkServer.Security;
 using LiteNetLib;
 using LiteNetLib.Utils;
@@ -10,7 +10,6 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static SerializableBasis;
@@ -24,7 +23,7 @@ namespace BasisServerHandle
         {
             NetworkServer.listener.ConnectionRequestEvent += HandleConnectionRequest;
             NetworkServer.listener.PeerDisconnectedEvent += HandlePeerDisconnected;
-            NetworkServer.listener.NetworkReceiveEvent += HandleNetworkReceiveEvent;
+            NetworkServer.listener.NetworkReceiveEvent += BasisNetworkMessageProcessor.Enqueue;
             NetworkServer.listener.NetworkErrorEvent += OnNetworkError;
         }
 
@@ -32,7 +31,7 @@ namespace BasisServerHandle
         {
             NetworkServer.listener.ConnectionRequestEvent -= HandleConnectionRequest;
             NetworkServer.listener.PeerDisconnectedEvent -= HandlePeerDisconnected;
-            NetworkServer.listener.NetworkReceiveEvent -= HandleNetworkReceiveEvent;
+            NetworkServer.listener.NetworkReceiveEvent -= BasisNetworkMessageProcessor.Enqueue;
             NetworkServer.listener.NetworkErrorEvent -= OnNetworkError;
         }
 
@@ -231,6 +230,7 @@ namespace BasisServerHandle
                 SendRemoteSpawnMessage(newPeer, ReadyMessage);
 
                 BasisNetworkResourceManagement.SendOutAllResources(newPeer);
+                BasisNetworkOwnership.SendOutOwnershipInformation(newPeer);
             }
             else
             {
@@ -250,174 +250,6 @@ namespace BasisServerHandle
             }
             return true;
         }
-        private static void HandleNetworkReceiveEvent(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
-        {
-            var task = Task.Run(() =>
-            {
-                try
-                {
-                    // if(NetworkServer.authIdentity.)
-                    switch (channel)
-                    {
-                        case BasisNetworkCommons.FallChannel:
-                            if (deliveryMethod == DeliveryMethod.Unreliable)
-                            {
-                                if (reader.TryGetByte(out byte Byte))
-                                {
-                                    HandleNetworkReceiveEvent(peer, reader, Byte, deliveryMethod);
-                                }
-                                else
-                                {
-                                    BNL.LogError($"Unknown channel no data remains: {channel} " + reader.AvailableBytes);
-                                    reader.Recycle();
-                                }
-                            }
-                            else
-                            {
-                                BNL.LogError($"Unknown channel: {channel} " + reader.AvailableBytes);
-                                reader.Recycle();
-                            }
-                            break;
-                        case BasisNetworkCommons.AuthIdentityMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                HandleAuth(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.MovementChannel:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                HandleAvatarMovement(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.VoiceChannel:
-                            HandleVoiceMessage(reader, peer);
-                            break;
-                        case BasisNetworkCommons.AvatarChannel:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                BasisNetworkingGeneric.HandleAvatar(reader, deliveryMethod, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.SceneChannel:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                BasisNetworkingGeneric.HandleScene(reader, deliveryMethod, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.AvatarChangeMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                SendAvatarMessageToClients(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.ChangeCurrentOwnerRequest:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                BasisNetworkOwnership.OwnershipTransfer(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.GetCurrentOwnerRequest:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                BasisNetworkOwnership.OwnershipResponse(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.RemoveCurrentOwnerRequest:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                BasisNetworkOwnership.RemoveOwnership(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.AudioRecipients:
-                            UpdateVoiceReceivers(reader, peer);
-                            break;
-                        case BasisNetworkCommons.netIDAssign:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                netIDAssign(reader, peer);
-                            }
-                            break;
-                        case BasisNetworkCommons.LoadResourceMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                if (NetworkServer.authIdentity.NetIDToUUID(peer, out string UUID))
-                                {
-                                    if (NetworkServer.authIdentity.IsNetPeerAdmin(UUID))
-                                    {
-                                        LoadResource(reader, peer);
-                                    }
-                                    else
-                                    {
-                                        BNL.LogError("Admin was not found! for " + UUID);
-                                    }
-                                }
-                                else
-                                {
-                                    BNL.LogError("User " + UUID + " does not exist!");
-                                }
-                            }
-                            break;
-                        case BasisNetworkCommons.UnloadResourceMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                if (NetworkServer.authIdentity.NetIDToUUID(peer, out string UUID))
-                                {
-                                    if (NetworkServer.authIdentity.IsNetPeerAdmin(UUID))
-                                    {
-                                        UnloadResource(reader, peer);
-                                    }
-                                    else
-                                    {
-                                        BNL.LogError("Admin was not found! for " + UUID);
-                                    }
-                                }
-                                else
-                                {
-                                    BNL.LogError("User " + UUID + " does not exist!");
-                                }
-                            }
-                            break;
-                        case BasisNetworkCommons.AdminMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                                BasisPlayerModeration.OnAdminMessage(peer, reader);
-                            }
-                            reader.Recycle();
-                            break;
-                        case BasisNetworkCommons.AvatarCloneRequestMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                               // BasisAvatarRequestMessages.AvatarCloneRequestMessage();
-                            }
-                            reader.Recycle();
-                            break;
-                        case BasisNetworkCommons.AvatarCloneResponseMessage:
-                            if (ValidateSize(reader, peer, channel))
-                            {
-                              //  BasisAvatarRequestMessages.AvatarCloneResponseMessage();
-                            }
-                            reader.Recycle();
-                            break;
-                        default:
-                            BNL.LogError($"Unknown channel: {channel} " + reader.AvailableBytes);
-                            reader.Recycle();
-                            break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log detailed error information
-                    BNL.LogError($"[Error] Exception occurred in HandleNetworkReceiveEvent.\n" +
-                                 $"Peer: {peer.Address}, Channel: {channel}, DeliveryMethod: {deliveryMethod}\n" +
-                                 $"Message: {ex.Message}\n" +
-                                 $"StackTrace: {ex.StackTrace}\n" +
-                                 $"InnerException: {ex.InnerException}");
-
-                    reader?.Recycle(); // Ensure the reader is recycled to prevent memory leaks
-                }
-            });
-        }
         #endregion
         // Define the delegate type
         public delegate void AuthEventHandler(NetPacketReader reader, NetPeer peer);
@@ -428,6 +260,8 @@ namespace BasisServerHandle
         {
             OnAuthReceived?.Invoke(Reader, Peer);
         }
+        public static ServerEventHandler OnServerReceived;
+        public delegate void ServerEventHandler(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod);
         #region Avatar and Voice Handling
         public static void SendAvatarMessageToClients(NetPacketReader Reader, NetPeer Peer)
         {
@@ -454,13 +288,14 @@ namespace BasisServerHandle
             Reader.Recycle();
             BasisSavedState.AddLastData(Peer, LocalAvatarSyncMessage);
             ReadOnlySpan<NetPeer> Peers = BasisPlayerArray.GetSnapshot();
+
+            ServerSideSyncPlayerMessage ssspm = CreateServerSideSyncPlayerMessage(LocalAvatarSyncMessage, (ushort)Peer.Id);
             foreach (NetPeer client in Peers)
             {
                 if (client.Id == Peer.Id)
                 {
                     continue;
                 }
-                ServerSideSyncPlayerMessage ssspm = CreateServerSideSyncPlayerMessage(LocalAvatarSyncMessage, (ushort)Peer.Id);
                 BasisServerReductionSystem.AddOrUpdatePlayer(client, ssspm, Peer);
             }
         }
@@ -653,7 +488,11 @@ namespace BasisServerHandle
 
                 if (!BasisSavedState.GetLastAvatarSyncState(peer, out var syncState))
                 {
-                    syncState = new LocalAvatarSyncMessage() { array = new byte[386], AdditionalAvatarDatas = null };
+                    syncState = new LocalAvatarSyncMessage()
+                    {
+                        array = new byte[LocalAvatarSyncMessage.AvatarSyncSize],
+                        AdditionalAvatarDatas = null
+                    };
                     BNL.LogError("Unable to get Last Player Avatar Data! Using Error Fallback");
                 }
 

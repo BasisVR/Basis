@@ -7,6 +7,11 @@ using UnityEditor;
 using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static BasisAvatarValidator;
+#if BASIS_FRAMEWORK_EXISTS
+using Basis.Scripts.BasisSdk.Players;
+#endif
+
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
 {
@@ -19,7 +24,7 @@ public partial class BasisAvatarSDKInspector : Editor
     public bool AvatarEyePositionState = false;
     public bool AvatarMouthPositionState = false;
     public VisualElement rootElement;
-    public AvatarSDKJiggleBonesView AvatarSDKJiggleBonesView = new AvatarSDKJiggleBonesView();
+    //Deprecated 15052025 Use BasisJiggleBonesComponent instead public AvatarSDKJiggleBonesView AvatarSDKJiggleBonesView = new AvatarSDKJiggleBonesView();
     public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
     public Button EventCallbackAvatarBundleButton { get; private set; }
     public Texture2D Texture;
@@ -48,8 +53,7 @@ public partial class BasisAvatarSDKInspector : Editor
             uiElementsRoot = visualTree.CloneTree();
             rootElement.Add(uiElementsRoot);
             BasisAvatarValidator = new BasisAvatarValidator(Avatar, rootElement);
-            Button button = new Button();
-            button.text = "Open Avatar Documentation";
+            Button button = DocumentationButton(rootElement, "Open Avatar Documentation");
             button.clicked += delegate
             {
                 if (EditorUtility.DisplayDialog("Open Documentation", "Open Documentation", "Yes I want to open the documentation", "no send me back"))
@@ -60,7 +64,7 @@ public partial class BasisAvatarSDKInspector : Editor
             rootElement.Add(button);
             BasisAutomaticSetupAvatarEditor.TryToAutomatic(this);
             SetupItems();
-            AvatarSDKJiggleBonesView.Initialize(this);
+            //deprecated 15/05/2025 use BasisJiggleBonesComponent  AvatarSDKJiggleBonesView.Initialize(this);
             AvatarSDKVisemes.Initialize(this);
             InspectorGuiCreated?.Invoke(this);
         }
@@ -69,6 +73,58 @@ public partial class BasisAvatarSDKInspector : Editor
             Debug.LogError("VisualTree is null. Make sure the UXML file is assigned correctly.");
         }
         return rootElement;
+    }
+    public Button DocumentationButton(VisualElement rootElement, string Text)
+    {
+        // Create the button
+        Button fixMeButton = new Button();
+
+        fixMeButton.text = Text; // Icon + Text
+
+        Color backgroundColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+        // Modern slick style
+
+        fixMeButton.style.backgroundColor = new StyleColor(backgroundColor); // Material Red 500
+        fixMeButton.style.color = new StyleColor(Color.white);
+        fixMeButton.style.fontSize = 14;
+        fixMeButton.style.unityFontStyleAndWeight = FontStyle.Bold;
+
+        // Padding and margin
+        fixMeButton.style.paddingTop = 6;
+        fixMeButton.style.paddingBottom = 6;
+        fixMeButton.style.paddingLeft = 12;
+        fixMeButton.style.paddingRight = 12;
+        fixMeButton.style.marginBottom = 10;
+
+        // Rounded corners
+        fixMeButton.style.borderTopLeftRadius = 8;
+        fixMeButton.style.borderTopRightRadius = 8;
+        fixMeButton.style.borderBottomLeftRadius = 8;
+        fixMeButton.style.borderBottomRightRadius = 8;
+
+        // Border and shadow
+        fixMeButton.style.borderLeftWidth = 0;
+        fixMeButton.style.borderRightWidth = 0;
+        fixMeButton.style.borderTopWidth = 0;
+        fixMeButton.style.borderBottomWidth = 3;
+
+        // Shadow-like effect via unityBackgroundImageTintColor or using USS later
+        fixMeButton.style.unityTextAlign = TextAnchor.MiddleCenter;
+        fixMeButton.style.alignSelf = Align.Auto;
+
+        // Hover effect via C# events (UI Toolkit lacks hover pseudoclass in C# directly)
+        fixMeButton.RegisterCallback<MouseEnterEvent>(evt =>
+        {
+            fixMeButton.style.backgroundColor = new StyleColor(new Color(0.4f, 0.4f, 0.4f, 1f));
+        });
+        fixMeButton.RegisterCallback<MouseLeaveEvent>(evt =>
+        {
+            fixMeButton.style.backgroundColor = new StyleColor(backgroundColor);
+        });
+
+        // Add to root and store
+        rootElement.Add(fixMeButton);
+        return fixMeButton;
     }
     public void AutomaticallyFindVisemes()
     {
@@ -185,6 +241,7 @@ public partial class BasisAvatarSDKInspector : Editor
         Button avatarBundleButton = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarBundleButton);
         Button avatarAutomaticVisemeDetectionClick = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarAutomaticVisemeDetection);
         Button avatarAutomaticBlinkDetectionClick = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarAutomaticBlinkDetection);
+        Button AvatarTestInEditorClick = BasisHelpersGizmo.Button(uiElementsRoot,BasisSDKConstants.AvatarTestInEditor);
 
         // Initialize Event Callbacks for Vector2 fields (for Avatar Eye and Mouth Position)
         BasisHelpersGizmo.CallBackVector2Field(uiElementsRoot, BasisSDKConstants.avatarEyePositionField, Avatar.AvatarEyePosition, OnEyeHeightValueChanged);
@@ -225,6 +282,7 @@ public partial class BasisAvatarSDKInspector : Editor
         avatarMouthPositionClick.clicked += () => ClickedAvatarMouthPositionButton(avatarMouthPositionClick);
         avatarAutomaticVisemeDetectionClick.clicked += AutomaticallyFindVisemes;
         avatarAutomaticBlinkDetectionClick.clicked += AutomaticallyFindBlinking;
+        AvatarTestInEditorClick.clicked += AvatarTestInEditorClickFunction;// unity editor window button
 
         BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
         BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
@@ -249,8 +307,20 @@ public partial class BasisAvatarSDKInspector : Editor
             Debug.LogError("No build targets selected.");
             return;
         }
-        if (BasisAvatarValidator.ValidateAvatar(out List<string> Errors, out List<string> Warnings, out List<string> Passes))
+        if (BasisAvatarValidator.ValidateAvatar(out List<BasisValidationIssue> Errors, out List<BasisValidationIssue> Warnings, out List<string> Passes))
         {
+            if (Avatar.Animator.runtimeAnimatorController != null)
+            {
+                string path = AssetDatabase.GetAssetPath(Avatar.Animator.runtimeAnimatorController);
+                if (path == BasisSDKConstants.AvatarAnimatorControllerPath)
+                {
+                    Debug.Log("Animator Controller Used was the default! UnAssigning");
+                    Avatar.Animator.runtimeAnimatorController = null;
+                    EditorUtility.SetDirty(Avatar.Animator);
+                    AssetDatabase.SaveAssetIfDirty(Avatar);
+                }
+            }
+
             Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
             (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(Avatar, targets);
             EditorUtility.ClearProgressBar();
@@ -276,6 +346,7 @@ public partial class BasisAvatarSDKInspector : Editor
 
             // Add the result label to the UI
             uiElementsRoot.Add(resultLabel);
+          //  BuildReportViewerWindow.ShowWindow();
         }
         else
         {
@@ -288,6 +359,69 @@ public partial class BasisAvatarSDKInspector : Editor
                 Application.OpenURL(BasisSDKConstants.AvatarDocumentationURL);
             }
         }
+    }
+    public void AvatarTestInEditorClickFunction()
+    {
+        if (!Application.isPlaying)
+        {
+            int result = EditorUtility.DisplayDialogComplex("Confirmation","this feature requires the editor to be in playmode. do you want to enter play mode now?", "Yes","No",""
+        );
+
+            switch (result)
+            {
+                case 0: // Yes
+                    EditorApplication.EnterPlaymode();
+                    break;
+                case 1: // No
+                    break;
+                default:
+                    break;
+            }
+        }
+        else
+        {
+            RequestAvatarLoad();
+        }
+    }
+    public void RequestAvatarLoad()
+    {
+#if BASIS_FRAMEWORK_EXISTS
+        if (BasisLocalPlayer.PlayerReady)
+        {
+            BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
+            LoadAvatar();
+        }
+        else
+        {
+            ScheduleCallback = true;
+            BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
+            BasisLocalPlayer.OnLocalPlayerCreatedAndReady += LoadAvatar;
+        }
+#endif
+    }
+    public bool ScheduleCallback = false;
+    public async void LoadAvatar()
+    {
+#if BASIS_FRAMEWORK_EXISTS
+        if (ScheduleCallback)
+        {
+            BasisLocalPlayer.OnLocalPlayerCreatedAndReady -= LoadAvatar;
+            ScheduleCallback = false;
+        }
+        BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
+        BasisLoadableBundle LoadableBundle = new BasisLoadableBundle
+        {
+            LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = GameObject.Instantiate(Avatar.gameObject) }
+        };
+        LoadableBundle.LoadableGameobject.InSceneItem.transform.parent = null;
+        LoadableBundle.BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
+        {
+            RemoteBeeFileLocation = BasisGenerateUniqueID.GenerateUniqueID()
+        };
+        BasisDebug.Log("Requesting Avatar Load", BasisDebug.LogTag.Editor);
+        await BasisLocalPlayer.Instance.CreateAvatarFromMode(BasisLoadMode.ByGameobjectReference, LoadableBundle);
+        BasisDebug.Log("Avatar Load Complete", BasisDebug.LogTag.Editor);
+#endif
     }
     private void ClearResultLabel()
     {

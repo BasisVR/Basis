@@ -1,14 +1,12 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Behaviour;
 using Basis.Scripts.Networking;
 using LiteNetLib;
 using UnityEngine;
 using UnityEngine.InputSystem;
-public class BasisTestNetworkAvatarOverrideJump : MonoBehaviour
+public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
 {
-    [Header("Assign Ahead Of Time")]
-    public BasisAvatar avatar;
-    public byte MessageIndexTest = 2;
     public ushort[] Recipients = null;
     public BasisPlayer BasisPlayer;
     public bool Isready;
@@ -16,20 +14,18 @@ public class BasisTestNetworkAvatarOverrideJump : MonoBehaviour
     public DeliveryMethod Method = DeliveryMethod.Unreliable;
     public void Awake()
     {
-        avatar.OnAvatarReady += OnAvatarReady;
-        avatar.OnNetworkMessageReceived += OnNetworkMessageReceived;
+        Avatar.OnAvatarReady += OnAvatarReady;
     }
     public void OnDestroy()
     {
-        avatar.OnAvatarReady -= OnAvatarReady;
-        avatar.OnNetworkMessageReceived -= OnNetworkMessageReceived;
+        Avatar.OnAvatarReady -= OnAvatarReady;
     }
     private void OnAvatarReady(bool IsOwner)
     {
         Debug.Log("OnAvatarReady");
         if (IsOwner)
         {
-            if (BasisNetworkManagement.AvatarToPlayer(avatar, out BasisPlayer))
+            if (BasisNetworkManagement.AvatarToPlayer(Avatar, out BasisPlayer))
             {
                 Isready = true;
                 Debug.Log("Actually ran!");
@@ -43,18 +39,23 @@ public class BasisTestNetworkAvatarOverrideJump : MonoBehaviour
         {
             if (Keyboard.current[Key.Space].wasPressedThisFrame)
             {
-                //(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
-                avatar.NetworkMessageSend(MessageIndexTest, Buffer, Method, Recipients);
-               // BasisNetworkManagement.RequestOwnership();
+                NetworkMessageSend(Buffer, Method, Recipients);
             }
         }
     }
-    private void OnNetworkMessageReceived(ushort PlayerID, byte MessageIndex, byte[] buffer = null, DeliveryMethod Method = DeliveryMethod.ReliableSequenced)
+
+    public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
     {
-        Debug.Log("got message " + MessageIndex);
-        if (MessageIndex == MessageIndexTest)
-        {
-            BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
-        }
+
+    }
+
+    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+    {
+        BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
+    }
+
+    public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
+    {
+
     }
 }

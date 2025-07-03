@@ -10,15 +10,16 @@ using UnityEngine.UIElements;
 public class AvatarSDKJiggleBonesView
 {
     public ListView JiggleStrainsList;
-    public BasisAvatarSDKInspector Inspector;
+    public BasisJiggleBonesComponentInspector Inspector;
     public SerializedProperty BasisJiggleStrainProperty;
-    public VisualElement AddButtonhere;
-    public static string JiggleStrain = "JiggleStrains";
-    public void Initialize(BasisAvatarSDKInspector basisAvatarSDKInspector)
+     public VisualElement AddButtonhere;
+     public static string JiggleStrain = "JiggleStrains";
+    public void Initialize(BasisJiggleBonesComponentInspector BasisJiggleBonesComponentInspector)
     {
-        Inspector = basisAvatarSDKInspector;
+        Inspector = BasisJiggleBonesComponentInspector;
         BasisJiggleStrainProperty = Inspector.serializedObject.FindProperty(JiggleStrain);
-        AddButtonhere = Inspector.rootElement.Q<VisualElement>(JiggleStrain);
+        AddButtonhere = BasisJiggleBonesComponentInspector.rootElement;
+        //AddButtonhere = Inspector.rootElement.Q<VisualElement>(JiggleStrain);
         // Add button to add new jiggle strain
         Button addButton = new Button(AddNewBasisJiggleStrain)
         {
@@ -52,7 +53,8 @@ public class AvatarSDKJiggleBonesView
         };
 
         // Add a foldout for each JiggleStrain
-        Foldout foldout = new Foldout {
+        Foldout foldout = new Foldout
+        {
             text = "Jiggle Bone",
             value = false, // Set the initial value to expanded
             style = {
@@ -75,7 +77,7 @@ public class AvatarSDKJiggleBonesView
         if (BasisJiggleStrainProperty.arraySize > 0)
         {
             // Get the newly added BasisJiggleStrain
-            var newJiggleStrain = Inspector.Avatar.JiggleStrains.Last();
+            var newJiggleStrain = Inspector.BonesComponent.JiggleStrains.Last();
 
             // Set default values
             newJiggleStrain.GravityMultiplier = 0.1f;
@@ -126,7 +128,7 @@ public class AvatarSDKJiggleBonesView
             AddPropertyField(element, itemProperty, propertyName, label);
         }
 
-        DrawSingleObjectField(element, itemProperty, "RootTransform", "Root Transform",typeof(Transform));
+        DrawSingleObjectField(element, itemProperty, "RootTransform", "Root Transform", typeof(Transform));
         AddObjectField(element, itemProperty, "IgnoredTransforms", "Ignored Transforms", typeof(Transform));
         AddObjectField(element, itemProperty, "Colliders", "Colliders", typeof(Collider));
 
@@ -253,20 +255,20 @@ public class AvatarSDKJiggleBonesView
 
     private void RefreshListView()
     {
-        EditorUtility.SetDirty(Inspector.Avatar);
+        EditorUtility.SetDirty(Inspector.BonesComponent);
         Inspector.serializedObject.ApplyModifiedProperties();
-        JiggleStrainsList.itemsSource = Inspector.Avatar.JiggleStrains;
+        JiggleStrainsList.itemsSource = Inspector.BonesComponent.JiggleStrains;
         JiggleStrainsList.Rebuild();
     }
 
     private void RemoveBasisJiggleStrain(int index)
     {
-        if (index < 0 || index >= Inspector.Avatar.JiggleStrains.Length)
+        if (index < 0 || index >= Inspector.BonesComponent.JiggleStrains.Length)
         {
             Debug.LogWarning("Invalid index for removal");
             return;
         }
-        Inspector.Avatar.JiggleStrains = RemoveAt(Inspector.Avatar.JiggleStrains, index);
+        Inspector.BonesComponent.JiggleStrains = RemoveAt(Inspector.BonesComponent.JiggleStrains, index);
 
         Inspector.serializedObject.ApplyModifiedProperties();
         RefreshListView();

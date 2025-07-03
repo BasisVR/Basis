@@ -38,7 +38,7 @@ namespace Basis.Scripts.UI.UI_Panels
                     hasGeneratedAction = true;
                 }
             }
-            LocalPlayer.AfterFinalMove.AddAction(105, UpdateUI);
+            BasisLocalPlayer.AfterFinalMove.AddAction(105, UpdateUI);
         }
         private void OnDisable()
         {
@@ -48,18 +48,18 @@ namespace Basis.Scripts.UI.UI_Panels
                 hasGeneratedAction = false;
             }
 
-            BasisLocalPlayer.Instance.OnLocalAvatarChanged -= UpdateDelayedSetUI;
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged -= UpdateDelayedSetUI;
+            BasisLocalPlayer.OnLocalAvatarChanged -= UpdateDelayedSetUI;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateDelayedSetUI;
 
-            LocalPlayer.AfterFinalMove.RemoveAction(101, UpdateUI);
+            BasisLocalPlayer.AfterFinalMove.RemoveAction(101, UpdateUI);
         }
         #endregion
         #region Player Change Callbacks
-        public BasisBoneControl hand;
+        public BasisLocalBoneControl hand;
         private void OnLocalPlayerGenerated()
         {
-            BasisLocalPlayer.Instance.OnLocalAvatarChanged += UpdateDelayedSetUI;
-            BasisLocalPlayer.Instance.OnPlayersHeightChanged += UpdateDelayedSetUI;
+            BasisLocalPlayer.OnLocalAvatarChanged += UpdateDelayedSetUI;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateDelayedSetUI;
             if (LocalPlayer.LocalBoneDriver.FindBone(out hand, BasisBoneTrackedRole.LeftHand))
             {
             }

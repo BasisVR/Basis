@@ -1,12 +1,18 @@
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Profiler;
 using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
-using System.Threading;
+using System;
+using System.Threading.Tasks;
 using UnityEngine;
+using static BasisNetworkGenericMessages;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
 
@@ -18,25 +24,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     [System.Serializable]
     public abstract class BasisNetworkPlayer
     {
-        public bool Ready;
         private readonly object _lock = new object(); // Lock object for thread-safety
         private bool _hasReasonToSendAudio;
-        public int Offset = 0;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         [SerializeField]
         public HumanPose HumanPose = new HumanPose();
         [SerializeField]
         public HumanPoseHandler PoseHandler;
-        public const int SizeAfterGap = 95 - SecondBuffer;
-        public const int FirstBuffer = 15;
-        public const int SecondBuffer = 21;
-        public static float[] MinMuscle;
-        public static float[] MaxMuscle;
-        public static float[] RangeMuscle;
-        public BasisBoneControl MouthBone;
         public BasisPlayer Player;
         [SerializeField]
-        public PlayerIdMessage PlayerIDMessage;
+        public PlayerIdMessage PlayerIDMessage = new PlayerIdMessage();
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -82,7 +79,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public void OnAvatarCalibration()
         {
-            if (IsMainThread())
+            if (BasisNetworkManagement.IsMainThread())
             {
                 AvatarCalibrationSetup();
             }
@@ -101,12 +98,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }, null);
             }
         }
-        public static bool IsMainThread()
-        {
-            // Check if the current synchronization context matches the main thread's context
-            return SynchronizationContext.Current == BasisNetworkManagement.MainThreadContext;
-        }
-
         public void AvatarCalibrationSetup()
         {
             if (CheckForAvatar())
@@ -184,29 +175,211 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarDataMessage, netDataWriter.Length);
         }
-        public static void SetupData()
+        public static bool AvatarToPlayer(BasisAvatar Avatar, out BasisPlayer BasisPlayer)
         {
-            MinMuscle = new float[LocalAvatarSyncMessage.StoredBones];
-            MaxMuscle = new float[LocalAvatarSyncMessage.StoredBones];
-            RangeMuscle = new float[LocalAvatarSyncMessage.StoredBones];
-            for (int i = 0, j = 0; i < LocalAvatarSyncMessage.StoredBones; i++)
+            return BasisNetworkManagement.AvatarToPlayer(Avatar, out BasisPlayer);
+        }
+        public static bool PlayerToNetworkedPlayer(BasisPlayer BasisPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
+        {
+            return BasisNetworkManagement.PlayerToNetworkedPlayer(BasisPlayer, out BasisNetworkPlayer);
+        }
+        public static BasisNetworkPlayer LocalPlayer => BasisNetworkManagement.LocalNetworkedPlayer;
+        public static bool GetPlayerById(ushort allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
+        {
+            return BasisNetworkManagement.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);
+        }
+        public static bool GetPlayerById(int allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
+        {
+            return BasisNetworkManagement.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer);
+        }
+        /// <summary>
+        /// this is slow right now, needs improvement! - dooly
+        /// might be bad!
+        /// </summary>
+        /// <param name="Position"></param>
+        /// <param name="Rotation"></param>
+        public void GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation)
+        {
+            Position = Player.BasisAvatar.Animator.rootPosition;
+            Rotation = Player.BasisAvatar.Animator.rootRotation;
+        }
+
+        public async Task<bool> IsOwner(string IOwnThis)
+        {
+            if (hasID)
             {
-                if (i < FirstBuffer || i > SecondBuffer)
+                (bool, ushort) output = await BasisNetworkManagement.RequestCurrentOwnershipAsync(IOwnThis);
+                if (output.Item1 && output.Item2 == NetId)
                 {
-                    MinMuscle[j] = HumanTrait.GetMuscleDefaultMin(i);
-                    MaxMuscle[j] = HumanTrait.GetMuscleDefaultMax(i);
-                    j++;
+                    return true;
                 }
             }
-            for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)
+            return false;
+        }
+        public bool IsOwnerCached(string UniqueNetworkId)
+        {
+            if (BasisNetworkManagement.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique) && NetId == Unique)
             {
-                RangeMuscle[Index] = MaxMuscle[Index] - MinMuscle[Index];
+                return true;
+            }
+            return false;
+        }
+        public static async Task<bool> IsOwnerLocal(string IOwnThis)
+        {
+          return  await BasisNetworkPlayer.LocalPlayer.IsOwner(IOwnThis);
+        }
+
+        public static async Task<(bool, ushort)> SetOwnerAsync(BasisNetworkPlayer FutureOwner, string IOwnThis)
+        {
+            if (FutureOwner.hasID)
+            {
+                return await BasisNetworkManagement.TakeOwnershipAsync(IOwnThis, FutureOwner.NetId);
+            }
+            else
+            {
+                return new(false, 0);
             }
         }
-        public void ProvideNetworkKey(ushort PlayerID)
+        public static async Task<(bool,ushort)> GetOwnerPlayerIDAsync(string UniqueID)
         {
-            PlayerIDMessage.playerID = PlayerID;
-            hasID = true;
+           return await BasisNetworkManagement.RequestCurrentOwnershipAsync(UniqueID);
+        }
+        public static async Task<(bool, BasisNetworkPlayer)> GetOwnerPlayerAsync(string UniqueID)
+        {
+            (bool, ushort) Current = await BasisNetworkManagement.RequestCurrentOwnershipAsync(UniqueID);
+            if (Current.Item1)
+            {
+                if (BasisNetworkManagement.GetPlayerById(Current.Item2, out BasisNetworkPlayer Player))
+                {
+                    return new(Current.Item1, Player);
+                }
+            }
+            return new(false, null);
+        }
+
+        public bool IsUserInVR()
+        {
+            if (Player.IsLocal)
+            {
+                return BasisDeviceManagement.IsUserInDesktop() == false;
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote IsUserVR", BasisDebug.LogTag.Networking);
+                return false;
+            }
+        }
+        public bool IsLocal => Player.IsLocal;
+        //this is slow use a faster way! (but you can use it of course)
+        public bool GetBonePositionAndRotation(HumanBodyBones bone, out Vector3 position, out Quaternion rotation)
+        {
+            if (Player.IsLocal)
+            {
+                return BasisLocalAvatarDriver.References.GetBoneLocalPositionRotation(bone, out position, out rotation);
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetBonePosition", BasisDebug.LogTag.Networking);
+                position = Vector3.zero;
+                rotation = Quaternion.identity;
+                return false;
+            }
+        }
+
+        public bool GetTrackingData(BasisBoneTrackedRole Role, out Vector3 position, out Quaternion rotation)
+        {
+            if (Player.IsLocal)
+            {
+                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Control, Role))
+                {
+                    position = Control.OutgoingWorldData.position;
+                    rotation = Control.OutgoingWorldData.rotation;
+                    return true;
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetTrackingData", BasisDebug.LogTag.Networking);
+            }
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+            return false;
+        }
+
+        /// <summary>
+        /// Duration only works on steamvr.
+        /// Todo: add openxr duration manual tracking,
+        /// </summary>
+        /// <param name="Role"></param>
+        /// <param name="duration"></param>
+        /// <param name="amplitude"></param>
+        /// <param name="frequency"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        public void PlayHaptic(BasisBoneTrackedRole Role, float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f)
+        {
+            if (BasisDeviceManagement.Instance.FindDevice(out BasisInput Input, Role))
+            {
+                Input.PlayHaptic(duration, amplitude, frequency);
+            }
+            else
+            {
+                BasisDebug.LogError("Missing Haptic Input For Device Type " + Role);
+            }
+        }
+
+        public void Immobilize(bool Immobilize)
+        {
+            if (Player.IsLocal)
+            {
+                var MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
+                var CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+
+                if (Immobilize)
+                {
+                    MovementLock.Add(nameof(BasisNetworkPlayer));
+                    CrouchingLock.Add(nameof(BasisNetworkPlayer));
+                }
+                else
+                {
+                    MovementLock.Remove(nameof(BasisNetworkPlayer));
+                    CrouchingLock.Remove(nameof(BasisNetworkPlayer));
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetTrackingData", BasisDebug.LogTag.Networking);
+            }
+        }
+
+        /// <summary>
+        /// this occurs after the localplayer has been approved by the network and setup
+        /// </summary>
+        public static Action<BasisNetworkPlayer, BasisLocalPlayer> OnLocalPlayerJoined;
+        public static OnNetworkMessageReceiveOwnershipTransfer OnOwnershipTransfer;
+        public static OnNetworkMessageReceiveOwnershipRemoved OnOwnershipReleased;
+        /// <summary>
+        /// this occurs after a remote user has been authenticated and joined & spawned
+        /// </summary>
+        public static Action<BasisNetworkPlayer, BasisRemotePlayer> OnRemotePlayerJoined;
+        /// <summary>
+        /// this occurs after the localplayer has removed
+        /// </summary>
+        public static Action<BasisNetworkPlayer, BasisLocalPlayer> OnLocalPlayerLeft;
+        /// <summary>
+        /// this occurs after a remote user has removed
+        /// </summary>
+        public static Action<BasisNetworkPlayer, BasisRemotePlayer> OnRemotePlayerLeft;
+
+        public string displayName
+        {
+            get
+            {
+                if (Player != null)
+                {
+                    return Player.DisplayName;
+                }
+                else { return string.Empty; }
+            }
         }
     }
 }

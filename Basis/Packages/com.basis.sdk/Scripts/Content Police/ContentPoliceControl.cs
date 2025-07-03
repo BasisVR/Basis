@@ -26,6 +26,7 @@ public static class ContentPoliceControl
             }
             // Create a list to hold all components in the original GameObject
             UnityEngine.Component[] components = SearchAndDestroy.GetComponentsInChildren<UnityEngine.Component>(true);
+
             int count = components.Length;
 
             if (BundledContentHolder.Instance.GetSelector(Selector, out ContentPoliceSelector PoliceCheck))
@@ -103,4 +104,11 @@ public struct ChecksRequired
     public bool UseContentRemoval;
     public bool DisableAnimatorEvents;
     public bool RemoveColliders;
+
+    public ChecksRequired(bool useContentRemoval, bool disableAnimatorEvents, bool removeColliders)
+    {
+        UseContentRemoval = useContentRemoval;
+        DisableAnimatorEvents = disableAnimatorEvents;
+        RemoveColliders = removeColliders;
+    }
 }

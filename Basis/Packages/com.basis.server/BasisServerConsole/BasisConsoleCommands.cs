@@ -1,5 +1,9 @@
 using Basis;
+using Basis.Network.Server.Generic;
+using BasisNetworkCore;
+using LiteNetLib;
 using System.Reflection;
+using static BasisNetworkCore.Serializable.SerializableBasis;
 
 namespace BasisNetworkConsole
 {
@@ -7,9 +11,9 @@ namespace BasisNetworkConsole
     {
         public static Dictionary<string, Command> commands = new Dictionary<string, Command>();
         // Registering commands
-        public static void RegisterCommand(string commandName, Action<string[]> handler)
+        public static void RegisterCommand(string commandName,string Description, Action<string[]> handler)
         {
-            commands[commandName.ToLower()] = new Command { Name = commandName, Handler = handler };
+            commands[commandName.ToLower()] = new Command { Name = commandName, Description = Description, Handler = handler };
         }
         // Register commands for each configuration field
         public static void RegisterConfigurationCommands(Configuration config)
@@ -18,8 +22,8 @@ namespace BasisNetworkConsole
             foreach (var field in fields)
             {
                 // Register the command for each field
-                string commandName = $"config {field.Name.ToLower()}";
-                RegisterCommand(commandName, (args) => HandleConfigField(args, field, config));
+                string commandName = $"/config {field.Name.ToLower()}";
+                RegisterCommand(commandName, string.Empty, (args) => HandleConfigField(args, field, config));
             }
         }
         public static void HandleConfigField(string[] args, FieldInfo field, Configuration config)
@@ -88,34 +92,53 @@ namespace BasisNetworkConsole
                 BNL.Log($"Usage: /config {field.Name.ToLower()} [value]");
             }
         }
-        // Handling console commands
-        public static void ProcessConsoleCommands()
+        private static Thread? consoleThread;
+
+        public static void StartConsoleListener()
         {
-            while (Program.isRunning)
+            consoleThread = new Thread(() =>
             {
-                string? input = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(input))
+                while (Program.isRunning)
                 {
-                    continue;
-                }
+                    string? input = Console.ReadLine()?.Trim();
+                    if (string.IsNullOrEmpty(input)) continue;
 
-                string[] parts = input.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 0)
-                {
-                    continue;
-                }
+                    // Try to match the longest possible command key
+                    bool matched = false;
 
-                string commandName = parts[0].ToLower();
-                if (commands.ContainsKey(commandName))
-                {
-                    string[] args = parts.Length > 1 ? parts[1..] : Array.Empty<string>();
-                    commands[commandName].Handler(args);
+                    foreach (var key in commands.Keys.OrderByDescending(k => k.Length))
+                    {
+                        if (input.StartsWith(key, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            var command = commands[key];
+
+                            // Get arguments by removing the command part from input
+                            string remaining = input.Substring(key.Length).Trim();
+                            string[] args = string.IsNullOrEmpty(remaining) ? Array.Empty<string>() : remaining.Split(' ');
+
+                            try
+                            {
+                                command.Handler(args);
+                            }
+                            catch (Exception ex)
+                            {
+                                BNL.Log($"Error executing command '{key}': {ex.Message}");
+                            }
+
+                            matched = true;
+                            break;
+                        }
+                    }
+
+                    if (!matched)
+                    {
+                        BNL.Log("Unknown command. Type /help for available commands.");
+                    }
                 }
-                else
-                {
-                    BNL.Log("Unknown command. Type /help for available commands.");
-                }
-            }
+            });
+
+            consoleThread.IsBackground = true;
+            consoleThread.Start();
         }
         // Example command handlers
         public static void HandleAddAdmin(string[] args)
@@ -137,7 +160,18 @@ namespace BasisNetworkConsole
                 BNL.Log("Usage: /admin add <username>");
             }
         }
-
+        public static void HandleShowPlayers(string[] args)
+        {
+            string ConnectedPlayerNames = $"Connected Player count is {NetworkServer.Peers.Count} ";
+            foreach(NetPeer Peer in NetworkServer.Peers.Values)
+            {
+                if(BasisSavedState.GetLastPlayerMetaData(Peer,out SerializableBasis.PlayerMetaDataMessage Message))
+                {
+                    ConnectedPlayerNames += $"Player: {Message.playerDisplayName} UUID: {Message.playerUUID}, ";
+                }
+            }
+            BNL.Log(ConnectedPlayerNames);
+        }
         public static void HandleStatus(string[] args)
         {
             // Example of showing server status
@@ -155,14 +189,28 @@ namespace BasisNetworkConsole
         public static void HandleHelp(string[] args)
         {
             BNL.Log("Available commands:");
-            BNL.Log("/admin add <username> - Adds a user as an admin.");
-            BNL.Log("/status - Shows the server status.");
-            BNL.Log("/shutdown - Shuts down the server.");
+            foreach (var kvp in commands)
+            {
+                var command = kvp.Value;
+                if (string.IsNullOrEmpty(command.Description))
+                {
+                    BNL.Log($"{command.Name}");
+                }
+                else
+                {
+                    BNL.Log($"{command.Name} - {command.Description}");
+                }
+            }
+        }
+        public static void HandleClear(string[] args)
+        {
+            BNL.ClearConsole();
         }
         // Command class to store command info
         public class Command
         {
-            public string Name { get; set; }
+            public required string Name { get; set; }
+            public required string Description { get; set; }
             public Action<string[]> Handler { get; set; }
         }
     }

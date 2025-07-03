@@ -1,4 +1,6 @@
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Interactions;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
@@ -12,11 +14,9 @@ using UnityEngine.UI;
 
 namespace Basis.Scripts.UI
 {
-    public class BasisUIRaycast
+    public partial class BasisUIRaycast
     {
         public BasisPointRaycaster BasisPointRaycaster;
-
-
         public static LayerMask UILayer = LayerMask.NameToLayer("UI");
         public Material lineMaterial;
         public float lineWidth = 0.01f;
@@ -24,9 +24,16 @@ namespace Basis.Scripts.UI
         public static string LoadMaterialAddress = "Assets/UI/Material/RayCastMaterial.mat";
         public static string LoadUIRedicalAddress = "Assets/UI/Prefabs/highlightQuad.prefab";
         public GameObject highlightQuadInstance;
-        
+        public ActiveStateOfHightlight HighlightState;
+        public enum ActiveStateOfHightlight
+        {
+            On,
+            Off,
+            NA
+
+        }
         public BasisInput BasisInput;
-        private BasisDeviceMatchSettings BasisDeviceMatchableNames;
+        private string DeviceName;
         public bool HasLineRenderer = false;
         public bool HasRedicalRenderer = false;
 
@@ -44,43 +51,22 @@ namespace Basis.Scripts.UI
         [SerializeField]
         public List<RaycastResult> SortedRays = new List<RaycastResult>();
         public List<Canvas> Results = new List<Canvas>();
-        public bool IgnoreReversedGraphics = true;        
-        
-        [Serializable]
-        public struct RaycastUIHitData
-        {
-            public RaycastUIHitData(Graphic graphic, Vector3 worldHitPosition, Vector2 screenPosition, float distance, int displayIndex)
-            {
-                this.graphic = graphic;
-                this.worldHitPosition = worldHitPosition;
-                this.screenPosition = screenPosition;
-                this.distance = distance;
-                this.displayIndex = displayIndex;
-            }
-            [SerializeField]
-            public Graphic graphic;
-            [SerializeField]
-            public Vector3 worldHitPosition;
-            [SerializeField]
-            public Vector2 screenPosition;
-            [SerializeField]
-            public float distance;
-            [SerializeField]
-            public int displayIndex;
-        }
-
+        public bool IgnoreReversedGraphics = true;
+        public Vector3 highlightQuadInitalSize;
+        public bool HasOnPlayersHeightChanged = false;
         public void Initialize(BasisInput basisInput, BasisPointRaycaster pointRaycaster)
         {
             CurrentEventData = new BasisPointerEventData(EventSystem.current);
             BasisInput = basisInput;
             BasisPointRaycaster = pointRaycaster;
-            BasisDeviceMatchableNames = BasisInput.BasisDeviceMatchSettings;
+            DeviceName = BasisInput.DeviceMatchSettings.DeviceID;
             ApplyStaticDataToRaycastResult();
 
             HasLineRenderer = false;
             HasRedicalRenderer = false;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
             // Create the ray with the adjusted starting position and direction
-            if (BasisDeviceMatchableNames.HasRayCastVisual)
+            if (basisInput.DeviceMatchSettings.HasRayCastVisual)
             {
                 // Add a Line Renderer component to the GameObject
                 LineRenderer = BasisHelpers.GetOrAddComponent<LineRenderer>(BasisPointRaycaster.gameObject);
@@ -91,9 +77,8 @@ namespace Basis.Scripts.UI
                 lineMaterial = InMemory;
                 // Set the Line Renderer properties
                 LineRenderer.material = lineMaterial;
-                LineRenderer.startWidth = lineWidth;
-                LineRenderer.endWidth = lineWidth;
 
+                HasOnPlayersHeightChanged = true;
                 // Set the number of points in the Line Renderer
                 LineRenderer.positionCount = 2;
                 HasLineRenderer = true;
@@ -102,25 +87,45 @@ namespace Basis.Scripts.UI
                 LineRenderer.numCornerVertices = 12;
                 LineRenderer.gameObject.layer = UILayer;
             }
-            if (BasisDeviceMatchableNames.HasRayCastRadical)
+            if (basisInput.DeviceMatchSettings.HasRayCastRadical)
             {
-                CreateRadical();
+                AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(LoadUIRedicalAddress);
+                GameObject InMemory = handle.WaitForCompletion();
+                GameObject gameObject = GameObject.Instantiate(InMemory);
+                gameObject.name = $"{DeviceName}_Redical";
+                gameObject.transform.SetParent(BasisLocalPlayer.Instance.transform);
+                highlightQuadInitalSize = gameObject.transform.localScale;
+                highlightQuadInstance = gameObject;
+                if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
+                {
+                    Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+                }
+                highlightQuadInstance.gameObject.SetActive(false);
+                HighlightState = ActiveStateOfHightlight.NA;
                 HasRedicalRenderer = true;
             }
-            CachedLinerRenderState = HasLineRenderer;
+            OnPlayersHeightChanged();
 
+            CachedLinerRenderState = HasLineRenderer;
         }
-        public void CreateRadical()
+        public void OnDeInitialize()
         {
-            AsyncOperationHandle<GameObject> handle = Addressables.LoadAssetAsync<GameObject>(LoadUIRedicalAddress);
-            GameObject InMemory = handle.WaitForCompletion();
-            GameObject gameObject = GameObject.Instantiate(InMemory);
-            gameObject.name = BasisDeviceMatchableNames.DeviceID + "_Redical";
-            gameObject.transform.SetParent(BasisPointRaycaster.gameObject.transform);
-            highlightQuadInstance = gameObject;
-            if (highlightQuadInstance.TryGetComponent(out Canvas Canvas))
+            if (HasOnPlayersHeightChanged)
             {
-                Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
+            }
+        }
+        public void OnPlayersHeightChanged()
+        {
+            if (LineRenderer != null)
+            {
+                float Size = lineWidth * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                LineRenderer.startWidth = Size;
+                LineRenderer.endWidth = Size;
+            }
+            if (highlightQuadInstance != null)
+            {
+                highlightQuadInstance.transform.localScale = highlightQuadInitalSize * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             }
         }
         public void ApplyStaticDataToRaycastResult()
@@ -180,7 +185,7 @@ namespace Basis.Scripts.UI
             {
                 UpdateRayCastResult();//sets all RaycastResult data
                 UpdateLineRenderer();//updates the line denderer
-                UpdateRadicalRenderer();// moves the redical renderer
+                UpdateRadicalRenderer();// moves the Redical renderer
             }
             else
             {
@@ -238,17 +243,29 @@ namespace Basis.Scripts.UI
                 {
                     if (BasisDeviceManagement.IsUserInDesktop() && BasisCursorManagement.ActiveLockState() != CursorLockMode.Locked)
                     {
-                        highlightQuadInstance.SetActive(false);
+                        if (HighlightState !=  ActiveStateOfHightlight.Off)
+                        {
+                            highlightQuadInstance.SetActive(false);
+                            HighlightState = ActiveStateOfHightlight.Off;
+                        }
                     }
                     else
                     {
-                        highlightQuadInstance.SetActive(true);
+                        if (HighlightState != ActiveStateOfHightlight.On)
+                        {
+                            highlightQuadInstance.SetActive(true);
+                            HighlightState = ActiveStateOfHightlight.On;
+                        }
                         highlightQuadInstance.transform.SetPositionAndRotation(PhysicHit.point, Quaternion.LookRotation(PhysicHit.normal));
                     }
                 }
                 else
                 {
-                    highlightQuadInstance.SetActive(false);
+                    if (HighlightState != ActiveStateOfHightlight.Off)
+                    {
+                        highlightQuadInstance.SetActive(false);
+                        HighlightState = ActiveStateOfHightlight.Off;
+                    }
                 }
             }
         }
@@ -264,6 +281,7 @@ namespace Basis.Scripts.UI
             if (HasRedicalRenderer)
             {
                 highlightQuadInstance.SetActive(false);
+                HighlightState = ActiveStateOfHightlight.Off;
             }
         }
         
@@ -368,7 +386,7 @@ namespace Basis.Scripts.UI
             {
                 var graphic = graphics[i];
 
-                if (!ShouldTestGraphic(graphic, BasisPointRaycaster.Mask))
+                if (!ShouldTestGraphic(graphic,BasisPlayerInteract.Mask))
                     continue;
 
                 var raycastPadding = graphic.raycastPadding;

@@ -1,8 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 
 namespace Basis.Scripts.Device_Management.Devices.Simulation
 {
@@ -25,22 +23,24 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
                 FollowMovement.SetLocalPositionAndRotation(newPosition, LerpRotation);
             }
             FollowMovement.GetLocalPositionAndRotation(out Vector3 VOut, out Quaternion QOut);
-            LocalRawPosition = VOut;
-            LocalRawRotation = QOut;
+            ScaledDeviceCoord.position = VOut;
+            Quaternion LocalRawRotation = QOut;
 
             float SPTDS = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
 
-            LocalRawPosition /= SPTDS;
+            ScaledDeviceCoord.position /= SPTDS;
 
-            TransformFinalPosition = LocalRawPosition * SPTDS;
-            TransformFinalRotation = LocalRawRotation;
+            ScaledDeviceCoord.position = ScaledDeviceCoord.position * SPTDS;
+            ScaledDeviceCoord.rotation = LocalRawRotation;
             if (hasRoleAssigned)
             {
                 if (Control.HasTracked != BasisHasTracked.HasNoTracker)
                 {
-                    // Apply the position offset using math.mul for quaternion-vector multiplication
-                    Control.IncomingData.position = TransformFinalPosition - math.mul(TransformFinalRotation, AvatarPositionOffset * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-                    Control.IncomingData.rotation = math.mul(TransformFinalRotation, Quaternion.Euler(AvatarRotationOffset));
+                    // Apply position offset using math.mul for quaternion-vector multiplication
+                    Control.IncomingData.position = ScaledDeviceCoord.position;
+
+                    // Apply rotation offset using math.mul for quaternion multiplication
+                    Control.IncomingData.rotation = ScaledDeviceCoord.rotation;
                 }
             }
             UpdatePlayerControl();
@@ -58,35 +58,28 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
         {
             if (BasisVisualTracker == null && LoadedDeviceRequest == null)
             {
-                BasisDeviceMatchSettings Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
                 if (Match.CanDisplayPhysicalTracker)
                 {
-                    var op = Addressables.LoadAssetAsync<GameObject>(Match.DeviceID);
-                    GameObject go = op.WaitForCompletion();
-                    GameObject gameObject = Object.Instantiate(go);
-                    gameObject.name = CommonDeviceIdentifier;
-                    gameObject.transform.parent = this.transform;
-                    if (gameObject.TryGetComponent(out BasisVisualTracker))
-                    {
-                        BasisVisualTracker.Initialization(this);
-                    }
+                    LoadModelWithKey(Match.DeviceID);
                 }
                 else
                 {
                     if (UseFallbackModel())
                     {
-                        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(FallbackDeviceID);
-                        GameObject go = op.WaitForCompletion();
-                        GameObject gameObject = Object.Instantiate(go);
-                        gameObject.name = CommonDeviceIdentifier;
-                        gameObject.transform.parent = this.transform;
-                        if (gameObject.TryGetComponent(out BasisVisualTracker))
-                        {
-                            BasisVisualTracker.Initialization(this);
-                        }
+                        LoadModelWithKey(FallbackDeviceID);
                     }
                 }
             }
+        }
+        public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
+        {
+            //  BasisDebug.LogError("Simulate Does not Support haptics!");
+        }
+
+        public override void PlaySoundEffect(string SoundEffectName, float Volume)
+        {
+            PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);
         }
     }
 }

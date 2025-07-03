@@ -54,7 +54,7 @@ public static class BasisLoadHandler
     /// <returns></returns>
     public static async Task RequestDeIncrementOfBundle(BasisLoadableBundle loadableBundle)
     {
-        string CombinedURL = loadableBundle.BasisRemoteBundleEncrypted.CombinedURL;
+        string CombinedURL = loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
         if (LoadedBundles.TryGetValue(CombinedURL, out BasisTrackedBundleWrapper Wrapper))
         {
             Wrapper.DeIncrement();
@@ -67,39 +67,39 @@ public static class BasisLoadHandler
         }
         else
         {
-            if (CombinedURL.ToLower() != BasisAvatarFactory.LoadingAvatar.BasisRemoteBundleEncrypted.CombinedURL.ToLower())
+            if (CombinedURL.ToLower() != BasisAvatarFactory.LoadingAvatar.BasisRemoteBundleEncrypted.RemoteBeeFileLocation.ToLower())
             {
                 BasisDebug.LogError($"tried to find Loaded Key {CombinedURL} but could not find it!");
             }
         }
     }
-    public static async Task<GameObject> LoadGameObjectBundle(BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null)
+    public static async Task<GameObject> LoadGameObjectBundle(BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale, Selector Selector, Transform Parent = null, bool DestroyColliders = false)
     {
         await EnsureInitializationComplete();
 
-        if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL, out BasisTrackedBundleWrapper wrapper))
+        if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
         {
             try
             {
                 await wrapper.WaitForBundleLoadAsync();
-                return await BasisBundleLoadAsset.LoadFromWrapper(wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent);
+                return await BasisBundleLoadAsset.LoadFromWrapper(wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders);
             }
             catch (Exception ex)
             {
                 BasisDebug.LogError($"Failed to load content: {ex}");
-                LoadedBundles.Remove(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL);
+                LoadedBundles.Remove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
                 return null;
             }
         }
 
-        return await HandleFirstBundleLoad(loadableBundle, useContentRemoval, report, cancellationToken, Position, Rotation, Scale, ModifyScale, Selector, Parent);
+        return await HandleFirstBundleLoad(loadableBundle, useContentRemoval, report, cancellationToken, Position, Rotation, Scale, ModifyScale, Selector, Parent, DestroyColliders);
     }
 
     public static async Task<Scene> LoadSceneBundle(bool makeActiveScene, BasisLoadableBundle loadableBundle, BasisProgressReport report, CancellationToken cancellationToken)
     {
         await EnsureInitializationComplete();
 
-        if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL, out BasisTrackedBundleWrapper wrapper))
+        if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
         {
             BasisDebug.Log($"Bundle On Disc Loading", BasisDebug.LogTag.Networking);
             await wrapper.WaitForBundleLoadAsync();
@@ -114,7 +114,7 @@ public static class BasisLoadHandler
     {
         BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper { AssetBundle = null, LoadableBundle = loadableBundle };
 
-        if (!LoadedBundles.TryAdd(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL, wrapper))
+        if (!LoadedBundles.TryAdd(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, wrapper))
         {
             BasisDebug.LogError("Unable to add bundle wrapper.");
             return new Scene();
@@ -124,7 +124,7 @@ public static class BasisLoadHandler
         return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
     }
 
-    private static async Task<GameObject> HandleFirstBundleLoad(BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale,Selector Selector, Transform Parent = null)
+    private static async Task<GameObject> HandleFirstBundleLoad(BasisLoadableBundle loadableBundle, bool useContentRemoval, BasisProgressReport report, CancellationToken cancellationToken, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool ModifyScale,Selector Selector, Transform Parent = null, bool DestroyColliders = false)
     {
         BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
         {
@@ -132,7 +132,7 @@ public static class BasisLoadHandler
             LoadableBundle = loadableBundle
         };
 
-        if (!LoadedBundles.TryAdd(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL, wrapper))
+        if (!LoadedBundles.TryAdd(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, wrapper))
         {
             BasisDebug.LogError("Unable to add bundle wrapper.");
             return null;
@@ -141,21 +141,21 @@ public static class BasisLoadHandler
         try
         {
             await HandleBundleAndMetaLoading(wrapper, report, cancellationToken);
-            return await BasisBundleLoadAsset.LoadFromWrapper(wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent);
+            return await BasisBundleLoadAsset.LoadFromWrapper(wrapper, useContentRemoval, Position, Rotation, ModifyScale, Scale, Selector, Parent, DestroyColliders);
         }
         catch (Exception ex)
         {
             BasisDebug.LogError($"{ex.Message} {ex.StackTrace}");
-            LoadedBundles.Remove(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL);
+            LoadedBundles.Remove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
             CleanupFiles(loadableBundle.BasisLocalEncryptedBundle);
-            OnDiscData.TryRemove(loadableBundle.BasisRemoteBundleEncrypted.CombinedURL, out _);
+            OnDiscData.TryRemove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out _);
             return null;
         }
     }
 
     public static async Task HandleBundleAndMetaLoading(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
     {
-        bool IsMetaOnDisc = IsMetaDataOnDisc(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.CombinedURL, out BasisOnDiscInformation MetaInfo);
+        bool IsMetaOnDisc = IsMetaDataOnDisc(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisOnDiscInformation MetaInfo);
 
         (BasisBundleGenerated, byte[],string) output = new(null, null,string.Empty);
         if (IsMetaOnDisc)
@@ -222,10 +222,10 @@ public static class BasisLoadHandler
         {
             foreach (var discInfo in OnDiscData.Values)
             {
-                if (discInfo.StoredRemote.CombinedURL == MetaURL)
+                if (discInfo.StoredRemote.RemoteBeeFileLocation == MetaURL)
                 {
                     info = discInfo;
-                    if (File.Exists(discInfo.StoredLocal.LocalConnectorPath))
+                    if (File.Exists(discInfo.StoredLocal.DownloadedBeeFileLocation))
                     {
                         return true;
                     }
@@ -242,10 +242,10 @@ public static class BasisLoadHandler
         {
             foreach (var discInfo in OnDiscData.Values)
             {
-                if (discInfo.StoredRemote.CombinedURL == BundleURL)
+                if (discInfo.StoredRemote.RemoteBeeFileLocation == BundleURL)
                 {
                     info = discInfo;
-                    if (File.Exists(discInfo.StoredLocal.LocalConnectorPath))
+                    if (File.Exists(discInfo.StoredLocal.DownloadedBeeFileLocation))
                     {
                         return true;
                     }
@@ -259,12 +259,12 @@ public static class BasisLoadHandler
 
     public static async Task AddDiscInfo(BasisOnDiscInformation discInfo)
     {
-        if (OnDiscData.TryAdd(discInfo.StoredRemote.CombinedURL, discInfo))
+        if (OnDiscData.TryAdd(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo))
         {
         }
         else
         {
-            OnDiscData[discInfo.StoredRemote.CombinedURL] = discInfo;
+            OnDiscData[discInfo.StoredRemote.RemoteBeeFileLocation] = discInfo;
             BasisDebug.Log("Disc info updated.", BasisDebug.LogTag.Event);
         }
         string filePath = BasisIOManagement.GenerateFilePath($"{discInfo.UniqueVersion}{BasisBundleManagement.BasisMetaExtension}", BasisBundleManagement.AssetBundlesFolder);
@@ -344,7 +344,7 @@ public static class BasisLoadHandler
                 {
                     byte[] fileData = await File.ReadAllBytesAsync(file);
                     BasisOnDiscInformation discInfo = SerializationUtility.DeserializeValue<BasisOnDiscInformation>(fileData, DataFormat.Binary);
-                    OnDiscData.TryAdd(discInfo.StoredRemote.CombinedURL, discInfo);
+                    OnDiscData.TryAdd(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo);
                 }
                 catch (Exception ex)
                 {
@@ -360,9 +360,9 @@ public static class BasisLoadHandler
 
     private static void CleanupFiles(BasisStoredEncryptedBundle bundle)
     {
-        if (File.Exists(bundle.LocalConnectorPath))
+        if (File.Exists(bundle.DownloadedBeeFileLocation))
         {
-            File.Delete(bundle.LocalConnectorPath);
+            File.Delete(bundle.DownloadedBeeFileLocation);
         }
     }
 }

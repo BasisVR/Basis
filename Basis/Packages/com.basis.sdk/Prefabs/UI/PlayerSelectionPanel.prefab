@@ -2440,6 +2440,7 @@ MonoBehaviour:
   RemotePlayer: {fileID: 0}
   BasisUIVolumeSampler: {fileID: 4347707213697488483}
   RequestAvatarClone: {fileID: 7229101000435601265}
+  step: 0.05
 --- !u!1 &5448616847506779544
 GameObject:
   m_ObjectHideFlags: 0

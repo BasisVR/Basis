@@ -10,7 +10,6 @@ using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Reflection;
 public static class NetworkServer
 {
     public static EventBasedNetListener listener;
@@ -24,6 +23,8 @@ public static class NetworkServer
     {
         Configuration = configuration;
         BasisServerReductionSystem.Configuration = configuration;
+        BasisPlayerModeration.UseFileOnDisc = configuration.HasFileSupport;
+        IAuthIdentity.HasFileSupport = configuration.HasFileSupport;
         auth = new PasswordAuth(configuration.Password ?? string.Empty);
         authIdentity = new BasisDIDAuthIdentity();
         SetupServer(configuration);
@@ -73,10 +74,10 @@ public static class NetworkServer
                 case NetLogLevel.Error:
                     BNL.LogError(str);
                     break;
-                case NetLogLevel.Trace:
+               // case NetLogLevel.Trace:
                   //  BNL.Log(str);
                     break;
-                case NetLogLevel.Info:
+              //  case NetLogLevel.Info:
                  //   BNL.Log(str);
                     break;
             }
@@ -155,7 +156,7 @@ public static class NetworkServer
         {
             if (MessageIndex <= BasisNetworkCommons.TotalChannels)
             {
-                Peer.Send(Writer, MessageIndex, DeliveryMethod);
+                Peer.Send(Writer.Data,0,Writer.Length, MessageIndex, DeliveryMethod);
               //  BNL.Log($"sent {MessageIndex}");
             }
             else

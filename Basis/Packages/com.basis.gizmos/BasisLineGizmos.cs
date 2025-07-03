@@ -9,6 +9,6 @@ public class BasisLineGizmos : MonoBehaviour
     /// </summary>
     public void UpdatePosition(Vector3 position)
     {
-        transform.position = position;
+        this.transform.position = position;
     }
 }

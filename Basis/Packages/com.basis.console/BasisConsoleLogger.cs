@@ -1,5 +1,10 @@
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.UI.UI_Panels;
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -14,6 +19,7 @@ public class BasisConsoleLogger : BasisUIBase
     public Button ClearButton;
     public Button CollapseButton;
     public Button StopButton;
+    public Button FindCrashButton;
     public RectTransform Transform;
     public static bool IsUpdating = true;
     public TextMeshProUGUI CollapseButtonText;
@@ -22,6 +28,8 @@ public class BasisConsoleLogger : BasisUIBase
     public Button MouseLock;
     public static BasisConsoleLogger Instance;
     public static bool IsActive = false;
+
+    public TextMeshProUGUI VersionAndInfo;
     private void Awake()
     {
         if (BasisHelpers.CheckInstance(Instance))
@@ -36,9 +44,58 @@ public class BasisConsoleLogger : BasisUIBase
         BasisButtonHeldCallBack.OnButtonReleased += OnButtonReleased;
         BasisButtonHeldCallBack.OnButtonPressed += OnButtonPressed;
         MouseLock.onClick.AddListener(ToggleMouse);
+        FindCrashButton.onClick.AddListener(OpenLatestCrashReportFolder);
         IsActive = true;
+
+        VersionAndInfo.text =
+            $"Version: {Application.version} | " +
+            $"Unity Version: {Application.unityVersion} | " +
+            $"Platform: {Application.platform} | " +
+            $"Mode: {BasisDeviceManagement.CurrentMode} | " +
+            $"Build GUID: {Application.buildGUID} | " +
+            $"Log Path: {Application.consoleLogPath} | " +
+            $"Data Path: {Application.dataPath}";
     }
     public Canvas Canvas;
+    private void OpenLatestCrashReportFolder()
+    {
+        string crashDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Temp", "Unity", "Crashes"
+        );
+
+        if (!Directory.Exists(crashDirectory))
+        {
+            BasisLogManager.HandleLog("Crash directory does not exist.","", LogType.Error);
+            return;
+        }
+
+        var latestFolder = new DirectoryInfo(crashDirectory).GetDirectories()
+            .OrderByDescending(d => d.CreationTime)
+            .FirstOrDefault();
+
+        if (latestFolder != null)
+        {
+            try
+            {
+                // This opens File Explorer with the folder selected
+                Process.Start(new ProcessStartInfo()
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"/select,\"{Path.Combine(latestFolder.FullName, "error.log")}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                BasisLogManager.HandleLog($"Failed to open crash folder: {ex.Message}", ex.StackTrace, LogType.Error);
+            }
+        }
+        else
+        {
+            BasisLogManager.HandleLog("No crash folders found.", "", LogType.Error);
+        }
+    }
     public void ToggleMouse()
     {
         BasisCursorManagement.LockCursor(nameof(BasisConsoleLogger));

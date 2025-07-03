@@ -10,6 +10,7 @@ using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections;
 using Unity.Mathematics;
+
 public class BasisSDKMirror : MonoBehaviour
 {
     [Header("Main Settings")]
@@ -23,7 +24,7 @@ public class BasisSDKMirror : MonoBehaviour
     public int XSize = 2048;
     public int YSize = 2048;
     public int depth = 24;
-    public int Antialiasing = 4;
+    public int Antialiasing = 2;
 
     [Header("Options")]
     public bool allowXRRendering = true;
@@ -243,7 +244,7 @@ public class BasisSDKMirror : MonoBehaviour
         {
             name = $"__MirrorReflection{eye}{GetInstanceID()}",
             isPowerOfTwo = true,
-            antiAliasing = Antialiasing,
+            antiAliasing = 1,
             depth = depth
         };
 

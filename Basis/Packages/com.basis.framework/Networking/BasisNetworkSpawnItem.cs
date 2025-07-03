@@ -15,7 +15,7 @@ using static SerializableBasis;
 
 public static class BasisNetworkSpawnItem
 {
-    public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool IsLocal, bool Persist, out LocalLoadResource localLoadResource)
+    public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool Persist, out LocalLoadResource localLoadResource)
     {
         if (string.IsNullOrEmpty(CombinedURL) || string.IsNullOrEmpty(UnlockPassword))
         {
@@ -32,7 +32,6 @@ public static class BasisNetworkSpawnItem
             Mode = 1,
             CombinedURL = CombinedURL,
             UnlockPassword = UnlockPassword,
-            IsLocalLoad = IsLocal,
             Persist = Persist,
         };
 
@@ -45,7 +44,7 @@ public static class BasisNetworkSpawnItem
         return true;
     }
 
-    public static bool RequestGameObjectLoad(string UnlockPassword, string CombinedURL, bool IsLocal, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool Persistent, bool ModifysScale, out LocalLoadResource LocalLoadResource)
+    public static bool RequestGameObjectLoad(string UnlockPassword, string CombinedURL, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool Persistent, bool ModifysScale, out LocalLoadResource LocalLoadResource)
     {
         if (string.IsNullOrEmpty(CombinedURL) || string.IsNullOrEmpty(UnlockPassword))
         {
@@ -62,7 +61,6 @@ public static class BasisNetworkSpawnItem
             Mode = 0,
             CombinedURL = CombinedURL,
             UnlockPassword = UnlockPassword,
-            IsLocalLoad = IsLocal,
             PositionX = Position.x,
             PositionY = Position.y,
             PositionZ = Position.z,
@@ -136,13 +134,12 @@ public static class BasisNetworkSpawnItem
         {
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle()
             {
-                IsLocal = localLoadResource.IsLocalLoad,
-                CombinedURL = localLoadResource.CombinedURL
+                RemoteBeeFileLocation = localLoadResource.CombinedURL
             },
             UnlockPassword = localLoadResource.UnlockPassword,
         };
 
-        Scene scene = await BasisSceneLoadDriver.LoadSceneAssetBundle(loadBundle);
+        Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
         BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
         SceneTraverseNetIdAssign(scene, localLoadResource);
         SpawnedScenes.TryAdd(localLoadResource.LoadedNetID, scene);
@@ -170,8 +167,7 @@ public static class BasisNetworkSpawnItem
         {
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle()
             {
-                IsLocal = localLoadResource.IsLocalLoad,
-                CombinedURL = localLoadResource.CombinedURL
+                RemoteBeeFileLocation = localLoadResource.CombinedURL
             },
             UnlockPassword = localLoadResource.UnlockPassword,
         };

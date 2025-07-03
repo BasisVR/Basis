@@ -10,6 +10,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\BasisNetworkServer\BasisNetworkServer.csproj" />
 		<ProjectReference Include="..\BasisNetworkCore\BasisNetworkCore.csproj" />
+		<ProjectReference Include="..\LiteNetLib\LiteNetLib.csproj" />
 	</ItemGroup>
 	<PropertyGroup>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>

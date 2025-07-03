@@ -8,8 +8,7 @@ public static class BasisHandHeldCameraFactory
 {
     public static async Task<BasisHandHeldCamera> CreateCamera(InstantiationParameters InstantiationParameters)
     {
-        ChecksRequired Required = new ChecksRequired();
-        Required.UseContentRemoval = false;
+        ChecksRequired Required = new ChecksRequired(false, false, false);
         var data = await AddressableResourceProcess.LoadAsGameObjectsAsync("Packages/com.basis.sdk/Prefabs/UI/Player Held Camera.prefab", InstantiationParameters, Required, BundledContentHolder.Selector.System);
         List<GameObject> Gameobjects = data.Item1;
         if (Gameobjects.Count != 0)
@@ -24,7 +23,7 @@ public static class BasisHandHeldCameraFactory
         }
         else
         {
-            BasisDebug.LogError("Missing ");
+            BasisDebug.LogError("No Gameobjects in prefab");
         }
         BasisDebug.LogError("Error Missing Player!");
         return null;

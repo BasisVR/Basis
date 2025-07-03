@@ -1,6 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Virtual_keyboard;
 using TMPro;
 using UnityEngine;
@@ -23,6 +23,9 @@ namespace Basis.Scripts.UI
         public bool ForceKeyboard = false;
         public BasisUIRaycastProcess basisUIRaycastProcess = new BasisUIRaycastProcess();
         public static BasisInputModuleHandler Instance;
+
+        private readonly BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
+        private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         protected override void OnEnable()
         {
             base.OnEnable();
@@ -109,6 +112,7 @@ namespace Basis.Scripts.UI
         }
         public override void Process()
         {
+            var localPlayer = BasisLocalPlayer.Instance;
             basisUIRaycastProcess.Simulate();
             // Process your input events here
             if (EventSystem.currentSelectedGameObject != null)
@@ -119,17 +123,15 @@ namespace Basis.Scripts.UI
                 {
                     if (HasHoverONInput == false)
                     {
-                        // Subscribe to the device change event
-                        //  Keyboard.current.onTextInput += OnTextInput;
                         HasHoverONInput = true;
-                        if (BasisLocalPlayer.Instance != null && BasisLocalPlayer.Instance.LocalCharacterDriver != null)
+                        MovementLock.Add(nameof(BasisInputModuleHandler));
+                        CrouchingLock.Add(nameof(BasisInputModuleHandler));
+                        if (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard)
                         {
-                            BasisLocalPlayer.Instance.LocalCharacterDriver.BlockMovement = true;
-                        }
-                        BasisLocalInputActions.IgnoreCrouchToggle = true;
-                        if (BasisDeviceManagement.Instance.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.Instance.CurrentMode == "OpenXRLoader" || ForceKeyboard)
-                        {
-                            BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                            if (BasisVirtualKeyboard.HasInstance == false)
+                            {
+                                BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                            }
                         }
                     }
                 }
@@ -139,17 +141,15 @@ namespace Basis.Scripts.UI
                     {
                         if (HasHoverONInput == false)
                         {
-                            // Subscribe to the device change event
-                            //  Keyboard.current.onTextInput += OnTextInput;
                             HasHoverONInput = true;
-                            if (BasisLocalPlayer.Instance != null && BasisLocalPlayer.Instance.LocalCharacterDriver != null)
+                            MovementLock.Add(nameof(BasisInputModuleHandler));
+                            CrouchingLock.Add(nameof(BasisInputModuleHandler));
+                            if (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard)
                             {
-                                BasisLocalPlayer.Instance.LocalCharacterDriver.BlockMovement = true;
-                            }
-                            BasisLocalInputActions.IgnoreCrouchToggle = true;
-                            if (BasisDeviceManagement.Instance.CurrentMode == "OpenVRLoader" || BasisDeviceManagement.Instance.CurrentMode == "OpenXRLoader" || ForceKeyboard)
-                            {
-                                BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                                if (BasisVirtualKeyboard.HasInstance == false)
+                                {
+                                    BasisVirtualKeyboard.CreateMenu(CurrentSelectedInputField, CurrentSelectedTMP_InputField);
+                                }
                             }
                         }
                     }
@@ -159,16 +159,11 @@ namespace Basis.Scripts.UI
             {
                 if (HasHoverONInput)
                 {
-                    // Unsubscribe from the key press event
-                    // Keyboard.current.onTextInput -= OnTextInput;
                     HasHoverONInput = false;
                     CurrentSelectedTMP_InputField = null;
                     CurrentSelectedInputField = null;
-                    if (BasisLocalPlayer.Instance != null && BasisLocalPlayer.Instance.LocalCharacterDriver != null)
-                    {
-                        BasisLocalPlayer.Instance.LocalCharacterDriver.BlockMovement = false;
-                    }
-                    BasisLocalInputActions.IgnoreCrouchToggle = false;
+                    MovementLock.Remove(nameof(BasisInputModuleHandler));
+                    CrouchingLock.Remove(nameof(BasisInputModuleHandler));
                     var data = GetBaseEventData();
                     ExecuteEvents.Execute(EventSystem.currentSelectedGameObject, data, ExecuteEvents.submitHandler);
                 }
@@ -180,12 +175,12 @@ namespace Basis.Scripts.UI
             // Handle Tab key press
             if (context.performed)
             {
-                GameObject CurrentGameobject = EventSystem.currentSelectedGameObject;
-                if (CurrentGameobject == null)
+                GameObject CurrentGameObject = EventSystem.currentSelectedGameObject;
+                if (CurrentGameObject == null)
                 {
                     return;
                 }
-                GameObject next = FindNextSelectable(CurrentGameobject);
+                GameObject next = FindNextSelectable(CurrentGameObject);
                 if (next != null)
                 {
                     EventSystem.SetSelectedGameObject(next);
@@ -202,6 +197,7 @@ namespace Basis.Scripts.UI
                 if (current != null)
                 {
                     ExecuteEvents.Execute(current, new BaseEventData(EventSystem), ExecuteEvents.submitHandler);
+                    EventSystem.SetSelectedGameObject(FindNextSelectable(current));
                 }
             }
         }
@@ -209,7 +205,7 @@ namespace Basis.Scripts.UI
         private GameObject FindNextSelectable(GameObject current)
         {
             // Logic to find the next selectable UI element
-            if (current.TryGetComponent<Selectable>(out Selectable Selectable))
+            if (current.TryGetComponent(out Selectable Selectable))
             {
                 Selectable nextSelectable = Selectable.FindSelectableOnDown();
                 return nextSelectable != null ? nextSelectable.gameObject : null;

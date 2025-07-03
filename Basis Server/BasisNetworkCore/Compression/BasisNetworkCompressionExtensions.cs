@@ -1,6 +1,7 @@
-﻿using Basis.Scripts.Networking.Compression;
+using Basis.Scripts.Networking.Compression;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
 namespace Basis.Network.Core.Compression
@@ -10,18 +11,52 @@ namespace Basis.Network.Core.Compression
         /// <summary>
         /// Single API to handle all avatar decompression tasks.
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 DecompressAndProcessAvatarFaster(ServerSideSyncPlayerMessage syncMessage)
+        {
+            return ReadVectorFloatFromBytesFaster(ref syncMessage.avatarSerialization.array);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe Vector3 ReadVectorFloatFromBytesFaster(ref byte[] bytes)
+        {
+            fixed (byte* ptr = bytes)
+            {
+                float* floatPtr = (float*)ptr;
+                return new Vector3(floatPtr[0], floatPtr[1], floatPtr[2]);
+            }
+        }
+        /// <summary>
+        /// Single API to handle all avatar decompression tasks.
+        /// </summary>
         public static Vector3 DecompressAndProcessAvatar(ServerSideSyncPlayerMessage syncMessage)
         {
-            // Update receiver state
-            //  baseReceiver.LASM = syncMessage.avatarSerialization;
-            //  AvatarBuffer avatarBuffer = new AvatarBuffer();
-            int Offset = 0;
-            return ReadVectorFloatFromBytes(ref syncMessage.avatarSerialization.array, ref Offset);
-            //  avatarBuffer.Scale = BasisBitPackerExtensions.ReadUshortVectorFloatFromBytes(ref syncMessage.avatarSerialization.array, BasisNetworkReceiver.ScaleRanged, ref Offset);
-            //avatarBuffer.rotation = BasisBitPackerExtensions.ReadQuaternionFromBytes(ref syncMessage.avatarSerialization.array, BasisNetworkSendBase.RotationCompression, ref Offset);
-            // BasisBitPackerExtensions.ReadMusclesFromBytes(ref syncMessage.avatarSerialization.array, ref avatarBuffer.Muscles, ref Offset);
-            //   baseReceiver.AvatarDataBuffer.Add(avatarBuffer);
+            return ReadVectorFloatFromBytesFaster(ref syncMessage.avatarSerialization.array);
         }
+        // Manual conversion of bytes to Vector3 (without BitConverter)
+        public static Vector3 ReadVectorFloatFromBytes(ref byte[] bytes)
+        {
+            int offset = 0;
+            EnsureSize(bytes, offset + 12);
+
+            float x = ReadFloatFromBytes(ref bytes, ref offset);
+            float y = ReadFloatFromBytes(ref bytes, ref offset);
+            float z = ReadFloatFromBytes(ref bytes, ref offset);
+
+            return new Vector3(x, y, z);
+        }
+        // Manual bytes to float conversion (without BitConverter)
+        private static unsafe float ReadFloatFromBytes(ref byte[] bytes, ref int offset)
+        {
+            // Reconstruct the uint from the byte array
+            uint intValue = (uint)(bytes[offset] | bytes[offset + 1] << 8 | bytes[offset + 2] << 16 | bytes[offset + 3] << 24);
+
+            // Convert the uint back to float using a pointer cast
+            float result = *(float*)&intValue;
+            offset += 4;
+            return result;
+        }
+
         public static BasisRangedUshortFloatData BasisRangedUshortFloatData = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         public static int LengthSize = 90;
         public static int LengthBytes = LengthSize * 4; // Initialize LengthBytes first
@@ -79,17 +114,19 @@ namespace Basis.Network.Core.Compression
             WriteFloatToBytes(values.y, ref bytes, ref offset);
             WriteFloatToBytes(values.z, ref bytes, ref offset);
         }
-
-        // Manual conversion of bytes to Vector3 (without BitConverter)
-        public static Vector3 ReadVectorFloatFromBytes(ref byte[] bytes, ref int offset)
+        // Manual conversion of bytes to quaternion (without BitConverter)
+        public static Quaternion ReadQuaternionFromBytes(ref byte[] bytes, BasisRangedUshortFloatData compressor, ref int offset)
         {
-            EnsureSize(bytes, offset + 12);
+            EnsureSize(bytes, offset + 14);
 
             float x = ReadFloatFromBytes(ref bytes, ref offset);
             float y = ReadFloatFromBytes(ref bytes, ref offset);
             float z = ReadFloatFromBytes(ref bytes, ref offset);
 
-            return new Vector3(x, y, z);
+            ushort compressedW = (ushort)(bytes[offset] | bytes[offset + 1] << 8);
+            offset += 2;
+
+            return new Quaternion(x, y, z, compressor.Decompress(compressedW));
         }
 
         // Manual conversion of quaternion to bytes (without BitConverter)
@@ -107,21 +144,6 @@ namespace Basis.Network.Core.Compression
             bytes[offset] = (byte)(compressedW & 0xFF);           // Low byte
             bytes[offset + 1] = (byte)(compressedW >> 8 & 0xFF); // High byte
             offset += 2;
-        }
-
-        // Manual conversion of bytes to quaternion (without BitConverter)
-        public static Quaternion ReadQuaternionFromBytes(ref byte[] bytes, BasisRangedUshortFloatData compressor, ref int offset)
-        {
-            EnsureSize(bytes, offset + 14);
-
-            float x = ReadFloatFromBytes(ref bytes, ref offset);
-            float y = ReadFloatFromBytes(ref bytes, ref offset);
-            float z = ReadFloatFromBytes(ref bytes, ref offset);
-
-            ushort compressedW = (ushort)(bytes[offset] | bytes[offset + 1] << 8);
-            offset += 2;
-
-            return new Quaternion(x, y, z, compressor.Decompress(compressedW));
         }
 
         // Write muscles to bytes (no BitConverter)
@@ -166,18 +188,6 @@ namespace Basis.Network.Core.Compression
             bytes[offset + 2] = (byte)(intValue >> 16 & 0xFF);
             bytes[offset + 3] = (byte)(intValue >> 24 & 0xFF);
             offset += 4;
-        }
-
-        // Manual bytes to float conversion (without BitConverter)
-        private static unsafe float ReadFloatFromBytes(ref byte[] bytes, ref int offset)
-        {
-            // Reconstruct the uint from the byte array
-            uint intValue = (uint)(bytes[offset] | bytes[offset + 1] << 8 | bytes[offset + 2] << 16 | bytes[offset + 3] << 24);
-
-            // Convert the uint back to float using a pointer cast
-            float result = *(float*)&intValue;
-            offset += 4;
-            return result;
         }
 
         // Ensure the byte array is large enough to hold the data

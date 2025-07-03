@@ -1,15 +1,16 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-
 namespace Basis.Scripts.Avatar
 {
     public static partial class BasisAvatarIKStageCalibration
     {
+        public static bool HasFBIKTrackers = false;
         private static List<BasisBoneTrackedRole> GetAllRoles()
         {
             List<BasisBoneTrackedRole> rolesToDiscover = new List<BasisBoneTrackedRole>();
@@ -19,9 +20,9 @@ namespace Basis.Scripts.Avatar
             }
             // Create a dictionary for quick index lookup
             Dictionary<BasisBoneTrackedRole, int> orderLookup = new Dictionary<BasisBoneTrackedRole, int>();
-            for (int i = 0; i < desiredOrder.Length; i++)
+            for (int Index = 0; Index < desiredOrder.Length; Index++)
             {
-                orderLookup[desiredOrder[i]] = i;
+                orderLookup[desiredOrder[Index]] = Index;
             }
 
             // Assign a large index value to roles not in the desired order
@@ -40,7 +41,7 @@ namespace Basis.Scripts.Avatar
         public static void FullBodyCalibration()
         {
             HasFBIKTrackers = false;
-            BasisHeightDriver.SetPlayersEyeHeight(BasisLocalPlayer.Instance, BasisLocalHeightInformation.BasisSelectedHeightMode.EyeHeight);
+            BasisHeightDriver.ChangeEyeHeightMode(BasisLocalPlayer.Instance, BasisSelectedHeightMode.EyeHeight);
             BasisDeviceManagement.UnassignFBTrackers();
             BasisLocalPlayer.Instance.LocalBoneDriver.SimulateAndApplyWithoutLerp(BasisLocalPlayer.Instance);
 
@@ -57,7 +58,7 @@ namespace Basis.Scripts.Avatar
                     trackInputRoles.Add(Role);
                 }
             }
-            List<CalibrationConnector> connectors = new List<CalibrationConnector>();
+            List<BasisCalibrationConnector> connectors = new List<BasisCalibrationConnector>();
             int AllInputDevicesCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
             for (int Index = 0; Index < AllInputDevicesCount; Index++)
             {
@@ -68,7 +69,7 @@ namespace Basis.Scripts.Avatar
                     {
                         //in use un assign first
                         baseInput.UnAssignFullBodyTrackers();
-                        CalibrationConnector calibrationConnector = new CalibrationConnector
+                        BasisCalibrationConnector calibrationConnector = new BasisCalibrationConnector
                         {
                             BasisInput = baseInput,
                             Distance = float.MaxValue
@@ -78,7 +79,7 @@ namespace Basis.Scripts.Avatar
                 }
                 else//no assigned role
                 {
-                    CalibrationConnector calibrationConnector = new CalibrationConnector
+                    BasisCalibrationConnector calibrationConnector = new BasisCalibrationConnector
                     {
                         BasisInput = baseInput,
                         Distance = float.MaxValue
@@ -93,7 +94,7 @@ namespace Basis.Scripts.Avatar
             for (int Index = 0; Index < Count; Index++)
             {
                 BasisBoneTrackedRole role = trackInputRoles[Index];
-                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisBoneControl control, role))
+                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role))
                 {
                     float ScaledDistance = MaxDistanceBeforeMax(role) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
                     BasisDebug.Log("Using a scaler of  " + BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale + " leading to a scaled Distance of " + ScaledDistance);
@@ -126,10 +127,9 @@ namespace Basis.Scripts.Avatar
             }
 
             BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
-            BasisLocalPlayer.Instance.LocalAvatarDriver.CalibrateRoles();//not needed but still doing just incase
+            BasisLocalPlayer.Instance.LocalRigDriver.CalibrateRoles();//not needed but still doing just incase
             BasisLocalPlayer.Instance.LocalAnimatorDriver.AssignHipsFBTracker();
         }
-        public static bool HasFBIKTrackers = false;
         public static void RunThroughConnectors(BasisTrackerMapping mapping, ref List<BasisInput> BasisInputs, ref List<BasisBoneTrackedRole> roles)
         {
             // List to store the calibration actions
@@ -138,7 +138,7 @@ namespace Basis.Scripts.Avatar
             int CandidateCount = mapping.Candidates.Count;
             for (int Index = 0; Index < CandidateCount; Index++)
             {
-                CalibrationConnector Connector = mapping.Candidates[Index];
+                BasisCalibrationConnector Connector = mapping.Candidates[Index];
                 if (BasisInputs.Contains(Connector.BasisInput) == false)
                 {
                     if (roles.Contains(mapping.BasisBoneControlRole) == false)
@@ -168,7 +168,8 @@ namespace Basis.Scripts.Avatar
             }
 
             // Execute all stored calibration actions
-            for (int Index = 0; Index < calibrationActions.Count; Index++)
+            int Count =  calibrationActions.Count;
+            for (int Index = 0; Index < Count; Index++)
             {
                 Action action = calibrationActions[Index];
                 action();
@@ -176,7 +177,7 @@ namespace Basis.Scripts.Avatar
         }
         public static Dictionary<BasisBoneTrackedRole, Transform> GetAllRolesAsTransform()
         {
-            Common.BasisTransformMapping Mapping = BasisLocalPlayer.Instance.LocalAvatarDriver.References;
+            Common.BasisTransformMapping Mapping = BasisLocalAvatarDriver.References;
             Dictionary<BasisBoneTrackedRole, Transform> transforms = new Dictionary<BasisBoneTrackedRole, Transform>
     {
         { BasisBoneTrackedRole.Hips,Mapping.Hips },
@@ -254,9 +255,45 @@ namespace Basis.Scripts.Avatar
                 case BasisBoneTrackedRole.RightToes:
                     return 0.4f;
                 default:
-                    Console.WriteLine("Unknown role " + role);
+                    BasisDebug.LogError("Unknown role " + role);
                     return 0;
             }
         }
+        public static BasisBoneTrackedRole[] desiredOrder = new BasisBoneTrackedRole[]
+        {
+        BasisBoneTrackedRole.Hips,
+        BasisBoneTrackedRole.RightFoot,
+        BasisBoneTrackedRole.LeftFoot,
+        BasisBoneTrackedRole.LeftLowerLeg,
+        BasisBoneTrackedRole.RightLowerLeg,
+        BasisBoneTrackedRole.LeftLowerArm,
+        BasisBoneTrackedRole.RightLowerArm,
+
+        BasisBoneTrackedRole.CenterEye,
+        BasisBoneTrackedRole.Chest,
+
+        BasisBoneTrackedRole.Head,
+        BasisBoneTrackedRole.Neck,
+
+        BasisBoneTrackedRole.LeftHand,
+        BasisBoneTrackedRole.RightHand,
+
+        BasisBoneTrackedRole.LeftToes,
+        BasisBoneTrackedRole.RightToes,
+
+        BasisBoneTrackedRole.LeftUpperArm,
+        BasisBoneTrackedRole.RightUpperArm,
+        BasisBoneTrackedRole.LeftUpperLeg,
+        BasisBoneTrackedRole.RightUpperLeg,
+        BasisBoneTrackedRole.LeftShoulder,
+        BasisBoneTrackedRole.RightShoulder,
+        };
     }
+    public class BasisCalibrationConnector
+    {
+        [SerializeField]
+        public BasisInput BasisInput;
+        public float Distance;
+    }
+
 }
