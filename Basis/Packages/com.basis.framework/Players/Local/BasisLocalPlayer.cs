@@ -276,7 +276,7 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             //now that everything has been processed lets update WorldPosition in BoneDriver.
             //this is so AfterFinalMove can use world position coords. (stops Laggy pickups)
-            LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix, Rotation);
+            LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix);
 
             //handles fingers
             LocalHandDriver.UpdateFingers(BasisLocalAvatarDriver.References);
