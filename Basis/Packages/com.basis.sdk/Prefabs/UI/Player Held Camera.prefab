@@ -8143,46 +8143,6 @@ MonoBehaviour:
     HHC: {fileID: 1328027314608479337}
   BasisDOFInteractionHandler: {fileID: 6655142694718683072}
   interactable: {fileID: 1328027314608479337}
-  cameraUIReference:
-    TakePhotoButton: {fileID: 0}
-    ResetButton: {fileID: 0}
-    CloseButton: {fileID: 0}
-    Timer: {fileID: 0}
-    Nameplates: {fileID: 0}
-    OverrideDesktopOutput: {fileID: 0}
-    Selfie: {fileID: 0}
-    focusCursor: {fileID: 0}
-    DepthModeAutoButton: {fileID: 0}
-    DepthModeManualButton: {fileID: 0}
-    Resolution: {fileID: 0}
-    ResolutionSprites: []
-    Format: {fileID: 0}
-    PngSprite: {fileID: 0}
-    ExrSprite: {fileID: 0}
-    DoFAutoSprite: {fileID: 0}
-    DoFManualSprite: {fileID: 0}
-    ExposureSlider: {fileID: 0}
-    DOFFocusOutput: {fileID: 0}
-    DepthApertureOutput: {fileID: 0}
-    BloomIntensityOutput: {fileID: 0}
-    BloomThreshholdOutput: {fileID: 0}
-    ContrastOutput: {fileID: 0}
-    SaturationOutput: {fileID: 0}
-    FOVOutput: {fileID: 0}
-    FOVSlider: {fileID: 0}
-    DepthFocusDistanceSlider: {fileID: 0}
-    DepthApertureSlider: {fileID: 0}
-    BloomIntensitySlider: {fileID: 0}
-    BloomThresholdSlider: {fileID: 0}
-    ContrastSlider: {fileID: 0}
-    SaturationSlider: {fileID: 0}
-    uiOrientationElement: {fileID: 0}
-    uiOrientationElement2: {fileID: 0}
-    uiOrientationElement3: {fileID: 0}
-    uiOrientationElement4: {fileID: 0}
-    uiOrientationElement5: {fileID: 0}
-    cameraReference: {fileID: 0}
-    HHC: {fileID: 0}
   captureWidth: 3840
   captureHeight: 2160
   PreviewCaptureWidth: 1920

@@ -23,7 +23,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     [SerializeField] public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
     [SerializeField] public BasisDepthOfFieldInteractionHandler BasisDOFInteractionHandler;
     [SerializeField] private BasisHandHeldCameraInteractable interactable;
-    [SerializeField] private BasisHandHeldCameraUI cameraUIReference;
 
     [Header("Settings")]
     [Tooltip("Width of the captured photo")]
