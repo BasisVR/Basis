@@ -25,7 +25,7 @@ public class BasisHandHeldCameraUI
     public Button DepthModeAutoButton;
     public Button DepthModeManualButton;
     public enum DepthMode { Auto, Manual }
-    private DepthMode currentDepthMode = DepthMode.Auto;
+    public DepthMode currentDepthMode = DepthMode.Auto;
     [Space(10)]
     public Toggle Resolution;
     public GameObject[] ResolutionSprites; // 4 resolution sprites
@@ -191,18 +191,20 @@ public class BasisHandHeldCameraUI
         cameraReference.transform.rotation *= Quaternion.Euler(0, 180, 0);
         selfie = !selfie;
     }
-    private void SetDepthMode(DepthMode mode)
+    public void SetDepthMode(DepthMode mode)
     {
         currentDepthMode = mode;
 
         bool useAuto = (mode == DepthMode.Auto);
+        bool dofIsActive = HHC.MetaData.depthOfField.active;
 
-        focusCursor?.SetActive(HHC.MetaData.depthOfField.active);
-        DepthApertureSlider.gameObject.SetActive(true);
-        DepthFocusDistanceSlider.gameObject.SetActive(!useAuto);
+        focusCursor?.SetActive(dofIsActive);
 
-        if (DoFAutoSprite != null) DoFAutoSprite.SetActive(useAuto);
-        if (DoFManualSprite != null) DoFManualSprite.SetActive(!useAuto);
+        DepthApertureSlider.gameObject.SetActive(dofIsActive); // Only show if DoF is active
+        DepthFocusDistanceSlider.gameObject.SetActive(dofIsActive && !useAuto); // Only in Manual mode
+
+        if (DoFAutoSprite != null) DoFAutoSprite.SetActive(dofIsActive && useAuto);
+        if (DoFManualSprite != null) DoFManualSprite.SetActive(dofIsActive && !useAuto);
 
         BasisDebug.Log($"[DepthMode] Switched to {(useAuto ? "Auto" : "Manual")}");
     }

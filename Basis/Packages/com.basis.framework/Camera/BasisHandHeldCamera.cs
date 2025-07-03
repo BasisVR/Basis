@@ -9,7 +9,6 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.BasisSdk.Interactions;
 
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
@@ -24,7 +23,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     [SerializeField] public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
     [SerializeField] public BasisDepthOfFieldInteractionHandler BasisDOFInteractionHandler;
     [SerializeField] private BasisHandHeldCameraInteractable interactable;
-    [SerializeField] private BasisHandHeldCameraUI cameraUIReference;
 
     [Header("Settings")]
     [Tooltip("Width of the captured photo")]
@@ -189,16 +187,16 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             }
         }
     }
-        public new void Start()
+    public new void Start()
     {
         base.Start();
 
         OnPickupUse += OnPickupUseCapture;
     }
 
-    public void OnPickupUseCapture(BasisPickUpUseMode mode)
+    public void OnPickupUseCapture(PickUpUseMode mode)
     {
-        if (mode == BasisPickUpUseMode.OnPickUpUseDown)
+        if (mode == PickUpUseMode.OnPickUpUseDown)
         {
             CapturePhoto();
         }
@@ -480,6 +478,8 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     private new void OnBootModeChanged(string obj)
     {
         OverrideDesktopOutput();
+
+       // base.OnBootModeChanged(obj);
     }
 
     private void UnsubscribeMeshRendererCheck()
