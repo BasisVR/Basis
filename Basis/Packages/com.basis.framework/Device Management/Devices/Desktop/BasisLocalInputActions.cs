@@ -249,7 +249,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private void CrouchEnd()
         {
-            if (CrouchingLock) return;
             IsCrouchHeld = false;
             LocalCharacterDriver.UpdateMovementSpeed(IsRunHeld);
         }

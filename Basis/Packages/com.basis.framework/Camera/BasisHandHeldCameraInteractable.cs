@@ -392,13 +392,13 @@ public abstract class BasisHandHeldCameraInteractable : PickupInteractable
     {
         LookLock.Add(className);
         MovementLock.Add(className);
-        CrouchingLock.Add(className);
+        //CrouchingLock.Add(className);
     }
     private void UnlockPlayer(string className)
     {
         LookLock.Remove(className);
         MovementLock.Remove(className);
-        CrouchingLock.Remove(className);
+        //CrouchingLock.Remove(className);
     }
 
 

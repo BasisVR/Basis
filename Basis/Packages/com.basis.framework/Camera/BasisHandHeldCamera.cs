@@ -188,7 +188,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             }
         }
     }
-        public new void Start()
+    public new void Start()
     {
         base.Start();
 
