@@ -4,6 +4,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Profiler;
 using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
@@ -274,7 +275,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                return BasisLocalPlayer.Instance.LocalAvatarDriver.References.GetBoneLocalPositionRotation(bone, out position, out rotation);
+                return BasisLocalAvatarDriver.References.GetBoneLocalPositionRotation(bone, out position, out rotation);
             }
             else
             {

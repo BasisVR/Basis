@@ -3,9 +3,9 @@
     "rootNamespace": "",
     "references": [
         "BasisSDK",
-        "Basis",
         "Unity.Mathematics",
-        "LiteNetLib"
+        "LiteNetLib",
+        "Basis Framework"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

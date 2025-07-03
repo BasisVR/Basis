@@ -5,6 +5,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Device_Management.Devices.Simulation;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Transmitters;
@@ -127,9 +128,9 @@ public static class BasisMenuItemsEditor
         BasisInputXRSimulate BasisLeftFoot =  XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisLeftFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
         BasisInputXRSimulate BasisRightFoot =  XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisRightFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
 
-        var hips = BasisLocalPlayer.Instance.LocalAvatarDriver.References.Hips;
-        var leftFoot = BasisLocalPlayer.Instance.LocalAvatarDriver.References.leftFoot;
-        var rightFoot = BasisLocalPlayer.Instance.LocalAvatarDriver.References.rightFoot;
+        var hips = BasisLocalAvatarDriver.References.Hips;
+        var leftFoot = BasisLocalAvatarDriver.References.leftFoot;
+        var rightFoot = BasisLocalAvatarDriver.References.rightFoot;
 
         Vector3 HipsPosition = ModifyVector(hips.position);
         Vector3 leftFootPosition = ModifyVector(leftFoot.position);
@@ -153,7 +154,7 @@ public static class BasisMenuItemsEditor
         // Create an array of the tracker names for simplicity
         string trackerName = "{htc}vr_tracker_vive_3_0";
 
-        var avatarDriver = BasisLocalPlayer.Instance.LocalAvatarDriver.References;
+        var avatarDriver = BasisLocalAvatarDriver.References;
         // avatarDriver.neck, avatarDriver.head,
         // Array of all relevant body parts
         Transform[] bodyParts = new Transform[]
@@ -188,7 +189,7 @@ public static class BasisMenuItemsEditor
         // Create an array of the tracker names for simplicity
         string trackerName = "{htc}vr_tracker_vive_3_0";
 
-        var avatarDriver = BasisLocalPlayer.Instance.LocalAvatarDriver.References;
+        var avatarDriver = BasisLocalAvatarDriver.References;
         // avatarDriver.neck, avatarDriver.head,
         // Array of all relevant body parts
         Transform[] bodyParts = new Transform[]

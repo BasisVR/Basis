@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -13,7 +14,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 namespace Basis.Scripts.UI.NamePlate
 {
-    public class BasisRemoteNamePlate : InteractableObject
+    public class BasisRemoteNamePlate : BasisInteractableObject
     {
         public BasisRemoteBoneControl HipTarget;
         public BasisRemoteBoneControl MouthTarget;
@@ -208,7 +209,7 @@ namespace Basis.Scripts.UI.NamePlate
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
-                found.GetState() == InteractInputState.Ignored &&
+                found.GetState() == BasisInteractInputState.Ignored &&
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
         public override bool CanInteract(BasisInput input)
@@ -217,18 +218,18 @@ namespace Basis.Scripts.UI.NamePlate
                 Inputs.IsInputAdded(input) &&
                 input.TryGetRole(out BasisBoneTrackedRole role) &&
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&
-                found.GetState() == InteractInputState.Hovering &&
+                found.GetState() == BasisInteractInputState.Hovering &&
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
 
         public override void OnHoverStart(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
-            if (found != null && found.Value.GetState() != InteractInputState.Ignored)
-                BasisDebug.LogWarning(nameof(PickupInteractable) + " input state is not ignored OnHoverStart, this shouldn't happen");
-            var added = Inputs.ChangeStateByRole(found.Value.Role, InteractInputState.Hovering);
+            if (found != null && found.Value.GetState() != BasisInteractInputState.Ignored)
+                BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " input state is not ignored OnHoverStart, this shouldn't happen");
+            var added = Inputs.ChangeStateByRole(found.Value.Role, BasisInteractInputState.Hovering);
             if (!added)
-                BasisDebug.LogWarning(nameof(PickupInteractable) + " did not find role for input on hover");
+                BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " did not find role for input on hover");
 
             OnHoverStartEvent?.Invoke(input);
             HighlightObject(true);
@@ -240,9 +241,9 @@ namespace Basis.Scripts.UI.NamePlate
             {
                 if (!willInteract)
                 {
-                    if (!Inputs.ChangeStateByRole(role, InteractInputState.Ignored))
+                    if (!Inputs.ChangeStateByRole(role, BasisInteractInputState.Ignored))
                     {
-                        BasisDebug.LogWarning(nameof(PickupInteractable) + " found input by role but could not remove by it, this is a bug.");
+                        BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " found input by role but could not remove by it, this is a bug.");
                     }
                 }
                 OnHoverEndEvent?.Invoke(input, willInteract);
@@ -255,7 +256,7 @@ namespace Basis.Scripts.UI.NamePlate
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 // same input that was highlighting previously
-                if (wrapper.GetState() == InteractInputState.Hovering)
+                if (wrapper.GetState() == BasisInteractInputState.Hovering)
                 {
                     WasPressed();
                     OnInteractStartEvent?.Invoke(input);
@@ -267,7 +268,7 @@ namespace Basis.Scripts.UI.NamePlate
             }
             else
             {
-                BasisDebug.LogWarning(nameof(PickupInteractable) + " did not find role for input on Interact start");
+                BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " did not find role for input on Interact start");
             }
         }
 
@@ -275,9 +276,9 @@ namespace Basis.Scripts.UI.NamePlate
         {
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
-                if (wrapper.GetState() == InteractInputState.Interacting)
+                if (wrapper.GetState() == BasisInteractInputState.Interacting)
                 {
-                    Inputs.ChangeStateByRole(wrapper.Role, InteractInputState.Ignored);
+                    Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Ignored);
 
                     WasPressed();
                     OnInteractEndEvent?.Invoke(input);
@@ -298,13 +299,13 @@ namespace Basis.Scripts.UI.NamePlate
         public override bool IsInteractingWith(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
-            return found.HasValue && found.Value.GetState() == InteractInputState.Interacting;
+            return found.HasValue && found.Value.GetState() == BasisInteractInputState.Interacting;
         }
 
         public override bool IsHoveredBy(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
-            return found.HasValue && found.Value.GetState() == InteractInputState.Hovering;
+            return found.HasValue && found.Value.GetState() == BasisInteractInputState.Hovering;
         }
 
         public override void InputUpdate()

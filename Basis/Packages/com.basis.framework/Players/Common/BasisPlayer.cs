@@ -27,7 +27,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisAvatar BasisAvatar;
         public Transform BasisAvatarTransform;
         public Transform PlayerSelf;//yes caching myself is faster.
-        public event Action OnMetaDataUpdated;
+        // public event Action OnMetaDataUpdated;
         public event Action OnAvatarSwitched;
         public event Action OnAvatarSwitchedFallBack;
         public BasisProgressReport ProgressReportAvatarLoad = new BasisProgressReport();

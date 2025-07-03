@@ -136,23 +136,50 @@ MonoBehaviour:
   m_GameObject: {fileID: 8223825610722225387}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 690ab0b52a9b06b4498ad303592416aa, type: 3}
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  disableInteract: 0
-  InteractRange: 1
-  CanEquip: 0
-  equipPos: {x: 0, y: 0, z: 0}
-  equipRot: {x: 0, y: 0, z: 0, w: 0}
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
+  CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
   GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
+  interactEndLinearVelocityMultiplier: 1
+  minAngularVelocity: 0.5
+  interactEndAngularVelocityMultiplier: 1
   ColliderRef: {fileID: 5957042272599879760}
   RigidRef: {fileID: 2949146011986281948}
-  ConstraintRef: {fileID: 0}
+  InputConstraint:
+    rid: 1028902784308609149
+  InteractRange: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: 1028902784308609149
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
+      data:
+        Enabled: 1
+        GlobalWeight: 1
+        _restPosition: {x: 0, y: 0, z: 0}
+        _restRotation: {x: 0, y: 0, z: 0, w: 0}
+        sources: []
 --- !u!54 &2949146011986281948
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -160,10 +187,10 @@ Rigidbody:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8223825610722225387}
-  serializedVersion: 4
+  serializedVersion: 5
   m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -196,12 +223,12 @@ MonoBehaviour:
   HasMessageIndexAssigned: 0
   NetworkId: 
   TargetFrequency: 10
+  NetworkLerpSpeed: 7
   CurrentOwner: 0
   IsLocalOwner: 0
   HasActiveOwnership: 0
   LerpMultiplier: 3
-  Rigidbody: {fileID: 2949146011986281948}
   ContentConnector: {fileID: 923673149091474816}
-  InteractableObjects: []
+  InteractableObjects: {fileID: 0}
   DeliveryMethod: 0
   DataFormat: 0

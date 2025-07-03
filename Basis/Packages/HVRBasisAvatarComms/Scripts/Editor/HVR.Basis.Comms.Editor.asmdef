@@ -3,9 +3,9 @@
     "rootNamespace": "",
     "references": [
         "BasisSDK",
-        "Basis",
         "DarkRiftIntergration",
-        "HVR.Basis.Comms"
+        "HVR.Basis.Comms",
+        "Basis Framework"
     ],
     "includePlatforms": [
         "Editor"

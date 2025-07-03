@@ -12,11 +12,10 @@ namespace Basis.Scripts.Drivers
     [System.Serializable]
     public class BasisLocalBoneDriver
     {
-        public static BasisLocalBoneControl Head;
-        public static BasisLocalBoneControl Hips;
-        public static BasisLocalBoneControl Eye;
-        public static BasisLocalBoneControl Mouth;
         public static BasisLocalBoneControl HeadControl;
+        public static BasisLocalBoneControl HipsControl;
+        public static BasisLocalBoneControl EyeControl;
+        public static BasisLocalBoneControl MouthControl;
         public static BasisLocalBoneControl LeftFootControl;
         public static BasisLocalBoneControl RightFootControl;
         public static BasisLocalBoneControl LeftHandControl;
@@ -30,30 +29,6 @@ namespace Basis.Scripts.Drivers
         public static BasisLocalBoneControl LeftToeControl;
         public static BasisLocalBoneControl RightToeControl;
         public static bool HasEye;
-
-        public void Initialize()
-        {
-            HasEye = FindBone(out Eye, BasisBoneTrackedRole.CenterEye);
-            FindBone(out Head, BasisBoneTrackedRole.Head);
-            FindBone(out Hips, BasisBoneTrackedRole.Hips);
-            FindBone(out Mouth, BasisBoneTrackedRole.Mouth);
-
-            // --- Bone Lookup ---
-            FindBone(out HeadControl, BasisBoneTrackedRole.Head);
-            FindBone(out LeftFootControl, BasisBoneTrackedRole.LeftFoot);
-            FindBone(out RightFootControl, BasisBoneTrackedRole.RightFoot);
-            FindBone(out LeftHandControl, BasisBoneTrackedRole.LeftHand);
-            FindBone(out RightHandControl, BasisBoneTrackedRole.RightHand);
-
-            FindBone(out ChestControl, BasisBoneTrackedRole.Chest);
-            FindBone(out LeftLowerLegControl, BasisBoneTrackedRole.LeftLowerLeg);
-            FindBone(out RightLowerLegControl, BasisBoneTrackedRole.RightLowerLeg);
-            FindBone(out LeftLowerArmControl, BasisBoneTrackedRole.LeftLowerArm);
-            FindBone(out RightLowerArmControl, BasisBoneTrackedRole.RightLowerArm);
-
-            FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
-            FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
-        }
         //figures out how to get the mouth bone and eye position
         public int ControlsLength;
         [SerializeField]
@@ -63,6 +38,24 @@ namespace Basis.Scripts.Drivers
         public bool HasControls = false;
         public static float DefaultGizmoSize = 0.05f;
         public static float HandGizmoSize = 0.015f;
+        public void Initialize()
+        {
+            HasEye = FindBone(out EyeControl, BasisBoneTrackedRole.CenterEye);
+            FindBone(out HeadControl, BasisBoneTrackedRole.Head);
+            FindBone(out HipsControl, BasisBoneTrackedRole.Hips);
+            FindBone(out MouthControl, BasisBoneTrackedRole.Mouth);
+            FindBone(out LeftFootControl, BasisBoneTrackedRole.LeftFoot);
+            FindBone(out RightFootControl, BasisBoneTrackedRole.RightFoot);
+            FindBone(out LeftHandControl, BasisBoneTrackedRole.LeftHand);
+            FindBone(out RightHandControl, BasisBoneTrackedRole.RightHand);
+            FindBone(out ChestControl, BasisBoneTrackedRole.Chest);
+            FindBone(out LeftLowerLegControl, BasisBoneTrackedRole.LeftLowerLeg);
+            FindBone(out RightLowerLegControl, BasisBoneTrackedRole.RightLowerLeg);
+            FindBone(out LeftLowerArmControl, BasisBoneTrackedRole.LeftLowerArm);
+            FindBone(out RightLowerArmControl, BasisBoneTrackedRole.RightLowerArm);
+            FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
+            FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
+        }
         /// <summary>
         /// call this after updating the bone data
         /// </summary>
@@ -116,8 +109,6 @@ namespace Basis.Scripts.Drivers
         }
         public void SimulateWorldDestinations(Matrix4x4 localToWorldMatrix, Quaternion Rotation)
         {
-            //   Matrix4x4 parentMatrix = transform.localToWorldMatrix;
-            //  Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 // Apply local transform to parent's world transform
@@ -307,7 +298,7 @@ namespace Basis.Scripts.Drivers
                         }
                     }
                 }
-                if (BasisLocalPlayer.Instance.LocalAvatarDriver.CurrentlyTposing)
+                if (BasisLocalAvatarDriver.CurrentlyTposing)
                 {
                     if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
                     {

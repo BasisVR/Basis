@@ -77,14 +77,14 @@ namespace Basis.Scripts.Eye_Follow
                 }
                 HasEvents = true;
             }
-            rightEyeTransform = BasisLocalPlayer.Instance.LocalAvatarDriver.References.RightEye;
-            leftEyeTransform = BasisLocalPlayer.Instance.LocalAvatarDriver.References.LeftEye;
-            HeadTransform = BasisLocalPlayer.Instance.LocalAvatarDriver.References.head;
+            rightEyeTransform = BasisLocalAvatarDriver.References.RightEye;
+            leftEyeTransform = BasisLocalAvatarDriver.References.LeftEye;
+            HeadTransform = BasisLocalAvatarDriver.References.head;
 
-            HasLeftEye = BasisLocalPlayer.Instance.LocalAvatarDriver.References.HasLeftEye;
-            HasRightEye = BasisLocalPlayer.Instance.LocalAvatarDriver.References.HasRightEye;
-            HasHead = BasisLocalPlayer.Instance.LocalAvatarDriver.References.Hashead;
-            Vector3 HeadPosition = BasisLocalPlayer.Instance.LocalAvatarDriver.References.head.position;
+            HasLeftEye = BasisLocalAvatarDriver.References.HasLeftEye;
+            HasRightEye = BasisLocalAvatarDriver.References.HasRightEye;
+            HasHead = BasisLocalAvatarDriver.References.Hashead;
+            Vector3 HeadPosition = BasisLocalAvatarDriver.References.head.position;
             if (HasLeftEye)
             {
                 LeftEyeInitallocalSpace.rotation = leftEyeTransform.rotation;

@@ -66,7 +66,7 @@ namespace Basis.Scripts.Animator_Driver
 
         public void SimulateAnimator(float DeltaTime)
         {
-            if (LocalPlayer.LocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
+            if (BasisLocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
             {
                 if (basisAnimatorVariableApply.IsStopped == false)
                 {
@@ -76,7 +76,7 @@ namespace Basis.Scripts.Animator_Driver
             }
             // Calculate the velocity of the character controller
             var charDriver = LocalPlayer.LocalCharacterDriver;
-            currentVelocity = Quaternion.Inverse(BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation) * (charDriver.bottomPointLocalSpace - charDriver.LastBottomPoint) / DeltaTime;
+            currentVelocity = Quaternion.Inverse(BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation) * (charDriver.bottomPointLocalSpace - charDriver.LastBottomPoint) / DeltaTime;
 
             // Sanitize currentVelocity
             currentVelocity = new Vector3(
@@ -128,7 +128,7 @@ namespace Basis.Scripts.Animator_Driver
             basisAnimatorVariableApply.BasisAnimatorVariables.IsCrouching = LocalCharacterDriver.CrouchBlend < CrouchThreshold;
 
             // Calculate the angular velocity of the hips
-            deltaRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation * Quaternion.Inverse(previousHipsRotation);
+            deltaRotation = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation * Quaternion.Inverse(previousHipsRotation);
             deltaRotation.ToAngleAxis(out float angle, out Vector3 axis);
 
             angularVelocity = axis * angle / DeltaTime;
@@ -148,7 +148,7 @@ namespace Basis.Scripts.Animator_Driver
             // Update the previous velocities and rotations for the next frame
             previousRawVelocity = dampenedVelocity;
             previousAngularVelocity = dampenedAngularVelocity;
-            previousHipsRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation;
+            previousHipsRotation = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation;
         }
         private void JustJumped()
         {

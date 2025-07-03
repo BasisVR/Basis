@@ -3,6 +3,7 @@ using Basis.Scripts.Addressable_Driver.Enums;
 using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using System.Threading;
 using TMPro;
 using UnityEngine;
@@ -95,6 +96,11 @@ namespace Basis.Scripts.UI.UI_Panels
                 // Trim leading and trailing whitespace from the URL
                 string processedUrl = ConnectorField.text.Trim();
 
+                if (ApplyPlatformConversionOfUrl(processedUrl, out string Converted))
+                {
+                    processedUrl = Converted;
+                }
+
                 ValidateURL(processedUrl, out string errorReason, out bool valid);
                 if (!valid)
                 {
@@ -111,6 +117,34 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 DisplayError($"Unexpected error: {ex.Message}");
             }
+        }
+        public bool ApplyPlatformConversionOfUrl(string SharedLink, out string ConvertedLink)
+        {
+            if (IsGoogleDriveLink(SharedLink))
+            {
+                BasisDebug.Log("Was a Google Drive Link Converting!");
+                string fileId = ExtractFileId(SharedLink);
+                if (!string.IsNullOrEmpty(fileId))
+                {
+                    ConvertedLink = $"https://drive.google.com/uc?export=download&id={fileId}";
+                    return true;
+                }
+                else
+                {
+                    BasisDebug.LogError("Could not extract File ID from the shared link. Was detected as a google drive", BasisDebug.LogTag.System);
+                }
+            }
+            ConvertedLink = string.Empty;
+            return false;
+        }
+        bool IsGoogleDriveLink(string url)
+        {
+            return Regex.IsMatch(url, @"^https:\/\/drive\.google\.com\/file\/d\/[a-zA-Z0-9_-]+\/");
+        }
+        string ExtractFileId(string url)
+        {
+            Match match = Regex.Match(url, @"\/file\/d\/([a-zA-Z0-9_-]+)");
+            return match.Success ? match.Groups[1].Value : null;
         }
 
         private void ValidateURL(string url, out string errorReason, out bool valid)

@@ -11,7 +11,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 namespace Basis.Scripts.BasisSdk.Players
@@ -27,20 +26,12 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public static float DefaultPlayerArmSpan = FallbackSize;
         public static float DefaultAvatarArmSpan = FallbackSize;
-        [SerializeField]
-        public LayerMask GroundMask;
-        public static string LoadFileNameAndExtension = "LastUsedAvatar.BAS";
-        public bool HasEvents = false;
-        public bool SpawnPlayerOnSceneLoad = true;
-        public const string DefaultAvatar = "LoadingAvatar";
 
-        public bool HasCalibrationEvents = false;
-        public bool ToggleAvatarSim = false;
-        public float currentDistance;
-        public float3 direction;
-        public float overshoot;
-        public float3 correction;
-        public float3 output;
+        public static string LoadFileNameAndExtension = "LastUsedAvatar.BAS";
+        public static bool HasEvents = false;
+        public static bool SpawnPlayerOnSceneLoad = true;
+        public const string DefaultAvatar = "LoadingAvatar";
+        public static bool HasCalibrationEvents = false;
 
         public static Action OnLocalPlayerCreatedAndReady;
         public static Action OnLocalPlayerCreated;
@@ -49,8 +40,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnPlayersHeightChangedNextFrame;
         public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();
 
-        public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
-        public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
         [Header("Camera Driver")]
         [SerializeField]
         public BasisLocalCameraDriver LocalCameraDriver;
@@ -62,6 +51,9 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Calibration And Avatar Driver")]
         [SerializeField]
         public BasisLocalAvatarDriver LocalAvatarDriver = new BasisLocalAvatarDriver();
+        [Header("Rig Driver")]
+        [SerializeField]
+        public BasisLocalRigDriver LocalRigDriver = new BasisLocalRigDriver();
         //how the player is able to move and have physics applied to them
         [Header("Character Driver")]
         [SerializeField]
@@ -80,13 +72,16 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Mouth & Visemes Driver")]
         [SerializeField]
         public BasisAudioAndVisemeDriver LocalVisemeDriver = new BasisAudioAndVisemeDriver();
+        [Header("Height Information")]
+        public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
+        public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
         public async Task LocalInitialize()
         {
             if (BasisHelpers.CheckInstance(Instance))
             {
                 Instance = this;
             }
-            BasisLocalMicrophoneDriver.OnPausedAction += OnPausedEvent;
+            BasisLocalMicrophoneDriver.OnPausedAction += LocalVisemeDriver.OnPausedEvent;
             OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
             LocalBoneDriver.CreateInitialArrays(true);
@@ -124,8 +119,8 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisDebug.LogError("Cant Find Basis Scene");
             }
             BasisUILoadingBar.Initalize();
-
         }
+
         public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
         {
             if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisOnDiscInformation info))
@@ -157,6 +152,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
         }
+
         public void Teleport(Vector3 position, Quaternion rotation)
         {
             BasisAvatarStrainJiggleDriver.PrepareTeleport();
@@ -171,6 +167,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisAvatarStrainJiggleDriver.FinishTeleport();
             OnSpawnedEvent?.Invoke();
         }
+
         public void OnSceneLoadedCallback(Scene scene, LoadSceneMode mode)
         {
             if (SpawnPlayerOnSceneLoad)
@@ -179,17 +176,20 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisSceneFactory.SpawnPlayer(this);
             }
         }
+
         public async Task CreateAvatar(byte LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle);
             BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
             OnLocalAvatarChanged?.Invoke();
         }
+
         public async Task CreateAvatarFromMode(BasisLoadMode LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             byte LoadByte = (byte)LoadMode;
             await CreateAvatar(LoadByte, BasisLoadableBundle);
         }
+
         public void OnCalibration()
         {
             LocalVisemeDriver.TryInitialize(this);
@@ -200,6 +200,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 HasCalibrationEvents = true;
             }
         }
+
         public void OnDestroy()
         {
             if (HasEvents)
@@ -226,38 +227,22 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 FacialBlinkDriver.OnDestroy();
             }
-            BasisLocalMicrophoneDriver.OnPausedAction -= OnPausedEvent;
+            BasisLocalMicrophoneDriver.OnPausedAction -= LocalVisemeDriver.OnPausedEvent;
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
             BasisUILoadingBar.DeInitalize();
         }
+
         public void DriveAudioToViseme()
         {
             LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray, 1, BasisLocalMicrophoneDriver.processBufferArray.Length);
         }
-        private void OnPausedEvent(bool IsPaused)
-        {
-            if (IsPaused)
-            {
-                if (LocalVisemeDriver.uLipSyncBlendShape != null)
-                {
-                    LocalVisemeDriver.uLipSyncBlendShape.maxVolume = 0;
-                    LocalVisemeDriver.uLipSyncBlendShape.minVolume = 0;
-                }
-            }
-            else
-            {
-                if (LocalVisemeDriver.uLipSyncBlendShape != null)
-                {
-                    LocalVisemeDriver.uLipSyncBlendShape.maxVolume = -1.5f;
-                    LocalVisemeDriver.uLipSyncBlendShape.minVolume = -2.5f;
-                }
-            } 
-        }
+
         public void SimulateOnLateUpdate()
         {
             FacialBlinkDriver.Simulate();
         }
+
         public void SimulateOnRender()
         {
             float DeltaTime = Time.deltaTime;
@@ -268,13 +253,14 @@ namespace Basis.Scripts.BasisSdk.Players
 
             //moves all bones to where they belong
             LocalBoneDriver.SimulateAndApply(this, DeltaTime);
-            //moves Avatar Transform to where it belongs
-            Quaternion Rotation = MoveAvatar();
-            //Simulate Final Destination of IK
-            LocalAvatarDriver.SimulateIKDestinations(Rotation);
 
+            //moves Avatar Hip Transform to where it belongs
+            Quaternion Rotation = LocalAvatarDriver.MoveAvatar(BasisAvatar);
+
+            //Simulate Final Destination of IK
+            //then
             //process Animator and IK processes.
-            LocalAvatarDriver.SimulateAnimatorAndIk(DeltaTime);
+            LocalRigDriver.SimulateIKDestinations(Rotation, DeltaTime);
 
             //we move the player at the very end after everything has been processed.
             LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
@@ -293,52 +279,15 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix, Rotation);
 
             //handles fingers
-            LocalHandDriver.UpdateFingers(LocalAvatarDriver.References);
+            LocalHandDriver.UpdateFingers(BasisLocalAvatarDriver.References);
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();
         }
-        public Quaternion MoveAvatar()
-        {
-            if (BasisAvatar == null)
-            {
-                return Quaternion.identity;
-            }
-
-            // World positions
-            Vector3 headPosition = BasisLocalBoneDriver.Head.OutgoingWorldData.position;
-            Vector3 hipsPosition = BasisLocalBoneDriver.Hips.OutgoingWorldData.position;
-            Quaternion parentWorldRotation = BasisLocalBoneDriver.Hips.OutgoingWorldData.rotation;
-
-            currentDistance = Vector3.Distance(headPosition, hipsPosition);
-
-            // Use blended XZ center, but keep hips Y for grounded position
-            Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
-            blendedXZ.y = hipsPosition.y;
-            if (currentDistance <= LocalAvatarDriver.MaxExtendedDistance)
-            {
-                output = -BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
-            }
-            else
-            {
-                Vector3 direction = (hipsPosition - headPosition).normalized;
-                float overshoot = currentDistance - LocalAvatarDriver.MaxExtendedDistance;
-                Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.Hips.TposeLocalScaled.position;
-                float3 correctedHips = TposeHips + correction;
-                output = -correctedHips;
-            }
-
-            Vector3 childWorldPosition = blendedXZ + parentWorldRotation * output;
-
-            BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
-            return parentWorldRotation;
-        }
-
-
 
         // Define the delegate type
         public delegate void NextFrameAction();
+
         /// <summary>
         /// Executes the delegate in the next frame.
         /// </summary>

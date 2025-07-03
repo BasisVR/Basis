@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
@@ -126,7 +127,7 @@ namespace Basis.Scripts.Avatar
             }
 
             BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
-            BasisLocalPlayer.Instance.LocalAvatarDriver.CalibrateRoles();//not needed but still doing just incase
+            BasisLocalPlayer.Instance.LocalRigDriver.CalibrateRoles();//not needed but still doing just incase
             BasisLocalPlayer.Instance.LocalAnimatorDriver.AssignHipsFBTracker();
         }
         public static void RunThroughConnectors(BasisTrackerMapping mapping, ref List<BasisInput> BasisInputs, ref List<BasisBoneTrackedRole> roles)
@@ -176,7 +177,7 @@ namespace Basis.Scripts.Avatar
         }
         public static Dictionary<BasisBoneTrackedRole, Transform> GetAllRolesAsTransform()
         {
-            Common.BasisTransformMapping Mapping = BasisLocalPlayer.Instance.LocalAvatarDriver.References;
+            Common.BasisTransformMapping Mapping = BasisLocalAvatarDriver.References;
             Dictionary<BasisBoneTrackedRole, Transform> transforms = new Dictionary<BasisBoneTrackedRole, Transform>
     {
         { BasisBoneTrackedRole.Hips,Mapping.Hips },

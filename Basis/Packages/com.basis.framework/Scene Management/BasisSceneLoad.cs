@@ -43,10 +43,7 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public static void SetIfPlayerShouldSpawnOnSceneLoad(bool SpawnPlayerOnSceneLoad)
         {
-            if (BasisLocalPlayer.Instance != null)
-            {
-                BasisLocalPlayer.Instance.SpawnPlayerOnSceneLoad = SpawnPlayerOnSceneLoad;
-            }
+            BasisLocalPlayer.SpawnPlayerOnSceneLoad = SpawnPlayerOnSceneLoad;
         }
     }
 }

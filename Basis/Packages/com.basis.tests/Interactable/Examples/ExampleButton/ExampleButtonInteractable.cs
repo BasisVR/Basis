@@ -1,7 +1,8 @@
 using System;
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using UnityEngine;
-public class ExampleButtonInteractable : InteractableObject
+public class ExampleButtonInteractable : BasisInteractableObject
 {
     // public BasisObjectSyncNetworking syncNetworking;
 
@@ -59,21 +60,21 @@ public class ExampleButtonInteractable : InteractableObject
 
     public override bool CanHover(BasisInput input)
     {
-        return _InputSource.GetState() == InteractInputState.NotAdded && IsWithinRange(input.transform.position, InteractRange) && isEnabled;
+        return _InputSource.GetState() == BasisInteractInputState.NotAdded && IsWithinRange(input.transform.position, InteractRange) && isEnabled;
     }
     public override bool CanInteract(BasisInput input)
     {
         // must be the same input hovering
         if (!_InputSource.IsInput(input)) return false;
         // dont interact again till after interacting stopped
-        if (_InputSource.GetState() == InteractInputState.Interacting) return false;
+        if (_InputSource.GetState() == BasisInteractInputState.Interacting) return false;
 
         return IsWithinRange(input.transform.position, InteractRange) && isEnabled;
     }
 
     public override void OnHoverStart(BasisInput input)
     {
-        if (!BasisInputWrapper.TryNewTracking(input, InteractInputState.Hovering, out BasisInputWrapper wrapper))
+        if (!BasisInputWrapper.TryNewTracking(input, BasisInteractInputState.Hovering, out BasisInputWrapper wrapper))
         {
             BasisDebug.LogWarning($"{nameof(ExampleButtonInteractable)}: Failed to setup input on hover");
             return;
@@ -91,7 +92,7 @@ public class ExampleButtonInteractable : InteractableObject
             // leaving hover and wont interact this frame, 
             if (!willInteract)
             {
-                bool added = BasisInputWrapper.TryNewTracking(null, InteractInputState.NotAdded, out BasisInputWrapper wrapper);
+                bool added = BasisInputWrapper.TryNewTracking(null, BasisInteractInputState.NotAdded, out BasisInputWrapper wrapper);
                 // setting to null should not add the tracker
                 Debug.Assert(!added);
                 _InputSource = wrapper;
@@ -106,14 +107,14 @@ public class ExampleButtonInteractable : InteractableObject
 
     public override void OnInteractStart(BasisInput input)
     {
-        if (_InputSource.IsInput(input) && _InputSource.GetState() == InteractInputState.Hovering )
+        if (_InputSource.IsInput(input) && _InputSource.GetState() == BasisInteractInputState.Hovering )
         {
             // Set ownership to the local player
             // syncNetworking.IsOwner = true;
             SetColor(InteractColor);
 
             var newSource = _InputSource;
-            var didSetState = newSource.TrySetState(InteractInputState.Interacting);
+            var didSetState = newSource.TrySetState(BasisInteractInputState.Interacting);
             Debug.Assert(didSetState);
             _InputSource = newSource;
 
@@ -128,7 +129,7 @@ public class ExampleButtonInteractable : InteractableObject
         if (_InputSource.IsInput(input))
         {
             SetColor(Color);
-            bool added = BasisInputWrapper.TryNewTracking(null, InteractInputState.NotAdded, out BasisInputWrapper wrapper);
+            bool added = BasisInputWrapper.TryNewTracking(null, BasisInteractInputState.NotAdded, out BasisInputWrapper wrapper);
             // setting to null should not add the tracker
             Debug.Assert(!added);
             _InputSource = wrapper;
@@ -141,13 +142,13 @@ public class ExampleButtonInteractable : InteractableObject
     public override bool IsInteractingWith(BasisInput input)
     {
         return _InputSource.IsInput(input) &&
-            _InputSource.GetState() == InteractInputState.Interacting;
+            _InputSource.GetState() == BasisInteractInputState.Interacting;
     }
 
     public override bool IsHoveredBy(BasisInput input)
     {
         return _InputSource.IsInput(input) &&
-            _InputSource.GetState() == InteractInputState.Hovering;
+            _InputSource.GetState() == BasisInteractInputState.Hovering;
     }
 
     // set material property to a color
@@ -170,7 +171,7 @@ public class ExampleButtonInteractable : InteractableObject
             {
                 _triggerCleanup = false;
                 // clean up currently hovering/interacting
-                if (_InputSource.GetState() != InteractInputState.NotAdded)
+                if (_InputSource.GetState() != BasisInteractInputState.NotAdded)
                 {
                     if (IsHoveredBy(_InputSource.Source))
                     {
