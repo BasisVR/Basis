@@ -115,7 +115,7 @@ namespace Basis.Scripts.Drivers
                 Controls[Index].OutgoingWorldData.position = localToWorldMatrix.MultiplyPoint3x4(Controls[Index].OutGoingData.position);
 
                 // Transform rotation via quaternion multiplication
-                Controls[Index].OutgoingWorldData.rotation = Rotation * Controls[Index].OutGoingData.rotation;
+                // Controls[Index].OutgoingWorldData.rotation = Rotation * Controls[Index].OutGoingData.rotation;
             }
         }
         public void RemoveAllListeners()
