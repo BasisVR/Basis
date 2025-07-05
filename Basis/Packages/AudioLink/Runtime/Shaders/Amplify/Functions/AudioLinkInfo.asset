@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78b2425a2284af743826c689403a4924, type: 3}
+  m_Name: AudioLinkInfo
+  m_EditorClassIdentifier: 
+  m_functionInfo: "// Made with Amplify Shader Editor\n// Available at the Unity
+    Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=18935\n802;73;1117;926;292;341;1;True;True\nNode;AmplifyShaderEditor.CustomExpressionNode;1;-139.5,-235.5;Inherit;False;AudioLinkData(
+    ALPASS_GENERALVU + uint2( 0, 0 )).x;4;Create;0;AudioLinkData;True;False;0;;False;0;1;FLOAT4;0\nNode;AmplifyShaderEditor.CustomExpressionNode;4;-135.5,48.5;Inherit;False;AudioLinkData(
+    ALPASS_GENERALVU + uint2( 1, 0 )).x;4;Create;0;AudioLinkData;True;False;0;;False;0;1;FLOAT4;0\nNode;AmplifyShaderEditor.BreakToComponentsNode;2;56.5,-205.5;Inherit;False;FLOAT4;1;0;FLOAT4;0,0,0,0;False;16;FLOAT;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT;5;FLOAT;6;FLOAT;7;FLOAT;8;FLOAT;9;FLOAT;10;FLOAT;11;FLOAT;12;FLOAT;13;FLOAT;14;FLOAT;15\nNode;AmplifyShaderEditor.BreakToComponentsNode;5;58.5,12.5;Inherit;False;FLOAT4;1;0;FLOAT4;0,0,0,0;False;16;FLOAT;0;FLOAT;1;FLOAT;2;FLOAT;3;FLOAT;4;FLOAT;5;FLOAT;6;FLOAT;7;FLOAT;8;FLOAT;9;FLOAT;10;FLOAT;11;FLOAT;12;FLOAT;13;FLOAT;14;FLOAT;15\nNode;AmplifyShaderEditor.FunctionOutput;0;292,-238;Inherit;False;True;-1;Version;0;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionOutput;3;283.5,-111.5;Inherit;False;False;-1;System
+    FPS;1;False;1;0;FLOAT;0;False;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionOutput;6;280.5,16.5;Inherit;False;False;-1;AudioLink
+    FPS;2;False;1;0;FLOAT;0;False;1;FLOAT;0\nWireConnection;2;0;1;0\nWireConnection;5;0;4;0\nWireConnection;0;0;2;0\nWireConnection;3;0;2;2\nWireConnection;6;0;5;1\nASEEND*/\n//CHKSM=FEB78C2BBA1390970905EE7A993937B278127C4A"
+  m_functionName: 
+  m_description: Returns some info about AudioLink
+  m_additionalIncludes:
+    m_additionalIncludes: []
+    m_outsideIncludes: []
+  m_additionalPragmas:
+    m_additionalPragmas: []
+    m_outsidePragmas: []
+  m_additionalDirectives:
+    m_validData: 0
+    m_isDirty: 1
+    m_moduleName: ' Additional Directives'
+    m_independentModule: 1
+    m_customEdited: 0
+    m_additionalDirectives:
+    - {fileID: 0}
+    m_shaderFunctionDirectives: []
+    m_nativeDirectives: []
+    m_nativeDirectivesIndex: -1
+    m_nativeDirectivesFoldout: 0
+    m_directivesSaveItems:
+    - LineType: 0
+      LineValue: Packages/com.llealloo.audiolink/Runtime/Shaders/AudioLink.cginc
+      GUIDToggle: 0
+      GUIDValue: 
+      Origin: 2
+  m_nodeCategory: 0
+  m_customNodeCategory: AudioLink
+  m_previewPosition: 0
+  m_hidden: 0
+  m_url: https://github.com/llealloo/vrc-udon-audio-link/tree/master/Docs

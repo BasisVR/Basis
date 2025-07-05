@@ -1,0 +1,28 @@
+{
+    "name": "AudioLink.Editor",
+    "rootNamespace": "",
+    "references": [
+        "AudioLink",
+        "UdonSharp.Editor",
+        "UdonSharp.Runtime",
+        "VRC.Udon",
+        "com.vrchat.core.vpm-resolver.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.vrchat.core.vpm-resolver",
+            "expression": "",
+            "define": "VPM_RESOLVER"
+        }
+    ],
+    "noEngineReferences": false
+}

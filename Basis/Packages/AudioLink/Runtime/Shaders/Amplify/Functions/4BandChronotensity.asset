@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 78b2425a2284af743826c689403a4924, type: 3}
+  m_Name: 4BandChronotensity
+  m_EditorClassIdentifier: 
+  m_functionInfo: "// Made with Amplify Shader Editor\n// Available at the Unity
+    Asset Store - http://u3d.as/y3X \n/*ASEBEGIN\nVersion=18935\n802;73;1117;926;717.573;378.7634;1;True;True\nNode;AmplifyShaderEditor.FunctionInput;15;-702.5,-215.5;Inherit;False;Band;0;1;False;1;0;INT;0;False;1;INT;0\nNode;AmplifyShaderEditor.SimpleMultiplyOpNode;5;-886.2003,-145.6;Inherit;False;2;2;0;INT;0;False;1;INT;2;False;1;INT;0\nNode;AmplifyShaderEditor.FunctionInput;4;-1079.399,-116.8;Inherit;False;Mode;0;0;False;1;0;INT;0;False;1;INT;0\nNode;AmplifyShaderEditor.FunctionInput;29;-880.573,-7.263428;Inherit;False;Speed;0;2;False;1;0;INT;0;False;1;INT;0\nNode;AmplifyShaderEditor.SimpleAddOpNode;7;-699.3998,-102.4;Inherit;False;2;2;0;INT;0;False;1;INT;1;False;1;INT;0\nNode;AmplifyShaderEditor.CustomExpressionNode;6;-525,-166.5;Inherit;False;AudioLinkDecodeDataAsUInt(
+    ALPASS_CHRONOTENSITY + int2(Mode, Band));0;Create;2;True;Band;INT;0;In;;Inherit;False;True;Mode;INT;0;In;uint;Inherit;False;AudioLinkDecodeDataAsUInt;True;False;0;;False;2;0;INT;0;False;1;INT;0;False;1;INT;0\nNode;AmplifyShaderEditor.SimpleRemainderNode;22;-209,-115.5;Inherit;False;2;0;INT;0;False;1;INT;628319;False;1;INT;0\nNode;AmplifyShaderEditor.SimpleDivideOpNode;23;-2,-85.5;Inherit;False;2;0;INT;0;False;1;FLOAT;100000;False;1;FLOAT;0\nNode;AmplifyShaderEditor.RangedFloatNode;30;-212.573,0.7365723;Inherit;False;Constant;_Float0;Float
+    0;0;0;Create;True;0;0;0;False;0;False;100000;0;0;0;0;1;FLOAT;0\nNode;AmplifyShaderEditor.FunctionOutput;13;192.6999,-96.19997;Inherit;False;True;-1;Rotation;0;False;1;0;FLOAT;0;False;1;FLOAT;0\nWireConnection;5;0;4;0\nWireConnection;7;0;5;0\nWireConnection;7;1;29;0\nWireConnection;6;0;15;0\nWireConnection;6;1;7;0\nWireConnection;22;0;6;0\nWireConnection;23;0;22;0\nWireConnection;23;1;30;0\nWireConnection;13;0;23;0\nASEEND*/\n//CHKSM=38035157667C38CCE88CFC216E8716EC47E75DAA"
+  m_functionName: 
+  m_description: Returns chronotensity. Inputs (int) mode from 0-3, (int) band from
+    0-3, (int) speed either 0 or 1 (slow or fast)
+  m_additionalIncludes:
+    m_additionalIncludes: []
+    m_outsideIncludes: []
+  m_additionalPragmas:
+    m_additionalPragmas: []
+    m_outsidePragmas: []
+  m_additionalDirectives:
+    m_validData: 0
+    m_isDirty: 1
+    m_moduleName: ' Additional Directives'
+    m_independentModule: 1
+    m_customEdited: 0
+    m_additionalDirectives:
+    - {fileID: 0}
+    m_shaderFunctionDirectives: []
+    m_nativeDirectives: []
+    m_nativeDirectivesIndex: -1
+    m_nativeDirectivesFoldout: 0
+    m_directivesSaveItems:
+    - LineType: 0
+      LineValue: Packages/com.llealloo.audiolink/Runtime/Shaders/AudioLink.cginc
+      GUIDToggle: 0
+      GUIDValue: 
+      Origin: 2
+  m_nodeCategory: 0
+  m_customNodeCategory: AudioLink
+  m_previewPosition: 0
+  m_hidden: 0
+  m_url: https://github.com/llealloo/vrc-udon-audio-link/tree/master/Docs

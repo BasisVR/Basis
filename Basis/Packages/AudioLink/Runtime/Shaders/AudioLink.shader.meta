@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 0071b93d4d4494246a2f39b211ba016f
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures:
+  - _AudioTextureLeft: {fileID: 8600000, guid: 9ad58ccbefb4a1d41b64b9df6b594434, type: 2}
+  - _AudioTextureRight: {fileID: 8600000, guid: 7e66906301df464448fbbef7da6df24c,
+      type: 2}
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

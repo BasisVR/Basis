@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: aa856f4528fc71343ae13d211071a669
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - _udonSharpBackingUdonBehaviour: {instanceID: 0}
+  - audioSource: {instanceID: 0}
+  - audioMaterial: {fileID: 2100000, guid: 5189d837989b9144e8e43d3ce618e450, type: 2}
+  - audioRenderTexture: {fileID: 8600000, guid: f51fa799ef0abde489235f40fc0328ef,
+      type: 2}
+  - audioData2D: {fileID: 2800000, guid: b07c8466531ac5e4e852f3e276e4baca, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

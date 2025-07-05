@@ -102,6 +102,13 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.cqf.urpvolumetricfog": {
+      "version": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "88053c1a52ec57cf2ea0afa30d6e915a1f078686"
+    },
     "com.hecomi.ulipsync": {
       "version": "file:com.hecomi.ulipsync",
       "depth": 0,
@@ -113,6 +120,12 @@
     },
     "com.keviniglesias.basicmotions": {
       "version": "file:com.keviniglesias.basicmotions",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.llealloo.audiolink": {
+      "version": "file:AudioLink",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
