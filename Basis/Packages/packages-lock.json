@@ -103,11 +103,10 @@
       "dependencies": {}
     },
     "com.cqf.urpvolumetricfog": {
-      "version": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git",
+      "version": "file:com.cqf.urpvolumetricfog",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "88053c1a52ec57cf2ea0afa30d6e915a1f078686"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.hecomi.ulipsync": {
       "version": "file:com.hecomi.ulipsync",
