@@ -44,7 +44,7 @@ Please help shape the future of Basis and leave your mark on its foundation.
 
  ## Installation
 
-This project is currently using Unity 6 (6000.0.44f1)
+This project is currently using Unity 6 (6000.1.9f1)
 Other Unity versions may work but will require changes and adaptations.
 Currently, OPENXR and SteamVR are supported as well as OPENXR Quest.
 
@@ -81,7 +81,6 @@ This would not be possible without the following:
 - [Settings Manager](https://assetstore.unity.com/packages/tools/gui/settings-manager-158458)
 - [Steam Audio](https://github.com/ValveSoftware/steam-audio)
 - [Kevin Iglesias Animations](https://www.keviniglesias.com/)
-- [audiolink](https://github.com/llealloo/audiolink/)
 - [Unity Starter Assets - ThirdPerson](https://assetstore.unity.com/packages/essentials/starter-assets-thirdperson-updates-in-new-charactercontroller-pa-196526)
 - [Aurellia](https://github.com/CascadianVR) Assets\third_party\Avatar\Aurellia\LICENSE
 - [YUN](https://github.com/yewnyx) Assets\third_party\Avatar\Yun\LICENSE
