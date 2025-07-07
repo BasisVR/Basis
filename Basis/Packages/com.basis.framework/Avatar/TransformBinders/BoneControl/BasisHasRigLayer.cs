@@ -1,9 +1,9 @@
-﻿namespace Basis.Scripts.TransformBinders.BoneControl
+namespace Basis.Scripts.TransformBinders.BoneControl
 {
-[System.Serializable]
-public enum BasisHasRigLayer
-{
-    HasRigLayer,
-    HasNoRigLayer,
-}
+    [System.Serializable]
+    public enum BasisHasRigLayer : byte
+    {
+        HasRigLayer,
+        HasNoRigLayer,
+    }
 }

@@ -9,23 +9,22 @@ namespace Basis.Scripts.TransformBinders.BoneControl
     [BurstCompile]
     public class BasisLocalBoneControl
     {
-        public static float AngleBeforeSpeedup = 25f;
-        public static float trackersmooth = 25;
+        public static readonly float AngleBeforeSpeedup = 25f;
+        public static readonly float trackersmooth = 25;
+        public static readonly float QuaternionLerp = 14;
+        public static readonly float QuaternionLerpFastMovement = 56;
+        public static float PositionLerpAmount = 40;
         public static bool HasEvents { get; internal set; }
 
         [SerializeField]
         public string name;
         [NonSerialized]
         public BasisLocalBoneControl Target;
-
-        public float LerpAmountNormal;
-        public float LerpAmountFastMovement;
         public bool HasLineDraw;
         public int LineDrawIndex;
         public bool HasTarget = false;
         public float3 Offset;
         public float3 ScaledOffset;
-        public float LerpAmount;
         public int GizmoReference = -1;
         public bool HasGizmo = false;
         public int TposeGizmoReference = -1;
@@ -100,11 +99,13 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 // Could also be a step at the end for every targeted type
                 if (UseInverseOffset)
                 {
+                    Vector3 DestinationPosition = IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position;
+                    Quaternion DestinationRotation = IncomingData.rotation * InverseOffsetFromBone.rotation;
                     // Update the position of the secondary transform to maintain the initial offset
-                    OutGoingData.position = Vector3.Lerp(OutGoingData.position, IncomingData.position + IncomingData.rotation * InverseOffsetFromBone.position, trackersmooth);
+                    OutGoingData.position = Vector3.Lerp(LastRunData.position, DestinationPosition, trackersmooth);
 
                     // Update the rotation of the secondary transform to maintain the initial offset
-                    OutGoingData.rotation = Quaternion.Slerp(OutGoingData.rotation, IncomingData.rotation * InverseOffsetFromBone.rotation, trackersmooth);
+                    OutGoingData.rotation = Quaternion.Slerp(LastRunData.rotation, DestinationRotation, trackersmooth);
                 }
                 else
                 {
@@ -112,37 +113,26 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                     OutGoingData.rotation = IncomingData.rotation;
                     OutGoingData.position = IncomingData.position;
                 }
+                ApplyWorldAndLast(parentMatrix, Rotation);
             }
             else
             {
-                if (!HasVirtualOverride)
+                if (!HasVirtualOverride && HasTarget)
                 {
-                    // This is essentially the default behaviour, most of it is normally Virtually Overriden
-                    // Relying on a one size fits all shoe is wrong and as of such we barely use this anymore.
-                    if (HasTarget)
-                    {
-                        OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, LastRunData.rotation, Target.OutGoingData.rotation);
-                        // Apply the rotation offset using *
-                        Vector3 customDirection = Target.OutGoingData.rotation * ScaledOffset;
+                    OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, LastRunData.rotation, Target.OutGoingData.rotation);
+                    // Apply the rotation offset using *
+                    Vector3 customDirection = Target.OutGoingData.rotation * ScaledOffset;
 
-                        // Calculate the target outgoing position with the rotated offset
-                        Vector3 targetPosition = Target.OutGoingData.position + customDirection;
+                    // Calculate the target outgoing position with the rotated offset
+                    Vector3 targetPosition = Target.OutGoingData.position + customDirection;
 
-                        float lerpFactor = ClampInterpolationFactor(LerpAmount, DeltaTime);
+                    float lerpFactor = ClampInterpolationFactor(PositionLerpAmount, DeltaTime);
 
-                        // Interpolate between the last position and the target position
-                        OutGoingData.position = math.lerp(LastRunData.position, targetPosition, lerpFactor);
-                    }
+                    // Interpolate between the last position and the target position
+                    OutGoingData.position = Vector3.Lerp(LastRunData.position, targetPosition, lerpFactor);
+                    ApplyWorldAndLast(parentMatrix, Rotation);
                 }
             }
-
-            OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(OutGoingData.position);
-
-            // Transform rotation via quaternion multiplication
-            OutgoingWorldData.rotation = Rotation * OutGoingData.rotation;
-
-            LastRunData.position = OutGoingData.position;
-            LastRunData.rotation = OutGoingData.rotation;
         }
         public Quaternion ApplyLerpToQuaternion(float DeltaTime, Quaternion CurrentRotation, Quaternion FutureRotation)
         {
@@ -165,12 +155,12 @@ namespace Basis.Scripts.TransformBinders.BoneControl
             }
 
             // Cached LerpAmount values for normal and fast movement
-            float lerpAmountNormal = LerpAmountNormal;
+            float lerpAmountNormal = QuaternionLerp;
             // Timing factor for speed-up
             float timing = math.min(angleDifference / AngleBeforeSpeedup, 1f);
 
             // Interpolate between normal and fast movement rates based on angle
-            float lerpAmount = lerpAmountNormal + (LerpAmountFastMovement - lerpAmountNormal) * timing;
+            float lerpAmount = lerpAmountNormal + (QuaternionLerpFastMovement - lerpAmountNormal) * timing;
 
             // Apply frame-rate-independent lerp factor
             float lerpFactor = ClampInterpolationFactor(lerpAmount, DeltaTime); math.clamp(lerpAmount * DeltaTime, 0f, 1f);
@@ -182,6 +172,16 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         {
             // Clamp the interpolation factor to ensure it stays between 0 and 1
             return math.clamp(lerpAmount * DeltaTime, 0f, 1f);
+        }
+        public void ApplyWorldAndLast(Matrix4x4 parentMatrix, Quaternion Rotation)
+        {
+            LastRunData.position = OutGoingData.position;
+            LastRunData.rotation = OutGoingData.rotation;
+
+            OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(OutGoingData.position);
+
+            // Transform rotation via quaternion multiplication
+            OutgoingWorldData.rotation = Rotation * OutGoingData.rotation;
         }
     }
 }

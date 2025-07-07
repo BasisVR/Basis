@@ -255,15 +255,12 @@ namespace Basis.Scripts.Drivers
 
             return rainbowColors;
         }
-        public void CreateRotationalLock(BasisLocalBoneControl addToBone, BasisLocalBoneControl target, float lerpAmount, float positional = 40)
+        public void CreateRotationalLock(BasisLocalBoneControl addToBone, BasisLocalBoneControl target)
         {
             addToBone.Target = target;
-            addToBone.LerpAmountNormal = lerpAmount;
-            addToBone.LerpAmountFastMovement = lerpAmount * 4;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
             addToBone.Target = target;
-            addToBone.LerpAmount = positional;
             addToBone.HasTarget = target != null;
         }
         public static Vector3 ConvertToAvatarSpaceInitial(Transform Transform, Vector3 WorldSpace)// out Vector3 FloorPosition

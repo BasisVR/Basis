@@ -1,7 +1,7 @@
-﻿namespace Basis.Scripts.TransformBinders.BoneControl
+namespace Basis.Scripts.TransformBinders.BoneControl
 {
     [System.Serializable]
-    public enum BasisHasTracked
+    public enum BasisHasTracked : byte
     {
         HasTracker,
         HasNoTracker,

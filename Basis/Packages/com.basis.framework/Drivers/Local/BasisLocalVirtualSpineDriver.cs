@@ -103,14 +103,17 @@ public class BasisLocalVirtualSpineDriver
         Vector3 targetHipsRotationEuler = targetHipsRotation.eulerAngles;
         Hips.OutGoingData.rotation = Quaternion.Euler(0, targetHipsRotationEuler.y, 0);
 
+        Transform transform = BasisLocalPlayer.Instance.transform;
+        Matrix4x4 parentMatrix = transform.localToWorldMatrix;
+        Quaternion Rotation = transform.rotation;
         // Handle position control for each segment if targets are set (as before)
-        ApplyPositionControl(Head);
-        ApplyPositionControl(Neck);
-        ApplyPositionControl(Chest);
-        ApplyPositionControl(Spine);
-        ApplyPositionControl(Hips);
+        ApplyPositionControl(Head, parentMatrix, Rotation);
+        ApplyPositionControl(Neck, parentMatrix, Rotation);
+        ApplyPositionControl(Chest, parentMatrix, Rotation);
+        ApplyPositionControl(Spine, parentMatrix, Rotation);
+        ApplyPositionControl(Hips, parentMatrix, Rotation);
     }
-    private void ApplyPositionControl(BasisLocalBoneControl boneControl)
+    private void ApplyPositionControl(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, Quaternion Rotation)
     {
 
         Quaternion targetRotation = boneControl.Target.OutGoingData.rotation;
@@ -124,5 +127,6 @@ public class BasisLocalVirtualSpineDriver
         Vector3 offset = math.mul(yawRotation, boneControl.ScaledOffset);
 
         boneControl.OutGoingData.position = boneControl.Target.OutGoingData.position + offset;
+        boneControl.ApplyWorldAndLast(parentMatrix, Rotation);
     }
 }
