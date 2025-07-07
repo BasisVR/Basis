@@ -13,7 +13,7 @@ public static class BasisAnimationRiggingHelper
         Constraint.data.M_CalibratedRotation = TargetRotationOffset;
     }
 
-    public static BasisApplyTranslation Damp(BasisLocalPlayer player, GameObject Parent, Transform Source, BasisBoneTrackedRole Role, float rotationWeight = 1, float positionWeight = 1)
+    public static BasisApplyTranslation Damp(BasisLocalPlayer player, GameObject Parent, Transform Source, BasisBoneTrackedRole Role)
     {
         player.LocalBoneDriver.FindBone(out BasisLocalBoneControl Target, Role);
         GameObject DTData = CreateAndSetParent(Parent.transform, $"Bone Role {Role.ToString()}");
@@ -21,7 +21,6 @@ public static class BasisAnimationRiggingHelper
 
         DT.data.constrainedObject = Source;
         GeneratedRequiredTransforms(player, Source);
-        WriteUpWeights(Target, DT);
         return DT;
     }
 
@@ -96,20 +95,6 @@ public static class BasisAnimationRiggingHelper
         TwoBoneIKConstraint.data.tip = tip;
         GeneratedRequiredTransforms(player, tip);
     }
-
-    public static void WriteUpWeights(BasisLocalBoneControl Control, BasisApplyTranslation Constraint)
-    {
-        Control.WeightsChanged += (delegate (float positionWeight, float rotationWeight)
-        {
-            UpdateIKRig(positionWeight, rotationWeight, Constraint);
-        });
-    }
-
-    public static void UpdateIKRig(float PositionWeight, float RotationWeight, BasisApplyTranslation Constraint)
-    {
-        Constraint.weight = PositionWeight;
-    }
-
     public static void GeneratedRequiredTransforms(BasisLocalPlayer player, Transform BaseLevel)
     {
         // Go up the hierarchy until you hit the TopLevelParent

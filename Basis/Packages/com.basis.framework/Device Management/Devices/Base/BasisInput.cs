@@ -20,7 +20,7 @@ namespace Basis.Scripts.Device_Management.Devices
         private BasisBoneTrackedRole trackedRole;
         [SerializeField]
         public bool hasRoleAssigned;
-        public BasisLocalBoneControl Control = new BasisLocalBoneControl();
+        public BasisLocalBoneControl Control = null;
         public bool HasControl = false;
         public string UniqueDeviceIdentifier;
         public string ClassName;
@@ -124,15 +124,13 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))//we dont want to offset these ones
                 {
-                    BasisInverseOffsetData = new BasisInverseOffsetFromBoneData();
                     transform.GetPositionAndRotation(out BasisInverseOffsetData.TrackerPosition, out BasisInverseOffsetData.TrackerRotation);
                     BasisInverseOffsetData.InitialInverseTrackRotation = Quaternion.Inverse(BasisInverseOffsetData.TrackerRotation);
                     BasisInverseOffsetData.InitialControlRotation = Control.OutgoingWorldData.rotation;
                     //this looks sus
                     Control.InverseOffsetFromBone.position = BasisInverseOffsetData.InitialInverseTrackRotation * (Control.OutgoingWorldData.position - BasisInverseOffsetData.TrackerPosition);
                     Control.InverseOffsetFromBone.rotation = BasisInverseOffsetData.InitialInverseTrackRotation * BasisInverseOffsetData.InitialControlRotation;
-                    Control.InverseOffsetFromBone.Use = true;
-                    Control.IsHintRoleIgnoreRotation = BasisBoneTrackedRoleCommonCheck.CheckIfHintRole(trackedRole);
+                    Control.UseInverseOffset = true;
                 }
                 SetRealTrackers(BasisHasTracked.HasTracker, BasisHasRigLayer.HasRigLayer);
             }
@@ -142,7 +140,7 @@ namespace Basis.Scripts.Device_Management.Devices
             }
         }
         [SerializeField]
-        public BasisInverseOffsetFromBoneData BasisInverseOffsetData;
+        public BasisInverseOffsetFromBoneData BasisInverseOffsetData = new BasisInverseOffsetFromBoneData();
 
         public void UnAssignRoleAndTracker()
         {
@@ -182,7 +180,6 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))
                 {
-                    Control.IsHintRoleIgnoreRotation = false;
                     UnAssignTracker();
                 }
             }
@@ -191,7 +188,6 @@ namespace Basis.Scripts.Device_Management.Devices
         {
             if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))
             {
-                Control.IsHintRoleIgnoreRotation = false;
                 UnAssignTracker();
             }
         }
@@ -208,7 +204,7 @@ namespace Basis.Scripts.Device_Management.Devices
                     BasisDebug.Log("UnAssigning Tracker " + Control.name, BasisDebug.LogTag.Input);
                     Control.InverseOffsetFromBone.position = Vector3.zero;
                     Control.InverseOffsetFromBone.rotation = Quaternion.identity;
-                    Control.InverseOffsetFromBone.Use = false;
+                    Control.UseInverseOffset = false;
                 }
                 UnAssignRoleAndTracker();
             }
@@ -241,7 +237,7 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void SetRealTrackers(BasisHasTracked hasTracked, BasisHasRigLayer HasLayer)
         {
-            if (Control != null && Control.HasBone)
+            if (Control != null)
             {
                 Control.HasTracked = hasTracked;
                 Control.HasRigLayer = HasLayer;

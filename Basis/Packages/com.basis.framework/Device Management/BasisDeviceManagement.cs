@@ -504,16 +504,13 @@ namespace Basis.Scripts.Device_Management
             {
                 if (device != null && device.Control != null)
                 {
-                    if (device.Control.HasBone)
+                    if (device.TryGetRole(out BasisBoneTrackedRole Role))
                     {
-                        if (device.TryGetRole(out BasisBoneTrackedRole Role))
+                        if (Role == FindRole)
                         {
-                            if (Role == FindRole)
-                            {
-                                FindDevice = device;
-                                return true;
+                            FindDevice = device;
+                            return true;
 
-                            }
                         }
                     }
                 }

@@ -120,8 +120,8 @@ namespace Basis.Scripts.Drivers
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].OnHasRigChanged = null;
-                Controls[Index].WeightsChanged = null;
             }
+            BasisLocalBoneControl.HasEvents = false;
         }
         public void AddRange(BasisLocalBoneControl[] newControls, BasisBoneTrackedRole[] newRoles)
         {
@@ -190,7 +190,10 @@ namespace Basis.Scripts.Drivers
         {
             role = (BasisBoneTrackedRole)Index;
             BasisBoneControl = new BasisLocalBoneControl();
-            BasisBoneControl.Initialize();
+            BasisBoneControl.OutgoingWorldData.position = Vector3.zero;
+            BasisBoneControl.OutgoingWorldData.rotation = Quaternion.identity;
+            BasisBoneControl.LastRunData.position = BasisBoneControl.OutGoingData.position;
+            BasisBoneControl.LastRunData.rotation = BasisBoneControl.OutGoingData.rotation;
             FillOutBasicInformation(BasisBoneControl, role.ToString(), Color);
         }
         public void InitializeGizmos()
@@ -257,7 +260,6 @@ namespace Basis.Scripts.Drivers
             addToBone.Target = target;
             addToBone.LerpAmountNormal = lerpAmount;
             addToBone.LerpAmountFastMovement = lerpAmount * 4;
-            addToBone.AngleBeforeSpeedup = 25f;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
             addToBone.Target = target;
@@ -270,55 +272,52 @@ namespace Basis.Scripts.Drivers
         }
         public void DrawGizmos(BasisLocalBoneControl Control)
         {
-            if (Control.HasBone)
+            Vector3 BonePosition = Control.OutgoingWorldData.position;
+            if (Control.HasTarget)
             {
-                Vector3 BonePosition = Control.OutgoingWorldData.position;
-                if (Control.HasTarget)
+                if (Control.HasLineDraw)
                 {
-                    if (Control.HasLineDraw)
+                    BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
+                }
+            }
+            if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
+            {
+                if (Role == BasisBoneTrackedRole.CenterEye)
+                {
+                    //ignoring center eye to stop you having issues in vr
+                    return;
+                }
+                if (Control.HasGizmo)
+                {
+                    if (BasisGizmoManager.UpdateSphereGizmo(Control.GizmoReference, BonePosition) == false)
                     {
-                        BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
+                        Control.HasGizmo = false;
                     }
                 }
-                if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
+            }
+            if (BasisLocalAvatarDriver.CurrentlyTposing)
+            {
+                if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
                 {
                     if (Role == BasisBoneTrackedRole.CenterEye)
                     {
                         //ignoring center eye to stop you having issues in vr
                         return;
                     }
-                    if (Control.HasGizmo)
+                    if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(role))
                     {
-                        if (BasisGizmoManager.UpdateSphereGizmo(Control.GizmoReference, BonePosition) == false)
+                        if (Control.TposeHasGizmo)
                         {
-                            Control.HasGizmo = false;
-                        }
-                    }
-                }
-                if (BasisLocalAvatarDriver.CurrentlyTposing)
-                {
-                    if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
-                    {
-                        if (Role == BasisBoneTrackedRole.CenterEye)
-                        {
-                            //ignoring center eye to stop you having issues in vr
-                            return;
-                        }
-                        if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(role))
-                        {
-                            if (Control.TposeHasGizmo)
+                            if (BasisGizmoManager.UpdateSphereGizmo(Control.TposeGizmoReference, BonePosition) == false)
                             {
-                                if (BasisGizmoManager.UpdateSphereGizmo(Control.TposeGizmoReference, BonePosition) == false)
-                                {
-                                    Control.TposeHasGizmo = false;
-                                }
+                                Control.TposeHasGizmo = false;
                             }
-                            else
+                        }
+                        else
+                        {
+                            if (BasisGizmoManager.CreateSphereGizmo(out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeMax(role) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale, Control.Color))
                             {
-                                if (BasisGizmoManager.CreateSphereGizmo(out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeMax(role) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale, Control.Color))
-                                {
-                                    Control.TposeHasGizmo = true;
-                                }
+                                Control.TposeHasGizmo = true;
                             }
                         }
                     }
