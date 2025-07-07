@@ -12,7 +12,7 @@ namespace Basis.Network.Core
         /// when adding a new message we need to increase this
         /// will function up to 64
         /// </summary>
-        public const byte TotalChannels = 21;
+        public const byte TotalChannels = 22;
         /// <summary>
         /// channel zero is only used for unreliable methods
         /// we fall it through to stop bugs
