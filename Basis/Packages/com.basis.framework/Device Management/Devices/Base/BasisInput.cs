@@ -124,6 +124,7 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))//we dont want to offset these ones
                 {
+                    BasisInverseOffsetData = new BasisInverseOffsetFromBoneData();
                     transform.GetPositionAndRotation(out BasisInverseOffsetData.TrackerPosition, out BasisInverseOffsetData.TrackerRotation);
                     BasisInverseOffsetData.InitialInverseTrackRotation = Quaternion.Inverse(BasisInverseOffsetData.TrackerRotation);
                     BasisInverseOffsetData.InitialControlRotation = Control.OutgoingWorldData.rotation;
