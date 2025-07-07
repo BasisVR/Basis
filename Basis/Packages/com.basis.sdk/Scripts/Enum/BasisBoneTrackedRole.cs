@@ -41,12 +41,6 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                    role != BasisBoneTrackedRole.RightUpperArm &&
                    role != BasisBoneTrackedRole.Spine;
         }
-        public static bool CheckIfHintRole(BasisBoneTrackedRole role)
-        {
-            bool IsHintRole = (role == BasisBoneTrackedRole.LeftLowerArm || role == BasisBoneTrackedRole.RightLowerArm || role == BasisBoneTrackedRole.LeftLowerLeg || role == BasisBoneTrackedRole.RightLowerLeg);
-            BasisDebug.Log($"was hint {IsHintRole} {role.ToString()}", BasisDebug.LogTag.IK);
-            return IsHintRole;
-        }
         public static bool CheckIfHeadAreaTracker(BasisBoneTrackedRole role)
         {
             return role == BasisBoneTrackedRole.CenterEye || role == BasisBoneTrackedRole.Head || role == BasisBoneTrackedRole.Neck || role == BasisBoneTrackedRole.Mouth;

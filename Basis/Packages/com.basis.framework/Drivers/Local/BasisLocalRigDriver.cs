@@ -220,7 +220,8 @@ namespace Basis.Scripts.Drivers
 			{
 				RigTransform Hips = references.Hips.gameObject.AddComponent<RigTransform>();
 			}
-		}
+            HasControlEvents = true;
+        }
 
 		private void SetupTwistBoneSpine(BasisLocalBoneDriver driver)
 		{
@@ -448,18 +449,16 @@ namespace Basis.Scripts.Drivers
 				BasisDebug.Log($"{e.Message} {e.StackTrace}");
 			}
 		}
-
+		public bool HasControlEvents = false;
 		public void WriteUpEvents(List<BasisLocalBoneControl> Controls, RigLayer Layer)
 		{
 			foreach (var control in Controls)
 			{
 				// Add event listener for each control to update Layer's active state when HasRigLayer changes
 				control.OnHasRigChanged += delegate { UpdateLayerActiveState(Controls, Layer); };
-				control.HasEvents = true;
 			}
-
-			// Set the initial state based on the current controls' states
-			UpdateLayerActiveState(Controls, Layer);
+            // Set the initial state based on the current controls' states
+            UpdateLayerActiveState(Controls, Layer);
 		}
 
 		// Define a method to update the active state of the Layer based on the list of controls
