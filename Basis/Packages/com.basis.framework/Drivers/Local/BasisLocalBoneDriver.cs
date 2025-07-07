@@ -6,8 +6,6 @@ using UnityEngine;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Avatar;
-using Unity.Burst;
-using Unity.Mathematics;
 
 namespace Basis.Scripts.Drivers
 {
@@ -68,7 +66,7 @@ namespace Basis.Scripts.Drivers
             Quaternion Rotation = transform.rotation;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
-                ComputeMovementLocal(parentMatrix, Rotation, deltaTime, Controls[Index]);
+                Controls[Index].ComputeMovementLocal(parentMatrix, Rotation, deltaTime);
             }
             if (BasisGizmoManager.UseGizmos)
             {
@@ -85,7 +83,7 @@ namespace Basis.Scripts.Drivers
             {
                 Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
                 Controls[Index].LastRunData.rotation = Controls[Index].OutGoingData.rotation;
-                ComputeMovementLocal(parentMatrix, Rotation, DeltaTime, Controls[Index]);
+                Controls[Index].ComputeMovementLocal(parentMatrix, Rotation, DeltaTime);
             }
             if (BasisGizmoManager.UseGizmos)
             {
@@ -192,10 +190,7 @@ namespace Basis.Scripts.Drivers
         {
             role = (BasisBoneTrackedRole)Index;
             BasisBoneControl = new BasisLocalBoneControl();
-            BasisBoneControl.OutgoingWorldData.position = Vector3.zero;
-            BasisBoneControl.OutgoingWorldData.rotation = Quaternion.identity;
-            BasisBoneControl.LastRunData.position = BasisBoneControl.OutGoingData.position;
-            BasisBoneControl.LastRunData.rotation = BasisBoneControl.OutGoingData.rotation;
+            BasisBoneControl.Initialize();
             FillOutBasicInformation(BasisBoneControl, role.ToString(), Color);
         }
         public void InitializeGizmos()
@@ -273,152 +268,57 @@ namespace Basis.Scripts.Drivers
         {
             return BasisHelpers.ConvertToLocalSpace(WorldSpace, Transform.position);
         }
-        public float trackersmooth = 25;
-        [BurstCompile]
-        public void ComputeMovementLocal(Matrix4x4 parentMatrix, Quaternion Rotation, float DeltaTime, BasisLocalBoneControl addToBone)
-        {
-            if (addToBone.HasTracked == BasisHasTracked.HasTracker)
-            {
-                // This needs to be refactored to understand each part of the body and a generic mode.
-                // Start off with a distance limiter for the hips.
-                // Could also be a step at the end for every targeted type
-                if (!addToBone.HasVirtualOverride)
-                {
-                    // Update the position of the secondary transform to maintain the initial offset
-                    addToBone.OutGoingData.position = Vector3.Lerp(addToBone.OutGoingData.position, addToBone.IncomingData.position + addToBone.IncomingData.rotation * addToBone.InverseOffsetFromBone.position, trackersmooth);
-
-                    // Update the rotation of the secondary transform to maintain the initial offset
-                    addToBone.OutGoingData.rotation = Quaternion.Slerp(addToBone.OutGoingData.rotation, addToBone.IncomingData.rotation * addToBone.InverseOffsetFromBone.rotation, trackersmooth);
-                }
-                else
-                {
-                    // This is going to the generic always accurate fake skeleton
-                    addToBone.OutGoingData.rotation = addToBone.IncomingData.rotation;
-                    addToBone.OutGoingData.position = addToBone.IncomingData.position;
-                }
-            }
-            else
-            {
-                if (!addToBone.HasVirtualOverride)
-                {
-                    // This is essentially the default behaviour, most of it is normally Virtually Overriden
-                    // Relying on a one size fits all shoe is wrong and as of such we barely use this anymore.
-                    if (addToBone.HasTarget)
-                    {
-                        addToBone.OutGoingData.rotation = ApplyLerpToQuaternion(DeltaTime, addToBone.LastRunData.rotation, addToBone.Target.OutGoingData.rotation, addToBone);
-                        // Apply the rotation offset using *
-                        Vector3 customDirection = addToBone.Target.OutGoingData.rotation * addToBone.ScaledOffset;
-
-                        // Calculate the target outgoing position with the rotated offset
-                        Vector3 targetPosition = addToBone.Target.OutGoingData.position + customDirection;
-
-                        float lerpFactor = ClampInterpolationFactor(addToBone.LerpAmount, DeltaTime);
-
-                        // Interpolate between the last position and the target position
-                        addToBone.OutGoingData.position = math.lerp(addToBone.LastRunData.position, targetPosition, lerpFactor);
-                    }
-                }
-            }
-
-            addToBone.OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(addToBone.OutGoingData.position);
-
-            // Transform rotation via quaternion multiplication
-            addToBone.OutgoingWorldData.rotation = Rotation * addToBone.OutGoingData.rotation;
-
-            addToBone.LastRunData.position = addToBone.OutGoingData.position;
-            addToBone.LastRunData.rotation = addToBone.OutGoingData.rotation;
-        }
-        [BurstCompile]
-        public Quaternion ApplyLerpToQuaternion(float DeltaTime, Quaternion CurrentRotation, Quaternion FutureRotation, BasisLocalBoneControl addToBone)
-        {
-            // Calculate the dot product once to check similarity between rotations
-            float dotProduct = math.dot(CurrentRotation, FutureRotation);
-
-            // If quaternions are nearly identical, skip interpolation
-            if (dotProduct > 0.999999f)
-            {
-                return FutureRotation;
-            }
-
-            // Calculate angle difference, avoid acos for very small differences
-            float angleDifference = math.acos(math.clamp(dotProduct, -1f, 1f));
-
-            // If the angle difference is very small, skip interpolation
-            if (angleDifference < math.EPSILON)
-            {
-                return FutureRotation;
-            }
-
-            // Cached LerpAmount values for normal and fast movement
-            float lerpAmountNormal = addToBone.LerpAmountNormal;
-            float lerpAmountFastMovement = addToBone.LerpAmountFastMovement;
-
-            // Timing factor for speed-up
-            float timing = math.min(angleDifference / addToBone.AngleBeforeSpeedup, 1f);
-
-            // Interpolate between normal and fast movement rates based on angle
-            float lerpAmount = lerpAmountNormal + (lerpAmountFastMovement - lerpAmountNormal) * timing;
-
-            // Apply frame-rate-independent lerp factor
-            float lerpFactor = ClampInterpolationFactor(lerpAmount, DeltaTime);
-
-            // Perform spherical interpolation (slerp) with the optimized factor
-            return math.slerp(CurrentRotation, FutureRotation, lerpFactor);
-        }
-        [BurstCompile]
-        private float ClampInterpolationFactor(float lerpAmount, float DeltaTime)
-        {
-            // Clamp the interpolation factor to ensure it stays between 0 and 1
-            return math.clamp(lerpAmount * DeltaTime, 0f, 1f);
-        }
         public void DrawGizmos(BasisLocalBoneControl Control)
         {
-            Vector3 BonePosition = Control.OutgoingWorldData.position;
-            if (Control.HasTarget)
+            if (Control.HasBone)
             {
-                if (Control.HasLineDraw)
+                Vector3 BonePosition = Control.OutgoingWorldData.position;
+                if (Control.HasTarget)
                 {
-                    BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
-                }
-            }
-            if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
-            {
-                if (Role == BasisBoneTrackedRole.CenterEye)
-                {
-                    //ignoring center eye to stop you having issues in vr
-                    return;
-                }
-                if (Control.HasGizmo)
-                {
-                    if (BasisGizmoManager.UpdateSphereGizmo(Control.GizmoReference, BonePosition) == false)
+                    if (Control.HasLineDraw)
                     {
-                        Control.HasGizmo = false;
+                        BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
                     }
                 }
-            }
-            if (BasisLocalAvatarDriver.CurrentlyTposing)
-            {
-                if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
+                if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
                 {
                     if (Role == BasisBoneTrackedRole.CenterEye)
                     {
                         //ignoring center eye to stop you having issues in vr
                         return;
                     }
-                    if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(role))
+                    if (Control.HasGizmo)
                     {
-                        if (Control.TposeHasGizmo)
+                        if (BasisGizmoManager.UpdateSphereGizmo(Control.GizmoReference, BonePosition) == false)
                         {
-                            if (BasisGizmoManager.UpdateSphereGizmo(Control.TposeGizmoReference, BonePosition) == false)
-                            {
-                                Control.TposeHasGizmo = false;
-                            }
+                            Control.HasGizmo = false;
                         }
-                        else
+                    }
+                }
+                if (BasisLocalAvatarDriver.CurrentlyTposing)
+                {
+                    if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
+                    {
+                        if (Role == BasisBoneTrackedRole.CenterEye)
                         {
-                            if (BasisGizmoManager.CreateSphereGizmo(out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeMax(role) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale, Control.Color))
+                            //ignoring center eye to stop you having issues in vr
+                            return;
+                        }
+                        if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(role))
+                        {
+                            if (Control.TposeHasGizmo)
                             {
-                                Control.TposeHasGizmo = true;
+                                if (BasisGizmoManager.UpdateSphereGizmo(Control.TposeGizmoReference, BonePosition) == false)
+                                {
+                                    Control.TposeHasGizmo = false;
+                                }
+                            }
+                            else
+                            {
+                                if (BasisGizmoManager.CreateSphereGizmo(out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeMax(role) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale, Control.Color))
+                                {
+                                    Control.TposeHasGizmo = true;
+                                }
                             }
                         }
                     }

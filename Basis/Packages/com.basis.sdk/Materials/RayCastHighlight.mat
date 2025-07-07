@@ -8,7 +8,8 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: RayCastHighlight
-  m_Shader: {fileID: -6465566751694194690, guid: 0bfe79a3c37802041a1bc544b08dd10f, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 0bfe79a3c37802041a1bc544b08dd10f,
+    type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -145,4 +146,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  version: 10
+  version: 9
