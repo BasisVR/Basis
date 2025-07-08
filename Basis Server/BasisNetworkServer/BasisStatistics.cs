@@ -1,4 +1,4 @@
-﻿using LiteNetLib;
+using LiteNetLib;
 using System;
 using System.Threading;
 
@@ -45,7 +45,7 @@ namespace Basis.Network.Server
 
         public static void PollLatestStatistics()
         {
-            //  BNL.Log("Packet Loss: " + Manager.Statistics.PacketLoss + "Packet Loss Percent: " + Manager.Statistics.PacketLossPercent + "Bytes Received: " + Manager.Statistics.BytesReceived + "Bytes Sent: " + Manager.Statistics.BytesSent + "Packets Sent: " + Manager.Statistics.PacketsSent);
+          BNL.Log("Packet Loss: " + Manager.Statistics.PacketLoss + "Packet Loss Percent: " + Manager.Statistics.PacketLossPercent + "Bytes Received: " + Manager.Statistics.BytesReceived + "Bytes Sent: " + Manager.Statistics.BytesSent + "Packets Sent: " + Manager.Statistics.PacketsSent);
         }
     }
 }

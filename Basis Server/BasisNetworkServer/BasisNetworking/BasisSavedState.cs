@@ -1,6 +1,4 @@
-using Basis.Network.Core;
 using LiteNetLib;
-using System;
 using static SerializableBasis;
 
 namespace Basis.Network.Server.Generic
@@ -8,10 +6,10 @@ namespace Basis.Network.Server.Generic
     public static class BasisSavedState
     {
         // Chunked arrays for each type of data
-        private static readonly ChunkedSyncedToPlayerPulseArray<LocalAvatarSyncMessage> avatarSyncStates = new ChunkedSyncedToPlayerPulseArray<LocalAvatarSyncMessage>(64);
-        private static readonly ChunkedSyncedToPlayerPulseArray<ClientAvatarChangeMessage> avatarChangeStates = new ChunkedSyncedToPlayerPulseArray<ClientAvatarChangeMessage>(64);
-        private static readonly ChunkedSyncedToPlayerPulseArray<ClientMetaDataMessage> playerMetaDataMessages = new ChunkedSyncedToPlayerPulseArray<ClientMetaDataMessage>(64);
-        private static readonly ChunkedSyncedToPlayerPulseArray<VoiceReceiversMessage> voiceReceiversMessages = new ChunkedSyncedToPlayerPulseArray<VoiceReceiversMessage>(64);
+        private static readonly ChunkedSyncedToPlayerPulseArray<LocalAvatarSyncMessage> avatarSyncStates = new ChunkedSyncedToPlayerPulseArray<LocalAvatarSyncMessage>();
+        private static readonly ChunkedSyncedToPlayerPulseArray<ClientAvatarChangeMessage> avatarChangeStates = new ChunkedSyncedToPlayerPulseArray<ClientAvatarChangeMessage>();
+        private static readonly ChunkedSyncedToPlayerPulseArray<ClientMetaDataMessage> playerMetaDataMessages = new ChunkedSyncedToPlayerPulseArray<ClientMetaDataMessage>();
+        private static readonly ChunkedSyncedToPlayerPulseArray<VoiceReceiversMessage> voiceReceiversMessages = new ChunkedSyncedToPlayerPulseArray<VoiceReceiversMessage>();
 
         /// <summary>
         /// Removes all state data for a specific player.
@@ -98,61 +96,4 @@ namespace Basis.Network.Server.Generic
             return !message.Equals(default);
         }
     }
-
-    // Generic implementation of ChunkedSyncedToPlayerPulseArray
-    public class ChunkedSyncedToPlayerPulseArray<T> where T : struct
-    {
-        private readonly object[] _chunkLocks;
-        private readonly T[][] _chunks;
-        private readonly int _chunkSize;
-        private readonly int _numChunks;
-        public ChunkedSyncedToPlayerPulseArray(int chunkSize = 256)
-        {
-            if (BasisNetworkCommons.MaxConnections <= 0)
-                throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "Total size must be greater than zero.");
-            if (chunkSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be greater than zero.");
-
-            _chunkSize = chunkSize;
-            _numChunks = (int)Math.Ceiling((double)BasisNetworkCommons.MaxConnections / chunkSize);
-
-            _chunks = new T[_numChunks][];
-            _chunkLocks = new object[_numChunks];
-
-            for (int i = 0; i < _numChunks; i++)
-            {
-                _chunks[i] = new T[chunkSize];
-                _chunkLocks[i] = new object();
-            }
-        }
-
-        public void SetPulse(int index, T pulse)
-        {
-            if (index < 0 || index >= BasisNetworkCommons.MaxConnections)
-                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
-
-            int chunkIndex = index / _chunkSize;
-            int localIndex = index % _chunkSize;
-
-            lock (_chunkLocks[chunkIndex])
-            {
-                _chunks[chunkIndex][localIndex] = pulse;
-            }
-        }
-
-        public T GetPulse(int index)
-        {
-            if (index < 0 || index >= BasisNetworkCommons.MaxConnections)
-                throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
-
-            int chunkIndex = index / _chunkSize;
-            int localIndex = index % _chunkSize;
-
-            lock (_chunkLocks[chunkIndex])
-            {
-                return _chunks[chunkIndex][localIndex];
-            }
-        }
-    }
-
 }

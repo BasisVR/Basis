@@ -5,32 +5,21 @@ using LiteNetLib;
 
 public class StripedNetPeerArray
 {
-    private readonly NetPeer[][] _chunks;           // Data storage in chunks
-    private readonly ReaderWriterLockSlim[] _locks; // Striped locks
-    private readonly ushort _chunkSize;            // Size of each chunk
-    private readonly ushort _lockCount;            // Number of locks
-    public StripedNetPeerArray(ushort chunkSize = 64, ushort lockCount = 32)
+    private readonly NetPeer[] _peers;                     // Flat peer array
+    private readonly ReaderWriterLockSlim[] _locks;        // One lock per peer
+    private readonly int _maxConnections;
+
+    public StripedNetPeerArray()
     {
-        if (BasisNetworkCommons.MaxConnections <= 0)
-            throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "Total size must be greater than zero.");
-        if (chunkSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be greater than zero.");
-        if (lockCount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(lockCount), "Lock count must be greater than zero.");
+        _maxConnections = BasisNetworkCommons.MaxConnections;
 
-        _chunkSize = chunkSize;
-        _lockCount = lockCount;
+        if (_maxConnections <= 0)
+            throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "MaxConnections must be greater than zero.");
 
-        ushort numChunks = (ushort)Math.Ceiling((double)BasisNetworkCommons.MaxConnections / chunkSize);
-        _chunks = new NetPeer[numChunks][];
-        _locks = new ReaderWriterLockSlim[lockCount];
+        _peers = new NetPeer[_maxConnections];
+        _locks = new ReaderWriterLockSlim[_maxConnections];
 
-        for (ushort i = 0; i < numChunks; i++)
-        {
-            _chunks[i] = new NetPeer[chunkSize];
-        }
-
-        for (ushort i = 0; i < lockCount; i++)
+        for (int i = 0; i < _maxConnections; i++)
         {
             _locks[i] = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
         }
@@ -38,18 +27,14 @@ public class StripedNetPeerArray
 
     public void SetPeer(ushort index, NetPeer value)
     {
-        if (index >= BasisNetworkCommons.MaxConnections)
+        if (index >= _maxConnections)
             throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
 
-        ushort chunkIndex = (ushort)(index / _chunkSize);
-        ushort localIndex = (ushort)(index % _chunkSize);
-        ushort lockIndex = (ushort)(index % _lockCount); // Lock striping
-
-        var lockObj = _locks[lockIndex];
+        var lockObj = _locks[index];
         lockObj.EnterWriteLock();
         try
         {
-            _chunks[chunkIndex][localIndex] = value;
+            _peers[index] = value;
         }
         finally
         {
@@ -59,13 +44,56 @@ public class StripedNetPeerArray
 
     public NetPeer GetPeer(ushort index)
     {
-        if (index >= BasisNetworkCommons.MaxConnections)
+        if (index >= _maxConnections)
             throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
 
-        ushort chunkIndex = (ushort)(index / _chunkSize);
-        ushort localIndex = (ushort)(index % _chunkSize);
+        var lockObj = _locks[index];
+        lockObj.EnterReadLock();
+        try
+        {
+            return _peers[index];
+        }
+        finally
+        {
+            lockObj.ExitReadLock();
+        }
+    }
 
-        // Use Volatile.Read to avoid locking for read-only access
-        return Volatile.Read(ref _chunks[chunkIndex][localIndex]);
+    public bool TryGetPeer(ushort index, out NetPeer peer)
+    {
+        if (index >= _maxConnections)
+        {
+            peer = null;
+            return false;
+        }
+
+        var lockObj = _locks[index];
+        lockObj.EnterReadLock();
+        try
+        {
+            peer = _peers[index];
+            return peer != null;
+        }
+        finally
+        {
+            lockObj.ExitReadLock();
+        }
+    }
+
+    public void ClearPeer(ushort index)
+    {
+        if (index >= _maxConnections)
+            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+
+        var lockObj = _locks[index];
+        lockObj.EnterWriteLock();
+        try
+        {
+            _peers[index] = null;
+        }
+        finally
+        {
+            lockObj.ExitWriteLock();
+        }
     }
 }
