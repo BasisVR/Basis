@@ -1,12 +1,6 @@
-﻿using LiteNetLib;
-public partial class BasisServerReductionSystem
+using LiteNetLib;
+public struct ClientPayload
 {
-public partial class SyncedToPlayerPulse
-    {
-        public struct ClientPayload
-        {
-            public NetPeer localClient;
-            public int dataCameFromThisUser;
-        }
-    }
+    public NetPeer localClient;
+    public int dataCameFromThisUser;
 }

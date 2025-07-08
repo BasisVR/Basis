@@ -1,7 +1,7 @@
 using LiteNetLib.Utils;
 public static partial class SerializableBasis
 {
-    public struct PlayerMetaDataMessage
+    public struct ClientMetaDataMessage
     {
         public string playerUUID;
         public string playerDisplayName;
@@ -9,6 +9,7 @@ public static partial class SerializableBasis
         {
             Writer.Get(out playerUUID);
             Writer.Get(out playerDisplayName);
+
         }
         public void Serialize(NetDataWriter Writer)
         {

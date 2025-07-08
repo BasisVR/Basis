@@ -6,7 +6,7 @@ using Basis.Scripts.Networking.Compression;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using static SerializableBasis;
-public partial class BasisServerReductionSystem
+public class BasisServerReductionSystem
 {
     // Default interval in milliseconds for the timer
     public static Configuration Configuration;
@@ -82,7 +82,7 @@ public partial class BasisServerReductionSystem
     /// <summary>
     /// Structure to synchronize data with a specific player.
     /// </summary>
-    public partial class SyncedToPlayerPulse
+    public class SyncedToPlayerPulse
     {
         // The player ID to which the data is being sent
         // public NetPeer playerID;

@@ -3,173 +3,153 @@ using UnityEngine;
 
 namespace Basis.Scripts.Networking.Compression
 {
-/// <summary>Functions to Compress Quaternions and Floats</summary>
-public static class BasisCompression
-{
-    const float QuaternionMinRange = -0.707107f;
-    const float QuaternionMaxRange = 0.707107f;
-    const ushort TenBitsMax = 0b11_1111_1111;
-    public static ushort ScaleFloatToUShort(float value, float minValue, float maxValue, ushort minTarget, ushort maxTarget)
+    /// <summary>Functions to Compress Quaternions and Floats</summary>
+    public static class BasisCompression
     {
-        // note: C# ushort - ushort => int, hence so many casts
-        // max ushort - min ushort only fits into something bigger
-        int targetRange = maxTarget - minTarget;
-        float valueRange = maxValue - minValue;
-        float valueRelative = value - minValue;
-        return (ushort)(minTarget + (ushort)(valueRelative / valueRange * targetRange));
-    }
-
-    // scale an ushort within min/max range to a float between min/max range
-    // note: can also use this for byte range from byte.MinValue to byte.MaxValue
-    public static float ScaleUShortToFloat(ushort value, ushort minValue, ushort maxValue, float minTarget, float maxTarget)
-    {
-        // note: C# ushort - ushort => int, hence so many casts
-        float targetRange = maxTarget - minTarget;
-        ushort valueRange = (ushort)(maxValue - minValue);
-        ushort valueRelative = (ushort)(value - minValue);
-        return minTarget + (valueRelative / (float)valueRange * targetRange);
-    }
-
-    // quaternion compression //////////////////////////////////////////////
-    // smallest three: https://gafferongames.com/post/snapshot_compression/
-    // compresses 16 bytes quaternion into 4 bytes
-
-    // helper function to find largest absolute element
-    // returns the index of the largest one
-    public static int LargestAbsoluteComponentIndex(UnityEngine.Vector4 value, out float largestAbs, out UnityEngine.Vector3 withoutLargest)
-    {
-            // convert to abs
-            UnityEngine.Vector4 abs = new UnityEngine.Vector4(Mathf.Abs(value.x), Mathf.Abs(value.y), Mathf.Abs(value.z), Mathf.Abs(value.w));
-
-        // set largest to first abs (x)
-        largestAbs = abs.x;
-        withoutLargest = new UnityEngine.Vector3(value.y, value.z, value.w);
-        int largestIndex = 0;
-
-        // compare to the others, starting at second value
-        // performance for 100k calls
-        //   for-loop:       25ms
-        //   manual checks:  22ms
-        if (abs.y > largestAbs)
+        /// <summary>
+        /// A Smallest Three Quaternion Compressor Implementation
+        /// </summary>
+        /// <remarks>
+        /// Explanation of why "The smallest three":
+        /// Since a normalized Quaternion's unit value is 1.0f:
+        /// x*x + y*y + z*z + w*w = M*M (where M is the magnitude of the vector)
+        /// If w was the largest value and the quaternion is normalized:
+        /// M = 1.0f (which M * M would still yield 1.0f)
+        /// w*w = M*M - (x*x + y*y + z*z) or Mathf.Sqrt(1.0f - (x*x + y*y + z*z))
+        /// w = Math.Sqrt(1.0f - (x*x + y*y + z*z))
+        /// Using the largest number avoids potential loss of precision in the smallest three values.
+        /// </remarks>
+        public static class QuaternionCompressor
         {
-            largestIndex = 1;
-            largestAbs = abs.y;
-            withoutLargest = new UnityEngine.Vector3(value.x, value.z, value.w);
+            private const ushort k_PrecisionMask = (1 << 9) - 1;
+
+            // Square root of 2 over 2 (Mathf.Sqrt(2.0f) / 2.0f == 1.0f / Mathf.Sqrt(2.0f))
+            // This provides encoding the smallest three components into a (+/-) Mathf.Sqrt(2.0f) / 2.0f range
+            private const float k_SqrtTwoOverTwoEncoding = 0.70710678118654752440084436210485f;
+
+            // We can further improve the encoding compression by dividing k_SqrtTwoOverTwo into 1.0f and multiplying that
+            // by the precision mask (minor reduction of runtime calculations)
+            private const float k_CompressionEcodingMask = (1.0f / k_SqrtTwoOverTwoEncoding) * k_PrecisionMask;
+
+            // Used to shift the negative bit to the 10th bit position when compressing and encoding
+            private const ushort k_ShiftNegativeBit = 9;
+
+            // We can do the same for our decoding and decompression by dividing k_PrecisionMask into 1.0 and multiplying
+            // that by k_SqrtTwoOverTwo (minor reduction of runtime calculations)
+            private const float k_DcompressionDecodingMask = (1.0f / k_PrecisionMask) * k_SqrtTwoOverTwoEncoding;
+
+            // The sign bit position (10th bit) used when decompressing and decoding
+            private const ushort k_NegShortBit = 0x200;
+
+            // Negative bit set values
+            private const ushort k_True = 1;
+            private const ushort k_False = 0;
+
+            public struct Quaternion
+            {
+                public float[] Data;
+
+                public static readonly Quaternion identity = new Quaternion(0, 0, 0, 1);
+
+                public Quaternion(float x, float y, float z, float w)
+                {
+                    Data = new float[4] { x, y, z, w };
+                }
+
+                // Conversion from UnityEngine.Quaternion to custom Quaternion
+                public static implicit operator Quaternion(UnityEngine.Quaternion unityQuat)
+                {
+                    return new Quaternion(unityQuat.x, unityQuat.y, unityQuat.z, unityQuat.w);
+                }
+
+                // Conversion from custom Quaternion to UnityEngine.Quaternion
+                public static implicit operator UnityEngine.Quaternion(Quaternion customQuat)
+                {
+                    return new UnityEngine.Quaternion(customQuat.Data[0], customQuat.Data[1], customQuat.Data[2], customQuat.Data[3]);
+                }
+
+                public override string ToString()
+                {
+                    return $"({Data[0]}, {Data[1]}, {Data[2]}, {Data[3]})";
+                }
+            }
+
+
+            // Used to store the absolute value of the 4 quaternion elements
+            private static Quaternion s_QuatAbsValues = Quaternion.identity;
+
+            /// <summary>
+            /// Compresses a Quaternion into an unsigned integer
+            /// </summary>
+            /// <param name="quaternion">the <see cref="Quaternion"/> to be compressed</param>
+            /// <returns>the <see cref="Quaternion"/> compressed as an unsigned integer</returns>
+            public static uint CompressQuaternion(ref Quaternion quaternion)
+            {
+                // Store off the absolute value for each Quaternion element
+                s_QuatAbsValues.Data[0] = Mathf.Abs(quaternion.Data[0]);
+                s_QuatAbsValues.Data[1] = Mathf.Abs(quaternion.Data[1]);
+                s_QuatAbsValues.Data[2] = Mathf.Abs(quaternion.Data[2]);
+                s_QuatAbsValues.Data[3] = Mathf.Abs(quaternion.Data[3]);
+
+                // Get the largest element value of the quaternion to know what the remaining "Smallest Three" values are
+                var quatMax = Mathf.Max(s_QuatAbsValues.Data[0], s_QuatAbsValues.Data[1], s_QuatAbsValues.Data[2], s_QuatAbsValues.Data[3]);
+
+                // Find the index of the largest element so we can skip that element while compressing and decompressing
+                var indexToSkip = (ushort)(s_QuatAbsValues.Data[0] == quatMax ? 0 : s_QuatAbsValues.Data[1] == quatMax ? 1 : s_QuatAbsValues.Data[2] == quatMax ? 2 : 3);
+
+                // Get the sign of the largest element which is all that is needed when calculating the sum of squares of a normalized quaternion.
+
+                var quatMaxSign = (quaternion.Data[indexToSkip] < 0 ? k_True : k_False);
+
+                // Start with the index to skip which will be shifted to the highest two bits
+                var compressed = (uint)indexToSkip;
+
+                // Step 1: Start with the first element
+                var currentIndex = 0;
+
+                // Step 2: If we are on the index to skip preserve the current compressed value, otherwise proceed to step 3 and 4
+                // Step 3: Get the sign of the element we are processing. If it is the not the same as the largest value's sign bit then we set the bit
+                // Step 4: Get the compressed and encoded value by multiplying the absolute value of the current element by k_CompressionEcodingMask and round that result up
+                compressed = currentIndex != indexToSkip ? (compressed << 10) | (uint)((quaternion.Data[currentIndex] < 0 ? k_True : k_False) != quatMaxSign ? k_True : k_False) << k_ShiftNegativeBit | (ushort)Mathf.Round(k_CompressionEcodingMask * s_QuatAbsValues.Data[currentIndex]) : compressed;
+                currentIndex++;
+                // Repeat the last 3 steps for the remaining elements
+                compressed = currentIndex != indexToSkip ? (compressed << 10) | (uint)((quaternion.Data[currentIndex] < 0 ? k_True : k_False) != quatMaxSign ? k_True : k_False) << k_ShiftNegativeBit | (ushort)Mathf.Round(k_CompressionEcodingMask * s_QuatAbsValues.Data[currentIndex]) : compressed;
+                currentIndex++;
+                compressed = currentIndex != indexToSkip ? (compressed << 10) | (uint)((quaternion.Data[currentIndex] < 0 ? k_True : k_False) != quatMaxSign ? k_True : k_False) << k_ShiftNegativeBit | (ushort)Mathf.Round(k_CompressionEcodingMask * s_QuatAbsValues.Data[currentIndex]) : compressed;
+                currentIndex++;
+                compressed = currentIndex != indexToSkip ? (compressed << 10) | (uint)((quaternion.Data[currentIndex] < 0 ? k_True : k_False) != quatMaxSign ? k_True : k_False) << k_ShiftNegativeBit | (ushort)Mathf.Round(k_CompressionEcodingMask * s_QuatAbsValues.Data[currentIndex]) : compressed;
+
+                // Return the compress quaternion
+                return compressed;
+            }
+
+            /// <summary>
+            /// Decompress a compressed quaternion
+            /// </summary>
+            /// <param name="quaternion">quaternion to store the decompressed values within</param>
+            /// <param name="compressed">the compressed quaternion</param>
+            public static void DecompressQuaternion(ref Quaternion quaternion, uint compressed)
+            {
+                // Get the last two bits for the index to skip (0-3)
+                var indexToSkip = (int)(compressed >> 30);
+
+                // Reverse out the values while skipping over the largest value index
+                var sumOfSquaredMagnitudes = 0.0f;
+                for (int Index = 3; Index >= 0; --Index)
+                {
+                    if (Index == indexToSkip)
+                    {
+                        continue;
+                    }
+                    // Check the negative bit and multiply that result with the decompressed and decoded value
+                    quaternion.Data[Index] = ((compressed & k_NegShortBit) > 0 ? -1.0f : 1.0f) * ((compressed & k_PrecisionMask) * k_DcompressionDecodingMask);
+                    sumOfSquaredMagnitudes += quaternion.Data[Index] * quaternion.Data[Index];
+                    compressed = compressed >> 10;
+                }
+                // Since a normalized quaternion's magnitude is 1.0f, we subtract the sum of the squared smallest three from the unit value and take
+                // the square root of the difference to find the final largest value
+                quaternion.Data[indexToSkip] = Mathf.Sqrt(1.0f - sumOfSquaredMagnitudes);
+            }
         }
-        if (abs.z > largestAbs)
-        {
-            largestIndex = 2;
-            largestAbs = abs.z;
-            withoutLargest = new UnityEngine.Vector3(value.x, value.y, value.w);
-        }
-        if (abs.w > largestAbs)
-        {
-            largestIndex = 3;
-            largestAbs = abs.w;
-            withoutLargest = new UnityEngine.Vector3(value.x, value.y, value.z);
-        }
-
-        return largestIndex;
     }
-
-    // note: assumes normalized quaternions
-    public static uint CompressQuaternion(UnityEngine.Quaternion q)
-    {
-        // note: assuming normalized quaternions is enough. no need to force
-        //       normalize here. we already normalize when decompressing.
-
-        // find the largest component index [0,3] + value
-        int largestIndex = LargestAbsoluteComponentIndex(new UnityEngine.Vector4(q.x, q.y, q.z, q.w), out float _, out UnityEngine.Vector3 withoutLargest);
-
-        // from here on, we work with the 3 components without largest!
-
-        // "You might think you need to send a sign bit for [largest] in
-        // case it is negative, but you don�t, because you can make
-        // [largest] always positive by negating the entire quaternion if
-        // [largest] is negative. in quaternion space (x,y,z,w) and
-        // (-x,-y,-z,-w) represent the same rotation."
-        if (q[largestIndex] < 0)
-            withoutLargest = -withoutLargest;
-
-        // put index & three floats into one integer.
-        // => index is 2 bits (4 values require 2 bits to store them)
-        // => the three floats are between [-0.707107,+0.707107] because:
-        //    "If v is the absolute value of the largest quaternion
-        //     component, the next largest possible component value occurs
-        //     when two components have the same absolute value and the
-        //     other two components are zero. The length of that quaternion
-        //     (v,v,0,0) is 1, therefore v^2 + v^2 = 1, 2v^2 = 1,
-        //     v = 1/sqrt(2). This means you can encode the smallest three
-        //     components in [-0.707107,+0.707107] instead of [-1,+1] giving
-        //     you more precision with the same number of bits."
-        // => the article recommends storing each float in 9 bits
-        // => our uint has 32 bits, so we might as well store in (32-2)/3=10
-        //    10 bits max value: 1023=0x3FF (use OSX calc to flip 10 bits)
-        ushort aScaled = ScaleFloatToUShort(withoutLargest.x, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
-        ushort bScaled = ScaleFloatToUShort(withoutLargest.y, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
-        ushort cScaled = ScaleFloatToUShort(withoutLargest.z, QuaternionMinRange, QuaternionMaxRange, 0, TenBitsMax);
-
-        // now we just need to pack them into one integer
-        // -> index is 2 bit and needs to be shifted to 31..32
-        // -> a is 10 bit and needs to be shifted 20..30
-        // -> b is 10 bit and needs to be shifted 10..20
-        // -> c is 10 bit and needs to be at      0..10
-        return (uint)(largestIndex << 30 | aScaled << 20 | bScaled << 10 | cScaled);
-    }
-
-    // Quaternion normalizeSAFE from ECS math.normalizesafe()
-    // => useful to produce valid quaternions even if client sends invalid
-    //    data
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static UnityEngine.Quaternion QuaternionNormalizeSafe(UnityEngine.Quaternion value)
-    {
-        // The smallest positive normal number representable in a float.
-        const float FLT_MIN_NORMAL = 1.175494351e-38F;
-
-            UnityEngine.Vector4 v = new UnityEngine.Vector4(value.x, value.y, value.z, value.w);
-        float length = UnityEngine.Vector4.Dot(v, v);
-        return length > FLT_MIN_NORMAL? value.normalized: UnityEngine.Quaternion.identity;
-    }
-
-    // note: gives normalized quaternions
-    public static UnityEngine.Quaternion DecompressQuaternion(uint data)
-    {
-        // get cScaled which is at 0..10 and ignore the rest
-        ushort cScaled = (ushort)(data & TenBitsMax);
-
-        // get bScaled which is at 10..20 and ignore the rest
-        ushort bScaled = (ushort)((data >> 10) & TenBitsMax);
-
-        // get aScaled which is at 20..30 and ignore the rest
-        ushort aScaled = (ushort)((data >> 20) & TenBitsMax);
-
-        // get 2 bit largest index, which is at 31..32
-        int largestIndex = (int)(data >> 30);
-
-        // scale back to floats
-        float a = ScaleUShortToFloat(aScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
-        float b = ScaleUShortToFloat(bScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
-        float c = ScaleUShortToFloat(cScaled, 0, TenBitsMax, QuaternionMinRange, QuaternionMaxRange);
-
-        // calculate the omitted component based on a�+b�+c�+d�=1
-        float d = Mathf.Sqrt(1 - a * a - b * b - c * c);
-
-            // reconstruct based on largest index
-            UnityEngine.Vector4 value;
-        switch (largestIndex)
-        {
-            case 0: value = new UnityEngine.Vector4(d, a, b, c); break;
-            case 1: value = new UnityEngine.Vector4(a, d, b, c); break;
-            case 2: value = new UnityEngine.Vector4(a, b, d, c); break;
-            default: value = new UnityEngine.Vector4(a, b, c, d); break;
-        }
-
-        // ECS Rotation only works with normalized quaternions.
-        // make sure that's always the case here to avoid ECS bugs where
-        // everything stops moving if the quaternion isn't normalized.
-        // => NormalizeSafe returns a normalized quaternion even if we pass
-        //    in NaN from deserializing invalid values!
-        return QuaternionNormalizeSafe(new UnityEngine.Quaternion(value.x, value.y, value.z, value.w));
-    }
-}
 }

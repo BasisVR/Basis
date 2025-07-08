@@ -17,7 +17,7 @@ namespace Basis.Scripts.Player
             await CreatedLocalPlayer.LocalInitialize();
             return CreatedLocalPlayer;
         }
-        public static async Task<BasisRemotePlayer> CreateRemotePlayer(InstantiationParameters InstantiationParameters, ClientAvatarChangeMessage AvatarURL, PlayerMetaDataMessage PlayerMetaDataMessage, string LocalPlayerId = "RemotePlayer")
+        public static async Task<BasisRemotePlayer> CreateRemotePlayer(InstantiationParameters InstantiationParameters, ClientAvatarChangeMessage AvatarURL, ClientMetaDataMessage PlayerMetaDataMessage, string LocalPlayerId = "RemotePlayer")
         {
             BasisPlayer Player = await CreatePlayer(LocalPlayerId, InstantiationParameters);
             BasisRemotePlayer CreatedRemotePlayer = (BasisRemotePlayer)Player;

@@ -165,7 +165,7 @@ namespace BasisNetworkConsole
             string ConnectedPlayerNames = $"Connected Player count is {NetworkServer.Peers.Count} ";
             foreach(NetPeer Peer in NetworkServer.Peers.Values)
             {
-                if(BasisSavedState.GetLastPlayerMetaData(Peer,out SerializableBasis.PlayerMetaDataMessage Message))
+                if(BasisSavedState.GetLastPlayerMetaData(Peer,out SerializableBasis.ClientMetaDataMessage Message))
                 {
                     ConnectedPlayerNames += $"Player: {Message.playerDisplayName} UUID: {Message.playerUUID}, ";
                 }

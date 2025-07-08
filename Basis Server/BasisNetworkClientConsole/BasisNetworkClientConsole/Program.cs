@@ -61,7 +61,7 @@ namespace Basis
 
                             ReadyMessage RM = new ReadyMessage
                             {
-                                playerMetaDataMessage = new PlayerMetaDataMessage
+                                playerMetaDataMessage = new ClientMetaDataMessage
                                 {
                                     playerDisplayName = randomPlayerName,
                                     playerUUID = randomUUID

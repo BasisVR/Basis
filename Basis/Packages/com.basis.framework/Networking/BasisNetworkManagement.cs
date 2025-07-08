@@ -47,7 +47,9 @@ namespace Basis.Scripts.Networking
 
         public static SynchronizationContext MainThreadContext;
         public static NetPeer LocalPlayerPeer;
-        public BasisNetworkTransmitter Transmitter;
+        public static BasisNetworkTransmitter Transmitter;
+        [SerializeField]
+        public BasisNetworkTransmitter SerTransmitter;
         [SerializeField]
         public NetworkClient NetworkClient = new NetworkClient();
         public static bool LocalPlayerIsConnected { get; private set; }
@@ -60,8 +62,9 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public BasisNetworkServerRunner BasisNetworkServerRunner = null;
         public static bool NetworkRunning = false;
-        public static BasisNetworkTransmitter LocalNetworkedPlayer;
         public bool IsRunning = true;
+
+
         public static bool AddPlayer(BasisNetworkPlayer NetPlayer)
         {
             if (Instance != null)
@@ -100,6 +103,7 @@ namespace Basis.Scripts.Networking
             }
             return false;
         }
+        public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
         public void OnEnable()
         {
             if (BasisHelpers.CheckInstance(Instance))
@@ -116,6 +120,16 @@ namespace Basis.Scripts.Networking
             {
                 SetupSceneEvents(BasisScene.Instance);
             }
+
+
+
+            ServerMetaDataMessage = new ServerMetaDataMessage();
+            ServerMetaDataMessage.ClientMetaDataMessage = new ClientMetaDataMessage();
+            ServerMetaDataMessage.SyncInterval = 50;
+            ServerMetaDataMessage.BaseMultiplier = 1;
+            ServerMetaDataMessage.IncreaseRate = 0.005f;
+            ServerMetaDataMessage.SlowestSendRate = 2.5f;
+
             BasisScene.Ready += SetupSceneEvents;
             if (BasisDeviceManagement.Instance != null)
             {
@@ -161,6 +175,7 @@ namespace Basis.Scripts.Networking
             MainThreadContext = null;
             LocalPlayerPeer = null;
             Transmitter = null;
+            SerTransmitter = null;
             BasisNetworkPlayer.OnLocalPlayerJoined = null;
             LocalPlayerIsConnected = false;
             BasisNetworkPlayer.OnRemotePlayerJoined = null;
@@ -259,7 +274,7 @@ namespace Basis.Scripts.Networking
                     byteArray = Information,
                     loadMode = BasisLocalPlayer.AvatarLoadMode,
                 },
-                playerMetaDataMessage = new PlayerMetaDataMessage
+                playerMetaDataMessage = new ClientMetaDataMessage
                 {
                     playerUUID = BasisLocalPlayer.UUID,
                     playerDisplayName = BasisLocalPlayer.DisplayName
@@ -290,7 +305,7 @@ namespace Basis.Scripts.Networking
             BasisDebug.Log("Success! Now setting up Networked Local Player");
 
             // Wrap the main logic in a task for thread safety and asynchronous execution.
-            await Task.Run(() =>
+            await Task.Run((Action)(() =>
             {
                 BasisNetworkManagement.MainThreadContext.Post((SendOrPostCallback)(_ =>
                 {
@@ -300,10 +315,11 @@ namespace Basis.Scripts.Networking
                         ushort LocalPlayerID = (ushort)peer.RemoteId;
                         // Create the local networked player asynchronously.
                         this.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
-                        LocalNetworkedPlayer = new BasisNetworkTransmitter(LocalPlayerID);
+                        Transmitter = new BasisNetworkTransmitter(LocalPlayerID);
+                        SerTransmitter = Transmitter;
                         // Initialize the local networked player.
-                        LocalInitalize(LocalNetworkedPlayer, BasisLocalPlayer.Instance);
-                        if (AddPlayer(LocalNetworkedPlayer))
+                        LocalInitalize(Transmitter, BasisLocalPlayer.Instance);
+                        if (AddPlayer(Transmitter))
                         {
                           //  BasisDebug.Log($"Added local player {LocalPlayerID}");
                         }
@@ -311,9 +327,9 @@ namespace Basis.Scripts.Networking
                         {
                             BasisDebug.LogError($"Cannot add player {LocalPlayerID}");
                         }
-                        LocalNetworkedPlayer.Initialize();
+                        Transmitter.Initialize();
                         // Notify listeners about the local player joining.
-                        BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(LocalNetworkedPlayer, BasisLocalPlayer.Instance);
+                        BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(Transmitter, BasisLocalPlayer.Instance);
                         LocalPlayerIsConnected = true;
                     }
                     catch (Exception ex)
@@ -321,7 +337,7 @@ namespace Basis.Scripts.Networking
                         BasisDebug.LogError($"Error setting up the local player: {ex.Message} {ex.StackTrace}");
                     }
                 }), null);
-            });
+            }));
         }
         public static void LocalInitalize(BasisNetworkTransmitter BasisNetworkPlayer, BasisLocalPlayer BasisLocalPlayer)
         {
@@ -339,7 +355,6 @@ namespace Basis.Scripts.Networking
             {
                 BasisDebug.LogError("Missing CharacterIKCalibration");
             }
-            BasisNetworkManagement.Instance.Transmitter = (BasisNetworkTransmitter)BasisNetworkPlayer;
         }
         private async void PeerDisconnectedEvent(NetPeer peer, DisconnectInfo disconnectInfo)
         {
@@ -653,6 +668,21 @@ namespace Basis.Scripts.Networking
                         BasisNetworkModeration.AdminMessage(Reader);
                         Reader.Recycle();
                     }, null);
+                    break;
+                case BasisNetworkCommons.metaDataMessage:
+                    if (ValidateSize(Reader, peer, channel) == false)
+                    {
+                        Reader.Recycle();
+                        return;
+                    }
+                    ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
+                    ServerMetaDataMessage.Deserialize(Reader);
+                    Reader.Recycle();
+
+                    BasisLocalPlayer.Instance.UUID = ServerMetaDataMessage.ClientMetaDataMessage.playerUUID;
+                    BasisLocalPlayer.Instance.DisplayName = ServerMetaDataMessage.ClientMetaDataMessage.playerDisplayName;
+                    BasisNetworkManagement.ServerMetaDataMessage = ServerMetaDataMessage;
+
                     break;
                 default:
                     BNL.LogError($"this Channel was not been implemented {channel}");

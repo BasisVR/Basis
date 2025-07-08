@@ -3,7 +3,6 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Transmitters;
-using Basis.Scripts.UI.NamePlate;
 using UnityEngine;
 using UnityEngine.InputSystem;
 public class BasisEventDriver : MonoBehaviour
@@ -13,23 +12,29 @@ public class BasisEventDriver : MonoBehaviour
     public void OnEnable()
     {
         BasisSceneFactory.Initalize();
+        BasisObjectSyncDriver.Initialize();
         Application.onBeforeRender += OnBeforeRender;
     }
     public void OnDisable()
     {
+        BasisObjectSyncDriver.Deinitialize();
         Application.onBeforeRender -= OnBeforeRender;
     }
     public void Update()
     {
         BasisNetworkManagement.SimulateNetworkCompute();
         InputSystem.Update();
-        timeSinceLastUpdate += Time.deltaTime;
+        float DeltaTime = Time.deltaTime;
+        timeSinceLastUpdate += DeltaTime;
 
         if (timeSinceLastUpdate >= updateInterval) // Use '>=' to avoid small errors
         {
             timeSinceLastUpdate -= updateInterval; // Subtract interval instead of resetting to zero
             BasisConsoleLogger.QueryLogDisplay();
         }
+        BasisObjectSyncDriver.Update(DeltaTime);
+
+
         if (!BasisDeviceManagement.hasPendingActions) return;
 
         while (BasisDeviceManagement.mainThreadActions.TryDequeue(out System.Action action))
@@ -57,6 +62,7 @@ public class BasisEventDriver : MonoBehaviour
         }
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
         BasisNetworkManagement.SimulateNetworkApply();
+        BasisObjectSyncDriver.LateUpdate();
     }
     private void OnBeforeRender()
     {

@@ -3,7 +3,7 @@ public static partial class SerializableBasis
 {
     public struct ReadyMessage
     {
-        public PlayerMetaDataMessage playerMetaDataMessage;
+        public ClientMetaDataMessage playerMetaDataMessage;
         public ClientAvatarChangeMessage clientAvatarChangeMessage;
         public LocalAvatarSyncMessage localAvatarSyncMessage;
         public void Deserialize(NetDataReader Writer)

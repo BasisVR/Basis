@@ -10,7 +10,7 @@ namespace Basis.Network.Server.Generic
         // Chunked arrays for each type of data
         private static readonly ChunkedSyncedToPlayerPulseArray<LocalAvatarSyncMessage> avatarSyncStates = new ChunkedSyncedToPlayerPulseArray<LocalAvatarSyncMessage>(64);
         private static readonly ChunkedSyncedToPlayerPulseArray<ClientAvatarChangeMessage> avatarChangeStates = new ChunkedSyncedToPlayerPulseArray<ClientAvatarChangeMessage>(64);
-        private static readonly ChunkedSyncedToPlayerPulseArray<PlayerMetaDataMessage> playerMetaDataMessages = new ChunkedSyncedToPlayerPulseArray<PlayerMetaDataMessage>(64);
+        private static readonly ChunkedSyncedToPlayerPulseArray<ClientMetaDataMessage> playerMetaDataMessages = new ChunkedSyncedToPlayerPulseArray<ClientMetaDataMessage>(64);
         private static readonly ChunkedSyncedToPlayerPulseArray<VoiceReceiversMessage> voiceReceiversMessages = new ChunkedSyncedToPlayerPulseArray<VoiceReceiversMessage>(64);
 
         /// <summary>
@@ -83,7 +83,7 @@ namespace Basis.Network.Server.Generic
         /// <summary>
         /// Retrieves the last PlayerMetaDataMessage for a player.
         /// </summary>
-        public static bool GetLastPlayerMetaData(NetPeer client, out PlayerMetaDataMessage message)
+        public static bool GetLastPlayerMetaData(NetPeer client, out ClientMetaDataMessage message)
         {
             message = playerMetaDataMessages.GetPulse(client.Id);
             return !message.Equals(default);

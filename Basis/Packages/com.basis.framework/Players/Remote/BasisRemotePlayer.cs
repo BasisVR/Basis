@@ -34,7 +34,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public byte AlwaysRequestedMode;//0 downloading 1 local
         [HideInInspector]
         public BasisLoadableBundle AlwaysRequestedAvatar;
-        public async Task RemoteInitialize(ClientAvatarChangeMessage cACM, PlayerMetaDataMessage PlayerMetaDataMessage)
+        public async Task RemoteInitialize(ClientAvatarChangeMessage cACM, ClientMetaDataMessage PlayerMetaDataMessage)
         {
             CACM = cACM;
             DisplayName = PlayerMetaDataMessage.playerDisplayName;

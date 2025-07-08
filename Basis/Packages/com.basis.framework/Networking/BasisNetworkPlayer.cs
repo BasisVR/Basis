@@ -137,14 +137,14 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         private void OnServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
         {
-            if (BasisNetworkManagement.Instance != null && BasisNetworkManagement.Instance.Transmitter != null)
+            if (BasisNetworkManagement.Instance != null && BasisNetworkManagement.Transmitter != null)
             {
                 AdditionalAvatarData AAD = new AdditionalAvatarData
                 {
                     array = buffer,
                     messageIndex = MessageIndex
                 };
-                BasisNetworkManagement.Instance.Transmitter.AddAdditional(AAD);
+                BasisNetworkManagement.Transmitter.AddAdditional(AAD);
             }
             else
             {
@@ -183,7 +183,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             return BasisNetworkManagement.PlayerToNetworkedPlayer(BasisPlayer, out BasisNetworkPlayer);
         }
-        public static BasisNetworkPlayer LocalPlayer => BasisNetworkManagement.LocalNetworkedPlayer;
+        public static BasisNetworkPlayer LocalPlayer => BasisNetworkManagement.Transmitter as BasisNetworkPlayer;
         public static bool GetPlayerById(ushort allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
             return BasisNetworkManagement.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);

@@ -159,7 +159,7 @@ namespace BasisServerHandle
                 if (NetworkServer.Configuration.UseAuth)
                 {
                     BytesMessage authMessage = new BytesMessage();
-                    authMessage.Deserialize(ConReq.Data,out byte[] AuthBytes);
+                    authMessage.Deserialize(ConReq.Data, out byte[] AuthBytes);
                     if (NetworkServer.auth.IsAuthenticated(AuthBytes) == false)
                     {
                         RejectWithReason(ConReq, "Authentication failed, Auth rejected");
@@ -170,7 +170,7 @@ namespace BasisServerHandle
                 {
                     //we still want to read the data to move the needle along
                     BytesMessage authMessage = new BytesMessage();
-                    authMessage.Deserialize(ConReq.Data,out byte[] UnusedBytes);
+                    authMessage.Deserialize(ConReq.Data, out byte[] UnusedBytes);
                 }
                 NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
 
@@ -210,6 +210,21 @@ namespace BasisServerHandle
                 //this only occurs if the server is doing Auth checks.
                 ReadyMessage.playerMetaDataMessage.playerUUID = UUID;
 
+               Configuration Config = NetworkServer.Configuration;
+                //lets dump to the local client there data after the server has had its way
+                ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage
+                {
+                    ClientMetaDataMessage = ReadyMessage.playerMetaDataMessage,
+                    SyncInterval = Config.BSRSMillisecondDefaultInterval,
+                    BaseMultiplier = Config.BSRBaseMultiplier,
+                    IncreaseRate = Config.BSRSIncreaseRate,
+                    SlowestSendRate = Config.BSRSlowestSendRate,
+                };
+
+                NetDataWriter Writer = new NetDataWriter(true, 4);
+                ServerMetaDataMessage.Serialize(Writer);
+                NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.metaDataMessage, LiteNetLib.DeliveryMethod.ReliableOrdered);
+
                 if (BasisNetworkIDDatabase.GetAllNetworkID(out List<ServerNetIDMessage> ServerNetIDMessages))
                 {
                     ServerUniqueIDMessages ServerUniqueIDMessageArray = new ServerUniqueIDMessages
@@ -217,7 +232,7 @@ namespace BasisServerHandle
                         Messages = ServerNetIDMessages.ToArray(),
                     };
 
-                    NetDataWriter Writer = new NetDataWriter(true, 4);
+                    Writer.Reset();
                     ServerUniqueIDMessageArray.Serialize(Writer);
                     BNL.Log($"Sending out Network Id Count " + ServerUniqueIDMessageArray.Messages.Length);
                     NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.NetIDAssigns, LiteNetLib.DeliveryMethod.ReliableOrdered);
@@ -240,7 +255,7 @@ namespace BasisServerHandle
         #endregion
 
         #region Network Receive Handlers
-        public static bool ValidateSize(NetPacketReader reader, NetPeer peer,byte channel )
+        public static bool ValidateSize(NetPacketReader reader, NetPeer peer, byte channel)
         {
             if (reader.AvailableBytes == 0)
             {
@@ -466,7 +481,7 @@ namespace BasisServerHandle
                     if (CreateServerReadyMessageForPeer(peer, out ServerReadyMessage Message))
                     {
                         Message.Serialize(writer);
-                      //  BNL.Log($"Writing Data with size {writer.Length}");
+                        //  BNL.Log($"Writing Data with size {writer.Length}");
                         NetworkServer.SendOutValidated(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeer, LiteNetLib.DeliveryMethod.ReliableOrdered);
                     }
                 }
@@ -498,7 +513,7 @@ namespace BasisServerHandle
 
                 if (!BasisSavedState.GetLastPlayerMetaData(peer, out var metaData))
                 {
-                    metaData = new PlayerMetaDataMessage() { playerDisplayName = "Error", playerUUID = string.Empty };
+                    metaData = new ClientMetaDataMessage() { playerDisplayName = "Error", playerUUID = string.Empty };
                     BNL.LogError("Unable to get Last Player Meta Data! Using Error Fallback");
                 }
                 ServerReadyMessage = new ServerReadyMessage
