@@ -576,7 +576,7 @@ namespace Basis.Scripts.Networking
                     await BasisNetworkHandleVoice.HandleAudioUpdate(Reader);
                     Reader.Recycle();
                     break;
-                case BasisNetworkCommons.MovementChannel:
+                case BasisNetworkCommons.PlayerAvatarChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();

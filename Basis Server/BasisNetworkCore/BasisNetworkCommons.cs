@@ -23,9 +23,9 @@ namespace Basis.Network.Core
         /// </summary>
         public const byte AuthIdentityMessage = 1;
         /// <summary>
-        /// this is normally avatar movement only can be used once!
+        /// this is normally avatar movement
         /// </summary>
-        public const byte MovementChannel = 2;
+        public const byte PlayerAvatarChannel = 2;
         /// <summary>
         /// this is what people use voice data only can be used once!
         /// </summary>

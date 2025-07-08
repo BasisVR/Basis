@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
@@ -10,10 +11,10 @@ using LiteNetLib;
 
 public static class BasisNetworkMessageProcessor
 {
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, DateTime timestamp)> movementQueue = new();
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, DateTime timestamp)> voiceQueue = new();
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, DateTime timestamp)> fallQueue = new();
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, DateTime timestamp)> generalQueue = new();
+    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> movementQueue = new();
+    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> voiceQueue = new();
+    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> fallQueue = new();
+    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> generalQueue = new();
 
     private static readonly ManualResetEventSlim movementAvailable = new(false);
     private static readonly ManualResetEventSlim voiceAvailable = new(false);
@@ -23,31 +24,32 @@ public static class BasisNetworkMessageProcessor
     private static readonly int WorkerCount = Environment.ProcessorCount;
     private static readonly Thread[] workers;
 
-    private const int MaxQueueSize = 128;
-    private static readonly TimeSpan MaxMessageAge = TimeSpan.FromMilliseconds(200);
+    private const int MaxQueueSize = 64;
 
+    // Stopwatch-based timing
+    private static readonly long MaxMessageAgeTicks = Stopwatch.Frequency * 100 / 1000; // 100ms
     static BasisNetworkMessageProcessor()
     {
         workers = new Thread[WorkerCount];
-        for (int i = 0; i < WorkerCount; i++)
+        for (int Index = 0; Index < WorkerCount; Index++)
         {
-            workers[i] = new Thread(WorkerLoop)
+            workers[Index] = new Thread(WorkerLoop)
             {
                 IsBackground = true,
-                Name = $"BasisNetWorker-{i}"
+                Name = $"BasisNetWorker-{Index}"
             };
-            workers[i].Start();
+            workers[Index].Start();
         }
     }
 
     public static void Enqueue(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
-        var timestamp = DateTime.UtcNow;
+        long timestamp = Stopwatch.GetTimestamp();
         var item = (peer, reader, channel, deliveryMethod, timestamp);
 
         switch (channel)
         {
-            case BasisNetworkCommons.MovementChannel:
+            case BasisNetworkCommons.PlayerAvatarChannel:
                 if (movementQueue.Count > MaxQueueSize)
                 {
                     reader.Recycle();
@@ -93,10 +95,10 @@ public static class BasisNetworkMessageProcessor
         {
             bool didWork = false;
 
-            didWork |= TryDequeueAndProcess(movementQueue, movementAvailable, BasisNetworkCommons.MovementChannel);
-            didWork |= TryDequeueAndProcess(voiceQueue, voiceAvailable, BasisNetworkCommons.VoiceChannel);
-            didWork |= TryDequeueAndProcess(fallQueue, fallAvailable, BasisNetworkCommons.FallChannel);
             didWork |= TryDequeueAndProcess(generalQueue, generalAvailable, null);
+            didWork |= TryDequeueAndProcess(voiceQueue, voiceAvailable, BasisNetworkCommons.VoiceChannel);
+            didWork |= TryDequeueAndProcess(movementQueue, movementAvailable, BasisNetworkCommons.PlayerAvatarChannel);
+            didWork |= TryDequeueAndProcess(fallQueue, fallAvailable, BasisNetworkCommons.FallChannel);
 
             if (!didWork)
             {
@@ -117,7 +119,7 @@ public static class BasisNetworkMessageProcessor
     }
 
     private static bool TryDequeueAndProcess(
-        ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, DateTime timestamp)> queue,
+        ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> queue,
         ManualResetEventSlim availableEvent,
         byte? dropIfOldChannel)
     {
@@ -129,10 +131,11 @@ public static class BasisNetworkMessageProcessor
 
             try
             {
-                if (dropIfOldChannel.HasValue && DateTime.UtcNow - item.timestamp > MaxMessageAge)
+                long ageTicks = Stopwatch.GetTimestamp() - item.timestamp;
+                if (dropIfOldChannel.HasValue && ageTicks > MaxMessageAgeTicks)
                 {
                     item.reader?.Recycle();
-                    BNL.LogError($"Dropped stale message on channel {dropIfOldChannel.Value} (older than 1s)");
+                    BNL.LogError($"Dropped stale message on channel {dropIfOldChannel.Value} (older than {MaxMessageAgeTicks} was {ageTicks})");
                     continue;
                 }
 
@@ -179,7 +182,7 @@ public static class BasisNetworkMessageProcessor
                         BasisServerHandleEvents.HandleAuth(reader, peer);
                     break;
 
-                case BasisNetworkCommons.MovementChannel:
+                case BasisNetworkCommons.PlayerAvatarChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisServerHandleEvents.HandleAvatarMovement(reader, peer);
                     break;

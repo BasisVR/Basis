@@ -11,12 +11,10 @@ public static class BasisObjectSyncDriver
     private static NativeList<BasisTranslationUpdate> inputData;
     private static List<Transform> transforms = new List<Transform>();
     private static TransformAccessArray transformArray;
-
     private static Queue<int> freeList;
     private static JobHandle jobHandle;
     public static bool WasScheduled = false;
     public static bool HasItems { get; private set; } = false;
-
     public static void Initialize(int initialCapacity = 0)
     {
         inputData = new NativeList<BasisTranslationUpdate>(initialCapacity, Allocator.Persistent);
@@ -24,7 +22,6 @@ public static class BasisObjectSyncDriver
         transformArray = new TransformAccessArray(0);
         transforms.Clear();
     }
-
     public static void Deinitialize()
     {
         if (inputData.IsCreated) inputData.Dispose();
@@ -42,7 +39,7 @@ public static class BasisObjectSyncDriver
             return;
         }
 
-        ObjectSyncJob job = new ObjectSyncJob
+        BasisObjectSyncJob job = new BasisObjectSyncJob
         {
             TranslationUpdate = inputData.AsDeferredJobArray(),
             DeltaTime = deltaTime
@@ -51,12 +48,33 @@ public static class BasisObjectSyncDriver
         jobHandle = job.Schedule(transformArray);
         WasScheduled = true;
     }
-
     public static void LateUpdate()
     {
         if (WasScheduled)
         {
             jobHandle.Complete();
+        }
+    } 
+    public static List<BasisObjectSyncNetworking> OwnedObjectSyncs = new List<BasisObjectSyncNetworking>();
+    public static float targetMiliseconds = 0.1f; // Target update frequency in Hz (10 times per second)
+    private static double _lastUpdateTime; // Last update timestamp
+    /// <summary>
+    /// only syncs when we are the owner
+    /// </summary>
+    public static void TransmitOwnedPickups()
+    {
+        double timeAsDouble = Time.timeAsDouble;
+        if (timeAsDouble - _lastUpdateTime >= targetMiliseconds)
+        {
+            _lastUpdateTime = timeAsDouble;
+            for (int Index = 0; Index < OwnedObjectSyncs.Count; Index++)
+            {
+                BasisObjectSyncNetworking Object = OwnedObjectSyncs[Index];
+                if (Object != null)
+                {
+                    Object.SendNetworkSync();
+                }
+            }
         }
     }
     public static void UpdateObject(int index, BasisTranslationUpdate data)
@@ -105,7 +123,6 @@ public static class BasisObjectSyncDriver
         CompactAndRebuild();
         HasItems = inputData.Length - freeList.Count > 0;
     }
-
     private static void CompactAndRebuild()
     {
         NativeList<BasisTranslationUpdate> compactedInput = new NativeList<BasisTranslationUpdate>(Allocator.Temp);
@@ -139,7 +156,7 @@ public static class BasisObjectSyncDriver
         compactedInput.Dispose();
     }
     [BurstCompile]
-    public struct ObjectSyncJob : IJobParallelForTransform
+    public struct BasisObjectSyncJob : IJobParallelForTransform
     {
         [ReadOnly]
         public float DeltaTime;

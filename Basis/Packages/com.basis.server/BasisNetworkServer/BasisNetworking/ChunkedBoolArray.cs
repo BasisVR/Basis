@@ -67,9 +67,9 @@ public class ChunkedServerSideReducablePlayerArray
         _totalSize = _chunkSize * _numChunks;
 
         _chunks = new ServerSideReducablePlayer[_numChunks][];
-        for (int i = 0; i < _numChunks; i++)
+        for (int Index = 0; Index < _numChunks; Index++)
         {
-            _chunks[i] = new ServerSideReducablePlayer[chunkSize];
+            _chunks[Index] = new ServerSideReducablePlayer[chunkSize];
         }
     }
 

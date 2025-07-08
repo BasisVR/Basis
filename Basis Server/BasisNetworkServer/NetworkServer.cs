@@ -55,9 +55,23 @@ public static class NetworkServer
             UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
             PingInterval = configuration.PingInterval,
             DisconnectTimeout = configuration.DisconnectTimeout,
-            PacketPoolSize = 2000,
+            PacketPoolSize = 700,
             UnsyncedEvents = true,
-            ReceivePollingTime = 75000,
+            ReceivePollingTime = 250,
+            /*
+            SimulateLatency = configuration.SimulateLatency,
+            SimulatePacketLoss = configuration.SimulatePacketLoss,
+            SimulationMaxLatency = configuration.SimulationMaxLatency,
+            SimulationMinLatency = configuration.SimulationMinLatency,
+            SimulationPacketLossChance = configuration.SimulationPacketLossChance,
+            ReuseAddress = configuration.ReuseAddress,
+            MaxConnectAttempts = configuration.MaxConnectAttempts,
+            ReconnectDelay = configuration.ReconnectDelay,
+            MtuDiscovery = configuration.MtuDiscovery,
+            MtuOverride = configuration.MtuOverride,
+            DisconnectOnUnreachable = configuration.DisconnectOnUnreachable,
+            DontRoute = configuration.DontRoute,
+            */
         };
         NetDebug.Logger = new BasisServerLogger();
         StartListening(configuration);
@@ -119,6 +133,20 @@ public static class NetworkServer
             {
                 authenticatedClients[index].Send(Writer, channel, deliveryMethod);
             }
+        }
+    }
+    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
+    {
+        if (NetworkServer.CheckValidated(Writer))
+        {
+            server.SendToAll(Writer, channel, deliveryMethod);
+        }
+    }
+    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel,NetPeer DontSendToMe, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
+    {
+        if (NetworkServer.CheckValidated(Writer))
+        {
+            server.SendToAll(Writer, channel, deliveryMethod, DontSendToMe);
         }
     }
     public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, ref List<NetPeer> authenticatedClients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int MaxMessages = 70)

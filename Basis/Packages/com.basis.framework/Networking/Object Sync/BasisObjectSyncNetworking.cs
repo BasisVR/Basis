@@ -9,18 +9,14 @@ using UnityEngine;
 using static BasisObjectSyncDriver;
 public class BasisObjectSyncNetworking : MonoBehaviour
 {
+    public string NetworkId;
+
     public ushort MessageIndex = 0;
     public bool HasMessageIndexAssigned;
-    public string NetworkId;
-    public int TargetFrequency = 10; // Target update frequency in Hz (10 times per second)
-    public float NetworkLerpSpeed = 7;
-    private double _updateInterval; // Time interval between updates
-    private double _lastUpdateTime; // Last update timestamp
+
     public ushort CurrentOwner;
     public bool IsLocalOwner = false;
     public bool HasActiveOwnership = false;
-
-    public float LerpMultiplier = 3f;
     public BasisContentBase ContentConnector;
     public BasisInteractableObject InteractableObjects;
     public DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced;
@@ -51,9 +47,6 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         BasisNetworkPlayer.OnOwnershipTransfer += OnOwnershipTransfer;
         BasisNetworkPlayer.OnOwnershipReleased += OwnershipReleased;
         BasisNetworkNetIDConversion.OnNetworkIdAdded += OnNetworkIdAdded;
-        _updateInterval = 1f / TargetFrequency; // Calculate interval (1/33 seconds)
-        _lastUpdateTime = Time.timeAsDouble;
-
         StartRemoteControl();
     }
     public void OnDisable()
@@ -63,6 +56,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransfer;
         BasisNetworkPlayer.OnOwnershipReleased -= OwnershipReleased;
         BasisNetworkNetIDConversion.OnNetworkIdAdded -= OnNetworkIdAdded;
+        StopRemoteControl();
     }
     private void OnInteractEndEvent(BasisInput input)
     {
@@ -133,19 +127,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
             OwnedPickupSet();
         }
     }
-    public void LateUpdate()
-    {
-        if (IsLocalOwner)
-        {
-            double timeAsDouble = Time.timeAsDouble;
-            if (timeAsDouble - _lastUpdateTime >= _updateInterval)
-            {
-                _lastUpdateTime = timeAsDouble;
-                SendNetworkMessage();
-            }
-        }
-    }
-    public void SendNetworkMessage()
+    public void SendNetworkSync()
     {
         BasisPositionRotationScale Current = new BasisPositionRotationScale();
         transform.GetLocalPositionAndRotation(out Current.Position, out Current.Rotation);

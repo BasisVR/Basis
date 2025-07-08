@@ -52,7 +52,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             Transmit.LASM.Serialize(Transmit.AvatarSendWriter);
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.LocalAvatarSync, Transmit.AvatarSendWriter.Length);
-            BasisNetworkManagement.LocalPlayerPeer.Send(Transmit.AvatarSendWriter, BasisNetworkCommons.MovementChannel, DeliveryMethod.Sequenced);
+            BasisNetworkManagement.LocalPlayerPeer.Send(Transmit.AvatarSendWriter, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
             Transmit.AvatarSendWriter.Reset();
             Transmit.ClearAdditional();
         }

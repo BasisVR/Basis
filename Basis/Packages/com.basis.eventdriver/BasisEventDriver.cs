@@ -61,6 +61,7 @@ public class BasisEventDriver : MonoBehaviour
             BasisLocalPlayer.Instance.SimulateOnLateUpdate();
         }
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
+        BasisObjectSyncDriver.TransmitOwnedPickups();
         BasisNetworkManagement.SimulateNetworkApply();
         BasisObjectSyncDriver.LateUpdate();
     }
