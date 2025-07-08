@@ -3,7 +3,6 @@ using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
 using BasisDidLink;
-using BasisNetworkServer.BasisNetworkMessageProcessor;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
 using LiteNetLib;
