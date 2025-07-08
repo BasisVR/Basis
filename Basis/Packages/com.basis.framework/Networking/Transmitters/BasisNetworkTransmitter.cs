@@ -71,7 +71,6 @@ namespace Basis.Scripts.Networking.Transmitters
         public float timer = 0f; // timer in seconds
         public float SmallestDistanceToAnotherPlayer;
         public float UnClampedInterval; // store in ms for consistency
-        public float CalculatedIntervalBase;
         public float DefaultInterval;
         void SendOutLatest()
         {
@@ -93,7 +92,7 @@ namespace Basis.Scripts.Networking.Transmitters
                     // Message values are assumed to be in milliseconds
                     DefaultInterval = Message.SyncInterval / 1000f;
 
-                    CalculatedIntervalBase = Message.BaseMultiplier + (SmallestDistanceToAnotherPlayer * Message.IncreaseRate);
+                    float CalculatedIntervalBase = Message.BaseMultiplier + (SmallestDistanceToAnotherPlayer * Message.IncreaseRate);
                     UnClampedInterval = DefaultInterval * CalculatedIntervalBase;
                     intervalSeconds = math.clamp(UnClampedInterval, DefaultInterval, Message.SlowestSendRate);
                     // Account for overshoot

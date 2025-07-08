@@ -27,6 +27,27 @@ public static partial class SerializableBasis
         {
             ClientMetaDataMessage.Serialize(Writer);
 
+            if (SyncInterval == 0)
+            {
+                SyncInterval = 50;
+                BNL.LogError("SyncInterval was not set! ");
+            }
+            if (BaseMultiplier == 0)
+            {
+                BaseMultiplier = 1;
+                BNL.LogError("Base Multiplier was not set! ");
+            }
+            if (IncreaseRate == 0)
+            {
+                IncreaseRate = 0.005f;
+                BNL.LogError("IncreaseRate was not set! ");
+            }
+            if (SlowestSendRate == 0)
+            {
+                SlowestSendRate = 2.5f;
+                BNL.LogError("Slowest Send Rate was not set!");
+            }
+
             Writer.Put(SyncInterval);
             Writer.Put(BaseMultiplier);
             Writer.Put(IncreaseRate);

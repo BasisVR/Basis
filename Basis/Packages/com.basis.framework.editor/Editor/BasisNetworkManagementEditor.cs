@@ -54,7 +54,6 @@ public class BasisNetworkManagementEditor : Editor
             EditorGUILayout.LabelField("Timer:", BasisNetworkManagement.Transmitter.timer.ToString("F3"));
             EditorGUILayout.LabelField("intervalSeconds:", BasisNetworkManagement.Transmitter.intervalSeconds.ToString("F3"));
             EditorGUILayout.LabelField("UnClampedInterval:", BasisNetworkManagement.Transmitter.UnClampedInterval.ToString("F3"));
-            EditorGUILayout.LabelField("CalculatedIntervalBase:", BasisNetworkManagement.Transmitter.CalculatedIntervalBase.ToString("F3"));
             EditorGUILayout.LabelField("Smallest Distance to Another Player:", BasisNetworkManagement.Transmitter.SmallestDistanceToAnotherPlayer.ToString("F3"));
 
             EditorGUILayout.Space();
