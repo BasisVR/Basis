@@ -27,8 +27,8 @@ public class Configuration
     public bool DontRoute = false;
     public bool EnableStatistics = true;
     public bool IPv6Enabled = true;
-    public int MtuOverride = 1500;
-    public bool MtuDiscovery = true;
+    public int MtuOverride = 0;
+    public bool MtuDiscovery = false;
     public bool DisconnectOnUnreachable = false;
     public bool AllowPeerAddressChange = true;
     public bool HasFileSupport = true;

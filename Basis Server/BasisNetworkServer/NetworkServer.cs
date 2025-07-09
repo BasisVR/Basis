@@ -58,17 +58,18 @@ public static class NetworkServer
             PacketPoolSize = 700,
             UnsyncedEvents = true,
             ReceivePollingTime = 250,
-            /*
+
             SimulateLatency = configuration.SimulateLatency,
             SimulatePacketLoss = configuration.SimulatePacketLoss,
             SimulationMaxLatency = configuration.SimulationMaxLatency,
             SimulationMinLatency = configuration.SimulationMinLatency,
             SimulationPacketLossChance = configuration.SimulationPacketLossChance,
+            MtuDiscovery = configuration.MtuDiscovery,
+            MtuOverride = configuration.MtuOverride,
+            /*
             ReuseAddress = configuration.ReuseAddress,
             MaxConnectAttempts = configuration.MaxConnectAttempts,
             ReconnectDelay = configuration.ReconnectDelay,
-            MtuDiscovery = configuration.MtuDiscovery,
-            MtuOverride = configuration.MtuOverride,
             DisconnectOnUnreachable = configuration.DisconnectOnUnreachable,
             DontRoute = configuration.DontRoute,
             */
