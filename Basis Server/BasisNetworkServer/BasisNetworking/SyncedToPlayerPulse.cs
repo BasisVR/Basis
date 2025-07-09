@@ -106,7 +106,7 @@ public class SyncedToPlayerPulse
                         }
                         else
                         {
-                            BNL.LogError("Max Message Reached ");
+                       //     BNL.LogError("Max Message Reached ");
                         }
                     }
                     catch (Exception e)
