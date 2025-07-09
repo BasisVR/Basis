@@ -1,62 +1,54 @@
 using Basis.Network.Core;
 using LiteNetLib;
 using System;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace BasisNetworkCore
 {
-    public class BasisPlayerArray
+    public static class BasisPlayerArray
     {
-        private static readonly object PlayerArrayLock = new object();
-        private static NetPeer[] PlayerArray = new NetPeer[BasisNetworkCommons.MaxConnections];
-        private static int PlayerCount = 0;
+        private static readonly object PlayerLock = new object();
 
-        // Reusable snapshot buffer
-        private static NetPeer[] SnapshotBuffer = new NetPeer[BasisNetworkCommons.MaxConnections];
-        /// <summary>
-        /// slow operation but allows us to get a copy of the players quickly later.
-        /// slow operation can be out of order.
-        /// </summary>
-        /// <param name="player"></param>
+        // Mutable list for internal tracking
+        private static readonly List<NetPeer> InternalList = new List<NetPeer>(BasisNetworkCommons.MaxConnections);
+
+        // Atomic read-only snapshot for fast reads
+        private static NetPeer[] Snapshot = Array.Empty<NetPeer>();
+
         public static void AddPlayer(NetPeer player)
         {
-            lock (PlayerArrayLock)
+            if (player == null) return;
+
+            lock (PlayerLock)
             {
-                if (PlayerCount < PlayerArray.Length)
-                {
-                    PlayerArray[PlayerCount++] = player;
-                }
+                InternalList.Add(player);
+                UpdateSnapshot();
             }
         }
-        /// <summary>
-        /// slow operation can be out of order.
-        /// </summary>
-        /// <param name="player"></param>
+
         public static void RemovePlayer(NetPeer player)
         {
-            lock (PlayerArrayLock)
+            if (player == null) return;
+
+            lock (PlayerLock)
             {
-                for (int i = 0; i < PlayerCount; i++)
-                {
-                    if (PlayerArray[i] == player)
-                    {
-                        PlayerArray[i] = PlayerArray[--PlayerCount]; // Swap with last element
-                        PlayerArray[PlayerCount] = null; // Clear the last slot
-                        break;
-                    }
-                }
+                InternalList.Remove(player);
+                UpdateSnapshot();
             }
+        }
+
+        private static void UpdateSnapshot()
+        {
+            // Replace the entire snapshot atomically
+            NetPeer[] newSnapshot = InternalList.ToArray();
+            Interlocked.Exchange(ref Snapshot, newSnapshot);
         }
 
         public static ReadOnlySpan<NetPeer> GetSnapshot()
         {
-            lock (PlayerArrayLock)
-            {
-                // Copy current players into the reusable snapshot buffer
-                Array.Copy(PlayerArray, 0, SnapshotBuffer, 0, PlayerCount);
-
-                // Return a span of the active players
-                return new ReadOnlySpan<NetPeer>(SnapshotBuffer, 0, PlayerCount);
-            }
+            // Zero-copy, zero-lock, atomic read
+            return new ReadOnlySpan<NetPeer>(Volatile.Read(ref Snapshot));
         }
     }
 }
