@@ -4,6 +4,7 @@ using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using LiteNetLib;
 using LiteNetLib.Utils;
+using static LockedBoolArray;
 using static SerializableBasis;
 /// <summary>
 /// Structure to synchronize data with a specific player.
@@ -15,8 +16,8 @@ public class SyncedToPlayerPulse
     public ServerSideSyncPlayerMessage lastPlayerInformation;
     public Vector3 Position;
 
-    public ChunkedBoolArray SyncBoolArray = new ChunkedBoolArray(256);
-    public ChunkedServerSideReducablePlayerArray ChunkedServerSideReducablePlayerArray = new ChunkedServerSideReducablePlayerArray(256);
+    public LockedBoolArray SyncBoolArray = new LockedBoolArray();
+    public LockedServerSideReducablePlayerArray ChunkedServerSideReducablePlayerArray = new LockedServerSideReducablePlayerArray();
 
 
     public static int BSRSMillisecondDefaultInterval = 50;

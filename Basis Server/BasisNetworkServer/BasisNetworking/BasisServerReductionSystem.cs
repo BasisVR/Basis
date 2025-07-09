@@ -1,10 +1,11 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using LiteNetLib;
+using static LockedBoolArray;
 using static SerializableBasis;
 public class BasisServerReductionSystem
 {
-    public static ChunkedSyncedToPlayerPulseArray PlayerSync = new ChunkedSyncedToPlayerPulseArray(256);
+    public static LockedSyncedToPlayerPulseArray PlayerSync = new LockedSyncedToPlayerPulseArray();
     /// <summary>
     /// add the new client
     /// then update all existing clients arrays
