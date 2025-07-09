@@ -19,10 +19,16 @@ public static class NetworkServer
     public static Configuration Configuration;
     public static IAuth auth;
     public static IAuthIdentity authIdentity;
+    public static int MaxMessages = 80;
     public static void StartServer(Configuration configuration)
     {
         Configuration = configuration;
-        BasisServerReductionSystem.Configuration = configuration;
+
+        SyncedToPlayerPulse.BSRBaseMultiplier = configuration.BSRBaseMultiplier;
+        SyncedToPlayerPulse.BSRSMillisecondDefaultInterval = configuration.BSRSMillisecondDefaultInterval;
+        SyncedToPlayerPulse.BSRSIncreaseRate = configuration.BSRSIncreaseRate;
+        SyncedToPlayerPulse.ByteBSRSMillisecondDefaultInterval = (byte)configuration.BSRSMillisecondDefaultInterval;
+
         BasisPlayerModeration.UseFileOnDisc = configuration.HasFileSupport;
         IAuthIdentity.HasFileSupport = configuration.HasFileSupport;
         auth = new PasswordAuth(configuration.Password ?? string.Empty);

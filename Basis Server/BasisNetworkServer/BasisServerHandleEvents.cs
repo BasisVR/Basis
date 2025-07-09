@@ -1,6 +1,8 @@
 using Basis.Network.Core;
+using Basis.Network.Core.Compression;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
+using Basis.Scripts.Networking.Compression;
 using BasisNetworkCore;
 using BasisNetworkServer.Security;
 using LiteNetLib;
@@ -295,22 +297,30 @@ namespace BasisServerHandle
             serverAvatarChangeMessage.Serialize(Writer);
             NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AvatarChangeMessage, Peer, BasisPlayerArray.GetSnapshot());
         }
-        public static void HandleAvatarMovement(NetPacketReader Reader, NetPeer Peer)
+        public static void HandleAvatarMovement(NetPacketReader Reader, NetPeer Frompeer)
         {
             LocalAvatarSyncMessage LocalAvatarSyncMessage = new LocalAvatarSyncMessage();
             LocalAvatarSyncMessage.Deserialize(Reader);
             Reader.Recycle();
-            BasisSavedState.AddLastData(Peer, LocalAvatarSyncMessage);
+            BasisSavedState.AddLastData(Frompeer, LocalAvatarSyncMessage);
             ReadOnlySpan<NetPeer> Peers = BasisPlayerArray.GetSnapshot();
 
-            ServerSideSyncPlayerMessage ssspm = CreateServerSideSyncPlayerMessage(LocalAvatarSyncMessage, (ushort)Peer.Id);
-            foreach (NetPeer client in Peers)
+            ServerSideSyncPlayerMessage ssspm = CreateServerSideSyncPlayerMessage(LocalAvatarSyncMessage, (ushort)Frompeer.Id);
+            Vector3 Position = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(ssspm);
+            SyncedToPlayerPulse playerData = BasisServerReductionSystem.PlayerSync.GetPulse(Frompeer.Id);
+            //stage 1 lets update whoever send us this datas last player information
+            if (playerData != null)
             {
-                if (client.Id == Peer.Id)
+                playerData.lastPlayerInformation = ssspm;
+                playerData.Position = Position;
+            }
+            foreach (NetPeer playerID in Peers)
+            {
+                if (playerID.Id == Frompeer.Id)
                 {
                     continue;
                 }
-                BasisServerReductionSystem.AddOrUpdatePlayer(client, ssspm, Peer);
+                BasisServerReductionSystem.AddOrUpdatePlayer(Position, playerID, ssspm, Frompeer);
             }
         }
 
