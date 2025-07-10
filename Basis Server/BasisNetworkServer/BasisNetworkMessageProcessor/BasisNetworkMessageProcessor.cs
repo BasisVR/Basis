@@ -300,6 +300,13 @@ public static class BasisNetworkMessageProcessor
                     }
                     reader.Recycle();
                     break;
+                case BasisNetworkCommons.BasisMonoBehaviour:
+                    if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
+                    {
+
+                    }
+                    reader.Recycle();
+                    break;
                 default:
                     BNL.LogError($"Unknown channel: {channel} " + reader.AvailableBytes);
                     reader.Recycle();

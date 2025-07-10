@@ -1,12 +1,12 @@
 using Basis.Network.Core;
 using System;
+using System.Threading;
 
 namespace Basis.Network.Server.Generic
 {
-    // Generic implementation with per-player locking
     public class ChunkedSyncedToPlayerPulseArray<T> where T : struct
     {
-        private readonly object[] _playerLocks;
+        private readonly ReaderWriterLockSlim[] _playerLocks;
         private readonly T[] _pulses;
         private readonly int _maxPlayers;
 
@@ -18,11 +18,11 @@ namespace Basis.Network.Server.Generic
                 throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "MaxConnections must be greater than zero.");
 
             _pulses = new T[_maxPlayers];
-            _playerLocks = new object[_maxPlayers];
+            _playerLocks = new ReaderWriterLockSlim[_maxPlayers];
 
-            for (int i = 0; i < _maxPlayers; i++)
+            for (int Index = 0; Index < _maxPlayers; Index++)
             {
-                _playerLocks[i] = new object();
+                _playerLocks[Index] = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
             }
         }
 
@@ -31,9 +31,15 @@ namespace Basis.Network.Server.Generic
             if (index < 0 || index >= _maxPlayers)
                 throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
 
-            lock (_playerLocks[index])
+            var rwLock = _playerLocks[index];
+            rwLock.EnterWriteLock();
+            try
             {
                 _pulses[index] = pulse;
+            }
+            finally
+            {
+                rwLock.ExitWriteLock();
             }
         }
 
@@ -42,9 +48,15 @@ namespace Basis.Network.Server.Generic
             if (index < 0 || index >= _maxPlayers)
                 throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
 
-            lock (_playerLocks[index])
+            var rwLock = _playerLocks[index];
+            rwLock.EnterReadLock();
+            try
             {
                 return _pulses[index];
+            }
+            finally
+            {
+                rwLock.ExitReadLock();
             }
         }
     }

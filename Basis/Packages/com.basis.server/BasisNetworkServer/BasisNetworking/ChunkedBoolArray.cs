@@ -1,143 +1,100 @@
 using Basis.Network.Core;
 using System;
-using System.Threading;
-using static BasisServerReductionSystem;
-
-public class ChunkedBoolArray
+public class LockedBoolArray
 {
-    private readonly bool[][] _chunks;
-    private readonly int _chunkSize;
-    private readonly int _numChunks;
+    private readonly bool[] _array;
+    private readonly object[] _locks;
     private readonly int _totalSize;
-    public ChunkedBoolArray(int chunkSize = 256)
+
+    public LockedBoolArray()
     {
         if (BasisNetworkCommons.MaxConnections <= 0)
             throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "Total size must be greater than zero.");
-        if (chunkSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be greater than zero.");
 
-        _chunkSize = chunkSize;
-        _numChunks = (int)Math.Ceiling((double)BasisNetworkCommons.MaxConnections / chunkSize);
-        _totalSize = _chunkSize * _numChunks;
-
-        _chunks = new bool[_numChunks][];
-        for (int i = 0; i < _numChunks; i++)
-        {
-            _chunks[i] = new bool[chunkSize];
-        }
+        _totalSize = BasisNetworkCommons.MaxConnections;
+        _array = new bool[_totalSize];
+        _locks = new object[_totalSize];
+        for (int i = 0; i < _totalSize; i++)
+            _locks[i] = new object();
     }
+
     public void SetBool(int index, bool value)
     {
-        if (index < 0 || index >= _totalSize)
-            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
-
-        int chunkIndex = index / _chunkSize;
-        int localIndex = index % _chunkSize;
-
-        Volatile.Write(ref _chunks[chunkIndex][localIndex], value);
+        lock (_locks[index])
+        {
+            _array[index] = value;
+        }
     }
+
     public bool GetBool(int index)
     {
-        if (index < 0 || index >= _totalSize)
-            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
-
-        int chunkIndex = index / _chunkSize;
-        int localIndex = index % _chunkSize;
-
-        return Volatile.Read(ref _chunks[chunkIndex][localIndex]);
-    }
-}
-
-public class ChunkedServerSideReducablePlayerArray
-{
-    private readonly ServerSideReducablePlayer[][] _chunks;
-    private readonly int _chunkSize;
-    private readonly int _numChunks;
-    private readonly int _totalSize;
-
-    public ChunkedServerSideReducablePlayerArray(int chunkSize = 256)
-    {
-        if (BasisNetworkCommons.MaxConnections <= 0)
-            throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "Total size must be greater than zero.");
-        if (chunkSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be greater than zero.");
-
-        _chunkSize = chunkSize;
-        _numChunks = (int)Math.Ceiling((double)BasisNetworkCommons.MaxConnections / chunkSize);
-        _totalSize = _chunkSize * _numChunks;
-
-        _chunks = new ServerSideReducablePlayer[_numChunks][];
-        for (int Index = 0; Index < _numChunks; Index++)
+        lock (_locks[index])
         {
-            _chunks[Index] = new ServerSideReducablePlayer[chunkSize];
+            return _array[index];
         }
     }
-
-    public void SetPlayer(int index, ServerSideReducablePlayer player)
+    public class LockedServerSideReducablePlayerArray
     {
-        if (index < 0 || index >= _totalSize)
-            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+        private readonly ServerSideReducablePlayer[] _array;
+        private readonly object[] _locks;
+        private readonly int _totalSize;
 
-        int chunkIndex = index / _chunkSize;
-        int localIndex = index % _chunkSize;
-
-        Volatile.Write(ref _chunks[chunkIndex][localIndex], player);
-    }
-
-    public ServerSideReducablePlayer GetPlayer(int index)
-    {
-        if (index < 0 || index >= _totalSize)
-            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
-
-        int chunkIndex = index / _chunkSize;
-        int localIndex = index % _chunkSize;
-
-        return Volatile.Read(ref _chunks[chunkIndex][localIndex]);
-    }
-}
-public class ChunkedSyncedToPlayerPulseArray
-{
-    private readonly SyncedToPlayerPulse[][] _chunks;
-    private readonly int _chunkSize;
-    private readonly int _numChunks;
-    public const int TotalSize = 1024;
-
-    public ChunkedSyncedToPlayerPulseArray(int chunkSize = 256)
-    {
-        if (TotalSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(TotalSize), "Total size must be greater than zero.");
-        if (chunkSize <= 0)
-            throw new ArgumentOutOfRangeException(nameof(chunkSize), "Chunk size must be greater than zero.");
-
-        _chunkSize = chunkSize;
-        _numChunks = (int)Math.Ceiling((double)TotalSize / chunkSize);
-        _chunks = new SyncedToPlayerPulse[_numChunks][];
-
-        for (int i = 0; i < _numChunks; i++)
+        public LockedServerSideReducablePlayerArray()
         {
-            _chunks[i] = new SyncedToPlayerPulse[chunkSize];
+            if (BasisNetworkCommons.MaxConnections <= 0)
+                throw new ArgumentOutOfRangeException(nameof(BasisNetworkCommons.MaxConnections), "Total size must be greater than zero.");
+
+            _totalSize = BasisNetworkCommons.MaxConnections;
+            _array = new ServerSideReducablePlayer[_totalSize];
+            _locks = new object[_totalSize];
+            for (int i = 0; i < _totalSize; i++)
+                _locks[i] = new object();
+        }
+
+        public void SetPlayer(int index, ServerSideReducablePlayer player)
+        {
+            lock (_locks[index])
+            {
+                _array[index] = player;
+            }
+        }
+
+        public ServerSideReducablePlayer GetPlayer(int index)
+        {
+            lock (_locks[index])
+            {
+                return _array[index];
+            }
         }
     }
-
-    public void SetPulse(int index, SyncedToPlayerPulse pulse)
+    public class LockedSyncedToPlayerPulseArray
     {
-        if (index < 0 || index >= TotalSize)
-            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+        private readonly SyncedToPlayerPulse[] _array;
+        private readonly object[] _locks;
+        public const int TotalSize = 1024;
 
-        int chunkIndex = index / _chunkSize;
-        int localIndex = index % _chunkSize;
+        public LockedSyncedToPlayerPulseArray()
+        {
+            _array = new SyncedToPlayerPulse[TotalSize];
+            _locks = new object[TotalSize];
+            for (int i = 0; i < TotalSize; i++)
+                _locks[i] = new object();
+        }
 
-        Volatile.Write(ref _chunks[chunkIndex][localIndex], pulse);
-    }
+        public void SetPulse(int index, SyncedToPlayerPulse pulse)
+        {
+            lock (_locks[index])
+            {
+                _array[index] = pulse;
+            }
+        }
 
-    public SyncedToPlayerPulse GetPulse(int index)
-    {
-        if (index < 0 || index >= TotalSize)
-            throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
-
-        int chunkIndex = index / _chunkSize;
-        int localIndex = index % _chunkSize;
-
-        return Volatile.Read(ref _chunks[chunkIndex][localIndex]);
+        public SyncedToPlayerPulse GetPulse(int index)
+        {
+            lock (_locks[index])
+            {
+                return _array[index];
+            }
+        }
     }
 }

@@ -142,20 +142,6 @@ public static class NetworkServer
             }
         }
     }
-    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
-    {
-        if (NetworkServer.CheckValidated(Writer))
-        {
-            server.SendToAll(Writer, channel, deliveryMethod);
-        }
-    }
-    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel,NetPeer DontSendToMe, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
-    {
-        if (NetworkServer.CheckValidated(Writer))
-        {
-            server.SendToAll(Writer, channel, deliveryMethod, DontSendToMe);
-        }
-    }
     public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, ref List<NetPeer> authenticatedClients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int MaxMessages = 70)
     {
         if (NetworkServer.CheckValidated(Writer))

@@ -19,10 +19,16 @@ public static class NetworkServer
     public static Configuration Configuration;
     public static IAuth auth;
     public static IAuthIdentity authIdentity;
+    public static int MaxMessages = 80;
     public static void StartServer(Configuration configuration)
     {
         Configuration = configuration;
-        BasisServerReductionSystem.Configuration = configuration;
+
+        SyncedToPlayerPulse.BSRBaseMultiplier = configuration.BSRBaseMultiplier;
+        SyncedToPlayerPulse.BSRSMillisecondDefaultInterval = configuration.BSRSMillisecondDefaultInterval;
+        SyncedToPlayerPulse.BSRSIncreaseRate = configuration.BSRSIncreaseRate;
+        SyncedToPlayerPulse.ByteBSRSMillisecondDefaultInterval = (byte)configuration.BSRSMillisecondDefaultInterval;
+
         BasisPlayerModeration.UseFileOnDisc = configuration.HasFileSupport;
         IAuthIdentity.HasFileSupport = configuration.HasFileSupport;
         auth = new PasswordAuth(configuration.Password ?? string.Empty);
@@ -58,17 +64,18 @@ public static class NetworkServer
             PacketPoolSize = 700,
             UnsyncedEvents = true,
             ReceivePollingTime = 250,
-            /*
+
             SimulateLatency = configuration.SimulateLatency,
             SimulatePacketLoss = configuration.SimulatePacketLoss,
             SimulationMaxLatency = configuration.SimulationMaxLatency,
             SimulationMinLatency = configuration.SimulationMinLatency,
             SimulationPacketLossChance = configuration.SimulationPacketLossChance,
+            MtuDiscovery = configuration.MtuDiscovery,
+            MtuOverride = configuration.MtuOverride,
+            /*
             ReuseAddress = configuration.ReuseAddress,
             MaxConnectAttempts = configuration.MaxConnectAttempts,
             ReconnectDelay = configuration.ReconnectDelay,
-            MtuDiscovery = configuration.MtuDiscovery,
-            MtuOverride = configuration.MtuOverride,
             DisconnectOnUnreachable = configuration.DisconnectOnUnreachable,
             DontRoute = configuration.DontRoute,
             */

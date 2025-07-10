@@ -1,81 +1,80 @@
-using System;
-using System.Threading;
 using Basis.Network.Core;
-using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
 using LiteNetLib;
-using LiteNetLib.Utils;
+using static LockedBoolArray;
 using static SerializableBasis;
-public partial class BasisServerReductionSystem
+public class BasisServerReductionSystem
 {
-    // Default interval in milliseconds for the timer
-    public static Configuration Configuration;
-    public static ChunkedSyncedToPlayerPulseArray PlayerSync = new ChunkedSyncedToPlayerPulseArray(64);
-    public static int MaxMessages = 80;
+    public static LockedSyncedToPlayerPulseArray PlayerSync = new LockedSyncedToPlayerPulseArray();
     /// <summary>
     /// add the new client
     /// then update all existing clients arrays
     /// </summary>
     /// <param name="playerID"></param>
     /// <param name="playerToUpdate"></param>
-    /// <param name="serverSideSyncPlayer"></param>
-    public static void AddOrUpdatePlayer(NetPeer playerID, ServerSideSyncPlayerMessage playerToUpdate, NetPeer serverSideSyncPlayer)
+    /// <param name="Frompeer"></param>
+    public static void AddOrUpdatePlayer(Vector3 Position, NetPeer playerID, ServerSideSyncPlayerMessage playerToUpdate, NetPeer Frompeer)
     {
-        SyncedToPlayerPulse playerData = PlayerSync.GetPulse(serverSideSyncPlayer.Id);
-        Vector3 Position = BasisNetworkCompressionExtensions.DecompressAndProcessAvatarFaster(playerToUpdate);
-        //stage 1 lets update whoever send us this datas last player information
-        if (playerData != null)
-        {
-            playerData.lastPlayerInformation = playerToUpdate;
-            playerData.Position = Position;
-        }
-        playerData = PlayerSync.GetPulse(playerID.Id);
+        SyncedToPlayerPulse OtherPulse = PlayerSync.GetPulse(playerID.Id);
         //ok now we can try to schedule sending out this data!
-        if (playerData != null)
+        if (OtherPulse != null)
         {
             // Update the player's message
-            playerData.SupplyNewData(playerID, playerToUpdate, serverSideSyncPlayer);
+            OtherPulse.SupplyNewData(playerID, playerToUpdate, Frompeer, Position);
         }
         else
         {
             //first time request create said data!
-            playerData = new SyncedToPlayerPulse
+            OtherPulse = new SyncedToPlayerPulse
             {
-                //   playerID = playerID,
                 lastPlayerInformation = playerToUpdate,
                 Position = Position,
             };
-            PlayerSync.SetPulse(playerID.Id, playerData);
-            playerData.SupplyNewData(playerID, playerToUpdate, serverSideSyncPlayer);
+            PlayerSync.SetPulse(playerID.Id, OtherPulse);
+            OtherPulse.SupplyNewData(playerID, playerToUpdate, Frompeer, Position);
         }
     }
     public static void RemovePlayer(NetPeer playerID)
     {
-        SyncedToPlayerPulse Pulse = PlayerSync.GetPulse(playerID.Id);
-        PlayerSync.SetPulse(playerID.Id, null);
-        if (Pulse != null)
+        int playerIndex = playerID.Id;
+        SyncedToPlayerPulse targetPulse = PlayerSync.GetPulse(playerIndex);
+
+        // Clear the target player's pulse and dispose their associated timers
+        PlayerSync.SetPulse(playerIndex, null);
+
+        if (targetPulse != null)
         {
-            for (int Index = 0; Index < BasisNetworkCommons.MaxConnections; Index++)
+            ClearReducablePlayers(targetPulse);
+        }
+
+        // Ensure all other pulses remove any references to this player
+        for (int Index = 0; Index < BasisNetworkCommons.MaxConnections; Index++)
+        {
+            SyncedToPlayerPulse otherPulse = PlayerSync.GetPulse(Index);
+            if (otherPulse != null)
             {
-                ServerSideReducablePlayer player = Pulse.ChunkedServerSideReducablePlayerArray.GetPlayer(Index);
-                if (player != null)
+                ServerSideReducablePlayer playerRef = otherPulse.ChunkedServerSideReducablePlayerArray.GetPlayer(playerIndex);
+                if (playerRef != null)
                 {
-                    player.timer.Dispose();
-                    Pulse.ChunkedServerSideReducablePlayerArray.SetPlayer(Index, null);
+                    playerRef.timer.Dispose();
+                    otherPulse.ChunkedServerSideReducablePlayerArray.SetPlayer(playerIndex, null);
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Disposes all ServerSideReducablePlayer timers and clears references from the given pulse.
+    /// </summary>
+    private static void ClearReducablePlayers(SyncedToPlayerPulse pulse)
+    {
         for (int Index = 0; Index < BasisNetworkCommons.MaxConnections; Index++)
         {
-            SyncedToPlayerPulse player = PlayerSync.GetPulse(Index);
+            ServerSideReducablePlayer player = pulse.ChunkedServerSideReducablePlayerArray.GetPlayer(Index);
             if (player != null)
             {
-                ServerSideReducablePlayer SSRP = player.ChunkedServerSideReducablePlayerArray.GetPlayer(Index);
-                if (SSRP != null)
-                {
-                    SSRP.timer.Dispose();
-                    Pulse.ChunkedServerSideReducablePlayerArray.SetPlayer(Index, null);
-                }
+                player.timer.Dispose();
+                pulse.ChunkedServerSideReducablePlayerArray.SetPlayer(Index, null);
             }
         }
     }

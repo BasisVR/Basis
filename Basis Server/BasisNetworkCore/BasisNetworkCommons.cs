@@ -12,7 +12,7 @@ namespace Basis.Network.Core
         /// when adding a new message we need to increase this
         /// will function up to 64
         /// </summary>
-        public const byte TotalChannels = 23;
+        public const byte TotalChannels = 24;
         /// <summary>
         /// channel zero is only used for unreliable methods
         /// we fall it through to stop bugs
@@ -107,5 +107,10 @@ namespace Basis.Network.Core
         /// this contains all meta data that the player requires
         /// </summary>
         public const byte metaDataMessage = 22;
+        /// <summary>
+        /// the goal here is to have a dedicated channel for objects that sync,
+        /// (mostly pickups)
+        /// </summary>
+        public const byte BasisMonoBehaviour = 23;
     }
 }
