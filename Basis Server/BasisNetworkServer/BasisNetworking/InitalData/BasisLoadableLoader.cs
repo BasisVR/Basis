@@ -35,6 +35,10 @@ namespace BasisNetworking.InitalData
                 {
                     BNL.Log($"CombinedURL: {config.CombinedURL}, LoadAssetPassword: {config.UnlockPassword}");
                     LocalLoadResource LLR = FromBasisLoadableConfiguration(config);
+                    if(string.IsNullOrEmpty(LLR.LoadedNetID))
+                    {
+                        LLR.LoadedNetID = GenerateUniqueID();
+                    }
                     BasisNetworkResourceManagement.LoadResource(LLR);
 
                 }
@@ -43,6 +47,14 @@ namespace BasisNetworking.InitalData
             {
                 Console.WriteLine($"Error: {ex.Message}");
             }
+        }
+        public static string GenerateUniqueID()
+        {
+            Guid newGuid = Guid.NewGuid();  // Generate a new GUID
+            string utcDate = DateTime.UtcNow.ToString("yyyyMMdd");  // Get the current UTC date (YYYYMMDD)
+            string guid = newGuid.ToString("N"); // Remove dashes from GUID
+
+            return $"{guid}{utcDate}";
         }
         public static LocalLoadResource FromBasisLoadableConfiguration(BasisLoadableConfiguration config)
         {
