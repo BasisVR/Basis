@@ -3,7 +3,6 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static SerializableBasis;
-
 public class NetworkClient
 {
     public  NetManager client;
@@ -32,8 +31,11 @@ public class NetworkClient
                 ChannelsCount = BasisNetworkCommons.TotalChannels,
                 EnableStatistics = true,
                 UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
-                PingInterval = 1500,
+                PingInterval = BasisNetworkCommons.PingInterval,
                 UnsyncedEvents = true,
+                ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
+                PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
+
             };
             client.Start();
             NetDataWriter Writer = new NetDataWriter(true,12);

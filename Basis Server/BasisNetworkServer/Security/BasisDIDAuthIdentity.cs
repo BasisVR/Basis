@@ -118,7 +118,7 @@ namespace BasisDidLink
                         BytesMessage NetworkMessage = new BytesMessage();
                         NetworkMessage.Serialize(Writer, OnAuth.Challenge.Nonce.V);
                         BNL.Log("Sending out Writer with size : " + Writer.Length);
-                        NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.AuthIdentityMessage, DeliveryMethod.ReliableOrdered);
+                        NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
 
                         CancellationTokenSource cts = new CancellationTokenSource();
                         _timeouts[newPeer] = cts;

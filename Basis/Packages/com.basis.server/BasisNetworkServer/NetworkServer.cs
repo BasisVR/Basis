@@ -1,4 +1,3 @@
-
 using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
@@ -61,10 +60,9 @@ public static class NetworkServer
             UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
             PingInterval = configuration.PingInterval,
             DisconnectTimeout = configuration.DisconnectTimeout,
-            PacketPoolSize = 700,
             UnsyncedEvents = true,
-            ReceivePollingTime = 250,
-
+            ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
+            PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
             SimulateLatency = configuration.SimulateLatency,
             SimulatePacketLoss = configuration.SimulatePacketLoss,
             SimulationMaxLatency = configuration.SimulationMaxLatency,
@@ -140,20 +138,6 @@ public static class NetworkServer
             {
                 authenticatedClients[index].Send(Writer, channel, deliveryMethod);
             }
-        }
-    }
-    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
-    {
-        if (NetworkServer.CheckValidated(Writer))
-        {
-            server.SendToAll(Writer, channel, deliveryMethod);
-        }
-    }
-    public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel,NetPeer DontSendToMe, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced)
-    {
-        if (NetworkServer.CheckValidated(Writer))
-        {
-            server.SendToAll(Writer, channel, deliveryMethod, DontSendToMe);
         }
     }
     public static void BroadcastMessageToClients(NetDataWriter Writer, byte channel, ref List<NetPeer> authenticatedClients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int MaxMessages = 70)

@@ -40,7 +40,7 @@ public static class BasisNetworkSpawnItem
 
         BasisDebug.Log($"Sending scene load request with NetID: {localLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
-        BasisNetworkManagement.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceMessage, LiteNetLib.DeliveryMethod.ReliableOrdered);
+        BasisNetworkManagement.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
         return true;
     }
 
@@ -80,7 +80,7 @@ public static class BasisNetworkSpawnItem
 
         BasisDebug.Log($"Sending GameObject load request with NetID: {LocalLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
-        BasisNetworkManagement.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceMessage, LiteNetLib.DeliveryMethod.ReliableOrdered);
+        BasisNetworkManagement.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
         return true;
     }
 
@@ -123,7 +123,7 @@ public static class BasisNetworkSpawnItem
 
         BasisDebug.Log($"Sending unload request with NetID: {UnLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
-        BasisNetworkManagement.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.UnloadResourceMessage, LiteNetLib.DeliveryMethod.ReliableOrdered);
+        BasisNetworkManagement.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.UnloadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
     }
 
     public static async Task<Scene> SpawnScene(LocalLoadResource localLoadResource)

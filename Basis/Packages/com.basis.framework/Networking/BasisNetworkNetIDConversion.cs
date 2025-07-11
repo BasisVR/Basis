@@ -32,7 +32,7 @@ public static class BasisNetworkNetIDConversion
                 UniqueID = NetworkId
             };
             ServerUniqueIDMessage.Serialize(netDataWriter);
-            BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.netIDAssign, LiteNetLib.DeliveryMethod.ReliableSequenced);
+            BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.netIDAssignChannel, LiteNetLib.DeliveryMethod.ReliableSequenced);
             // Request new one from server
         }
     }

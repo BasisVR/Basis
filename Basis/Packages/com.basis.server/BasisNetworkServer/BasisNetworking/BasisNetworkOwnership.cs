@@ -22,7 +22,7 @@ namespace Basis.Network.Server.Ownership
                 ownershipTransferMessage.playerIdMessage.playerID = Ownership.Value;
                 ownershipTransferMessage.ownershipID = Ownership.Key;
                 ownershipTransferMessage.Serialize(Writer);
-                NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequest, DeliveryMethod.ReliableOrdered);
+                NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
                 Writer.Reset();
             }
         }
@@ -39,7 +39,7 @@ namespace Basis.Network.Server.Ownership
             ownershipTransferMessage.playerIdMessage.playerID = currentOwner;
             ownershipTransferMessage.Serialize(Writer);
             BNL.Log("OwnershipResponse " + currentOwner + " for " + ownershipTransferMessage.playerIdMessage.playerID);
-            NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequest, DeliveryMethod.ReliableOrdered);
+            NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
         }
         /// <summary>
         /// this api removes a owner from the object,
@@ -62,7 +62,7 @@ namespace Basis.Network.Server.Ownership
                         {
                             NetDataWriter Writer = new NetDataWriter(true);
                             ownershipTransferMessage.Serialize(Writer);
-                            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
                         }
                         else
                         {
@@ -98,7 +98,7 @@ namespace Basis.Network.Server.Ownership
                 ownershipTransferMessage.Serialize(Writer);
 
                 BNL.Log("OwnershipResponse " + ownershipTransferMessage.ownershipID + " for " + ownershipTransferMessage.playerIdMessage);
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
             }
             else
             {
@@ -107,7 +107,7 @@ namespace Basis.Network.Server.Ownership
                 //once a ownership has been requested there good for life or when a ownership switch happens.
                 NetworkRequestNewOrExisting(ownershipTransferMessage, out ushort currentOwner);
                 ownershipTransferMessage.Serialize(Writer);
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
             }
         }
         /// <summary>
@@ -264,7 +264,7 @@ namespace Basis.Network.Server.Ownership
                         ownershipTransferMessage.ownershipID = OwnershipId;
 
                         ownershipTransferMessage.Serialize(Writer);
-                        NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequest, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                        NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
                     }
                 }
                 BNL.Log($"Player {playerId}'s ownership removed from {objectsToRemove.Count} objects.");

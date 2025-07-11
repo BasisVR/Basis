@@ -42,7 +42,7 @@ public class SyncedToPlayerPulse
         }
         else
         {
-            ClientPayload clientPayload = new ClientPayload
+            ServerReductionClientPayload clientPayload = new ServerReductionClientPayload
             {
                 localClient = playerID,
                 dataCameFromThisUser = serverSidePlayer.Id
@@ -66,7 +66,7 @@ public class SyncedToPlayerPulse
     /// <param name="state">The player ID (passed from the timer)</param>
     private void SendPlayerData(object state)
     {
-        ClientPayload playerID = (ClientPayload)state;
+        ServerReductionClientPayload playerID = (ServerReductionClientPayload)state;
         if (SyncBoolArray.GetBool(playerID.dataCameFromThisUser))
         {
             SyncBoolArray.SetBool(playerID.dataCameFromThisUser, false);

@@ -1,4 +1,3 @@
-
 using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
@@ -61,10 +60,9 @@ public static class NetworkServer
             UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
             PingInterval = configuration.PingInterval,
             DisconnectTimeout = configuration.DisconnectTimeout,
-            PacketPoolSize = 700,
             UnsyncedEvents = true,
-            ReceivePollingTime = 250,
-
+            ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
+            PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
             SimulateLatency = configuration.SimulateLatency,
             SimulatePacketLoss = configuration.SimulatePacketLoss,
             SimulationMaxLatency = configuration.SimulationMaxLatency,

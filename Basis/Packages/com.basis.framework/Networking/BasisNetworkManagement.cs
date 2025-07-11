@@ -34,9 +34,8 @@ namespace Basis.Scripts.Networking
         [HideInInspector]
         public string Password = "default_password";
         public bool IsHostMode = false;
-        /// <summary>
-        /// fire when ownership is changed for a unique string
-        /// </summary>
+
+        public static Dictionary<string, ushort> OwnershipPairing = new Dictionary<string, ushort>();
         public static ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new ConcurrentDictionary<ushort, BasisNetworkPlayer>();
         public static ConcurrentDictionary<ushort, BasisNetworkReceiver> RemotePlayers = new ConcurrentDictionary<ushort, BasisNetworkReceiver>();
         public static HashSet<ushort> JoiningPlayers = new HashSet<ushort>();
@@ -48,23 +47,20 @@ namespace Basis.Scripts.Networking
         public static SynchronizationContext MainThreadContext;
         public static NetPeer LocalPlayerPeer;
         public static BasisNetworkTransmitter Transmitter;
+        /// <summary>
+        /// just so we can show it in the inspector ;/
+        /// </summary>
         [SerializeField]
-        public BasisNetworkTransmitter SerTransmitter;
+        public BasisNetworkTransmitter LocalAccessTransmitter;
         [SerializeField]
         public NetworkClient NetworkClient = new NetworkClient();
         public static bool LocalPlayerIsConnected { get; private set; }
         public static Action OnEnableInstanceCreate;
         public static BasisNetworkManagement Instance;
-        public static Dictionary<string, ushort> OwnershipPairing = new Dictionary<string, ushort>();
-       public static InstantiationParameters instantiationParameters;
-        /// <summary>
-        /// allows a local host to be the server
-        /// </summary>
+        public static InstantiationParameters instantiationParameters;
         public BasisNetworkServerRunner BasisNetworkServerRunner = null;
         public static bool NetworkRunning = false;
-        public bool IsRunning = true;
-
-
+        public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
         public static bool AddPlayer(BasisNetworkPlayer NetPlayer)
         {
             if (Instance != null)
@@ -76,7 +72,6 @@ namespace Basis.Scripts.Networking
                         RemotePlayers.TryAdd(NetPlayer.NetId, (BasisNetworkReceiver)NetPlayer);
                         BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
                         ReceiverCount = ReceiversSnapshot.Length;
-                      //  BasisDebug.Log("ReceiverCount was " + ReceiverCount);
                     }
                 }
                 else
@@ -103,7 +98,6 @@ namespace Basis.Scripts.Networking
             }
             return false;
         }
-        public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
         public void OnEnable()
         {
             if (BasisHelpers.CheckInstance(Instance))
@@ -175,7 +169,7 @@ namespace Basis.Scripts.Networking
             MainThreadContext = null;
             LocalPlayerPeer = null;
             Transmitter = null;
-            SerTransmitter = null;
+            LocalAccessTransmitter = null;
             BasisNetworkPlayer.OnLocalPlayerJoined = null;
             LocalPlayerIsConnected = false;
             BasisNetworkPlayer.OnRemotePlayerJoined = null;
@@ -257,7 +251,7 @@ namespace Basis.Scripts.Networking
             {
                 IpString = "localhost";
                 BasisNetworkServerRunner = new BasisNetworkServerRunner();
-                Configuration ServerConfig = new Configuration() { IPv4Address = IpString, HasFileSupport = false, UseNativeSockets = false, UseAuthIdentity = true, UseAuth = true, Password = PrimitivePassword, EnableStatistics = false  };
+                Configuration ServerConfig = new Configuration() { IPv4Address = IpString, HasFileSupport = false, UseNativeSockets = false, UseAuthIdentity = true, UseAuth = true, Password = PrimitivePassword, EnableStatistics = false };
                 BasisNetworkServerRunner.Initalize(ServerConfig, string.Empty, UUID);
             }
 
@@ -316,12 +310,12 @@ namespace Basis.Scripts.Networking
                         // Create the local networked player asynchronously.
                         this.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
                         Transmitter = new BasisNetworkTransmitter(LocalPlayerID);
-                        SerTransmitter = Transmitter;
+                        LocalAccessTransmitter = Transmitter;
                         // Initialize the local networked player.
                         LocalInitalize(Transmitter, BasisLocalPlayer.Instance);
                         if (AddPlayer(Transmitter))
                         {
-                          //  BasisDebug.Log($"Added local player {LocalPlayerID}");
+                            //  BasisDebug.Log($"Added local player {LocalPlayerID}");
                         }
                         else
                         {
@@ -446,7 +440,7 @@ namespace Basis.Scripts.Networking
             if (BasisDIDAuthIdentityClient.IdentityMessage(peer, Reader, out NetDataWriter Writer))
             {
                 BasisDebug.Log("Sent Identity To Server!");
-                LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AuthIdentityMessage, DeliveryMethod.ReliableSequenced);
+                LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableSequenced);
                 Reader.Recycle();
             }
             else
@@ -486,10 +480,10 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }
                     break;
-                case BasisNetworkCommons.AuthIdentityMessage:
+                case BasisNetworkCommons.AuthIdentityChannel:
                     AuthIdentityMessage(peer, Reader, channel);
                     break;
-                case BasisNetworkCommons.Disconnection:
+                case BasisNetworkCommons.DisconnectionChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -498,7 +492,7 @@ namespace Basis.Scripts.Networking
                     BasisNetworkHandleRemoval.HandleDisconnection(Reader);
                     Reader.Recycle();
                     break;
-                case BasisNetworkCommons.AvatarChangeMessage:
+                case BasisNetworkCommons.AvatarChangeMessageChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -510,7 +504,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.CreateRemotePlayer:
+                case BasisNetworkCommons.CreateRemotePlayerChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -522,7 +516,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.CreateRemotePlayersForNewPeer:
+                case BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -536,7 +530,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.GetCurrentOwnerRequest:
+                case BasisNetworkCommons.GetCurrentOwnerRequestChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -548,7 +542,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.ChangeCurrentOwnerRequest:
+                case BasisNetworkCommons.ChangeCurrentOwnerRequestChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -560,7 +554,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.RemoveCurrentOwnerRequest:
+                case BasisNetworkCommons.RemoveCurrentOwnerRequestChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -609,7 +603,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.NetIDAssigns:
+                case BasisNetworkCommons.NetIDAssignsChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -621,7 +615,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.netIDAssign:
+                case BasisNetworkCommons.netIDAssignChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -633,7 +627,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.LoadResourceMessage:
+                case BasisNetworkCommons.LoadResourceChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -645,7 +639,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.UnloadResourceMessage:
+                case BasisNetworkCommons.UnloadResourceChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -657,7 +651,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.AdminMessage:
+                case BasisNetworkCommons.AdminChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -669,7 +663,7 @@ namespace Basis.Scripts.Networking
                         Reader.Recycle();
                     }, null);
                     break;
-                case BasisNetworkCommons.metaDataMessage:
+                case BasisNetworkCommons.metaDataChannel:
                     if (ValidateSize(Reader, peer, channel) == false)
                     {
                         Reader.Recycle();
@@ -728,7 +722,7 @@ namespace Basis.Scripts.Networking
             var peer = BasisNetworkManagement.LocalPlayerPeer;
             if (peer != null)
             {
-                peer.Send(netDataWriter, BasisNetworkCommons.RemoveCurrentOwnerRequest, DeliveryMethod.ReliableSequenced);
+                peer.Send(netDataWriter, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, DeliveryMethod.ReliableSequenced);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.OwnershipTransfer, netDataWriter.Length);
             }
             else
@@ -778,7 +772,7 @@ namespace Basis.Scripts.Networking
             var peer = BasisNetworkManagement.LocalPlayerPeer;
             if (peer != null)
             {
-                peer.Send(netDataWriter, BasisNetworkCommons.ChangeCurrentOwnerRequest, DeliveryMethod.ReliableSequenced);
+                peer.Send(netDataWriter, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableSequenced);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.OwnershipTransfer, netDataWriter.Length);
             }
             else
@@ -834,7 +828,7 @@ namespace Basis.Scripts.Networking
             var peer = BasisNetworkManagement.LocalPlayerPeer;
             if (peer != null)
             {
-                peer.Send(netDataWriter, BasisNetworkCommons.GetCurrentOwnerRequest, DeliveryMethod.ReliableSequenced);
+                peer.Send(netDataWriter, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableSequenced);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.RequestOwnershipTransfer, netDataWriter.Length);
             }
             else
@@ -987,7 +981,7 @@ namespace Basis.Scripts.Networking
         {
             if (LocalPlayerPeer != null)
             {
-                LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.ServerBoundMessage, Mode);
+                LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.ServerBoundChannel, Mode);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SceneData, netDataWriter.Length);
             }
             else

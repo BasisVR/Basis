@@ -10,7 +10,7 @@ public static class BNL
     public static Action<string> LogErrorOutput;
     public static void Log(string message)
     {
-        string formattedMessage =message;
+        string formattedMessage = message;
 
         if (LogOutput != null)
         {

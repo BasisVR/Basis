@@ -13,225 +13,151 @@ public static class BasisNetworkModeration
     private static void ValidateString(string param, string paramName)
     {
         if (string.IsNullOrEmpty(param))
-        {
             throw new ArgumentException($"{paramName} cannot be null or empty", paramName);
-        }
     }
 
-    public static void SendBan(string UUID, string Reason)
+    private static void SendAdminRequest(AdminRequestMode mode, params Action<NetDataWriter>[] dataWriters)
     {
-        ValidateString(UUID, nameof(UUID));
-        ValidateString(Reason, nameof(Reason));
+        var writer = new NetDataWriter();
+        new AdminRequest().Serialize(writer, mode);
+        foreach (var write in dataWriters)
+            write(writer);
 
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.Ban);
-        netDataWriter.Put(UUID);
-        netDataWriter.Put(Reason);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        BasisNetworkManagement.LocalPlayerPeer.Send(
+            writer,
+            BasisNetworkCommons.AdminChannel,
+            DeliveryMethod.ReliableSequenced
+        );
     }
-    public static void TeleportAll(ushort DestinationPlayer)
+
+    public static void SendBan(string uuid, string reason)
     {
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.TeleportAll);
-        netDataWriter.Put(DestinationPlayer);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(uuid, nameof(uuid));
+        ValidateString(reason, nameof(reason));
 
+        SendAdminRequest(AdminRequestMode.Ban,
+            w => w.Put(uuid),
+            w => w.Put(reason));
     }
-    public static void SendIPBan(string UUID, string Reason)
+
+    public static void SendIPBan(string uuid, string reason)
     {
-        ValidateString(UUID, nameof(UUID));
-        ValidateString(Reason, nameof(Reason));
+        ValidateString(uuid, nameof(uuid));
+        ValidateString(reason, nameof(reason));
 
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.IpAndBan);
-        netDataWriter.Put(UUID);
-        netDataWriter.Put(Reason);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        SendAdminRequest(AdminRequestMode.IpAndBan,
+            w => w.Put(uuid),
+            w => w.Put(reason));
     }
 
-    public static void SendKick(string UUID, string Reason)
+    public static void SendKick(string uuid, string reason)
     {
-        ValidateString(UUID, nameof(UUID));
-        ValidateString(Reason, nameof(Reason));
+        ValidateString(uuid, nameof(uuid));
+        ValidateString(reason, nameof(reason));
 
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.Kick);
-        netDataWriter.Put(UUID);
-        netDataWriter.Put(Reason);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        SendAdminRequest(AdminRequestMode.Kick,
+            w => w.Put(uuid),
+            w => w.Put(reason));
     }
 
-    public static void UnBan(string UUID)
+    public static void UnBan(string uuid)
     {
-        ValidateString(UUID, nameof(UUID));
-
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.UnBan);
-        netDataWriter.Put(UUID);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(uuid, nameof(uuid));
+        SendAdminRequest(AdminRequestMode.UnBan, w => w.Put(uuid));
     }
 
-    public static void UnIpBan(string UUID)
+    public static void UnIpBan(string uuid)
     {
-        ValidateString(UUID, nameof(UUID));
-
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.UnBanIP);
-        netDataWriter.Put(UUID);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(uuid, nameof(uuid));
+        SendAdminRequest(AdminRequestMode.UnBanIP, w => w.Put(uuid));
     }
 
-    public static void AddAdmin(string UUID)
+    public static void AddAdmin(string uuid)
     {
-        ValidateString(UUID, nameof(UUID));
-
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.AddAdmin);
-        netDataWriter.Put(UUID);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(uuid, nameof(uuid));
+        SendAdminRequest(AdminRequestMode.AddAdmin, w => w.Put(uuid));
     }
 
-    public static void RemoveAdmin(string UUID)
+    public static void RemoveAdmin(string uuid)
     {
-        ValidateString(UUID, nameof(UUID));
-
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.RemoveAdmin);
-        netDataWriter.Put(UUID);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(uuid, nameof(uuid));
+        SendAdminRequest(AdminRequestMode.RemoveAdmin, w => w.Put(uuid));
     }
-    public static void SendMessage(ushort UUID, string Message)
+
+    public static void SendMessage(ushort uuid, string message)
     {
-        ValidateString(Message, nameof(Message));
-
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.Message);
-        netDataWriter.Put(UUID);
-        netDataWriter.Put(Message);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(message, nameof(message));
+        SendAdminRequest(AdminRequestMode.Message,
+            w => w.Put(uuid),
+            w => w.Put(message));
     }
-    public static void SendMessageAll(string Message)
+
+    public static void SendMessageAll(string message)
     {
-        ValidateString(Message, nameof(Message));
-
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.MessageAll);
-        netDataWriter.Put(Message);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
+        ValidateString(message, nameof(message));
+        SendAdminRequest(AdminRequestMode.MessageAll, w => w.Put(message));
     }
-    public static void DisplayMessage(string Message)
+
+    public static void TeleportAll(ushort destinationPlayerId)
     {
-        ValidateString(Message, nameof(Message));
-
-        BasisUINotification.OpenNotification(Message, false, Vector3.zero);
+        SendAdminRequest(AdminRequestMode.TeleportAll, w => w.Put(destinationPlayerId));
     }
+
+    public static void TeleportHere(ushort uuid)
+    {
+        SendAdminRequest(AdminRequestMode.TeleportPlayer, w => w.Put(uuid));
+    }
+
+    public static void DisplayMessage(string message)
+    {
+        ValidateString(message, nameof(message));
+        BasisUINotification.OpenNotification(message, false, Vector3.zero);
+    }
+
     public static void TeleportTo(ushort netId)
     {
-        if (BasisNetworkManagement.Players.TryGetValue(netId, out var player))
+        if (BasisNetworkManagement.Players.TryGetValue(netId, out var player) &&
+            player?.Player?.BasisAvatar?.Animator != null)
         {
-            if (player.Player != null && player.Player.BasisAvatar != null && player.Player.BasisAvatar.Animator != null)
-            {
-                Transform Trans = player.Player.BasisAvatar.Animator.GetBoneTransform(UnityEngine.HumanBodyBones.Hips);
-                BasisLocalPlayer.Instance.Teleport(Trans.position, Trans.rotation);
-            }
-            else
-            {
-                BasisDebug.LogError("Missing Teleport To Player ");
-            }
+            Transform hips = player.Player.BasisAvatar.Animator.GetBoneTransform(HumanBodyBones.Hips);
+            BasisLocalPlayer.Instance.Teleport(hips.position, hips.rotation);
         }
         else
         {
-            BasisDebug.LogError("Missing " + netId);
+            BasisDebug.LogError($"Missing Teleport To Player or invalid player ID: {netId}");
         }
     }
-    public static void TeleportHere(ushort UUID)
-    {
 
-        AdminRequest AdminRequest = new AdminRequest();
-        NetDataWriter netDataWriter = new NetDataWriter();
-        AdminRequest.Serialize(netDataWriter, AdminRequestMode.TeleportPlayer);
-        netDataWriter.Put(UUID);
-        BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableSequenced);
-    }
     public static void AdminMessage(NetDataReader reader)
     {
-        AdminRequest AdminRequest = new AdminRequest();
-        AdminRequest.Deserialize(reader);
-        AdminRequestMode Mode = AdminRequest.GetAdminRequestMode();
-        switch (Mode)
+        var request = new AdminRequest();
+        request.Deserialize(reader);
+        var mode = request.GetAdminRequestMode();
+
+        switch (mode)
         {
-            // case AdminRequestMode.Ban:
-            //    break;
-            // case AdminRequestMode.Kick:
-            //    break;
-            //   case AdminRequestMode.IpAndBan:
-            //     break;
             case AdminRequestMode.Message:
-                DisplayMessage(reader.GetString());
-                break;
             case AdminRequestMode.MessageAll:
                 DisplayMessage(reader.GetString());
                 break;
-            // case AdminRequestMode.UnBanIP:
-            //    break;
-            //  case AdminRequestMode.UnBan:
-            //   break;
-            //  case AdminRequestMode.RequestBannedPlayers:
-            //      break;
-             case AdminRequestMode.TeleportPlayer:
-                ushort PlayerID = reader.GetUShort();
-                if (BasisNetworkManagement.Players.TryGetValue(PlayerID, out Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer player))
-                {
-                    if (player.Player != null && player.Player.BasisAvatar != null && player.Player.BasisAvatar.Animator != null)
-                    {
-                        Transform Trans = player.Player.BasisAvatar.Animator.GetBoneTransform(UnityEngine.HumanBodyBones.Hips);
-                        BasisLocalPlayer.Instance.Teleport(Trans.position, Quaternion.identity);
-                    }
-                    else
-                    {
-                        BasisDebug.LogError("Missing Teleport To Player ");
-                    }
-                }
-                else
-                {
-                    BasisDebug.LogError("Trying to teleport to null player for id " + PlayerID);
-                }
-                break;
+
+            case AdminRequestMode.TeleportPlayer:
             case AdminRequestMode.TeleportAll:
-                PlayerID = reader.GetUShort();
-                if (BasisNetworkManagement.Players.TryGetValue(PlayerID, out player))
+                ushort playerId = reader.GetUShort();
+                if (BasisNetworkManagement.Players.TryGetValue(playerId, out var player) &&
+                    player?.Player?.BasisAvatar?.Animator != null)
                 {
-                    if (player.Player != null && player.Player.BasisAvatar != null && player.Player.BasisAvatar.Animator != null)
-                    {
-                        Transform Trans = player.Player.BasisAvatar.Animator.GetBoneTransform(UnityEngine.HumanBodyBones.Hips);
-                        BasisLocalPlayer.Instance.Teleport(Trans.position, Quaternion.identity);
-                    }
-                    else
-                    {
-                        BasisDebug.LogError("Missing Teleport To Player ");
-                    }
+                    Transform trans = player.Player.BasisAvatar.Animator.GetBoneTransform(HumanBodyBones.Hips);
+                    BasisLocalPlayer.Instance.Teleport(trans.position, Quaternion.identity);
                 }
                 else
                 {
-                    BasisDebug.LogError("Trying to teleport to null player for id " + PlayerID);
+                    BasisDebug.LogError($"Teleport failed: Invalid or missing player for ID {playerId}");
                 }
                 break;
-            //  case AdminRequestMode.AddAdmin:
-            //   break;
-            //   case AdminRequestMode.RemoveAdmin:
-            //  break;
+
             default:
-                BasisDebug.LogError("Missing Command " + Mode.ToString(), BasisDebug.LogTag.Networking);
+                BasisDebug.LogError($"Unhandled admin command: {mode}", BasisDebug.LogTag.Networking);
                 break;
         }
     }

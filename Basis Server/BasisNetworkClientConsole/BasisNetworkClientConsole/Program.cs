@@ -1,10 +1,8 @@
 using Basis.Logging;
 using Basis.Network;
 using Basis.Config;
-using System;
 using Basis.Utils;
 using LiteNetLib;
-
 namespace Basis
 {
     partial class Program

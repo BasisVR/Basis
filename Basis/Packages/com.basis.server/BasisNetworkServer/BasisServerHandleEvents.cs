@@ -120,7 +120,7 @@ namespace BasisServerHandle
                 {
                     if (client.Id != leaving)
                     {
-                        client.Send(writer, BasisNetworkCommons.Disconnection, DeliveryMethod.ReliableOrdered);
+                        client.Send(writer, BasisNetworkCommons.DisconnectionChannel, DeliveryMethod.ReliableOrdered);
                     }
                 }
             }
@@ -224,7 +224,7 @@ namespace BasisServerHandle
 
                 NetDataWriter Writer = new NetDataWriter(true, 4);
                 ServerMetaDataMessage.Serialize(Writer);
-                NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.metaDataMessage, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.metaDataChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
 
                 if (BasisNetworkIDDatabase.GetAllNetworkID(out List<ServerNetIDMessage> ServerNetIDMessages))
                 {
@@ -236,7 +236,7 @@ namespace BasisServerHandle
                     Writer.Reset();
                     ServerUniqueIDMessageArray.Serialize(Writer);
                     BNL.Log($"Sending out Network Id Count " + ServerUniqueIDMessageArray.Messages.Length);
-                    NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.NetIDAssigns, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                    NetworkServer.SendOutValidated(newPeer, Writer, BasisNetworkCommons.NetIDAssignsChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
                 }
                 else
                 {
@@ -295,7 +295,7 @@ namespace BasisServerHandle
             BasisSavedState.AddLastData(Peer, ClientAvatarChangeMessage);
             NetDataWriter Writer = new NetDataWriter(true, 4);
             serverAvatarChangeMessage.Serialize(Writer);
-            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AvatarChangeMessage, Peer, BasisPlayerArray.GetSnapshot());
+            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AvatarChangeMessageChannel, Peer, BasisPlayerArray.GetSnapshot());
         }
         public static void HandleAvatarMovement(NetPacketReader Reader, NetPeer Frompeer)
         {
@@ -464,7 +464,7 @@ namespace BasisServerHandle
                 {
                     if (client != authClient)
                     {
-                        client.Send(Writer, BasisNetworkCommons.CreateRemotePlayer, DeliveryMethod.ReliableOrdered);
+                        client.Send(Writer, BasisNetworkCommons.CreateRemotePlayerChannel, DeliveryMethod.ReliableOrdered);
                     }
                 }
             }
@@ -491,7 +491,7 @@ namespace BasisServerHandle
                     {
                         Message.Serialize(writer);
                         //  BNL.Log($"Writing Data with size {writer.Length}");
-                        NetworkServer.SendOutValidated(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeer, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                        NetworkServer.SendOutValidated(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
                     }
                 }
             }

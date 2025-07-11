@@ -27,7 +27,7 @@ namespace BasisNetworkCore
                 };
                 NetDataWriter Writer = new NetDataWriter(true);
                 SUIMA.Serialize(Writer);
-                NetworkServer.SendOutValidated(HeWhoAsked, Writer, BasisNetworkCommons.netIDAssign, DeliveryMethod.ReliableOrdered);
+                NetworkServer.SendOutValidated(HeWhoAsked, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
                 BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {HeWhoAsked.Address}");
             }
             else
@@ -60,7 +60,7 @@ namespace BasisNetworkCore
                 NetDataWriter Writer = new NetDataWriter(true);
                 SUIMA.Serialize(Writer);
 
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.netIDAssign, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.netIDAssignChannel, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
                 BNL.Log($"Broadcasted new ID ({newID}) for {UniqueStringID} to all connected peers.");
             }
         }

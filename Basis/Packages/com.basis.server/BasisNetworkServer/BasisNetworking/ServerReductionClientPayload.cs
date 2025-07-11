@@ -1,5 +1,5 @@
 using LiteNetLib;
-public struct ClientPayload
+public struct ServerReductionClientPayload
 {
     public NetPeer localClient;
     public int dataCameFromThisUser;

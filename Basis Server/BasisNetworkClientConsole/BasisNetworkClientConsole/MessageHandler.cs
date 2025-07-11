@@ -19,10 +19,10 @@ namespace Basis.Network
 
             switch (channel)
             {
-                case BasisNetworkCommons.AuthIdentityMessage:
+                case BasisNetworkCommons.AuthIdentityChannel:
                     AuthIdentityMessage(peer, reader, channel);
                     break;
-                case BasisNetworkCommons.metaDataMessage:
+                case BasisNetworkCommons.metaDataChannel:
                     var message = new ServerMetaDataMessage();
                     message.Deserialize(reader);
                     break;
@@ -34,7 +34,7 @@ namespace Basis.Network
             if (BasisDIDAuthIdentityClient.IdentityMessage(peer, Reader, out NetDataWriter Writer))
             {
                 BNL.Log("Sent Identity To Server!");
-                peer.Send(Writer, BasisNetworkCommons.AuthIdentityMessage, DeliveryMethod.ReliableSequenced);
+                peer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableSequenced);
                 Reader.Recycle();
             }
             else

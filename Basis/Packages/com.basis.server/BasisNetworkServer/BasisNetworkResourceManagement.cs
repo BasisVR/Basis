@@ -32,7 +32,7 @@ public static class BasisNetworkResourceManagement
 
                 NetworkServer.BroadcastMessageToClients(
                     writer,
-                    BasisNetworkCommons.LoadResourceMessage,
+                    BasisNetworkCommons.LoadResourceChannel,
                     BasisPlayerArray.GetSnapshot(),
                     LiteNetLib.DeliveryMethod.ReliableSequenced
                 );
@@ -53,7 +53,7 @@ public static class BasisNetworkResourceManagement
                 LocalLoadResource LLR = Resource[Index];
                 NetDataWriter Writer = new NetDataWriter(true);
                 LLR.Serialize(Writer);
-                NetworkServer.SendOutValidated(NewConnection, Writer, BasisNetworkCommons.LoadResourceMessage, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.SendOutValidated(NewConnection, Writer, BasisNetworkCommons.LoadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
             }
         }
     }
@@ -67,7 +67,7 @@ public static class BasisNetworkResourceManagement
             {
                 BNL.Log("Adding Object " + LocalLoadResource.LoadedNetID);
 
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceMessage, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableSequenced);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableSequenced);
             }
             else
             {
@@ -86,7 +86,7 @@ public static class BasisNetworkResourceManagement
             NetDataWriter Writer = new NetDataWriter(true);
             UnLoadResource.Serialize(Writer);
             BNL.Log("Removing Object " + UnLoadResource.LoadedNetID);
-            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceMessage, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableSequenced);
+            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceChannel, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableSequenced);
         }
         else
         {

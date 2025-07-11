@@ -8,6 +8,9 @@ namespace Basis.Network.Core
         public const int MaxConnections = 1024;
 
         public const int NetworkIntervalPoll = 15;
+        public const int PingInterval = 1500;
+        public const int ReceivePollingTime = 50000;
+        public const int PacketPoolSize = 700;
         /// <summary>
         /// when adding a new message we need to increase this
         /// will function up to 64
@@ -21,7 +24,7 @@ namespace Basis.Network.Core
         /// <summary>
         /// Auth Identity Message
         /// </summary>
-        public const byte AuthIdentityMessage = 1;
+        public const byte AuthIdentityChannel = 1;
         /// <summary>
         /// this is normally avatar movement
         /// </summary>
@@ -41,76 +44,71 @@ namespace Basis.Network.Core
         /// <summary>
         /// Message to create a remote player entity
         /// </summary>
-        public const byte CreateRemotePlayer = 6;
+        public const byte CreateRemotePlayerChannel = 6;
         /// <summary>
         /// Message to create a remote player entity
         /// </summary>
-        public const byte CreateRemotePlayersForNewPeer = 7;
+        public const byte CreateRemotePlayersForNewPeerChannel = 7;
         /// <summary>
         /// message to swap to a different avatar
         /// </summary>
-        public const byte AvatarChangeMessage = 8;
+        public const byte AvatarChangeMessageChannel = 8;
         /// <summary>
         /// Ownership Response is when we get the current owner
         /// </summary>
-        public const byte GetCurrentOwnerRequest = 9;
+        public const byte GetCurrentOwnerRequestChannel = 9;
         /// <summary>
         /// changes current owner of a string
         /// </summary>
-        public const byte ChangeCurrentOwnerRequest = 10;
+        public const byte ChangeCurrentOwnerRequestChannel = 10;
         /// <summary>
         /// Remove Current Ownership
         /// </summary>
-        public const byte RemoveCurrentOwnerRequest = 11;
+        public const byte RemoveCurrentOwnerRequestChannel = 11;
         /// <summary>
         /// the audio recipients that can here
         /// </summary>
-        public const byte AudioRecipients = 12;
+        public const byte AudioRecipientsChannel = 12;
         /// <summary>
         /// Removes a players entity
         /// </summary>
-        public const byte Disconnection = 13;
+        public const byte DisconnectionChannel = 13;
         /// <summary>
         /// assign a net id (string to ushort)
         /// </summary>
-        public const byte netIDAssign = 14;
+        public const byte netIDAssignChannel = 14;
         /// <summary>
         /// assign a array of net id (string to ushort)
         /// </summary>
-        public const byte NetIDAssigns = 15;
+        public const byte NetIDAssignsChannel = 15;
         /// <summary>
         /// load a resource (scene,gameobject,script,asset) whatever the implementation is
         /// </summary>
-        public const byte LoadResourceMessage = 16;
+        public const byte LoadResourceChannel = 16;
         /// <summary>
         /// Unload a Resource
         /// </summary>
-        public const byte UnloadResourceMessage = 17;
+        public const byte UnloadResourceChannel = 17;
         /// <summary>
         /// Client sends a admin message and the server needs to respond accordingly
         /// </summary>
-        public const byte AdminMessage = 18;
+        public const byte AdminChannel = 18;
         /// <summary>
         /// Avatar Request Channel
         /// </summary>
-        public const byte AvatarCloneRequestMessage = 19;
+        public const byte AvatarCloneRequestChannel = 19;
         /// <summary>
         /// Avatar Response Channel
         /// </summary>
-        public const byte AvatarCloneResponseMessage = 20;
+        public const byte AvatarCloneResponseChannel = 20;
         /// <summary>
         /// requires implementation from a developer,
         /// ground work for hooking in code that only gets delivered to the server
         /// </summary>
-        public const byte ServerBoundMessage = 21;
+        public const byte ServerBoundChannel = 21;
         /// <summary>
         /// this contains all meta data that the player requires
         /// </summary>
-        public const byte metaDataMessage = 22;
-        /// <summary>
-        /// the goal here is to have a dedicated channel for objects that sync,
-        /// (mostly pickups)
-        /// </summary>
-        public const byte BasisMonoBehaviour = 23;
+        public const byte metaDataChannel = 22;
     }
 }

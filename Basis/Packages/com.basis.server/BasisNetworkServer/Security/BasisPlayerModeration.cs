@@ -261,7 +261,7 @@ namespace BasisNetworkServer.Security
                     OutAdminRequest.Serialize(Writer, AdminRequestMode.MessageAll);
                     Message = reader.GetString();
                     Writer.Put(Message);
-                    NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AdminMessage, peer, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                    NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AdminChannel, peer, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
                     BNL.Log($"sending MessageAll | {Message}");
                     break;
                 case AdminRequestMode.UnBanIP:
@@ -297,7 +297,7 @@ namespace BasisNetworkServer.Security
                     OutAdminRequest.Serialize(Writer, AdminRequestMode.TeleportAll);
                     ushort PlayerDestination = reader.GetUShort();
                     Writer.Put(PlayerDestination);
-                    NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AdminMessage, peer, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
+                    NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.AdminChannel, peer, BasisPlayerArray.GetSnapshot(), DeliveryMethod.ReliableOrdered);
                     BNL.Log($"sending TeleportAll destination is NetID {PlayerDestination}");
                     break;
                 case AdminRequestMode.AddAdmin:
@@ -329,7 +329,7 @@ namespace BasisNetworkServer.Security
                     PlayerDestination = reader.GetUShort();
                     Writer.Put(PlayerDestination);
 
-                    NetworkServer.SendOutValidated(peer, Writer, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableOrdered);
+                    NetworkServer.SendOutValidated(peer, Writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
                     break;
                 default:
                     BNL.LogError("Missing Mode!");
@@ -349,7 +349,7 @@ namespace BasisNetworkServer.Security
             AdminRequest OutAdminRequest = new AdminRequest();
             OutAdminRequest.Serialize(Writer, AdminRequestMode.Message);
             Writer.Put(ReturnMessage);
-            NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.AdminMessage, DeliveryMethod.ReliableOrdered);
+            NetworkServer.SendOutValidated(Peer, Writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
         }
     }
 }

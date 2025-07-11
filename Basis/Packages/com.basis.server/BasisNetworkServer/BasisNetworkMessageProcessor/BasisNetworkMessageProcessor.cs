@@ -177,7 +177,7 @@ public static class BasisNetworkMessageProcessor
                     }
                     break;
 
-                case BasisNetworkCommons.AuthIdentityMessage:
+                case BasisNetworkCommons.AuthIdentityChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisServerHandleEvents.HandleAuth(reader, peer);
                     break;
@@ -201,36 +201,36 @@ public static class BasisNetworkMessageProcessor
                         BasisNetworkingGeneric.HandleScene(reader, deliveryMethod, peer);
                     break;
 
-                case BasisNetworkCommons.AvatarChangeMessage:
+                case BasisNetworkCommons.AvatarChangeMessageChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisServerHandleEvents.SendAvatarMessageToClients(reader, peer);
                     break;
 
-                case BasisNetworkCommons.ChangeCurrentOwnerRequest:
+                case BasisNetworkCommons.ChangeCurrentOwnerRequestChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisNetworkOwnership.OwnershipTransfer(reader, peer);
                     break;
 
-                case BasisNetworkCommons.GetCurrentOwnerRequest:
+                case BasisNetworkCommons.GetCurrentOwnerRequestChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisNetworkOwnership.OwnershipResponse(reader, peer);
                     break;
 
-                case BasisNetworkCommons.RemoveCurrentOwnerRequest:
+                case BasisNetworkCommons.RemoveCurrentOwnerRequestChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisNetworkOwnership.RemoveOwnership(reader, peer);
                     break;
 
-                case BasisNetworkCommons.AudioRecipients:
+                case BasisNetworkCommons.AudioRecipientsChannel:
                     BasisServerHandleEvents.UpdateVoiceReceivers(reader, peer);
                     break;
 
-                case BasisNetworkCommons.netIDAssign:
+                case BasisNetworkCommons.netIDAssignChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisServerHandleEvents.netIDAssign(reader, peer);
                     break;
 
-                case BasisNetworkCommons.LoadResourceMessage:
+                case BasisNetworkCommons.LoadResourceChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
                         if (NetworkServer.authIdentity.NetIDToUUID(peer, out string UUID))
@@ -251,7 +251,7 @@ public static class BasisNetworkMessageProcessor
                     }
                     break;
 
-                case BasisNetworkCommons.UnloadResourceMessage:
+                case BasisNetworkCommons.UnloadResourceChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
                         if (NetworkServer.authIdentity.NetIDToUUID(peer, out string UUID))
@@ -272,13 +272,13 @@ public static class BasisNetworkMessageProcessor
                     }
                     break;
 
-                case BasisNetworkCommons.AdminMessage:
+                case BasisNetworkCommons.AdminChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                         BasisPlayerModeration.OnAdminMessage(peer, reader);
                     reader.Recycle();
                     break;
 
-                case BasisNetworkCommons.AvatarCloneRequestMessage:
+                case BasisNetworkCommons.AvatarCloneRequestChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
                         // BasisAvatarRequestMessages.AvatarCloneRequestMessage();
@@ -286,14 +286,14 @@ public static class BasisNetworkMessageProcessor
                     reader.Recycle();
                     break;
 
-                case BasisNetworkCommons.AvatarCloneResponseMessage:
+                case BasisNetworkCommons.AvatarCloneResponseChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
                         // BasisAvatarRequestMessages.AvatarCloneResponseMessage();
                     }
                     reader.Recycle();
                     break;
-                case BasisNetworkCommons.ServerBoundMessage:
+                case BasisNetworkCommons.ServerBoundChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
                         BasisServerHandleEvents.OnServerReceived?.Invoke(peer, reader, deliveryMethod);
