@@ -8,7 +8,6 @@ using static BasisObjectSyncDriver;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
     public BasisInteractableObject InteractableObjects;
-    public DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced;
     private int HasIndex;
     private bool HasIndexAssigned;
     public void Awake()
@@ -20,33 +19,49 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         if (InteractableObjects != null)
         {
             InteractableObjects.OnInteractStartEvent += OnInteractStartEvent;
-            InteractableObjects.OnInteractEndEvent += OnInteractEndEvent;
+            // InteractableObjects.OnInteractEndEvent += OnInteractEndEvent;
         }
-    }
-    public void OnEnable()
-    { 
-     StartRemoteControl();
     }
     public void OnDisable()
     {
-     StopRemoteControl();
+        if (InteractableObjects != null)
+        {
+            InteractableObjects.OnInteractStartEvent -= OnInteractStartEvent;
+        }
     }
-    private void OnInteractEndEvent(BasisInput input)
+    public override void OnNetworkReady()
     {
+        ControlState();
     }
     private async void OnInteractStartEvent(BasisInput input)
     {
-        await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+        if (IsOwnedLocally)
+        {
+            StartLocalControl();
+        }
+        else
+        {
+            //no need to use await ownership will get back here from lower level.
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+        }
     }
-    public override void OwnershipReleased()
+    /// <summary>
+    /// ownership has been completely removed in that case lets just make it locally able
+    /// </summary>
+    public override void ServerOwnershipDestroyed()
     {
-        StartRemoteControl();
+        BasisDebug.Log("Ownership Released Resetting To Local", BasisDebug.LogTag.Networking);
+        StartLocalControl();
     }
     public override void OnOwnershipTransfer(ushort NetIdNewOwner)
     {
-        if (IsLocalOwner)
+        ControlState();
+    }
+    public void ControlState()
+    {
+        if (IsOwnedLocally)
         {
-            StopRemoteControl();
+            StartLocalControl();
         }
         else
         {
@@ -79,21 +94,24 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         BasisPositionRotationScale Current = new BasisPositionRotationScale();
         transform.GetLocalPositionAndRotation(out Current.Position, out Current.Rotation);
         Current.Scale = transform.localScale;
-
-        SendCustomNetworkEvent(SerializationUtility.SerializeValue(Current, DataFormat.Binary), DeliveryMethod);
+        SendCustomNetworkEvent(SerializationUtility.SerializeValue(Current, DataFormat.Binary), DeliveryMethod.Sequenced);
     }
     public void StartRemoteControl()
     {
-        if (InteractableObjects != null)
+        BasisDebug.Log($"Starting Remote Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
+        if (InteractableObjects != null && InteractableObjects.IsPuppeted == false)
         {
             InteractableObjects.StartRemoteControl();
         }
+        BasisObjectSyncDriver.RemoveOwnedObjectSync(this);
     }
-    public void StopRemoteControl()
+    public void StartLocalControl()
     {
-        if (InteractableObjects != null)
+        BasisDebug.Log($"Starting Local Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
+        if (InteractableObjects != null && InteractableObjects.IsPuppeted)
         {
             InteractableObjects.StopRemoteControl();
         }
+        BasisObjectSyncDriver.AddOwnedObjectSync(this);
     }
 }

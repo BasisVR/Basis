@@ -12,8 +12,7 @@ namespace Basis
 {
     public abstract class BasisNetworkBehaviour : BasisContentBase
     {
-        [NonSerialized]
-        public bool HasNetworkID = false;
+        private bool HasNetworkID = false;
         private ushort networkID;
         public ushort NetworkID
         {
@@ -21,8 +20,7 @@ namespace Basis
             private set => networkID = value;
         }
         public BasisOwnershipResult CurrentOwnershipStatus;
-        [NonSerialized]
-        public bool IsLocalOwner = false;
+        public bool IsOwnedLocally = false;
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>
@@ -59,23 +57,24 @@ namespace Basis
                 }
                 if (wassuccesful)
                 {
-                    Task<BasisIdResolutionResult> ThisNetworkBehavioursID = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
+                    BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
+                    BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
+                    BasisScene.OnNetworkMessageReceived += LowLevelNetworkMessageReceived;
+
+
+                    Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
                     Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
-                    Task[] tasks = new Task[] { ThisNetworkBehavioursID, output };
+                    Task[] tasks = new Task[] { IDResolverAsync, output };
 
                     await Task.WhenAll(tasks);
 
                     //convert GUID into Ushort for network transport.
-                    BasisIdResolutionResult ThisNetworkBehavioursIDR = await ThisNetworkBehavioursID;
+                    BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
                     CurrentOwnershipStatus = await output;
-
-                    HasNetworkID = ThisNetworkBehavioursIDR.Success;
-                    NetworkID = ThisNetworkBehavioursIDR.Id;
+                    HasNetworkID = IDResolverResult.Success;
+                    NetworkID = IDResolverResult.Id;
                     if (HasNetworkID)
                     {
-                        BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
-                        BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
-                        BasisScene.OnNetworkMessageReceived += LowLevelNetworkMessageReceived;
                         OnNetworkReady();
                     }
                 }
@@ -92,14 +91,15 @@ namespace Basis
         {
             if (uniqueEntityID == clientIdentifier)
             {
-                OwnershipReleased();
+                ServerOwnershipDestroyed();
             }
         }
         private void LowLevelOwnershipTransfer(string uniqueEntityID, ushort NetIdNewOwner, bool isOwner)
         {
             if (uniqueEntityID == clientIdentifier)
             {
-                IsLocalOwner = isOwner;
+                IsOwnedLocally = isOwner;
+                BasisDebug.Log("Owner set to " + IsOwnedLocally);
                 OnOwnershipTransfer(NetIdNewOwner);
             }
         }
@@ -214,7 +214,7 @@ namespace Basis
         /// <summary>
         /// back to no one owning it, (item no longer exists for example)
         /// </summary>
-        public virtual void OwnershipReleased()
+        public virtual void ServerOwnershipDestroyed()
         {
 
         }

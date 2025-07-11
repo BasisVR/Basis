@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -76,6 +77,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (RigidRef == null)
             {
                 TryGetComponent(out RigidRef);
+            }
+            if (RigidRef != null)
+            {
+                _remotePrevKinematic = RigidRef.isKinematic;
             }
             if (ColliderRef == null)
             {
@@ -521,7 +526,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public override bool IsWithinRange(Vector3 source, float _interactRange)
         {
             float extraReach = 0;
-            if (Basis.Scripts.Device_Management.BasisDeviceManagement.IsUserInDesktop())
+            if (BasisDeviceManagement.IsUserInDesktop())
             {
 
                 extraReach = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;

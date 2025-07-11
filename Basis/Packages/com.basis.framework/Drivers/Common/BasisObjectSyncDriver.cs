@@ -77,6 +77,27 @@ public static class BasisObjectSyncDriver
             }
         }
     }
+    /// <summary>
+    /// Adds a new object to the owned object sync list.
+    /// </summary>
+    public static void AddOwnedObjectSync(BasisObjectSyncNetworking obj)
+    {
+        if (obj != null && !OwnedObjectSyncs.Contains(obj))
+        {
+            OwnedObjectSyncs.Add(obj);
+        }
+    }
+
+    /// <summary>
+    /// Removes an object from the owned object sync list.
+    /// </summary>
+    public static void RemoveOwnedObjectSync(BasisObjectSyncNetworking obj)
+    {
+        if (obj != null)
+        {
+            OwnedObjectSyncs.Remove(obj);
+        }
+    }
     public static void UpdateObject(int index, BasisTranslationUpdate data)
     {
         inputData[index] = data;
