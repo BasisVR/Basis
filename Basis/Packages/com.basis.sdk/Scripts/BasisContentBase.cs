@@ -10,7 +10,7 @@ public abstract class BasisContentBase : MonoBehaviour
     [SerializeField]
     public BasisBundleDescription BasisBundleDescription;
 
-    private string clientIdentifier; // Represents the string used to look up the ushort on the server.
+    public string clientIdentifier { get; private set; } = string.Empty; // Represents the string used to look up the ushort on the server.
 
     public Action<string> OnClientIdentifierAssigned;
 

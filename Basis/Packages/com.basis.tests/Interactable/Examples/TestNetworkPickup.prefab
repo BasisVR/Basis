@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 5957042272599879760}
   - component: {fileID: 6583899668879688022}
   - component: {fileID: 2949146011986281948}
-  - component: {fileID: 2360009567997384251}
+  - component: {fileID: 7389984277938916143}
   m_Layer: 8
   m_Name: TestNetworkPickup
   m_TagString: Untagged
@@ -191,7 +191,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &2360009567997384251
+--- !u!114 &7389984277938916143
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -200,10 +200,15 @@ MonoBehaviour:
   m_GameObject: {fileID: 8223825610722225387}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e93e9ec033926d54a8a609c123c5f65e, type: 3}
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   BasisBundleDescription:
-    AssetBundleName: dab
-    AssetBundleDescription: dabby
-  NetworkID: 0
+    AssetBundleName: 
+    AssetBundleDescription: 
+  IsLocalOwner: 0
+  InteractableObjects: {fileID: 6583899668879688022}
+  DeliveryMethod: 1
+  DataFormat: 0
+  HasIndex: 0
+  HasIndexAssigned: 0

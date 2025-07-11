@@ -208,8 +208,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (hasID)
             {
-                (bool, ushort) output = await BasisNetworkManagement.RequestCurrentOwnershipAsync(IOwnThis);
-                if (output.Item1 && output.Item2 == NetId)
+                BasisOwnershipResult output = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(IOwnThis);
+                if (output.Success && output.PlayerId == NetId)
                 {
                     return true;
                 }
@@ -229,29 +229,29 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
           return  await BasisNetworkPlayer.LocalPlayer.IsOwner(IOwnThis);
         }
 
-        public static async Task<(bool, ushort)> SetOwnerAsync(BasisNetworkPlayer FutureOwner, string IOwnThis)
+        public static async Task<BasisOwnershipResult> SetOwnerAsync(BasisNetworkPlayer FutureOwner, string IOwnThis)
         {
             if (FutureOwner.hasID)
             {
-                return await BasisNetworkManagement.TakeOwnershipAsync(IOwnThis, FutureOwner.NetId);
+                return await BasisNetworkOwnership.TakeOwnershipAsync(IOwnThis, FutureOwner.NetId);
             }
             else
             {
                 return new(false, 0);
             }
         }
-        public static async Task<(bool,ushort)> GetOwnerPlayerIDAsync(string UniqueID)
+        public static async Task<BasisOwnershipResult> GetOwnerPlayerIDAsync(string UniqueID)
         {
-           return await BasisNetworkManagement.RequestCurrentOwnershipAsync(UniqueID);
+           return await BasisNetworkOwnership.RequestCurrentOwnershipAsync(UniqueID);
         }
         public static async Task<(bool, BasisNetworkPlayer)> GetOwnerPlayerAsync(string UniqueID)
         {
-            (bool, ushort) Current = await BasisNetworkManagement.RequestCurrentOwnershipAsync(UniqueID);
-            if (Current.Item1)
+            BasisOwnershipResult Current = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(UniqueID);
+            if (Current.Success)
             {
-                if (BasisNetworkManagement.GetPlayerById(Current.Item2, out BasisNetworkPlayer Player))
+                if (BasisNetworkManagement.GetPlayerById(Current.PlayerId, out BasisNetworkPlayer Player))
                 {
-                    return new(Current.Item1, Player);
+                    return new(Current.Success, Player);
                 }
             }
             return new(false, null);

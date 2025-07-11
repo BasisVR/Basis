@@ -1,128 +1,77 @@
-using Basis.Scripts.BasisSdk;
+using Basis;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
-using Basis.Scripts.Networking.NetworkedAvatar;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
-using UnityEngine;
 using static BasisObjectSyncDriver;
-public class BasisObjectSyncNetworking : MonoBehaviour
+public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
-    public string NetworkId;
-
-    public ushort MessageIndex = 0;
-    public bool HasMessageIndexAssigned;
-
-    public ushort CurrentOwner;
-    public bool IsLocalOwner = false;
-    public bool HasActiveOwnership = false;
-    public BasisContentBase ContentConnector;
     public BasisInteractableObject InteractableObjects;
     public DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced;
-    public DataFormat DataFormat = DataFormat.Binary;
-    public bool HasIndex;
-    public int Index;
+    private int HasIndex;
+    private bool HasIndexAssigned;
     public void Awake()
     {
-        if (ContentConnector == null && TryGetComponent<BasisContentBase>(out ContentConnector))
+        if (InteractableObjects == null)
         {
+            InteractableObjects = this.transform.GetComponentInChildren<BasisInteractableObject>();
         }
-        if (ContentConnector != null)
-        {
-            ContentConnector.OnClientIdentifierAssigned += OnNetworkIDSet;
-        }
-        InteractableObjects = this.transform.GetComponentInChildren<BasisInteractableObject>();
         if (InteractableObjects != null)
         {
             InteractableObjects.OnInteractStartEvent += OnInteractStartEvent;
             InteractableObjects.OnInteractEndEvent += OnInteractEndEvent;
         }
     }
-
     public void OnEnable()
-    {
-        HasMessageIndexAssigned = false;
-        BasisScene.OnNetworkMessageReceived += OnNetworkMessageReceived;
-        BasisNetworkPlayer.OnOwnershipTransfer += OnOwnershipTransfer;
-        BasisNetworkPlayer.OnOwnershipReleased += OwnershipReleased;
-        StartRemoteControl();
+    { 
+     StartRemoteControl();
     }
     public void OnDisable()
     {
-        HasMessageIndexAssigned = false;
-        BasisScene.OnNetworkMessageReceived -= OnNetworkMessageReceived;
-        BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransfer;
-        BasisNetworkPlayer.OnOwnershipReleased -= OwnershipReleased;
-        StopRemoteControl();
+     StopRemoteControl();
     }
     private void OnInteractEndEvent(BasisInput input)
     {
     }
     private async void OnInteractStartEvent(BasisInput input)
     {
-        await BasisNetworkManagement.TakeOwnershipAsync(NetworkId, (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+        await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
     }
-
-    private async void OnNetworkIDSet(string NetworkID)
+    public override void OwnershipReleased()
     {
-        NetworkId = NetworkID;
-        await BasisNetworkIdResolver.ResolveAsync(NetworkId);
+        StartRemoteControl();
     }
-
-    private void OwnershipReleased(string UniqueEntityID)
+    public override void OnOwnershipTransfer(ushort NetIdNewOwner)
     {
-        if (NetworkId == UniqueEntityID)
+        if (IsLocalOwner)
         {
-            IsLocalOwner = false;
-            CurrentOwner = 0;
-            HasActiveOwnership = false;
-            StartRemoteControl();
-        }
-    }
-    private void OnOwnershipTransfer(string UniqueEntityID, ushort NetIdNewOwner, bool IsOwner)
-    {
-        if (NetworkId == UniqueEntityID)
-        {
-            IsLocalOwner = IsOwner;
-            CurrentOwner = NetIdNewOwner;
-            HasActiveOwnership = true;
-            if (!IsLocalOwner)
-            {
-                StartRemoteControl();
-            }
-            else
-            {
-                StopRemoteControl();
-            }
-            OwnedPickupSet();
-        }
-    }
-    public void OwnedPickupSet()
-    {
-        if (IsLocalOwner && HasMessageIndexAssigned)
-        {
-
+            StopRemoteControl();
         }
         else
         {
+            StartRemoteControl();
         }
     }
-    public async void OnNetworkIdAdded(string uniqueId, ushort ushortId)
+    public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
-        if (NetworkId == uniqueId)
+        BasisPositionRotationScale Next = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
+        BasisTranslationUpdate BTU = new BasisTranslationUpdate
         {
-            MessageIndex = ushortId;
-            HasMessageIndexAssigned = true;
-            if (HasActiveOwnership == false)
-            {
-                (bool, ushort) State = await BasisNetworkManagement.RequestCurrentOwnershipAsync(NetworkId);
-                if (State.Item1)
-                {
-                    ushort Owner = State.Item2;
-                }
-            }
-            OwnedPickupSet();
+            LerpMultipliers = 1,
+            SyncDestination = true,
+            SyncScales = true,
+            TargetScales = Next.Scale,
+            TargetPositions = Next.Position,
+            TargetRotations = Next.Rotation
+        };
+        if (HasIndexAssigned)
+        {
+            BasisObjectSyncDriver.UpdateObject(HasIndex, BTU);
+        }
+        else
+        {
+            HasIndexAssigned = BasisObjectSyncDriver.AddObject(BTU, this.transform, out HasIndex);
         }
     }
     public void SendNetworkSync()
@@ -130,31 +79,8 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         BasisPositionRotationScale Current = new BasisPositionRotationScale();
         transform.GetLocalPositionAndRotation(out Current.Position, out Current.Rotation);
         Current.Scale = transform.localScale;
-        BasisScene.OnNetworkMessageSend.Invoke(MessageIndex, SerializationUtility.SerializeValue(Current, DataFormat), DeliveryMethod);
-    }
-    public void OnNetworkMessageReceived(ushort PlayerID, ushort messageIndex, byte[] buffer, DeliveryMethod DeliveryMethod)
-    {
-        if (HasMessageIndexAssigned && messageIndex == MessageIndex)
-        {
-            BasisPositionRotationScale Next = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat);
-            BasisTranslationUpdate BTU = new BasisTranslationUpdate
-            {
-                LerpMultipliers = 1,
-                SyncDestination = true,
-                SyncScales = true,
-                TargetScales = Next.Scale,
-                TargetPositions = Next.Position,
-                TargetRotations = Next.Rotation
-            };
-            if (HasIndex)
-            {
-                BasisObjectSyncDriver.UpdateObject(Index,BTU);
-            }
-            else
-            {
-                HasIndex = BasisObjectSyncDriver.AddObject(BTU, this.transform, out Index);
-            }
-        }
+
+        SendCustomNetworkEvent(SerializationUtility.SerializeValue(Current, DataFormat.Binary), DeliveryMethod);
     }
     public void StartRemoteControl()
     {

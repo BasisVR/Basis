@@ -16,22 +16,28 @@ public static class AssetBundleBuilder
         EnsureDirectoryExists(targetDirectory);
         EditorUtility.DisplayProgressBar("Building Asset Bundles", "Initializing...", 0f);
 
-        BuildAssetBundlesParameters buildAssetBundlesParameters = new BuildAssetBundlesParameters
+        BuildAssetBundlesParameters BABP = new BuildAssetBundlesParameters
         {
             outputPath = targetDirectory,
             bundleDefinitions = BundledData,
             targetPlatform = buildTarget,
+#if UNITY_6000_0_OR_NEWER
             extraScriptingDefines = null,
-            options = settings.BuildAssetBundleOptions,
+#endif
+            options = settings.BuildAssetBundleOptions
         };
-        AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(buildAssetBundlesParameters);
+
+        AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(BABP);
 
         if (manifest != null)
         {
             Hash = await ProcessAssetBundles(targetDirectory, settings, manifest, password, isEncrypted);
             BasisBundleGenerated = new BasisBundleGenerated(Hash.bundleHash.ToString(), mode, assetBundleName, Hash.CRC, true, password, buildTarget.ToString(), Hash.Length);
             DeleteManifestFiles(targetDirectory, buildTarget.ToString());
-            OnPostprocessBuild(BuildReport.GetLatestReport());
+#if UNITY_6000_0_OR_NEWER
+            BuildReport Reports = BuildReport.GetLatestReport();
+            OnPostprocessBuild(Reports);
+#endif
         }
         else
         {
@@ -90,7 +96,9 @@ public static class AssetBundleBuilder
             public int totalErrors;
             public int totalWarnings;
             public BuildResult result;
+#if UNITY_6000_0_OR_NEWER
             public BuildType buildType;
+#endif
             public bool multiProcessEnabled;
             public TimeSpan totalTime => new TimeSpan((long)totalTimeTicks);
         }
@@ -143,14 +151,9 @@ public static class AssetBundleBuilder
                 options = report.summary.options,
                 outputPath = report.summary.outputPath,
                 totalSize = report.summary.totalSize,
-                totalErrors = report.summary.totalErrors,
                 totalWarnings = report.summary.totalWarnings,
                 result = report.summary.result,
-                buildType = report.summary.buildType,
-                multiProcessEnabled = report.summary.multiProcessEnabled,
-                 
             },
-
             steps = report.steps.Select(step => new SerializableBuildReport.BasisStoredBuildStep
             {
                 name = step.name,
@@ -186,8 +189,15 @@ public static class AssetBundleBuilder
                 }).ToArray()
             }).ToArray()
         };
+#if UNITY_6000_0_OR_NEWER
+        sReport.summary.totalErrors = report.summary.totalErrors;
+        sReport.summary.multiProcessEnabled = report.summary.multiProcessEnabled;
+        sReport.summary.buildType = report.summary.buildType;
+#endif
         if (!Directory.Exists(ReportDirectoryPath))
+        {
             Directory.CreateDirectory(ReportDirectoryPath);
+        }
 
         string reportPath = GetBuildReportPath(report.summary.platform);
         string json = JsonUtility.ToJson(sReport, true);

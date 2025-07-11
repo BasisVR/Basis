@@ -1,7 +1,11 @@
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using LiteNetLib;
 using System;
 using System.Collections;
+using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
 namespace Basis
@@ -11,29 +15,93 @@ namespace Basis
         [NonSerialized]
         public bool HasNetworkID = false;
         private ushort networkID;
-
-        public ushort NetworkID { get => networkID; private set => networkID = value; }
-
+        public ushort NetworkID
+        {
+            get => networkID;
+            private set => networkID = value;
+        }
+        public BasisOwnershipResult CurrentOwnershipStatus;
+        [NonSerialized]
+        public bool IsLocalOwner = false;
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>
-        public async void Start()
+        public void Start()
         {
-            bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
-            if (wassuccesful)
+            if (BasisNetworkManagement.LocalPlayerIsConnected == false)
             {
-                BasisIdResolutionResult ThisNetworkBehavioursID = await BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
-                HasNetworkID = ThisNetworkBehavioursID.Success;
-                NetworkID = ThisNetworkBehavioursID.Id;
-                if (HasNetworkID)
+                BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
+            }
+            else
+            {
+                OnLocalPlayerJoined(null, null);
+            }
+        }
+        public void OnDestroy()
+        {
+            BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
+            BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
+            BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
+            BasisScene.OnNetworkMessageReceived -= LowLevelNetworkMessageReceived;
+        }
+        private async void OnLocalPlayerJoined(BasisNetworkPlayer player1, BasisLocalPlayer player2)
+        {
+            if (BasisNetworkManagement.LocalPlayerIsConnected)
+            {
+                bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
+                if (wassuccesful == false)//this will happen to anything that has not got a GUID from the server
                 {
-                    OnNetworkReady();
+                    //so if we dont get a GUID from the server lets make one!
+                    string FileNamePath = LowLevelGetHierarchyPath(this);
+                    AssignNetworkGUIDIdentifier(FileNamePath);
+
+                    wassuccesful = TryGetNetworkGUIDIdentifier(out NetworkGuidID);
+                }
+                if (wassuccesful)
+                {
+                    Task<BasisIdResolutionResult> ThisNetworkBehavioursID = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
+                    Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
+                    Task[] tasks = new Task[] { ThisNetworkBehavioursID, output };
+
+                    await Task.WhenAll(tasks);
+
+                    //convert GUID into Ushort for network transport.
+                    BasisIdResolutionResult ThisNetworkBehavioursIDR = await ThisNetworkBehavioursID;
+                    CurrentOwnershipStatus = await output;
+
+                    HasNetworkID = ThisNetworkBehavioursIDR.Success;
+                    NetworkID = ThisNetworkBehavioursIDR.Id;
+                    if (HasNetworkID)
+                    {
+                        BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
+                        BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
+                        BasisScene.OnNetworkMessageReceived += LowLevelNetworkMessageReceived;
+                        OnNetworkReady();
+                    }
                 }
             }
         }
-        public virtual void OnNetworkReady()
+        public void LowLevelNetworkMessageReceived(ushort PlayerID, ushort messageIndex, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
-
+            if (HasNetworkID && messageIndex == NetworkID)
+            {
+                OnNetworkMessage(PlayerID, buffer, DeliveryMethod);
+            }
+        }
+        private void LowLevelOwnershipReleased(string uniqueEntityID)
+        {
+            if (uniqueEntityID == clientIdentifier)
+            {
+                OwnershipReleased();
+            }
+        }
+        private void LowLevelOwnershipTransfer(string uniqueEntityID, ushort NetIdNewOwner, bool isOwner)
+        {
+            if (uniqueEntityID == clientIdentifier)
+            {
+                IsLocalOwner = isOwner;
+                OnOwnershipTransfer(NetIdNewOwner);
+            }
         }
         /// <summary>
         /// this is used for sending Network Messages
@@ -44,7 +112,14 @@ namespace Basis
         /// <param name="Recipients">if null everyone but self, you can include yourself to make it loop back over the network</param>
         public void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
         {
-            BasisScene.OnNetworkMessageSend?.Invoke(NetworkID, buffer, DeliveryMethod, Recipients);
+            if (HasNetworkID)
+            {
+                BasisScene.OnNetworkMessageSend?.Invoke(NetworkID, buffer, DeliveryMethod, Recipients);
+            }
+            else
+            {
+                BasisDebug.LogError($"No Network ID Assigned yet for {this.gameObject.name}", BasisDebug.LogTag.Networking);
+            }
         }
 
         public void SendCustomEventDelayedSeconds(Action callback, float delaySeconds, EventTiming timing = EventTiming.Update)
@@ -115,20 +190,41 @@ namespace Basis
                 elapsed += Time.deltaTime;
             }
         }
-        /*
-        public virtual void Interact() { }
-        public virtual void OnAvatarChanged(BasisPlayer player) { }
-        public virtual void OnAvatarEyeHeightChanged(BasisPlayer player, float prevEyeHeightAsMeters) { }
-        public virtual void OnOwnershipTransferred(BasisPlayer player) { }
+        public static string LowLevelGetHierarchyPath(BasisContentBase obj)
+        {
+            // Get the index of the component on the GameObject
+            Component[] components = obj.gameObject.GetComponents(obj.GetType());
+            int index = System.Array.IndexOf(components, obj);
 
-        public virtual void OnPlayerRespawn(BasisPlayer player) { }
-        public virtual bool OnOwnershipRequest(BasisPlayer requestingPlayer, BasisPlayer requestedOwner) => true;
-        // public virtual void OnLanguageChanged(string language) { }
+            string path = obj.gameObject.name + obj.GetType() + index;
+            Transform current = obj.transform.parent;
 
-        public virtual void OnDrop() { }
-        public virtual void OnPickup() { }
-        public virtual void OnPickupUseDown() { }
-        public virtual void OnPickupUseUp() { }
-        */
+            while (current != null)
+            {
+                path = current.name + "/" + path;
+                current = current.parent;
+            }
+
+            return path;
+        }
+        public virtual void OnNetworkReady()
+        {
+
+        }
+        /// <summary>
+        /// back to no one owning it, (item no longer exists for example)
+        /// </summary>
+        public virtual void OwnershipReleased()
+        {
+
+        }
+        public virtual void OnOwnershipTransfer(ushort NetIdNewOwner)
+        {
+
+        }
+        public virtual void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
+        {
+
+        }
     }
 }
