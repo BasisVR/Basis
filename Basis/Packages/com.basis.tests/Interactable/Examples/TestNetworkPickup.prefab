@@ -206,9 +206,5 @@ MonoBehaviour:
   BasisBundleDescription:
     AssetBundleName: 
     AssetBundleDescription: 
-  IsLocalOwner: 0
+  IsOwnedLocally: 0
   InteractableObjects: {fileID: 6583899668879688022}
-  DeliveryMethod: 1
-  DataFormat: 0
-  HasIndex: 0
-  HasIndexAssigned: 0
