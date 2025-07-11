@@ -439,6 +439,12 @@ MonoBehaviour:
   attenuationDistance:
     m_OverrideState: 1
     m_Value: 128
+  enableAPVContribution:
+    m_OverrideState: 1
+    m_Value: 0
+  APVContributionWeight:
+    m_OverrideState: 0
+    m_Value: 1
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -463,6 +469,9 @@ MonoBehaviour:
   enabled:
     m_OverrideState: 1
     m_Value: 0
+  renderPassEvent:
+    m_OverrideState: 0
+    m_Value: 550
 --- !u!114 &3166035422960253488
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -818,6 +827,12 @@ MonoBehaviour:
   attenuationDistance:
     m_OverrideState: 1
     m_Value: 128
+  enableAPVContribution:
+    m_OverrideState: 1
+    m_Value: 1
+  APVContributionWeight:
+    m_OverrideState: 1
+    m_Value: 1
   enableMainLightContribution:
     m_OverrideState: 1
     m_Value: 0
@@ -841,7 +856,10 @@ MonoBehaviour:
     m_Value: 2
   enabled:
     m_OverrideState: 1
-    m_Value: 0
+    m_Value: 1
+  renderPassEvent:
+    m_OverrideState: 1
+    m_Value: 550
 --- !u!114 &8171072556536312653
 MonoBehaviour:
   m_ObjectHideFlags: 3

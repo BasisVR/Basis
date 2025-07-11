@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6da1b7420bf9fc94687fa64e17de8012
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - _udonSharpBackingUdonBehaviour: {instanceID: 0}
+  - videoRenderTexture: {fileID: 8600000, guid: 2e981d14dfe30c84abf5301472248842,
+      type: 2}
+  - avProVideo: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
