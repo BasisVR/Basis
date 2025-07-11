@@ -154,7 +154,7 @@ public static class BasisNetworkSpawnItem
             BasisScene BasisScene = root.GetComponentInChildren<BasisScene>();
             if (BasisScene != null)
             {
-                BasisScene.NetworkID = localLoadResource.LoadedNetID;
+                BasisScene.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
                 return;
             }
         }
@@ -181,7 +181,7 @@ public static class BasisNetworkSpawnItem
 
         if (reference.TryGetComponent<BasisContentBase>(out BasisContentBase BasisContentBase))
         {
-            BasisContentBase.NetworkID = localLoadResource.LoadedNetID;
+            BasisContentBase.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
         }
         SpawnedGameobjects.TryAdd(localLoadResource.LoadedNetID, reference);
         BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;

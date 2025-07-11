@@ -1,7 +1,4 @@
 using Basis.Scripts.BasisSdk;
-using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Device_Management.Devices;
-using Basis.Scripts.Networking;
 using LiteNetLib;
 using System;
 using System.Collections;
@@ -9,18 +6,31 @@ using UnityEngine;
 using static BasisNetworkCommon;
 namespace Basis
 {
-    public abstract class BasisNetworkBehaviour : MonoBehaviour
+    public abstract class BasisNetworkBehaviour : BasisContentBase
     {
         [NonSerialized]
         public bool HasNetworkID = false;
-        [NonSerialized]
         public ushort NetworkID;
-        public void OnEnable()
+        /// <summary>
+        /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
+        /// </summary>
+        public async void Start()
         {
-           if(!HasNetworkID)
+            bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
+            if (wassuccesful)
             {
-
+                BasisIdResolutionResult ThisNetworkBehavioursID = await BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
+                HasNetworkID = ThisNetworkBehavioursID.Success;
+                NetworkID = ThisNetworkBehavioursID.Id;
+                if (HasNetworkID)
+                {
+                    OnNetworkReady();
+                }
             }
+        }
+        public virtual void OnNetworkReady()
+        {
+
         }
         /// <summary>
         /// this is used for sending Network Messages
@@ -102,17 +112,20 @@ namespace Basis
                 elapsed += Time.deltaTime;
             }
         }
+        /*
         public virtual void Interact() { }
         public virtual void OnAvatarChanged(BasisPlayer player) { }
         public virtual void OnAvatarEyeHeightChanged(BasisPlayer player, float prevEyeHeightAsMeters) { }
-        public virtual void OnDrop() { }
         public virtual void OnOwnershipTransferred(BasisPlayer player) { }
+
+        public virtual void OnPlayerRespawn(BasisPlayer player) { }
+        public virtual bool OnOwnershipRequest(BasisPlayer requestingPlayer, BasisPlayer requestedOwner) => true;
+        // public virtual void OnLanguageChanged(string language) { }
+
+        public virtual void OnDrop() { }
         public virtual void OnPickup() { }
         public virtual void OnPickupUseDown() { }
         public virtual void OnPickupUseUp() { }
-        public virtual void OnPlayerRespawn(BasisPlayer player) { }
-        public virtual void OnPlayerSuspendChanged(BasisPlayer player) { }
-        public virtual bool OnOwnershipRequest(BasisPlayer requestingPlayer, BasisPlayer requestedOwner) => true;
-        // public virtual void OnLanguageChanged(string language) { }
+        */
     }
 }

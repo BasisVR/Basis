@@ -30,7 +30,7 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         }
         if (ContentConnector != null)
         {
-            ContentConnector.OnNetworkIDSet += OnNetworkIDSet;
+            ContentConnector.OnClientIdentifierAssigned += OnNetworkIDSet;
         }
         InteractableObjects = this.transform.GetComponentInChildren<BasisInteractableObject>();
         if (InteractableObjects != null)
@@ -46,7 +46,6 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         BasisScene.OnNetworkMessageReceived += OnNetworkMessageReceived;
         BasisNetworkPlayer.OnOwnershipTransfer += OnOwnershipTransfer;
         BasisNetworkPlayer.OnOwnershipReleased += OwnershipReleased;
-        BasisNetworkNetIDConversion.OnNetworkIdAdded += OnNetworkIdAdded;
         StartRemoteControl();
     }
     public void OnDisable()
@@ -55,7 +54,6 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         BasisScene.OnNetworkMessageReceived -= OnNetworkMessageReceived;
         BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransfer;
         BasisNetworkPlayer.OnOwnershipReleased -= OwnershipReleased;
-        BasisNetworkNetIDConversion.OnNetworkIdAdded -= OnNetworkIdAdded;
         StopRemoteControl();
     }
     private void OnInteractEndEvent(BasisInput input)
@@ -66,10 +64,10 @@ public class BasisObjectSyncNetworking : MonoBehaviour
         await BasisNetworkManagement.TakeOwnershipAsync(NetworkId, (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId);
     }
 
-    private void OnNetworkIDSet(string NetworkID)
+    private async void OnNetworkIDSet(string NetworkID)
     {
         NetworkId = NetworkID;
-        BasisNetworkNetIDConversion.RequestId(NetworkId);
+        await BasisNetworkIdResolver.ResolveAsync(NetworkId);
     }
 
     private void OwnershipReleased(string UniqueEntityID)

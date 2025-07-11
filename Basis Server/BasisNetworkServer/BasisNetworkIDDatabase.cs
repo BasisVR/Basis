@@ -14,21 +14,20 @@ namespace BasisNetworkCore
     {
         public static ConcurrentDictionary<string, ushort> UshortNetworkDatabase = new ConcurrentDictionary<string, ushort>();
         private static int counter = -1; // Start at -1 so the first increment becomes 0
-
-        public static void AddOrFindNetworkID(NetPeer HeWhoAsked, string UniqueStringID)
+        public static void AddOrFindNetworkID(NetPeer NetPeer, string UniqueStringID)
         {
             if (UshortNetworkDatabase.TryGetValue(UniqueStringID, out ushort Value)) // This should basically never happen!
             {
                 // We already know about it, let's just give it back to that player
-                ServerNetIDMessage SUIMA = new ServerNetIDMessage
+                ServerNetIDMessage SNIM = new ServerNetIDMessage
                 {
                     NetIDMessage = new NetIDMessage() { UniqueID = UniqueStringID },
                     UshortUniqueIDMessage = new UshortUniqueIDMessage() { UniqueIDUshort = Value }
                 };
                 NetDataWriter Writer = new NetDataWriter(true);
-                SUIMA.Serialize(Writer);
-                NetworkServer.SendOutValidated(HeWhoAsked, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
-                BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {HeWhoAsked.Address}");
+                SNIM.Serialize(Writer);
+                NetworkServer.SendOutValidated(NetPeer, Writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
+                BNL.Log($"Sent existing NetID ({Value}) for {UniqueStringID} to peer {NetPeer.Address}");
             }
             else
             {

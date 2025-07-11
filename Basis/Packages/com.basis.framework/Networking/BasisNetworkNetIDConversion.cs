@@ -1,76 +1,122 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using LiteNetLib.Utils;
+using System;
 using System.Collections.Concurrent;
+using System.Threading;
+using System.Threading.Tasks;
 using static BasisNetworkCore.Serializable.SerializableBasis;
-public static class BasisNetworkNetIDConversion
+
+public static class BasisNetworkIdResolver
 {
-    // ConcurrentDictionary to store network IDs
-    public static ConcurrentDictionary<string, ushort> NetworkIds = new ConcurrentDictionary<string, ushort>();
-    // Delegate and event for when a new ID is added
-    public delegate void NetworkIdAddedHandler(string uniqueId, ushort ushortId);
-    public static event NetworkIdAddedHandler OnNetworkIdAdded;
 
-    public static void RequestId(string NetworkId)
+    public static ConcurrentDictionary<string, ushort> KnownIdMap = new ConcurrentDictionary<string, ushort>();
+    private static ConcurrentDictionary<string, TaskCompletionSource<ushort>> PendingResolutions = new ConcurrentDictionary<string, TaskCompletionSource<ushort>>();
+    private const int TimeoutMilliseconds = 10000; // 10 seconds
+
+    public static async Task<BasisIdResolutionResult> ResolveAsync(string stringId)
     {
-        // Validate input
-        if (string.IsNullOrEmpty(NetworkId))
+        if (string.IsNullOrEmpty(stringId))
         {
-            BasisDebug.LogError($"Invalid Request: NetworkId cannot be null or empty.", BasisDebug.LogTag.Networking);
-            return;
+            BasisDebug.LogError("Invalid Request: stringId cannot be null or empty.", BasisDebug.LogTag.Networking);
+            return new BasisIdResolutionResult(0, false);
         }
 
-        if (NetworkIds.TryGetValue(NetworkId, out ushort Value))
+        if (KnownIdMap.TryGetValue(stringId, out ushort existingId))
         {
-            OnNetworkIdAdded?.Invoke(NetworkId, Value);
+            return new BasisIdResolutionResult(existingId, true);
         }
-        else
+
+        if (PendingResolutions.TryGetValue(stringId, out var existingTcs))
         {
-            NetDataWriter netDataWriter = new NetDataWriter();
-            NetIDMessage ServerUniqueIDMessage = new NetIDMessage
-            {
-                UniqueID = NetworkId
-            };
-            ServerUniqueIDMessage.Serialize(netDataWriter);
-            BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.netIDAssignChannel, LiteNetLib.DeliveryMethod.ReliableSequenced);
-            // Request new one from server
+            return await AwaitWithTimeout(existingTcs.Task, stringId);
+        }
+
+        var tcs = new TaskCompletionSource<ushort>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!PendingResolutions.TryAdd(stringId, tcs))
+        {
+            return await AwaitWithTimeout(PendingResolutions[stringId].Task, stringId);
+        }
+
+        try
+        {
+            NetDataWriter writer = new NetDataWriter();
+            NetIDMessage requestMessage = new NetIDMessage { UniqueID = stringId };
+            requestMessage.Serialize(writer);
+
+            BasisNetworkManagement.LocalPlayerPeer.Send(writer, BasisNetworkCommons.netIDAssignChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+
+            return await AwaitWithTimeout(tcs.Task, stringId);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Exception while sending ID request for '{stringId}': {ex.Message}", BasisDebug.LogTag.Networking);
+            PendingResolutions.TryRemove(stringId, out _);
+            return new BasisIdResolutionResult(0, false);
         }
     }
 
-    public static void AddNetworkId(ServerNetIDMessage ServerNetIDMessage)
+    private static async Task<BasisIdResolutionResult> AwaitWithTimeout(Task<ushort> task, string stringId)
     {
-        if (string.IsNullOrEmpty(ServerNetIDMessage.NetIDMessage.UniqueID))
-        {
-            BasisDebug.LogError($"Invalid Data: Cannot add null or empty NetworkId.", BasisDebug.LogTag.Networking);
-            return;
-        }
+        using var cts = new CancellationTokenSource(TimeoutMilliseconds);
 
-        // Attempt to add the new network ID
-        if (NetworkIds.TryAdd(ServerNetIDMessage.NetIDMessage.UniqueID, ServerNetIDMessage.UshortUniqueIDMessage.UniqueIDUshort))
+        var completedTask = await Task.WhenAny(task, Task.Delay(TimeoutMilliseconds, cts.Token));
+        if (completedTask == task)
         {
-            BasisDebug.Log($"Ids Updated: Added UniqueID '{ServerNetIDMessage.NetIDMessage.UniqueID}' with UshortUniqueID '{ServerNetIDMessage.UshortUniqueIDMessage.UniqueIDUshort}'", BasisDebug.LogTag.Networking);
-
-            // Trigger the event if it has subscribers
-            OnNetworkIdAdded?.Invoke(ServerNetIDMessage.NetIDMessage.UniqueID, ServerNetIDMessage.UshortUniqueIDMessage.UniqueIDUshort);
+            try
+            {
+                var result = await task;
+                return new BasisIdResolutionResult(result, true);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"Failed to resolve task for '{stringId}': {ex.Message}", BasisDebug.LogTag.Networking);
+                PendingResolutions.TryRemove(stringId, out _);
+                return new BasisIdResolutionResult(0, false);
+            }
         }
         else
         {
-            // Check if the existing ID has a different value
-            if (NetworkIds.TryGetValue(ServerNetIDMessage.NetIDMessage.UniqueID, out ushort existingValue))
+            BasisDebug.LogError($"Timeout while waiting for ID resolution of '{stringId}'.", BasisDebug.LogTag.Networking);
+            PendingResolutions.TryRemove(stringId, out _);
+            return new BasisIdResolutionResult(0, false);
+        }
+    }
+
+    public static void CompleteMessageDelegation(ServerNetIDMessage serverMessage)
+    {
+        string stringId = serverMessage.NetIDMessage.UniqueID;
+        ushort resolvedId = serverMessage.UshortUniqueIDMessage.UniqueIDUshort;
+
+        if (string.IsNullOrEmpty(stringId))
+        {
+            BasisDebug.LogError("Invalid Data: Cannot resolve null or empty stringId.", BasisDebug.LogTag.Networking);
+            return;
+        }
+
+        if (KnownIdMap.TryAdd(stringId, resolvedId))
+        {
+            BasisDebug.Log($"Mapping Added: '{stringId}' → {resolvedId}", BasisDebug.LogTag.Networking);
+        }
+        else if (KnownIdMap.TryGetValue(stringId, out ushort existingId))
+        {
+            if (existingId != resolvedId)
             {
-                if (ServerNetIDMessage.UshortUniqueIDMessage.UniqueIDUshort != existingValue)
-                {
-                    BasisDebug.LogError($"Conflict Detected: UniqueID '{ServerNetIDMessage.NetIDMessage.UniqueID}' already exists with a different UshortUniqueID '{existingValue}', new value is '{ServerNetIDMessage.UshortUniqueIDMessage.UniqueIDUshort}'", BasisDebug.LogTag.Networking);
-                }
-                else
-                {
-                    BasisDebug.LogError($"Duplicate Entry: UniqueID '{ServerNetIDMessage.NetIDMessage.UniqueID}' with matching UshortUniqueID '{existingValue}' already exists. No changes made.", BasisDebug.LogTag.Networking);
-                }
+                BasisDebug.LogError($"ID Conflict: '{stringId}' already mapped to {existingId}, attempted to remap to {resolvedId}.", BasisDebug.LogTag.Networking);
             }
             else
             {
-                BasisDebug.LogError($"Unexpected Error: Failed to retrieve UniqueID '{ServerNetIDMessage.NetIDMessage.UniqueID}' despite failing to add it.", BasisDebug.LogTag.Networking);
+                BasisDebug.LogError($"Redundant Mapping: '{stringId}' already maps to {resolvedId}.", BasisDebug.LogTag.Networking);
             }
+        }
+        else
+        {
+            BasisDebug.LogError($"Unexpected Failure: Could not add or confirm mapping for '{stringId}'.", BasisDebug.LogTag.Networking);
+        }
+
+        if (PendingResolutions.TryRemove(stringId, out var tcs))
+        {
+            tcs.TrySetResult(resolvedId);
         }
     }
 }

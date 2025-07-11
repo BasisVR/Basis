@@ -227,7 +227,7 @@ public static class BasisNetworkMessageProcessor
 
                 case BasisNetworkCommons.netIDAssignChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
-                        BasisServerHandleEvents.netIDAssign(reader, peer);
+                        BasisServerHandleEvents.NetIDAssign(reader, peer);
                     break;
 
                 case BasisNetworkCommons.LoadResourceChannel:

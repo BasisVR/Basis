@@ -24,10 +24,10 @@ public static class BasisLoadHandler
     {
         BasisDebug.Log("Game has started after scene load.", BasisDebug.LogTag.Event);
         await EnsureInitializationComplete();
-        SceneManager.sceneUnloaded += sceneUnloaded;
+        SceneManager.sceneUnloaded += SceneUnloaded;
     }
 
-    private static async void sceneUnloaded(Scene UnloadedScene)
+    private static async void SceneUnloaded(Scene UnloadedScene)
     {
         foreach (KeyValuePair<string, BasisTrackedBundleWrapper> kvp in LoadedBundles)
         {

@@ -440,7 +440,7 @@ namespace Basis.Scripts.Networking
             if (BasisDIDAuthIdentityClient.IdentityMessage(peer, Reader, out NetDataWriter Writer))
             {
                 BasisDebug.Log("Sent Identity To Server!");
-                LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableSequenced);
+                LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
                 Reader.Recycle();
             }
             else
@@ -772,7 +772,7 @@ namespace Basis.Scripts.Networking
             var peer = BasisNetworkManagement.LocalPlayerPeer;
             if (peer != null)
             {
-                peer.Send(netDataWriter, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableSequenced);
+                peer.Send(netDataWriter, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.OwnershipTransfer, netDataWriter.Length);
             }
             else
@@ -828,7 +828,7 @@ namespace Basis.Scripts.Networking
             var peer = BasisNetworkManagement.LocalPlayerPeer;
             if (peer != null)
             {
-                peer.Send(netDataWriter, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableSequenced);
+                peer.Send(netDataWriter, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.RequestOwnershipTransfer, netDataWriter.Length);
             }
             else

@@ -118,7 +118,7 @@ public static class BasisNetworkGenericMessages
     {
         ServerNetIDMessage ServerNetIDMessage = new ServerNetIDMessage();
         ServerNetIDMessage.Deserialize(reader);
-        BasisNetworkNetIDConversion.AddNetworkId(ServerNetIDMessage);
+        BasisNetworkIdResolver.CompleteMessageDelegation(ServerNetIDMessage);
     }
     public static void MassNetIDAssign(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
     {
@@ -126,7 +126,7 @@ public static class BasisNetworkGenericMessages
         ServerNetIDMessage.Deserialize(reader);
         foreach(ServerNetIDMessage message in ServerNetIDMessage.Messages)
         {
-            BasisNetworkNetIDConversion.AddNetworkId(message);
+            BasisNetworkIdResolver.CompleteMessageDelegation(message);
         }
     }
     public static async Task LoadResourceMessage(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
