@@ -10,7 +10,10 @@ namespace Basis
     {
         [NonSerialized]
         public bool HasNetworkID = false;
-        public ushort NetworkID;
+        private ushort networkID;
+
+        public ushort NetworkID { get => networkID; private set => networkID = value; }
+
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>

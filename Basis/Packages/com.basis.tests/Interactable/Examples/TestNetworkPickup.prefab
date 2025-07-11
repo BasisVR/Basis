@@ -12,10 +12,9 @@ GameObject:
   - component: {fileID: 5458405829774173769}
   - component: {fileID: 8943395619735082776}
   - component: {fileID: 5957042272599879760}
-  - component: {fileID: 923673149091474816}
   - component: {fileID: 6583899668879688022}
   - component: {fileID: 2949146011986281948}
-  - component: {fileID: -152726361909712221}
+  - component: {fileID: 2360009567997384251}
   m_Layer: 8
   m_Name: TestNetworkPickup
   m_TagString: Untagged
@@ -112,21 +111,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &923673149091474816
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8223825610722225387}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5e19faad92ed5dd47bd3d4036e29f69f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: test prop
-    AssetBundleDescription: testing
 --- !u!114 &6583899668879688022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -167,13 +151,13 @@ MonoBehaviour:
   ColliderRef: {fileID: 5957042272599879760}
   RigidRef: {fileID: 2949146011986281948}
   InputConstraint:
-    rid: 1028902784308609149
+    rid: 4390601965215154283
   InteractRange: 1
   references:
     version: 2
     RefIds:
-    - rid: 1028902784308609149
-      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis}
+    - rid: 4390601965215154283
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
       data:
         Enabled: 1
         GlobalWeight: 1
@@ -207,7 +191,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!114 &-152726361909712221
+--- !u!114 &2360009567997384251
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -216,19 +200,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 8223825610722225387}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 79f4379d9a24e0f47ba1589762550575, type: 3}
+  m_Script: {fileID: 11500000, guid: e93e9ec033926d54a8a609c123c5f65e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MessageIndex: 0
-  HasMessageIndexAssigned: 0
-  NetworkId: 
-  TargetFrequency: 10
-  NetworkLerpSpeed: 7
-  CurrentOwner: 0
-  IsLocalOwner: 0
-  HasActiveOwnership: 0
-  LerpMultiplier: 3
-  ContentConnector: {fileID: 923673149091474816}
-  InteractableObjects: {fileID: 0}
-  DeliveryMethod: 0
-  DataFormat: 0
+  BasisBundleDescription:
+    AssetBundleName: dab
+    AssetBundleDescription: dabby
+  NetworkID: 0

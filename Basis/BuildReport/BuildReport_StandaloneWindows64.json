@@ -1,0 +1,249 @@
+{
+    "summaryResult": "Succeeded",
+    "outputPath": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/./AssetBundles/StandaloneWindows64",
+    "totalSizeMB": 0.38787841796875,
+    "platform": "StandaloneWindows64",
+    "TimeTaken": "2025-07-11 13:46:21",
+    "SummarizeErrors": "",
+    "steps": [
+        {
+            "name": "Build Asset Bundles",
+            "durationTicks": 85464057,
+            "depth": 0,
+            "messages": []
+        },
+        {
+            "name": "Calculate asset bundles to be built",
+            "durationTicks": 11988,
+            "depth": 1,
+            "messages": []
+        },
+        {
+            "name": "Prebuild Cleanup and Recompile",
+            "durationTicks": 54106581,
+            "depth": 1,
+            "messages": []
+        },
+        {
+            "name": "Compile scripts",
+            "durationTicks": 53410564,
+            "depth": 2,
+            "messages": []
+        },
+        {
+            "name": "Generate and validate platform script types",
+            "durationTicks": 507533,
+            "depth": 2,
+            "messages": []
+        },
+        {
+            "name": "Build bundle: 2dc5b36edba6461fad1803fa839c301320250711",
+            "durationTicks": 11942812,
+            "depth": 1,
+            "messages": []
+        }
+    ],
+    "summary": {
+        "buildStartTimeTicks": 638878023727156132,
+        "totalTimeTicks": 85464057,
+        "guid": "00000000000000000000000000000000",
+        "platform": 19,
+        "platformGroup": 0,
+        "options": 0,
+        "outputPath": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/./AssetBundles/StandaloneWindows64",
+        "totalSize": 406720,
+        "totalErrors": 0,
+        "totalWarnings": 0,
+        "result": 1,
+        "buildType": 2,
+        "multiProcessEnabled": false
+    },
+    "files": [
+        {
+            "id": 0,
+            "path": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/2dc5b36edba6461fad1803fa839c301320250711/CAB-f4537f92d07c65c2305b9a62e2313e22",
+            "role": "SharedAssets",
+            "size": 635904
+        },
+        {
+            "id": 1,
+            "path": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/2dc5b36edba6461fad1803fa839c301320250711",
+            "role": "AssetBundle",
+            "size": 403385
+        },
+        {
+            "id": 2,
+            "path": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/2dc5b36edba6461fad1803fa839c301320250711.manifest",
+            "role": "AssetBundleTextManifest",
+            "size": 1524
+        },
+        {
+            "id": 3,
+            "path": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/StandaloneWindows64/CAB-67100437febc6a06d004fbc8b9d29381",
+            "role": "ResourcesFile",
+            "size": 4252
+        },
+        {
+            "id": 4,
+            "path": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/StandaloneWindows64",
+            "role": "ManifestAssetBundle",
+            "size": 1602
+        },
+        {
+            "id": 5,
+            "path": "C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis Unity/Basis/StandaloneWindows64.manifest",
+            "role": "AssetBundleTextManifest",
+            "size": 209
+        }
+    ],
+    "packedAssets": [
+        {
+            "shortPath": "CAB-f4537f92d07c65c2305b9a62e2313e22",
+            "overhead": 96297,
+            "contents": [
+                {
+                    "id": -7570766783883702616,
+                    "type": "UnityEngine.Material",
+                    "packedSize": 1804,
+                    "offset": 96448,
+                    "sourceAssetGUID": "31321ba15b8f8eb4c954353edc038b1d",
+                    "sourceAssetPath": "Packages/com.unity.render-pipelines.universal/Runtime/Materials/Lit.mat"
+                },
+                {
+                    "id": -5721258563485639689,
+                    "type": "UnityEngine.Transform",
+                    "packedSize": 68,
+                    "offset": 98256,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": -4195177999136101677,
+                    "type": "UnityEngine.BoxCollider",
+                    "packedSize": 68,
+                    "offset": 98336,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": -2811848664213603893,
+                    "type": "UnityEngine.GameObject",
+                    "packedSize": 139,
+                    "offset": 98416,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": -2437954453210527100,
+                    "type": "UnityEngine.Shader",
+                    "packedSize": 527352,
+                    "offset": 98560,
+                    "sourceAssetGUID": "933532a4fcc9baf4fa0491de14d08ed7",
+                    "sourceAssetPath": "Packages/com.unity.render-pipelines.universal/Shaders/Lit.shader"
+                },
+                {
+                    "id": -2383429423479903051,
+                    "type": "UnityEngine.Shader",
+                    "packedSize": 3672,
+                    "offset": 625920,
+                    "sourceAssetGUID": "36e335017ad71d54fbb10842863188ae",
+                    "sourceAssetPath": "Packages/com.unity.render-pipelines.core/Runtime/RenderPipelineResources/FallbackShader.shader"
+                },
+                {
+                    "id": -1137921732967845595,
+                    "type": "UnityEngine.MeshFilter",
+                    "packedSize": 24,
+                    "offset": 629600,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": 1,
+                    "type": "UnityEngine.AssetBundle",
+                    "packedSize": 416,
+                    "offset": 629632,
+                    "sourceAssetGUID": "00000000000000000000000000000000",
+                    "sourceAssetPath": "AssetBundle Object"
+                },
+                {
+                    "id": 377701610244204646,
+                    "type": "UnityEngine.Shader",
+                    "packedSize": 5208,
+                    "offset": 630048,
+                    "sourceAssetGUID": "e6e9a19c3678ded42a3bc431ebef7dbd",
+                    "sourceAssetPath": "Packages/com.unity.render-pipelines.universal/Shaders/Utils/FallbackError.shader"
+                },
+                {
+                    "id": 2462554249337384870,
+                    "type": "UnityEngine.MonoBehaviour",
+                    "packedSize": 52,
+                    "offset": 635264,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": 3394256462635355444,
+                    "type": "UnityEditor.MonoScript",
+                    "packedSize": 100,
+                    "offset": 96192,
+                    "sourceAssetGUID": "e93e9ec033926d54a8a609c123c5f65e",
+                    "sourceAssetPath": "Packages/com.basis.framework/Networking/BasisNetworkBehaviour/BasisNetworkedContent.cs"
+                },
+                {
+                    "id": 3483223733728044203,
+                    "type": "UnityEngine.MonoBehaviour",
+                    "packedSize": 320,
+                    "offset": 635328,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": 4560395309582268665,
+                    "type": "UnityEngine.Rigidbody",
+                    "packedSize": 88,
+                    "offset": 635648,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                },
+                {
+                    "id": 5100135424078355746,
+                    "type": "UnityEditor.MonoScript",
+                    "packedSize": 136,
+                    "offset": 96304,
+                    "sourceAssetGUID": "c8b7cb57e80a80b46a2f3f927876eb77",
+                    "sourceAssetPath": "Packages/com.basis.framework/Interactions/BasisPickupInteractable.cs"
+                },
+                {
+                    "id": 5551409417892222036,
+                    "type": "UnityEngine.MeshRenderer",
+                    "packedSize": 160,
+                    "offset": 635744,
+                    "sourceAssetGUID": "f11949ee93fa0894ba5cd50d7ca5c0ae",
+                    "sourceAssetPath": "Assets/TemporaryStorage/2dc5b36edba6461fad1803fa839c301320250711.prefab"
+                }
+            ]
+        },
+        {
+            "shortPath": "CAB-67100437febc6a06d004fbc8b9d29381",
+            "overhead": 4040,
+            "contents": [
+                {
+                    "id": 1,
+                    "type": "UnityEngine.AssetBundle",
+                    "packedSize": 104,
+                    "offset": 4032,
+                    "sourceAssetGUID": "00000000000000000000000000000000",
+                    "sourceAssetPath": "AssetBundle Object"
+                },
+                {
+                    "id": 2,
+                    "type": "UnityEngine.AssetBundleManifest",
+                    "packedSize": 108,
+                    "offset": 4144,
+                    "sourceAssetGUID": "00000000000000000000000000000000",
+                    "sourceAssetPath": "Built-in AssetBundleManifest: AssetBundleManifest"
+                }
+            ]
+        }
+    ]
+}
