@@ -93,7 +93,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             BonePositions = skeletonAction.bonePositions;
             BoneRotations = skeletonAction.boneRotations;
             float[] Curls = skeletonAction.GetFingerCurls();
-            float[] Splays = skeletonAction.GetFingerSplays();
+            // float[] Splays = skeletonAction.GetFingerSplays();
 
             hand.ThumbPercentage[0] = Remap01ToMinus1To1(Curls[0]);
             hand.IndexPercentage[0] = Remap01ToMinus1To1(Curls[1]);
@@ -109,15 +109,19 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             hand.RingPercentage[1] = 0;// Remap01ToMinus1To1(Splays[2]);
             hand.LittlePercentage[1] = 0;// Remap01ToMinus1To1(Splays[3]);
         }
-
         private void SteamVR_Behavior_Pose_OnUpdate(SteamVR_Action_Pose fromAction, SteamVR_Input_Sources fromSource)
         {
             UpdateHistoryBuffer();
 
             // Bone data
-            HandWristPosition = BonePositions[1];
-            HandWristRotation = BoneRotations[1];
-
+            if (BonePositions != null)
+            {
+                HandWristPosition = BonePositions[1];
+            }
+            if(BoneRotations != null)
+            { 
+                HandWristRotation = BoneRotations[1];
+            }
             // Get controller pose
             UnscaledDeviceCoord.rotation = DeviceposeAction[inputSource].localRotation;
             UnscaledDeviceCoord.position = DeviceposeAction[inputSource].localPosition;
