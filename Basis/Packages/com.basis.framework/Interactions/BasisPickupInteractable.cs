@@ -46,7 +46,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         internal GameObject HighlightClone;
         internal AsyncOperationHandle<Material> asyncOperationHighlightMat;
         internal Material ColliderHighlightMat;
-        internal bool _previousKinematicValue = true;
+        public bool _previousKinematicValue = true;
         internal bool _previousGravityValue = true;
 
         // constants
@@ -71,16 +71,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private Vector3 _previousPosition;
         private Quaternion _previousRotation;
-        bool _remotePrevKinematic = true;
         public void Start()
         {
             if (RigidRef == null)
             {
                 TryGetComponent(out RigidRef);
-            }
-            if (RigidRef != null)
-            {
-                _remotePrevKinematic = RigidRef.isKinematic;
             }
             if (ColliderRef == null)
             {
@@ -497,20 +492,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             IsPuppeted = true;
             ClearAllInfluencing();
-            if (RigidRef != null)
-            {
-                _remotePrevKinematic = RigidRef.isKinematic;
-                RigidRef.isKinematic = true;
-            }
-            // TODO: _previousKinematic state should be synced so late joiners have pickups behave properly
         }
         public override void StopRemoteControl()
         {
             IsPuppeted = false;
-            if (RigidRef != null)
-            {
-                RigidRef.isKinematic = _remotePrevKinematic;
-            }
         }
         public override void OnDestroy()
         {
@@ -554,6 +539,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 #endif
-
+        public void Drop()
+        {
+            ClearAllInfluencing();
+        }
     }
 }

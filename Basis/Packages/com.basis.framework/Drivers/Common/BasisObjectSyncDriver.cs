@@ -80,7 +80,7 @@ public static class BasisObjectSyncDriver
     /// <summary>
     /// Adds a new object to the owned object sync list.
     /// </summary>
-    public static void AddOwnedObjectSync(BasisObjectSyncNetworking obj)
+    public static void AddLocalOwner(BasisObjectSyncNetworking obj)
     {
         if (obj != null && !OwnedObjectSyncs.Contains(obj))
         {
@@ -91,7 +91,7 @@ public static class BasisObjectSyncDriver
     /// <summary>
     /// Removes an object from the owned object sync list.
     /// </summary>
-    public static void RemoveOwnedObjectSync(BasisObjectSyncNetworking obj)
+    public static void RemoveLocalOwner(BasisObjectSyncNetworking obj)
     {
         if (obj != null)
         {

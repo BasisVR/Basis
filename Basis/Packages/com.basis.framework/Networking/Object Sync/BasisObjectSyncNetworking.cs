@@ -7,26 +7,27 @@ using LiteNetLib;
 using static BasisObjectSyncDriver;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
-    public BasisInteractableObject InteractableObjects;
-    private int HasIndex;
+    [PreviouslySerializedAs("InteractableObjects")]
+    public BasisPickupInteractable BasisPickupInteractable;
+    private int HasObjectSyncIndex;
     private bool HasIndexAssigned;
+    BasisPositionRotationScale LocalLastData;
     public void Awake()
     {
-        if (InteractableObjects == null)
+        if (BasisPickupInteractable == null)
         {
-            InteractableObjects = this.transform.GetComponentInChildren<BasisInteractableObject>();
+            BasisPickupInteractable = this.transform.GetComponentInChildren<BasisPickupInteractable>();
         }
-        if (InteractableObjects != null)
+        if (BasisPickupInteractable != null)
         {
-            InteractableObjects.OnInteractStartEvent += OnInteractStartEvent;
-            // InteractableObjects.OnInteractEndEvent += OnInteractEndEvent;
+            BasisPickupInteractable.OnInteractStartEvent += OnInteractStartEvent;
         }
     }
     public void OnDisable()
     {
-        if (InteractableObjects != null)
+        if (BasisPickupInteractable != null)
         {
-            InteractableObjects.OnInteractStartEvent -= OnInteractStartEvent;
+            BasisPickupInteractable.OnInteractStartEvent -= OnInteractStartEvent;
         }
     }
     public override void OnNetworkReady()
@@ -35,30 +36,16 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     private async void OnInteractStartEvent(BasisInput input)
     {
-        if(BasisNetworkManagement.LocalPlayerIsConnected)
+        if (BasisNetworkManagement.LocalPlayerIsConnected)
         {
-            if (IsOwnedLocally)
-            {
-                StartLocalControl();
-            }
-            else
-            {
-                //no need to use await ownership will get back here from lower level.
-                BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
-            }
+            BasisObjectSyncDriver.AddLocalOwner(this);
+            //no need to use await ownership will get back here from lower level.
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
         }
         else
         {
-            StartLocalControl();
+            BasisDebug.Log("Missing Network Playing Dead", BasisDebug.LogTag.Networking);
         }
-    }
-    /// <summary>
-    /// ownership has been completely removed in that case lets just make it locally able
-    /// </summary>
-    public override void ServerOwnershipDestroyed()
-    {
-        BasisDebug.Log("Ownership Released Resetting To Local", BasisDebug.LogTag.Networking);
-        StartLocalControl();
     }
     public override void OnOwnershipTransfer(ushort NetIdNewOwner)
     {
@@ -68,57 +55,82 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     {
         if (IsOwnedLocally)
         {
-            StartLocalControl();
+            BasisObjectSyncDriver.AddLocalOwner(this);
         }
         else
         {
-            StartRemoteControl();
+            BasisObjectSyncDriver.RemoveLocalOwner(this);
+            if (BasisPickupInteractable != null)
+            {
+                BasisPickupInteractable.Drop();
+            }
+            AddRemoteMovement();
         }
     }
-    public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
+    public void AddRemoteMovement()
     {
-        BasisPositionRotationScale Next = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
         BasisTranslationUpdate BTU = new BasisTranslationUpdate
         {
             LerpMultipliers = 1,
             SyncDestination = true,
             SyncScales = true,
-            TargetScales = Next.Scale,
-            TargetPositions = Next.Position,
-            TargetRotations = Next.Rotation
+            TargetScales = LocalLastData.Scale,
+            TargetPositions = LocalLastData.Position,
+            TargetRotations = LocalLastData.Rotation
         };
+        if(HasIndexAssigned)//this shouldnt occur but i guess it will
+        {
+            BasisObjectSyncDriver.RemoveObject(HasObjectSyncIndex);
+        }
+        HasIndexAssigned = BasisObjectSyncDriver.AddObject(BTU, this.transform, out HasObjectSyncIndex);
+    }
+    public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
+    {
         if (HasIndexAssigned)
         {
-            BasisObjectSyncDriver.UpdateObject(HasIndex, BTU);
-        }
-        else
-        {
-            HasIndexAssigned = BasisObjectSyncDriver.AddObject(BTU, this.transform, out HasIndex);
+            BasisPositionRotationScale Next = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
+            BasisTranslationUpdate BTU = new BasisTranslationUpdate
+            {
+                LerpMultipliers = 1,
+                SyncDestination = true,
+                SyncScales = true,
+                TargetScales = Next.Scale,
+                TargetPositions = Next.Position,
+                TargetRotations = Next.Rotation
+            };
+            BasisObjectSyncDriver.UpdateObject(HasObjectSyncIndex, BTU);
         }
     }
     public void SendNetworkSync()
     {
-        BasisPositionRotationScale Current = new BasisPositionRotationScale();
-        transform.GetLocalPositionAndRotation(out Current.Position, out Current.Rotation);
-        Current.Scale = transform.localScale;
-        SendCustomNetworkEvent(SerializationUtility.SerializeValue(Current, DataFormat.Binary), DeliveryMethod.Sequenced);
+        LocalLastData = new BasisPositionRotationScale();
+        transform.GetLocalPositionAndRotation(out LocalLastData.Position, out LocalLastData.Rotation);
+        LocalLastData.Scale = transform.localScale;
+        SendCustomNetworkEvent(SerializationUtility.SerializeValue(LocalLastData, DataFormat.Binary), DeliveryMethod.Sequenced);
     }
-    public void StartRemoteControl()
+    /// <summary>
+    /// ownership has been completely removed in that case lets just make it locally able
+    /// </summary>
+    public override void ServerOwnershipDestroyed()
     {
-        BasisDebug.Log($"Starting Remote Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
-        if (InteractableObjects != null && InteractableObjects.IsPuppeted == false)
-        {
-            InteractableObjects.StartRemoteControl();
-        }
-        BasisObjectSyncDriver.RemoveOwnedObjectSync(this);
+        BasisDebug.Log("This Objects Ownership was Destroyed", BasisDebug.LogTag.Networking);
     }
-    public void StartLocalControl()
+    /*
+    public void StopRemotePuppeting()
     {
         BasisDebug.Log($"Starting Local Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
-        if (InteractableObjects != null && InteractableObjects.IsPuppeted)
+        if (BasisPickupInteractable != null && BasisPickupInteractable.IsPuppeted)
         {
-            InteractableObjects.StopRemoteControl();
+            BasisPickupInteractable.StopRemoteControl();
         }
-        BasisObjectSyncDriver.AddOwnedObjectSync(this);
+        BasisObjectSyncDriver.AddLocalOwner(this);
     }
+    public void AllowRemotePuppeting()
+    {
+        BasisDebug.Log($"Starting Remote Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
+        if (BasisPickupInteractable != null && BasisPickupInteractable.IsPuppeted == false)
+        {
+            BasisPickupInteractable.StartRemoteControl();
+        }
+    }*/
 }
