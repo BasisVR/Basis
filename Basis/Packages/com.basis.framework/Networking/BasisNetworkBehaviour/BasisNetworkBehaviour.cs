@@ -19,8 +19,8 @@ namespace Basis
             get => networkID;
             private set => networkID = value;
         }
-        public BasisOwnershipResult CurrentOwnershipStatus;
         public bool IsOwnedLocally = false;
+        public ushort CurrentOwner;
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>
@@ -70,7 +70,8 @@ namespace Basis
 
                     //convert GUID into Ushort for network transport.
                     BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
-                    CurrentOwnershipStatus = await output;
+                    var InitalOwnershipStatus = await output;
+                    CurrentOwner = InitalOwnershipStatus.PlayerId;
                     HasNetworkID = IDResolverResult.Success;
                     NetworkID = IDResolverResult.Id;
                     if (HasNetworkID)
@@ -99,6 +100,7 @@ namespace Basis
             if (uniqueEntityID == clientIdentifier)
             {
                 IsOwnedLocally = isOwner;
+                CurrentOwner = NetIdNewOwner;
                 BasisDebug.Log("Owner set to " + IsOwnedLocally);
                 OnOwnershipTransfer(NetIdNewOwner);
             }

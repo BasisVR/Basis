@@ -2,16 +2,19 @@ using Basis;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Compression;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
+using Unity.Mathematics;
+using UnityEngine;
 using static BasisObjectSyncDriver;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
     [PreviouslySerializedAs("InteractableObjects")]
     public BasisPickupInteractable BasisPickupInteractable;
-    private int HasObjectSyncIndex;
-    private bool HasIndexAssigned;
-    BasisPositionRotationScale LocalLastData;
+    public bool HasRemoteIndex = false;
+    BasisPositionRotationScale LocalLastData = new BasisPositionRotationScale();
+    BasisCompression.QuaternionCompressor.Quaternion ConvertQat = new BasisCompression.QuaternionCompressor.Quaternion();
     public void Awake()
     {
         if (BasisPickupInteractable == null)
@@ -22,6 +25,10 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisPickupInteractable.OnInteractStartEvent += OnInteractStartEvent;
         }
+        if (BasisPickupInteractable.RigidRef != null)
+        {
+            BasisPickupInteractable.RigidRef.isKinematic = false;
+        }
     }
     public void OnDisable()
     {
@@ -29,16 +36,21 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisPickupInteractable.OnInteractStartEvent -= OnInteractStartEvent;
         }
+        BasisObjectSyncDriver.RemoveRemoteOwner(this);
+        BasisObjectSyncDriver.RemoveLocalOwner(this);
     }
     public override void OnNetworkReady()
     {
+        if (BasisPickupInteractable.RigidRef != null)
+        {
+            BasisPickupInteractable.RigidRef.isKinematic = false;
+        }
         ControlState();
     }
     private async void OnInteractStartEvent(BasisInput input)
     {
         if (BasisNetworkManagement.LocalPlayerIsConnected)
         {
-            BasisObjectSyncDriver.AddLocalOwner(this);
             //no need to use await ownership will get back here from lower level.
             BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
         }
@@ -53,59 +65,54 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     public void ControlState()
     {
+        //lets always just update the last data so going from here we have some reference of last.
+        WriteLocalLastData();
         if (IsOwnedLocally)
         {
             BasisObjectSyncDriver.AddLocalOwner(this);
+            BasisObjectSyncDriver.RemoveRemoteOwner(this);
+            HasRemoteIndex = false;
         }
         else
         {
             BasisObjectSyncDriver.RemoveLocalOwner(this);
+            BasisObjectSyncDriver.AddRemoteOwner(this);
             if (BasisPickupInteractable != null)
             {
                 BasisPickupInteractable.Drop();
             }
-            AddRemoteMovement();
+            HasRemoteIndex = true;
         }
     }
-    public void AddRemoteMovement()
-    {
-        BasisTranslationUpdate BTU = new BasisTranslationUpdate
-        {
-            LerpMultipliers = 1,
-            SyncDestination = true,
-            SyncScales = true,
-            TargetScales = LocalLastData.Scale,
-            TargetPositions = LocalLastData.Position,
-            TargetRotations = LocalLastData.Rotation
-        };
-        if(HasIndexAssigned)//this shouldnt occur but i guess it will
-        {
-            BasisObjectSyncDriver.RemoveObject(HasObjectSyncIndex);
-        }
-        HasIndexAssigned = BasisObjectSyncDriver.AddObject(BTU, this.transform, out HasObjectSyncIndex);
-    }
+    public BasisTranslationUpdate BTU;
     public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
-        if (HasIndexAssigned)
+        if (HasRemoteIndex)
         {
-            BasisPositionRotationScale Next = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
-            BasisTranslationUpdate BTU = new BasisTranslationUpdate
+            LocalLastData = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
+            BasisCompression.QuaternionCompressor.DecompressQuaternion(ref ConvertQat, LocalLastData.Rotation);
+            quaternion Rot = new quaternion(ConvertQat.Data[0], ConvertQat.Data[1], ConvertQat.Data[2], ConvertQat.Data[3]);
+            BTU = new BasisTranslationUpdate
             {
-                LerpMultipliers = 1,
+                LerpMultipliers = 5,
                 SyncDestination = true,
-                SyncScales = true,
-                TargetScales = Next.Scale,
-                TargetPositions = Next.Position,
-                TargetRotations = Next.Rotation
+                SyncScales = false,
+               // TargetScales = LocalLastData.Scale,
+                TargetPositions = LocalLastData.Position,
+                TargetRotations = Rot
             };
-            BasisObjectSyncDriver.UpdateObject(HasObjectSyncIndex, BTU);
         }
+    }
+    public void WriteLocalLastData()
+    {
+        transform.GetLocalPositionAndRotation(out LocalLastData.Position, out UnityEngine.Quaternion Temp);
+        BasisCompression.QuaternionCompressor.Quaternion ConvertQat = new BasisCompression.QuaternionCompressor.Quaternion(Temp);
+        LocalLastData.Rotation = BasisCompression.QuaternionCompressor.CompressQuaternion(ref ConvertQat);
+       // LocalLastData.Scale = transform.localScale;
     }
     public void SendNetworkSync()
     {
-        LocalLastData = new BasisPositionRotationScale();
-        transform.GetLocalPositionAndRotation(out LocalLastData.Position, out LocalLastData.Rotation);
-        LocalLastData.Scale = transform.localScale;
+        WriteLocalLastData();
         SendCustomNetworkEvent(SerializationUtility.SerializeValue(LocalLastData, DataFormat.Binary), DeliveryMethod.Sequenced);
     }
     /// <summary>
@@ -115,22 +122,4 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     {
         BasisDebug.Log("This Objects Ownership was Destroyed", BasisDebug.LogTag.Networking);
     }
-    /*
-    public void StopRemotePuppeting()
-    {
-        BasisDebug.Log($"Starting Local Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
-        if (BasisPickupInteractable != null && BasisPickupInteractable.IsPuppeted)
-        {
-            BasisPickupInteractable.StopRemoteControl();
-        }
-        BasisObjectSyncDriver.AddLocalOwner(this);
-    }
-    public void AllowRemotePuppeting()
-    {
-        BasisDebug.Log($"Starting Remote Control Of {this.gameObject.name}", BasisDebug.LogTag.Networking);
-        if (BasisPickupInteractable != null && BasisPickupInteractable.IsPuppeted == false)
-        {
-            BasisPickupInteractable.StartRemoteControl();
-        }
-    }*/
 }

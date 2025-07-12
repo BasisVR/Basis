@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.cqf.urpvolumetricfog": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git",
     "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#2.1.0",
     "com.meta.xr.sdk.core": "72.0.0",
     "com.unity.2d.sprite": "1.0.0",

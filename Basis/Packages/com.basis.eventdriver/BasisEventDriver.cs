@@ -12,19 +12,17 @@ public class BasisEventDriver : MonoBehaviour
     public void OnEnable()
     {
         BasisSceneFactory.Initalize();
-        BasisObjectSyncDriver.Initialize();
         Application.onBeforeRender += OnBeforeRender;
     }
     public void OnDisable()
     {
-        BasisObjectSyncDriver.Deinitialize();
         Application.onBeforeRender -= OnBeforeRender;
     }
     public void Update()
     {
         BasisNetworkManagement.SimulateNetworkCompute();
-        InputSystem.Update();
         float DeltaTime = Time.deltaTime;
+        InputSystem.Update();
         timeSinceLastUpdate += DeltaTime;
 
         if (timeSinceLastUpdate >= updateInterval) // Use '>=' to avoid small errors
@@ -32,9 +30,6 @@ public class BasisEventDriver : MonoBehaviour
             timeSinceLastUpdate -= updateInterval; // Subtract interval instead of resetting to zero
             BasisConsoleLogger.QueryLogDisplay();
         }
-        BasisObjectSyncDriver.Update(DeltaTime);
-
-
         if (!BasisDeviceManagement.hasPendingActions) return;
 
         while (BasisDeviceManagement.mainThreadActions.TryDequeue(out System.Action action))
@@ -63,7 +58,6 @@ public class BasisEventDriver : MonoBehaviour
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
         BasisObjectSyncDriver.TransmitOwnedPickups();
         BasisNetworkManagement.SimulateNetworkApply();
-        BasisObjectSyncDriver.LateUpdate();
     }
     private void OnBeforeRender()
     {

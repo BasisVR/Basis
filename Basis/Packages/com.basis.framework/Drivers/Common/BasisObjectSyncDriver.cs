@@ -1,61 +1,10 @@
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Jobs;
 using System.Collections.Generic;
-
 public static class BasisObjectSyncDriver
 {
-    private static NativeList<BasisTranslationUpdate> inputData;
-    private static List<Transform> transforms = new List<Transform>();
-    private static TransformAccessArray transformArray;
-    private static Queue<int> freeList;
-    private static JobHandle jobHandle;
-    public static bool WasScheduled = false;
-    public static bool HasItems { get; private set; } = false;
-    public static void Initialize(int initialCapacity = 0)
-    {
-        inputData = new NativeList<BasisTranslationUpdate>(initialCapacity, Allocator.Persistent);
-        freeList = new Queue<int>(initialCapacity);
-        transformArray = new TransformAccessArray(0);
-        transforms.Clear();
-    }
-    public static void Deinitialize()
-    {
-        if (inputData.IsCreated) inputData.Dispose();
-        if (transformArray.isCreated) transformArray.Dispose();
-
-        transforms.Clear();
-        freeList.Clear();
-        HasItems = false;
-    }
-    public static void Update(float deltaTime)
-    {
-        if (inputData.Length == 0 || !transformArray.isCreated || transformArray.length == 0)
-        {
-            WasScheduled = false;
-            return;
-        }
-
-        BasisObjectSyncJob job = new BasisObjectSyncJob
-        {
-            TranslationUpdate = inputData.AsDeferredJobArray(),
-            DeltaTime = deltaTime
-        };
-
-        jobHandle = job.Schedule(transformArray);
-        WasScheduled = true;
-    }
-    public static void LateUpdate()
-    {
-        if (WasScheduled)
-        {
-            jobHandle.Complete();
-        }
-    } 
     public static List<BasisObjectSyncNetworking> OwnedObjectSyncs = new List<BasisObjectSyncNetworking>();
+    public static List<BasisObjectSyncNetworking> RemoteOwnedObjectSyncs = new List<BasisObjectSyncNetworking>();
     public static float targetMiliseconds = 0.1f; // Target update frequency in Hz (10 times per second)
     private static double _lastUpdateTime; // Last update timestamp
     /// <summary>
@@ -67,12 +16,38 @@ public static class BasisObjectSyncDriver
         if (timeAsDouble - _lastUpdateTime >= targetMiliseconds)
         {
             _lastUpdateTime = timeAsDouble;
-            for (int Index = 0; Index < OwnedObjectSyncs.Count; Index++)
+            int count = OwnedObjectSyncs.Count;
+            for (int Index = 0; Index < count; Index++)
             {
                 BasisObjectSyncNetworking Object = OwnedObjectSyncs[Index];
-                if (Object != null)
+                Object.SendNetworkSync();
+            }
+        }
+        float Delta = Time.deltaTime;
+        int remotecount = RemoteOwnedObjectSyncs.Count;
+        for (int Index = 0; Index < remotecount; Index++)
+        {
+            BasisObjectSyncNetworking Object = RemoteOwnedObjectSyncs[Index];
+            if (Object.HasRemoteIndex)
+            {
+                float lerp = Object.BTU.LerpMultipliers * Delta;
+
+                if (lerp <= 0f)
                 {
-                    Object.SendNetworkSync();
+                    return;
+                }
+                if (Object.BTU.SyncScales)
+                {
+                    Object.transform.localScale = math.lerp(Object.transform.localScale, Object.BTU.TargetScales, lerp);
+                }
+                if (Object.BTU.SyncDestination)
+                {
+                    Object.transform.GetLocalPositionAndRotation(out Vector3 LocalPosition, out Quaternion LocalRotation);
+
+                    float3 Position = math.lerp(LocalPosition, Object.BTU.TargetPositions, lerp);
+                    quaternion rotation = math.slerp(LocalRotation, Object.BTU.TargetRotations, lerp);
+
+                    Object.transform.SetLocalPositionAndRotation(Position, rotation);
                 }
             }
         }
@@ -98,112 +73,25 @@ public static class BasisObjectSyncDriver
             OwnedObjectSyncs.Remove(obj);
         }
     }
-    public static void UpdateObject(int index, BasisTranslationUpdate data)
+    /// <summary>
+    /// Adds a new object to the owned object sync list.
+    /// </summary>
+    public static void AddRemoteOwner(BasisObjectSyncNetworking obj)
     {
-        inputData[index] = data;
+        if (obj != null && !OwnedObjectSyncs.Contains(obj))
+        {
+            RemoteOwnedObjectSyncs.Add(obj);
+        }
     }
-    public static bool AddObject(BasisTranslationUpdate data, Transform transform, out int index)
+
+    /// <summary>
+    /// Removes an object from the owned object sync list.
+    /// </summary>
+    public static void RemoveRemoteOwner(BasisObjectSyncNetworking obj)
     {
-        if (transform == null)
+        if (obj != null)
         {
-            index = -1;
-            return false;
-        }
-        if (freeList.Count > 0)
-        {
-            index = freeList.Dequeue();
-            inputData[index] = data;
-            transforms[index] = transform;
-        }
-        else
-        {
-            index = inputData.Length;
-            inputData.Add(data);
-            transforms.Add(transform);
-        }
-
-        // Rebuild TransformAccessArray (only when transforms are modified)
-        if (transformArray.isCreated)
-        {
-            transformArray.Dispose();
-        }
-
-        transformArray = new TransformAccessArray(transforms.ToArray());
-        HasItems = true;
-        return true;
-    }
-    public static void RemoveObject(int index)
-    {
-        if (index < 0 || index >= inputData.Length)
-            return;
-
-        inputData[index] = new BasisTranslationUpdate(); // Reset to default
-        transforms[index] = null; // Mark for removal
-        freeList.Enqueue(index);
-
-        CompactAndRebuild();
-        HasItems = inputData.Length - freeList.Count > 0;
-    }
-    private static void CompactAndRebuild()
-    {
-        NativeList<BasisTranslationUpdate> compactedInput = new NativeList<BasisTranslationUpdate>(Allocator.Temp);
-        List<Transform> compactedTransforms = new List<Transform>();
-
-        freeList.Clear();
-        int count = transforms.Count;
-        for (int Index = 0; Index < count; Index++)
-        {
-            if (transforms[Index] != null)
-            {
-                compactedInput.Add(inputData[Index]);
-                compactedTransforms.Add(transforms[Index]);
-            }
-            else
-            {
-                freeList.Enqueue(Index);
-            }
-        }
-
-        inputData.CopyFrom(compactedInput);
-        transforms = compactedTransforms;
-
-        if (transformArray.isCreated)
-        {
-            transformArray.Dispose();
-        }
-
-        transformArray = new TransformAccessArray(transforms.ToArray());
-
-        compactedInput.Dispose();
-    }
-    [BurstCompile]
-    public struct BasisObjectSyncJob : IJobParallelForTransform
-    {
-        [ReadOnly]
-        public float DeltaTime;
-        [ReadOnly]
-        public NativeArray<BasisTranslationUpdate> TranslationUpdate;
-        public void Execute(int index, TransformAccess transform)
-        {
-            float lerp = TranslationUpdate[index].LerpMultipliers * DeltaTime;
-
-            if (lerp <= 0f)
-            {
-                return;
-            }
-            if (TranslationUpdate[index].SyncScales)
-            {
-                transform.localScale = math.lerp(transform.localScale, TranslationUpdate[index].TargetScales, lerp);
-            }
-            if (TranslationUpdate[index].SyncDestination)
-            {
-                transform.GetLocalPositionAndRotation(out Vector3 LocalPosition, out Quaternion LocalRotation);
-
-                float3 Position = math.lerp(LocalPosition, TranslationUpdate[index].TargetPositions, lerp);
-                quaternion rotation = math.slerp(LocalRotation, TranslationUpdate[index].TargetRotations, lerp);
-
-                transform.SetLocalPositionAndRotation(Position, rotation);
-            }
+            RemoteOwnedObjectSyncs.Remove(obj);
         }
     }
     public struct BasisTranslationUpdate

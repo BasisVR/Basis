@@ -55,6 +55,10 @@ namespace Basis.Scripts.Networking.Compression
                 {
                     Data = new float[4] { x, y, z, w };
                 }
+                public Quaternion(UnityEngine.Quaternion Quat)
+                {
+                    Data = new float[4] { Quat.x, Quat.y, Quat.z, Quat.w };
+                }
 
                 // Conversion from UnityEngine.Quaternion to custom Quaternion
                 public static implicit operator Quaternion(UnityEngine.Quaternion unityQuat)
@@ -130,6 +134,10 @@ namespace Basis.Scripts.Networking.Compression
             /// <param name="compressed">the compressed quaternion</param>
             public static void DecompressQuaternion(ref Quaternion quaternion, uint compressed)
             {
+                if (quaternion.Data == null)
+                {
+                    quaternion.Data = new float[4];
+                }
                 // Get the last two bits for the index to skip (0-3)
                 var indexToSkip = (int)(compressed >> 30);
 
