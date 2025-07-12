@@ -11,7 +11,7 @@ using UnityEngine;
 public static class BasisBundleBuild
 {
     public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
-   
+
     public static async Task<(bool, string)> GameObjectBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets)
     {
         int TargetCount = Targets.Count;
@@ -65,7 +65,7 @@ public static class BasisBundleBuild
                 await Task.WhenAll(eventTasks);
                 Debug.Log($"{Length} Pre BuildBundle Event(s)...");
             }
-            
+
             Debug.Log("Starting BuildBundle...");
             EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 0);
 
@@ -309,8 +309,14 @@ public static class BasisBundleBuild
         if (Directory.Exists(osPath) || File.Exists(osPath))
         {
 #if UNITY_EDITOR_LINUX
-            // On Windows, use 'explorer' to open the folder or highlight the file
-            System.Diagnostics.Process.Start("open", osPath);
+            // On Linux, allow the system to choose what application to use
+            try {
+                // We only want to show the folder, so never supply a file path.
+                var path = File.Exists(osPath) ? Path.GetDirectoryName(osPath) : osPath;
+                System.Diagnostics.Process.Start("xdg-open", path);
+            } catch (Exception e) {
+                Debug.LogException(e);
+            }
 #else
             // On Windows, use 'explorer' to open the folder or highlight the file
             System.Diagnostics.Process.Start("explorer.exe", osPath);
