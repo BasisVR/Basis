@@ -35,14 +35,21 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     private async void OnInteractStartEvent(BasisInput input)
     {
-        if (IsOwnedLocally)
+        if(BasisNetworkManagement.LocalPlayerIsConnected)
         {
-            StartLocalControl();
+            if (IsOwnedLocally)
+            {
+                StartLocalControl();
+            }
+            else
+            {
+                //no need to use await ownership will get back here from lower level.
+                BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            }
         }
         else
         {
-            //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            StartLocalControl();
         }
     }
     /// <summary>

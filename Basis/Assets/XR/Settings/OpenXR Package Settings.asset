@@ -143,6 +143,26 @@ MonoBehaviour:
   company: Meta
   priority: 0
   required: 0
+--- !u!114 &-6839859109901797412
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01512f11fe5096443ad972feb69271f6, type: 3}
+  m_Name: SpaceWarpFeature Android
+  m_EditorClassIdentifier: 
+  m_enabled: 0
+  nameUi: Application SpaceWarp
+  version: 1.0.0
+  featureIdInternal: com.unity.openxr.feature.spacewarp
+  openxrExtensionStrings: XR_FB_space_warp
+  company: Unity
+  priority: 0
+  required: 0
 --- !u!114 &-6277618165846303331
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -760,6 +780,8 @@ MonoBehaviour:
   lateLatchingMode: 1
   lateLatchingDebug: 0
   optimizeMultiviewRenderRegions: 1
+  multiviewRenderRegionsOptimizationMode: 1
+  m_hasMigratedMultiviewRenderRegions: 1
   spacewarpMotionVectorTextureFormat: 0
 --- !u!114 &-738343638376515364
 MonoBehaviour:
@@ -914,6 +936,7 @@ MonoBehaviour:
   m_Name: Android
   m_EditorClassIdentifier: 
   features:
+  - {fileID: -6839859109901797412}
   - {fileID: -5306176883744656445}
   - {fileID: -3753664232341013626}
   - {fileID: 5806727535284400695}
@@ -939,6 +962,7 @@ MonoBehaviour:
   - {fileID: 4138757849292144290}
   - {fileID: 1981983295813178899}
   m_renderMode: 1
+  m_latencyOptimization: 0
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
     m_List: 00000000
@@ -947,6 +971,8 @@ MonoBehaviour:
   m_optimizeBufferDiscards: 1
   m_symmetricProjection: 1
   m_optimizeMultiviewRenderRegions: 1
+  m_multiviewRenderRegionsOptimizationMode: 1
+  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
 --- !u!114 &-8419463971566137
 MonoBehaviour:
@@ -1483,6 +1509,7 @@ MonoBehaviour:
   - {fileID: -2546553118739243343}
   - {fileID: 638815009775519648}
   m_renderMode: 1
+  m_latencyOptimization: 0
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
     m_List: 020000000100000000000000
@@ -1491,6 +1518,8 @@ MonoBehaviour:
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
   m_optimizeMultiviewRenderRegions: 0
+  m_multiviewRenderRegionsOptimizationMode: 0
+  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 1
 --- !u!114 &4488616393402168616
 MonoBehaviour:
@@ -1960,6 +1989,7 @@ MonoBehaviour:
   features:
   - {fileID: -3390493332852390039}
   m_renderMode: 1
+  m_latencyOptimization: 0
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
     m_List: 00000000
@@ -1968,4 +1998,6 @@ MonoBehaviour:
   m_optimizeBufferDiscards: 0
   m_symmetricProjection: 0
   m_optimizeMultiviewRenderRegions: 0
+  m_multiviewRenderRegionsOptimizationMode: 0
+  m_hasMigratedMultiviewRenderRegionSetting: 1
   m_foveatedRenderingApi: 0

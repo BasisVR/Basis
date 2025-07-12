@@ -502,7 +502,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.openxr": {
-      "version": "1.14.3",
+      "version": "1.15.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {

@@ -19,7 +19,7 @@
     "com.unity.visualeffectgraph": "17.2.0",
     "com.unity.xr.hands": "1.5.1",
     "com.unity.xr.management": "4.5.1",
-    "com.unity.xr.openxr": "1.14.3",
+    "com.unity.xr.openxr": "1.15.0",
     "com.valvesoftware.unity.openvr": "file:com.valvesoftware.unity.openvr-1.2.1.tgz",
     "com.xiph.rnnoise": "https://github.com/BasisVR/RNNoise.Net.git",
     "org.basisvr.base128": "file:org.basisvr.base128-1.2.2.tgz",
