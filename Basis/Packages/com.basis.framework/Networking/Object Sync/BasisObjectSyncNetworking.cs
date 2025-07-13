@@ -6,8 +6,6 @@ using Basis.Scripts.Networking.Compression;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
 using Unity.Mathematics;
-using UnityEngine;
-using static BasisObjectSyncDriver;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
     [PreviouslySerializedAs("InteractableObjects")]
@@ -15,6 +13,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     public bool HasRemoteIndex = false;
     BasisPositionRotationScale LocalLastData = new BasisPositionRotationScale();
     BasisCompression.QuaternionCompressor.Quaternion ConvertQat = new BasisCompression.QuaternionCompressor.Quaternion();
+    public BasisObjectSyncDriver.BasisTranslationUpdate BTU = new BasisObjectSyncDriver.BasisTranslationUpdate();
     public void Awake()
     {
         if (BasisPickupInteractable == null)
@@ -84,7 +83,6 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             HasRemoteIndex = true;
         }
     }
-    public BasisTranslationUpdate BTU;
     public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
         if (HasRemoteIndex)
@@ -92,28 +90,33 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             LocalLastData = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
             BasisCompression.QuaternionCompressor.DecompressQuaternion(ref ConvertQat, LocalLastData.Rotation);
             quaternion Rot = new quaternion(ConvertQat.Data[0], ConvertQat.Data[1], ConvertQat.Data[2], ConvertQat.Data[3]);
-            BTU = new BasisTranslationUpdate
-            {
-                LerpMultipliers = 5,
-                SyncDestination = true,
-                SyncScales = false,
-               // TargetScales = LocalLastData.Scale,
-                TargetPositions = LocalLastData.Position,
-                TargetRotations = Rot
-            };
+            BTUUpdate(Rot);
         }
     }
     public void WriteLocalLastData()
     {
-        transform.GetLocalPositionAndRotation(out LocalLastData.Position, out UnityEngine.Quaternion Temp);
+        transform.GetLocalPositionAndRotation(out UnityEngine.Vector3 Position, out UnityEngine.Quaternion Temp);
         BasisCompression.QuaternionCompressor.Quaternion ConvertQat = new BasisCompression.QuaternionCompressor.Quaternion(Temp);
-        LocalLastData.Rotation = BasisCompression.QuaternionCompressor.CompressQuaternion(ref ConvertQat);
-       // LocalLastData.Scale = transform.localScale;
+        LocalLastData.Compress(Position, BasisCompression.QuaternionCompressor.CompressQuaternion(ref ConvertQat));
+        // LocalLastData.Scale = transform.localScale;
+    }
+    public void BTUUpdate(UnityEngine.Quaternion Rotation)
+    {
+        BTU = new BasisObjectSyncDriver.BasisTranslationUpdate
+        {
+            LerpMultipliers = 5,
+            SyncDestination = true,
+            SyncScales = false,
+            // TargetScales = LocalLastData.Scale,
+            TargetPositions = LocalLastData.DeCompress(),
+            TargetRotations = Rotation
+        };
     }
     public void SendNetworkSync()
     {
         WriteLocalLastData();
-        SendCustomNetworkEvent(SerializationUtility.SerializeValue(LocalLastData, DataFormat.Binary), DeliveryMethod.Sequenced);
+        byte[] Data = SerializationUtility.SerializeValue(LocalLastData, DataFormat.Binary);
+        SendCustomNetworkEvent(Data, DeliveryMethod.Sequenced);
     }
     /// <summary>
     /// ownership has been completely removed in that case lets just make it locally able
