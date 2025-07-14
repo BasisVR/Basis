@@ -22,22 +22,29 @@ jobs:
         if: "${{ env.TMP_SECRET1 != '' && env.TMP_SECRET2 != '' && env.TMP_SECRET3 != '' }}"
         run: echo "defined=true" >> $GITHUB_OUTPUT
 
-  build-client-win32:
-    name: Build client on Windows
+  build-client:
+    name: Build client for ${{ matrix.targetPlatform }}
     timeout-minutes: 100
-    runs-on: windows-2022
+    runs-on: ${{ matrix.buildPlatform }}
+    env:
+      projectPath: Basis
+      buildName: Basis Unity
     strategy:
       fail-fast: false
       matrix:
-        projectPath:
-          - Basis
-        targetPlatform:
-          - StandaloneWindows64
+        #targetPlatform:
+        #  - StandaloneLinux64
+        #  - Android
+        #buildPlatform:
+        #  - ubuntu-latest
+        include:
+          - buildPlatform: windows-2022
+            targetPlatform: StandaloneWindows64
     needs: [check-secret]
     if: needs.check-secret.outputs.secret-is-set == 'true'
     steps:
       - name: "Checkout repository"
-        timeout-minutes: 2
+        timeout-minutes: 5
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -45,12 +52,11 @@ jobs:
         timeout-minutes: 10
         uses: actions/cache@v3
         with:
-          path: ${{ matrix.projectPath }}/Library
-          key:
-            Library-${{ matrix.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(matrix.projectPath) }}
+          path: ${{ env.projectPath }}/Library
+          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(env.projectPath) }}
           restore-keys: |
-            Library-${{ matrix.projectPath }}-${{ matrix.targetPlatform }}-
-            Library-${{ matrix.projectPath }}-
+            Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
+            Library-${{ env.projectPath }}-
             Library-
       - name: "Build Unity project"
         timeout-minutes: 100
@@ -60,8 +66,8 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          projectPath: ${{ matrix.projectPath }}
-          unityVersion: 6000.0.31f1
+          buildName: ${{ env.buildName }}
+          projectPath: ${{ env.projectPath }}
           targetPlatform: ${{ matrix.targetPlatform }}
       - name: "Upload client artifact"
         timeout-minutes: 2
@@ -69,15 +75,15 @@ jobs:
         with:
           name: Basis-Client-${{ matrix.targetPlatform }}
           path: |
-            build
-            "!**/${{ matrix.targetPlatform }}_BackUpThisFolder_ButDontShipItWithYourGame"
+            build/${{ matrix.targetPlatform }}
+            "!**/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
       - name: "Upload client symbols artifact"
         timeout-minutes: 4
         uses: actions/upload-artifact@v4
         with:
           name: Basis-Symbols-Client-${{ matrix.targetPlatform }}
           path: |
-            "**/${{ matrix.targetPlatform }}_BackUpThisFolder_ButDontShipItWithYourGame"
+            "**/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
 
   build-server:
     name: Build server on Ubuntu
@@ -93,7 +99,7 @@ jobs:
           - win
     steps:
       - name: "Checkout repository"
-        timeout-minutes: 2
+        timeout-minutes: 5
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -114,7 +120,7 @@ jobs:
 
   create-release:
     name: Create release
-    needs: [build-client-win32, build-server]
+    needs: [build-client, build-server]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: "github.ref_type == 'tag' && github.ref != 'refs/tags/latest'"
@@ -171,12 +177,10 @@ jobs:
           fetch-depth: 0
       - name: "Produce SDK unitypackage."
         timeout-minutes: 5
-        run:
-          .github/scripts/unitypackagegen.sh sdk
+        run: .github/scripts/unitypackagegen.sh sdk
       - name: "Produce full unitypackage."
         timeout-minutes: 5
-        run:
-          .github/scripts/unitypackagegen.sh full
+        run: .github/scripts/unitypackagegen.sh full
       - uses: actions/upload-artifact@v4
         timeout-minutes: 5
         with:
@@ -184,4 +188,3 @@ jobs:
           path: |
             Basis/Basis.sdk.unitypackage
             Basis/Basis.full.unitypackage
-
