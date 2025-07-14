@@ -6,6 +6,8 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using BattlePhaze.SettingsManager.Intergrations;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -13,6 +15,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 namespace Basis.Scripts.BasisSdk.Interactions
 {
+
     public class BasisPickupInteractable : BasisInteractableObject
     {
         [Header("Pickup Settings")]
@@ -65,6 +68,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private Vector3 currentZoopVelocity = Vector3.zero;
 
         public Action<BasisPickUpUseMode> OnPickupUse;
+
+        // TODO: execution order may be desired here.
+        public List<Func<BasisInput, bool>> CanHoverInjected = new();
+        public List<Func<BasisInput, bool>> CanInteractInjected = new();
+
+
 
         private Vector3 linearVelocity;
         private Vector3 angularVelocity;
@@ -123,30 +132,38 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // bool netPickup = (!IsPuppeted || ); 
             // BasisDebug.Log($"CanHover {string.Join(", ", Inputs.ToArray().Select(x => x.GetState()))}");
             // BasisDebug.Log($"CanHover {!DisableInteract}, {!Inputs.AnyInteracting()}, {input.TryGetRole(out BasisBoneTrackedRole r)}, {Inputs.TryGetByRole(r, out BasisInputWrapper f)}, {r}, {f.GetState()}");
+
+            // NOTE: see CanInteract note
             return InteractableEnabled &&
-                (!IsPuppeted) &&  // || CanNetworkSteal                        // net control
+                !IsPuppeted &&                                              // net control
                 (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system 
                 found.GetState() == BasisInteractInputState.Ignored &&           // in the correct state for hover
-                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);// within range
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
+                CanHoverInjected.AllTrue(input);                            // injected
         }
         public override bool CanInteract(BasisInput input)
         {
             // BasisDebug.Log($"CanInteract {!DisableInteract}, {!Inputs.AnyInteracting()}, {input.TryGetRole(out BasisBoneTrackedRole r)}, {Inputs.TryGetByRole(r, out BasisInputWrapper f)}, {r}, {f.GetState()}");
             // currently hovering can interact only, only one interacting at a time
+            
+            // NOTE: Injected checks must be called at the end so that we can safely assume that at the time this was invoked, everything was valid.
+            //      This is especially important for network sync, since the pending steal request doesnt need to re-invoke this (with stale data) when ownership transfers.
             return InteractableEnabled &&
-                (!IsPuppeted) &&  // || CanNetworkSteal                        // net control
+                (!IsPuppeted) &&                                            // net control
                 (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
                 Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system 
                 found.GetState() == BasisInteractInputState.Hovering &&          // in the correct state for hover
-                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);// within range
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
+                CanInteractInjected.AllTrue(input);                         // injected
         }
+
         public override void OnHoverStart(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
@@ -185,6 +202,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
+                BasisDebug.Log("Pickup start: " + wrapper.GetState());
                 // same input that was highlighting previously
                 if (wrapper.GetState() == BasisInteractInputState.Hovering)
                 {
@@ -319,6 +337,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // Instant angular velocity
             Quaternion deltaRotation = rot * Quaternion.Inverse(_previousRotation);
             deltaRotation.ToAngleAxis(out float angle, out Vector3 axis);
+            // TODO: this might break with large angular velocity?
             if (angle > 180f) angle -= 360f;
 
             angularVelocity = axis * (angle * Mathf.Deg2Rad) / Time.deltaTime;
@@ -335,7 +354,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
 
 
-            if (Basis.Scripts.Device_Management.BasisDeviceManagement.IsUserInDesktop())
+            if (BasisDeviceManagement.IsUserInDesktop())
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
             }
@@ -369,6 +388,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 // TODO: fix jitter while still using rigidbody movement
                 //  Update 6/10/25: this seems to be a unity bug! - mriise
+                //  Update 7/14/25: the bug is in-editor only, builds do not have the bug - mriise
 
                 //pretty sure rigidbody is the real issue with the jitter here.
                 //as rigidbody occurs on physics timestamp? -LD
@@ -491,7 +511,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public override void StartRemoteControl()
         {
             IsPuppeted = true;
-            ClearAllInfluencing();
+            Drop();
         }
         public override void StopRemoteControl()
         {
@@ -539,9 +559,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 #endif
-        public void Drop()
+        public void Drop() => ClearAllInfluencing();
+    }
+
+    // NOTE: ew, i dont like - mriise
+    internal static class PickupListExt
+    {
+        internal static bool AllTrue<T>(this IList<Func<T, bool>> list, T arg)
         {
-            ClearAllInfluencing();
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!list[i].Invoke(arg))
+                    return false;
+            }
+            return true;
         }
     }
 }

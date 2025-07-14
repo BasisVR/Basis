@@ -26,7 +26,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// Whether this object is controlled elsewhere.
         /// This is used to block interaction, set iskinematic, ect.
         /// </summary>
-        public bool IsPuppeted = false;
+        public bool IsPuppeted = false; // REMOVEME: object sync handles this.
         // Delegates for interaction events
         public Action<BasisInput> OnInteractStartEvent;
         public Action<BasisInput> OnInteractEndEvent;
@@ -184,8 +184,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public abstract void InputUpdate();
 
         /// <summary>
-        /// clear is the generic,
-        /// a ungeneric would be drop
+        /// Cleanly clear state of all inputs. This will call hover/interact end for each input with hovering/interacting state. 
         /// </summary>
         public virtual void ClearAllInfluencing()
         {
