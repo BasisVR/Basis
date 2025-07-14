@@ -72,6 +72,9 @@ jobs:
             Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
             Library-${{ env.projectPath }}-
             Library-
+      - name: "Create version string"
+        id: version
+        run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: "Build Unity project"
         timeout-minutes: 100
         uses: game-ci/unity-builder@v4
@@ -83,6 +86,8 @@ jobs:
           buildName: ${{ env.buildName }}
           projectPath: ${{ env.projectPath }}
           targetPlatform: ${{ matrix.targetPlatform }}
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
       - name: "Upload client artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
@@ -161,7 +166,7 @@ jobs:
         run: "sudo apt-get -y update && sudo apt-get -y install p7zip-full"
       - name: Set up release prefix
         run: |
-          echo "RELEASE_PREFIX=${{ github.event.repository.name }}-$(git describe --tags)" >> $GITHUB_ENV
+          echo "RELEASE_PREFIX=${{ github.event.repository.name }}-${{ steps.version.outputs.gitversion }}" >> $GITHUB_ENV
       - name: "Archive client artifact"
         timeout-minutes: 10
         run: "7z a -tzip ${{ env.RELEASE_PREFIX }}-Client.zip Basis-Client-Build"
