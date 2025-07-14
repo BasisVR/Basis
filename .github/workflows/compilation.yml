@@ -34,7 +34,7 @@ jobs:
       matrix:
         targetPlatform:
           - StandaloneLinux64
-          #- Android
+          - Android
         buildPlatform:
           - ubuntu-latest
         include:
@@ -91,6 +91,15 @@ jobs:
           targetPlatform: ${{ matrix.targetPlatform }}
           versioning: Custom
           version: ${{ steps.version.outputs.gitversion }}
+          # TODO: make a decision on how we want to increment this.
+          #  This number was chosen to be slightly larger than the version code used for 0.056B.
+          androidVersionCode: 55
+          androidExportType: androidPackage
+          androidKeystoreName: BasisQuest # This file won't exist, but this property needs to exist.
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
       - name: "Upload client artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
