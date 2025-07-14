@@ -125,8 +125,9 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 
 			// Client
 			var payloadToSign = new Payload(challenge.Nonce.V);
+			var sign_res = Ed25519.Sign(privKey, payloadToSign, out Signature? sig);
 			Debug.Assert(
-				Ed25519.Sign(privKey, payloadToSign, out Signature? sig),
+				sign_res,
 				"signing with a valid privkey should always succeed"
 			);
 			Debug.Assert(

@@ -186,7 +186,7 @@ namespace Basis.Contrib.Auth.DecentralizedIds
 			{
 				return document.Pubkeys.First().Value;
 			}
-			if (!document.Pubkeys.TryGetValue(keyId, out JsonWebKey pubkey))
+			if (!document.Pubkeys.TryGetValue(keyId, out JsonWebKey? pubkey))
 			{
 				return new DidFragmentErr(DidFragmentErr.E.NoSuchFragment);
 			}

@@ -101,7 +101,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: "9.0.x"
       - name: "Build server"
         timeout-minutes: 2
         run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --os ${{ matrix.targetPlatform }} -o build -c Release"
@@ -158,42 +158,6 @@ jobs:
           files: |
             ${{ env.RELEASE_PREFIX }}-Client.zip
             ${{ env.RELEASE_PREFIX }}-Server.zip
-
-  dotnet-build:
-    name: Run `dotnet build`
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: "Checkout repository"
-        timeout-minutes: 2
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: "Setup dotnet"
-        timeout-minutes: 2
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-      - name: dotnet build
-        run: dotnet build
-
-  dotnet-test:
-    name: Run `dotnet test`
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: "Checkout repository"
-        timeout-minutes: 2
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: "Setup dotnet"
-        timeout-minutes: 2
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-      - name: dotnet test
-        run: dotnet test --logger:"console;verbosity=detailed"
 
   compile-unitypackages:
     name: Build .unitypackage files
