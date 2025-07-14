@@ -1,0 +1,185 @@
+fileFormatVersion: 2
+guid: acdf19b331d91db4c8a26185f36cf089
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: ball00
+    100002: ball01
+    100004: ball02
+    100006: ball03
+    100008: ball04
+    100010: ball05
+    100012: ball06
+    100014: ball07
+    100016: ball08
+    100018: ball09
+    100020: ball10
+    100022: ball11
+    100024: ball12
+    100026: ball13
+    100028: ball14
+    100030: ball15
+    100032: //RootNode
+    100034: ball00_1
+    400000: ball00
+    400002: ball01
+    400004: ball02
+    400006: ball03
+    400008: ball04
+    400010: ball05
+    400012: ball06
+    400014: ball07
+    400016: ball08
+    400018: ball09
+    400020: ball10
+    400022: ball11
+    400024: ball12
+    400026: ball13
+    400028: ball14
+    400030: ball15
+    400032: //RootNode
+    400034: ball00_1
+    2100000: balls
+    2100002: shadowplane
+    2300000: ball00
+    2300002: ball01
+    2300004: ball02
+    2300006: ball03
+    2300008: ball04
+    2300010: ball05
+    2300012: ball06
+    2300014: ball07
+    2300016: ball08
+    2300018: ball09
+    2300020: ball10
+    2300022: ball11
+    2300024: ball12
+    2300026: ball13
+    2300028: ball14
+    2300030: ball15
+    2300032: ball00_1
+    3300000: ball00
+    3300002: ball01
+    3300004: ball02
+    3300006: ball03
+    3300008: ball04
+    3300010: ball05
+    3300012: ball06
+    3300014: ball07
+    3300016: ball08
+    3300018: ball09
+    3300020: ball10
+    3300022: ball11
+    3300024: ball12
+    3300026: ball13
+    3300028: ball14
+    3300030: ball15
+    3300032: ball00_1
+    4300000: ball01
+    4300002: ball02
+    4300004: ball03
+    4300006: ball04
+    4300008: ball05
+    4300010: ball06
+    4300012: ball07
+    4300014: ball00
+    4300016: ball08
+    4300018: ball09
+    4300020: ball10
+    4300022: ball11
+    4300024: ball12
+    4300026: ball13
+    4300028: ball14
+    4300030: ball15
+    4300032: ball00_1
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: balls
+    second: {fileID: 2100000, guid: 397c2fcfe58ef54439ec7bed699754a9, type: 2}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 0
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 1
+    hasPreviousCalculatedGlobalScale: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 0
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

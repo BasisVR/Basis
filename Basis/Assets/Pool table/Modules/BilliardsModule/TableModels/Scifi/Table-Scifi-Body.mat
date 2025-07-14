@@ -1,0 +1,179 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Table-Scifi-Body
+  m_Shader: {fileID: 4800000, guid: 1ff9e5e46b35d3f47b409808d5ddd3b2, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _EMISSION
+  m_InvalidKeywords:
+  - BAKERY_BICUBIC
+  - BAKERY_LMSPEC
+  - BAKERY_SH
+  - BAKERY_SHNONLINEAR
+  m_LightmapFlags: 0
+  m_EnableInstancingVariants: 1
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: da34550f91ff34345b4e745802ae3fc8, type: 3}
+        m_Scale: {x: 10, y: 10}
+        m_Offset: {x: 0, y: 0}
+    - _DFG:
+        m_Texture: {fileID: 2800000, guid: 15666b1e4a43bd44ab4d0fde9f680eb1, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailAlbedoMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailMask:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _DetailNormalMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EffectTex:
+        m_Texture: {fileID: 2800000, guid: 01e806569e054024db58c05d744ae05c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 2800000, guid: 5a433b0d530aa2a4f8390d929a751faf, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 1}
+    - _EmissionTex:
+        m_Texture: {fileID: 2800000, guid: e6e14b94146cc814dbf804a3c6e27456, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _FurTex:
+        m_Texture: {fileID: 2800000, guid: 567493b9d05139c45a9c4ed0308d978d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 6f5cbf78fa6d5da48b74583c88ff6659, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 1}
+    - _MetallicGlossMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicMap:
+        m_Texture: {fileID: 2800000, guid: 76802cbfb7cfdb54ea817567af16b9a7, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MetallicSmoothness:
+        m_Texture: {fileID: 2800000, guid: 0e6b3606f3bcf0c408cb10d31f96febb, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _OcclusionMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ParallaxMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RNM0:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RNM1:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _RNM2:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _StuffTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Volume0:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Volume1:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _Volume2:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _VolumeMask:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AudioLinkFurInfluence: 20
+    - _AudioLinkInfluence: 20
+    - _BAKERY_2SIDED: 2
+    - _BAKERY_2SIDEDON: 0
+    - _BAKERY_BICUBIC: 1
+    - _BAKERY_LMSPEC: 1
+    - _BAKERY_PROBESHNONLINEAR: 0
+    - _BAKERY_RNM: 0
+    - _BAKERY_SH: 1
+    - _BAKERY_SHNONLINEAR: 1
+    - _BAKERY_VERTEXLM: 0
+    - _BAKERY_VERTEXLMDIR: 0
+    - _BAKERY_VERTEXLMMASK: 0
+    - _BAKERY_VERTEXLMSH: 0
+    - _BAKERY_VOLUME: 0
+    - _BumpScale: 0.2
+    - _CullMode: 2
+    - _Cutoff: 0.5
+    - _DetailNormalMapScale: 1
+    - _DstBlend: 0
+    - _Emission: 0.25
+    - _EmissionBoost: 1
+    - _EnableEmission: 1
+    - _ExposureOcclusion: 0.8
+    - _FurDensity: 0.11
+    - _FurLength: 0.5
+    - _FurShading: 0.25
+    - _FurThinness: 1
+    - _GlossMapScale: 0
+    - _Glossiness: 0.9
+    - _GlossyReflections: 1
+    - _Hue: 0
+    - _Metallic: 0.7
+    - _Mode: 0
+    - _OcclusionStrength: 1
+    - _Parallax: 0.02
+    - _Sat: 1
+    - _ScrollX: 0
+    - _ScrollY: 5
+    - _Shininess: 8
+    - _SmoothnessTextureChannel: 0
+    - _Specular: 5
+    - _SpecularHighlights: 1
+    - _SrcBlend: 1
+    - _UVSec: 1
+    - _ZWrite: 1
+    - bakeryLightmapMode: 0
+    m_Colors:
+    - _ClothColour: {r: 0.3, g: 0.3, b: 0.3, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColour: {r: 2.227962e-37, g: 0.7500002, b: 1.7499996, a: 0}
+    - _VolumeInvSize: {r: 1000001, g: 1000001, b: 1000001, a: 1}
+    - _VolumeMin: {r: 0, g: 0, b: 0, a: 1}
+  m_BuildTextureStacks: []
