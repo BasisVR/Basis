@@ -43,6 +43,20 @@ jobs:
     needs: [check-secret]
     if: needs.check-secret.outputs.secret-is-set == 'true'
     steps:
+      # We're running out of disk space in some cases. However, the actual build is happening in a docker container.
+      # Therefore, we don't actually need most of the tools that github provides. This can save quite a bit of space.
+      # Also consider https://github.com/easimon/maximize-build-space/, which pulls some other tricks.
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        if: matrix.buildPlatform == 'ubuntu-latest'
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
       - name: "Checkout repository"
         timeout-minutes: 5
         uses: actions/checkout@v4
