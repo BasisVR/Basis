@@ -76,7 +76,7 @@ public static class BasisAnimationRiggingHelper
     {
         player.LocalBoneDriver.FindBone(out BasisLocalBoneControl TargetControl, TargetRole);
 
-        GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole}");
+        GameObject BoneRole = CreateAndSetParent(Parent.transform, $"Bone Role {TargetRole.ToString()}");
         TwoBoneIKConstraint = BasisHelpers.GetOrAddComponent<BasisTwoBoneIKConstraintHand>(BoneRole);
         TwoBoneIKConstraint.data.M_CalibratedOffset = new Vector3(0, 0, 0);
         TwoBoneIKConstraint.data.M_CalibratedRotation = tip.rotation.eulerAngles;
@@ -124,19 +124,12 @@ public static class BasisAnimationRiggingHelper
 
     public static GameObject CreateAndSetParent(Transform parent, string name)
     {
-        if(parent == null)
-        {
-            return null;
-        }
-        Transform[] Children = parent.GetComponentsInChildren<Transform>();
+        Transform[] Children = parent.transform.GetComponentsInChildren<Transform>();
         foreach (Transform child in Children)
         {
-            if (child != null)
+            if (child.name == $"Bone Role {name}")
             {
-                if (child.name == $"Bone Role {name}")
-                {
-                    return child.gameObject;
-                }
+                return child.gameObject;
             }
         }
 

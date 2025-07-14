@@ -465,6 +465,47 @@ namespace Basis.Scripts.Common
             rotation = default;
             return false;
         }
+        public bool GetBoneLocalPosition(HumanBodyBones bone, out Vector3 position)
+        {
+            if (GetTransform(bone, out Transform transform) && transform != null)
+            {
+                position = transform.localPosition;
+                return true;
+            }
+            position = default;
+            return false;
+        }
+        public bool GetBoneLocalRotation(HumanBodyBones bone, out Quaternion rotation)
+        {
+            if (GetTransform(bone, out Transform transform) && transform != null)
+            {
+                rotation = transform.localRotation;
+                return true;
+            }
+            rotation = default;
+            return false;
+        }
+        public bool GetBonePosition(HumanBodyBones bone, out Vector3 position)
+        {
+            if (GetTransform(bone, out Transform transform) && transform != null)
+            {
+                position = transform.position;
+                return true;
+            }
+            position = default;
+            return false;
+        }
+        public bool GetBoneRotation(HumanBodyBones bone, out Quaternion rotation)
+        {
+            if (GetTransform(bone, out Transform transform) && transform != null)
+            {
+                rotation = transform.rotation;
+                return true;
+            }
+            rotation = default;
+            return false;
+        }
+
 
         public Dictionary<HumanBodyBones, BasisCalibratedCoords> TPoseRecords = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public void RecordPoses(Animator animator)

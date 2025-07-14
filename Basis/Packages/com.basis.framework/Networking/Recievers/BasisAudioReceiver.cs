@@ -64,7 +64,7 @@ namespace Basis.Scripts.Networking.Receivers
                     audioSource = BasisHelpers.GetOrAddComponent<AudioSource>(AudioSourceTransform.gameObject);
                     audioSource.loop = true;
                     // Initialize settings and audio source
-                    audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.NetId);
+                    audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.playerId);
                 }
                 audioSource.Play();
             }

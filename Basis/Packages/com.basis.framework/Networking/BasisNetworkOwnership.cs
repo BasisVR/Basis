@@ -116,7 +116,21 @@ public static partial class BasisNetworkOwnership
         cancellationTokenSource.CancelAfter(timeoutMs);
         return await tcs.Task;
     }
-
+    /// <summary>
+    /// skips asking the server potentially about ownership
+    /// useful sometimes
+    /// </summary>
+    public static bool IsOwnerLocalValidation(string OwnershipId)
+    {
+        if (BasisNetworkManagement.OwnershipPairing.TryGetValue(OwnershipId, out ushort Unique))
+        {
+            if (Unique == (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     public static async Task<BasisOwnershipResult> RequestCurrentOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000)
     {
         if (BasisNetworkManagement.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique))

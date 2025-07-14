@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -21,6 +22,8 @@ namespace Basis
         }
         public bool IsOwnedLocally = false;
         public ushort CurrentOwner;
+        public BasisNetworkPlayer currentPlayer;
+
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>
@@ -72,6 +75,7 @@ namespace Basis
                     BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
                     var InitalOwnershipStatus = await output;
                     CurrentOwner = InitalOwnershipStatus.PlayerId;
+                    BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentPlayer);
                     HasNetworkID = IDResolverResult.Success;
                     NetworkID = IDResolverResult.Id;
                     if (HasNetworkID)
@@ -101,6 +105,7 @@ namespace Basis
             {
                 IsOwnedLocally = isOwner;
                 CurrentOwner = NetIdNewOwner;
+                BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentPlayer);
                 BasisDebug.Log("Owner set to " + IsOwnedLocally);
                 OnOwnershipTransfer(NetIdNewOwner);
             }
@@ -123,17 +128,14 @@ namespace Basis
                 BasisDebug.LogError($"No Network ID Assigned yet for {this.gameObject.name}", BasisDebug.LogTag.Networking);
             }
         }
-
         public void SendCustomEventDelayedSeconds(Action callback, float delaySeconds, EventTiming timing = EventTiming.Update)
         {
             StartCoroutine(InvokeActionAfterSeconds(callback, delaySeconds, timing));
         }
-
         public void SendCustomEventDelayedFrames(Action callback, int delayFrames, EventTiming timing = EventTiming.Update)
         {
             StartCoroutine(InvokeActionAfterFrames(callback, delayFrames, timing));
         }
-
         private IEnumerator InvokeActionAfterSeconds(Action callback, float delaySeconds, EventTiming timing)
         {
             switch (timing)
@@ -151,7 +153,6 @@ namespace Basis
 
             callback?.Invoke();
         }
-
         private IEnumerator InvokeActionAfterFrames(Action callback, int delayFrames, EventTiming timing)
         {
             for (int Index = 0; Index < delayFrames; Index++)
@@ -172,7 +173,6 @@ namespace Basis
 
             callback?.Invoke();
         }
-
         private IEnumerator WaitForFixedUpdateSeconds(float seconds)
         {
             float elapsed = 0f;
@@ -182,7 +182,6 @@ namespace Basis
                 elapsed += Time.fixedDeltaTime;
             }
         }
-
         private IEnumerator WaitForLateUpdateSeconds(float seconds)
         {
             float elapsed = 0f;
@@ -227,6 +226,18 @@ namespace Basis
         public virtual void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
 
+        }
+        public async void UnsafeTakeOwnership()
+        {
+            //no need to use await ownership will get back here from lower level.
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+        }
+        public async Task<BasisOwnershipResult> TakeOwnershipAsync()
+
+        {
+            //no need to use await ownership will get back here from lower level.
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            return Result;
         }
     }
 }

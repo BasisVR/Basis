@@ -16,6 +16,7 @@ public static class BasisNetworkHandleRemoval
                     {
                         BasisNetworkManagement.RemovePlayer(DisconnectValue);
                         BasisNetworkPlayer.OnRemotePlayerLeft?.Invoke(NetworkedPlayer, (Basis.Scripts.BasisSdk.Players.BasisRemotePlayer)NetworkedPlayer.Player);//tell scripts delete time
+                        BasisNetworkPlayer.OnPlayerLeft?.Invoke(NetworkedPlayer);
                         NetworkedPlayer.DeInitialize();//shutdown the networking
                         if (NetworkedPlayer.Player.BasisAvatar != null)//nuke avatar first
                         {

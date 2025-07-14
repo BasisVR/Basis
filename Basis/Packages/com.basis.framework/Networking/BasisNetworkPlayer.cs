@@ -52,7 +52,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-        public ushort NetId
+        public ushort playerId
         {
             get
             {
@@ -116,7 +116,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                     basisAvatar.HasSendEvent = true;
                 }
 
-                basisAvatar.LinkedPlayerID = NetId;
+                basisAvatar.LinkedPlayerID = playerId;
                 basisAvatar.OnAvatarNetworkReady?.Invoke(Player.IsLocal);
             }
         }
@@ -159,7 +159,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 messageIndex = MessageIndex,
                 payload = buffer,
                 recipients = Recipients,
-                PlayerIdMessage = new PlayerIdMessage() { playerID = NetId },
+                PlayerIdMessage = new PlayerIdMessage() { playerID = playerId },
             };
             NetDataWriter netDataWriter = new NetDataWriter();
             if (DeliveryMethod == DeliveryMethod.Unreliable)
@@ -188,9 +188,19 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             return BasisNetworkManagement.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);
         }
+        public static BasisNetworkPlayer GetPlayerById(ushort allowedPlayer)
+        {
+            BasisNetworkManagement.GetPlayerById(allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
+            return BasisNetworkPlayer;
+        }
         public static bool GetPlayerById(int allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
             return BasisNetworkManagement.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer);
+        }
+        public static BasisNetworkPlayer GetPlayerById(int allowedPlayer)
+        {
+            BasisNetworkManagement.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
+            return BasisNetworkPlayer;
         }
         /// <summary>
         /// this is slow right now, needs improvement! - dooly
@@ -209,7 +219,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (hasID)
             {
                 BasisOwnershipResult output = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(IOwnThis);
-                if (output.Success && output.PlayerId == NetId)
+                if (output.Success && output.PlayerId == playerId)
                 {
                     return true;
                 }
@@ -218,11 +228,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public bool IsOwnerCached(string UniqueNetworkId)
         {
-            if (BasisNetworkManagement.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique) && NetId == Unique)
-            {
-                return true;
-            }
-            return false;
+            return BasisNetworkOwnership.IsOwnerLocalValidation(UniqueNetworkId);
         }
         public static async Task<bool> IsOwnerLocal(string IOwnThis)
         {
@@ -233,7 +239,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (FutureOwner.hasID)
             {
-                return await BasisNetworkOwnership.TakeOwnershipAsync(IOwnThis, FutureOwner.NetId);
+                return await BasisNetworkOwnership.TakeOwnershipAsync(IOwnThis, FutureOwner.playerId);
             }
             else
             {
@@ -351,12 +357,51 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
         }
 
+        public Vector3 GetPosition()
+        {
+            return Player.BasisAvatar.Animator.rootPosition;
+        }
+
+        public Vector3 GetBonePosition(HumanBodyBones bone)
+        {
+            if (Player.IsLocal)
+            {
+                BasisLocalAvatarDriver.References.GetBonePosition(bone, out Vector3 position);
+                return position;
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetBonePosition", BasisDebug.LogTag.Networking);
+                return new Vector3();
+            }
+        }
+        public Quaternion GetBoneRotation(HumanBodyBones bone)
+        {
+            if (Player.IsLocal)
+            {
+                BasisLocalAvatarDriver.References.GetBoneRotation(bone, out Quaternion rotation);
+                return rotation;
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetBonePosition", BasisDebug.LogTag.Networking);
+                return Quaternion.identity;
+            }
+        }
         /// <summary>
         /// this occurs after the localplayer has been approved by the network and setup
         /// </summary>
         public static Action<BasisNetworkPlayer, BasisLocalPlayer> OnLocalPlayerJoined;
         public static OnNetworkMessageReceiveOwnershipTransfer OnOwnershipTransfer;
         public static OnNetworkMessageReceiveOwnershipRemoved OnOwnershipReleased;
+        /// <summary>
+        /// this occurs after a player has been removed.
+        /// </summary>
+        public static Action<BasisNetworkPlayer> OnPlayerLeft;
+        /// <summary>
+        /// this occurs after a local or remote user has been authenticated and joined & spawned
+        /// </summary>
+        public static Action<BasisNetworkPlayer> OnPlayerJoined;
         /// <summary>
         /// this occurs after a remote user has been authenticated and joined & spawned
         /// </summary>

@@ -68,7 +68,7 @@ namespace Basis.Scripts.Networking
                 {
                     if (NetPlayer.Player.IsLocal == false)
                     {
-                        RemotePlayers.TryAdd(NetPlayer.NetId, (BasisNetworkReceiver)NetPlayer);
+                        RemotePlayers.TryAdd(NetPlayer.playerId, (BasisNetworkReceiver)NetPlayer);
                         BasisNetworkManagement.ReceiversSnapshot = RemotePlayers.Values.ToArray();
                         ReceiverCount = ReceiversSnapshot.Length;
                     }
@@ -77,7 +77,7 @@ namespace Basis.Scripts.Networking
                 {
                     BasisDebug.LogError("Player was Null!");
                 }
-                return Players.TryAdd(NetPlayer.NetId, NetPlayer);
+                return Players.TryAdd(NetPlayer.playerId, NetPlayer);
             }
             else
             {
@@ -323,6 +323,7 @@ namespace Basis.Scripts.Networking
                         Transmitter.Initialize();
                         // Notify listeners about the local player joining.
                         BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(Transmitter, BasisLocalPlayer.Instance);
+                        BasisNetworkPlayer.OnPlayerJoined?.Invoke(Transmitter);
                         LocalPlayerIsConnected = true;
                     }
                     catch (Exception ex)
@@ -361,6 +362,7 @@ namespace Basis.Scripts.Networking
                         if (LocalPlayerPeer != null && Players.TryGetValue((ushort)LocalPlayerPeer.RemoteId, out BasisNetworkPlayer NetworkedPlayer))
                         {
                             BasisNetworkPlayer.OnLocalPlayerLeft?.Invoke(NetworkedPlayer, (BasisLocalPlayer)NetworkedPlayer.Player);
+                            BasisNetworkPlayer.OnPlayerLeft?.Invoke(NetworkedPlayer);
                         }
                         if (BasisNetworkServerRunner != null)
                         {
@@ -402,6 +404,7 @@ namespace Basis.Scripts.Networking
                      if (LocalPlayerPeer != null && Players.TryGetValue((ushort)LocalPlayerPeer.RemoteId, out BasisNetworkPlayer NetworkedPlayer))
                      {
                          BasisNetworkPlayer.OnLocalPlayerLeft?.Invoke(NetworkedPlayer, (BasisLocalPlayer)NetworkedPlayer.Player);
+                         BasisNetworkPlayer.OnPlayerLeft?.Invoke(NetworkedPlayer);
                      }
                      if (BasisNetworkServerRunner != null)
                      {

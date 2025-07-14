@@ -38,15 +38,16 @@ namespace Basis.Scripts.Networking
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
                 if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
                 {
-                //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
+                    //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
                 }
                 else
                 {
                     BasisDebug.LogError("Critical issue could not add player to data");
                     return null;
                 }
-              //  BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
+                //  BasisDebug.Log("Added Player " + ServerReadyMessage.playerIdMessage.playerID);
                 BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
+                BasisNetworkPlayer.OnPlayerJoined?.Invoke(BasisNetworkReceiver);
 
                 BasisNetworkManagement.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
                 remote.LoadAvatarFromInitial(avatarID);

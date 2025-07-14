@@ -61,13 +61,13 @@ public class BasisUIAdminPanel : BasisUIBase
                 BasisUIAdminButton.Button.onClick.AddListener(() => OnClick(Player));
                 BasisUIAdminButton.DisplayName.text = Player.Player.SafeDisplayName;
                 BasisUIAdminButton.PlayerUUID.text = $"{Player.Player.UUID}";
-                BasisUIAdminButton.NetworkID.text = $"{Player.NetId}";
+                BasisUIAdminButton.NetworkID.text = $"{Player.playerId}";
             }
         }
     }
     private void BindButtons()
     {
-        TeleportAll.onClick.AddListener(() => BasisNetworkModeration.TeleportAll(SelectedPlayer.NetId));
+        TeleportAll.onClick.AddListener(() => BasisNetworkModeration.TeleportAll(SelectedPlayer.playerId));
         Ban.onClick.AddListener(() => BasisNetworkModeration.SendBan(UUIDSubmission.text, ReasonSubmission.text));
         Kick.onClick.AddListener(() => BasisNetworkModeration.SendKick(UUIDSubmission.text, ReasonSubmission.text));
         IpBan.onClick.AddListener(() => BasisNetworkModeration.SendIPBan(UUIDSubmission.text, ReasonSubmission.text));
@@ -116,7 +116,7 @@ public class BasisUIAdminPanel : BasisUIBase
         {
             if (UUID == Player.Player.UUID)
             {
-                Id = Player.NetId;
+                Id = Player.playerId;
                 return true;
             }
         }
