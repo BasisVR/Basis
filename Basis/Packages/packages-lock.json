@@ -102,6 +102,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.cqf.urpvolumetricfog": {
+      "version": "file:com.cqf.urpvolumetricfog",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.hecomi.ulipsync": {
       "version": "file:com.hecomi.ulipsync",
       "depth": 0,

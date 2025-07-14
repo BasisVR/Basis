@@ -24,7 +24,7 @@ MonoBehaviour:
   m_OpaqueDownsampling: 1
   m_SupportsTerrainHoles: 0
   m_SupportsHDR: 1
-  m_HDRColorBufferPrecision: 1
+  m_HDRColorBufferPrecision: 0
   m_MSAA: 2
   m_RenderScale: 1
   m_UpscalingFilter: 0
