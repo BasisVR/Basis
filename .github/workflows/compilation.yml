@@ -32,11 +32,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #targetPlatform:
-        #  - StandaloneLinux64
-        #  - Android
-        #buildPlatform:
-        #  - ubuntu-latest
+        targetPlatform:
+          - StandaloneLinux64
+          #- Android
+        buildPlatform:
+          - ubuntu-latest
         include:
           - buildPlatform: windows-2022
             targetPlatform: StandaloneWindows64
@@ -75,6 +75,9 @@ jobs:
       - name: "Create version string"
         id: version
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+      - name: "Remove OpenXR when building for Linux"
+        if: matrix.targetPlatform == 'StandaloneLinux64'
+        run: jq 'del(.dependencies ["com.meta.xr.sdk.core", "com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
       - name: "Build Unity project"
         timeout-minutes: 100
         uses: game-ci/unity-builder@v4
