@@ -81,7 +81,7 @@ namespace Basis.Scripts.Networking.Receivers
                 if (Last == null)
                 {
                     PayloadQueue.TryDequeue(out Last);
-                    BasisDebug.LogError("Last == null tried to dequeue", BasisDebug.LogTag.Networking);
+                    //not a error  BasisDebug.LogError("Last == null tried to dequeue", BasisDebug.LogTag.Networking);
 
                 }
                 if (First != null)
@@ -125,16 +125,13 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 return;
             }
-            try
+            if (HasAvatarQueue)
             {
-                if (HasAvatarQueue)
+                OutputRotation = math.slerp(First.rotation, Last.rotation, interpolationTime);
+                try
                 {
-                    OutputRotation = math.slerp(First.rotation, Last.rotation, interpolationTime);
-
                     // Complete the jobs and apply the results
                     EuroFilterHandle.Complete();
-
-
                     //  bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
                     Vector3 Scale = OutputVectors[1];
                     bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, Scale, OutputVectors[0], OutputRotation, EuroValuesOutput);
@@ -153,32 +150,36 @@ namespace Basis.Scripts.Networking.Receivers
                         RemotePlayer.RemoteNamePlate.Simulate();
                     }
                 }
-                if (interpolationTime >= 1 && PayloadQueue.TryDequeue(out BasisAvatarBuffer result))
+                catch (Exception ex)
                 {
-                    First = Last;
-                    Last = result;
-
-                    if (Last != null)
-                    {
-                        TimeBeforeCompletion = Last.SecondsInterval;
-                    }
-                    TimeInThePast = TimeAsDouble;
+                    HandleException(ex);
                 }
             }
-            catch (Exception ex)
+            if (interpolationTime >= 1 && PayloadQueue.TryDequeue(out BasisAvatarBuffer result))
             {
-                if (LogFirstError == false)
-                {
-                    // Log the full exception details, including stack trace
-                    BasisDebug.LogError($"Error in Apply: {ex.Message}\nStack Trace:\n{ex.StackTrace}");
+                First = Last;
+                Last = result;
 
-                    // If the exception has an inner exception, log it as well
-                    if (ex.InnerException != null)
-                    {
-                        BasisDebug.LogError($"Inner Exception: {ex.InnerException.Message}\nStack Trace:\n{ex.InnerException.StackTrace}");
-                    }
-                    LogFirstError = true;
+                if (Last != null)
+                {
+                    TimeBeforeCompletion = Last.SecondsInterval;
                 }
+                TimeInThePast = TimeAsDouble;
+            }
+        }
+        public void HandleException(Exception ex)
+        {
+            if (LogFirstError == false)
+            {
+                // Log the full exception details, including stack trace
+                BasisDebug.LogError($"Error in Apply: {ex.Message}\nStack Trace:\n{ex.StackTrace}");
+
+                // If the exception has an inner exception, log it as well
+                if (ex.InnerException != null)
+                {
+                    BasisDebug.LogError($"Inner Exception: {ex.InnerException.Message}\nStack Trace:\n{ex.InnerException.StackTrace}");
+                }
+                LogFirstError = true;
             }
         }
         public void EnQueueAvatarBuffer(ref BasisAvatarBuffer avatarBuffer)

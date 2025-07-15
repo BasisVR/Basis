@@ -37,12 +37,17 @@ namespace uLipSync
         public string mainPhoneme;
         public float NormalVolume;
         public float rawVolume;
-         public bool RequestedCalibration = false;
+        public bool RequestedCalibration = false;
         public int CachedInputSampleCount;
+        public float globalMultiplier;
+        public float MultipliedWeight;
+        public float finalWeight;
         public void LateUpdate()
         {
             if (!_jobHandle.IsCompleted)
+            {
                 return;
+            }
 
             _jobHandle.Complete();
             _mfccForOther.CopyFrom(_mfcc);
@@ -59,9 +64,9 @@ namespace uLipSync
 
             float invSum = sumScore > 0f ? 1f / sumScore : 0f;
 
-            for (int i = 0; i < phonemeCount; ++i)
+            for (int Index = 0; Index < phonemeCount; ++Index)
             {
-                phonemeRatios[i] = UpdateResultsBuffer[i] * invSum;
+                phonemeRatios[Index] = UpdateResultsBuffer[Index] * invSum;
             }
 
             rawVolume = _info[0].volume;
@@ -70,18 +75,19 @@ namespace uLipSync
 
             if (RequestedCalibration)
             {
-                for (int i = 0; i < _requestedCalibrationVowels.Count; ++i)
+                int count = _requestedCalibrationVowels.Count;
+                for (int Index = 0; Index < count; ++Index)
                 {
-                    int idx = _requestedCalibrationVowels[i];
+                    int idx = _requestedCalibrationVowels[Index];
                     profile.UpdateMfcc(idx, mfcc, true);
                 }
                 _requestedCalibrationVowels.Clear();
                 RequestedCalibration = false;
             }
             int index = 0;
-            for (int i = 0; i < mfccsCount && index < PhonemesCount; i++)
+            for (int Index = 0; Index < mfccsCount && index < PhonemesCount; Index++)
             {
-                var mfccNativeArray = profile.mfccs[i].mfccNativeArray;
+                var mfccNativeArray = profile.mfccs[Index].mfccNativeArray;
                 int remaining = PhonemesCount - index;
                 int length = math.min(12, remaining);
                 NativeArray<float>.Copy(mfccNativeArray, 0, _phonemes, index, length);
@@ -119,12 +125,11 @@ namespace uLipSync
 
             _jobHandle = lipSyncJob.Schedule();
         }
-        public float globalMultiplier;
         public void OnLipSyncUpdate()
         {
             if (uLipSyncBlendShape.skinnedMeshRenderer != null)
             {
-
+                int blendShapeCount = uLipSyncBlendShape.skinnedMeshRenderer.sharedMesh.blendShapeCount;
 
                 float normVol = 0f;
                 if (rawVolume > 0f)
@@ -174,10 +179,11 @@ namespace uLipSync
                 {
                     BaseMultiply = globalMultiplier;
                 }
+
                 // Second pass: normalize + apply
-                for (int i = 0; i < count; i++)
+                for (int Index = 0; Index < count; Index++)
                 {
-                    var bs = uLipSyncBlendShape.BlendShapeInfos[i];
+                    var bs = uLipSyncBlendShape.BlendShapeInfos[Index];
 
                     if (bs.index < 0) continue;
 
@@ -187,12 +193,13 @@ namespace uLipSync
                     {
                         finalWeight = 0f;
                     }
-                    uLipSyncBlendShape.skinnedMeshRenderer.SetBlendShapeWeight(bs.index, finalWeight);
+                    if (blendShapeCount >= bs.index)
+                    {
+                        uLipSyncBlendShape.skinnedMeshRenderer.SetBlendShapeWeight(bs.index, finalWeight);
+                    }
                 }
             }
         }
-        public float MultipliedWeight;
-        public float finalWeight;
         public void Initalize()
         {
             AllocateBuffers();
@@ -273,7 +280,10 @@ namespace uLipSync
         {
             get
             {
-                if (!profile) return AudioSettings.outputSampleRate;
+                if (!profile)
+                {
+                    return AudioSettings.outputSampleRate;
+                }
                 float r = (float)AudioSettings.outputSampleRate / profile.targetSampleRate;
                 return Mathf.CeilToInt(profile.sampleCount * r);
             }

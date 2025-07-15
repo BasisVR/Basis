@@ -35,7 +35,7 @@ public static class BasisEncryptionToData
             }
 
             // Wait a short period before checking again to avoid busy waiting
-            await Task.Delay(100); // Adjust delay as needed (e.g., 100ms)
+            await Task.Delay(50); // Adjust delay as needed (e.g., 50ms)
         }
 
         // Ensure progress reaches 100% after completion

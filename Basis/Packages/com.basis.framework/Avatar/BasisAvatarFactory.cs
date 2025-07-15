@@ -163,33 +163,68 @@ namespace Basis.Scripts.Avatar
             Output.transform.SetPositionAndRotation(BasisPlayer.transform.position, Quaternion.identity);
             return Output;
         }
+        /// <summary>
+        /// No content searching is done here since it's local content.
+        /// </summary>
+        /// <param name="Player">The player to apply the fallback avatar to.</param>
+        /// <param name="LoadingAvatarToUse">The address of the avatar to load.</param>
+        public static void RemoveOldAvatarAndLoadFallback(BasisPlayer Player, string LoadingAvatarToUse)
+        {
+            var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatarToUse);
+            var loadingAvatar = op.WaitForCompletion();
+            var inSceneLoadingAvatar = GameObject.Instantiate(loadingAvatar, Player.transform.position, Quaternion.identity, Player.transform);
+
+            if (inSceneLoadingAvatar.TryGetComponent(out BasisAvatar avatar))
+            {
+                SetupPlayerAvatar(Player, avatar, inSceneLoadingAvatar, isFallback: true);
+            }
+            else
+            {
+                BasisDebug.LogError("Missing Basis Avatar Component On Fallback Avatar");
+            }
+        }
+
+        /// <summary>
+        /// Initializes the player's avatar with the given prefab.
+        /// </summary>
+        /// <param name="Player">The player to initialize.</param>
+        /// <param name="Output">The GameObject representing the avatar prefab.</param>
         private static void InitializePlayerAvatar(BasisPlayer Player, GameObject Output)
         {
-            if (Output.TryGetComponent(out BasisAvatar Avatar))
+            if (Output.TryGetComponent(out BasisAvatar avatar))
             {
-                DeleteLastAvatar(Player);
-                Player.IsConsideredFallBackAvatar = false;
-                Player.BasisAvatar = Avatar;
-                Player.BasisAvatarTransform = Avatar.transform;
-                Player.BasisAvatar.Renders = Player.BasisAvatar.GetComponentsInChildren<Renderer>(true);
-                Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
-                switch (Player)
-                {
-                    case BasisLocalPlayer localPlayer:
-                        {
-                            SetupLocalAvatar(localPlayer);
-                            Avatar.OnAvatarReady?.Invoke(true);
-                            break;
-                        }
-                    case BasisRemotePlayer remotePlayer:
-                        {
-                            SetupRemoteAvatar(remotePlayer);
-                            Avatar.OnAvatarReady?.Invoke(false);
-                            break;
-                        }
-                }
-                RebuildNetworkIds(Player, Output, Avatar);
+                SetupPlayerAvatar(Player, avatar, Output, isFallback: false);
             }
+        }
+
+        /// <summary>
+        /// Shared logic for setting up a player's avatar.
+        /// </summary>
+        /// <param name="Player">The player.</param>
+        /// <param name="avatar">The BasisAvatar component.</param>
+        /// <param name="rootObject">The root GameObject of the avatar instance.</param>
+        /// <param name="isFallback">Whether this is a fallback avatar.</param>
+        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, GameObject rootObject, bool isFallback)
+        {
+            DeleteLastAvatar(Player);
+            Player.IsConsideredFallBackAvatar = isFallback;
+            Player.BasisAvatar = avatar;
+            Player.BasisAvatarTransform = avatar.transform;
+            Player.BasisAvatar.Renders = avatar.GetComponentsInChildren<Renderer>(true);
+            Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
+
+            switch (Player)
+            {
+                case BasisLocalPlayer localPlayer:
+                    SetupLocalAvatar(localPlayer);
+                    break;
+
+                case BasisRemotePlayer remotePlayer:
+                    SetupRemoteAvatar(remotePlayer);
+                    break;
+            }
+
+            RebuildNetworkIds(Player, rootObject, avatar);
         }
         public static void RebuildNetworkIds(BasisPlayer Player, GameObject Output, BasisAvatar Avatar)
         {
@@ -233,45 +268,6 @@ namespace Basis.Scripts.Avatar
             return new InstantiationParameters(Player.transform.position, Quaternion.identity, Player.transform);
         }
         /// <summary>
-        /// no content searching is done here since its local content.
-        /// </summary>
-        /// <param name="Player"></param>
-        /// <param name="LoadingAvatarToUse"></param>
-        public static void RemoveOldAvatarAndLoadFallback(BasisPlayer Player, string LoadingAvatarToUse)
-        {
-            var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatarToUse);
-            var LoadingAvatar = op.WaitForCompletion();
-            var InSceneLoadingAvatar = GameObject.Instantiate(LoadingAvatar, Player.transform.position, Quaternion.identity, Player.transform);
-
-            if (InSceneLoadingAvatar.TryGetComponent(out BasisAvatar Avatar))
-            {
-                DeleteLastAvatar(Player);
-                Player.IsConsideredFallBackAvatar = true;
-                Player.BasisAvatar = Avatar;
-                Player.BasisAvatarTransform = Avatar.transform;
-                Player.BasisAvatar.Renders = Player.BasisAvatar.GetComponentsInChildren<Renderer>(true);
-                Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
-                switch (Player)
-                {
-                    case BasisLocalPlayer localPlayer:
-                        {
-                            SetupLocalAvatar(localPlayer);
-                            break;
-                        }
-                    case BasisRemotePlayer remotePlayer:
-                        {
-                            SetupRemoteAvatar(remotePlayer);
-                            break;
-                        }
-                }
-                RebuildNetworkIds(Player, InSceneLoadingAvatar, Avatar);
-            }
-            else
-            {
-                BasisDebug.LogError("Missing Basis Avatar Component On FallBack Avatar");
-            }
-        }
-        /// <summary>
         /// this is not awaited,
         /// the reason for that is the DeIncrementation happens instantly but
         /// the clean up is delayed so we dont spam Unload Request.
@@ -312,12 +308,14 @@ namespace Basis.Scripts.Avatar
             Player.RemoteAvatarDriver.RemoteCalibration(Player);
             Player.AvatarInitalize();
             SetupAvatar(Player, BasisLayerMapper.RemoteAvatarLayer);
+            Player.BasisAvatar.OnAvatarReady?.Invoke(false);
         }
         public static void SetupLocalAvatar(BasisLocalPlayer Player)
         {
             Player.LocalAvatarDriver.InitialLocalCalibration(Player);
             Player.AvatarInitalize();
             SetupAvatar(Player, BasisLayerMapper.LocalAvatarLayer);
+            Player.BasisAvatar.OnAvatarReady?.Invoke(true);
         }
         public static void SetupAvatar(BasisPlayer Player, int Layer)
         {

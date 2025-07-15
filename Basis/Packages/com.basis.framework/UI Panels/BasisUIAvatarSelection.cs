@@ -160,8 +160,9 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         private async Task CreateAvatarButtons()
         {
-            foreach (BasisLoadableBundle bundle in avatarUrlsRuntime)
+            for (int Index = 0; Index < avatarUrlsRuntime.Count; Index++)
             {
+                BasisLoadableBundle bundle = avatarUrlsRuntime[Index];
                 if (bundle == null)
                 {
                     continue;
@@ -171,6 +172,15 @@ namespace Basis.Scripts.UI.UI_Panels
                     Debug.LogWarning("Button for this avatar already exists: " + bundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
                     continue;
                 }
+                if (ParentedAvatarButtons == null)
+                {
+                    continue;
+                }
+                if (ButtonPrefab == null)
+                {
+                    continue;
+                }
+
                 GameObject buttonObject = Instantiate(ButtonPrefab, ParentedAvatarButtons);
                 buttonObject.name = bundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
                 buttonObject.SetActive(true);
