@@ -5,23 +5,23 @@ using UnityEngine;
 public struct BasisPoseData
 {
     [SerializeField]
-    public BasisCalibratedCoords[] LeftThumb;
+    public Quaternion[] LeftThumb;
     [SerializeField]
-    public BasisCalibratedCoords[] LeftIndex;
+    public Quaternion[] LeftIndex;
     [SerializeField]
-    public BasisCalibratedCoords[] LeftMiddle;
+    public Quaternion[] LeftMiddle;
     [SerializeField]
-    public BasisCalibratedCoords[] LeftRing;
+    public Quaternion[] LeftRing;
     [SerializeField]
-    public BasisCalibratedCoords[] LeftLittle;
+    public Quaternion[] LeftLittle;
     [SerializeField]
-    public BasisCalibratedCoords[] RightThumb;
+    public Quaternion[] RightThumb;
     [SerializeField]
-    public BasisCalibratedCoords[] RightIndex;
+    public Quaternion[] RightIndex;
     [SerializeField]
-    public BasisCalibratedCoords[] RightMiddle;
+    public Quaternion[] RightMiddle;
     [SerializeField]
-    public BasisCalibratedCoords[] RightRing;
+    public Quaternion[] RightRing;
     [SerializeField]
-    public BasisCalibratedCoords[] RightLittle;
+    public Quaternion[] RightLittle;
 }

@@ -11,6 +11,12 @@ using UnityEngine.Jobs;
 [System.Serializable]
 public class BasisLocalHandDriver
 {
+
+    [SerializeField]
+    public BasisFingerPose LeftHand;
+    [SerializeField]
+    public BasisFingerPose RightHand;
+
     [SerializeField]
     public BasisPoseData Current;
     public const float increment = 0.1f;
@@ -26,11 +32,6 @@ public class BasisLocalHandDriver
     public float[] RightMiddle;
     public float[] RightRing;
     public float[] RightLittle;
-
-    [SerializeField]
-    public BasisFingerPose LeftHand;
-    [SerializeField]
-    public BasisFingerPose RightHand;
 
     public Vector2 LastLeftThumbPercentage = new Vector2(-1.1f, -1.1f);
     public Vector2 LastLeftIndexPercentage = new Vector2(-1.1f, -1.1f);
@@ -263,7 +264,7 @@ public class BasisLocalHandDriver
         UpdateFingerPoses(Map.RightRing, RightRingAdditional.PoseData.RightRing, ref Current.RightRing, Map.HasRightRing, Percentage);
         UpdateFingerPoses(Map.RightLittle, RightLittleAdditional.PoseData.RightLittle, ref Current.RightLittle, Map.HasRightLittle, Percentage);
     }
-    public void UpdateFingerPoses(Transform[] proximal, BasisCalibratedCoords[] poses, ref BasisCalibratedCoords[] currentPoses, bool[] hasProximal, float Percentage)
+    public void UpdateFingerPoses(Transform[] proximal, Quaternion[] poses, ref Quaternion[] currentPoses, bool[] hasProximal, float Percentage)
     {
         for (int FingerBoneIndex = 0; FingerBoneIndex < 3; FingerBoneIndex++)
         {
@@ -272,18 +273,18 @@ public class BasisLocalHandDriver
                 continue;
             }
 
-            float3 newPosition = math.lerp(currentPoses[FingerBoneIndex].position, poses[FingerBoneIndex].position, Percentage);
-            quaternion newRotation = math.slerp(currentPoses[FingerBoneIndex].rotation, poses[FingerBoneIndex].rotation, Percentage);
-            currentPoses[FingerBoneIndex].position = newPosition;
-            currentPoses[FingerBoneIndex].rotation = newRotation;
-            proximal[FingerBoneIndex].SetLocalPositionAndRotation(newPosition, newRotation);
+            quaternion newRotation = math.slerp(currentPoses[FingerBoneIndex], poses[FingerBoneIndex], Percentage);
+            currentPoses[FingerBoneIndex] = newRotation;
+
+            // Apply to transform
+            proximal[FingerBoneIndex].localRotation = newRotation;
         }
     }
     public void RecordCurrentPose(ref BasisPoseData poseData, Transform[] allTransforms, bool[] allHasProximal)
     {
 
         // Record all finger poses
-        NativeArray<BasisCalibratedCoords> allFingerPoses = RecordAllFingerPoses(allTransforms, allHasProximal);
+        NativeArray<Quaternion> allFingerPoses = RecordAllFingerPoses(allTransforms, allHasProximal);
 
         // Distribute poses to individual fingers
         int offset = 0;
@@ -302,14 +303,14 @@ public class BasisLocalHandDriver
     }
     private Transform[] AggregateFingerTransforms(params Transform[][] fingerTransforms) => fingerTransforms.SelectMany(f => f).ToArray();
     private bool[] AggregateHasProximal(params bool[][] hasProximalArrays) => hasProximalArrays.SelectMany(h => h).ToArray();
-    private void ExtractFingerPoses(ref BasisCalibratedCoords[] poses, NativeArray<BasisCalibratedCoords> allPoses, ref int offset, int length)
+    private void ExtractFingerPoses(ref Quaternion[] poses, NativeArray<Quaternion> allPoses, ref int offset, int length)
     {
         if (poses == null || poses.Length != length)
         {
-            poses = new BasisCalibratedCoords[length];
+            poses = new Quaternion[length];
         }
 
-        NativeArray<BasisCalibratedCoords>.Copy(allPoses, offset, poses, 0, length);
+        NativeArray<Quaternion>.Copy(allPoses, offset, poses, 0, length);
         offset += length;
     }
     public void SetAndRecordPose(float fillValue, ref BasisPoseData poseData, float Splane,HumanPoseHandler poseHandler,ref HumanPose pose, Transform[] allTransforms, bool[] allHasProximal)
@@ -347,12 +348,12 @@ public class BasisLocalHandDriver
         Array.Fill(muscleArray, fillValue);
         muscleArray[1] = specificValue;
     }
-    private NativeArray<BasisCalibratedCoords> RecordAllFingerPoses(Transform[] allTransforms, bool[] allHasProximal)
+    private NativeArray<Quaternion> RecordAllFingerPoses(Transform[] allTransforms, bool[] allHasProximal)
     {
         int length = allTransforms.Length;
         // Prepare NativeArrays and TransformAccessArray
         NativeArray<bool> hasProximalArray = new NativeArray<bool>(length, Allocator.Persistent);
-        NativeArray<BasisCalibratedCoords> fingerPoses = new NativeArray<BasisCalibratedCoords>(length, Allocator.Persistent);
+        NativeArray<Quaternion> fingerPoses = new NativeArray<Quaternion>(length, Allocator.Persistent);
         TransformAccessArray transformAccessArray = new TransformAccessArray(length);
         // Fill NativeArrays and TransformAccessArray
         for (int Index = 0; Index < length; Index++)
