@@ -78,6 +78,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.profilerintergration": {
+      "version": "file:com.basis.profilerintergration",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.sdk": {
       "version": "file:com.basis.sdk",
       "depth": 0,
