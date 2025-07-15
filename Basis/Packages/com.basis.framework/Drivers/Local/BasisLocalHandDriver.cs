@@ -201,7 +201,6 @@ public class BasisLocalHandDriver
     }
     public void UpdateFingers(BasisTransformMapping Map)
     {
-        float Percentage = LerpSpeed * Time.deltaTime;
         bool GetClosestValue(Vector2 percentage, out BasisPoseDataAdditional result)
         {
             BasisFindClosestPointJob distanceJob = new BasisFindClosestPointJob
@@ -250,6 +249,7 @@ public class BasisLocalHandDriver
         TryUpdateFingerPose(ref LastRightRingPercentage, RightHand.RingPercentage, ref RightRingAdditional);
         TryUpdateFingerPose(ref LastRightLittlePercentage, RightHand.LittlePercentage, ref RightLittleAdditional);
 
+        float Percentage = LerpSpeed * Time.deltaTime;
         // Apply finger transforms - Left Hand
         UpdateFingerPoses(Map.LeftThumb, LeftThumbAdditional.PoseData.LeftThumb, ref Current.LeftThumb, Map.HasLeftThumb, Percentage);
         UpdateFingerPoses(Map.LeftIndex, LeftIndexAdditional.PoseData.LeftIndex, ref Current.LeftIndex, Map.HasLeftIndex, Percentage);
@@ -272,8 +272,7 @@ public class BasisLocalHandDriver
             {
                 continue;
             }
-
-            quaternion newRotation = math.slerp(currentPoses[FingerBoneIndex], poses[FingerBoneIndex], Percentage);
+            quaternion newRotation = Quaternion.Slerp(currentPoses[FingerBoneIndex], poses[FingerBoneIndex], Percentage);
             currentPoses[FingerBoneIndex] = newRotation;
 
             // Apply to transform
