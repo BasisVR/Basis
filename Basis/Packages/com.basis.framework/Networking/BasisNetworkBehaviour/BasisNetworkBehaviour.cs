@@ -10,7 +10,7 @@ using UnityEngine;
 using static BasisNetworkCommon;
 namespace Basis
 {
-    public abstract class BasisNetworkBehaviour : BasisContentBase
+    public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
     {
         private bool HasNetworkID = false;
         private ushort networkID;
@@ -213,7 +213,7 @@ namespace Basis
                 elapsed += Time.deltaTime;
             }
         }
-        public static string LowLevelGetHierarchyPath(BasisContentBase obj)
+        public static string LowLevelGetHierarchyPath(BasisNetworkContentBase obj)
         {
             // Get the index of the component on the GameObject
             Component[] components = obj.gameObject.GetComponents(obj.GetType());
