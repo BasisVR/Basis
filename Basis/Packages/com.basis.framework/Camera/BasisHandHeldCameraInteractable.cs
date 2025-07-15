@@ -559,14 +559,6 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         rotationMomentum = 0f;
     }
     
-
-    public override void StartRemoteControl()
-    {
-    }
-    public override void StopRemoteControl()
-    {
-    }
-
     public override void OnDestroy()
     {
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;

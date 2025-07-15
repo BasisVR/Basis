@@ -233,6 +233,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
         }
+
+        // NOTE: if modifying this, please be careful to update UnsafeSetInteractcting accordingly.
         private BasisInteractInput UpdatePickupState(BasisInteractableObject hitInteractable, BasisInteractInput interactInput)
         {
             // hit a different target than last time

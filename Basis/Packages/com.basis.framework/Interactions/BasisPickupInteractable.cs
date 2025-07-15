@@ -135,7 +135,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             // NOTE: see CanInteract note
             return InteractableEnabled &&
-                !IsPuppeted &&                                              // net control
                 (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
@@ -153,7 +152,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // NOTE: Injected checks must be called at the end so that we can safely assume that at the time this was invoked, everything was valid.
             //      This is especially important for network sync, since the pending steal request doesnt need to re-invoke this (with stale data) when ownership transfers.
             return InteractableEnabled &&
-                (!IsPuppeted) &&                                            // net control
                 (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
@@ -202,7 +200,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
-                BasisDebug.Log("Pickup start: " + wrapper.GetState());
+                BasisDebug.Log("InteractStart: " + wrapper.GetState(), BasisDebug.LogTag.Pickups);
                 // same input that was highlighting previously
                 if (wrapper.GetState() == BasisInteractInputState.Hovering)
                 {
@@ -250,7 +248,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
             else
             {
-                BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " did not find role for input on Interact start");
+                BasisDebug.LogWarning("Did not find role for input on Interact start", BasisDebug.LogTag.Pickups);
             }
             // cleaup hovers if we arent supposed to be able to self-steal
             if (!CanSelfSteal)
@@ -294,6 +292,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                             OnDropVelocity();
                         }
                     }
+                    BasisDebug.Log($"OnInteractEnd", BasisDebug.LogTag.Pickups);
 
                     OnInteractEndEvent?.Invoke(input);
                 }
@@ -306,8 +305,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             Vector3 linear = linearVelocity;
             Vector3 angular = angularVelocity;
-
-            // Debug.Log($"Pickup OnDrop velocity. Linear: {linear}, Angular: {angular}");
 
             if (linear.magnitude >= minLinearVelocity)
             {
@@ -323,7 +320,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             else
                 angular = Vector3.zero;
 
-            // Debug.Log($"Setting Pickup OnDrop velocity. Linear: {linear}, Angular: {angular}");
+            BasisDebug.Log($"Setting OnDrop velocity. Linear: {linear}, Angular: {angular}", BasisDebug.LogTag.Pickups);
 
             RigidRef.linearVelocity = linear;
             RigidRef.angularVelocity = angular;
@@ -337,13 +334,21 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // Instant angular velocity
             Quaternion deltaRotation = rot * Quaternion.Inverse(_previousRotation);
             deltaRotation.ToAngleAxis(out float angle, out Vector3 axis);
-            // TODO: this might break with large angular velocity?
-            if (angle > 180f) angle -= 360f;
+
+            angle = NormalizeAngle360(angle);
 
             angularVelocity = axis * (angle * Mathf.Deg2Rad) / Time.deltaTime;
 
             _previousPosition = pos;
             _previousRotation = rot;
+        }
+
+        private float NormalizeAngle360(float angle)
+        {
+            angle %= 360f;
+            if (angle < 0)
+                angle += 360f;
+            return angle;
         }
 
         public override void InputUpdate()
@@ -508,15 +513,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
             }
         }
-        public override void StartRemoteControl()
-        {
-            IsPuppeted = true;
-            Drop();
-        }
-        public override void StopRemoteControl()
-        {
-            IsPuppeted = false;
-        }
         public override void OnDestroy()
         {
             Destroy(HighlightClone);
@@ -567,7 +563,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
     {
         internal static bool AllTrue<T>(this IList<Func<T, bool>> list, T arg)
         {
-            for (int i = 0; i < list.Count; i++)
+            int count = list.Count;
+            for (int i = 0; i < count; i++)
             {
                 if (!list[i].Invoke(arg))
                     return false;

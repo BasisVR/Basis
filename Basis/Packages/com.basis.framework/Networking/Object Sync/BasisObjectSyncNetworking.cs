@@ -76,18 +76,26 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     private bool CanInteract(BasisInput input)
     {
-        // TODO: revisit this, this might break expectations if we loose connection but keep the pickup loaded
         // Allow interact if we arent connected or if we own it locally
-        if (!BasisNetworkManagement.LocalPlayerIsConnected || IsOwnedLocally) return true;
+        if (IsOwnedLocally) return true;
         // NOTE: this is called 2 times per frame on interact start, once to tell HoverEnd that it will be interacting, and again for the actual interact check
         if (CanNetworkSteal && !IsOwnedLocally && pendingStealRequest == null)
         {
-            // TODO: some sort of timeout to re-send the request
             pendingStealRequest = input;
-            UnsafeTakeOwnership(); // ControlState handles the ownership transfer logic here
+            CanInteractAsync(); // ControlState handles the ownership transfer logic here
         }
         return false;
     }
+
+    private async void CanInteractAsync()
+    {
+        var result = await TakeOwnershipAsync(5000); // 5 second timeout 
+        if (!result.Success)
+        {
+            pendingStealRequest = null;
+        }
+    }
+
     public override void OnOwnershipTransfer(ushort NetIdNewOwner)
     {
         ControlState();

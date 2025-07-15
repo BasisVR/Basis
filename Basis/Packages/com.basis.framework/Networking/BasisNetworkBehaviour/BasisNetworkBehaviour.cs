@@ -232,11 +232,10 @@ namespace Basis
             //no need to use await ownership will get back here from lower level.
             BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
         }
-        public async Task<BasisOwnershipResult> TakeOwnershipAsync()
-
+        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int timeoutMs = 5000)
         {
             //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId, timeoutMs);
             return Result;
         }
     }
