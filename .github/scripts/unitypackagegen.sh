@@ -8,6 +8,7 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
         Packages/org.basisvr.bouncycastle-2.5.0.tgz"
 SUBFOLDERS="Packages/com.basis.sdk:
         Packages/com.basis.odinserializer:
+        Packages/com.basis.bundlemanagement:
         Packages/com.basis.server"
 
 if [[ "$1" == "full" ]]; then
@@ -33,6 +34,8 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.eventdriver:
               Packages/com.basis.openvr:
               Packages/com.basis.openxr:
+              Packages/com.basis.bundlemanagement:
+              Packages/com.basis.profilerintergration:
               Packages/com.avionblock.opussharp"
 elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
