@@ -115,7 +115,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             // Delayed InteractStart when local user gets ownership
             if (pendingStealRequest != null)
             {
-                BasisPlayerInteract.Instance.UnsafeSetInteractcting(BasisPickupInteractable, pendingStealRequest);
+                BasisPlayerInteract.Instance.ForceSetInteractcting(BasisPickupInteractable, pendingStealRequest);
                 // still reset the request, we dont care if we actually picked up
                 pendingStealRequest = null;
             }
