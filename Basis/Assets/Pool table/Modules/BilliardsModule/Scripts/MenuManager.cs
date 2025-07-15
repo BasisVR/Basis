@@ -208,8 +208,7 @@ public class MenuManager : MonoBehaviour
                 _DisableLoadMenu();
                 _DisableUndoMenu();
                 _RefreshTeamJoinButtons();
-                menu_Join.localPosition = joinMenuPosition;
-                menu_Join.localRotation = joinMenuRotation;
+                menu_Join.SetLocalPositionAndRotation(joinMenuPosition, joinMenuRotation);
                 menu_Join.localScale = joinMenuScale;
                 _EnableMenuJoinLeave();
                 _RefreshTeamJoinButtons();

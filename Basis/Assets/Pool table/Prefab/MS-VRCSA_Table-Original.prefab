@@ -7519,6 +7519,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2559712782818124714}
   - component: {fileID: 4369898792788061657}
+  - component: {fileID: 3888884496885480871}
   m_Layer: 22
   m_Name: intl.cue-0
   m_TagString: Untagged
@@ -7557,17 +7558,47 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c035b4a64fd3d9c44a898543d1e972c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: 
-    AssetBundleDescription: 
   IsOwnedLocally: 0
   CurrentOwner: 0
   table: {fileID: 6338887527519480172}
-  primary: {fileID: 3247918946102524185}
-  secondary: {fileID: 3247918945509031943}
+  primary: {fileID: 3857375466028423495}
+  secondary: {fileID: 4976643593653778596}
   desktop: {fileID: 2806593605229712321}
   body: {fileID: 5693218740758710614}
   cuetip: {fileID: 3247918946330016694}
+  holderIsDesktop: 0
+  primaryHolding: 0
+  secondaryHolding: 0
+  cueScaleMine: 1
+  cueSmoothingLocal: 1
+  cueSmoothing: 30
+  secondaryOffset: {x: 0, y: 0, z: 0}
+  origPrimaryPosition: {x: 0, y: 0, z: 0}
+  origSecondaryPosition: {x: 0, y: 0, z: 0}
+  lagPrimaryPosition: {x: 0, y: 0, z: 0}
+  lagSecondaryPosition: {x: 0, y: 0, z: 0}
+  primaryController: {fileID: 0}
+  secondaryController: {fileID: 0}
+  cueRenderer: {fileID: 0}
+  gripSize: 0
+  cuetipDistance: 0
+  authorizedOwners: 
+--- !u!114 &3888884496885480871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2559712782818124717}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsOwnedLocally: 0
+  CurrentOwner: 0
+  BasisPickupInteractable: {fileID: 0}
+  HasRemoteIndex: 0
 --- !u!1 &2600184695699564004
 GameObject:
   m_ObjectHideFlags: 0
@@ -9496,6 +9527,7 @@ GameObject:
   - component: {fileID: 3247918945509032056}
   - component: {fileID: 6584396154955782145}
   - component: {fileID: 7041556081356693364}
+  - component: {fileID: 4976643593653778596}
   m_Layer: 22
   m_Name: secondary
   m_TagString: Untagged
@@ -9685,6 +9717,22 @@ MonoBehaviour:
         _restPosition: {x: 0, y: 0, z: 0}
         _restRotation: {x: 0, y: 0, z: 0, w: 0}
         sources: []
+--- !u!114 &4976643593653778596
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3247918945509031943}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsOwnedLocally: 0
+  CurrentOwner: 0
+  BasisPickupInteractable: {fileID: 0}
+  HasRemoteIndex: 0
 --- !u!1 &3247918946102524185
 GameObject:
   m_ObjectHideFlags: 0
@@ -9700,6 +9748,7 @@ GameObject:
   - component: {fileID: 3247918946102524186}
   - component: {fileID: 2948694613320407311}
   - component: {fileID: 9220151100236105554}
+  - component: {fileID: 3857375466028423495}
   m_Layer: 22
   m_Name: primary
   m_TagString: Untagged
@@ -9889,6 +9938,22 @@ MonoBehaviour:
         _restPosition: {x: 0, y: 0, z: 0}
         _restRotation: {x: 0, y: 0, z: 0, w: 0}
         sources: []
+--- !u!114 &3857375466028423495
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3247918946102524185}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsOwnedLocally: 0
+  CurrentOwner: 0
+  BasisPickupInteractable: {fileID: 0}
+  HasRemoteIndex: 0
 --- !u!1 &3247918946330016694
 GameObject:
   m_ObjectHideFlags: 0
@@ -10400,9 +10465,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5e8c0965cea19364f97ca18e3e5525b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: 
-    AssetBundleDescription: 
   IsOwnedLocally: 0
   CurrentOwner: 0
   NetworkedSyncInfo:
@@ -15738,6 +15800,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5478351985242798854}
   - component: {fileID: 2551853043993737570}
+  - component: {fileID: 548959092325805664}
   m_Layer: 22
   m_Name: intl.cue-1
   m_TagString: Untagged
@@ -15776,17 +15839,47 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c035b4a64fd3d9c44a898543d1e972c9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: 
-    AssetBundleDescription: 
   IsOwnedLocally: 0
   CurrentOwner: 0
   table: {fileID: 6338887527519480172}
-  primary: {fileID: 7228318045472997889}
-  secondary: {fileID: 6667137909423648945}
+  primary: {fileID: 5853561038233622977}
+  secondary: {fileID: 8294986388532547892}
   desktop: {fileID: 1278764928797503435}
   body: {fileID: 6878229089086821707}
   cuetip: {fileID: 7592781117894492560}
+  holderIsDesktop: 0
+  primaryHolding: 0
+  secondaryHolding: 0
+  cueScaleMine: 1
+  cueSmoothingLocal: 1
+  cueSmoothing: 30
+  secondaryOffset: {x: 0, y: 0, z: 0}
+  origPrimaryPosition: {x: 0, y: 0, z: 0}
+  origSecondaryPosition: {x: 0, y: 0, z: 0}
+  lagPrimaryPosition: {x: 0, y: 0, z: 0}
+  lagSecondaryPosition: {x: 0, y: 0, z: 0}
+  primaryController: {fileID: 0}
+  secondaryController: {fileID: 0}
+  cueRenderer: {fileID: 0}
+  gripSize: 0
+  cuetipDistance: 0
+  authorizedOwners: 
+--- !u!114 &548959092325805664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5478351985242798849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsOwnedLocally: 0
+  CurrentOwner: 0
+  BasisPickupInteractable: {fileID: 0}
+  HasRemoteIndex: 0
 --- !u!1 &5525487902652233909
 GameObject:
   m_ObjectHideFlags: 0
@@ -20788,9 +20881,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 82123ec725c1c2a4cb3b50daac0e2662, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: 
-    AssetBundleDescription: 
   IsOwnedLocally: 0
   CurrentOwner: 0
   textureSets:
@@ -20801,9 +20891,6 @@ MonoBehaviour:
   - {fileID: 2800000, guid: 0f29fb54b18431741943088713852c34, type: 3}
   cueSkins:
   - {fileID: 2800000, guid: b1565def004b4b84297c27efe86ee289, type: 3}
-  tableSkinHook: {fileID: 0}
-  cueSkinHook: {fileID: 0}
-  nameColorHook: {fileID: 0}
   k_SPOT_POSITION_X: 0.5334
   networkingManager: {fileID: 3780616983508798003}
   practiceManager: {fileID: 7606114151940250570}
@@ -24805,6 +24892,7 @@ GameObject:
   - component: {fileID: 6524798722430289606}
   - component: {fileID: 1790165073254704023}
   - component: {fileID: 9184321857923938895}
+  - component: {fileID: 8294986388532547892}
   m_Layer: 22
   m_Name: secondary
   m_TagString: Untagged
@@ -24994,6 +25082,22 @@ MonoBehaviour:
         _restPosition: {x: 0, y: 0, z: 0}
         _restRotation: {x: 0, y: 0, z: 0, w: 0}
         sources: []
+--- !u!114 &8294986388532547892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6667137909423648945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsOwnedLocally: 0
+  CurrentOwner: 0
+  BasisPickupInteractable: {fileID: 0}
+  HasRemoteIndex: 0
 --- !u!1 &6727535241551991469
 GameObject:
   m_ObjectHideFlags: 0
@@ -26786,6 +26890,7 @@ GameObject:
   - component: {fileID: 7876456815965063224}
   - component: {fileID: 7826626209579736159}
   - component: {fileID: 1750550754277565211}
+  - component: {fileID: 5853561038233622977}
   m_Layer: 22
   m_Name: primary
   m_TagString: Untagged
@@ -26975,6 +27080,22 @@ MonoBehaviour:
         _restPosition: {x: 0, y: 0, z: 0}
         _restRotation: {x: 0, y: 0, z: 0, w: 0}
         sources: []
+--- !u!114 &5853561038233622977
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7228318045472997889}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d2aa9116619ed954aa8e19d984b58ada, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  IsOwnedLocally: 0
+  CurrentOwner: 0
+  BasisPickupInteractable: {fileID: 0}
+  HasRemoteIndex: 0
 --- !u!1 &7265568154260023420
 GameObject:
   m_ObjectHideFlags: 0
@@ -28524,9 +28645,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f727c93275c4f24e95c21afea5d35cc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BasisBundleDescription:
-    AssetBundleName: 
-    AssetBundleDescription: 
   IsOwnedLocally: 0
   CurrentOwner: 0
 --- !u!1 &7839368378687396394

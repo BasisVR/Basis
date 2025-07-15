@@ -40,9 +40,12 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     public override void OnNetworkReady()
     {
-        if (BasisPickupInteractable.RigidRef != null)
+        if (BasisPickupInteractable != null)
         {
-            BasisPickupInteractable.RigidRef.isKinematic = false;
+            if (BasisPickupInteractable.RigidRef != null)
+            {
+                BasisPickupInteractable.RigidRef.isKinematic = false;
+            }
         }
         ControlState();
     }

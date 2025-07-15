@@ -230,10 +230,10 @@ namespace Basis
 
             return path;
         }
-        public async void UnsafeTakeOwnership()
+        public async void RequestTakeOwnership()
         {
             //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            await TakeOwnershipAsync();
         }
         public async Task<BasisOwnershipResult> TakeOwnershipAsync()
         {

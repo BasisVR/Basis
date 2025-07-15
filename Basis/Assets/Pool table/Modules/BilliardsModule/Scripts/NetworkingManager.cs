@@ -4,7 +4,6 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
 using System;
-using System.Threading.Tasks;
 using UnityEngine;
 public class NetworkingManager : BasisNetworkBehaviour
 {
@@ -111,7 +110,7 @@ public class NetworkingManager : BasisNetworkBehaviour
 
         for (int i = 0; i < MAX_PLAYERS; i++)
         {
-            playerSlot._Init(this);
+            playerSlot.Initialization(this);
         }
 
     }
@@ -119,10 +118,16 @@ public class NetworkingManager : BasisNetworkBehaviour
     // called by the PlayerSlot script
     public void _OnPlayerSlotChanged(PlayerSlot slot)
     {
-        if (NetworkedSyncInfo.gameStateSynced == 0) return; // we don't process player registrations if the lobby isn't open
-
-        if (!IsLocalOwner()) return; // only the owner processes player registrations
-
+        if (NetworkedSyncInfo.gameStateSynced == 0)
+        {
+            BasisDebug.LogError("we don't process player registrations if the lobby isn't open");
+            return;
+        }
+        if (!IsLocalOwner())
+        {
+            BasisDebug.LogError("only the owner processes player registrations");
+            return; // only the owner processes player registrations
+        }
         BasisNetworkPlayer slotOwner = slot.currentOwnedPlayer;
         if (slotOwner != null)
         {
@@ -130,17 +135,17 @@ public class NetworkingManager : BasisNetworkBehaviour
 
             bool changedSlot = false;
             int numPlayersPrev = 0;
-            for (int i = 0; i < MAX_PLAYERS; i++)
+            for (int Index = 0; Index < MAX_PLAYERS; Index++)
             {
-                if (NetworkedSyncInfo.playerIDsSynced[i] != -1)
+                if (NetworkedSyncInfo.playerIDsSynced[Index] != -1)
                 {
                     numPlayersPrev++;
                 }
-                if (NetworkedSyncInfo.playerIDsSynced[i] == slotOwnerID)
+                if (NetworkedSyncInfo.playerIDsSynced[Index] == slotOwnerID)
                 {
-                    if (i != slot.SyncedSlot.slot)
+                    if (Index != slot.SyncedSlot.slot)
                     {
-                        NetworkedSyncInfo.playerIDsSynced[i] = -1;
+                        NetworkedSyncInfo.playerIDsSynced[Index] = -1;
                         changedSlot = true;
                     }
                 }
@@ -172,39 +177,21 @@ public class NetworkingManager : BasisNetworkBehaviour
             }
         }
     }
-
-    /*public override void OnDeserialization()
-    {
-        if (table == null)
-        {
-            hasDeferredUpdate = true;
-            return;
-        }
-
-        if (table.isLocalSimulationRunning && isUrgentSynced == 0)
-        {
-            table._LogInfo("received non-urgent update, deferring until local simulation is complete");
-            hasDeferredUpdate = true;
-            return;
-        }
-        
-        processRemoteState();
-    }*/
     public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
-        BasisDebug.Log("OnNetworkMessage For Billard");
         if (buffer == null)
         {
+            BasisDebug.Log("OnNetworkMessage For OnPlayerPrepareShoot");
             OnPlayerPrepareShoot();
         }
         else
         {
+            BasisDebug.Log("OnNetworkMessage For NetworkedSyncInfo");
             NetworkedSyncInfo = SerializationUtility.DeserializeValue<NetworkTransportedInformation>(buffer, DataFormat.Binary);
 
             OnDeserialization();
         }
     }
-
     internal void OnDeserialization()
     {
 

@@ -48,20 +48,27 @@ public class CueGrip : MonoBehaviour
         }
     }
 
-    public async void OnPickup(BasisInput Input)
+    public void OnPickup(BasisInput Input)
     {
         if (isSecondary)
+        {
             controller._OnSecondaryPickup();
+        }
         else
-          await  controller._OnPrimaryPickup();
+        {
+            controller._OnPrimaryPickup();
+        }
     }
-
     public void OnDrop(BasisInput Input)
     {
         if (isSecondary)
+        {
             controller._OnSecondaryDrop();
+        }
         else
+        {
             controller._OnPrimaryDrop();
+        }
     }
 
     public void OnPickupUseDown()

@@ -322,66 +322,10 @@ public class GraphicsManager : MonoBehaviour
     public string _FormatName(BasisNetworkPlayer player)
     {
         if (player == null) { return "No one"; }
-        if (table.nameColorHook == null) return player.displayName;
         if (player.displayName == null) return string.Empty;
-
-        table.nameColorHook.SendMessage("inOwner", player.displayName);
-        table.nameColorHook.SendMessage("_GetNameColor");
 
         return $"{player.displayName}</color>";
     }
-
-    private string rainbow(string name)
-    {
-        string[] colors = generateRainbow(name.Length);
-        for (int i = 0; i < name.Length; i++)
-        {
-            colors[i] = $"<color=#{colors[i]}>{name[i]}</color>";
-        }
-        return string.Join("", colors);
-    }
-
-    private string[] generateRainbow(int numColors)
-    {
-        string[] colors = new string[numColors];
-
-        float n = (float)numColors;
-        for (int i = 0; i < numColors; i++)
-        {
-            int red = 255;
-            int green = 0;
-            int blue = 0;
-            //red: (first quarter)
-            if (i <= n / 4)
-            {
-                red = 255;
-                green = (int)(255 / (n / 4) * i);
-                blue = 0;
-            }
-            else if (i <= n / 2)  //2nd quarter
-            {
-                red = (int)((-255) / (n / 4) * i + 255 * 2);
-                green = 255;
-                blue = 0;
-            }
-            else if (i <= (.75) * n)
-            { // 3rd quarter
-                red = 0;
-                green = 255;
-                blue = (int)(255 / (n / 4) * i + (-255 * 2));
-            }
-            else if (i > (.75) * n)
-            {
-                red = 0;
-                green = (int)(-255 * i / (n / 4) + (255 * 4));
-                blue = 255;
-            }
-
-            colors[i] = $"{red.ToString("X2")}{green.ToString("X2")}{blue.ToString("X2")}";
-        }
-        return colors;
-    }
-
     public void _PlayIntroAnimation()
     {
         introAnimationTime = 2.0f;

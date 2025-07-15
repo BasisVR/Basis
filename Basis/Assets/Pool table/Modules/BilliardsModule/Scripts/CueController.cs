@@ -3,62 +3,45 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
 using System;
-using System.Threading.Tasks;
 using UnityEngine;
 public class CueController : BasisNetworkBehaviour
 {
-    [SerializeField] private BilliardsModule table;
-
-    [SerializeField] private GameObject primary;
-    [SerializeField] private GameObject secondary;
-    [SerializeField] private GameObject desktop;
-    [SerializeField] private GameObject body;
-    [SerializeField] private GameObject cuetip;
-
-    // [UdonSynced] private byte syncedCueSkin;
-    // private int activeCueSkin;
-
-    private bool holderIsDesktop;
-    private bool primaryHolding;
-
+    [SerializeField] public BilliardsModule table;
+    [SerializeField] public BasisNetworkBehaviour primary;
+    [SerializeField] public BasisNetworkBehaviour secondary;
+    [SerializeField] public GameObject desktop;
+    [SerializeField] public GameObject body;
+    [SerializeField] public GameObject cuetip;
+    public bool holderIsDesktop;
+    public bool primaryHolding;
     public SyncedCueControllerData SyncControllerData = new SyncedCueControllerData();
     public class SyncedCueControllerData
     {
         public bool syncedHolderIsDesktop;
         public bool primaryLocked;
+        public bool secondaryLocked;
+        public float cueScale = 1;
         public Vector3 primaryLockPos;
         public Vector3 primaryLockDir;
-        public bool secondaryLocked;
         public Vector3 secondaryLockPos;
-        public float cueScale = 1;
     }
-
-    private bool secondaryHolding;
-
-    private float cueScaleMine = 1;
-    private float cueSmoothingLocal = 1;
-    private float cueSmoothing = 30;
-
-    private Vector3 secondaryOffset;
-
-    private Vector3 origPrimaryPosition;
-    private Vector3 origSecondaryPosition;
-
-    private Vector3 lagPrimaryPosition;
-    private Vector3 lagSecondaryPosition;
-
-    private CueGrip primaryController;
-    private CueGrip secondaryController;
-
-    private Renderer cueRenderer;
-
-    private float gripSize;
-    private float cuetipDistance;
-
-    private int[] authorizedOwners;
-
+    public bool secondaryHolding;
+    public float cueScaleMine = 1;
+    public float cueSmoothingLocal = 1;
+    public float cueSmoothing = 30;
+    public Vector3 secondaryOffset;
+    public Vector3 origPrimaryPosition;
+    public Vector3 origSecondaryPosition;
+    public Vector3 lagPrimaryPosition;
+    public Vector3 lagSecondaryPosition;
+    public CueGrip primaryController;
+    public CueGrip secondaryController;
+    public Renderer cueRenderer;
+    public float gripSize;
+    public float cuetipDistance;
+    public int[] authorizedOwners;
     [NonSerialized] public bool TeamBlue;
-    public void _Init()
+    public void Initialization()
     {
         cueRenderer = this.transform.Find("body/render").GetComponent<Renderer>();
 
@@ -79,13 +62,6 @@ public class CueController : BasisNetworkBehaviour
         resetSecondaryOffset();
         _RefreshRenderer();
     }
-
-    // private void refreshCueSkin()
-    // {
-    //     cueRenderer = this.transform.Find("body/render").GetComponent<Renderer>();
-    //     cueRenderer.materials[1].SetTexture("_MainTex", table.cueSkins[activeCueSkin]);
-    // }
-
     private void refreshCueScale()
     {
         float factor = Mathf.Clamp(SyncControllerData.cueScale, 0.5f, 1.5f) - 0.5f;
@@ -150,8 +126,8 @@ public class CueController : BasisNetworkBehaviour
     }
     public void UpdateDesktopPosition()
     {
-        desktop.transform.position = body.transform.position;
-        desktop.transform.rotation = body.transform.rotation;
+        body.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+        desktop.transform.SetPositionAndRotation(Position, Rotation);
     }
     private void FixedUpdate()
     {
@@ -203,8 +179,8 @@ public class CueController : BasisNetworkBehaviour
                 }
                 else
                 {
-                    body.transform.position = desktop.transform.position;
-                    body.transform.rotation = desktop.transform.rotation;
+                    desktop.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+                    body.transform.SetPositionAndRotation(Position, Rotation);
                 }
 
                 // clamp controllers
@@ -246,8 +222,8 @@ public class CueController : BasisNetworkBehaviour
             else
             {
                 // other player is on desktop, use the slower synced marker
-                body.transform.position = desktop.transform.position;
-                body.transform.rotation = desktop.transform.rotation;
+                desktop.transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+                body.transform.SetPositionAndRotation(Position, Rotation);
             }
             updateLagPosition();
         }
@@ -276,15 +252,6 @@ public class CueController : BasisNetworkBehaviour
         Vector3 position = primary.transform.InverseTransformPoint(secondary.transform.position);
         secondaryOffset = position.normalized * Mathf.Clamp(position.magnitude, gripSize * 2, cuetipDistance);
     }
-
-    private async Task takeOwnership()
-    {
-        await TakeOwnershipAsync();
-        //SetOwner(Networking.LocalPlayer, this.gameObject);
-        // Networking.SetOwner(Networking.LocalPlayer, primary);
-        //  Networking.SetOwner(Networking.LocalPlayer, secondary);
-        // Networking.SetOwner(Networking.LocalPlayer, desktop);
-    }
     private void resetPosition()
     {
         primary.transform.position = origPrimaryPosition;
@@ -297,33 +264,33 @@ public class CueController : BasisNetworkBehaviour
         body.transform.LookAt(origSecondaryPosition);
     }
 
-    public async Task _OnPrimaryPickup()
+    public void _OnPrimaryPickup()
     {
-        await takeOwnership();
+        RequestTakeOwnership();
+        primary.RequestTakeOwnership();
+        secondary.RequestTakeOwnership();
 
         holderIsDesktop = !BasisNetworkPlayer.LocalPlayer.IsUserInVR();
         SyncControllerData.syncedHolderIsDesktop = holderIsDesktop;
         primaryHolding = true;
         SyncControllerData.primaryLocked = false;
-        // syncedCueSkin = table.activeCueSkin;
         SyncControllerData.cueScale = cueScaleMine;
-        RequestSerialization();
-        OnDeserialization();
-
+        RequestSerialization();//local does OnDeserialization from this function aswell
         refreshCueSmoothing();
 
         table._OnPickupCue();
 
-        if (!holderIsDesktop) secondaryController._Show();
+        if (!holderIsDesktop)
+        {
+            secondaryController._Show();
+        }
     }
 
     public void _OnPrimaryDrop()
     {
         primaryHolding = false;
         SyncControllerData.syncedHolderIsDesktop = false;
-        RequestSerialization();
-        OnDeserialization();
-
+        RequestSerialization();//local does OnDeserialization from this function aswell
         refreshCueSmoothing();
 
         // hide secondary
@@ -361,10 +328,17 @@ public class CueController : BasisNetworkBehaviour
             SyncControllerData.primaryLocked = true;
             SyncControllerData.primaryLockPos = body.transform.position;
             SyncControllerData.primaryLockDir = body.transform.forward.normalized;
-            RequestSerialization();
+            RequestSerialization();//local does OnDeserialization from this function aswell
 
             table._TriggerCueActivate();
         }
+    }
+
+    private void RequestSerialization()
+    {
+        byte[] Data = SerializationUtility.SerializeValue<SyncedCueControllerData>(SyncControllerData, DataFormat.Binary);
+        SendCustomNetworkEvent(Data, DeliveryMethod.ReliableOrdered);
+        OnDeserialization();
     }
     public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
@@ -374,13 +348,6 @@ public class CueController : BasisNetworkBehaviour
     private void OnDeserialization()
     {
         refreshCueScale();
-
-    }
-
-    private void RequestSerialization()
-    {
-       byte[] Data = SerializationUtility.SerializeValue<SyncedCueControllerData>(SyncControllerData, DataFormat.Binary);
-        SendCustomNetworkEvent(Data, DeliveryMethod.ReliableOrdered);
     }
 
     public void _OnPrimaryUseUp()
@@ -388,7 +355,7 @@ public class CueController : BasisNetworkBehaviour
         if (!holderIsDesktop)
         {
             SyncControllerData.primaryLocked = false;
-            RequestSerialization();
+            RequestSerialization();//local does OnDeserialization from this function aswell
 
             table._TriggerCueDeactivate();
         }
@@ -398,7 +365,7 @@ public class CueController : BasisNetworkBehaviour
     {
         secondaryHolding = true;
         SyncControllerData.secondaryLocked = false;
-        RequestSerialization();
+        RequestSerialization();//local does OnDeserialization from this function aswell
     }
 
     public void _OnSecondaryDrop()
@@ -413,36 +380,20 @@ public class CueController : BasisNetworkBehaviour
         SyncControllerData.secondaryLocked = true;
         SyncControllerData.secondaryLockPos = secondary.transform.position;
 
-        RequestSerialization();
+        RequestSerialization();//local does OnDeserialization from this function aswell
     }
 
     public void _OnSecondaryUseUp()
     {
         SyncControllerData.secondaryLocked = false;
 
-        RequestSerialization();
+        RequestSerialization();//local does OnDeserialization from this function aswell
     }
 
     public void _RefreshRenderer()
     {
-        // enable if live, in LoD range,
-        // disable second cue if in practice mode
-        if (table.gameLive && (!table.isPracticeMode || this == table.cueControllers[0]))
-            _EnableRenderer();
-        else
-            _DisableRenderer();
+        cueRenderer.enabled = (table.gameLive && (!table.isPracticeMode || this == table.cueControllers[0]));
     }
-
-    public void _EnableRenderer()
-    {
-        cueRenderer.enabled = true;
-    }
-
-    public void _DisableRenderer()
-    {
-        cueRenderer.enabled = false;
-    }
-
     public void setSmoothing(float smoothing)
     {
         cueSmoothingLocal = smoothing;
@@ -452,23 +403,32 @@ public class CueController : BasisNetworkBehaviour
     public void setScale(float scale)
     {
         cueScaleMine = scale;
-        if (!IsLocalOwner()) return;
+        if (!IsLocalOwner())
+        {
+            BasisDebug.LogError("Was Not owner For Set Scale!");
+            return;
+        }
 
         SyncControllerData.cueScale = cueScaleMine;
 
-        RequestSerialization();
-        OnDeserialization();
+        RequestSerialization();//local does OnDeserialization from this function aswell
     }
 
     public void resetScale()
     {
-        if (!IsLocalOwner()) return;
-
-        if (SyncControllerData.cueScale == 1) return;
+        if (!IsLocalOwner())
+        {
+            BasisDebug.LogError("Was Not owner For resetScale!");
+            return;
+        }
+        if (SyncControllerData.cueScale == 1)
+        {
+            return;
+        }
         SyncControllerData.cueScale = 1;
 
-        RequestSerialization();
-        OnDeserialization();
+        RequestSerialization();//local does OnDeserialization from this function aswell
+
     }
     private void clampControllers()
     {
@@ -493,6 +453,6 @@ public class CueController : BasisNetworkBehaviour
 
     public BasisNetworkPlayer _GetHolder()
     {
-        return primary.GetComponent<BasisNetworkBehaviour>().currentOwnedPlayer;
+        return primary.currentOwnedPlayer;
     }
 }

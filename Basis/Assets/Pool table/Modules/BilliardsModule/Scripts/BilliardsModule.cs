@@ -15,7 +15,6 @@ using Basis;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking;
 using Basis.Scripts.BasisSdk.Interactions;
-using System.Threading.Tasks;
 public class BilliardsModule : BasisNetworkBehaviour
 {
     [NonSerialized] public readonly string[] DEPENDENCIES = new string[] { nameof(CameraOverrideModule) };
@@ -83,11 +82,6 @@ public class BilliardsModule : BasisNetworkBehaviour
     [NonSerialized] public ModelData[] tableModels;
     [SerializeField] public Texture2D[] tableSkins;
     [SerializeField] public Texture2D[] cueSkins;
-
-    // hooks
-    [SerializeField] public MonoBehaviour tableSkinHook;
-    [SerializeField] public MonoBehaviour cueSkinHook;
-    [SerializeField] public MonoBehaviour nameColorHook;
 
     // globals
     [NonSerialized] public AudioSource aud_main;
@@ -333,7 +327,7 @@ public class BilliardsModule : BasisNetworkBehaviour
         aud_main = this.GetComponent<AudioSource>();
         cueControllers[1].TeamBlue = true;
         for (int i = 0; i < cueControllers.Length; i++)
-        { cueControllers[i]._Init(); }
+        { cueControllers[i].Initialization(); }
         networkingManager._Init(this);
         practiceManager._Init(this);
         repositionManager._Init(this);
@@ -707,31 +701,6 @@ public class BilliardsModule : BasisNetworkBehaviour
     }
     #endregion
 
-    public bool _CanUseTableSkin(string owner, int skin)
-    {
-        if (tableSkinHook == null) return false;
-
-        //tableSkinHook.SendMessage("inOwner", owner);
-        //tableSkinHook.SendMessage("inSkin", skin);
-        //tableSkinHook.SendMessage("_CanUseTableSkin");
-
-        // return (bool)tableSkinHook.("outCanUse");
-        return false;
-    }
-
-    public bool _CanUseCueSkin(int owner, int skin)
-    {
-        if (cueSkinHook == null) return false;
-
-       // cueSkinHook.SendMessage("inOwner", owner);
-        //cueSkinHook.SendMessage("inSkin", skin);
-       // cueSkinHook.SendMessage("_CanUseCueSkin");
-
-        //  return (bool)cueSkinHook.GetProgramVariable("outCanUse");
-        return false;
-    }
-
-
     #region NetworkingClient
     // the order is important, unfortunately
     public void _OnRemoteDeserialization()
@@ -861,8 +830,6 @@ public class BilliardsModule : BasisNetworkBehaviour
 
     private void onRemotePlayersChanged(int[] playerIDsSynced)
     {
-        // int myOldSlot = _GetPlayerSlot(Networking.LocalPlayer, playerIDsLocal);
-
         if (intArrayEquals(playerIDsLocal, playerIDsSynced)) return;
 
         Array.Copy(playerIDsLocal, playerIDsCached, playerIDsLocal.Length);
@@ -931,7 +898,8 @@ public class BilliardsModule : BasisNetworkBehaviour
         {
             onRemoteGameEnded(networkingManager.NetworkedSyncInfo.winningTeamSynced);
         }
-        for (int i = 0; i < cueControllers.Length; i++) cueControllers[i]._RefreshRenderer();
+        for (int Index = 0; Index < cueControllers.Length; Index++)
+            cueControllers[Index]._RefreshRenderer();
     }
 
     private void onRemoteLobbyOpened()
@@ -1281,19 +1249,18 @@ public class BilliardsModule : BasisNetworkBehaviour
 
         if (turnStateLocal == 0 || turnStateLocal == 2)
         {
-            /* if (turnStateLocal == 2) */
             turnStateLocal = 0; // synthetic state
 
             onRemoteTurnBegin(networkingManager.NetworkedSyncInfo.timerStartSynced);
-            // practiceManager._Record();
             auto_colliderBaseVFX.SetActive(false);
         }
         else if (turnStateLocal == 1)
         {
             // prevent simulation from running twice if a serialization was sent during sim
             if (stateChanged || networkingManager.NetworkedSyncInfo.isUrgentSynced == 2)
+            {
                 onRemoteTurnSimulate(networkingManager.NetworkedSyncInfo.cueBallVSynced, networkingManager.NetworkedSyncInfo.cueBallWSynced);
-            // practiceManager._Record();
+            }
         }
         else
         {
@@ -3154,9 +3121,9 @@ public class BilliardsModule : BasisNetworkBehaviour
 
         byte[] scoresA = (byte[])a[2];
         byte[] scoresB = (byte[])b[2];
-        for (byte i = 0; i < fbScoresLocal.Length; i++) if (scoresA[i] != scoresB[i]) return false;
+        for (byte Index = 0; Index < fbScoresLocal.Length; Index++) if (scoresA[Index] != scoresB[Index]) return false;
 
-        for (byte i = 0; i < a.Length; i++) if (i != 0 && i != 2 && !a[i].Equals(b[i])) return false;
+        for (byte AIndex = 0; AIndex < a.Length; AIndex++) if (AIndex != 0 && AIndex != 2 && !a[AIndex].Equals(b[AIndex])) return false;
 
         return true;
     }
@@ -3170,11 +3137,11 @@ public class BilliardsModule : BasisNetworkBehaviour
     {
         if (who == null) return -1;
 
-        for (int i = 0; i < 4; i++)
+        for (int Index = 0; Index < 4; Index++)
         {
-            if (playerlist[i] == who.playerId)
+            if (playerlist[Index] == who.playerId)
             {
-                return i;
+                return Index;
             }
         }
 
@@ -3186,9 +3153,9 @@ public class BilliardsModule : BasisNetworkBehaviour
         if (who == null) return false;
         if (who.IsLocal && localPlayerId >= 0) return true;
 
-        for (int i = 0; i < 4; i++)
+        for (int Index = 0; Index < 4; Index++)
         {
-            if (playerIDsLocal[i] == who.playerId)
+            if (playerIDsLocal[Index] == who.playerId)
             {
                 return true;
             }
@@ -3196,23 +3163,12 @@ public class BilliardsModule : BasisNetworkBehaviour
 
         return false;
     }
-
-    private bool stringArrayEquals(string[] a, string[] b)
-    {
-        if (a.Length != b.Length) return false;
-        for (int i = 0; i < a.Length; i++)
-        {
-            if (a[i] != b[i]) return false;
-        }
-        return true;
-    }
-
     private bool intArrayEquals(int[] a, int[] b)
     {
         if (a.Length != b.Length) return false;
-        for (int i = 0; i < a.Length; i++)
+        for (int Index = 0; Index < a.Length; Index++)
         {
-            if (a[i] != b[i]) return false;
+            if (a[Index] != b[Index]) return false;
         }
         return true;
     }
@@ -3220,9 +3176,9 @@ public class BilliardsModule : BasisNetworkBehaviour
     private bool vector3ArrayEquals(Vector3[] a, Vector3[] b)
     {
         if (a.Length != b.Length) return false;
-        for (int i = 0; i < a.Length; i++)
+        for (int Index = 0; Index < a.Length; Index++)
         {
-            if (a[i] != b[i]) return false;
+            if (a[Index] != b[Index]) return false;
         }
         return true;
     }
@@ -3232,9 +3188,9 @@ public class BilliardsModule : BasisNetworkBehaviour
     {
         SendCustomEventDelayedSeconds(checkDistanceLoop, 1f);
 
-        for (int i = 0; i < cueControllers.Length; i++)
+        for (int Index = 0; Index < cueControllers.Length; Index++)
         {
-            cueControllers[i]._RefreshRenderer();
+            cueControllers[Index]._RefreshRenderer();
         }
         balls[0].transform.parent.gameObject.SetActive(true);
         debugger.SetActive(true);
