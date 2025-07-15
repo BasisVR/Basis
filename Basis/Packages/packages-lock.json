@@ -12,6 +12,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.bundlemanagement": {
+      "version": "file:com.basis.bundlemanagement",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.common": {
       "version": "file:com.basis.common",
       "depth": 0,

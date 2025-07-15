@@ -1,4 +1,3 @@
-using Basis.Scripts.Avatar;
 using BasisSerializer.OdinSerializer;
 using System;
 using System.Collections.Concurrent;
@@ -19,6 +18,7 @@ public static class BasisLoadHandler
     private static readonly object _discInfoLock = new object();
     private static SemaphoreSlim _initSemaphore = new SemaphoreSlim(1, 1);
     public static int TimeUntilMemoryRemoval = 30;
+    public const string LoadingAvatar = "LoadingAvatar";
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static async Task OnGameStart()
     {
@@ -67,7 +67,7 @@ public static class BasisLoadHandler
         }
         else
         {
-            if (CombinedURL.ToLower() != BasisAvatarFactory.LoadingAvatar.BasisRemoteBundleEncrypted.RemoteBeeFileLocation.ToLower())
+            if (CombinedURL.ToLower() != LoadingAvatar.ToLower())
             {
                 BasisDebug.LogError($"tried to find Loaded Key {CombinedURL} but could not find it!");
             }

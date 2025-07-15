@@ -1,0 +1,7 @@
+{
+  "name": "com.basis.bundlemanagement",
+  "displayName": "Basis Bundle Management",
+  "version": "0.0.1",
+  "description": "Basis Bundle Management for loading and unloading bundles",
+  "_fingerprint": "bdafadab10017ecde7cc8a08c48df1931e60284e"
+}

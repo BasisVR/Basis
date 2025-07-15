@@ -1,0 +1,18 @@
+{
+    "name": "BasisBundleManagement",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a2bda89a3179a5324b88c0a9d3224e44",
+        "GUID:b4ae365a73764ee478adc74cb89832fe",
+        "GUID:45c7722710e2a37438daaacbf1cd4ad1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
