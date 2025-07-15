@@ -1139,7 +1139,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -1534,7 +1534,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -2001,7 +2001,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -2335,7 +2335,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -3077,7 +3077,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -4925,7 +4925,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -5830,7 +5830,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -7376,7 +7376,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -8580,7 +8580,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -8792,7 +8792,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -13360,7 +13360,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -14933,7 +14933,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -16397,7 +16397,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -23574,7 +23574,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -25754,7 +25754,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
@@ -25912,7 +25912,7 @@ MonoBehaviour:
       Source: {fileID: 0}
       State: 0
     extras: []
-  interactableEnabled: 1
+  interactableEnabled: 0
   Equippable: 0
   IsPuppeted: 0
   KinematicWhileInteracting: 1
