@@ -10,6 +10,7 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkGenericMessages;
@@ -311,7 +312,23 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             rotation = Quaternion.identity;
             return false;
         }
-
+        public bool GetTrackingData(BasisBoneTrackedRole Role, out BasisCalibratedCoords outgoing)
+        {
+            if (Player.IsLocal)
+            {
+                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl Control, Role))
+                {
+                    outgoing = Control.OutgoingWorldData;
+                    return true;
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Not Implemented Remote GetTrackingData", BasisDebug.LogTag.Networking);
+            }
+            outgoing = new BasisCalibratedCoords();
+            return false;
+        }
         /// <summary>
         /// Duration only works on steamvr.
         /// Todo: add openxr duration manual tracking,
@@ -388,6 +405,32 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 return Quaternion.identity;
             }
         }
+
+        public static BasisNetworkPlayer[] GetAllPlayers()
+        {
+           return BasisNetworkManagement.Players.Values.ToArray();
+        }
+
+        public static int GetPlayerCount()
+        {
+            return BasisNetworkManagement.Players.Count;
+        }
+        public static bool PlayerToName(string name,out BasisNetworkPlayer NetworkPlayer)
+        {
+            foreach(var player in BasisNetworkManagement.Players.Values)
+            {
+                if(player != null)
+                {
+                    if (player.displayName == name)
+                    {
+                        NetworkPlayer = player;
+                        return true;
+                    }
+                }
+            }
+            NetworkPlayer = null;
+            return false;
+        } 
         /// <summary>
         /// this occurs after the localplayer has been approved by the network and setup
         /// </summary>

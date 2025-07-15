@@ -1,4 +1,6 @@
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.Drivers;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,11 +9,34 @@ namespace Basis.Scripts.UI
 public class BasisGraphicUIRayCaster : MonoBehaviour
 {
     public Canvas Canvas;
-    public void OnEnable()
-    {
-        AddCanvasCollider();
-    }
-    public static void SetBoxColliderToRectTransform(GameObject handlerGameObject)
+        public void OnEnable()
+        {
+            AddCanvasCollider();
+            if (Canvas.worldCamera == null)
+            {
+                if (BasisLocalCameraDriver.HasInstance)
+                {
+                    Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+                }
+                else
+                {
+                    BasisLocalCameraDriver.InstanceExists += InstanceExists;
+                }
+            }
+        }
+        public void OnDisable()
+        {
+            BasisLocalCameraDriver.InstanceExists -= InstanceExists;
+        }
+        private void InstanceExists()
+        {
+            if (Canvas != null)
+            {
+                Canvas.worldCamera = BasisLocalCameraDriver.Instance.Camera;
+            }
+        }
+
+        public static void SetBoxColliderToRectTransform(GameObject handlerGameObject)
     {
         BoxCollider boxCollider = BasisHelpers.GetOrAddComponent<BoxCollider>(handlerGameObject);
 

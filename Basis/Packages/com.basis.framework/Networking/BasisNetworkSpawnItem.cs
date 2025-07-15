@@ -179,7 +179,7 @@ public static class BasisNetworkSpawnItem
             new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ),
             localLoadResource.ModifyScale, Selector, BasisNetworkManagement.Instance.transform);
 
-        if (reference.TryGetComponent<BasisContentBase>(out BasisContentBase BasisContentBase))
+        if (reference.TryGetComponent<BasisNetworkContentBase>(out BasisNetworkContentBase BasisContentBase))
         {
             BasisContentBase.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
         }

@@ -283,3 +283,45 @@ MonoBehaviour:
   - UnityEngine.UI.Button
   - Unity.XR.CoreUtils.XROrigin
   - Unity.XR.CoreUtils.OnDestroyNotifier
+  - BilliardsLoadMenu
+  - CollisionVisualizer
+  - MS_VRCSA_Menu
+  - ModelConfiguration
+  - quest_stuff
+  - UIButtonVisualizer
+  - AdvancedPhysicsManager
+  - BilliardsModule
+  - ButtonUndo
+  - CameraManager
+  - CueController
+  - CueGrip
+  - CueRackManager
+  - DesktopManager
+  - GraphicsManager
+  - InfoBoard
+  - MenuManager
+  - ModelData
+  - NetworkingManager
+  - PlayerSlot
+  - PracticeManager
+  - Repositioner
+  - RepositionManager
+  - StandardPhysicsManager
+  - UIButton
+  - Metaphira.Modules.CameraOverride.CameraOverrideModule
+  - UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  - Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+  - Basis.Scripts.BasisSdk.Interactions.BasisPickupJointInteractable
+  - TMPro.TextMeshPro
+  - TMPro.TextMeshProUGUI
+  - TMPro.TMP_Dropdown
+  - TMPro.TMP_InputField
+  - TMPro.TMP_ScrollbarEventHandler
+  - TMPro.TMP_SelectionCaret
+  - TMPro.TMP_SpriteAnimator
+  - TMPro.TMP_SubMesh
+  - TMPro.TMP_SubMeshUI
+  - TMPro.TMP_Dropdown+DropdownItem
+  - UnityEngine.Timeline.SignalReceiver
+  - TMPro.TextContainer
+  - Basis.Scripts.UI.BasisGraphicUIRayCaster

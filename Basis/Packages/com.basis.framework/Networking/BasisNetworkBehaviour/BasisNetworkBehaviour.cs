@@ -1,5 +1,4 @@
 using Basis.Scripts.BasisSdk;
-using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -11,7 +10,7 @@ using UnityEngine;
 using static BasisNetworkCommon;
 namespace Basis
 {
-    public abstract class BasisNetworkBehaviour : BasisContentBase
+    public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
     {
         private bool HasNetworkID = false;
         private ushort networkID;
@@ -22,7 +21,7 @@ namespace Basis
         }
         public bool IsOwnedLocally = false;
         public ushort CurrentOwner;
-        public BasisNetworkPlayer currentPlayer;
+        public BasisNetworkPlayer currentOwnedPlayer;
 
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
@@ -32,6 +31,8 @@ namespace Basis
             if (BasisNetworkManagement.LocalPlayerIsConnected == false)
             {
                 BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
+                BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
+                BasisNetworkPlayer.OnPlayerLeft += OnPlayerLeft;
             }
             else
             {
@@ -44,6 +45,20 @@ namespace Basis
             BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
             BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
             BasisScene.OnNetworkMessageReceived -= LowLevelNetworkMessageReceived;
+
+            BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
+            BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;
+        }
+        public bool IsLocalOwner()
+        {
+            if (HasNetworkID)
+            {
+                return IsOwnedLocally;
+            }
+            else
+            {
+                return false;
+            }
         }
         private async void OnLocalPlayerJoined(BasisNetworkPlayer player1, BasisLocalPlayer player2)
         {
@@ -75,7 +90,7 @@ namespace Basis
                     BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
                     var InitalOwnershipStatus = await output;
                     CurrentOwner = InitalOwnershipStatus.PlayerId;
-                    BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentPlayer);
+                    BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentOwnedPlayer);
                     HasNetworkID = IDResolverResult.Success;
                     NetworkID = IDResolverResult.Id;
                     if (HasNetworkID)
@@ -105,7 +120,14 @@ namespace Basis
             {
                 IsOwnedLocally = isOwner;
                 CurrentOwner = NetIdNewOwner;
-                BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentPlayer);
+                if (BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentOwnedPlayer))
+                {
+                    OnOwnershipTransfer(currentOwnedPlayer);
+                }
+                else
+                {
+                    BasisDebug.LogError("No Owner for Id " + CurrentOwner);
+                }
                 BasisDebug.Log("Owner set to " + IsOwnedLocally);
                 OnOwnershipTransfer(NetIdNewOwner);
             }
@@ -191,7 +213,7 @@ namespace Basis
                 elapsed += Time.deltaTime;
             }
         }
-        public static string LowLevelGetHierarchyPath(BasisContentBase obj)
+        public static string LowLevelGetHierarchyPath(BasisNetworkContentBase obj)
         {
             // Get the index of the component on the GameObject
             Component[] components = obj.gameObject.GetComponents(obj.GetType());
@@ -208,6 +230,17 @@ namespace Basis
 
             return path;
         }
+        public async void RequestTakeOwnership()
+        {
+            //no need to use await ownership will get back here from lower level.
+            await TakeOwnershipAsync();
+        }
+        public async Task<BasisOwnershipResult> TakeOwnershipAsync()
+        {
+            //no need to use await ownership will get back here from lower level.
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            return Result;
+        }
         public virtual void OnNetworkReady()
         {
 
@@ -223,20 +256,21 @@ namespace Basis
         {
 
         }
+        public virtual void OnOwnershipTransfer(BasisNetworkPlayer NetIdNewOwner)
+        {
+
+        }
         public virtual void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
 
         }
-        public async void UnsafeTakeOwnership()
+        public virtual void OnPlayerLeft(BasisNetworkPlayer player)
         {
-            //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+
         }
-        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int timeoutMs = 5000)
+        public virtual void OnPlayerJoined(BasisNetworkPlayer player)
         {
-            //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId, timeoutMs);
-            return Result;
+
         }
     }
 }
