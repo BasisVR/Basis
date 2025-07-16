@@ -549,7 +549,7 @@ namespace BasisServerHandle
         }
         #endregion
         #region Network ID Generation
-        public static void netIDAssign(NetPacketReader Reader, NetPeer Peer)
+        public static void NetIDAssign(NetPacketReader Reader, NetPeer Peer)
         {
             NetIDMessage ServerUniqueIDMessage = new NetIDMessage();
             ServerUniqueIDMessage.Deserialize(Reader);

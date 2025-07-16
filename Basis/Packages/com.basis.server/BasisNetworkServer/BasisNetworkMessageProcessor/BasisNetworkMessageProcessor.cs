@@ -5,9 +5,13 @@ using System.Threading;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
+using BasisNetworkCore;
+using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
 using LiteNetLib;
+using LiteNetLib.Utils;
+using static SerializableBasis;
 
 public static class BasisNetworkMessageProcessor
 {
@@ -227,7 +231,7 @@ public static class BasisNetworkMessageProcessor
 
                 case BasisNetworkCommons.netIDAssignChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
-                        BasisServerHandleEvents.netIDAssign(reader, peer);
+                        BasisServerHandleEvents.NetIDAssign(reader, peer);
                     break;
 
                 case BasisNetworkCommons.LoadResourceChannel:
@@ -300,6 +304,50 @@ public static class BasisNetworkMessageProcessor
                     }
                     reader.Recycle();
                     break;
+                case BasisNetworkCommons.StoreDatabaseChannel:
+                    if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
+                    {
+                        DatabasePrimativeMessage DataMessage = new DatabasePrimativeMessage();
+                        DataMessage.Deserialize(reader);
+
+                        BasisPersistentDatabase.AddOrUpdate(new BasisData(DataMessage.DatabaseID, DataMessage.jsonPayload));
+                    }
+                    reader.Recycle();
+                    break;
+                case BasisNetworkCommons.RequestStoreDatabaseChannel:
+                    if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
+                    {
+                        DataBaseRequest DataMessage = new DataBaseRequest();
+                        DataMessage.Deserialize(reader);
+
+                        if (BasisPersistentDatabase.GetByName(DataMessage.DatabaseID, out BasisData Database))
+                        {
+                            DatabasePrimativeMessage message = new DatabasePrimativeMessage
+                            {
+                                DatabaseID = DataMessage.DatabaseID,
+                                jsonPayload = Database.JsonPayload
+                            };
+                            NetDataWriter Writer = new NetDataWriter(true);
+                            message.Serialize(Writer);
+                            peer.Send(Writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
+
+                        }
+                        else
+                        {
+                            BasisPersistentDatabase.AddOrUpdate(new BasisData(DataMessage.DatabaseID, new ConcurrentDictionary<string, object>()));
+                            DatabasePrimativeMessage message = new DatabasePrimativeMessage
+                            {
+                                DatabaseID = DataMessage.DatabaseID,
+                                jsonPayload = new ConcurrentDictionary<string, object>(),
+                            };
+                            NetDataWriter Writer = new NetDataWriter(true);
+                            message.Serialize(Writer);
+                            peer.Send(Writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
+                        }
+                    }
+                    reader.Recycle();
+                    break;
+
                 default:
                     BNL.LogError($"Unknown channel: {channel} " + reader.AvailableBytes);
                     reader.Recycle();

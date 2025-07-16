@@ -67,7 +67,7 @@ public static class BasisNetworkResourceManagement
             {
                 BNL.Log("Adding Object " + LocalLoadResource.LoadedNetID);
 
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableSequenced);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableOrdered);
             }
             else
             {
@@ -86,7 +86,7 @@ public static class BasisNetworkResourceManagement
             NetDataWriter Writer = new NetDataWriter(true);
             UnLoadResource.Serialize(Writer);
             BNL.Log("Removing Object " + UnLoadResource.LoadedNetID);
-            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceChannel, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableSequenced);
+            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceChannel, BasisPlayerArray.GetSnapshot(), LiteNetLib.DeliveryMethod.ReliableOrdered);
         }
         else
         {

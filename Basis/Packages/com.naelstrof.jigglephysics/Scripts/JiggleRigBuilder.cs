@@ -72,9 +72,9 @@ namespace JigglePhysics
             /// </summary>
             public void ApplyValidPoseThenSampleTargetPose(double timeAsDouble)
             {
-                for (int i = 0; i < boneCount; i++)
+                for (int Index = 0; Index < boneCount; Index++)
                 {
-                    simulatedPoints[i].ApplyValidPoseThenSampleTargetPose(simulatedPoints, timeAsDouble, animated);
+                    simulatedPoints[Index].ApplyValidPoseThenSampleTargetPose(simulatedPoints, timeAsDouble, animated);
                 }
             }
 
@@ -417,30 +417,32 @@ namespace JigglePhysics
 
             #endregion
 
-            foreach (JiggleRig rig in jiggleRigs)
+            int JiggleCount = jiggleRigs.Count;
+            for (int Index = 0; Index < JiggleCount; Index++)
             {
-                rig.ApplyValidPoseThenSampleTargetPose(timeAsDouble);
+                jiggleRigs[Index].ApplyValidPoseThenSampleTargetPose(timeAsDouble);
             }
             accumulation = Math.Min(accumulation + deltaTime, MAX_CATCHUP_TIME);
             while (accumulation > VERLET_TIME_STEP)
             {
                 accumulation -= VERLET_TIME_STEP;
                 double time = timeAsDouble - accumulation;
-                foreach (JiggleRig rig in jiggleRigs)
+                for (int Index = 0; Index < JiggleCount; Index++)
                 {
-                    var data = rig.jiggleSettings.GetData();
+                    JiggleRig rig = jiggleRigs[Index];
+                    JiggleSettingsData data = rig.jiggleSettings.GetData();
                     data.blend *= blend;
-                    Vector3 acceleration = gravity * (data.gravityMultiplier * SQUARED_VERLET_TIME_STEP) + wind * (VERLET_TIME_STEP * data.airDrag);
-                    rig.StepSimulation(data, time, acceleration);
+                    rig.StepSimulation(data, time, gravity * (data.gravityMultiplier * SQUARED_VERLET_TIME_STEP) + wind * (VERLET_TIME_STEP * data.airDrag));
                 }
-                foreach (JiggleRig rig in jiggleRigs)
+                for (int Index = 0; Index < JiggleCount; Index++)
                 {
-                    rig.WriteSimulatedStep(time);
+                    jiggleRigs[Index].WriteSimulatedStep(time);
                 }
             }
 
-            foreach (JiggleRig rig in jiggleRigs)
+            for (int Index = 0; Index < JiggleCount; Index++)
             {
+                JiggleRig rig = jiggleRigs[Index];
                 var data = rig.jiggleSettings.GetData();
                 rig.Pose(debugDraw, timeAsDoubleOneStepBack, data.blend * blend);
             }

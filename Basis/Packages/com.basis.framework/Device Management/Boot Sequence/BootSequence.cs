@@ -1,6 +1,8 @@
 using Basis.Scripts.Addressable_Driver.Resource;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Unity.Services.Analytics;
+using Unity.Services.Core;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
@@ -15,8 +17,9 @@ namespace Basis.Scripts.Boot_Sequence
         public static string BasisFramework = "BasisFramework";
         public static bool HasEvents = false;
         public static bool WillBoot = true;
+        public static bool GrabUnityAnalytics = true;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void OnBeforeSceneLoadRuntimeMethod()
+        static async Task OnBeforeSceneLoadRuntimeMethod()
         {
             AsyncOperationHandle<IResourceLocator> Address = Addressables.InitializeAsync(false);
             if (WillBoot)
@@ -24,6 +27,12 @@ namespace Basis.Scripts.Boot_Sequence
                 Address.Completed += OnAddressablesInitializationComplete;
             }
             HasEvents = true;
+            if (GrabUnityAnalytics)
+            {
+                await UnityServices.InitializeAsync();
+                //EndUserConsent
+                AnalyticsService.Instance.StartDataCollection();
+            }
         }
         private static async void OnAddressablesInitializationComplete(AsyncOperationHandle<IResourceLocator> obj)
         {

@@ -34,7 +34,7 @@ namespace Basis.Network
             if (BasisDIDAuthIdentityClient.IdentityMessage(peer, Reader, out NetDataWriter Writer))
             {
                 BNL.Log("Sent Identity To Server!");
-                peer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableSequenced);
+                peer.Send(Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
                 Reader.Recycle();
             }
             else

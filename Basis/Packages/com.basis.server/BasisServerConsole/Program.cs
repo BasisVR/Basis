@@ -2,6 +2,7 @@ using Basis.Network;
 using Basis.Network.Server;
 using BasisNetworkConsole;
 using BasisNetworking.InitalData;
+using BasisNetworkServer.BasisNetworking;
 namespace Basis
 {
     class Program
@@ -68,7 +69,7 @@ namespace Basis
                 BNL.Log("Shutting down server...");
                 isRunning = false;
                 shutdownEvent.Set(); // Signal the main thread to exit
-
+                BasisPersistentDatabase.Shutdown();
                 if (config.EnableStatistics) BasisStatistics.StopWorkerThread();
                 await BasisServerSideLogging.ShutdownAsync();
                 BNL.Log("Server shut down successfully.");
