@@ -62,9 +62,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: "Cache Library folder"
+      - name: "Restore Library cache"
+        id: restore-cache
         timeout-minutes: 10
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v3
         with:
           path: ${{ env.projectPath }}/Library
           key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(env.projectPath) }}
@@ -97,6 +98,22 @@ jobs:
           androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+      - name: "Save Library Cache"
+        uses: actions/cache/save@v3
+        if: always() && github.ref_name == 'developer'
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+      - name: "Only retain latest cache"
+        if: always() && github.ref_name == 'developer'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}- --json id --jq '.[1:] | map(.id) | @sh')
+          for cache_id in $OLD_CACHE_IDS; do
+            gh cache delete $cache_id
+          done
       - name: "Upload client artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
