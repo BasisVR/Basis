@@ -68,10 +68,7 @@ jobs:
         with:
           path: ${{ env.projectPath }}/Library
           key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(env.projectPath) }}
-          restore-keys: |
-            Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
-            Library-${{ env.projectPath }}-
-            Library-
+          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
       - name: "Create version string"
         id: version
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
