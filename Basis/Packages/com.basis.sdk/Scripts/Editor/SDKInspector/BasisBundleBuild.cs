@@ -12,7 +12,7 @@ public static class BasisBundleBuild
 {
     public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
    
-    public static async Task<(bool, string)> GameObjectBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets)
+    public static async Task<(bool, string)> GameObjectBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets, bool useProvidedPassword = false, string OverridenPassword = "")
     {
         int TargetCount = Targets.Count;
         for (int Index = 0; Index < TargetCount; Index++)
@@ -22,7 +22,7 @@ public static class BasisBundleBuild
                 return new(false, "Please Install build Target for " + Targets[Index].ToString());
             }
         }
-        return await BuildBundle(BasisContentBase, Targets, (content, obj, hex, target) => BasisAssetBundlePipeline.BuildAssetBundle(content.gameObject, obj, hex, target));
+        return await BuildBundle(BasisContentBase, Targets, useProvidedPassword,OverridenPassword, (content, obj, hex, target) => BasisAssetBundlePipeline.BuildAssetBundle(content.gameObject, obj, hex, target));
     }
 
     public static bool CheckTarget(BuildTarget target)
@@ -33,7 +33,7 @@ public static class BasisBundleBuild
         Debug.Log($"{target.ToString()} Build Target Installed: {isSupported}");
         return isSupported;
     }
-    public static async Task<(bool, string)> SceneBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets)
+    public static async Task<(bool, string)> SceneBundleBuild(BasisContentBase BasisContentBase, List<BuildTarget> Targets, bool useProvidedPassword = false, string OverridenPassword = "")
     {
         int TargetCount = Targets.Count;
         for (int Index = 0; Index < TargetCount; Index++)
@@ -44,9 +44,9 @@ public static class BasisBundleBuild
             }
         }
         UnityEngine.SceneManagement.Scene Scene = BasisContentBase.gameObject.scene;
-        return await BuildBundle(BasisContentBase, Targets, (content, obj, hex, target) => BasisAssetBundlePipeline.BuildAssetBundle(Scene, obj, hex, target));
+        return await BuildBundle(BasisContentBase, Targets, useProvidedPassword, OverridenPassword, (content, obj, hex, target) => BasisAssetBundlePipeline.BuildAssetBundle(Scene, obj, hex, target));
     }
-    public static async Task<(bool, string)> BuildBundle(BasisContentBase basisContentBase, List<BuildTarget> targets, Func<BasisContentBase, BasisAssetBundleObject, string, BuildTarget, Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>> buildFunction)
+    public static async Task<(bool, string)> BuildBundle(BasisContentBase basisContentBase, List<BuildTarget> targets, bool useProvidedPassword, string OverridenPassword,Func<BasisContentBase, BasisAssetBundleObject, string, BuildTarget, Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>> buildFunction)
     {
         try
         {
@@ -81,8 +81,16 @@ public static class BasisBundleBuild
 
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
             ClearAssetBundleDirectory(assetBundleObject.AssetBundleDirectory);
+            string Password = string.Empty;
+            if (useProvidedPassword)
+            {
+                Password = OverridenPassword;
+            }
+            else
+            {
+                Password = GenerateHexString(32);
+            }
 
-            string hexString = GenerateHexString(32);
             int targetsLength = targets.Count;
             BasisBundleGenerated[] bundles = new BasisBundleGenerated[targetsLength];
             List<string> paths = new List<string>();
@@ -90,7 +98,7 @@ public static class BasisBundleBuild
             for (int Index = 0; Index < targetsLength; Index++)
             {
                 BuildTarget target = targets[Index];
-                var (success, result) = await buildFunction(basisContentBase, assetBundleObject, hexString, target);
+                var (success, result) = await buildFunction(basisContentBase, assetBundleObject, Password, target);
                 if (!success)
                 {
                     return (false, $"Failure While Building for {target}");
@@ -109,7 +117,10 @@ public static class BasisBundleBuild
             BasisBundleConnector basisBundleConnector = new BasisBundleConnector(generatedID, basisContentBase.BasisBundleDescription, bundles);
 
             byte[] BasisbundleconnectorUnEncrypted = BasisSerializer.OdinSerializer.SerializationUtility.SerializeValue<BasisBundleConnector>(basisBundleConnector, DataFormat.JSON);
-            var BasisPassword = new BasisEncryptionWrapper.BasisPassword { VP = hexString };
+            var BasisPassword = new BasisEncryptionWrapper.BasisPassword
+            {
+                VP = Password
+            };
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             BasisProgressReport report = new BasisProgressReport();
             byte[] EncryptedConnector = await BasisEncryptionWrapper.EncryptDataAsync(UniqueID, BasisbundleconnectorUnEncrypted, BasisPassword, report);
@@ -119,11 +130,13 @@ public static class BasisBundleBuild
             string FilePath = Path.Combine(assetBundleObject.AssetBundleDirectory, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
-            await AssetBundleBuilder.SaveFileAsync(assetBundleObject.AssetBundleDirectory, assetBundleObject.ProtectedPasswordFileName, "txt", hexString);
+            await AssetBundleBuilder.SaveFileAsync(assetBundleObject.AssetBundleDirectory, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
 
             DeleteFolders(assetBundleObject.AssetBundleDirectory);
-            OpenRelativePath(assetBundleObject.AssetBundleDirectory);
-
+            if (assetBundleObject.OpenFolderOnDisc)
+            {
+                OpenRelativePath(assetBundleObject.AssetBundleDirectory);
+            }
             RestoreOriginalBuildTarget(originalActiveTarget);
 
             Debug.Log("Successfully built asset bundle.");

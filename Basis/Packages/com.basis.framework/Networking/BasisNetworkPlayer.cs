@@ -1,6 +1,7 @@
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Behaviour;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -82,7 +83,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (BasisNetworkManagement.IsMainThread())
             {
-                AvatarCalibrationSetup();
+                AvatarLoadComplete();
             }
             else
             {
@@ -95,30 +96,34 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // Post the task to the main thread
                 BasisNetworkManagement.MainThreadContext.Post(_ =>
                 {
-                    AvatarCalibrationSetup();
+                    AvatarLoadComplete();
                 }, null);
             }
         }
-        public void AvatarCalibrationSetup()
+        public BasisAvatarMonoBehaviour[] NetworkBehaviours;
+        public void AvatarLoadComplete()
         {
             if (CheckForAvatar())
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
-                // All checks passed
+                // All checks pas
                 PoseHandler = new HumanPoseHandler(
                     basisAvatar.Animator.avatar,
                     Player.BasisAvatarTransform
                 );
                 PoseHandler.GetHumanPose(ref HumanPose);
-                if (!basisAvatar.HasSendEvent)
-                {
-                    basisAvatar.OnNetworkMessageSend += OnNetworkMessageSend;
-                    basisAvatar.OnServerReductionSystemMessageSend += OnServerReductionSystemMessageSend;
-                    basisAvatar.HasSendEvent = true;
-                }
-
                 basisAvatar.LinkedPlayerID = playerId;
-                basisAvatar.OnAvatarNetworkReady?.Invoke(Player.IsLocal);
+                NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
+                int length = NetworkBehaviours.Length;
+                if (length > 256)
+                {
+                    BasisDebug.LogError($"To Many Mono Behaviours on this Avatar only supports up to 256 was {length}!");
+                    return;
+                }
+                for (byte Index = 0; Index < length; Index++)
+                {
+                    NetworkBehaviours[Index].OnNetworkAssign(Index, this);
+                }
             }
         }
         public bool CheckForAvatar()
@@ -136,7 +141,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             return true;
         }
-        private void OnServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
+        public void OnServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
         {
             if (BasisNetworkManagement.Instance != null && BasisNetworkManagement.Transmitter != null)
             {
@@ -152,15 +157,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisDebug.LogError("Missing Transmitter or Network Management", BasisDebug.LogTag.Networking);
             }
         }
-        private void OnNetworkMessageSend(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced, ushort[] Recipients = null)
+        public void OnNetworkMessageSend(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced, ushort[] Recipients = null)
         {
             // Handle cases based on presence of Recipients and buffer
             AvatarDataMessage AvatarDataMessage = new AvatarDataMessage
             {
+                PlayerIdMessage = new PlayerIdMessage() { playerID = playerId },
                 messageIndex = MessageIndex,
                 payload = buffer,
                 recipients = Recipients,
-                PlayerIdMessage = new PlayerIdMessage() { playerID = playerId },
             };
             NetDataWriter netDataWriter = new NetDataWriter();
             if (DeliveryMethod == DeliveryMethod.Unreliable)

@@ -40,15 +40,24 @@ namespace HVR.Basis.Comms
 
         private void Awake()
         {
-            if (avatar == null) avatar = CommsUtil.GetAvatar(this);
-            if (featureNetworking == null) featureNetworking = CommsUtil.FeatureNetworkingFromAvatar(avatar);
-            if (acquisition == null) acquisition = AcquisitionService.SceneInstance;
-            
+            if (avatar == null)
+            {
+                avatar = CommsUtil.GetAvatar(this);
+            }
+            if (featureNetworking == null)
+            {
+                featureNetworking = CommsUtil.FeatureNetworkingFromAvatar(avatar);
+            }
+
+            if (acquisition == null)
+            {
+                acquisition = AcquisitionService.SceneInstance;
+            }
+
             renderers = CommsUtil.SlowSanitizeEndUserProvidedObjectArray(renderers);
             definitionFiles = CommsUtil.SlowSanitizeEndUserProvidedObjectArray(definitionFiles);
             definitions = CommsUtil.SlowSanitizeEndUserProvidedStructArray(definitions);
 
-            avatar.OnAvatarReady -= OnAvatarReady;
             avatar.OnAvatarReady += OnAvatarReady;
         }
 

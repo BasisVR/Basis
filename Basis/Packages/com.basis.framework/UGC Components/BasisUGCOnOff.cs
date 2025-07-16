@@ -8,7 +8,7 @@ namespace Basis.Scripts.UGC.OnOff
         [SerializeField]
         public BasisUGCOnOffItem[] OffOnItems;
 
-        public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
+        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
         {
 
         }

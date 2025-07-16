@@ -17,12 +17,12 @@ public class BasisAssetBundleObject : ScriptableObject
     public string ProtectedPasswordFileName = "dontuploadmepassword";
     public bool useCompression = true;
     public bool GenerateImage = true;
+    public bool OpenFolderOnDisc = true;
     public BuildTarget BuildTarget = BuildTarget.StandaloneWindows;
     public BuildAssetBundleOptions BuildAssetBundleOptions;
     public string AssetBundleDirectory = "./AssetBundles";
     public List<BuildTarget> selectedTargets = new List<BuildTarget>(BasisSDKConstants.allowedTargets);
 }
-
 [CustomEditor(typeof(BasisAssetBundleObject))]
 public class BasisAssetBundleObjectEditor : Editor
 {

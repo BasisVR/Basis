@@ -7,6 +7,10 @@ public static class BasisDebug
     {
         Debug.unityLogger.LogError("",FormatMessage(message, logTag, MessageType.Error));
     }
+    public static void LogError(string message, UnityEngine.Object Object, LogTag logTag = LogTag.System)
+    {
+        Debug.unityLogger.LogError("", FormatMessage(message, logTag, MessageType.Error), Object);
+    }
     public static void LogError(Exception message, LogTag logTag = LogTag.System)
     {
         Debug.unityLogger.LogError("", FormatMessage($"{message.Message} {message.StackTrace}", logTag, MessageType.Error));

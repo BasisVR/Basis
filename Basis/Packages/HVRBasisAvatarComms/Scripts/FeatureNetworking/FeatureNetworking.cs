@@ -9,7 +9,7 @@ using UnityEngine;
 namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Feature Networking")]
-    public class FeatureNetworking : BasisAvatarMonoBehaviour
+    public class FeatureNetworking : MonoBehaviour
     {
         public const byte NegotiationPacket = 255;
         public const byte ReservedPacket = 254;
@@ -102,7 +102,7 @@ namespace HVR.Basis.Comms
                 transform = { parent = transform }
             };
             _holder.SetActive(false);
-            var streamed = _holder.AddComponent<StreamedAvatarFeature>();
+            StreamedAvatarFeature streamed = _holder.AddComponent<StreamedAvatarFeature>();
             streamed.avatar = avatar;
             streamed.valueArraySize = (byte)count; // TODO: Sanitize count to be within bounds
             _holder.SetActive(true);
@@ -116,9 +116,18 @@ namespace HVR.Basis.Comms
 
         public FeatureEvent NewEventDriven(int guidIndex, EventReceived eventReceived, ResyncRequested resyncRequested, ResyncEveryoneRequested resyncEveryoneRequested)
         {
-            var handle = new FeatureEvent(this,this, guidIndex, eventReceived, resyncRequested, resyncEveryoneRequested, avatar);
-            _featureHandles[guidIndex] = handle;
-            return handle;
+            HVRAvatarComms HVRAvatarComms = this.gameObject.GetComponentInParent<HVRAvatarComms>();
+            if (HVRAvatarComms != null)
+            {
+                var handle = new FeatureEvent(HVRAvatarComms, this, guidIndex, eventReceived, resyncRequested, resyncEveryoneRequested);
+                _featureHandles[guidIndex] = handle;
+                return handle;
+            }
+            else
+            {
+                BasisDebug.LogError("Missing HVR Avatar Comms");
+                return null;
+            }
         }
 
         internal void Unregister(int guidIndex)
@@ -188,18 +197,6 @@ namespace HVR.Basis.Comms
                 }
             }
         }
-
-        public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
-        {
-        }
-
-        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
-        {
-        }
-
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-        {
-        }
     }
 
     public class FeatureEvent : IFeatureReceiver
@@ -211,17 +208,15 @@ namespace HVR.Basis.Comms
         private readonly FeatureNetworking.EventReceived _eventReceived;
         private readonly FeatureNetworking.ResyncRequested _resyncRequested;
         private readonly FeatureNetworking.ResyncEveryoneRequested _resyncEveryoneRequested;
-        private readonly BasisAvatar _avatar;
-        private readonly BasisAvatarMonoBehaviour _basisAvatarMonoBehaviour;
+        private readonly HVRAvatarComms _basisAvatarMonoBehaviour;
 
-        public FeatureEvent(BasisAvatarMonoBehaviour MonoBehaviour,FeatureNetworking featureNetworking, int guidIndex, FeatureNetworking.EventReceived eventReceived, FeatureNetworking.ResyncRequested resyncRequested, FeatureNetworking.ResyncEveryoneRequested resyncEveryoneRequested, BasisAvatar avatar)
+        public FeatureEvent(HVRAvatarComms MonoBehaviour,FeatureNetworking featureNetworking, int guidIndex, FeatureNetworking.EventReceived eventReceived, FeatureNetworking.ResyncRequested resyncRequested, FeatureNetworking.ResyncEveryoneRequested resyncEveryoneRequested)
         {
             _featureNetworking = featureNetworking;
             _guidIndex = guidIndex;
             _eventReceived = eventReceived;
             _resyncRequested = resyncRequested;
             _resyncEveryoneRequested = resyncEveryoneRequested;
-            _avatar = avatar;
             _basisAvatarMonoBehaviour = MonoBehaviour;
         }
         public void Unregister()

@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk;
-using Basis.Scripts.Behaviour;
 using LiteNetLib;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
     [AddComponentMenu("HVR.Basis/Comms/Internal/Streamed Avatar Feature")]
-    public class StreamedAvatarFeature : BasisAvatarMonoBehaviour
+    public class StreamedAvatarFeature : MonoBehaviour
     {
         private const int HeaderBytes = 2;
         private const int SubHeaderBytes = HeaderBytes - 1;
@@ -38,12 +37,14 @@ namespace HVR.Basis.Comms
 
         public event InterpolatedDataChanged OnInterpolatedDataChanged;
         public delegate void InterpolatedDataChanged(float[] current);
-        
+        public HVRAvatarComms HVRAvatarComms;
+
         private void Awake()
         {
             previous ??= new float[valueArraySize];
             target ??= new float[valueArraySize];
             current ??= new float[valueArraySize];
+            HVRAvatarComms = this.gameObject.GetComponentInParent<HVRAvatarComms>();
         }
 
         private void OnDisable()
@@ -64,8 +65,14 @@ namespace HVR.Basis.Comms
 
         private void Update()
         {
-            if (_isWearer) OnSender();
-            else OnReceiver();
+            if (_isWearer)
+            {
+                OnSender();
+            }
+            else
+            {
+                OnReceiver();
+            }
         }
 
         private void OnSender()
@@ -81,7 +88,7 @@ namespace HVR.Basis.Comms
                 };
 
                 EncodeAndSubmit(toSend, null);
-                
+
                 _timeLeft = 0;
             }
         }
@@ -94,14 +101,14 @@ namespace HVR.Basis.Comms
             float totalQueueSeconds = 0;
             foreach (var payload in _queue) totalQueueSeconds += payload.DeltaTime;
             // Debug.Log($"Queue time is {totalQueueSeconds} seconds, size is {_queue.Count}");
-            
+
             while (_timeLeft <= 0 && _queue.TryDequeue(out var eval))
             {
                 // Debug.Log($"Unpacking delta {eval.DeltaTime} as {string.Join(',', eval.FloatValues.Select(f => $"{f}"))}");
                 var effectiveDeltaTime = _queue.Count <= 5 || totalQueueSeconds < 0.2f
                     ? eval.DeltaTime
                     : (eval.DeltaTime * Mathf.Lerp(0.66f, 0.05f, Mathf.InverseLerp(DeltaTimeUsedForResyncs, totalQueueSeconds, 4f)));
-                
+
                 _timeLeft += effectiveDeltaTime;
                 previous = target;
                 target = eval.FloatValues;
@@ -154,7 +161,7 @@ namespace HVR.Basis.Comms
         public void OnPacketReceived(ArraySegment<byte> subBuffer)
         {
             if (!isActiveAndEnabled) return;
-            
+
             if (TryDecode(subBuffer, out var result))
             {
                 _queue.Enqueue(result);
@@ -172,21 +179,20 @@ namespace HVR.Basis.Comms
             var buffer = new byte[HeaderBytes + valueArraySize];
             buffer[0] = _scopedIndex;
             buffer[1] = (byte)(message.DeltaTime / DeltaLocalIntToSeconds);
-            
+
             for (var i = 0; i < current.Length; i++)
             {
                 buffer[HeaderBytes + i] = (byte)(message.FloatValues[i] * EncodingRange);
             }
             if (recipientsNullable == null || recipientsNullable.Length == 0)
             {
-                ServerReductionSystemMessageSend(buffer);
+                HVRAvatarComms.ServerReductionSystemMessageSend(buffer);
             }
             else
             {
-                NetworkMessageSend( buffer, DeliveryMethod, recipientsNullable);
+                HVRAvatarComms.NetworkMessageSend(buffer, DeliveryMethod, recipientsNullable);
             }
         }
-
         private bool TryDecode(ArraySegment<byte> subBuffer, out StreamedAvatarFeaturePayload result)
         {
             if (subBuffer.Count != SubHeaderBytes + valueArraySize)
@@ -199,16 +205,15 @@ namespace HVR.Basis.Comms
             {
                 floatValues[i - SubHeaderBytes] = subBuffer.get_Item(i) / EncodingRange;
             }
-            
+
             result = new StreamedAvatarFeaturePayload
             {
                 DeltaTime = subBuffer.get_Item(0) * DeltaLocalIntToSeconds,
                 FloatValues = floatValues
             };
-            
+
             return true;
         }
-        
         #endregion
 
         public void OnResyncEveryoneRequested()
@@ -228,20 +233,7 @@ namespace HVR.Basis.Comms
                 FloatValues = current
             }, whoAsked);
         }
-
-        public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
-        {
-        }
-
-        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
-        {
-        }
-
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-        {
-        }
     }
-
     public class StreamedAvatarFeaturePayload
     {
         public float DeltaTime;

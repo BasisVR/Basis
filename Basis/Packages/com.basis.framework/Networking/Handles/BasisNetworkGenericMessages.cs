@@ -75,9 +75,9 @@ public static class BasisNetworkGenericMessages
             if (player.Player.BasisAvatar != null)
             {
                 RemoteAvatarDataMessage output = serverAvatarDataMessage.avatarDataMessage;
-                if (player.Player.BasisAvatar.Behaviours.Length >= output.messageIndex)
+                if (player.NetworkBehaviours.Length >= output.messageIndex)
                 {
-                    player.Player.BasisAvatar.Behaviours[output.messageIndex].OnNetworkMessageReceived(serverAvatarDataMessage.playerIdMessage.playerID, output.payload, Method);
+                    player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(serverAvatarDataMessage.playerIdMessage.playerID, output.payload, Method);
                 }
             }
             else

@@ -223,22 +223,6 @@ namespace Basis.Scripts.Avatar
                     SetupRemoteAvatar(remotePlayer);
                     break;
             }
-
-            RebuildNetworkIds(Player, rootObject, avatar);
-        }
-        public static void RebuildNetworkIds(BasisPlayer Player, GameObject Output, BasisAvatar Avatar)
-        {
-            Avatar.Behaviours = Output.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
-            int length = Avatar.Behaviours.Length;
-            if (length > 256)
-            {
-                BasisDebug.LogError("To Many Mono Behaviours on this Avatar!");
-                return;
-            }
-            for (byte Index = 0; Index < length; Index++)
-            {
-                Avatar.Behaviours[Index].OnNetworkAssign(Index, Avatar, Player.IsLocal);
-            }
         }
         public static async Task LoadAvatarAfterError(BasisPlayer Player)
         {

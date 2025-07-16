@@ -44,7 +44,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 for (int Index = 0; Index < Count; Index++)
                 {
                     AdditionalAvatarData Data = syncMessage.avatarSerialization.AdditionalAvatarDatas[Index];
-                    baseReceiver.Player.BasisAvatar.Behaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
+                    baseReceiver.NetworkBehaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
                 }
             }
         }
@@ -93,7 +93,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 for (int Index = 0; Index < Count; Index++)
                 {
                     AdditionalAvatarData Data = syncMessage.AdditionalAvatarDatas[Index];
-                    baseReceiver.Player.BasisAvatar.Behaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
+                    baseReceiver.NetworkBehaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
                 }
             }
         }

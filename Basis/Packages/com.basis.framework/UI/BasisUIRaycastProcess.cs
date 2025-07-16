@@ -112,8 +112,6 @@ namespace Basis.Scripts.UI
                 {
                     if (currentEventData.WasLastDown == false)
                     {
-                        BaseInput.PlayHaptic(0.1f, 1f, 0.5f);
-                        BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
                         CheckOrApplySelectedGameobject(hit, currentEventData);
                         currentEventData.WasLastDown = true;
                         EffectiveMouseDown(hit, currentEventData);
@@ -125,6 +123,8 @@ namespace Basis.Scripts.UI
                     {
                         EffectiveMouseUp(hit, currentEventData);
                         currentEventData.WasLastDown = false;
+                        BaseInput.PlayHaptic(0.1f, 1f, 0.5f);
+                        BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
                     }
                 }
 

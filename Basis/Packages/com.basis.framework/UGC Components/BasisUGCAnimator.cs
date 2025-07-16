@@ -8,7 +8,7 @@ namespace Basis.Scripts.UGC.Animator
         [SerializeField]
         public BasisUGCAnimatorItem[] AnimatorItems;
 
-        public override void OnNetworkChange(byte messageIndex, bool IsLocallyOwned)
+        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
         {
 
         }

@@ -1,9 +1,10 @@
-﻿{
+{
     "name": "HVR.Basis.NDMF",
     "rootNamespace": "",
     "references": [
         "nadena.dev.ndmf",
-        "BasisSDKEditor"
+        "BasisSDKEditor",
+        "BasisDebug"
     ],
     "includePlatforms": [
         "Editor"

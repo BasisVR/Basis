@@ -5,7 +5,8 @@
         "BasisSDK",
         "Unity.Mathematics",
         "LiteNetLib",
-        "Basis Framework"
+        "Basis Framework",
+        "BasisDebug"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,9 +1,11 @@
 using System;
-using System.Data;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Behaviour;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Receivers;
+using LiteNetLib;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -11,7 +13,7 @@ namespace HVR.Basis.Comms
 {
     [DefaultExecutionOrder(15010)] // Run after BasisEyeFollowBase
     [AddComponentMenu("HVR.Basis/Comms/Eye Tracking Bone Actuation")]
-    public class EyeTrackingBoneActuation : MonoBehaviour, ICommsNetworkable
+    public class EyeTrackingBoneActuation : BasisAvatarMonoBehaviour, ICommsNetworkable
     {
         private const string EyeLeftX = "FT/v2/EyeLeftX";
         private const string EyeRightX = "FT/v2/EyeRightX";
@@ -24,54 +26,51 @@ namespace HVR.Basis.Comms
         [SerializeField] private float multiplyX = 1f;
         [SerializeField] private float multiplyY = 1f;
         
-        private float _fEyeLeftX;
-        private float _fEyeRightX;
-        private float _fEyeY;
-        private bool _needsUpdateThisFrame;
-        
-        private bool _anyAddressUpdated;
-        private bool _isWearer;
-#region NetworkingFields
-        private int _guidIndex;
+        public float _fEyeLeftX;
+        public float _fEyeRightX;
+        public float _fEyeY;
+        public bool _anyAddressUpdated;
+        public bool IsLocal;
+        #region NetworkingFields
+        public int _guidIndex;
         // Can be null due to:
         // - Application with no network, or
         // - Network late initialization.
         // Nullability is needed for local tests without initialization scene.
         // - Becomes non-null after HVRAvatarComms.OnAvatarNetworkReady is successfully invoked
-        private FeatureInterpolator _featureInterpolator;
-        public BasisRemotePlayer _basisRemotePlayer;
+        public FeatureInterpolator _featureInterpolator;
         public BasisLocalEyeDriver _eyeFollowDriverLateInit;
         #endregion
-
+        public BasisNetworkReceiver Receiver = null;
         private void Awake()
         {
             if (avatar == null) avatar = CommsUtil.GetAvatar(this);
             if (featureNetworking == null) featureNetworking = CommsUtil.FeatureNetworkingFromAvatar(avatar);
             if (acquisition == null) acquisition = AcquisitionService.SceneInstance;
-
-            avatar.OnAvatarReady -= OnAvatarReady;
-            avatar.OnAvatarReady += OnAvatarReady;
-
-            avatar.OnAvatarNetworkReady -= OnAvatarNetworkReady;
-            avatar.OnAvatarNetworkReady += OnAvatarNetworkReady;
         }
-        private void OnAvatarNetworkReady(bool IsOwner)
+        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
         {
-            if (BasisNetworkManagement.AvatarToPlayer(avatar, out var player) && player is BasisRemotePlayer remote)
-            {
-                _basisRemotePlayer = remote;
-            }
-        }
 
-        private void OnAvatarReady(bool isWearer)
-        {
-            _isWearer = isWearer;
-            
-            if (isWearer)
+            IsLocal = IsLocallyOwned;
+
+            if (IsLocal)
             {
                 acquisition.RegisterAddresses(OurAddresses, OnAddressUpdated);
                 _eyeFollowDriverLateInit = BasisLocalPlayer.Instance.LocalEyeDriver;
             }
+            else
+            {
+                Receiver = NetworkedPlayer as BasisNetworkReceiver;
+            }
+        }
+        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+        {
+
+        }
+
+        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
+        {
+
         }
 
         private void OnEnable()
@@ -86,10 +85,7 @@ namespace HVR.Basis.Comms
 
         private void OnDestroy()
         {
-            avatar.OnAvatarReady -= OnAvatarReady;
-            avatar.OnAvatarNetworkReady -= OnAvatarNetworkReady;
-            
-            if (_isWearer)
+            if (IsLocal)
             {
                 acquisition.UnregisterAddresses(OurAddresses, OnAddressUpdated);
             }
@@ -123,12 +119,12 @@ namespace HVR.Basis.Comms
                 }
             }
         }
-
+/* this should not be required? (lD)
         private void Update()
         {
             ForceUpdate();
         }
-
+*/
         private void LateUpdate()
         {
             ForceUpdate();
@@ -136,17 +132,10 @@ namespace HVR.Basis.Comms
 
         private void ForceUpdate()
         {
-            if (_eyeFollowDriverLateInit == null && _basisRemotePlayer == null)
+            if (IsLocal && !_anyAddressUpdated)
             {
                 return;
             }
-            if (_isWearer && !_anyAddressUpdated) return;
-            
-            // FIXME: Temp fix, we'll need to hook to NetworkReady instead.
-            // This is a quick fix so that we don't need to reupload the avatar.
-            SetBuiltInEyeFollowDriverOverriden(false);
-            SetBuiltInEyeFollowDriverOverriden(true);
-
             SetEyeRotation(_fEyeLeftX, _fEyeY, EyeSide.Left);
             SetEyeRotation(_fEyeRightX, _fEyeY, EyeSide.Right);
         }
@@ -173,21 +162,21 @@ namespace HVR.Basis.Comms
             }
             else
             {
-                if (_basisRemotePlayer != null)
+                if (IsLocal && Receiver != null)
                 {
                     switch (side)
                     {
                         case EyeSide.Left:
                             float result0 = (y + 1) / 2;
                             float result1 = (x + 1) / 2;
-                            _basisRemotePlayer.NetworkReceiver.Eyes[0] = result0;
-                            _basisRemotePlayer.NetworkReceiver.Eyes[1] = result1;
+                            Receiver.Eyes[0] = result0;
+                            Receiver.Eyes[1] = result1;
                             break;
                         case EyeSide.Right:
                             result0 = (y + 1) / 2;
                             result1 = (x + 1) / 2;
-                            _basisRemotePlayer.NetworkReceiver.Eyes[2] = result0;
-                            _basisRemotePlayer.NetworkReceiver.Eyes[3] = result1;
+                            Receiver.Eyes[2] = result0;
+                            Receiver.Eyes[3] = result1;
                             break;
                         default:
                             throw new ArgumentOutOfRangeException(nameof(side), side, null);
@@ -222,6 +211,6 @@ namespace HVR.Basis.Comms
             _fEyeRightX = current[1] * 2 - 1;
             _fEyeY = current[2] * 2 - 1;
         }
-#endregion
+        #endregion
     }
 }

@@ -85,6 +85,10 @@ namespace Basis.Scripts.UGC.BlendShapes
             }
 
             HasIssue = BlendShapeRenderer == null || basisUGCBlendShapesItems == null || SelectedItemIndex < 0 || SelectedItemIndex >= basisUGCBlendShapesItems.Count;
+            if (HasIssue)
+            {
+                BasisDebug.LogError("Blend Shape has issue! (BasisUGCBlendShape)");
+            }
         }
 
         public void LateUpdate()
@@ -93,7 +97,11 @@ namespace Basis.Scripts.UGC.BlendShapes
             {
                 return;
             }
-            if(IsLocallyOwned == false)
+            if (IsInitalized)
+            {
+                return;
+            }
+            if (NetworkedPlayer == null)
             {
                 return;
             }
@@ -112,8 +120,8 @@ namespace Basis.Scripts.UGC.BlendShapes
                     continue;
                 }
 
-                    // Interpolation
-                    setting.CurrentValue = Mathf.MoveTowards(setting.CurrentValue, setting.TargetValue, setting.Speed * Time.deltaTime);
+                // Interpolation
+                setting.CurrentValue = Mathf.MoveTowards(setting.CurrentValue, setting.TargetValue, setting.Speed * Time.deltaTime);
                 BlendShapeRenderer.SetBlendShapeWeight(setting.BlendShapeIndex, setting.CurrentValue);
 
                 item.BlendShapeSettings[Index] = setting;
@@ -125,32 +133,25 @@ namespace Basis.Scripts.UGC.BlendShapes
 
         public void SendBlendShapeUpdate(int blendShapeIndex, float targetValue, float speed)
         {
-            UGCBlendshapeNetworkMessage msg = new UGCBlendshapeNetworkMessage
-            {
-                BlendShapeIndex = (byte)blendShapeIndex,
-                TargetValue = (byte)Mathf.Clamp(targetValue, 0, 100),
-                Speed = (byte)Mathf.Clamp(speed, 0, 255)
-            };
-
             byte[] buffer = new byte[3];
-            buffer[0] = msg.BlendShapeIndex;
-            buffer[1] = msg.TargetValue;
-            buffer[2] = msg.Speed;
+            buffer[0] = (byte)blendShapeIndex;//BlendShapeIndex
+            buffer[1] = (byte)Mathf.Clamp(targetValue, 0, 100);//TargetValue
+            buffer[2] = (byte)Mathf.Clamp(speed, 0, 255);//Speed
 
-            NetworkMessageSend(buffer, DeliveryMethod.Sequenced);
+            BasisDebug.Log("sending Blend Shape Update!");
+
+            ServerReductionSystemMessageSend(buffer);
         }
-
-        public class UGCBlendshapeNetworkMessage
-        {
-            public byte BlendShapeIndex;
-            public byte TargetValue;
-            public byte Speed;
-        }
-
         public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
+            NetworkIntrepData(buffer);
+        }
+        public void NetworkIntrepData(byte[] buffer)
+        {
             if (buffer.Length < 3)
+            {
                 return;
+            }
 
             int index = buffer[0];
             float targetValue = buffer[1];
@@ -175,12 +176,11 @@ namespace Basis.Scripts.UGC.BlendShapes
 
             basisUGCBlendShapesItems[SelectedItemIndex] = item;
         }
-
         public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
         {
-            // Optionally handle server-side optimizations
+            NetworkIntrepData(buffer);
         }
-        public override void OnNetworkChange(byte messageIndex,bool IsLocallyOwned)
+        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
         {
             // Optionally handle network change
         }
