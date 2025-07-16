@@ -121,14 +121,14 @@ jobs:
           name: Basis-Client-${{ matrix.targetPlatform }}
           path: |
             build/${{ matrix.targetPlatform }}
-            "!**/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
+            !build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
       - name: "Upload client symbols artifact"
         timeout-minutes: 4
         uses: actions/upload-artifact@v4
         with:
           name: Basis-Symbols-Client-${{ matrix.targetPlatform }}
           path: |
-            "**/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
+            build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
 
   build-server:
     name: Build server on Ubuntu
