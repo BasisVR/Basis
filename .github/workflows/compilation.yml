@@ -129,6 +129,43 @@ jobs:
           name: Basis-Symbols-Client-${{ matrix.targetPlatform }}
           path: |
             build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
+      - name: Archive symbols
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        with:
+          type: "zip"
+          directory: build/${{ matrix.targetPlatform }}
+          filename: "${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip"
+          # This uses a wildcard because this action doesn't work correctly with spaces in path.
+          path: "*_BackUpThisFolder_ButDontShipItWithYourGame"
+      # workaround for exclusions not working with spaces *or* wildcards.
+      - name: Delete symbols
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        shell: bash
+        run: >
+          ${{ matrix.buildPlatform == 'ubuntu-latest' && 'sudo' || '' }}
+          rm -rvf "build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
+      - name: Archive client
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        with:
+          type: "zip"
+          directory: build/${{ matrix.targetPlatform }}
+          filename: "${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip"
+      - name: "Release client zip"
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: |
+            ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip
+            ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip
+      - name: "Release client apk"
+        if: github.ref_type == 'tag' && matrix.targetPlatform == 'Android'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: build/${{ matrix.targetPlatform }}/${{ env.buildName }}.apk
 
   build-server:
     name: Build server on Ubuntu
@@ -162,53 +199,19 @@ jobs:
         with:
           name: Basis-Server-${{ matrix.targetPlatform }}
           path: "build"
-
-  create-release:
-    name: Create release
-    needs: [build-client, build-server]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: "github.ref_type == 'tag' && github.ref != 'refs/tags/latest'"
-    steps:
-      - name: "Checkout repository"
-        timeout-minutes: 10
-        uses: actions/checkout@v4
-      - name: "Download client artifacts"
-        timeout-minutes: 10
-        uses: "actions/download-artifact@v4"
+      - name: Archive Release
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag'
         with:
-          pattern: Basis-Client-*
-          path: Basis-Client-Build
-          merge-multiple: true
-      - name: "Download server artifacts"
+          type: "zip"
+          directory: build
+          filename: "Basis Server ${{ matrix.targetPlatform }}.zip"
+      - name: "Release server zip"
+        if: github.ref_type == 'tag'
         timeout-minutes: 5
-        uses: "actions/download-artifact@v4"
+        uses: "softprops/action-gh-release@v2"
         with:
-          pattern: Basis-Server-*
-          path: Basis-Server-Build
-          merge-multiple: true
-      - name: "Install additional dependencies"
-        timeout-minutes: 10
-        run: "sudo apt-get -y update && sudo apt-get -y install p7zip-full"
-      - name: Set up release prefix
-        run: |
-          echo "RELEASE_PREFIX=${{ github.event.repository.name }}-${{ steps.version.outputs.gitversion }}" >> $GITHUB_ENV
-      - name: "Archive client artifact"
-        timeout-minutes: 10
-        run: "7z a -tzip ${{ env.RELEASE_PREFIX }}-Client.zip Basis-Client-Build"
-      - name: "Archive server artifact"
-        timeout-minutes: 10
-        run: "7z a -tzip ${{ env.RELEASE_PREFIX }}-Server.zip Basis-Server-Build"
-      - name: "Create release"
-        if: "github.ref_type == 'tag' && github.ref != 'refs/tags/latest'"
-        timeout-minutes: 5
-        uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: "${{ contains(github.ref, '-rc') }}"
-          files: |
-            ${{ env.RELEASE_PREFIX }}-Client.zip
-            ${{ env.RELEASE_PREFIX }}-Server.zip
+          files: build/Basis Server ${{ matrix.targetPlatform }}.zip
 
   compile-unitypackages:
     name: Build .unitypackage files
@@ -231,5 +234,13 @@ jobs:
         with:
           name: unitypackage_upload
           path: |
+            Basis/Basis.sdk.unitypackage
+            Basis/Basis.full.unitypackage
+      - name: "Release unitypackage"
+        if: github.ref_type == 'tag'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: |
             Basis/Basis.sdk.unitypackage
             Basis/Basis.full.unitypackage
