@@ -22,13 +22,16 @@ public static partial class SerializableBasis
                 Writer.GetBytes(array, AvatarSyncSize);
                 if (Writer.TryGetByte(out AdditionalAvatarDataSize))
                 {
-                    if (Writer.TryGetByte(out LinkedAvatarIndex))
+                    if (AdditionalAvatarDataSize != 0)
                     {
+                        if (Writer.TryGetByte(out LinkedAvatarIndex))
+                        {
 
-                    }
-                    else
-                    {
-                        BNL.LogError("Missing LinkedAvatarIndex!");
+                        }
+                        else
+                        {
+                            BNL.LogError("Missing LinkedAvatarIndex!");
+                        }
                     }
                     if (AdditionalAvatarDataSize != 0)
                     {
