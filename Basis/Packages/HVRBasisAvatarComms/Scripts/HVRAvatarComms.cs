@@ -1,9 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Behaviour;
 using LiteNetLib;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 namespace HVR.Basis.Comms
 {
@@ -34,7 +35,17 @@ namespace HVR.Basis.Comms
             {
                 throw new InvalidOperationException("Broke assumption: Avatar and/or FeatureNetworking cannot be found.");
             }
-
+        }
+        private IEnumerator RetryNegotiationCoroutine()
+        {
+            while (true)
+            {
+                if (_isWearer)
+                {
+                    NetworkMessageSend(featureNetworking.GetNegotiationPacket(), DeliveryMethod.ReliableOrdered);
+                }
+                yield return new WaitForSeconds(5f);
+            }
         }
         public override void OnNetworkReady(bool IsLocallyOwned)
         {
@@ -44,7 +55,7 @@ namespace HVR.Basis.Comms
             {
                 // Initialize other users.
                 ProtocolDebug($"Sending Negotiation Packet to everyone...");
-                NetworkMessageSend(featureNetworking.GetNegotiationPacket(), DeliveryMethod.ReliableOrdered);
+                StartCoroutine(RetryNegotiationCoroutine());
                 featureNetworking.TryResyncEveryone();
             }
             else
