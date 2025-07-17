@@ -242,9 +242,9 @@ namespace Basis.Scripts.Avatar
 
                 //we want to use Avatar Switched instead of the fallback version to let the server know this is what we actually want to use.
             }
-            catch (Exception e)
+            catch (Exception Exception)
             {
-                BasisDebug.LogError($"Fallback avatar loading failed: {e}");
+                BasisDebug.LogError($"Fallback avatar loading failed: {Exception}");
             }
         }
         public static InstantiationParameters InstantiationParameters(BasisPlayer Player, Vector3 Position, Quaternion Rotation)

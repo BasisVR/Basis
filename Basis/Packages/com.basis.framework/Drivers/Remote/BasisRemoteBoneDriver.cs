@@ -84,19 +84,21 @@ namespace Basis.Scripts.Drivers
         public void SimulateAndApplyRemote(Vector3 NowScale)
         {
             Vector3 InitalScale = RemotePlayer.RemoteAvatarDriver.AvatarInitalScale;
-            if (LastInitalScale != InitalScale || LastScale != InitalScale)
+
+            if (LastInitalScale != InitalScale || LastScale != NowScale)
             {
                 LastInitalScale = InitalScale;
                 LastScale = NowScale;
 
-                Vector3 NewScale = Vector3.Scale(InitalScale, NowScale);
-
                 for (int Index = 0; Index < ControlsLength; Index++)
                 {
                     BasisRemoteBoneControl control = Controls[Index];
-                    control.TposeLocalScaled.position = Vector3.Scale(control.TposeLocal.position, NewScale);
+
+                    // Apply relative scale to T-pose local position
+                    control.TposeLocalScaled.position = Vector3.Scale(control.TposeLocal.position, NowScale);
                 }
             }
+
             RemotePlayer.OnPreSimulateBones?.Invoke();
             SimulateRemote();
             CalculateBoneData();

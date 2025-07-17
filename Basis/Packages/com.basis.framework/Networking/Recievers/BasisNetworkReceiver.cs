@@ -51,10 +51,11 @@ namespace Basis.Scripts.Networking.Receivers
         public const float MinCutoff = 0.001f;
         public const float Beta = 5f;
         public const float DerivativeCutoff = 1.0f;
-        //   public bool enableEuroFilter = true;
         public JobHandle EuroFilterHandle;
         public bool LogFirstError = false;
         public float[] Eyes = new float[4];
+        public Vector3 SafeScale;
+        public Vector3 SafePosition;
         /// <summary>
         /// Perform computations to interpolate and update avatar state.
         /// </summary>
@@ -111,8 +112,6 @@ namespace Basis.Scripts.Networking.Receivers
                 EuroFilterHandle = oneEuroFilterJob.Schedule(LocalAvatarSyncMessage.StoredBones, 64, musclesHandle);
             }
         }
-        public Vector3 SafeScale;
-        public Vector3 SafePosition;
         public void Apply(double TimeAsDouble)
         {
             if (PoseHandler == null)
@@ -136,7 +135,7 @@ namespace Basis.Scripts.Networking.Receivers
                     EuroFilterHandle.Complete();
                     SafeScale = OutputVectors[1];
                     SafePosition = OutputVectors[0];
-                    ApplyComputedData();
+                    ApplyComputedData(true);
                 }
                 catch (Exception ex)
                 {
@@ -155,18 +154,10 @@ namespace Basis.Scripts.Networking.Receivers
                 TimeInThePast = TimeAsDouble;
             }
         }
-        public void ApplyComputedData()
+        public void ApplyComputedData(bool ApplyMuscle)
         {
-            //  bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
-            bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, SafeScale, SafePosition, OutputRotation, EuroValuesOutput);
-            if (ReadyState)
-            {
-                PoseHandler.SetHumanPose(ref HumanPose);
-            }
-            else
-            {
-                BasisDebug.LogError("Not Ready For Pose Set!");
-            }
+            ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, SafeScale, SafePosition, OutputRotation, ApplyMuscle, EuroValuesOutput);
+            PoseHandler.SetHumanPose(ref HumanPose);
             RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(SafeScale);
             AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
             if (RemotePlayer.HasRemoteNamePlate)
@@ -211,7 +202,7 @@ namespace Basis.Scripts.Networking.Receivers
                 HasAvatarQueue = true;
             }
         }
-        public bool ApplyPoseData(Transform AnimatorsTransform, Animator animator, float3 Scale, float3 Position, Quaternion Rotation, NativeArray<float> Muscles)
+        public void ApplyPoseData(Transform AnimatorsTransform, Animator animator, float3 Scale, float3 Position, Quaternion Rotation,bool HasMuscle, NativeArray<float> Muscles)
         {
             // Directly adjust scaling by applying the inverse of the AvatarHumanScale
             Vector3 Scaling = Vector3.one / animator.humanScale;  // Initial scaling with human scale inverse
@@ -223,17 +214,18 @@ namespace Basis.Scripts.Networking.Receivers
             Vector3 ScaledPosition = Vector3.Scale(Position, Scaling);  // Apply the scaling
             HumanPose.bodyPosition = ScaledPosition;
             HumanPose.bodyRotation = Rotation;
-
-            // Copy from job to MuscleFinalStageOutput
-            Muscles.CopyTo(MuscleFinalStageOutput);
-            // First, copy the first 14 elements directly
-            Array.Copy(MuscleFinalStageOutput, 0, HumanPose.muscles, 0, BasisAvatarMuscleRange.FirstBuffer);
-            // Then, copy the remaining elements from index 15 onwards into the pose.muscles array, starting from index 21
-            Array.Copy(MuscleFinalStageOutput, BasisAvatarMuscleRange.FirstBuffer, HumanPose.muscles, BasisAvatarMuscleRange.SecondBuffer, BasisAvatarMuscleRange.SizeAfterGap);
-            Array.Copy(Eyes, 0, HumanPose.muscles, BasisAvatarMuscleRange.FirstBuffer, 4);
+            if (HasMuscle)
+            {
+                // Copy from job to MuscleFinalStageOutput
+                Muscles.CopyTo(MuscleFinalStageOutput);
+                // First, copy the first 14 elements directly
+                Array.Copy(MuscleFinalStageOutput, 0, HumanPose.muscles, 0, BasisAvatarMuscleRange.FirstBuffer);
+                // Then, copy the remaining elements from index 15 onwards into the pose.muscles array, starting from index 21
+                Array.Copy(MuscleFinalStageOutput, BasisAvatarMuscleRange.FirstBuffer, HumanPose.muscles, BasisAvatarMuscleRange.SecondBuffer, BasisAvatarMuscleRange.SizeAfterGap);
+                Array.Copy(Eyes, 0, HumanPose.muscles, BasisAvatarMuscleRange.FirstBuffer, 4);
+            }
             // Adjust the local scale of the animator's transform
             AnimatorsTransform.localScale = Scale;  // Directly adjust scale with output scaling
-            return true;
         }
         public static Vector3 Divide(Vector3 a, Vector3 b)
         {

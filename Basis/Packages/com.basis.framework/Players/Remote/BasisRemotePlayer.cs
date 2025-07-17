@@ -114,7 +114,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 }
                 if (NetworkReceiver.HasAvatarQueue)
                 {
-                    NetworkReceiver.ApplyComputedData();
+                    NetworkReceiver.ApplyComputedData(false);
                 }
             }
         }
