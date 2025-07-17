@@ -650,22 +650,22 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  - UnlockPassword: 020bbc7e5979ad17c76861d3cd7d1852796f4f0892be6b7b1d3e117eb58901b6
+  - UnlockPassword: e5765edd8311b503ad1a6aac515c15af570390168a3b4753d0b1a0de0fbf2568
     BasisRemoteBundleEncrypted:
-      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1342fd73ce5d4bd9a8344e373c5b7d9020250301.BEE
+      RemoteBeeFileLocation: https://basisframework.b-cdn.net/Avatars/BEE/BEE/Aurellia/91902582235a4825b972ccdcd6a9f16620250713.BEE
     BasisLocalEncryptedBundle:
-      DownloadedBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/1342fd73ce5d4bd9a8344e373c5b7d9020250301.BEE
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  - UnlockPassword: ec41ae12e3ad75e9c560c39b2f0891b0b95097e85d5ae4ad7beaabad7094f46e
+  - UnlockPassword: 158f26db1c24438aaf051f5b4926526b2eaab2c1ac2597fa2af947cd644308b6
     BasisRemoteBundleEncrypted:
-      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
+      RemoteBeeFileLocation: https://basisframework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/41d8c29158204b889b99e60446d05d8c20250713.BEE
     BasisLocalEncryptedBundle:
-      DownloadedBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/ef957ce09fff4b19be87d0d26174909c20250504.BEE
+      DownloadedBeeFileLocation: 
     BasisBundleConnector:
       UniqueVersion: 
       BasisBundleDescription:
@@ -716,6 +716,11 @@ MonoBehaviour:
   hasLocalCreationEvent: 0
   Position: {x: 0, y: 0, z: 0}
   Rotation: {x: 0, y: 0, z: 0, w: 0}
+  SnapToPlayOnDistance: 0
+  MaxDistanceInVRBeforeSnap: 4
+  CurrentMaxDistanceInVRBeforeSnap: 0
+  CurrentDistanceToVR: 0
+  targetPosition: {x: 0, y: 0, z: 0}
 --- !u!1 &1570437850478189580
 GameObject:
   m_ObjectHideFlags: 0
