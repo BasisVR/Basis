@@ -661,9 +661,9 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  - UnlockPassword: 158f26db1c24438aaf051f5b4926526b2eaab2c1ac2597fa2af947cd644308b6
+  - UnlockPassword: ad6dd4aad8e0a8900368d5113fa0354786eebcae2c522312ada3ec07d4ea099b
     BasisRemoteBundleEncrypted:
-      RemoteBeeFileLocation: https://basisframework.b-cdn.net/Avatars/BEE/BEE/Dooly%26Peechiu/41d8c29158204b889b99e60446d05d8c20250713.BEE
+      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Yun/3688ac9f556e4855ba75e148bea5296920250713.BEE
     BasisLocalEncryptedBundle:
       DownloadedBeeFileLocation: 
     BasisBundleConnector:
