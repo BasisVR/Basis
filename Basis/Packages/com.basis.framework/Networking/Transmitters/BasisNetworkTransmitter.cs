@@ -127,7 +127,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 try
                 {
                     Receivers.BasisNetworkReceiver Rec = BasisNetworkManagement.ReceiversSnapshot[Index];
-                    if(Rec == null)
+                    if (Rec == null)
                     {
                         //this can happen when a remote player leaves during this iteration from the other thread.
                         //no need to error
@@ -357,10 +357,14 @@ namespace Basis.Scripts.Networking.Transmitters
         public void SendOutAvatarChange()
         {
             NetDataWriter Writer = new NetDataWriter();
+            // Increment and wrap around from 255 to 0
+            LastLinkedAvatarIndex = (byte)((LastLinkedAvatarIndex + 1) % (byte.MaxValue + 1));
+
             ClientAvatarChangeMessage ClientAvatarChangeMessage = new ClientAvatarChangeMessage
             {
                 byteArray = BasisBundleConversionNetwork.ConvertBasisLoadableBundleToBytes(Player.AvatarMetaData),
                 loadMode = Player.AvatarLoadMode,
+                LocalAvatarIndex = LastLinkedAvatarIndex,
             };
             ClientAvatarChangeMessage.Serialize(Writer);
             BasisNetworkManagement.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);

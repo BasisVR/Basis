@@ -1,5 +1,4 @@
 using Basis.Scripts.Behaviour;
-using LiteNetLib;
 using UnityEngine;
 namespace Basis.Scripts.UGC.ShaderInteractions
 {
@@ -7,21 +6,6 @@ namespace Basis.Scripts.UGC.ShaderInteractions
     {
         [SerializeField]
         public BasisUGCShaderInteractionsItem[] basisUGCShaderInteractionsItems;
-
-        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
-        {
-
-        }
-
-        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
-        {
-
-        }
-
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-        {
-
-        }
 
         [System.Serializable]
         public struct BasisUGCShaderInteractionsItem

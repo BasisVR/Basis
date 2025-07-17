@@ -9,6 +9,8 @@ public static partial class SerializableBasis
 
         public AdditionalAvatarData[] AdditionalAvatarDatas;
         public byte AdditionalAvatarDataSize;
+        //when we swap avatars additional avatar data could be wrong for a few frames when that occurs linked avatar index will update to match.
+        public byte LinkedAvatarIndex;
         public void Deserialize(NetDataReader Writer)
         {
             int Bytes = Writer.AvailableBytes;
@@ -20,6 +22,14 @@ public static partial class SerializableBasis
                 Writer.GetBytes(array, AvatarSyncSize);
                 if (Writer.TryGetByte(out AdditionalAvatarDataSize))
                 {
+                    if (Writer.TryGetByte(out LinkedAvatarIndex))
+                    {
+
+                    }
+                    else
+                    {
+                        BNL.LogError("Missing LinkedAvatarIndex!");
+                    }
                     if (AdditionalAvatarDataSize != 0)
                     {
                         AdditionalAvatarDatas = new AdditionalAvatarData[AdditionalAvatarDataSize];
@@ -59,6 +69,10 @@ public static partial class SerializableBasis
             {
                 AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
                 Writer.Put(AdditionalAvatarDataSize);
+                if (AdditionalAvatarDataSize != 0)
+                {
+                    Writer.Put(LinkedAvatarIndex);//we only include the linked avatar if there is additional avatar size.
+                }
                 for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
                 {
                     AdditionalAvatarData AAD = AdditionalAvatarDatas[Index];

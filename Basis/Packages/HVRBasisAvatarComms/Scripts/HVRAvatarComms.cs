@@ -235,8 +235,12 @@ namespace HVR.Basis.Comms
         {
             BasisDebug.Log(message, BasisDebug.LogTag.Avatar);
         }
-        public override void OnNetworkMessageServerReductionSystem(byte[] unsafeBuffer)
+        public override void OnNetworkMessageServerReductionSystem(byte[] unsafeBuffer, bool IsSameAvatar)
         {
+            if (IsSameAvatar == false)
+            {
+                return;
+            }
             // Ignore all net messages as long as this is disabled
             if (!isActiveAndEnabled) return;
 

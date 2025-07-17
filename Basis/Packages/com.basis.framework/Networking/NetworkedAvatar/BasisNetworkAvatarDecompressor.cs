@@ -21,7 +21,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 throw new ArgumentException("Cannot serialize avatar data.");
             }
 
-            var data = syncMessage.avatarSerialization.array;
+            byte[] data = syncMessage.avatarSerialization.array;
             int offset = 0;
             int length = data.Length;
 
@@ -29,7 +29,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             avatarBuffer.Scale = Decompress(ReadUShort(data, ref offset), MinimumValueSupported, MaximumValueSupported);
             avatarBuffer.SecondsInterval = syncMessage.interval / 1000f;
 
-            EnqueueAndProcessAdditionalData(baseReceiver, ref avatarBuffer, syncMessage.avatarSerialization.AdditionalAvatarDatas, syncMessage.avatarSerialization.AdditionalAvatarDataSize, length);
+            EnqueueAndProcessAdditionalData(baseReceiver, ref avatarBuffer, syncMessage.avatarSerialization,length);
         }
 
         public static void DecompressAndProcessAvatar(BasisNetworkReceiver baseReceiver, LocalAvatarSyncMessage syncMessage, ushort playerId)
@@ -40,7 +40,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                     "avatar data.");
             }
 
-            var data = syncMessage.array;
+            byte[] data = syncMessage.array;
             int offset = 0;
             int length = data.Length;
 
@@ -48,7 +48,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             avatarBuffer.Scale = Decompress(ReadUShort(data, ref offset), MinimumValueSupported, MaximumValueSupported);
             avatarBuffer.SecondsInterval = 0.01f;
 
-            EnqueueAndProcessAdditionalData(baseReceiver, ref avatarBuffer, syncMessage.AdditionalAvatarDatas, syncMessage.AdditionalAvatarDataSize, length);
+            EnqueueAndProcessAdditionalData(baseReceiver, ref avatarBuffer, syncMessage, length);
         }
 
         private static BasisAvatarBuffer CreateAvatarBuffer(byte[] data, ref int offset, BasisNetworkReceiver baseReceiver)
@@ -70,21 +70,24 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             return avatarBuffer;
         }
 
-        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, ref BasisAvatarBuffer avatarBuffer, AdditionalAvatarData[] additionalData, int count, int dataLength)
+        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, ref BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage Message, int dataLength)
         {
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, dataLength);
             baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
 
-            for (int i = 0; i < count; i++)
+            if (Message.AdditionalAvatarDataSize != 0)
             {
-                if (i < additionalData.Length)
+                bool IsDifferentAvatar = Message.LinkedAvatarIndex != baseReceiver.LastLinkedAvatarIndex;
+                for (int Index = 0; Index < Message.AdditionalAvatarDataSize; Index++)
                 {
-                    var data = additionalData[i];
-                    baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array);
+                    if (Index < Message.AdditionalAvatarDataSize)
+                    {
+                        var data = Message.AdditionalAvatarDatas[Index];
+                        baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array, IsDifferentAvatar);
+                    }
                 }
             }
         }
-
         private static ushort ReadUShort(byte[] data, ref int offset)
         {
             return BasisUnityBitPackerExtensions.ReadUShortFromBytes(ref data, ref offset);

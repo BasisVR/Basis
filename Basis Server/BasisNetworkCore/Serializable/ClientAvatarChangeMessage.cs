@@ -7,6 +7,8 @@ public static partial class SerializableBasis
         // BuiltIn - loads as an addressable in Unity.
         public byte loadMode;
         public byte[] byteArray;
+        //we increment this and then wrap around when > 255
+        public byte LocalAvatarIndex;
         public void Deserialize(NetDataReader Writer)
         {
             // Read the load mode
@@ -20,6 +22,7 @@ public static partial class SerializableBasis
 
             // Read each byte manually into the array
             Writer.GetBytes(byteArray, 0, byteArray.Length);
+            LocalAvatarIndex = Writer.GetByte();
         }
         public void Serialize(NetDataWriter Writer)
         {
@@ -34,34 +37,7 @@ public static partial class SerializableBasis
                 Writer.Put((ushort)byteArray.Length);
                 Writer.Put(byteArray);
             }
+            Writer.Put(LocalAvatarIndex);
         }
     }
 }
-
-/*
-if (AvatarLoadMessages == null)
-{
-TotalStoredMessages = 0;
-Writer.Put(TotalStoredMessages);
-}
-else
-{
-TotalStoredMessages = (byte)AvatarLoadMessages.Length;
-Writer.Put(AvatarLoadMessages.Length);
-for (int Index = 0; Index < TotalStoredMessages; Index++)
-{
-AvatarLoadMessages[Index].Serialize(Writer);
-}
-}
-   */
-/*
-TotalStoredMessages = Writer.GetByte();
-
-AvatarLoadMessages = new AvatarLoadDataMessage[TotalStoredMessages];
-for (int Index = 0; Index < TotalStoredMessages; Index++)
-{
-    AvatarLoadMessages[Index].Deserialize(Writer);
-}
-*/
-//  public byte TotalStoredMessages;
-//  public AvatarLoadDataMessage[] AvatarLoadMessages;

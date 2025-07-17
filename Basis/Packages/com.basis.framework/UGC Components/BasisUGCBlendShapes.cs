@@ -176,7 +176,7 @@ namespace Basis.Scripts.UGC.BlendShapes
 
             basisUGCBlendShapesItems[SelectedItemIndex] = item;
         }
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
+        public override void OnNetworkMessageServerReductionSystem(byte[] buffer, bool SameAvatar)
         {
             NetworkIntrepData(buffer);
         }

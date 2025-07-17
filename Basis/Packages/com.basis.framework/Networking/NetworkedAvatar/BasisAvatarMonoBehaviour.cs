@@ -5,11 +5,11 @@ namespace Basis.Scripts.Behaviour
 {
     public abstract class BasisAvatarMonoBehaviour : MonoBehaviour
     {
-       // [HideInInspector]
+        // [HideInInspector]
         public bool IsInitalized = false;
-       // [HideInInspector]
+        // [HideInInspector]
         public byte MessageIndex;
-      //  [HideInInspector]
+        //  [HideInInspector]
         public BasisNetworkPlayer NetworkedPlayer;
         public void OnNetworkAssign(byte messageIndex, BasisNetworkPlayer Player)
         {
@@ -18,9 +18,23 @@ namespace Basis.Scripts.Behaviour
             IsInitalized = true;
             OnNetworkReady(messageIndex, Player.IsLocal);
         }
-        public abstract void OnNetworkReady(byte messageIndex, bool IsLocallyOwned);
-        public abstract void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod);
-        public abstract void OnNetworkMessageServerReductionSystem(byte[] buffer);
+        public virtual void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
+        {
+
+        }
+        public virtual void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+        {
+            BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageReceived", this.gameObject, BasisDebug.LogTag.Avatar);
+        }
+        /// <summary>
+        /// data that came out of the server reduction system
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="IsADifferentAvatarLocally">Indicates if the avatar worn matches or not</param>
+        public virtual void OnNetworkMessageServerReductionSystem(byte[] buffer, bool IsADifferentAvatarLocally)
+        {
+            BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageServerReductionSystem", this.gameObject, BasisDebug.LogTag.Avatar);
+        }
         /// <summary>
         /// this is used for sending Network Messages
         /// </summary>

@@ -1,8 +1,5 @@
-using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
-using Basis.Scripts.Networking;
-using Basis.Scripts.Networking.NetworkedAvatar;
 using LiteNetLib;
 using UnityEngine;
 public class BasisTestNetworkAvatar : BasisAvatarMonoBehaviour
@@ -22,13 +19,5 @@ public class BasisTestNetworkAvatar : BasisAvatarMonoBehaviour
         {
             InvokeRepeating(nameof(LoopSend), 0, 1);
         }
-    }
-
-    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
-    {
-    }
-
-    public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-    {
     }
 }

@@ -15,19 +15,8 @@ public class BasisTestNetwork : BasisAvatarMonoBehaviour
             Send = false;
         }
     }
-
-    public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
-    {
-
-    }
-
     public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
         Debug.Log($"received {MessageIndex} {buffer.Length}");
-    }
-
-    public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-    {
-
     }
 }

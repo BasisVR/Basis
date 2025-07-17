@@ -7,19 +7,5 @@ namespace Basis.Scripts.UGC.Animator
     {
         [SerializeField]
         public BasisUGCAnimatorItem[] AnimatorItems;
-
-        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
-        {
-
-        }
-
-        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
-        { 
-        }
-
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-        {
-
-        }
     }
 }

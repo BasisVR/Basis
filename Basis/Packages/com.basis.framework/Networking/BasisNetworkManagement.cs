@@ -266,6 +266,7 @@ namespace Basis.Scripts.Networking
                 {
                     byteArray = Information,
                     loadMode = BasisLocalPlayer.AvatarLoadMode,
+                    LocalAvatarIndex = 0,
                 },
                 playerMetaDataMessage = new ClientMetaDataMessage
                 {

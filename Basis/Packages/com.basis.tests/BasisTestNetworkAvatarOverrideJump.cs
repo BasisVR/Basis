@@ -35,9 +35,4 @@ public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
     {
         BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
     }
-
-    public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-    {
-
-    }
 }

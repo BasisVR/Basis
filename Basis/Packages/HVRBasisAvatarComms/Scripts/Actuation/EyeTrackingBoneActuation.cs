@@ -63,16 +63,6 @@ namespace HVR.Basis.Comms
                 Receiver = NetworkedPlayer as BasisNetworkReceiver;
             }
         }
-        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
-        {
-
-        }
-
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
-        {
-
-        }
-
         private void OnEnable()
         {
             SetBuiltInEyeFollowDriverOverriden(true);

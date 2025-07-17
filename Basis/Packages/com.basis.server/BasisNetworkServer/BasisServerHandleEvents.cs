@@ -515,7 +515,9 @@ namespace BasisServerHandle
                     syncState = new LocalAvatarSyncMessage()
                     {
                         array = new byte[LocalAvatarSyncMessage.AvatarSyncSize],
-                        AdditionalAvatarDatas = null
+                        AdditionalAvatarDatas = null,
+                         AdditionalAvatarDataSize = 0,
+                          LinkedAvatarIndex = 0,
                     };
                     BNL.LogError("Unable to get Last Player Avatar Data! Using Error Fallback");
                 }

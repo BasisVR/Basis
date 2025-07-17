@@ -26,6 +26,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     [System.Serializable]
     public abstract class BasisNetworkPlayer
     {
+        /// <summary>
+        /// only changes when additional avatar data is in play!
+        /// </summary>
+        public byte LastLinkedAvatarIndex = 0;
         private readonly object _lock = new object(); // Lock object for thread-safety
         private bool _hasReasonToSendAudio;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);

@@ -36,6 +36,7 @@ namespace Basis.Scripts.Networking
                 BasisRemotePlayer remote = await createRemotePlayerTask;
                 // Continue with the rest of the code
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
+                BasisNetworkReceiver.LastLinkedAvatarIndex = avatarID.LocalAvatarIndex;
                 if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
                 {
                     //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
