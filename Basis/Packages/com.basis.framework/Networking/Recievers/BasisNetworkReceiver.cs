@@ -132,23 +132,7 @@ namespace Basis.Scripts.Networking.Receivers
                 {
                     // Complete the jobs and apply the results
                     EuroFilterHandle.Complete();
-                    //  bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
-                    Vector3 Scale = OutputVectors[1];
-                    bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, Scale, OutputVectors[0], OutputRotation, EuroValuesOutput);
-                    if (ReadyState)
-                    {
-                        PoseHandler.SetHumanPose(ref HumanPose);
-                    }
-                    else
-                    {
-                        BasisDebug.LogError("Not Ready For Pose Set!");
-                    }
-                    RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(Scale);
-                    AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
-                    if (RemotePlayer.HasRemoteNamePlate)
-                    {
-                        RemotePlayer.RemoteNamePlate.Simulate();
-                    }
+                    ApplyComputedData();
                 }
                 catch (Exception ex)
                 {
@@ -165,6 +149,26 @@ namespace Basis.Scripts.Networking.Receivers
                     TimeBeforeCompletion = Last.SecondsInterval;
                 }
                 TimeInThePast = TimeAsDouble;
+            }
+        }
+        public void ApplyComputedData()
+        {
+            //  bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
+            Vector3 Scale = OutputVectors[1];
+            bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, Scale, OutputVectors[0], OutputRotation, EuroValuesOutput);
+            if (ReadyState)
+            {
+                PoseHandler.SetHumanPose(ref HumanPose);
+            }
+            else
+            {
+                BasisDebug.LogError("Not Ready For Pose Set!");
+            }
+            RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(Scale);
+            AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
+            if (RemotePlayer.HasRemoteNamePlate)
+            {
+                RemotePlayer.RemoteNamePlate.Simulate();
             }
         }
         public void HandleException(Exception ex)

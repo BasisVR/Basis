@@ -2,6 +2,7 @@ using Basis.Scripts.Avatar;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.UI.NamePlate;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using static SerializableBasis;
@@ -90,12 +91,31 @@ namespace Basis.Scripts.BasisSdk.Players
             if (BasisPlayerSettingsData.AvatarVisible && InAvatarRange)
             {
                 //    BasisDebug.Log("loading avatar from " + BasisLoadableBundle.BasisRemoteBundleEncrypted.CombinedURL + " with net mode " + Mode);
-                await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle);
+                await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
             }
             else
             {
                 // BasisDebug.Log("Going to load Loading Avatar Instead of requested Avatar");
-                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this, BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
+                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this, BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Vector3.zero, Quaternion.identity);
+            }
+            if (NetworkReceiver != null)
+            {
+                if (NetworkReceiver.PoseHandler == null)
+                {
+                    return;
+                }
+                if (NetworkReceiver.First == null)
+                {
+                    return;
+                }
+                if (NetworkReceiver.Last == null)
+                {
+                    return;
+                }
+                if (NetworkReceiver.HasAvatarQueue)
+                {
+                    NetworkReceiver.ApplyComputedData();
+                }
             }
         }
         public void OnDestroy()
