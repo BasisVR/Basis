@@ -111,6 +111,8 @@ namespace Basis.Scripts.Networking.Receivers
                 EuroFilterHandle = oneEuroFilterJob.Schedule(LocalAvatarSyncMessage.StoredBones, 64, musclesHandle);
             }
         }
+        public Vector3 SafeScale;
+        public Vector3 SafePosition;
         public void Apply(double TimeAsDouble)
         {
             if (PoseHandler == null)
@@ -132,6 +134,8 @@ namespace Basis.Scripts.Networking.Receivers
                 {
                     // Complete the jobs and apply the results
                     EuroFilterHandle.Complete();
+                    SafeScale = OutputVectors[1];
+                    SafePosition = OutputVectors[0];
                     ApplyComputedData();
                 }
                 catch (Exception ex)
@@ -154,8 +158,7 @@ namespace Basis.Scripts.Networking.Receivers
         public void ApplyComputedData()
         {
             //  bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, OutputVectors[1], OutputVectors[0], OutputRotation, enableEuroFilter ? EuroValuesOutput : musclesPreEuro);
-            Vector3 Scale = OutputVectors[1];
-            bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, Scale, OutputVectors[0], OutputRotation, EuroValuesOutput);
+            bool ReadyState = ApplyPoseData(Player.BasisAvatarTransform, Player.BasisAvatar.Animator, SafeScale, SafePosition, OutputRotation, EuroValuesOutput);
             if (ReadyState)
             {
                 PoseHandler.SetHumanPose(ref HumanPose);
@@ -164,7 +167,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 BasisDebug.LogError("Not Ready For Pose Set!");
             }
-            RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(Scale);
+            RemotePlayer.RemoteBoneDriver.SimulateAndApplyRemote(SafeScale);
             AudioReceiverModule.MoveAudio(RemotePlayer.RemoteBoneDriver.Mouth.OutGoingData);
             if (RemotePlayer.HasRemoteNamePlate)
             {
