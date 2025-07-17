@@ -1,7 +1,5 @@
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Threading;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
@@ -15,144 +13,17 @@ using static SerializableBasis;
 
 public static class BasisNetworkMessageProcessor
 {
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> movementQueue = new();
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> voiceQueue = new();
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> fallQueue = new();
-    private static readonly ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> generalQueue = new();
-
-    private static readonly ManualResetEventSlim movementAvailable = new(false);
-    private static readonly ManualResetEventSlim voiceAvailable = new(false);
-    private static readonly ManualResetEventSlim fallAvailable = new(false);
-    private static readonly ManualResetEventSlim generalAvailable = new(false);
-
-    private static readonly int WorkerCount = Environment.ProcessorCount;
-    private static readonly Thread[] workers;
-
-    private const int MaxQueueSize = 64;
-
-    // Stopwatch-based timing
-    private static readonly long MaxMessageAgeTicks = Stopwatch.Frequency * 100 / 1000; // 100ms
-    static BasisNetworkMessageProcessor()
-    {
-        workers = new Thread[WorkerCount];
-        for (int Index = 0; Index < WorkerCount; Index++)
-        {
-            workers[Index] = new Thread(WorkerLoop)
-            {
-                IsBackground = true,
-                Name = $"BasisNetWorker-{Index}"
-            };
-            workers[Index].Start();
-        }
-    }
-
     public static void Enqueue(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
-        long timestamp = Stopwatch.GetTimestamp();
-        var item = (peer, reader, channel, deliveryMethod, timestamp);
-
-        switch (channel)
+        try
         {
-            case BasisNetworkCommons.PlayerAvatarChannel:
-                if (movementQueue.Count > MaxQueueSize)
-                {
-                    reader.Recycle();
-                    BNL.LogError("Dropping Movement Data Exceeding Max Queue");
-                    return;
-                }
-                movementQueue.Enqueue(item);
-                movementAvailable.Set();
-                break;
-
-            case BasisNetworkCommons.VoiceChannel:
-                if (voiceQueue.Count > MaxQueueSize)
-                {
-                    reader.Recycle();
-                    BNL.LogError("Dropping Voice Data Exceeding Max Queue");
-                    return;
-                }
-                voiceQueue.Enqueue(item);
-                voiceAvailable.Set();
-                break;
-
-            case BasisNetworkCommons.FallChannel:
-                if (fallQueue.Count > MaxQueueSize)
-                {
-                    reader.Recycle();
-                    BNL.LogError("Dropping Fall Data Exceeding Max Queue");
-                    return;
-                }
-                fallQueue.Enqueue(item);
-                fallAvailable.Set();
-                break;
-
-            default:
-                generalQueue.Enqueue(item);
-                generalAvailable.Set();
-                break;
+            ProcessMessage(peer, reader, channel, deliveryMethod);
         }
-    }
-
-    private static void WorkerLoop()
-    {
-        while (true)
+        catch (Exception ex)
         {
-            bool didWork = false;
-
-            didWork |= TryDequeueAndProcess(generalQueue, generalAvailable, null);
-            didWork |= TryDequeueAndProcess(voiceQueue, voiceAvailable, BasisNetworkCommons.VoiceChannel);
-            didWork |= TryDequeueAndProcess(movementQueue, movementAvailable, BasisNetworkCommons.PlayerAvatarChannel);
-            didWork |= TryDequeueAndProcess(fallQueue, fallAvailable, BasisNetworkCommons.FallChannel);
-
-            if (!didWork)
-            {
-                WaitHandle.WaitAny(new[]
-                {
-                    movementAvailable.WaitHandle,
-                    voiceAvailable.WaitHandle,
-                    fallAvailable.WaitHandle,
-                    generalAvailable.WaitHandle
-                });
-
-                movementAvailable.Reset();
-                voiceAvailable.Reset();
-                fallAvailable.Reset();
-                generalAvailable.Reset();
-            }
+            BNL.LogError($"[Error] Exception in direct message processing:\n{ex}");
+            reader?.Recycle();
         }
-    }
-
-    private static bool TryDequeueAndProcess(
-        ConcurrentQueue<(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod method, long timestamp)> queue,
-        ManualResetEventSlim availableEvent,
-        byte? dropIfOldChannel)
-    {
-        bool didWork = false;
-
-        while (queue.TryDequeue(out var item))
-        {
-            didWork = true;
-
-            try
-            {
-                long ageTicks = Stopwatch.GetTimestamp() - item.timestamp;
-                if (dropIfOldChannel.HasValue && ageTicks > MaxMessageAgeTicks)
-                {
-                    item.reader?.Recycle();
-                    BNL.LogError($"Dropped stale message on channel {dropIfOldChannel.Value} (older than {MaxMessageAgeTicks} was {ageTicks})");
-                    continue;
-                }
-
-                ProcessMessage(item.peer, item.reader, item.channel, item.method);
-            }
-            catch (Exception ex)
-            {
-                BNL.LogError($"[Error] Exception in message processing:\n{ex}");
-                item.reader?.Recycle();
-            }
-        }
-
-        return didWork;
     }
 
     private static void ProcessMessage(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
@@ -164,9 +35,9 @@ public static class BasisNetworkMessageProcessor
                 case BasisNetworkCommons.FallChannel:
                     if (deliveryMethod == DeliveryMethod.Unreliable)
                     {
-                        if (reader.TryGetByte(out byte Byte))
+                        if (reader.TryGetByte(out byte newChannel))
                         {
-                            ProcessMessage(peer, reader, Byte, deliveryMethod);
+                            ProcessMessage(peer, reader, newChannel, deliveryMethod);
                         }
                         else
                         {
@@ -237,20 +108,20 @@ public static class BasisNetworkMessageProcessor
                 case BasisNetworkCommons.LoadResourceChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
-                        if (NetworkServer.authIdentity.NetIDToUUID(peer, out string UUID))
+                        if (NetworkServer.authIdentity.NetIDToUUID(peer, out string uuid))
                         {
-                            if (NetworkServer.authIdentity.IsNetPeerAdmin(UUID))
+                            if (NetworkServer.authIdentity.IsNetPeerAdmin(uuid))
                             {
                                 BasisServerHandleEvents.LoadResource(reader, peer);
                             }
                             else
                             {
-                                BNL.LogError("Admin was not found! for " + UUID);
+                                BNL.LogError("Admin was not found! for " + uuid);
                             }
                         }
                         else
                         {
-                            BNL.LogError("User " + UUID + " does not exist!");
+                            BNL.LogError("User " + uuid + " does not exist!");
                         }
                     }
                     break;
@@ -258,20 +129,20 @@ public static class BasisNetworkMessageProcessor
                 case BasisNetworkCommons.UnloadResourceChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
-                        if (NetworkServer.authIdentity.NetIDToUUID(peer, out string UUID))
+                        if (NetworkServer.authIdentity.NetIDToUUID(peer, out string uuid))
                         {
-                            if (NetworkServer.authIdentity.IsNetPeerAdmin(UUID))
+                            if (NetworkServer.authIdentity.IsNetPeerAdmin(uuid))
                             {
                                 BasisServerHandleEvents.UnloadResource(reader, peer);
                             }
                             else
                             {
-                                BNL.LogError("Admin was not found! for " + UUID);
+                                BNL.LogError("Admin was not found! for " + uuid);
                             }
                         }
                         else
                         {
-                            BNL.LogError("User " + UUID + " does not exist!");
+                            BNL.LogError("User " + uuid + " does not exist!");
                         }
                     }
                     break;
@@ -285,7 +156,7 @@ public static class BasisNetworkMessageProcessor
                 case BasisNetworkCommons.AvatarCloneRequestChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
-                        // BasisAvatarRequestMessages.AvatarCloneRequestMessage();
+                        // Placeholder for AvatarCloneRequestMessage
                     }
                     reader.Recycle();
                     break;
@@ -293,56 +164,55 @@ public static class BasisNetworkMessageProcessor
                 case BasisNetworkCommons.AvatarCloneResponseChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
-                        // BasisAvatarRequestMessages.AvatarCloneResponseMessage();
+                        // Placeholder for AvatarCloneResponseMessage
                     }
                     reader.Recycle();
                     break;
+
                 case BasisNetworkCommons.ServerBoundChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
-                    {
                         BasisServerHandleEvents.OnServerReceived?.Invoke(peer, reader, deliveryMethod);
-                    }
                     reader.Recycle();
                     break;
+
                 case BasisNetworkCommons.StoreDatabaseChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
-                        DatabasePrimativeMessage DataMessage = new DatabasePrimativeMessage();
-                        DataMessage.Deserialize(reader);
-
-                        BasisPersistentDatabase.AddOrUpdate(new BasisData(DataMessage.DatabaseID, DataMessage.jsonPayload));
+                        DatabasePrimativeMessage dataMessage = new();
+                        dataMessage.Deserialize(reader);
+                        BasisPersistentDatabase.AddOrUpdate(new BasisData(dataMessage.DatabaseID, dataMessage.jsonPayload));
                     }
                     reader.Recycle();
                     break;
+
                 case BasisNetworkCommons.RequestStoreDatabaseChannel:
                     if (BasisServerHandleEvents.ValidateSize(reader, peer, channel))
                     {
-                        DataBaseRequest DataMessage = new DataBaseRequest();
-                        DataMessage.Deserialize(reader);
+                        DataBaseRequest dataRequest = new();
+                        dataRequest.Deserialize(reader);
 
-                        if (BasisPersistentDatabase.GetByName(DataMessage.DatabaseID, out BasisData Database))
+                        if (BasisPersistentDatabase.GetByName(dataRequest.DatabaseID, out BasisData db))
                         {
-                            DatabasePrimativeMessage message = new DatabasePrimativeMessage
+                            DatabasePrimativeMessage msg = new()
                             {
-                                DatabaseID = DataMessage.DatabaseID,
-                                jsonPayload = Database.JsonPayload
+                                DatabaseID = dataRequest.DatabaseID,
+                                jsonPayload = db.JsonPayload
                             };
-                            NetDataWriter Writer = new NetDataWriter(true);
-                            message.Serialize(Writer);
-                            peer.Send(Writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
-
+                            NetDataWriter writer = new(true);
+                            msg.Serialize(writer);
+                            peer.Send(writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
                         }
                         else
                         {
-                            BasisPersistentDatabase.AddOrUpdate(new BasisData(DataMessage.DatabaseID, new ConcurrentDictionary<string, object>()));
-                            DatabasePrimativeMessage message = new DatabasePrimativeMessage
+                            BasisPersistentDatabase.AddOrUpdate(new BasisData(dataRequest.DatabaseID, new System.Collections.Concurrent.ConcurrentDictionary<string, object>()));
+                            DatabasePrimativeMessage msg = new()
                             {
-                                DatabaseID = DataMessage.DatabaseID,
-                                jsonPayload = new ConcurrentDictionary<string, object>(),
+                                DatabaseID = dataRequest.DatabaseID,
+                                jsonPayload = new System.Collections.Concurrent.ConcurrentDictionary<string, object>()
                             };
-                            NetDataWriter Writer = new NetDataWriter(true);
-                            message.Serialize(Writer);
-                            peer.Send(Writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
+                            NetDataWriter writer = new(true);
+                            msg.Serialize(writer);
+                            peer.Send(writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
                         }
                     }
                     reader.Recycle();
@@ -356,11 +226,9 @@ public static class BasisNetworkMessageProcessor
         }
         catch (Exception ex)
         {
-            BNL.LogError($"[Error] Exception occurred in ProcessMessage.\n" +
-                         $"Peer: {peer.Address}, Channel: {channel}, DeliveryMethod: {deliveryMethod}\n" +
-                         $"Message: {ex.Message}\n" +
-                         $"StackTrace: {ex.StackTrace}\n" +
-                         $"InnerException: {ex.InnerException}");
+            BNL.LogError($"[Error] Exception in ProcessMessage\n" +
+                         $"Peer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\n" +
+                         $"Message: {ex.Message}\nStackTrace: {ex.StackTrace}");
             reader?.Recycle();
         }
     }
