@@ -48,7 +48,7 @@ namespace HVR.Basis.Comms
             if (featureNetworking == null) featureNetworking = CommsUtil.FeatureNetworkingFromAvatar(avatar);
             if (acquisition == null) acquisition = AcquisitionService.SceneInstance;
         }
-        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
+        public override void OnNetworkReady(bool IsLocallyOwned)
         {
 
             IsLocal = IsLocallyOwned;

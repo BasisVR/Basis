@@ -22,7 +22,7 @@ public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
         }
     }
 
-    public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
+    public override void OnNetworkReady(bool IsLocallyOwned)
     {
         Debug.Log("OnAvatarReady");
         if (IsLocallyOwned)
@@ -31,7 +31,7 @@ public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
         }
     }
 
-    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
     {
         BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
     }

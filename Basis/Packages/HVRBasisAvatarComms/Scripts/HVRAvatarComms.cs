@@ -36,34 +36,32 @@ namespace HVR.Basis.Comms
             }
 
         }
-        public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
+        public override void OnNetworkReady(bool IsLocallyOwned)
         {
             _isWearer = IsLocallyOwned;
-            if (avatar.TryGetLinkedPlayer(out ushort _wearerNetId))
+            featureNetworking.AssignGuids(IsLocallyOwned);
+            if (IsLocallyOwned)
             {
-                featureNetworking.AssignGuids(IsLocallyOwned);
-                if (IsLocallyOwned)
-                {
-                    // Initialize other users.
-                    ProtocolDebug($"Sending Negotiation Packet to everyone...");
-                    NetworkMessageSend(featureNetworking.GetNegotiationPacket(), DeliveryMethod.ReliableOrdered);
-                    featureNetworking.TryResyncEveryone();
-                }
-                else
-                {
-                    ProtocolDebug($"Sending ReservedPacket_RemoteRequestsInitializationMessage to {_wearerNetId}...");
-                    // Handle late-joining, or loading the avatar after the wearer does. Ask the wearer to initialize us.
-                    // - If the wearer has not finished loading their own avatar, they will initialize us anyways.
-                    NetworkMessageSend(featureNetworking.GetRemoteRequestsInitializationPacket(), DeliveryMethod.ReliableOrdered, new ushort[] { _wearerNetId });
-                }
+                // Initialize other users.
+                ProtocolDebug($"Sending Negotiation Packet to everyone...");
+                NetworkMessageSend(featureNetworking.GetNegotiationPacket(), DeliveryMethod.ReliableOrdered);
+                featureNetworking.TryResyncEveryone();
             }
             else
             {
-                ProtocolDebug("Missing wearer net Id Recipients");
+                ProtocolDebug($"Sending ReservedPacket_RemoteRequestsInitializationMessage to {NetworkedPlayer.playerId}...");
+                // Handle late-joining, or loading the avatar after the wearer does. Ask the wearer to initialize us.
+                // - If the wearer has not finished loading their own avatar, they will initialize us anyways.
+                NetworkMessageSend(featureNetworking.GetRemoteRequestsInitializationPacket(), DeliveryMethod.ReliableOrdered, new ushort[] { NetworkedPlayer.playerId });
             }
         }
-        public override void OnNetworkMessageReceived(ushort whoSentThis, byte[] unsafeBuffer, DeliveryMethod DeliveryMethod)
+        public override void OnNetworkMessageReceived(ushort whoSentThis, byte[] unsafeBuffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
         {
+            if(IsADifferentAvatarLocally)
+            {
+               // ProtocolError("Protocol error: IsADifferentAvatarLocally");
+                return;
+            }
             // Ignore all net messages as long as this is disabled
             if (!isActiveAndEnabled)
             {

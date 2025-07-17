@@ -6,6 +6,7 @@ public static partial class SerializableBasis
     {
         public PlayerIdMessage PlayerIdMessage;
         public byte messageIndex;
+        public byte AvatarLinkIndex;
         public ushort recipientsSize;
         /// <summary>
         /// If null, it's for everyone. Otherwise, send only to the listed entries.
@@ -16,6 +17,10 @@ public static partial class SerializableBasis
         public void Deserialize(NetDataReader Writer)
         {
             PlayerIdMessage.Deserialize(Writer);
+            if (!Writer.TryGetByte(out AvatarLinkIndex))
+            {
+                throw new ArgumentException("Failed to read AvatarLinkIndex.");
+            }
             // Read the messageIndex safely
             if (!Writer.TryGetByte(out messageIndex))
             {
@@ -64,6 +69,7 @@ public static partial class SerializableBasis
         public void Serialize(NetDataWriter Writer)
         {
             PlayerIdMessage.Serialize(Writer);
+            Writer.Put(AvatarLinkIndex);
             // Write the messageIndex
             Writer.Put(messageIndex);
 

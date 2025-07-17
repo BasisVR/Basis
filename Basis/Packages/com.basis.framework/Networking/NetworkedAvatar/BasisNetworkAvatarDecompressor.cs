@@ -70,20 +70,26 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             return avatarBuffer;
         }
 
-        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, ref BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage Message, int dataLength)
+        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, ref BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage message, int dataLength)
         {
+            // Add to profiler
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, dataLength);
+
+            // Queue the avatar buffer
             baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
 
-            if (Message.AdditionalAvatarDataSize != 0)
+            // Process additional avatar data
+            if (message.AdditionalAvatarDataSize > 0 && message.AdditionalAvatarDatas != null)
             {
-                bool IsDifferentAvatar = Message.LinkedAvatarIndex != baseReceiver.LastLinkedAvatarIndex;
-                for (int Index = 0; Index < Message.AdditionalAvatarDataSize; Index++)
+                bool isDifferentAvatar = message.LinkedAvatarIndex != baseReceiver.LastLinkedAvatarIndex;
+
+                for (int Index = 0; Index < message.AdditionalAvatarDataSize; Index++)
                 {
-                    if (Index < Message.AdditionalAvatarDataSize)
+                    AdditionalAvatarData data = message.AdditionalAvatarDatas[Index];
+
+                    if (data.messageIndex < baseReceiver.NetworkBehaviourCount)
                     {
-                        var data = Message.AdditionalAvatarDatas[Index];
-                        baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array, IsDifferentAvatar);
+                        baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array, isDifferentAvatar);
                     }
                 }
             }

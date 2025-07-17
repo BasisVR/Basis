@@ -77,7 +77,11 @@ public static class BasisNetworkGenericMessages
                 RemoteAvatarDataMessage output = serverAvatarDataMessage.avatarDataMessage;
                 if (player.NetworkBehaviours.Length >= output.messageIndex)
                 {
-                    player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(serverAvatarDataMessage.playerIdMessage.playerID, output.payload, Method);
+                    bool IsDifferentAvatar = output.AvatarLinkIndex != player.LastLinkedAvatarIndex;
+                    if (output.messageIndex < player.NetworkBehaviourCount)
+                    {
+                        player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(serverAvatarDataMessage.playerIdMessage.playerID, output.payload, Method, IsDifferentAvatar);
+                    }
                 }
             }
             else

@@ -16,13 +16,13 @@ namespace Basis.Scripts.Behaviour
             MessageIndex = messageIndex;
             NetworkedPlayer = Player;
             IsInitalized = true;
-            OnNetworkReady(messageIndex, Player.IsLocal);
+            OnNetworkReady(Player.IsLocal);
         }
-        public virtual void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
+        public virtual void OnNetworkReady(bool IsLocallyOwned)
         {
 
         }
-        public virtual void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
+        public virtual void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
         {
             BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageReceived", this.gameObject, BasisDebug.LogTag.Avatar);
         }
@@ -45,7 +45,7 @@ namespace Basis.Scripts.Behaviour
         {
             if (IsInitalized)
             {
-                NetworkedPlayer.OnNetworkMessageSend(MessageIndex, buffer, DeliveryMethod, Recipients);
+                NetworkedPlayer.OnAvatarNetworkMessageSend(MessageIndex, buffer, DeliveryMethod, Recipients);
             }
             else
             {
@@ -60,7 +60,7 @@ namespace Basis.Scripts.Behaviour
         {
             if (IsInitalized)
             {
-                NetworkedPlayer.OnNetworkMessageSend(MessageIndex, null, DeliveryMethod);
+                NetworkedPlayer.OnAvatarNetworkMessageSend(MessageIndex, null, DeliveryMethod);
             }
             else
             {
@@ -71,7 +71,7 @@ namespace Basis.Scripts.Behaviour
         {
             if (IsInitalized)
             {
-                NetworkedPlayer.OnServerReductionSystemMessageSend(MessageIndex, buffer);
+                NetworkedPlayer.OnAvatarServerReductionSystemMessageSend(MessageIndex, buffer);
             }
             else
             {

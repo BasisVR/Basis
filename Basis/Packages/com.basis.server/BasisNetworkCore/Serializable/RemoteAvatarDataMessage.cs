@@ -7,10 +7,15 @@ public static partial class SerializableBasis
         public PlayerIdMessage PlayerIdMessage;
         public byte messageIndex;
         public byte[] payload;
+        public byte AvatarLinkIndex;
         public void Deserialize(NetDataReader Writer)
         {
             PlayerIdMessage.Deserialize(Writer);
             // Read the messageIndex safely
+            if (!Writer.TryGetByte(out AvatarLinkIndex))
+            {
+                throw new ArgumentException("Failed to read AvatarLinkIndex.");
+            }
             if (!Writer.TryGetByte(out messageIndex))
             {
                 throw new ArgumentException("Failed to read messageIndex.");
@@ -34,6 +39,8 @@ public static partial class SerializableBasis
         public void Serialize(NetDataWriter Writer)
         {
             PlayerIdMessage.Serialize(Writer);
+            // Write the messageIndex
+            Writer.Put(AvatarLinkIndex);
             // Write the messageIndex
             Writer.Put(messageIndex);
             // Write the payload if present

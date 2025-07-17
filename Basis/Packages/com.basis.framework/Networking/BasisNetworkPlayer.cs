@@ -147,7 +147,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             return true;
         }
-        public void OnServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
+        public void OnAvatarServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
         {
             if (BasisNetworkManagement.Instance != null && BasisNetworkManagement.Transmitter != null)
             {
@@ -163,7 +163,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 BasisDebug.LogError("Missing Transmitter or Network Management", BasisDebug.LogTag.Networking);
             }
         }
-        public void OnNetworkMessageSend(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced, ushort[] Recipients = null)
+        public void OnAvatarNetworkMessageSend(byte MessageIndex, byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Sequenced, ushort[] Recipients = null)
         {
             // Handle cases based on presence of Recipients and buffer
             AvatarDataMessage AvatarDataMessage = new AvatarDataMessage
@@ -172,6 +172,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 messageIndex = MessageIndex,
                 payload = buffer,
                 recipients = Recipients,
+                AvatarLinkIndex = LastLinkedAvatarIndex,
+                recipientsSize = 0,
             };
             NetDataWriter netDataWriter = new NetDataWriter();
             if (DeliveryMethod == DeliveryMethod.Unreliable)

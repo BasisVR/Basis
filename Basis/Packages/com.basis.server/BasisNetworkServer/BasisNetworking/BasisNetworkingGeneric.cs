@@ -76,7 +76,8 @@ namespace Basis.Network.Server.Generic
                 {
                     messageIndex = avatarDataMessage.messageIndex,
                     payload = avatarDataMessage.payload,
-                    PlayerIdMessage = avatarDataMessage.PlayerIdMessage
+                    PlayerIdMessage = avatarDataMessage.PlayerIdMessage,
+                    AvatarLinkIndex = avatarDataMessage.AvatarLinkIndex,
                 },
                 playerIdMessage = new PlayerIdMessage
                 {

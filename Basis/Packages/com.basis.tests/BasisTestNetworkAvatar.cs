@@ -13,7 +13,7 @@ public class BasisTestNetworkAvatar : BasisAvatarMonoBehaviour
         NetworkMessageSend(SubmittingData, DeliveryMethod.Unreliable, Recipients);
     }
 
-    public override void OnNetworkReady(byte messageIndex, bool IsLocallyOwned)
+    public override void OnNetworkReady(bool IsLocallyOwned)
     {
         if (IsLocallyOwned)
         {
