@@ -23,12 +23,12 @@ public static partial class SerializableBasis
                     if (AdditionalAvatarDataSize != 0)
                     {
                         AdditionalAvatarDatas = new AdditionalAvatarData[AdditionalAvatarDataSize];
-                        for (int Index = 0; Index < AdditionalAvatarDatas.Length; Index++)
+                        for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
                         {
                             AdditionalAvatarDatas[Index] = new AdditionalAvatarData();
                             AdditionalAvatarDatas[Index].Deserialize(Writer);
                         }
-                      //  BNL.Log("found additional message " + AdditionalAvatarDatas.Length);
+                        //  BNL.Log("found additional message " + AdditionalAvatarDatas.Length);
                     }
                 }
                 else
@@ -64,7 +64,7 @@ public static partial class SerializableBasis
                     AdditionalAvatarData AAD = AdditionalAvatarDatas[Index];
                     AAD.Serialize(Writer);
                 }
-             //   BNL.Log("sending additional message " + AdditionalAvatarDatas.Length);
+                //   BNL.Log("sending additional message " + AdditionalAvatarDatas.Length);
             }
         }
     }

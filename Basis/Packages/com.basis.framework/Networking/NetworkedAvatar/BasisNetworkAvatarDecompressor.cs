@@ -39,13 +39,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
             int Count = syncMessage.avatarSerialization.AdditionalAvatarDataSize;
             //  BasisDebug.Log($"AdditionalAvatarDatas was {Count}");
-            if (baseReceiver.Player != null && baseReceiver.Player.BasisAvatar != null)
+            for (int Index = 0; Index < Count; Index++)
             {
-                for (int Index = 0; Index < Count; Index++)
-                {
-                    AdditionalAvatarData Data = syncMessage.avatarSerialization.AdditionalAvatarDatas[Index];
-                    baseReceiver.NetworkBehaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
-                }
+                AdditionalAvatarData Data = syncMessage.avatarSerialization.AdditionalAvatarDatas[Index];
+                baseReceiver.NetworkBehaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
             }
         }
         /// <summary>
