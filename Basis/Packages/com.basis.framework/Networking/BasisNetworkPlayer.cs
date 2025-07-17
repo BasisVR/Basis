@@ -100,6 +100,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }, null);
             }
         }
+        public int NetworkBehaviourCount = 0;
         public BasisAvatarMonoBehaviour[] NetworkBehaviours;
         public void AvatarLoadComplete()
         {
@@ -114,6 +115,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
                 NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
+                NetworkBehaviourCount = NetworkBehaviours.Length;
                 int length = NetworkBehaviours.Length;
                 if (length > 256)
                 {

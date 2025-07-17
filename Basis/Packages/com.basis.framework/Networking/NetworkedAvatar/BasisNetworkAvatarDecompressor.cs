@@ -3,106 +3,97 @@ using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Profiler;
 using System;
 using static SerializableBasis;
+
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
     public static class BasisNetworkAvatarDecompressor
     {
-        /// <summary>
-        /// Single API to handle all avatar decompression tasks.
-        /// </summary>
-        public static void DecompressAndProcessAvatar(BasisNetworkReceiver baseReceiver, ServerSideSyncPlayerMessage syncMessage, ushort PlayerId)
+        private const float MinimumValueSupported = 0.005f;
+        private const float MaximumValueSupported = 150f;
+        private const ushort UShortMin = ushort.MinValue;
+        private const ushort UShortMax = ushort.MaxValue;
+        private const float FloatRangeDifference = UShortMax - UShortMin;
+
+        public static void DecompressAndProcessAvatar(BasisNetworkReceiver baseReceiver, ServerSideSyncPlayerMessage syncMessage, ushort playerId)
         {
             if (syncMessage.avatarSerialization.array == null)
             {
-                throw new ArgumentException("Cant Serialize Avatar Data");
+                throw new ArgumentException("Cannot serialize avatar data.");
             }
-            int Length = syncMessage.avatarSerialization.array.Length;
-            int Offset = 0;
-            BasisAvatarBuffer avatarBuffer = new BasisAvatarBuffer
-            {
-                Position = BasisUnityBitPackerExtensionsUnsafe.ReadVectorFloatFromBytes(ref syncMessage.avatarSerialization.array, ref Offset),//12
-                rotation = BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref syncMessage.avatarSerialization.array, BasisNetworkPlayer.RotationCompression, ref Offset)//14
-            };
-            BasisUnityBitPackerExtensionsUnsafe.ReadMusclesFromBytes(ref syncMessage.avatarSerialization.array, ref baseReceiver.CopyData, ref Offset);
-            for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)
-            {
-                avatarBuffer.Muscles[Index] = Decompress(baseReceiver.CopyData[Index], BasisAvatarMuscleRange.MinMuscle[Index], BasisAvatarMuscleRange.MaxMuscle[Index]);
-            }
-            ushort Scale = BasisUnityBitPackerExtensions.ReadUShortFromBytes(ref syncMessage.avatarSerialization.array, ref Offset);
 
-            const float MinimumValueSupported = 0.005f;
-            const float MaximumValueSupported = 150;
-            avatarBuffer.Scale = Decompress(Scale, MinimumValueSupported, MaximumValueSupported);
+            var data = syncMessage.avatarSerialization.array;
+            int offset = 0;
+            int length = data.Length;
 
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Length);
-            avatarBuffer.SecondsInterval = syncMessage.interval / 1000.0f;
-            baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
-            int Count = syncMessage.avatarSerialization.AdditionalAvatarDataSize;
-            //  BasisDebug.Log($"AdditionalAvatarDatas was {Count}");
-            for (int Index = 0; Index < Count; Index++)
-            {
-                AdditionalAvatarData Data = syncMessage.avatarSerialization.AdditionalAvatarDatas[Index];
-                baseReceiver.NetworkBehaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
-            }
+            BasisAvatarBuffer avatarBuffer = CreateAvatarBuffer(data, ref offset, baseReceiver);
+            avatarBuffer.Scale = Decompress(ReadUShort(data, ref offset), MinimumValueSupported, MaximumValueSupported);
+            avatarBuffer.SecondsInterval = syncMessage.interval / 1000f;
+
+            EnqueueAndProcessAdditionalData(baseReceiver, ref avatarBuffer, syncMessage.avatarSerialization.AdditionalAvatarDatas, syncMessage.avatarSerialization.AdditionalAvatarDataSize, length);
         }
-        /// <summary>
-        /// Initial Payload
-        /// </summary>
-        /// <param name="baseReceiver"></param>
-        /// <param name="syncMessage"></param>
-        /// <exception cref="ArgumentException"></exception>
-        public static void DecompressAndProcessAvatar(BasisNetworkReceiver baseReceiver, LocalAvatarSyncMessage syncMessage, ushort PlayerId)
+
+        public static void DecompressAndProcessAvatar(BasisNetworkReceiver baseReceiver, LocalAvatarSyncMessage syncMessage, ushort playerId)
         {
             if (syncMessage.array == null)
             {
-                throw new ArgumentException("Cant Serialize Avatar Data");
+                throw new ArgumentException("Cannot serialize " +
+                    "avatar data.");
             }
-            int Length = syncMessage.array.Length;
-            int Offset = 0;
-            BasisAvatarBuffer avatarBuffer = new BasisAvatarBuffer
-            {
-                Position = BasisUnityBitPackerExtensionsUnsafe.ReadVectorFloatFromBytes(ref syncMessage.array, ref Offset),//12
-                rotation = BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref syncMessage.array, BasisNetworkPlayer.RotationCompression, ref Offset)//14
-            };
-            BasisUnityBitPackerExtensions.ReadMusclesFromBytesAsUShort(ref syncMessage.array, ref baseReceiver.CopyData, ref Offset);
-            if (avatarBuffer.Muscles == null)
-            {
-                avatarBuffer.Muscles = new float[LocalAvatarSyncMessage.StoredBones];
-            }
-            for (int Index = 0; Index < LocalAvatarSyncMessage.StoredBones; Index++)//89 * 2 = 178
-            {
-                avatarBuffer.Muscles[Index] = Decompress(baseReceiver.CopyData[Index], BasisAvatarMuscleRange.MinMuscle[Index], BasisAvatarMuscleRange.MaxMuscle[Index]);
-            }
-            ushort Scale = BasisUnityBitPackerExtensions.ReadUShortFromBytes(ref syncMessage.array, ref Offset);
 
-            const float MinimumValueSupported = 0.005f;
-            const float MaximumValueSupported = 150;
+            var data = syncMessage.array;
+            int offset = 0;
+            int length = data.Length;
 
-            avatarBuffer.Scale = Decompress(Scale, MinimumValueSupported, MaximumValueSupported);
-
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Length);
+            BasisAvatarBuffer avatarBuffer = CreateAvatarBuffer(data, ref offset, baseReceiver);
+            avatarBuffer.Scale = Decompress(ReadUShort(data, ref offset), MinimumValueSupported, MaximumValueSupported);
             avatarBuffer.SecondsInterval = 0.01f;
-            baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
-            int Count = syncMessage.AdditionalAvatarDataSize;
-            //  BasisDebug.Log($"AdditionalAvatarDatas was {Count}");
-            if (baseReceiver.Player != null && baseReceiver.Player.BasisAvatar != null)
+
+            EnqueueAndProcessAdditionalData(baseReceiver, ref avatarBuffer, syncMessage.AdditionalAvatarDatas, syncMessage.AdditionalAvatarDataSize, length);
+        }
+
+        private static BasisAvatarBuffer CreateAvatarBuffer(byte[] data, ref int offset, BasisNetworkReceiver baseReceiver)
+        {
+            var avatarBuffer = new BasisAvatarBuffer
             {
-                for (int Index = 0; Index < Count; Index++)
+                Position = BasisUnityBitPackerExtensionsUnsafe.ReadVectorFloatFromBytes(ref data, ref offset),
+                rotation = BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset),
+                Muscles = new float[LocalAvatarSyncMessage.StoredBones]
+            };
+
+            BasisUnityBitPackerExtensionsUnsafe.ReadMusclesFromBytes(ref data, ref baseReceiver.CopyData, ref offset);
+
+            for (int MuscleIndex = 0; MuscleIndex < LocalAvatarSyncMessage.StoredBones; MuscleIndex++)
+            {
+                avatarBuffer.Muscles[MuscleIndex] = Decompress(baseReceiver.CopyData[MuscleIndex], BasisAvatarMuscleRange.MinMuscle[MuscleIndex], BasisAvatarMuscleRange.MaxMuscle[MuscleIndex]);
+            }
+
+            return avatarBuffer;
+        }
+
+        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, ref BasisAvatarBuffer avatarBuffer, AdditionalAvatarData[] additionalData, int count, int dataLength)
+        {
+            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, dataLength);
+            baseReceiver.EnQueueAvatarBuffer(ref avatarBuffer);
+
+            for (int i = 0; i < count; i++)
+            {
+                if (i < additionalData.Length)
                 {
-                    AdditionalAvatarData Data = syncMessage.AdditionalAvatarDatas[Index];
-                    baseReceiver.NetworkBehaviours[Data.messageIndex].OnNetworkMessageServerReductionSystem(Data.array);
+                    var data = additionalData[i];
+                    baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array);
                 }
             }
         }
-        public static float Decompress(ushort value, float MinValue, float MaxValue)
+
+        private static ushort ReadUShort(byte[] data, ref int offset)
         {
-            // Map the ushort value back to the float range
-            float normalized = (float)value / FloatRangeDifference; // 0..1  - UShortMin
-            return normalized * (float)(MaxValue - MinValue) + MinValue;
+            return BasisUnityBitPackerExtensions.ReadUShortFromBytes(ref data, ref offset);
         }
 
-        private const ushort UShortMin = ushort.MinValue; // 0
-        private const ushort UShortMax = ushort.MaxValue; // 65535
-        private const float FloatRangeDifference = UShortMax - UShortMin;
+        public static float Decompress(ushort value, float minValue, float maxValue)
+        {
+            float normalized = value / FloatRangeDifference;
+            return normalized * (maxValue - minValue) + minValue;
+        }
     }
 }
