@@ -98,7 +98,7 @@ public class BasisBundleUnCombineEditor : EditorWindow
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
 
             EditorUtility.DisplayProgressBar("Decrypting", "Decrypting bundle...", 0.6f);
-            byte[] LoadedBundleData = await BasisEncryptionWrapper.DecryptDataAsync(UniqueID, value.Item2, BasisPassword, progressCallback);
+            byte[] LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, value.Item2, progressCallback);
 
             string SafeFolder = SanitizePath(FolderToSaveTo, Path.GetInvalidPathChars());
             string FileName = SanitizePath(Path.GetFileNameWithoutExtension(LocalFile), Path.GetInvalidFileNameChars());

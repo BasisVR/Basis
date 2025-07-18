@@ -12,7 +12,7 @@ public static class BasisEncryptionToData
         };
         string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
         // Decrypt the file asynchronously
-        byte[] LoadedBundleData = await BasisEncryptionWrapper.DecryptDataAsync(UniqueID, Bytes, BasisPassword, progressCallback);
+        byte[] LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
 
         // Start the AssetBundle loading process from memory with CRC check
         AssetBundleCreateRequest assetBundleCreateRequest = AssetBundle.LoadFromMemoryAsync(LoadedBundleData, CRC);
@@ -51,7 +51,7 @@ public static class BasisEncryptionToData
         var basisPassword = new BasisEncryptionWrapper.BasisPassword { VP = password };
         string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
 
-        byte[] decryptedMeta = await BasisEncryptionWrapper.DecryptDataAsync(uniqueID, encryptedBytes, basisPassword, progressCallback);
+        byte[] decryptedMeta = await BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, basisPassword, encryptedBytes, progressCallback);
 
         BasisDebug.Log("Converting decrypted meta file to BasisBundleInformation...", BasisDebug.LogTag.Event);
 

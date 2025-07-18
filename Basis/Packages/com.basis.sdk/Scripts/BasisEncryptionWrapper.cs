@@ -1,289 +1,274 @@
+using System;
+using System.Buffers;
 using System.IO;
 using System.Security.Cryptography;
-using System;
 using System.Threading.Tasks;
-using System.Diagnostics;
-using System.Buffers;
+
 public static class BasisEncryptionWrapper
 {
-    private const int SaltSize = 16; // Size of the salt in bytes
-    private const int KeySize = 32; // Size of the key in bytes (256 bits)
-    private const int IvSize = 16;  // Size of the IV in bytes (128 bits)
+    private const int SaltSize = 16;
+    private const int KeySize = 32;
+    private const int IvSize = 16;
     public const int IterationSize = 10000;
 
-    // Constant strings
-    private const string ErrMissingDataEncrypt = "Encryption Failed: Missing Data";
-    private const string ErrMissingDataDecrypt = "Decryption Failed: Missing Data";
-    private const string ProgressFailure = "Failure";
+    // Progress/Status Messages
     private const string ProgressInitEncryption = "Initializing Encryption";
-    private const string ProgressGeneratedSalt = "Generated Salt";
-    private const string ProgressGeneratedIV = "Generated IV";
-    private const string ProgressSaltWritten = "Salt Written";
-    private const string ProgressIVWritten = "IV Written";
-    private const string ProgressDataEncrypted = "Data Encrypted";
-    private const string ProgressFinalizingEncryption = "Finalizing Encryption";
     private const string ProgressEncryptionComplete = "Encryption Complete";
     private const string ProgressInitDecryption = "Initializing Decryption";
-    private const string ProgressSaltRead = "Salt Read";
-    private const string ProgressIVRead = "IV Read";
-    private const string ProgressDerivingKey = "Deriving Key";
-    private const string ProgressSettingUpDecryption = "Setting Up Decryption";
-    private const string ProgressDecryptingDataStream = "Decrypting Data Stream";
-    private const string ProgressFinalizingDecryption = "Finalizing Decryption";
     private const string ProgressDecryptionComplete = "Decryption Complete";
     private const string ProgressReadingData = "Reading Data";
     private const string ProgressWritingData = "Writing Data";
-    private const string ErrDataNullOrEmpty = "Data requested was null or empty";
-    private const string InternalLogMissingDataToEncrypt = "Missing Data To Encrypt";
-    private const string InternalLogMissingDataToDecrypt = "Missing Data To Decrypt";
-    private const string ReadingData = "Reading Data";
-    public static async Task<byte[]> EncryptDataAsync(string UniqueID, byte[] dataToEncrypt, BasisPassword RandomizedPassword, BasisProgressReport reportProgress = null)
-    {
-        try
-        {
-            var encryptedData = await Task.Run(async () => await EncryptAsync(UniqueID, RandomizedPassword, dataToEncrypt, reportProgress)); // Run encryption on a separate thread
-            return encryptedData;
-        }
-        finally
-        {
-            reportProgress?.ReportProgress(UniqueID, 100, ProgressFailure);
-        }
-    }
-
-    public static async Task<byte[]> DecryptDataAsync(string UniqueID, byte[] dataToDecrypt, BasisPassword Randomizedpassword, BasisProgressReport reportProgress = null)
-    {
-        (byte[], byte[], byte[]) decryptedData = await Task.Run(async () => await DecryptAsync(UniqueID, Randomizedpassword.VP, dataToDecrypt, reportProgress)); // Run decryption on a separate thread
-        return decryptedData.Item1;
-    }
-
-    private static async Task<byte[]> EncryptAsync(string UniqueID, BasisPassword password, byte[] dataToEncrypt, BasisProgressReport reportProgress = null)
-    {
-        if (dataToEncrypt == null || dataToEncrypt.Length == 0)
-        {
-            reportProgress?.ReportProgress(UniqueID, 0f, ErrMissingDataEncrypt);
-            BasisDebug.LogError(InternalLogMissingDataToEncrypt);
-            return null;
-        }
-
-        reportProgress?.ReportProgress(UniqueID, 5f, ProgressInitEncryption);
-
-        byte[] salt = new byte[SaltSize];
-        using (var rng = new RNGCryptoServiceProvider())
-        {
-            rng.GetBytes(salt);
-        }
-
-        reportProgress?.ReportProgress(UniqueID, 15f, ProgressGeneratedSalt);
-
-        using (var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize))
-        {
-            var keyBytes = key.GetBytes(KeySize);
-
-            byte[] iv = new byte[IvSize];
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                rng.GetBytes(iv);
-            }
-
-            reportProgress?.ReportProgress(UniqueID, 25f, ProgressGeneratedIV);
-
-            using (var aes = Aes.Create())
-            {
-                aes.Key = keyBytes;
-                aes.IV = iv;
-
-                using (var msEncrypt = new MemoryStream())
-                {
-                    await msEncrypt.WriteAsync(salt, 0, salt.Length);
-                    reportProgress?.ReportProgress(UniqueID, 40f, ProgressSaltWritten);
-
-                    await msEncrypt.WriteAsync(iv, 0, iv.Length);
-                    reportProgress?.ReportProgress(UniqueID, 50f, ProgressIVWritten);
-
-                    using (var cryptoStream = new CryptoStream(msEncrypt, aes.CreateEncryptor(), CryptoStreamMode.Write))
-                    {
-                        await cryptoStream.WriteAsync(dataToEncrypt, 0, dataToEncrypt.Length);
-                        reportProgress?.ReportProgress(UniqueID, 70f, ProgressDataEncrypted);
-                    }
-
-                    reportProgress?.ReportProgress(UniqueID, 90f, ProgressFinalizingEncryption);
-                    byte[] encryptedData = msEncrypt.ToArray();
-                    reportProgress?.ReportProgress(UniqueID, 100f, ProgressEncryptionComplete);
-                    return encryptedData;
-                }
-            }
-        }
-    }
-
-    private static async Task<(byte[], byte[], byte[])> DecryptAsync(string UniqueID, string RandomizedString, byte[] dataToDecrypt, BasisProgressReport reportProgress = null)
-    {
-        Stopwatch stopwatch = Stopwatch.StartNew();
-
-        if (dataToDecrypt == null || dataToDecrypt.Length == 0)
-        {
-            reportProgress?.ReportProgress(UniqueID, 0f, ErrMissingDataDecrypt);
-            BasisDebug.LogError(InternalLogMissingDataToDecrypt);
-            return (null, null, null);
-        }
-
-        reportProgress?.ReportProgress(UniqueID, 5f, ProgressInitDecryption);
-
-        byte[] salt = new byte[SaltSize];
-        Buffer.BlockCopy(dataToDecrypt, 0, salt, 0, SaltSize);
-        reportProgress?.ReportProgress(UniqueID, 20f, ProgressSaltRead);
-
-        byte[] iv = new byte[IvSize];
-        Buffer.BlockCopy(dataToDecrypt, SaltSize, iv, 0, IvSize);
-        reportProgress?.ReportProgress(UniqueID, 30f, ProgressIVRead);
-
-        reportProgress?.ReportProgress(UniqueID, 40f, ProgressDerivingKey);
-        Stopwatch keyDeriveWatch = Stopwatch.StartNew();
-
-        using (var key = new Rfc2898DeriveBytes(RandomizedString, salt, IterationSize))
-        {
-            var keyBytes = key.GetBytes(KeySize);
-            keyDeriveWatch.Stop();
-
-            using (var aes = Aes.Create())
-            {
-                aes.Key = keyBytes;
-                aes.IV = iv;
-
-                reportProgress?.ReportProgress(UniqueID, 60f, ProgressSettingUpDecryption);
-
-                using (var decryptor = aes.CreateDecryptor())
-                using (var inputStream = new MemoryStream(dataToDecrypt, SaltSize + IvSize, dataToDecrypt.Length - SaltSize - IvSize, false))
-                using (var cryptoStream = new CryptoStream(inputStream, decryptor, CryptoStreamMode.Read))
-                {
-                    int estimatedSize = dataToDecrypt.Length - SaltSize - IvSize;
-                    byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(estimatedSize);
-                    int totalBytesRead = 0;
-
-                    reportProgress?.ReportProgress(UniqueID, 70f, ProgressDecryptingDataStream);
-                    Stopwatch decryptWatch = Stopwatch.StartNew();
-
-                    int bytesRead;
-                    do
-                    {
-                        bytesRead = await cryptoStream.ReadAsync(rentedBuffer, totalBytesRead, rentedBuffer.Length - totalBytesRead);
-                        totalBytesRead += bytesRead;
-                    } while (bytesRead > 0);
-
-                    decryptWatch.Stop();
-                    reportProgress?.ReportProgress(UniqueID, 90f, ProgressFinalizingDecryption);
-
-                    byte[] output = new byte[totalBytesRead];
-                    Buffer.BlockCopy(rentedBuffer, 0, output, 0, totalBytesRead);
-                    ArrayPool<byte>.Shared.Return(rentedBuffer);
-
-                    reportProgress?.ReportProgress(UniqueID, 100f, ProgressDecryptionComplete);
-                    BasisDebug.Log($"[{UniqueID}] Total decryption time: {stopwatch.ElapsedMilliseconds}ms");
-
-                    return (output, salt, iv);
-                }
-            }
-        }
-    }
-
-    public static async Task ReadFileAsync(string UniqueID, string filePath, Func<byte[], Task> processChunk, BasisProgressReport reportProgress = null, int bufferSize = 4194304)
-    {
-        reportProgress.ReportProgress(UniqueID, 0f, ProgressReadingData);
-        var fileSize = new FileInfo(filePath).Length;
-        var buffer = new byte[bufferSize];
-        long totalRead = 0;
-
-        using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-        {
-            int bytesRead;
-            while ((bytesRead = await fs.ReadAsync(buffer, 0, buffer.Length)) > 0)
-            {
-                totalRead += bytesRead;
-                await processChunk(buffer[..bytesRead]);
-                reportProgress.ReportProgress(UniqueID, (float)totalRead / fileSize * 100f, ProgressReadingData);
-            }
-        }
-        reportProgress.ReportProgress(UniqueID, 100f, ProgressReadingData);
-    }
-
-    public static async Task WriteFileAsync(string UniqueID, string filePath, byte[] data, FileMode fileMode, BasisProgressReport reportProgress = null, int bufferSize = 4194304)
-    {
-        reportProgress.ReportProgress(UniqueID, 0f, ProgressWritingData);
-        long totalWritten = 0;
-
-        using (var fs = new FileStream(filePath, fileMode, FileAccess.Write, FileShare.None, bufferSize, useAsync: true))
-        {
-            int offset = 0;
-            while (offset < data.Length)
-            {
-                int bytesToWrite = Math.Min(bufferSize, data.Length - offset);
-                await fs.WriteAsync(data, offset, bytesToWrite);
-                totalWritten += bytesToWrite;
-                offset += bytesToWrite;
-
-                reportProgress.ReportProgress(UniqueID, (float)totalWritten / data.Length * 100f, ProgressWritingData);
-            }
-        }
-
-        reportProgress.ReportProgress(UniqueID, 100f, ProgressWritingData);
-    }
 
     public struct BasisPassword
     {
         public string VP;
     }
 
-    public static async Task EncryptFileAsync(string UniqueID, BasisPassword password, string inputFilePath, string outputFilePath, BasisProgressReport reportProgress, int bufferSize = 4194304)
+    private static int CalculateBufferSize(long dataLength)
     {
-        byte[] dataToEncrypt = await ReadAllBytesAsync(UniqueID, inputFilePath, reportProgress);
-        var encryptedData = await EncryptDataAsync(UniqueID, dataToEncrypt, password, reportProgress);
-        await WriteFileAsync(UniqueID, outputFilePath, encryptedData, FileMode.Create, reportProgress, bufferSize);
+        if (dataLength > 1024L * 1024L * 1024L) // > 1 GB
+            return 32 * 1024 * 1024; // 32 MB buffer
+        if (dataLength > 100L * 1024L * 1024L) // > 100 MB
+            return 16 * 1024 * 1024; // 16 MB buffer
+        if (dataLength > 1L * 1024L * 1024L) // > 1 MB
+            return 4 * 1024 * 1024; // 4 MB buffer
+        if (dataLength > 8192)
+            return 8192; // 8 KB buffer
+        return (int)dataLength;
     }
 
-    public static async Task DecryptFileAsync(string UniqueID, BasisPassword password, string inputFilePath, string outputFilePath, BasisProgressReport reportProgress, int bufferSize = 4194304)
+    // Threshold to decide when to offload encryption to a separate thread
+    private const long LargeFileThreshold = 100L * 1024L * 1024L; // 100 MB
+
+    public static Task EncryptFileAsync(string UniqueID, BasisPassword password, string inputPath, string outputPath, BasisProgressReport reportProgress)
     {
-        byte[] dataToDecrypt = await ReadAllBytesAsync(UniqueID, inputFilePath, reportProgress);
-        if (dataToDecrypt == null || dataToDecrypt.Length == 0)
+        var inputFileInfo = new FileInfo(inputPath);
+
+        if (inputFileInfo.Length > LargeFileThreshold)
         {
-            throw new Exception(ErrDataNullOrEmpty);
+            // Offload to background thread for large files
+            return Task.Run(() => EncryptFileInternalAsync(UniqueID, password, inputPath, outputPath, reportProgress));
         }
-        var decryptedData = await DecryptDataAsync(UniqueID, dataToDecrypt, password, reportProgress);
-        await WriteFileAsync(UniqueID, outputFilePath, decryptedData, FileMode.Create, reportProgress, bufferSize);
-    }
-
-    public static async Task<byte[]> DecryptFileAsync(string UniqueID, BasisPassword password, string inputFilePath, BasisProgressReport reportProgress, int bufferSize = 4194304)
-    {
-        byte[] dataToDecrypt = await ReadAllBytesAsync(UniqueID, inputFilePath, reportProgress, bufferSize);
-        if (dataToDecrypt == null || dataToDecrypt.Length == 0)
+        else
         {
-            BasisDebug.LogError(ErrDataNullOrEmpty);
-            return null;
+            // Run directly (async IO) for small files
+            return EncryptFileInternalAsync(UniqueID, password, inputPath, outputPath, reportProgress);
         }
-        var decryptedData = await DecryptDataAsync(UniqueID, dataToDecrypt, password, reportProgress);
-        return decryptedData;
     }
 
-    private static async Task<byte[]> ReadAllBytesAsync(string UniqueID, string filePath, BasisProgressReport reportProgress, int bufferSize = 4194304)
+    private static async Task EncryptFileInternalAsync(string UniqueID, BasisPassword password, string inputPath, string outputPath, BasisProgressReport reportProgress)
     {
-        reportProgress.ReportProgress(UniqueID, 0f, ProgressReadingData);
+        reportProgress?.ReportProgress(UniqueID, 0, ProgressInitEncryption);
 
-        var fileInfo = new FileInfo(filePath);
-        byte[] data = new byte[fileInfo.Length];
+        FileInfo inputFileInfo = new FileInfo(inputPath);
+        int bufferSize = CalculateBufferSize(inputFileInfo.Length);
 
-        using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, useAsync: true))
+        byte[] salt = new byte[SaltSize];
+        byte[] iv = new byte[IvSize];
+        using (var rng = RandomNumberGenerator.Create())
         {
-            int totalRead = 0;
+            rng.GetBytes(salt);
+            rng.GetBytes(iv);
+        }
+
+        using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
+        byte[] keyBytes = key.GetBytes(KeySize);
+
+        using var aes = Aes.Create();
+        aes.Key = keyBytes;
+        aes.IV = iv;
+
+        using var input = new FileStream(inputPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, useAsync: true);
+        using var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, useAsync: true);
+
+        reportProgress?.ReportProgress(UniqueID, 5, "Writing Salt & IV");
+        await output.WriteAsync(salt, 0, salt.Length);
+        await output.WriteAsync(iv, 0, iv.Length);
+
+        using var cryptoStream = new CryptoStream(output, aes.CreateEncryptor(), CryptoStreamMode.Write);
+
+        // Rent buffer from pool to reduce allocations
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+        try
+        {
+            long totalRead = 0;
+            long totalLength = input.Length;
+
+            float lastReportedProgress = 0;
+
             int bytesRead;
-            byte[] buffer = new byte[bufferSize];
-
-            while ((bytesRead = await fs.ReadAsync(buffer, 0, Math.Min(bufferSize, data.Length - totalRead))) > 0)
+            while ((bytesRead = await input.ReadAsync(buffer.AsMemory(0, bufferSize))) > 0)
             {
-                Buffer.BlockCopy(buffer, 0, data, totalRead, bytesRead);
+                await cryptoStream.WriteAsync(buffer.AsMemory(0, bytesRead));
                 totalRead += bytesRead;
-                reportProgress.ReportProgress(UniqueID, (float)totalRead / fileInfo.Length * 100f, ReadingData);
+
+                float progress = (float)totalRead / totalLength * 90f + 5f;
+                if (progress - lastReportedProgress >= 1)
+                {
+                    reportProgress?.ReportProgress(UniqueID, progress, ProgressWritingData);
+                    lastReportedProgress = progress;
+                }
             }
         }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
 
-        reportProgress.ReportProgress(UniqueID, 100f, ProgressReadingData);
-        return data;
+        cryptoStream.FlushFinalBlock();
+
+        reportProgress?.ReportProgress(UniqueID, 100, ProgressEncryptionComplete);
+    }
+
+    public static Task<byte[]> DecryptFromBytesAsync(string UniqueID, BasisPassword password, byte[] encryptedData, BasisProgressReport reportProgress)
+    {
+        if (encryptedData.Length > LargeFileThreshold)
+        {
+            return Task.Run(() => DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress));
+        }
+        else
+        {
+            return DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress);
+        }
+    }
+
+    private static async Task<byte[]> DecryptFromBytesInternalAsync(string UniqueID, BasisPassword password, byte[] encryptedData, BasisProgressReport reportProgress)
+    {
+        reportProgress?.ReportProgress(UniqueID, 0, ProgressInitDecryption);
+
+        int bufferSize = CalculateBufferSize(encryptedData.Length);
+
+        using var msInput = new MemoryStream(encryptedData, writable: false);
+
+        byte[] salt = new byte[SaltSize];
+        byte[] iv = new byte[IvSize];
+
+        // Read Salt & IV synchronously (small fixed sizes)
+        int readSalt = await msInput.ReadAsync(salt, 0, SaltSize);
+        int readIv = await msInput.ReadAsync(iv, 0, IvSize);
+
+        if (readSalt != SaltSize || readIv != IvSize)
+            throw new InvalidDataException("Encrypted data is corrupted or incomplete.");
+
+        using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
+        byte[] keyBytes = key.GetBytes(KeySize);
+
+        using var aes = Aes.Create();
+        aes.Key = keyBytes;
+        aes.IV = iv;
+
+        using var cryptoStream = new CryptoStream(msInput, aes.CreateDecryptor(), CryptoStreamMode.Read);
+
+        // Use pooled MemoryStream to avoid multiple internal buffers allocation:
+        using var msOutput = new PooledMemoryStream();
+
+        // Rent buffer from pool
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+        try
+        {
+            int bytesRead;
+            long totalRead = 0;
+            long estimatedSize = encryptedData.Length - SaltSize - IvSize;
+
+            float lastReportedProgress = 0;
+
+            while ((bytesRead = await cryptoStream.ReadAsync(buffer.AsMemory(0, bufferSize))) > 0)
+            {
+                await msOutput.WriteAsync(buffer.AsMemory(0, bytesRead));
+                totalRead += bytesRead;
+
+                float progress = (float)totalRead / estimatedSize * 90f + 5f;
+                if (progress - lastReportedProgress >= 1)
+                {
+                    reportProgress?.ReportProgress(UniqueID, progress, ProgressReadingData);
+                    lastReportedProgress = progress;
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        reportProgress?.ReportProgress(UniqueID, 100, ProgressDecryptionComplete);
+
+        return msOutput.ToArray();
+    }
+
+    public static async Task<byte[]> EncryptToBytesAsync(string UniqueID, BasisPassword password, byte[] data, BasisProgressReport reportProgress)
+    {
+        reportProgress?.ReportProgress(UniqueID, 0, ProgressInitEncryption);
+
+        int bufferSize = CalculateBufferSize(data.Length);
+
+        byte[] salt = new byte[SaltSize];
+        byte[] iv = new byte[IvSize];
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(salt);
+            rng.GetBytes(iv);
+        }
+
+        using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
+        byte[] keyBytes = key.GetBytes(KeySize);
+
+        using var aes = Aes.Create();
+        aes.Key = keyBytes;
+        aes.IV = iv;
+
+        using var msOut = new MemoryStream();
+        reportProgress?.ReportProgress(UniqueID, 5, "Writing Salt & IV");
+        await msOut.WriteAsync(salt, 0, salt.Length);
+        await msOut.WriteAsync(iv, 0, iv.Length);
+
+        using var cryptoStream = new CryptoStream(msOut, aes.CreateEncryptor(), CryptoStreamMode.Write);
+
+        // Rent buffer
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+        try
+        {
+            long totalRead = 0;
+            long totalLength = data.Length;
+
+            int bytesRead;
+            float lastReportedProgress = 0;
+
+            using var msIn = new MemoryStream(data, writable: false);
+            while ((bytesRead = await msIn.ReadAsync(buffer.AsMemory(0, bufferSize))) > 0)
+            {
+                await cryptoStream.WriteAsync(buffer.AsMemory(0, bytesRead));
+                totalRead += bytesRead;
+
+                float progress = (float)totalRead / totalLength * 90f + 5f;
+                if (progress - lastReportedProgress >= 1)
+                {
+                    reportProgress?.ReportProgress(UniqueID, progress, ProgressWritingData);
+                    lastReportedProgress = progress;
+                }
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        cryptoStream.FlushFinalBlock();
+
+        reportProgress?.ReportProgress(UniqueID, 100, ProgressEncryptionComplete);
+
+        return msOut.ToArray();
+    }
+
+    // Custom MemoryStream that minimizes allocations by exposing the internal buffer directly.
+    // Only use when safe, here for efficiency in DecryptFromBytesInternalAsync.
+    private sealed class PooledMemoryStream : MemoryStream
+    {
+        public PooledMemoryStream() : base() { }
+
+        public override byte[] ToArray()
+        {
+            // Avoids copying if possible (internal buffer might be larger than Length)
+            return base.GetBuffer().AsSpan(0, (int)Length).ToArray();
+        }
     }
 }
