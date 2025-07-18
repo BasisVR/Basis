@@ -1,9 +1,9 @@
+using System;
 using System.IO;
-using System.Threading.Tasks;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
-using System;
 
 public static class BasisIOManagement
 {
@@ -55,20 +55,24 @@ public static class BasisIOManagement
 
         try
         {
-            using (FileStream fileStream = new FileStream(BEEPath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
+            long totalSize = connectorSizeBytes.Length + ConnectorBytes.Length + lastSectionData.Length;
+
+            // Automatically scale buffer size: min 4KB, max 1MB
+            int bufferSize = (int)Math.Clamp(totalSize / 10, 4096, 1048576);
+
+            using (FileStream fileStream = new FileStream(BEEPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, true))
             {
                 await fileStream.WriteAsync(connectorSizeBytes, 0, connectorSizeBytes.Length);
                 await fileStream.WriteAsync(ConnectorBytes, 0, ConnectorBytes.Length);
                 await fileStream.WriteAsync(lastSectionData, 0, lastSectionData.Length);
             }
 
-            long expectedSize = connectorSizeBytes.Length + ConnectorBytes.Length + lastSectionData.Length;
             long actualSize = new FileInfo(BEEPath).Length;
 
-            BasisDebug.Log($"Expected File Size: {expectedSize} bytes");
+            BasisDebug.Log($"Expected File Size: {totalSize} bytes");
             BasisDebug.Log($"Actual File Size on Disk: {actualSize} bytes");
 
-            if (expectedSize == actualSize)
+            if (totalSize == actualSize)
             {
                 BasisDebug.Log("File size is correct.");
             }
@@ -191,9 +195,12 @@ public static class BasisIOManagement
         return request;
     }
 
-    private static async Task<byte[]> ProcessDownload(UnityWebRequest request, string uniqueID, BasisProgressReport progressCallback, CancellationToken cancellationToken,string url, string localFilePath, long startByte, long? endByte, bool loadToMemory)
+    private static async Task<byte[]> ProcessDownload(UnityWebRequest request, string uniqueID, BasisProgressReport progressCallback, CancellationToken cancellationToken, string url, string localFilePath, long startByte, long? endByte, bool loadToMemory)
     {
         UnityWebRequestAsyncOperation asyncOperation = request.SendWebRequest();
+
+        float lastReportedProgress = 0f;
+        const float progressReportThreshold = 0.5f; // Minimum % change before reporting again
 
         while (!asyncOperation.isDone)
         {
@@ -203,12 +210,20 @@ public static class BasisIOManagement
                 request.Abort();
                 return null;
             }
-            progressCallback.ReportProgress(uniqueID, asyncOperation.webRequest.downloadProgress * 100, "Downloading data...");
+
+            float progress = asyncOperation.webRequest.downloadProgress * 100f;
+            if (Math.Abs(progress - lastReportedProgress) >= progressReportThreshold)
+            {
+                progressCallback.ReportProgress(uniqueID, progress, "Downloading data...");
+                lastReportedProgress = progress;
+            }
+
             await Task.Yield();
         }
 
         if (request.result != UnityWebRequest.Result.Success)
         {
+            progressCallback.ReportProgress(uniqueID, 100, "Downloading Complete");
             BasisDebug.LogError($"Failed to download file: {request.error} for URL {url}");
             return null;
         }
@@ -217,29 +232,26 @@ public static class BasisIOManagement
 
         switch (responseCode)
         {
-            case 200: // OK
-                // TODO: delete the file if loadToMemory is false?
-                // Future Work: cut this off early by performing a HEAD request to see if the server supports range requests?
-                //  peek at response codes/headers while the request isn't finished to abort as soon as possible?
-                BasisDebug.LogError($"Server replied with whole file! Please use a host that supports range requests.");
+            case 200:
+                BasisDebug.LogError("Server replied with whole file! Use a host that supports range requests.");
+                progressCallback.ReportProgress(uniqueID, 100, $"Error! {responseCode}");
                 return null;
-            case 206: // Partial Content
-                // Success, continue.
+            case 206:
                 break;
-            case 416: // Requested Range Not Satisfiable
-                // TODO: is this considered an error by UnityWebRequest? if it is, than this is likely dead code.
+            case 416:
                 BasisDebug.LogError($"Requested Range {startByte}-{(endByte.HasValue ? endByte.ToString() : "end")} not satisfiable.");
+                progressCallback.ReportProgress(uniqueID, 100, $"Error! {responseCode}");
                 return null;
             default:
-                // This case is likely mostly already covered by checking if UnityWebRequest called this a success.
                 BasisDebug.LogError($"Unknown Response code: {responseCode}");
+                progressCallback.ReportProgress(uniqueID, 100, $"Error! {responseCode}");
                 return null;
         }
 
         if (loadToMemory)
         {
             BasisDebug.Log($"Successfully downloaded range {startByte}-{(endByte.HasValue ? endByte.ToString() : "end")} to memory");
-            return request.downloadHandler.data;  // Return as byte array
+            return request.downloadHandler.data;
         }
         else
         {
@@ -249,7 +261,7 @@ public static class BasisIOManagement
                 return null;
             }
             BasisDebug.Log($"Successfully downloaded range {startByte}-{(endByte.HasValue ? endByte.ToString() : "end")} from {url} to {localFilePath}");
-            return null;  // No data returned for file-based download
+            return null;
         }
     }
 

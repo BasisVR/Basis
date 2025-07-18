@@ -199,7 +199,7 @@ namespace Basis.Scripts.UI.UI_Panels
                         }
                         else
                         {
-                            await BasisLoadHandler.HandleBundleAndMetaLoading(wrapper, Report, CancellationToken);
+                            await BasisLoadHandler.HandleBundleAndMetaLoading(wrapper, Report, CancellationToken,true);
                             SelectionButton.Text.text = wrapper.LoadableBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
                         }
                     }

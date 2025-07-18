@@ -153,7 +153,7 @@ public static class BasisLoadHandler
         }
     }
 
-    public static async Task HandleBundleAndMetaLoading(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
+    public static async Task HandleBundleAndMetaLoading(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken,bool JustLoadMetaData = false)
     {
         bool IsMetaOnDisc = IsMetaDataOnDisc(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisOnDiscInformation MetaInfo);
 
@@ -172,6 +172,11 @@ public static class BasisLoadHandler
         {
             new Exception("missing Bundle Bytes Array Error Message " + output.Item3);
         }
+        if(JustLoadMetaData)
+        {
+            return;
+        }
+
         IEnumerable<AssetBundle> AssetBundles = AssetBundle.GetAllLoadedAssetBundles();
         foreach (AssetBundle assetBundle in AssetBundles)
         {
