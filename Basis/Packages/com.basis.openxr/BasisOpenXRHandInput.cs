@@ -190,7 +190,7 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     private float RemapFingerValue(XRHand hand, XRHandFingerID fingerID)
     {
-        if (TryGetShapePercentage(hand, fingerID, XRFingerShapeTypes.BaseCurl, XRFingerShapeType.FullCurl, out float value))
+        if (TryGetShapePercentage(hand, fingerID, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float value))
         {
             return Remap01ToMinus1To1(value);
         }
