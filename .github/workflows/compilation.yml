@@ -22,36 +22,60 @@ jobs:
         if: "${{ env.TMP_SECRET1 != '' && env.TMP_SECRET2 != '' && env.TMP_SECRET3 != '' }}"
         run: echo "defined=true" >> $GITHUB_OUTPUT
 
-  build-client-win32:
-    name: Build client on Windows
+  build-client:
+    name: Build client for ${{ matrix.targetPlatform }}
     timeout-minutes: 100
-    runs-on: windows-2022
+    runs-on: ${{ matrix.buildPlatform }}
+    env:
+      projectPath: Basis
+      buildName: Basis Unity
     strategy:
       fail-fast: false
       matrix:
-        projectPath:
-          - Basis
         targetPlatform:
-          - StandaloneWindows64
+          - StandaloneLinux64
+          - Android
+        buildPlatform:
+          - ubuntu-latest
+        include:
+          - buildPlatform: windows-2022
+            targetPlatform: StandaloneWindows64
     needs: [check-secret]
     if: needs.check-secret.outputs.secret-is-set == 'true'
     steps:
+      # We're running out of disk space in some cases. However, the actual build is happening in a docker container.
+      # Therefore, we don't actually need most of the tools that github provides. This can save quite a bit of space.
+      # Also consider https://github.com/easimon/maximize-build-space/, which pulls some other tricks.
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        if: matrix.buildPlatform == 'ubuntu-latest'
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
       - name: "Checkout repository"
-        timeout-minutes: 2
+        timeout-minutes: 5
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: "Cache Library folder"
+      - name: "Restore Library cache"
+        id: restore-cache
         timeout-minutes: 10
-        uses: actions/cache@v3
+        uses: actions/cache/restore@v3
         with:
-          path: ${{ matrix.projectPath }}/Library
-          key:
-            Library-${{ matrix.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(matrix.projectPath) }}
-          restore-keys: |
-            Library-${{ matrix.projectPath }}-${{ matrix.targetPlatform }}-
-            Library-${{ matrix.projectPath }}-
-            Library-
+          path: ${{ env.projectPath }}/Library
+          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(env.projectPath) }}
+          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
+      - name: "Create version string"
+        id: version
+        run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+      - name: "Remove OpenXR when building for Linux"
+        if: matrix.targetPlatform == 'StandaloneLinux64'
+        run: jq 'del(.dependencies ["com.meta.xr.sdk.core", "com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
       - name: "Build Unity project"
         timeout-minutes: 100
         uses: game-ci/unity-builder@v4
@@ -60,24 +84,88 @@ jobs:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
-          projectPath: ${{ matrix.projectPath }}
-          unityVersion: 6000.0.31f1
+          buildName: ${{ env.buildName }}
+          projectPath: ${{ env.projectPath }}
           targetPlatform: ${{ matrix.targetPlatform }}
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+          # TODO: make a decision on how we want to increment this.
+          #  This number was chosen to be slightly larger than the version code used for 0.056B.
+          androidVersionCode: 55
+          androidExportType: androidPackage
+          androidKeystoreName: BasisQuest # This file won't exist, but this property needs to exist.
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+      - name: "Save Library Cache"
+        uses: actions/cache/save@v3
+        if: always() && github.ref_name == 'developer'
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+      - name: "Only retain latest cache"
+        if: always() && github.ref_name == 'developer'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}- --json id --jq '.[1:] | map(.id) | @sh')
+          for cache_id in $OLD_CACHE_IDS; do
+            gh cache delete $cache_id
+          done
       - name: "Upload client artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
         with:
           name: Basis-Client-${{ matrix.targetPlatform }}
           path: |
-            build
-            "!**/${{ matrix.targetPlatform }}_BackUpThisFolder_ButDontShipItWithYourGame"
+            build/${{ matrix.targetPlatform }}
+            !build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
       - name: "Upload client symbols artifact"
         timeout-minutes: 4
         uses: actions/upload-artifact@v4
         with:
           name: Basis-Symbols-Client-${{ matrix.targetPlatform }}
           path: |
-            "**/${{ matrix.targetPlatform }}_BackUpThisFolder_ButDontShipItWithYourGame"
+            build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
+      - name: Archive symbols
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        with:
+          type: "zip"
+          directory: build/${{ matrix.targetPlatform }}
+          filename: "${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip"
+          # This uses a wildcard because this action doesn't work correctly with spaces in path.
+          path: "*_BackUpThisFolder_ButDontShipItWithYourGame"
+      # workaround for exclusions not working with spaces *or* wildcards.
+      - name: Delete symbols
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        shell: bash
+        run: >
+          ${{ matrix.buildPlatform == 'ubuntu-latest' && 'sudo' || '' }}
+          rm -rvf "build/${{ matrix.targetPlatform }}/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame"
+      - name: Archive client
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        with:
+          type: "zip"
+          directory: build/${{ matrix.targetPlatform }}
+          filename: "${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip"
+      - name: "Release client zip"
+        if: github.ref_type == 'tag' && matrix.targetPlatform != 'Android'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: |
+            ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip
+            ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip
+      - name: "Release client apk"
+        if: github.ref_type == 'tag' && matrix.targetPlatform == 'Android'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: build/${{ matrix.targetPlatform }}/${{ env.buildName }}.apk
 
   build-server:
     name: Build server on Ubuntu
@@ -93,7 +181,7 @@ jobs:
           - win
     steps:
       - name: "Checkout repository"
-        timeout-minutes: 2
+        timeout-minutes: 5
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -101,7 +189,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: "9.0.x"
       - name: "Build server"
         timeout-minutes: 2
         run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --os ${{ matrix.targetPlatform }} -o build -c Release"
@@ -111,89 +199,19 @@ jobs:
         with:
           name: Basis-Server-${{ matrix.targetPlatform }}
           path: "build"
-
-  create-release:
-    name: Create release
-    needs: [build-client-win32, build-server]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: "github.ref_type == 'tag' && github.ref != 'refs/tags/latest'"
-    steps:
-      - name: "Checkout repository"
-        timeout-minutes: 10
-        uses: actions/checkout@v4
-      - name: "Download client artifacts"
-        timeout-minutes: 10
-        uses: "actions/download-artifact@v4"
+      - name: Archive Release
+        uses: thedoctor0/zip-release@0.7.6
+        if: github.ref_type == 'tag'
         with:
-          pattern: Basis-Client-*
-          path: Basis-Client-Build
-          merge-multiple: true
-      - name: "Download server artifacts"
+          type: "zip"
+          directory: build
+          filename: "Basis Server ${{ matrix.targetPlatform }}.zip"
+      - name: "Release server zip"
+        if: github.ref_type == 'tag'
         timeout-minutes: 5
-        uses: "actions/download-artifact@v4"
+        uses: "softprops/action-gh-release@v2"
         with:
-          pattern: Basis-Server-*
-          path: Basis-Server-Build
-          merge-multiple: true
-      - name: "Install additional dependencies"
-        timeout-minutes: 10
-        run: "sudo apt-get -y update && sudo apt-get -y install p7zip-full"
-      - name: Set up release prefix
-        run: |
-          echo "RELEASE_PREFIX=${{ github.event.repository.name }}-$(git describe --tags)" >> $GITHUB_ENV
-      - name: "Archive client artifact"
-        timeout-minutes: 10
-        run: "7z a -tzip ${{ env.RELEASE_PREFIX }}-Client.zip Basis-Client-Build"
-      - name: "Archive server artifact"
-        timeout-minutes: 10
-        run: "7z a -tzip ${{ env.RELEASE_PREFIX }}-Server.zip Basis-Server-Build"
-      - name: "Create release"
-        if: "github.ref_type == 'tag' && github.ref != 'refs/tags/latest'"
-        timeout-minutes: 5
-        uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: "${{ contains(github.ref, '-rc') }}"
-          files: |
-            ${{ env.RELEASE_PREFIX }}-Client.zip
-            ${{ env.RELEASE_PREFIX }}-Server.zip
-
-  dotnet-build:
-    name: Run `dotnet build`
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: "Checkout repository"
-        timeout-minutes: 2
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: "Setup dotnet"
-        timeout-minutes: 2
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-      - name: dotnet build
-        run: dotnet build
-
-  dotnet-test:
-    name: Run `dotnet test`
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: "Checkout repository"
-        timeout-minutes: 2
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: "Setup dotnet"
-        timeout-minutes: 2
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-      - name: dotnet test
-        run: dotnet test --logger:"console;verbosity=detailed"
+          files: build/Basis Server ${{ matrix.targetPlatform }}.zip
 
   compile-unitypackages:
     name: Build .unitypackage files
@@ -207,12 +225,10 @@ jobs:
           fetch-depth: 0
       - name: "Produce SDK unitypackage."
         timeout-minutes: 5
-        run:
-          .github/scripts/unitypackagegen.sh sdk
+        run: .github/scripts/unitypackagegen.sh sdk
       - name: "Produce full unitypackage."
         timeout-minutes: 5
-        run:
-          .github/scripts/unitypackagegen.sh full
+        run: .github/scripts/unitypackagegen.sh full
       - uses: actions/upload-artifact@v4
         timeout-minutes: 5
         with:
@@ -220,4 +236,11 @@ jobs:
           path: |
             Basis/Basis.sdk.unitypackage
             Basis/Basis.full.unitypackage
-
+      - name: "Release unitypackage"
+        if: github.ref_type == 'tag'
+        timeout-minutes: 5
+        uses: "softprops/action-gh-release@v2"
+        with:
+          files: |
+            Basis/Basis.sdk.unitypackage
+            Basis/Basis.full.unitypackage

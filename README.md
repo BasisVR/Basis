@@ -37,10 +37,11 @@ Please help shape the future of Basis and leave your mark on its foundation.
  #### Creating a Fork
 
 1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/ACrazyNewFeature`)
-3. Commit your Changes (`git commit -m 'Add some ACrazyNewFeature'`)
-4. Push to the Branch (`git push origin feature/ACrazyNewFeature`)
-5. Open a Pull Request
+2. Optionally, [Setup CI Secrets](./CI.md).
+3. Create your Feature Branch (`git checkout -b feature/ACrazyNewFeature`)
+4. Commit your Changes (`git commit -m 'Add some ACrazyNewFeature'`)
+5. Push to the Branch (`git push origin feature/ACrazyNewFeature`)
+6. Open a Pull Request
 
  ## Installation
 

@@ -1,3 +1,5 @@
+#if !UNITY_STANDALONE_LINUX
+
 using System;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
@@ -219,3 +221,5 @@ namespace UnityEngine.XR.OpenXR.Features.Interactions
         }
     }
 }
+
+#endif

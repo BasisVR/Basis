@@ -48,7 +48,7 @@ namespace Basis.Contrib.Auth.Handles
 			Identity identity
 		)
 		{
-			if (!verifiers.TryGetValue(handle.Kind, out IHandleVerifier verifier))
+			if (!verifiers.TryGetValue(handle.Kind, out IHandleVerifier? verifier))
 			{
 				return false;
 			}
