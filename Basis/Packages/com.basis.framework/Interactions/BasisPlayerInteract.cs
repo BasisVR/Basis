@@ -446,7 +446,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
 
-        public bool ForceSetInteractcting(BasisInteractableObject interactableObject, BasisInput input)
+        public bool ForceSetInteracting(BasisInteractableObject interactableObject, BasisInput input)
         {
             if (
                 input.TryGetRole(out BasisBoneTrackedRole role) &&

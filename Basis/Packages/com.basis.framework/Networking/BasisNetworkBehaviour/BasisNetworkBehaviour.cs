@@ -19,7 +19,7 @@ namespace Basis
         /// <param name="buffer"></param>
         public delegate void SceneNetworkMessageReceiveEvent(ushort PlayerID, ushort MessageIndex, byte[] buffer, LiteNetLib.DeliveryMethod deliveryMethod);
         public static SceneNetworkMessageReceiveEvent OnNetworkMessageReceived;
-        private bool HasNetworkID = false;
+        public bool HasNetworkID = false;
         private ushort networkID;
         public ushort NetworkID
         {
@@ -42,12 +42,12 @@ namespace Basis
         /// </summary>
         public void Start()
         {
+            OnNetworkMessageReceived += LowLevelNetworkMessageReceived;
             if (BasisNetworkManagement.LocalPlayerIsConnected == false)
             {
                 BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
                 BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
                 BasisNetworkPlayer.OnPlayerLeft += OnPlayerLeft;
-                OnNetworkMessageReceived += OnNetworkMessageReceived;
             }
             else
             {
@@ -56,10 +56,10 @@ namespace Basis
         }
         public void OnDestroy()
         {
+            OnNetworkMessageReceived -= LowLevelNetworkMessageReceived;
             BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
             BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
             BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
-            OnNetworkMessageReceived -= LowLevelNetworkMessageReceived;
 
             BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
             BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;

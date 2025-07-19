@@ -28,7 +28,7 @@ public static class BasisObjectSyncDriver
         for (int Index = 0; Index < remotecount; Index++)
         {
             BasisObjectSyncNetworking Object = RemoteOwnedObjectSyncs[Index];
-            if (Object.HasRemoteIndex)
+            if (Object.IsOwnedLocallyOnClient == false)
             {
                 float lerp = Object.BTU.LerpMultipliers * Delta;
 
@@ -94,6 +94,7 @@ public static class BasisObjectSyncDriver
             RemoteOwnedObjectSyncs.Remove(obj);
         }
     }
+    [System.Serializable]
     public struct BasisTranslationUpdate
     {
         public float3 TargetPositions;

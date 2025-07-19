@@ -1,5 +1,6 @@
 using UnityEngine;
 using Vector3 = UnityEngine.Vector3;
+[System.Serializable]
 public struct BasisPositionRotationScale
 {
     public ushort x;
