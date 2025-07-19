@@ -36,19 +36,12 @@ public static class BasisObjectSyncDriver
                 {
                     return;
                 }
-                if (Object.BTU.SyncScales)
-                {
-                    Object.transform.localScale = math.lerp(Object.transform.localScale, Object.BTU.TargetScales, lerp);
-                }
-                if (Object.BTU.SyncDestination)
-                {
-                    Object.transform.GetLocalPositionAndRotation(out Vector3 LocalPosition, out Quaternion LocalRotation);
+                Object.transform.GetLocalPositionAndRotation(out Vector3 LocalPosition, out Quaternion LocalRotation);
 
-                    float3 Position = math.lerp(LocalPosition, Object.BTU.TargetPositions, lerp);
-                    quaternion rotation = math.slerp(LocalRotation, Object.BTU.TargetRotations, lerp);
+                float3 Position = math.lerp(LocalPosition, Object.BTU.TargetPosition, lerp);
+                quaternion rotation = math.slerp(LocalRotation, Object.BTU.TargetRotation, lerp);
 
-                    Object.transform.SetLocalPositionAndRotation(Position, rotation);
-                }
+                Object.transform.SetLocalPositionAndRotation(Position, rotation);
             }
         }
     }
@@ -97,13 +90,9 @@ public static class BasisObjectSyncDriver
     [System.Serializable]
     public struct BasisTranslationUpdate
     {
-        public float3 TargetPositions;
-        public quaternion TargetRotations;
+        public float3 TargetPosition;
+        public quaternion TargetRotation;
         public float3 TargetScales;
-
         public float LerpMultipliers;
-
-        public bool SyncDestination;
-        public bool SyncScales;
     }
 }

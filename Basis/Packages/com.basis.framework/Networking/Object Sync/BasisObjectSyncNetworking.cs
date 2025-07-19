@@ -16,6 +16,8 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     [SerializeField]
     public BasisObjectSyncDriver.BasisTranslationUpdate BTU = new BasisObjectSyncDriver.BasisTranslationUpdate();
     public BasisInput pendingStealRequest = null;
+    public float CatchupLerp = 5;
+    public byte[] buffer = new byte[BasisPositionRotationScale.Size];
     public void Awake()
     {
         if (BasisPickupInteractable == null)
@@ -121,23 +123,17 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     {
         if (IsOwnedLocallyOnClient == false)
         {
-            LocalLastData = SerializationUtility.DeserializeValue<BasisPositionRotationScale>(buffer, DataFormat.Binary);
-            UnityEngine.Quaternion Rot = BasisCompression.QuaternionCompressor.DecompressQuaternion(LocalLastData.Rotation);
-            BTUUpdate(Rot, BTU);            //  BasisDebug.Log("OnNetworkMessage " + nameof(BTUUpdate));
+            var LocalLastData = BasisPositionRotationScale.FromBytes(buffer);
+            BTU.TargetRotation = BasisCompression.QuaternionCompressor.DecompressQuaternion(LocalLastData.Rotation);
+            BTU.LerpMultipliers = CatchupLerp;
+            BTU.TargetPosition = LocalLastData.DeCompress();
         }
-    }
-    public void BTUUpdate(UnityEngine.Quaternion Rotation, BasisObjectSyncDriver.BasisTranslationUpdate BasisTranslationUpdate)
-    {
-        BTU.LerpMultipliers = 5;
-        BTU.SyncDestination = true;
-        BTU.SyncScales = false;        // TargetScales = LocalLastData.Scale,
-        BTU.TargetPositions = LocalLastData.DeCompress();
-        BTU.TargetRotations = Rotation;
     }
     public void SendNetworkSync()
     {
         transform.GetLocalPositionAndRotation(out UnityEngine.Vector3 Position, out UnityEngine.Quaternion Temp);
-        LocalLastData.Compress(Position, BasisCompression.QuaternionCompressor.CompressQuaternion(ref Temp));        // LocalLastData.Scale = transform.localScale;
-        SendCustomNetworkEvent(SerializationUtility.SerializeValue(LocalLastData, DataFormat.Binary), DeliveryMethod.Sequenced);
+        LocalLastData.Compress(Position, BasisCompression.QuaternionCompressor.CompressQuaternion(ref Temp));
+        LocalLastData.ToBytes(buffer, 0);
+        SendCustomNetworkEvent(buffer, DeliveryMethod.Sequenced);
     }
 }

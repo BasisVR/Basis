@@ -19,9 +19,6 @@ namespace Basis.Scripts.Networking.Compression
             private const float k_DecompressionDecodingMask = (1.0f / k_PrecisionMask) * k_SqrtTwoOverTwoEncoding;
             private const ushort k_NegShortBit = 0x200;
 
-            private const ushort k_True = 1;
-            private const ushort k_False = 0;
-
             /// <summary>
             /// Compresses a Quaternion into a uint
             /// </summary>
@@ -37,17 +34,25 @@ namespace Basis.Scripts.Networking.Compression
                 float az = Mathf.Abs(z);
                 float aw = Mathf.Abs(w);
 
-                float max = Mathf.Max(ax, Mathf.Max(ay, Mathf.Max(az, aw)));
+                float max = ax;
+                int indexToSkip = 0;
 
-                int indexToSkip = ax == max ? 0 : ay == max ? 1 : az == max ? 2 : 3;
+                if (ay > max) { max = ay; indexToSkip = 1; }
+                if (az > max) { max = az; indexToSkip = 2; }
+                if (aw > max) { indexToSkip = 3; }
+
                 bool maxSign = GetSign(quaternion, indexToSkip);
 
                 uint compressed = (uint)indexToSkip;
                 int index = 0;
 
-                void Encode(float value, int skip)
+                void EncodeComponent(float value)
                 {
-                    if (index == skip) { index++; return; }
+                    if (index == indexToSkip)
+                    {
+                        index++;
+                        return;
+                    }
 
                     bool signBit = (value < 0) != maxSign;
                     ushort encoded = (ushort)Mathf.Round(Mathf.Abs(value) * k_CompressionEncodingMask);
@@ -56,10 +61,10 @@ namespace Basis.Scripts.Networking.Compression
                     index++;
                 }
 
-                Encode(x, indexToSkip);
-                Encode(y, indexToSkip);
-                Encode(z, indexToSkip);
-                Encode(w, indexToSkip);
+                EncodeComponent(x);
+                EncodeComponent(y);
+                EncodeComponent(z);
+                EncodeComponent(w);
 
                 return compressed;
             }
@@ -70,7 +75,8 @@ namespace Basis.Scripts.Networking.Compression
             public static UnityEngine.Quaternion DecompressQuaternion(uint compressed)
             {
                 int indexToSkip = (int)(compressed >> 30);
-                float[] result = new float[4];
+
+                float x = 0f, y = 0f, z = 0f, w = 0f;
                 float sumSquares = 0f;
 
                 for (int i = 3; i >= 0; i--)
@@ -81,15 +87,31 @@ namespace Basis.Scripts.Networking.Compression
                     bool sign = (compressed & k_NegShortBit) != 0;
                     ushort encoded = (ushort)(compressed & k_PrecisionMask);
                     float value = encoded * k_DecompressionDecodingMask;
-                    result[i] = sign ? -value : value;
+                    if (sign) value = -value;
 
-                    sumSquares += result[i] * result[i];
+                    switch (i)
+                    {
+                        case 0: x = value; break;
+                        case 1: y = value; break;
+                        case 2: z = value; break;
+                        case 3: w = value; break;
+                    }
+
+                    sumSquares += value * value;
                     compressed >>= 10;
                 }
 
-                result[indexToSkip] = Mathf.Sqrt(1.0f - sumSquares);
+                float missingComponent = Mathf.Sqrt(1.0f - sumSquares);
 
-                return new UnityEngine.Quaternion(result[0], result[1], result[2], result[3]);
+                switch (indexToSkip)
+                {
+                    case 0: x = missingComponent; break;
+                    case 1: y = missingComponent; break;
+                    case 2: z = missingComponent; break;
+                    case 3: w = missingComponent; break;
+                }
+
+                return new UnityEngine.Quaternion(x, y, z, w);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
