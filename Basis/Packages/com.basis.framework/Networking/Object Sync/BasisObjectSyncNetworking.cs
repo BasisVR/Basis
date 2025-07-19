@@ -1,8 +1,10 @@
 using Basis;
 using Basis.Scripts.BasisSdk.Interactions;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Compression;
+using Basis.Scripts.TransformBinders.BoneControl;
 using BasisSerializer.OdinSerializer;
 using LiteNetLib;
 using Unity.Mathematics;
@@ -11,9 +13,12 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     [PreviouslySerializedAs("InteractableObjects")]
     public BasisPickupInteractable BasisPickupInteractable;
     public bool HasRemoteIndex = false;
+    public bool CanNetworkSteal = true;
     BasisPositionRotationScale LocalLastData = new BasisPositionRotationScale();
     BasisCompression.QuaternionCompressor.Quaternion ConvertQat = new BasisCompression.QuaternionCompressor.Quaternion();
     public BasisObjectSyncDriver.BasisTranslationUpdate BTU = new BasisObjectSyncDriver.BasisTranslationUpdate();
+    public BasisInput pendingStealRequest = null;
+
     public void Awake()
     {
         if (BasisPickupInteractable == null)
@@ -23,6 +28,8 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         if (BasisPickupInteractable != null)
         {
             BasisPickupInteractable.OnInteractStartEvent += OnInteractStartEvent;
+            BasisPickupInteractable.CanHoverInjected.Add(CanHover);
+            BasisPickupInteractable.CanInteractInjected.Add(CanInteract);
         }
         if (BasisPickupInteractable.RigidRef != null)
         {
@@ -34,6 +41,8 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         if (BasisPickupInteractable != null)
         {
             BasisPickupInteractable.OnInteractStartEvent -= OnInteractStartEvent;
+            BasisPickupInteractable.CanHoverInjected.Remove(CanHover);
+            BasisPickupInteractable.CanInteractInjected.Remove(CanInteract);
         }
         BasisObjectSyncDriver.RemoveRemoteOwner(this);
         BasisObjectSyncDriver.RemoveLocalOwner(this);
@@ -61,6 +70,35 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             BasisDebug.Log("Missing Network Playing Dead", BasisDebug.LogTag.Networking);
         }
     }
+
+    private bool CanHover(BasisInput input)
+    {
+        // Allow hover if we aren't connected
+        if (!BasisNetworkManagement.LocalPlayerIsConnected) return true;
+        return IsOwnedLocally || CanNetworkSteal;
+    }
+    private bool CanInteract(BasisInput input)
+    {
+        // Allow interact if we arent connected or if we own it locally
+        if (IsOwnedLocally) return true;
+        // NOTE: this is called 2 times per frame on interact start, once to tell HoverEnd that it will be interacting, and again for the actual interact check
+        if (CanNetworkSteal && !IsOwnedLocally && pendingStealRequest == null)
+        {
+            pendingStealRequest = input;
+            CanInteractAsync(); // ControlState handles the ownership transfer logic here
+        }
+        return false;
+    }
+
+    private async void CanInteractAsync()
+    {
+        var result = await TakeOwnershipAsync(5000); // 5 second timeout 
+        if (!result.Success)
+        {
+            pendingStealRequest = null;
+        }
+    }
+
     public override void OnOwnershipTransfer(ushort NetIdNewOwner)
     {
         ControlState();
@@ -74,6 +112,13 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             BasisObjectSyncDriver.AddLocalOwner(this);
             BasisObjectSyncDriver.RemoveRemoteOwner(this);
             HasRemoteIndex = false;
+            // Delayed InteractStart when local user gets ownership
+            if (pendingStealRequest != null)
+            {
+                BasisPlayerInteract.Instance.ForceSetInteractcting(BasisPickupInteractable, pendingStealRequest);
+                // still reset the request, we dont care if we actually picked up
+                pendingStealRequest = null;
+            }
         }
         else
         {

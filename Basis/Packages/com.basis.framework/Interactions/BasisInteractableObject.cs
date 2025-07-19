@@ -22,11 +22,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         [NonSerialized]
         internal bool RequiresUpdateLoop = false;
 
-        /// <summary>
-        /// Whether this object is controlled elsewhere.
-        /// This is used to block interaction, set iskinematic, ect.
-        /// </summary>
-        public bool IsPuppeted = false;
         // Delegates for interaction events
         public Action<BasisInput> OnInteractStartEvent;
         public Action<BasisInput> OnInteractEndEvent;
@@ -184,8 +179,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public abstract void InputUpdate();
 
         /// <summary>
-        /// clear is the generic,
-        /// a ungeneric would be drop
+        /// Cleanly clear state of all inputs. This will call hover/interact end for each input with hovering/interacting state. 
         /// </summary>
         public virtual void ClearAllInfluencing()
         {
@@ -215,15 +209,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public virtual bool IsInfluencable(BasisInput input)
         {
             return InteractableEnabled && (CanHover(input) || CanInteract(input));
-        }
-
-        public virtual void StartRemoteControl()
-        {
-            IsPuppeted = true;
-        }
-        public virtual void StopRemoteControl()
-        {
-            IsPuppeted = false;
         }
     }
 }

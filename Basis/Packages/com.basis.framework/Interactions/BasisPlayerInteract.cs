@@ -233,6 +233,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
         }
+
+        // NOTE: if modifying this, please be careful to update UnsafeSetInteractcting accordingly.
         private BasisInteractInput UpdatePickupState(BasisInteractableObject hitInteractable, BasisInteractInput interactInput)
         {
             // hit a different target than last time
@@ -441,6 +443,29 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Gizmos.DrawWireSphere(device.hoverSphere.WorldPosition, hoverRadius);
                 }
             }
+        }
+
+
+        public bool ForceSetInteractcting(BasisInteractableObject interactableObject, BasisInput input)
+        {
+            if (
+                input.TryGetRole(out BasisBoneTrackedRole role) &&
+                interactableObject.Inputs.ChangeStateByRole(role, BasisInteractInputState.Hovering)
+                )
+            {
+                for (int i = 0; i < InteractInputs.Length; i++)
+                {
+                    if (InteractInputs[i].IsInput(input))
+                    {
+                        BasisDebug.Log("Stole ownership, starting interact", BasisDebug.LogTag.Networking);
+                        interactableObject.OnInteractStart(input);
+                        InteractInputs[i].lastTarget = interactableObject;
+                    }
+                }
+
+                return true;
+            }
+            else return false;
         }
         public bool IsDesktopCenterEye(BasisInput input)
         {
