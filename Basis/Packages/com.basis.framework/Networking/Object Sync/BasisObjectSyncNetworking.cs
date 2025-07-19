@@ -75,14 +75,14 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     {
         // Allow hover if we aren't connected
         if (!BasisNetworkManagement.LocalPlayerIsConnected) return true;
-        return IsOwnedLocally || CanNetworkSteal;
+        return IsOwnedLocallyOnClient || CanNetworkSteal;
     }
     private bool CanInteract(BasisInput input)
     {
         // Allow interact if we arent connected or if we own it locally
-        if (IsOwnedLocally) return true;
+        if (IsOwnedLocallyOnClient) return true;
         // NOTE: this is called 2 times per frame on interact start, once to tell HoverEnd that it will be interacting, and again for the actual interact check
-        if (CanNetworkSteal && !IsOwnedLocally && pendingStealRequest == null)
+        if (CanNetworkSteal && !IsOwnedLocallyOnClient && pendingStealRequest == null)
         {
             pendingStealRequest = input;
             CanInteractAsync(); // ControlState handles the ownership transfer logic here

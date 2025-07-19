@@ -249,11 +249,11 @@ namespace Basis
             //no need to use await ownership will get back here from lower level.
             await TakeOwnershipAsync();
         }
-        public async Task<BasisOwnershipResult> TakeOwnershipAsync()
+        public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000)
         {
             IsOwnedLocallyOnClient = true;
             //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId, Timout);
             return Result;
         }
         public virtual void OnNetworkReady()
