@@ -1,5 +1,5 @@
+using Basis;
 using Basis.Network.Core;
-using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
@@ -12,29 +12,29 @@ using static SerializableBasis;
 public static class BasisNetworkGenericMessages
 {
     // Handler for server scene data messages
-    public static void HandleServerSceneDataMessage(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod deliveryMethod)
+    public static void HandleServerSceneDataMessage(NetPacketReader reader, DeliveryMethod deliveryMethod)
     {
         ServerSceneDataMessage ServerSceneDataMessage = new ServerSceneDataMessage();
         ServerSceneDataMessage.Deserialize(reader);
         ushort playerID = ServerSceneDataMessage.playerIdMessage.playerID;
         RemoteSceneDataMessage sceneDataMessage = ServerSceneDataMessage.sceneDataMessage;
-        BasisScene.OnNetworkMessageReceived?.Invoke(playerID, sceneDataMessage.messageIndex, sceneDataMessage.payload,deliveryMethod);
+        BasisNetworkBehaviour.OnNetworkMessageReceived?.Invoke(playerID, sceneDataMessage.messageIndex, sceneDataMessage.payload,deliveryMethod);
     }
     public delegate void OnNetworkMessageReceiveOwnershipTransfer(string UniqueEntityID, ushort NetIdNewOwner, bool IsOwner);
     public delegate void OnNetworkMessageReceiveOwnershipRemoved(string UniqueEntityID);
-    public static void HandleOwnershipTransfer(LiteNetLib.NetPacketReader reader)
+    public static void HandleOwnershipTransfer(NetPacketReader reader)
     {
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);
         HandleOwnership(OwnershipTransferMessage);
     }
-    public static void HandleOwnershipResponse(LiteNetLib.NetPacketReader reader)
+    public static void HandleOwnershipResponse(NetPacketReader reader)
     {
         OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
         ownershipTransferMessage.Deserialize(reader);
         HandleOwnership(ownershipTransferMessage);
     }
-    public static void HandleOwnershipRemove(LiteNetLib.NetPacketReader reader)
+    public static void HandleOwnershipRemove(NetPacketReader reader)
     {
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);

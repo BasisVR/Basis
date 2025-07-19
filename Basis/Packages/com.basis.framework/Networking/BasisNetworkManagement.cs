@@ -109,21 +109,12 @@ namespace Basis.Scripts.Networking
             // Initialize AvatarBuffer
             BasisAvatarBufferPool.AvatarBufferPool(30);
             OwnershipPairing.Clear();
-            if (BasisScene.Instance != null)
-            {
-                SetupSceneEvents(BasisScene.Instance);
-            }
-
-
-
             ServerMetaDataMessage = new ServerMetaDataMessage();
             ServerMetaDataMessage.ClientMetaDataMessage = new ClientMetaDataMessage();
             ServerMetaDataMessage.SyncInterval = 50;
             ServerMetaDataMessage.BaseMultiplier = 1;
             ServerMetaDataMessage.IncreaseRate = 0.005f;
             ServerMetaDataMessage.SlowestSendRate = 2.5f;
-
-            BasisScene.Ready += SetupSceneEvents;
             if (BasisDeviceManagement.Instance != null)
             {
                 this.transform.parent = BasisDeviceManagement.Instance.transform;
@@ -230,10 +221,6 @@ namespace Basis.Scripts.Networking
             }
             LocalID = 0;
             return false;
-        }
-        public void SetupSceneEvents(BasisScene BasisScene)
-        {
-            BasisScene.OnNetworkMessageSend += BasisNetworkGenericMessages.OnNetworkMessageSend;
         }
         public void Connect()
         {

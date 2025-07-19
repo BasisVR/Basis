@@ -69,7 +69,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     {
         //lets always just update the last data so going from here we have some reference of last.
         WriteLocalLastData();
-        if (IsOwnedLocally)
+        if (IsOwnedLocallyOnServer)
         {
             BasisObjectSyncDriver.AddLocalOwner(this);
             BasisObjectSyncDriver.RemoveRemoteOwner(this);

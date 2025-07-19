@@ -12,6 +12,13 @@ namespace Basis
 {
     public abstract class BasisNetworkBehaviour : BasisNetworkContentBase
     {
+        /// <summary>
+        /// this is used for Receiving Network Messages
+        /// </summary>
+        /// <param name="MessageIndex"></param>
+        /// <param name="buffer"></param>
+        public delegate void SceneNetworkMessageReceiveEvent(ushort PlayerID, ushort MessageIndex, byte[] buffer, LiteNetLib.DeliveryMethod deliveryMethod);
+        public static SceneNetworkMessageReceiveEvent OnNetworkMessageReceived;
         private bool HasNetworkID = false;
         private ushort networkID;
         public ushort NetworkID
@@ -19,7 +26,14 @@ namespace Basis
             get => networkID;
             private set => networkID = value;
         }
-        public bool IsOwnedLocally = false;
+        /// <summary>
+        /// only set true when the server approves our ownership
+        /// </summary>
+        public bool IsOwnedLocallyOnServer = false;
+        /// <summary>
+        /// this is instantly set when we request ownership.
+        /// </summary>
+        public bool IsOwnedLocallyOnClient = false;
         public ushort CurrentOwner;
         public BasisNetworkPlayer currentOwnedPlayer;
 
@@ -33,6 +47,7 @@ namespace Basis
                 BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
                 BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
                 BasisNetworkPlayer.OnPlayerLeft += OnPlayerLeft;
+                OnNetworkMessageReceived += OnNetworkMessageReceived;
             }
             else
             {
@@ -44,7 +59,7 @@ namespace Basis
             BasisNetworkPlayer.OnLocalPlayerJoined -= OnLocalPlayerJoined;
             BasisNetworkPlayer.OnOwnershipTransfer -= LowLevelOwnershipTransfer;
             BasisNetworkPlayer.OnOwnershipReleased -= LowLevelOwnershipReleased;
-            BasisScene.OnNetworkMessageReceived -= LowLevelNetworkMessageReceived;
+            OnNetworkMessageReceived -= LowLevelNetworkMessageReceived;
 
             BasisNetworkPlayer.OnPlayerJoined -= OnPlayerJoined;
             BasisNetworkPlayer.OnPlayerLeft -= OnPlayerLeft;
@@ -53,7 +68,7 @@ namespace Basis
         {
             if (HasNetworkID)
             {
-                return IsOwnedLocally;
+                return IsOwnedLocallyOnServer;
             }
             else
             {
@@ -77,8 +92,6 @@ namespace Basis
                 {
                     BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
                     BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
-                    BasisScene.OnNetworkMessageReceived += LowLevelNetworkMessageReceived;
-
 
                     Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
                     Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
@@ -118,7 +131,8 @@ namespace Basis
         {
             if (uniqueEntityID == clientIdentifier)
             {
-                IsOwnedLocally = isOwner;
+                IsOwnedLocallyOnServer = isOwner;
+                IsOwnedLocallyOnClient = isOwner;
                 CurrentOwner = NetIdNewOwner;
                 if (BasisNetworkManagement.GetPlayerById(CurrentOwner, out currentOwnedPlayer))
                 {
@@ -128,7 +142,7 @@ namespace Basis
                 {
                     BasisDebug.LogError("No Owner for Id " + CurrentOwner);
                 }
-                BasisDebug.Log("Owner set to " + IsOwnedLocally);
+                BasisDebug.Log("Owner set to " + IsOwnedLocallyOnServer);
                 OnOwnershipTransfer(NetIdNewOwner);
             }
         }
@@ -143,7 +157,7 @@ namespace Basis
         {
             if (HasNetworkID)
             {
-                BasisScene.OnNetworkMessageSend?.Invoke(NetworkID, buffer, DeliveryMethod, Recipients);
+                BasisNetworkGenericMessages.OnNetworkMessageSend(NetworkID, buffer, DeliveryMethod, Recipients);
             }
             else
             {
@@ -230,13 +244,14 @@ namespace Basis
 
             return path;
         }
-        public async void RequestTakeOwnership()
+        public async void TakeOwnership()
         {
             //no need to use await ownership will get back here from lower level.
             await TakeOwnershipAsync();
         }
         public async Task<BasisOwnershipResult> TakeOwnershipAsync()
         {
+            IsOwnedLocallyOnClient = true;
             //no need to use await ownership will get back here from lower level.
             BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId);
             return Result;
