@@ -152,6 +152,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 input.CurrentInputState.Trigger == 1;
         }
 
+        /// <summary>
+        /// Deskop check for triggering AutoHold drop
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public virtual bool IsHoldDropTriggered(BasisInput input)
+        {
+            return
+                // special case for desktop (right-click)
+                input.TryGetRole(out var role) &&
+                role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.CenterEye &&
+                input.CurrentInputState.SecondaryTrigger == 1;
+        }
+
         public abstract bool CanHover(BasisInput input);
         public abstract bool IsHoveredBy(BasisInput input);
 
