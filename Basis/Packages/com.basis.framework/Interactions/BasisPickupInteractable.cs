@@ -540,6 +540,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return Vector3.Distance(transform.position, source) <= _interactRange + extraReach;
         }
 
+        public override bool IsHoldDropTriggered(BasisInput input)
+        {
+            return 
+                // special case for desktop (right-click)
+                input.TryGetRole(out var role) &&
+                role == BasisBoneTrackedRole.CenterEye &&
+                input.CurrentInputState.SecondaryTrigger == 1;;
+        }
+
 #if UNITY_EDITOR
         public void OnValidate()
         {

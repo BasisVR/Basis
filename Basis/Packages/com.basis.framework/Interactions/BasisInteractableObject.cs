@@ -153,17 +153,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
-        /// Deskop check for triggering AutoHold drop
+        /// Deskop check for triggering AutoHold drop. Base implementation will always return true, since not all interactables have a concept of holding.
         /// </summary>
         /// <param name="input"></param>
         /// <returns></returns>
         public virtual bool IsHoldDropTriggered(BasisInput input)
         {
-            return
-                // special case for desktop (right-click)
-                input.TryGetRole(out var role) &&
-                role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.CenterEye &&
-                input.CurrentInputState.SecondaryTrigger == 1;
+            return true;
         }
 
         public abstract bool CanHover(BasisInput input);
