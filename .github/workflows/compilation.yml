@@ -26,6 +26,8 @@ jobs:
     name: Build client for ${{ matrix.targetPlatform }}
     timeout-minutes: 100
     runs-on: ${{ matrix.buildPlatform }}
+    permissions:
+      actions: write # to allow us to manage cache
     env:
       projectPath: Basis
       buildName: Basis Unity
@@ -112,6 +114,7 @@ jobs:
         run: |
           OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}- --json id --jq '.[1:] | map(.id) | @sh')
           for cache_id in $OLD_CACHE_IDS; do
+            echo "Deleting cache id: $cache_id"
             gh cache delete $cache_id
           done
       - name: "Upload client artifact"
