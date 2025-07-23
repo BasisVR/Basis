@@ -3,6 +3,8 @@ using Basis.Scripts.Addressable_Driver.Enums;
 using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using TMPro;
@@ -96,6 +98,15 @@ namespace Basis.Scripts.UI.UI_Panels
                 // Trim leading and trailing whitespace from the URL
                 string processedUrl = ConnectorField.text.Trim();
 
+                // The fragment may contain an avatar password.
+                // Strip it, and overwrite the URL to prevent it from showing up in logs.
+                // Additionally, `ApplyPlatformConversionOfUrl` may drop the fragment when it converts the URL.
+                // Therefore, this must happen before then.
+                var fragmentParts = processedUrl.Split('#', 2);
+                processedUrl = fragmentParts[0];
+
+                var fragment = fragmentParts.ElementAtOrDefault(1);
+
                 if (ApplyPlatformConversionOfUrl(processedUrl, out string Converted))
                 {
                     processedUrl = Converted;
@@ -108,10 +119,24 @@ namespace Basis.Scripts.UI.UI_Panels
                     return;
                 }
 
-                StepMessage.text = "Step 2: Enter Password and Load Avatar";
                 StageOne.SetActive(false);
-                StageTwo.SetActive(true);
                 ConnectorField.text = processedUrl;
+
+                if (!String.IsNullOrEmpty(fragment))
+                {
+                    try
+                    {
+                        var password = Encoding.UTF8.GetString(Convert.FromBase64String(fragment));
+
+                        PasswordField.text = password;
+                        TaskTwo();
+                        return;
+                    }
+                    catch { }
+                }
+
+                StepMessage.text = "Step 2: Enter Password and Load Avatar";
+                StageTwo.SetActive(true);
             }
             catch (Exception ex)
             {
