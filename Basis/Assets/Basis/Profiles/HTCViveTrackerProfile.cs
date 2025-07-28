@@ -30,6 +30,7 @@ namespace UnityEngine.XR.OpenXR.Features.Interactions
         public const string featureId = "com.basis.openxr.feature.input.htcvivetracker";
         public const string profile = "/interaction_profiles/htc/vive_tracker_htcx";
         private const string kDeviceLocalizedName = "HTC Vive Tracker OpenXR";
+        private bool tracker_interaction_ExtensionEnabled = false;
 
         public static class TrackerUserPaths
         {
@@ -152,6 +153,11 @@ namespace UnityEngine.XR.OpenXR.Features.Interactions
 
         protected override void RegisterActionMapsWithRuntime()
         {
+            if (!tracker_interaction_ExtensionEnabled)
+            {
+                return;
+            }
+
             var trackerConfigs = new (InputDeviceTrackerCharacteristics characteristic, string userPath)[]
             {
                 (InputDeviceTrackerCharacteristics.TrackerLeftFoot, TrackerUserPaths.LeftFoot),
@@ -212,7 +218,9 @@ namespace UnityEngine.XR.OpenXR.Features.Interactions
         {
             var result = base.OnInstanceCreate(xrInstance);
 
-            if (OpenXRRuntime.IsExtensionEnabled("XR_HTCX_vive_tracker_interaction"))
+            tracker_interaction_ExtensionEnabled = OpenXRRuntime.IsExtensionEnabled("XR_HTCX_vive_tracker_interaction");
+
+            if (tracker_interaction_ExtensionEnabled)
                 Debug.Log("Basis HTC Vive Tracker Extension Enabled");
             else
                 Debug.Log("Basis HTC Vive Tracker Extension Not Enabled");
