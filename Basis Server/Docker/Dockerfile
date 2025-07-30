@@ -5,10 +5,10 @@ WORKDIR /src
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
 COPY ["../", "Server/"]
 
-WORKDIR "/src/BasisServerConsole"
+WORKDIR "/src/Server/BasisServerConsole"
 
 # Restore dependencies and publish the application
-RUN dotnet restore BasisNetworkConsole.csproj
+RUN dotnet restore ./BasisNetworkConsole.csproj
 RUN dotnet publish -c Release -o /app/publish
 
 # Stage 2: Create runtime image
