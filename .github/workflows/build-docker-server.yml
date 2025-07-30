@@ -1,10 +1,13 @@
 name: Build and Push Docker Server Image
 
 on:
+  workflow_dispatch:
+  
   push:
     branches:
       - developer
       - long-term-support
+        
 
 env:
   REGISTRY: ghcr.io
