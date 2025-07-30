@@ -57,7 +57,7 @@ jobs:
         uses: docker/build-push-action@v5
         id: build
         with:
-          context: "./Basis Server/Docker"
+          context: "./Basis Server"
           file: "./Basis Server/Docker/Dockerfile"
           platforms: linux/amd64,linux/arm64
           push: true
