@@ -5,7 +5,7 @@ WORKDIR /src
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
 COPY ["../", "Server/"]
 
-WORKDIR "/src/Server/BasisServerConsole"
+WORKDIR "/src/BasisServerConsole"
 
 # Restore dependencies and publish the application
 RUN dotnet restore BasisNetworkConsole.csproj
