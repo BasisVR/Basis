@@ -1,0 +1,71 @@
+name: Build and Push Docker Server Image
+
+on:
+  push:
+    branches:
+      - developer
+      - long-term-support
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: basis-server
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # For dev branch, tag as nightly
+            type=raw,value=nightly,enable=${{ github.ref == 'refs/heads/developer' }}
+            
+            # For long-term-support branch, tag as latest
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/long-term-support' }}
+            
+            # Also tag with commit SHA for both branches
+            type=sha,prefix={{branch}}-,format=short
+            
+            # Tag with branch name
+            type=ref,event=branch
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-${{ github.ref_name }}
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-${{ github.ref_name }},mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Image digest
+        run: 'echo "Image pushed with digest: ${{ steps.build.outputs.digest }}"'
