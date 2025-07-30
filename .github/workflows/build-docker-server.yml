@@ -8,10 +8,10 @@ on:
       - long-term-support
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: basis-server
+  IMAGE_NAME: ${{ github.repository_owner }}/basis-server
 
 jobs:
-  build-and-push:
+  server-build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,7 +52,6 @@ jobs:
             
             # Tag with branch name
             type=ref,event=branch
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         id: build
