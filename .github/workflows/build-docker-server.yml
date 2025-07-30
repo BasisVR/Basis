@@ -1,14 +1,11 @@
-name: Build and Push Docker Server Image
+name: Docker; Build & Push Server Image
 
 on:
   workflow_dispatch:
-  
   push:
     branches:
       - developer
       - long-term-support
-        
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: basis-server
@@ -61,7 +58,7 @@ jobs:
         id: build
         with:
           context: "./Basis Server/Docker"
-          file: "./Dockerfile"
+          file: "./Basis Server/Docker/Dockerfile"
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
