@@ -5,6 +5,8 @@ WORKDIR /src
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
 COPY ["../", "Server/"]
 
+RUN echo "=== DEBUG: Contents of /src/Server ===" && ls -la /src/Server/ && echo "=== Contents of /src/Server/BasisServerConsole ===" && ls -la /src/Server/BasisServerConsole/ || echo "BasisServerConsole directory not found"
+
 WORKDIR "/src/Server/BasisServerConsole"
 
 # Restore dependencies and publish the application
