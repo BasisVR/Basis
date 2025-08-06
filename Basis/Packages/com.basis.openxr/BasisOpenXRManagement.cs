@@ -34,7 +34,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         public BasisOpenXRHandInput RightHand;
         public override bool IsDeviceBootable(string BootRequest)
         {
-            if(BootRequest == "OpenXRLoader")
+            if (BootRequest == "OpenXRLoader")
             {
                 return true;
             }
@@ -65,6 +65,8 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         {
             BasisDebug.Log("Starting SDK for BasisOpenXRManagement");
             BasisLocalCameraDriver.AllowXRRenderering(true);
+
+            SetTrackingOriginToStage();
 
             CreatePhysicalHeadTracker("Head OPENXR", "Head OPENXR");
             LeftHand = CreatePhysicalHandTracker("Left Hand OPENXR", "Left Hand OPENXR", BasisBoneTrackedRole.LeftHand);
@@ -211,7 +213,7 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
         }
         private void TryAddTracker(InputDevice addedTracker)
         {
-           // BasisDebug.Log($"Trying to add tracker: {addedTracker.name}, ID: {addedTracker.deviceId}");
+            // BasisDebug.Log($"Trying to add tracker: {addedTracker.name}, ID: {addedTracker.deviceId}");
 
             if (HTCOpenXRViveTracker.Contains(addedTracker.displayName) && !trackedDevices.ContainsKey(addedTracker.deviceId))
             {
@@ -236,6 +238,35 @@ namespace Basis.Scripts.Device_Management.Devices.UnityInputSystem
                 {
                     BasisDebug.LogError($"No matching usage found for tracker: {addedTracker.name}");
                 }
+            }
+        }
+
+        private void SetTrackingOriginToStage()
+        {
+            var inputSubsystem = XRGeneralSettings.Instance?.Manager?.activeLoader?.GetLoadedSubsystem<UnityEngine.XR.XRInputSubsystem>();
+            if (inputSubsystem != null)
+            {
+                var supportedModes = inputSubsystem.GetSupportedTrackingOriginModes();
+                BasisDebug.Log($"Supported tracking origin modes: {supportedModes}");
+
+                if ((supportedModes & UnityEngine.XR.TrackingOriginModeFlags.Floor) != 0)
+                {
+                    bool success = inputSubsystem.TrySetTrackingOriginMode(UnityEngine.XR.TrackingOriginModeFlags.Floor);
+                    BasisDebug.Log($"Set tracking origin to Floor (Stage): {success}");
+                }
+                else if ((supportedModes & UnityEngine.XR.TrackingOriginModeFlags.Device) != 0)
+                {
+                    bool success = inputSubsystem.TrySetTrackingOriginMode(UnityEngine.XR.TrackingOriginModeFlags.Device);
+                    BasisDebug.Log($"Fallback to Device tracking origin: {success}");
+                }
+                else
+                {
+                    BasisDebug.LogWarning("No suitable tracking origin modes supported");
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Could not get XRInputSubsystem for tracking origin setup");
             }
         }
     }
