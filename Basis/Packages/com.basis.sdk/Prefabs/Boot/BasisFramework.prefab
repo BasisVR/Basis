@@ -1212,6 +1212,8 @@ MonoBehaviour:
     SelectableValueList:
     - realValue: on
       UserValue: On
+    - realValue: capped
+      UserValue: Capped
     - realValue: half
       UserValue: Half
     - realValue: off
