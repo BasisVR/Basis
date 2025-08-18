@@ -63,9 +63,18 @@ sysinfo.txt
 *.unitypackage
 *.unitypackage.meta
 *.app
+*.exe
+*.x86_64
+*.arm64
 
 # Crashlytics generated file
 crashlytics-build.properties
+
+# Mono crash files
+mono_crash.mem.*.*.blob
+
+# Unity build report
+/[Bb]uild[Rr]eport/
 
 # Packed Addressables
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
@@ -78,4 +87,28 @@ crashlytics-build.properties
 [Aa]sset[Bb]undles/
 [Aa]ssets/_[Uu]ser[Cc]ontent
 [Aa]ssets/_[Uu]ser[Cc]ontent.meta
+[Aa]ssets/[Gg]it[Ii]gnore/
+[Aa]ssets/[Gg]it[Ii]gnore.meta
 
+# FFmpeg
+/[Aa]ssets/[Ss]treamingAssets/[Ff][Ff]mpeg/
+/[Aa]ssets/[Ss]treamingAssets/[Ff][Ff]mpeg.meta
+/[Aa]ssets/[Ss]treamingAssets/*.mp4
+/[Aa]ssets/[Ss]treamingAssets/*.mp4.meta
+/[Aa]ssets/[Ss]treamingAssets/*.webm
+/[Aa]ssets/[Ss]treamingAssets/*.webm.meta
+/[Aa]ssets/[Ss]treamingAssets/*.opus
+/[Aa]ssets/[Ss]treamingAssets/*.opus.meta
+
+/[Aa]ssets/[Ss]cripts/FFPlayPlayer.cs
+/[Aa]ssets/[Ss]cripts/FFPlayPlayer.cs.meta
+
+# YTDL Sharp
+/[Aa]ssets/[Ss]treamingAssets/yt-dlp
+/[Aa]ssets/[Ss]treamingAssets/yt-dlp.meta
+
+/[Aa]ssets/[Yy]outube[Dd][Ll][Ss]harp/
+/[Aa]ssets/[Yy]outube[Dd][Ll][Ss]harp.meta
+
+/[Aa]ssets/[Pp]lugins/[Yy]outube[Dd][Ll]/
+/[Aa]ssets/[Pp]lugins/[Yy]outube[Dd][Ll].meta
