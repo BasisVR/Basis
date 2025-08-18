@@ -14,8 +14,8 @@ PlayerSettings:
   accelerometerFrequency: 60
   companyName: Basis Unity
   productName: Basis Unity
-  defaultCursor: {fileID: 2800000, guid: 0bbf420e2614fcc4f86911f3eb64b268, type: 3}
-  cursorHotspot: {x: 0, y: 0}
+  defaultCursor: {fileID: 2800000, guid: b6a94fc18d631d9ffa4a97234f1fefec, type: 3}
+  cursorHotspot: {x: 9, y: 5}
   m_SplashScreenBackgroundColor: {r: 0.12156863, g: 0.12156863, b: 0.1254902, a: 1}
   m_ShowUnitySplashScreen: 0
   m_ShowUnitySplashLogo: 1
