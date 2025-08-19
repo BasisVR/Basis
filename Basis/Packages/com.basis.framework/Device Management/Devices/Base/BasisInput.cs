@@ -98,7 +98,6 @@ namespace Basis.Scripts.Device_Management.Devices
         }
         public void AssignRoleAndTracker(BasisBoneTrackedRole Role)
         {
-            hasRoleAssigned = true;
             int InputsCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
             for (int Index = 0; Index < InputsCount; Index++)
             {
@@ -109,16 +108,18 @@ namespace Basis.Scripts.Device_Management.Devices
                     {
                         if (CanHaveMultipleRoles.Contains(found) == false)
                         {
-                            BasisDebug.LogError("Already Found tracker for  " + Role, BasisDebug.LogTag.Input);
+                            BasisDebug.LogError($"Already Found tracker for  {Role}", BasisDebug.LogTag.Input);
+                            hasRoleAssigned = false;
                             return;
                         }
                         else
                         {
-                            BasisDebug.Log("Has Multiple Roles assigned for " + found + " most likely ok.", BasisDebug.LogTag.Input);
+                            BasisDebug.Log($"Has Multiple Roles assigned for {found} most likely ok.", BasisDebug.LogTag.Input);
                         }
                     }
                 }
             }
+            hasRoleAssigned = true;
             trackedRole = Role;
             HasControl = BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out Control, trackedRole);
             if (HasControl)

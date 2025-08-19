@@ -26,7 +26,7 @@ namespace Basis.Scripts.Device_Management.Devices
                 }
             }
         }
-        public void TryBeginLoad(string Mode)
+        public bool TryBeginLoad(string Mode)
         {
             if (ActiveOnModes.Contains(Mode))
             {
@@ -34,7 +34,9 @@ namespace Basis.Scripts.Device_Management.Devices
                 // BasisDebug.Log("Begin Load of XR");
                 ReInitalizeCheck();
                 BasisDeviceManagement.Instance.StartCoroutine(LoadXR());
+                return true;
             }
+            return false;
         }
         public void DisableDeviceManagerSolution(string BasisBootedMode)
         {
@@ -60,9 +62,10 @@ namespace Basis.Scripts.Device_Management.Devices
                 xRManagerSettings.StartSubsystems();
                 result = xRManagerSettings.activeLoader?.name;
             }
-            BasisDebug.Log("Found Loader " + result, BasisDebug.LogTag.Device);
-
-         BasisDeviceManagement.Instance.CheckForPass(result);
+            BasisDebug.Log($"Found Loader {result}", BasisDebug.LogTag.Device);
+            BasisDebug.Log($"Loading {result}", BasisDebug.LogTag.Device);
+            BasisDeviceManagement.Instance.StartDevices(result);
+            BasisDeviceManagement.StaticCurrentMode = result;
         }
         public void StopXR()
         {

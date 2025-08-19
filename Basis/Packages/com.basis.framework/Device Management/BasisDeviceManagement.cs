@@ -145,9 +145,15 @@ namespace Basis.Scripts.Device_Management
             OnBootModeChanged?.Invoke(StaticCurrentMode);
             BasisDebug.Log($"Loading mode: {StaticCurrentMode}", BasisDebug.LogTag.Device);
 
-            BasisXRManagement.TryBeginLoad(newMode);
+            if (BasisXRManagement.TryBeginLoad(newMode))
+            {
 
-            StartDevices(StaticCurrentMode);
+            }
+            else
+            {
+
+                StartDevices(StaticCurrentMode);
+            }
             SMDMicrophone.LoadInMicrophoneData(StaticCurrentMode);
         }
         #endregion
@@ -355,18 +361,6 @@ namespace Basis.Scripts.Device_Management
             {
                 BasisNetworking.SetActive(true);
             }
-        }
-
-        public void CheckForPass(string type)
-        {
-            if (string.IsNullOrEmpty(type))
-            {
-                BasisDebug.LogError("Type in CheckForPass is null or empty.", BasisDebug.LogTag.Device);
-                return;
-            }
-            BasisDebug.Log("Loading " + type, BasisDebug.LogTag.Device);
-            StartDevices(type);
-            StaticCurrentMode = type;
         }
         #endregion
 

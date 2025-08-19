@@ -87,6 +87,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "HotSwtichToVR",
+                    "type": "Button",
+                    "id": "32ab82cc-e8ad-4b10-90d8-b65f634e649a",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "LeftMouse",
                     "type": "Button",
                     "id": "46fcae41-15d1-4d62-8313-d820f521e2f2",
@@ -438,6 +447,17 @@
                     "processors": "",
                     "groups": ";All",
                     "action": "HotSwtichToXR",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "bae8c2bf-4913-477b-95e7-50cebb6e3e6f",
+                    "path": "<Keyboard>/f11",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "HotSwtichToVR",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
