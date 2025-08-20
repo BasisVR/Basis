@@ -15,6 +15,7 @@
     "com.unity.services.analytics": "6.1.0",
     "com.unity.services.cloud-diagnostics": "1.0.10",
     "com.unity.timeline": "1.8.7",
+    "com.unity.toolchain.linux-x86_64": "2.0.10",
     "com.unity.toolchain.macos-arm64-linux-x86_64": "2.0.4",
     "com.unity.toolchain.win-x86_64-linux-x86_64": "2.0.10",
     "com.unity.visualeffectgraph": "17.2.0",
