@@ -1,9 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEngine;
 using UnityEngine.XR.Management;
-
 namespace Basis.Scripts.Device_Management.Devices
 {
     [System.Serializable]
@@ -12,9 +10,6 @@ namespace Basis.Scripts.Device_Management.Devices
         public XRManagerSettings xRManagerSettings;
         public XRGeneralSettings xRGeneralSettings;
         public string[] ActiveOnModes = new string[] { BasisConstants.OpenVRLoader, BasisConstants.OpenXRLoader };
-        // Store the initial list of loaders
-        [SerializeField]
-        public List<XRLoader> initialLoaders = new List<XRLoader>();
         public void ReInitalizeCheck()
         {
             if (XRGeneralSettings.Instance != null)
@@ -30,8 +25,7 @@ namespace Basis.Scripts.Device_Management.Devices
         {
             if (ActiveOnModes.Contains(Mode))
             {
-                BasisDebug.Log("Starting LoadXR", BasisDebug.LogTag.Device);
-                // BasisDebug.Log("Begin Load of XR");
+                BasisDebug.Log($"Starting Attempt of load LoadXR {Mode}", BasisDebug.LogTag.Device);
                 ReInitalizeCheck();
                 BasisDeviceManagement.Instance.StartCoroutine(LoadXR());
                 return true;
@@ -62,10 +56,12 @@ namespace Basis.Scripts.Device_Management.Devices
                 xRManagerSettings.StartSubsystems();
                 result = xRManagerSettings.activeLoader?.name;
             }
+            else
+            {
+                BasisDebug.LogError("No Active Loader Present! falling back to desktop!");
+            }
             BasisDebug.Log($"Found Loader {result}", BasisDebug.LogTag.Device);
-            BasisDebug.Log($"Loading {result}", BasisDebug.LogTag.Device);
             BasisDeviceManagement.Instance.StartDevices(result);
-            BasisDeviceManagement.StaticCurrentMode = result;
         }
         public void StopXR()
         {

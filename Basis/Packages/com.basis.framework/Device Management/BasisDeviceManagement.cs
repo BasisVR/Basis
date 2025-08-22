@@ -142,19 +142,11 @@ namespace Basis.Scripts.Device_Management
             }
 
             StaticCurrentMode = newMode;
-            OnBootModeChanged?.Invoke(StaticCurrentMode);
-            BasisDebug.Log($"Loading mode: {StaticCurrentMode}", BasisDebug.LogTag.Device);
 
-            if (BasisXRManagement.TryBeginLoad(newMode))
+            if (!BasisXRManagement.TryBeginLoad(newMode))
             {
-
-            }
-            else
-            {
-
                 StartDevices(StaticCurrentMode);
             }
-            SMDMicrophone.LoadInMicrophoneData(StaticCurrentMode);
         }
         #endregion
 
@@ -165,8 +157,13 @@ namespace Basis.Scripts.Device_Management
             if (TryFindBasisBaseTypeManagement(mode, out var matched))
             {
                 foreach (var type in matched)
+                {
                     type?.AttemptStartSDK();
+                }
             }
+            SMDMicrophone.LoadInMicrophoneData(mode);
+            OnBootModeChanged?.Invoke(mode);
+            BasisDebug.Log($"Loading mode: {mode}", BasisDebug.LogTag.Device);
         }
 
         public void StopAllDevices()
