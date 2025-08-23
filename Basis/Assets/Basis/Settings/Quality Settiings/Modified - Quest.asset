@@ -101,7 +101,7 @@ MonoBehaviour:
       m_Keys: []
       m_Values: 
   m_PrefilteringModeMainLightShadows: 3
-  m_PrefilteringModeAdditionalLight: 2
+  m_PrefilteringModeAdditionalLight: 1
   m_PrefilteringModeAdditionalLightShadows: 0
   m_PrefilterXRKeywords: 0
   m_PrefilteringModeForwardPlus: 0
@@ -131,6 +131,9 @@ MonoBehaviour:
   m_PrefilterNativeRenderPass: 1
   m_PrefilterUseLegacyLightmaps: 0
   m_PrefilterBicubicLightmapSampling: 0
+  m_PrefilterReflectionProbeBlending: 0
+  m_PrefilterReflectionProbeBoxProjection: 0
+  m_PrefilterReflectionProbeAtlas: 1
   m_ShaderVariantLogLevel: 0
   m_ShadowCascades: 1
   m_Textures:

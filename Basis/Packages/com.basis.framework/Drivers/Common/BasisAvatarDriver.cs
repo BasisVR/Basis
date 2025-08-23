@@ -1,4 +1,7 @@
+using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
+using GatorDragonGames.JigglePhysics;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.Scripts.Drivers
@@ -6,7 +9,6 @@ namespace Basis.Scripts.Drivers
     [System.Serializable]
     public abstract class BasisAvatarDriver
     {
-        public const string TPose = "Assets/Animator/Animated TPose.controller";
         public static bool TryConvertToBoneTrackingRole(HumanBodyBones body, out BasisBoneTrackedRole result)
         {
             switch (body)
@@ -169,6 +171,60 @@ namespace Basis.Scripts.Drivers
                 return true;
             }
             return false;
+        }
+        public List<JiggleColliderSerializable> JiggleColliders;
+        public void AddJiggleRigs(BasisTransformMapping Mapping)
+        {
+            JiggleCreatorHelper(Mapping.leftFoot);
+            JiggleCreatorHelper(Mapping.rightFoot);
+
+            JiggleCreatorHelper(Mapping.LeftThumb);
+            JiggleCreatorHelper(Mapping.LeftIndex);
+            JiggleCreatorHelper(Mapping.LeftMiddle);
+            JiggleCreatorHelper(Mapping.LeftRing);
+            JiggleCreatorHelper(Mapping.LeftLittle);
+            JiggleCreatorHelper(Mapping.leftHand);
+
+            JiggleCreatorHelper(Mapping.RightThumb);
+            JiggleCreatorHelper(Mapping.RightIndex);
+            JiggleCreatorHelper(Mapping.RightMiddle);
+            JiggleCreatorHelper(Mapping.RightRing);
+            JiggleCreatorHelper(Mapping.RightLittle);
+            JiggleCreatorHelper(Mapping.rightHand);
+            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
+            {
+                JigglePhysics.AddJiggleCollider(Jiggle);
+            }
+        }
+        public void JiggleCreatorHelper(Transform[] Parents)
+        {
+            foreach(Transform Parent in Parents)
+            {
+                JiggleCreatorHelper(Parent);
+            }
+        }
+        public void JiggleCreatorHelper(Transform Parent)
+        {
+            if (Parent != null)
+            {
+                JiggleColliderSerializable jiggleColliderSerializable = new JiggleColliderSerializable
+                {
+                    collider = new JiggleCollider()
+                };
+                jiggleColliderSerializable.collider.type = JiggleCollider.JiggleColliderType.Sphere;
+                jiggleColliderSerializable.collider.worldRadius = 0.1f;
+                jiggleColliderSerializable.transform = Parent;
+
+                JiggleColliders.Add(jiggleColliderSerializable);
+            }
+        }
+        public void RemoveJiggleRigs()
+        {
+            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
+            {
+                JigglePhysics.RemoveJiggleCollider(Jiggle);
+            }
+            JiggleColliders.Clear();
         }
 
     }

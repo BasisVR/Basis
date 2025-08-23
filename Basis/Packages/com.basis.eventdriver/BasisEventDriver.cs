@@ -1,8 +1,10 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Transmitters;
+using GatorDragonGames.JigglePhysics;
 using UnityEngine;
 using UnityEngine.InputSystem;
 public class BasisEventDriver : MonoBehaviour
@@ -36,7 +38,7 @@ public class BasisEventDriver : MonoBehaviour
     {
         DeltaTime = Time.deltaTime;
         TimeAsDouble = Time.timeAsDouble;
-        BasisNetworkManagement.SimulateNetworkCompute(TimeAsDouble);
+        BasisNetworkManagement.SimulateNetworkCompute();
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
 
 #if UNITY_SERVER
@@ -80,11 +82,24 @@ public class BasisEventDriver : MonoBehaviour
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
 #endif
         BasisObjectSyncDriver.TransmitOwnedPickups(TimeAsDouble);
-        BasisNetworkManagement.SimulateNetworkApply(TimeAsDouble);
+        BasisNetworkManagement.SimulateNetworkApply();
         BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
 #if UNITY_SERVER
         OnBeforeRender();
 #endif
+        if(BasisLocalAvatarDriver.IsNormalHead == false)
+        {
+            BasisLocalAvatarDriver.ScaleHeadToNormal();
+            JigglePhysics.ScheduleUpdate(TimeAsDouble);
+            JigglePhysics.CompleteUpdate();
+            BasisLocalAvatarDriver.ScaleheadToZero();
+        }
+        else
+        {
+            //if the local head is good already just continue on.
+            JigglePhysics.ScheduleUpdate(TimeAsDouble);
+            JigglePhysics.CompleteUpdate();
+        }
     }
     private void OnBeforeRender()
     {
@@ -97,6 +112,11 @@ public class BasisEventDriver : MonoBehaviour
     }
     public void OnApplicationQuit()
     {
+        JigglePhysics.Dispose();
         BasisLocalMicrophoneDriver.StopProcessingThread();
+    }
+    public void OnDrawGizmos()
+    {
+        JigglePhysics.OnDrawGizmos();
     }
 }

@@ -101,7 +101,7 @@ namespace Basis.Scripts.Device_Management
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
             StartAllStartIfPermanentlyExists();
-            SwitchSetModeToDefault();
+            await SwitchSetModeToDefault();
             SubscribeEvents();
 
             if (OnInitializationCompleted != null)
@@ -113,13 +113,13 @@ namespace Basis.Scripts.Device_Management
 
         #region Mode Handling
 
-        public void SwitchSetModeToDefault()
+        public async Task SwitchSetModeToDefault()
         {
             string mode = string.IsNullOrEmpty(ForcedDefault) ? DefaultMode() : ForcedDefault;
-            SwitchSetMode(mode);
+           await SwitchSetMode(mode);
         }
 
-        public void SwitchSetMode(string newMode)
+        public async Task SwitchSetMode(string newMode)
         {
             if (string.IsNullOrEmpty(newMode))
             {
@@ -142,25 +142,25 @@ namespace Basis.Scripts.Device_Management
             }
 
             StaticCurrentMode = newMode;
-
-            if (!BasisXRManagement.TryBeginLoad(newMode))
+            if (!BasisXRManagement.TryBeginLoad(StaticCurrentMode))
             {
-                StartDevices(StaticCurrentMode);
+                await StartDevices(StaticCurrentMode);
             }
         }
         #endregion
 
         #region Device Management
 
-        public void StartDevices(string mode)
+        public async Task StartDevices(string mode)
         {
             if (TryFindBasisBaseTypeManagement(mode, out var matched))
             {
                 foreach (var type in matched)
                 {
-                    type?.AttemptStartSDK();
+                    await type?.AttemptStartSDK();
                 }
             }
+            await BasisSettingsSystem.LoadAllSettingsAsync();
             SMDMicrophone.LoadInMicrophoneData(mode);
             OnBootModeChanged?.Invoke(mode);
             BasisDebug.Log($"Loading mode: {mode}", BasisDebug.LogTag.Device);
@@ -193,14 +193,14 @@ namespace Basis.Scripts.Device_Management
                 input.UnAssignFBTracker();
         }
 
-        public bool TryFindBasisBaseTypeManagement(string name, out List<BasisBaseTypeManagement> match)
+        public bool TryFindBasisBaseTypeManagement(string name, out List<BasisBaseTypeManagement> match,bool OnlyFinding = false)
         {
             match = new List<BasisBaseTypeManagement>();
             if (string.IsNullOrEmpty(name) || BaseTypes == null) return false;
 
             foreach (var type in BaseTypes)
             {
-                if (type != null && type.AttemptIsDeviceBootable(name))
+                if (type != null && type.AttemptIsDeviceBootable(name, OnlyFinding))
                     match.Add(type);
             }
 

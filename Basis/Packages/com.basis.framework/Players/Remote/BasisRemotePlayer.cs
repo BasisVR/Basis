@@ -5,7 +5,6 @@ using Basis.Scripts.UI.NamePlate;
 using System.Threading.Tasks;
 using UnityEngine;
 using static SerializableBasis;
-
 namespace Basis.Scripts.BasisSdk.Players
 {
     [System.Serializable]
@@ -103,19 +102,20 @@ namespace Basis.Scripts.BasisSdk.Players
                 {
                     return;
                 }
-                if (NetworkReceiver.First == null)
+                if (NetworkReceiver.BufferHolder.HasFirst)
                 {
                     return;
                 }
-                if (NetworkReceiver.Last == null)
+                if (NetworkReceiver.BufferHolder.HasLast)
                 {
                     return;
                 }
                 if (NetworkReceiver.HasAvatarQueue)
                 {
-                    NetworkReceiver.ApplyComputedData(false);
+                    NetworkReceiver.ApplyComputedData();
                 }
             }
+            LastComputedMeshLod = -1;
         }
         public void OnDestroy()
         {
@@ -140,6 +140,24 @@ namespace Basis.Scripts.BasisSdk.Players
         public void RemoteCalibration()
         {
             RemoteBoneDriver.OnCalibration(this);
+        }
+        public short LastComputedMeshLod = -1;
+        public void ChangeMeshLOD(float DistanceToPlayer, float ReductionMultiplier)
+        {
+            // Normalize distance into [0,1]
+            float normalized = DistanceToPlayer * ReductionMultiplier;
+
+            // Map evenly to 0–3 LOD (4 levels total)
+            short grid = (short)Mathf.Clamp(Mathf.FloorToInt(normalized * 4f), 0, 3);
+
+            if (LastComputedMeshLod != grid)
+            {
+                LastComputedMeshLod = grid;
+                foreach (Renderer renderer in BasisAvatar.Renders)
+                {
+                    renderer.forceMeshLod = grid;          // Correct property, not "forceMeshLod"
+                }
+            }
         }
     }
 }

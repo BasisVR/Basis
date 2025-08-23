@@ -125,9 +125,10 @@ public static class BasisNetworkGenericMessages
     public static void HandleServerAvatarDataMessage(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
     {
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAvatarData, reader.AvailableBytes);
-        ServerAvatarDataMessage serverAvatarDataMessage = new ServerAvatarDataMessage();
-        serverAvatarDataMessage.Deserialize(reader);
-        ushort playerID = serverAvatarDataMessage.avatarDataMessage.PlayerIdMessage.playerID; // destination
+        ServerAvatarDataMessage SADM = new ServerAvatarDataMessage();
+        SADM.Deserialize(reader);
+
+        ushort playerID = SADM.avatarDataMessage.PlayerIdMessage.playerID; // destination
         if (BasisNetworkManagement.Players.TryGetValue(playerID, out BasisNetworkPlayer player))
         {
             if (player.Player == null)
@@ -135,36 +136,58 @@ public static class BasisNetworkGenericMessages
                 BasisDebug.LogError("Missing Player! " + playerID);
                 return;
             }
+
             if (player.Player.BasisAvatar != null)
             {
-                RemoteAvatarDataMessage output = serverAvatarDataMessage.avatarDataMessage;
+                RemoteAvatarDataMessage output = SADM.avatarDataMessage;
+
                 if (player.NetworkBehaviours.Length >= output.messageIndex)
                 {
-                    bool IsDifferentAvatar = output.AvatarLinkIndex != player.LastLinkedAvatarIndex;
-                    if(IsDifferentAvatar)
-                    {
-                        byte NextAvatarIndex = (byte)((player.LastLinkedAvatarIndex + 1) % (byte.MaxValue + 1));
-                        if(NextAvatarIndex == output.AvatarLinkIndex)
-                        {
-                            //ok we know that its a different avatar and that its actually the next to load avatar
-                            //as of such lets store this message so we can play it back shortly
+                    bool isDifferentAvatar = output.AvatarLinkIndex != player.LastLinkedAvatarIndex;
 
+                    if (isDifferentAvatar)
+                    {
+                        // Check if the AvatarLinkIndex is within the next 4 slots ahead (modulo 256)
+                        bool withinNextFour = false;
+                        for (int Index = 1; Index <= 4; Index++)
+                        {
+                            byte nextIndex = (byte)((player.LastLinkedAvatarIndex + Index) % (byte.MaxValue + 1));
+                            if (nextIndex == output.AvatarLinkIndex)
+                            {
+                                withinNextFour = true;
+                                break;
+                            }
+                        }
+
+                        if (withinNextFour)
+                        {
+                            // Store the message for delayed playback
+                            player.NextMessages[output.messageIndex] = new BasisNetworkPlayer.ServerAvatarDataMessageQueue()
+                            {
+                                Method = Method,
+                                ServerAvatarDataMessage = SADM
+                            };
                         }
                     }
+
                     if (output.messageIndex < player.NetworkBehaviourCount)
                     {
-                        player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(serverAvatarDataMessage.playerIdMessage.playerID, output.payload, Method, IsDifferentAvatar);
+                        player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(SADM.playerIdMessage.playerID, output.payload, Method, isDifferentAvatar);
+                    }
+                    else
+                    {
+                        BasisDebug.LogError($"this Should never occur Message Index did not exist {output.messageIndex}");
                     }
                 }
             }
             else
             {
-                BasisDebug.LogError("Missing Avatar For Message " + serverAvatarDataMessage.playerIdMessage.playerID);
+                BasisDebug.LogError("Missing Avatar For Message " + SADM.playerIdMessage.playerID);
             }
         }
         else
         {
-            BasisDebug.Log("Missing Player For Message " + serverAvatarDataMessage.playerIdMessage.playerID);
+            BasisDebug.Log("Missing Player For Message " + SADM.playerIdMessage.playerID);
         }
     }
     public static void OnNetworkMessageSend(ushort messageIndex,byte[] buffer = null,DeliveryMethod deliveryMethod = DeliveryMethod.Unreliable,ushort[] recipients = null)

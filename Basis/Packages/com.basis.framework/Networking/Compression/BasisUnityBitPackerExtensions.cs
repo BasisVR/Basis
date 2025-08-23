@@ -1,16 +1,17 @@
 using System;
 using System.Runtime.CompilerServices;
-using UnityEngine.UIElements;
 using Unity.Mathematics;
+using UnityEngine.UIElements;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
-using Basis.Network.Core.Compression;
 namespace Basis.Scripts.Networking.Compression
 {
     public static class BasisUnityBitPackerExtensionsUnsafe
     {
-        private static readonly BasisSimpleObjectPool<byte[]> byteArrayPool = new(() => new byte[BasisBitPackingConstants.LengthUshortBytes]);
-
+        public const int FloatSize = sizeof(float);
+        public const int UShortSize = sizeof(ushort);
+        public const int Vector3Size = 3 * FloatSize;
+        public const int QuaternionSize = 3 * FloatSize + UShortSize;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WriteUShort(ushort value, ref byte[] bytes, ref int offset)
         {
@@ -62,31 +63,6 @@ namespace Basis.Scripts.Networking.Compression
             if (float.IsNaN(w)) w = 1f;
 
             return new quaternion(x, y, z, w);
-        }
-
-        public unsafe static void WriteUShortsToBytes(ushort[] values, ref byte[] bytes, ref int offset)
-        {
-            fixed (byte* dst = &bytes[offset])
-            fixed (ushort* src = values)
-            {
-                Buffer.MemoryCopy(src, dst, BasisBitPackingConstants.LengthUshortBytes, BasisBitPackingConstants.LengthUshortBytes);
-            }
-            offset += BasisBitPackingConstants.LengthUshortBytes;
-        }
-
-        public unsafe static void ReadMusclesFromBytes(ref byte[] bytes, ref ushort[] muscles, ref int offset)
-        {
-            if (muscles == null || muscles.Length != LocalAvatarSyncMessage.StoredBones)
-            {
-                muscles = new ushort[LocalAvatarSyncMessage.StoredBones];
-            }
-
-            fixed (byte* src = &bytes[offset])
-            fixed (ushort* dst = muscles)
-            {
-                Buffer.MemoryCopy(src, dst, BasisBitPackingConstants.LengthUshortBytes, BasisBitPackingConstants.LengthUshortBytes);
-            }
-            offset += BasisBitPackingConstants.LengthUshortBytes;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void WritePosition(UnityEngine.Vector3 position, ref byte[] buffer, ref int offset)

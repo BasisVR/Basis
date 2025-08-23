@@ -301,7 +301,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             else
             {
                 BasisDebug.Log("SteamVR SDK failed falling back.");
-                BasisDeviceManagement.Instance.SwitchSetModeToDefault();
+              await  BasisDeviceManagement.Instance.SwitchSetModeToDefault();
             }
         }
         public async Task<bool> WaitingUntilReady()

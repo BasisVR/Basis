@@ -24,7 +24,6 @@ public partial class BasisAvatarSDKInspector : Editor
     public bool AvatarEyePositionState = false;
     public bool AvatarMouthPositionState = false;
     public VisualElement rootElement;
-    //Deprecated 15052025 Use BasisJiggleBonesComponent instead public AvatarSDKJiggleBonesView AvatarSDKJiggleBonesView = new AvatarSDKJiggleBonesView();
     public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
     public Button EventCallbackAvatarBundleButton { get; private set; }
     public Texture2D Texture;
@@ -143,7 +142,6 @@ public partial class BasisAvatarSDKInspector : Editor
         AssetDatabase.Refresh();
         AvatarSDKVisemes.Initialize(this);
     }
-
     public void AutomaticallyFindBlinking()
     {
         SkinnedMeshRenderer Renderer = Avatar.FaceBlinkMesh;
@@ -164,7 +162,6 @@ public partial class BasisAvatarSDKInspector : Editor
         AssetDatabase.Refresh();
         AvatarSDKVisemes.Initialize(this);
     }
-
     public void ClickedAvatarEyePositionButton(Button Button)
     {
         Undo.RecordObject(Avatar, "Toggle Eye Position Gizmo");
@@ -173,7 +170,6 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         ButtonClicked?.Invoke();
     }
-
     public void ClickedAvatarMouthPositionButton(Button Button)
     {
         Undo.RecordObject(Avatar, "Toggle Mouth Position Gizmo");
@@ -182,7 +178,6 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         ButtonClicked?.Invoke();
     }
-
     private void OnMouthHeightValueChanged(ChangeEvent<Vector2> evt)
     {
         Undo.RecordObject(Avatar, "Change Mouth Height");
@@ -190,7 +185,6 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         ValueChanged?.Invoke();
     }
-
     private void OnEyeHeightValueChanged(ChangeEvent<Vector2> evt)
     {
         Undo.RecordObject(Avatar, "Change Eye Height");
@@ -198,8 +192,6 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         ValueChanged?.Invoke();
     }
-
-
     public void EventCallbackAnimator(ChangeEvent<UnityEngine.Object> evt, ref Animator Renderer)
     {
         //  Debug.Log(nameof(EventCallbackAnimator));
@@ -213,7 +205,6 @@ public partial class BasisAvatarSDKInspector : Editor
         }
         EditorUtility.SetDirty(Avatar);
     }
-
     public void EventCallbackFaceVisemeMesh(ChangeEvent<UnityEngine.Object> evt, ref SkinnedMeshRenderer Renderer)
     {
         // Debug.Log(nameof(EventCallbackFaceVisemeMesh));
@@ -241,7 +232,7 @@ public partial class BasisAvatarSDKInspector : Editor
         Button avatarBundleButton = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarBundleButton);
         Button avatarAutomaticVisemeDetectionClick = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarAutomaticVisemeDetection);
         Button avatarAutomaticBlinkDetectionClick = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarAutomaticBlinkDetection);
-        Button AvatarTestInEditorClick = BasisHelpersGizmo.Button(uiElementsRoot,BasisSDKConstants.AvatarTestInEditor);
+        Button AvatarTestInEditorClick = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.AvatarTestInEditor);
 
         // Initialize Event Callbacks for Vector2 fields (for Avatar Eye and Mouth Position)
         BasisHelpersGizmo.CallBackVector2Field(uiElementsRoot, BasisSDKConstants.avatarEyePositionField, Avatar.AvatarEyePosition, OnEyeHeightValueChanged);
@@ -307,6 +298,11 @@ public partial class BasisAvatarSDKInspector : Editor
             Debug.LogError("No build targets selected.");
             return;
         }
+
+#if UNITY_6000_2_OR_NEWER
+        GenerateMeshLODs(3);
+#endif
+
         if (BasisAvatarValidator.ValidateAvatar(out List<BasisValidationIssue> Errors, out List<BasisValidationIssue> Warnings, out List<string> Passes))
         {
             if (Avatar.Animator.runtimeAnimatorController != null)
@@ -346,7 +342,7 @@ public partial class BasisAvatarSDKInspector : Editor
 
             // Add the result label to the UI
             uiElementsRoot.Add(resultLabel);
-          //  BuildReportViewerWindow.ShowWindow();
+            //  BuildReportViewerWindow.ShowWindow();
         }
         else
         {
@@ -360,11 +356,116 @@ public partial class BasisAvatarSDKInspector : Editor
             }
         }
     }
+#if UNITY_6000_2_OR_NEWER
+    /// <summary>
+    /// Generate Mesh LODs via ModelImporter for all SkinnedMeshRenderers under the given root.
+    /// Requires Unity 6000.2+ where ModelImporter.generateMeshLods exists.
+    /// </summary>
+    /// <param name="root">Root GameObject (e.g., your avatar/prefab in the scene or a prefab asset loaded in memory).</param>
+    /// <param name="lodLimit">
+    /// Maximum mesh LOD to generate. Use -1 to leave the current importer value unchanged.
+    /// </param>
+    public void GenerateMeshLODs(int lodLimit = -1)
+    {
+        var smrs = Avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        if (smrs == null || smrs.Length == 0)
+        {
+            Debug.LogWarning($"GenerateMeshLODs: No SkinnedMeshRenderer found under.");
+        }
+
+        // Collect unique importer asset paths (FBX/OBJ). Multiple meshes often come from the same file.
+        var pathsNeedingReimport = new HashSet<string>();
+
+        foreach (var smr in smrs)
+        {
+            if (smr == null || smr.sharedMesh == null)
+                continue;
+
+            // Get the asset path for the mesh; for model sub-assets this is the FBX/OBJ path.
+            string meshPath = AssetDatabase.GetAssetPath(smr.sharedMesh);
+            if (string.IsNullOrEmpty(meshPath))
+                continue;
+
+            var importer = AssetImporter.GetAtPath(meshPath) as ModelImporter;
+            if (importer == null)
+                continue; // Not a model-imported mesh (e.g., .asset mesh), skip.
+
+            // Set importer flags
+            bool changed = false;
+
+            if (!importer.generateMeshLods)
+            {
+                importer.generateMeshLods = true;
+                changed = true;
+            }
+
+            if (lodLimit >= 0 && importer.maximumMeshLod != lodLimit)
+            {
+                importer.maximumMeshLod = lodLimit;
+                changed = true;
+            }
+
+            if (changed)
+                pathsNeedingReimport.Add(meshPath);
+
+            // Component-level preferences (do not require reimport)
+            smr.meshLodSelectionBias = 0f;
+            smr.forceMeshLod = -1;
+        }
+
+        if (pathsNeedingReimport.Count == 0)
+        {
+            Debug.Log("GenerateMeshLODs: No importer changes detected.");
+            return;
+        }
+
+        try
+        {
+            AssetDatabase.StartAssetEditing();
+
+            int i = 0;
+            int total = pathsNeedingReimport.Count;
+            foreach (var path in pathsNeedingReimport)
+            {
+                if (EditorUtility.DisplayCancelableProgressBar(
+                        "Reimporting Models (LODs)",
+                        $"{i + 1}/{total}: {path}",
+                        (float)i / total))
+                {
+                    Debug.LogWarning("GenerateMeshLODs: Canceled by user.");
+                    break;
+                }
+
+                var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+                if (importer != null)
+                {
+                    // Write settings and reimport this asset immediately.
+                    // Either approach works; SaveAndReimport is the simplest.
+                    importer.SaveAndReimport();
+                    // Alternatively:
+                    // AssetDatabase.WriteImportSettingsIfDirty(path);
+                    // AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                }
+
+                i++;
+            }
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
+            AssetDatabase.StopAssetEditing();
+            AssetDatabase.SaveAssets();
+            // No need for AssetDatabase.Refresh(); reimports were explicit.
+        }
+
+        Debug.Log($"GenerateMeshLODs: Reimported {pathsNeedingReimport.Count} model asset(s).");
+    }
+#endif
     public void AvatarTestInEditorClickFunction()
     {
         if (!Application.isPlaying)
         {
-            int result = EditorUtility.DisplayDialogComplex("Confirmation","this feature requires the editor to be in playmode. do you want to enter play mode now?", "Yes","No",""
+            int result = EditorUtility.DisplayDialogComplex("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now?", "Yes", "No", ""
         );
 
             switch (result)

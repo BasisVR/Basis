@@ -44,9 +44,6 @@ namespace Basis.Scripts.BasisSdk
 
         [SerializeField]
         public Renderer[] Renders;
-        [HideInInspector]
-        [SerializeField]
-        public BasisJiggleStrain[] JiggleStrains;
         public OnReady OnAvatarReady;
         /// <summary>
         /// this is called when the owner of this gameobject is ready for you to request data about it

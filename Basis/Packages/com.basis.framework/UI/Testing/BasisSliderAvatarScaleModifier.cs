@@ -18,7 +18,7 @@ public class BasisSliderAvatarScaleModifier : MonoBehaviour
     }
     public void SliderChangeEvent(float SliderValue)
     {
-        Text.text = $"{SliderValue}";
+        Text.text = $"{SliderValue}m";
         SelectedValue = SliderValue;
     }
     public void Apply()

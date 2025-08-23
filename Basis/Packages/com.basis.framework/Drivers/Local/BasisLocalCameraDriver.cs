@@ -9,7 +9,7 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 using Vector3 = UnityEngine.Vector3;
-using BattlePhaze.SettingsManager;
+
 
 namespace Basis.Scripts.Drivers
 {
@@ -89,7 +89,6 @@ namespace Basis.Scripts.Drivers
             }
 #endif
             SpriteRendererIcon.gameObject.SetActive(true);
-            SettingsManager.Instance.Initalize(true);
         }
         public void MicrophoneTransmitting()
         {

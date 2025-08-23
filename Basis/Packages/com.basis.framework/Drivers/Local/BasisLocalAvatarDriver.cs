@@ -17,17 +17,17 @@ namespace Basis.Scripts.Drivers
 	[Serializable]
 	public class BasisLocalAvatarDriver : BasisAvatarDriver
 	{
-		public static Vector3 HeadScale = Vector3.one;
+        public const string TPose = "Assets/Animator/Animated TPose.controller";
+        public const string Locomotion = "Locomotion";
+        public static Vector3 HeadScale = Vector3.one;
 		public static Vector3 HeadScaledDown = Vector3.zero;
 		public static bool HasTPoseEvent = false;
-		public const string Locomotion = "Locomotion";
 		public static float MaxExtendedDistance;
 		public static BasisLocalAvatarDriver Instance;
 		public static bool IsNormalHead;
 		public static bool CurrentlyTposing = false;
 		public static Action CalibrationComplete;
 		public static Action TposeStateChange;
-		[SerializeField]
 		public static BasisTransformMapping References = new BasisTransformMapping();
 		public static RuntimeAnimatorController SavedruntimeAnimatorController;
 		public static SkinnedMeshRenderer[] SkinnedMeshRenderer;
@@ -130,8 +130,8 @@ namespace Basis.Scripts.Drivers
 				Spine.HasRigLayer = BasisHasRigLayer.HasRigLayer;
 			}
 			StoredRolesTransforms = BasisAvatarIKStageCalibration.GetAllRolesAsTransform();
-			player.BasisAvatarTransform.parent = player.transform;
-			player.BasisAvatarTransform.SetLocalPositionAndRotation(-Hips.TposeLocal.position, Quaternion.identity);
+			player.AvatarTransform.parent = player.transform;
+			player.AvatarTransform.SetLocalPositionAndRotation(-Hips.TposeLocal.position, Quaternion.identity);
 			MaxExtendedDistance = Vector3.Distance(BasisLocalBoneDriver.HeadControl.TposeLocal.position, BasisLocalBoneDriver.HipsControl.TposeLocal.position);
 			player.LocalRigDriver.BuildBuilder();
 			IsNormalHead = true;
@@ -162,7 +162,6 @@ namespace Basis.Scripts.Drivers
 			References.head.localScale = HeadScaledDown;
 			IsNormalHead = false;
 		}
-
 		public void ComputeOffsets(BasisLocalBoneDriver BaseBoneDriver)
 		{
 			SetAndCreateLock(BaseBoneDriver, BasisBoneTrackedRole.CenterEye, BasisBoneTrackedRole.Head);
@@ -321,50 +320,68 @@ namespace Basis.Scripts.Drivers
 			CurrentlyTposing = false;
 			TposeStateChange?.Invoke();
 		}
+        public void CalculateTransformPositions(BasisPlayer basisPlayer, BasisLocalBoneDriver driver)
+        {
+            // Cache hot references
+            Animator animator = basisPlayer.BasisAvatar.Animator;
+            Transform rootTransform = animator.transform;
+			Vector3 Position = rootTransform.position;
+            var fbdb = BasisDeviceManagement.Instance.FBBD;
 
-		public void CalculateTransformPositions(BasisPlayer BasisPlayer, BasisLocalBoneDriver driver)
-		{
-			//  BasisDebug.Log("CalculateTransformPositions", BasisDebug.LogTag.Avatar);
-			Transform Transform = BasisPlayer.BasisAvatar.Animator.transform;
-			for (int Index = 0; Index < driver.ControlsLength; Index++)
-			{
-				BasisLocalBoneControl Control = driver.Controls[Index];
-				if (driver.trackedRoles[Index] == BasisBoneTrackedRole.CenterEye)
-				{
-					GetWorldSpaceRotAndPos(() => BasisLocalPlayer.Instance.BasisAvatar.AvatarEyePosition, out float3 TposeWorld);
-					SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
-				}
-				else
-				{
-					if (driver.trackedRoles[Index] == BasisBoneTrackedRole.Mouth)
-					{
-						GetWorldSpaceRotAndPos(() => BasisLocalPlayer.Instance.BasisAvatar.AvatarMouthPosition, out float3 TposeWorld);
-						SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
-					}
-					else
-					{
-						if (BasisDeviceManagement.Instance.FBBD.FindBone(out BasisFallBone FallBackBone, driver.trackedRoles[Index]))
-						{
-							if (TryConvertToHumanoidRole(driver.trackedRoles[Index], out HumanBodyBones HumanBones))
-							{
-								GetBoneRotAndPos(BasisPlayer.transform, BasisPlayer.BasisAvatar.Animator, HumanBones, FallBackBone.PositionPercentage, out quaternion Rotation, out float3 TposeWorld, out bool UsedFallback);
-								SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
-							}
-							else
-							{
-								BasisDebug.LogError("cant Convert to humanbodybone " + driver.trackedRoles[Index]);
-							}
-						}
-						else
-						{
-							BasisDebug.LogError("cant find Fallback Bone for " + driver.trackedRoles[Index]);
-						}
-					}
-				}
-			}
-		}
+            for (int Index = 0; Index < driver.ControlsLength; Index++)
+            {
+                var control = driver.Controls[Index];
+                var role = driver.trackedRoles[Index];
 
-		public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
+                switch (role)
+                {
+                    case BasisBoneTrackedRole.CenterEye:
+                        {
+                            // Convert avatar-local eye position to world and apply
+                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarEyePosition), Position, out float3 world);
+                            SetInitialData(rootTransform, control, role, world);
+                            break;
+                        }
+
+                    case BasisBoneTrackedRole.Mouth:
+                        {
+                            // Convert avatar-local mouth position to world and apply
+                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarMouthPosition), Position, out float3 world);
+                            SetInitialData(rootTransform, control, role, world);
+                            break;
+                        }
+
+                    default:
+                        {
+                            // Use fallback DB + humanoid mapping
+                            if (fbdb.FindBone(out BasisFallBone fallback, role))
+                            {
+                                if (TryConvertToHumanoidRole(role, out HumanBodyBones human))
+                                {
+                                    GetBoneRotAndPos(basisPlayer.transform,animator,human, fallback.PositionPercentage,out quaternion _,out float3 world,out bool _);
+
+                                    SetInitialData(rootTransform, control, role, world);
+                                }
+                                else
+                                {
+                                    BasisDebug.LogError("cant Convert to humanbodybone " + role);
+                                }
+                            }
+                            else
+                            {
+                                BasisDebug.LogError("cant find Fallback Bone for " + role);
+                            }
+                            break;
+                        }
+                }
+            }
+        }
+        public void GetWorldSpacePos(Vector3 localAvatarSpace,Vector3 AnimatorPosition, out float3 position)
+        {
+            position = BasisHelpers.ConvertFromLocalSpace(localAvatarSpace, AnimatorPosition);
+        }
+
+        public void GetBoneRotAndPos(Transform driver, Animator anim, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
 		{
 			if (anim.avatar != null && anim.avatar.isHuman)
 			{
@@ -401,13 +418,6 @@ namespace Basis.Scripts.Drivers
 		{
 			Vector3 height = fallbackHeight * heightPercentage;
 			return bone == HumanBodyBones.Hips ? math.mul(height, -Vector3.up) : math.mul(height, Vector3.up);
-		}
-
-		public void GetWorldSpaceRotAndPos(Func<Vector2> positionSelector, out float3 position)
-		{
-			float3 bottom = BasisLocalPlayer.Instance.BasisAvatar.Animator.transform.position;
-			Vector3 convertedToVector3 = BasisHelpers.AvatarPositionConversion(positionSelector());
-			position = BasisHelpers.ConvertFromLocalSpace(convertedToVector3, bottom);
 		}
 
 		public void ForceUpdateAnimator(Animator Anim)
@@ -492,40 +502,50 @@ namespace Basis.Scripts.Drivers
 				}
 			}
 		}
-        public Quaternion MoveAvatar(BasisAvatar BasisAvatar)
+        // ─────────────────────────────────────────────────────────────────────────────
+        // Root motion placement based on head/hips spread
+        // ─────────────────────────────────────────────────────────────────────────────
+        public Quaternion MoveAvatar(BasisAvatar basisAvatar)
         {
-            if (BasisAvatar == null)
-            {
+            if (basisAvatar == null)
                 return Quaternion.identity;
-            }
 
-            // World positions
+            // World positions pulled from outgoing driver data
             Vector3 headPosition = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position;
             Vector3 hipsPosition = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.position;
             Quaternion parentWorldRotation = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation;
 
             currentDistance = Vector3.Distance(headPosition, hipsPosition);
 
-            // Use blended XZ center, but keep hips Y for grounded position
+            // XZ blend between hips and head, grounded at hips Y for stability
             Vector3 blendedXZ = Vector3.Lerp(hipsPosition, headPosition, 0.5f);
             blendedXZ.y = hipsPosition.y;
+
+            // Compute local-space offset we want to apply under the parent rotation
             if (currentDistance <= MaxExtendedDistance)
             {
+                // Within expected range: use T-Pose hips local offset
                 output = -BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
+                direction = Vector3.zero;
+                overshoot = 0f;
+                correction = Vector3.zero;
             }
             else
             {
-                Vector3 direction = (hipsPosition - headPosition).normalized;
-                float overshoot = currentDistance - MaxExtendedDistance;
-                Vector3 correction = direction * overshoot;
-                Vector3 TposeHips = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
-                float3 correctedHips = TposeHips + correction;
+                // Extend beyond T-Pose span: push back by overshoot
+                direction = (hipsPosition - headPosition).normalized;
+                overshoot = currentDistance - MaxExtendedDistance;
+                correction = direction * overshoot;
+
+                Vector3 tposeHips = BasisLocalBoneDriver.HipsControl.TposeLocalScaled.position;
+                float3 correctedHips = tposeHips + correction;
                 output = -correctedHips;
             }
 
+            // Place child at blendedXZ plus rotated local offset
             Vector3 childWorldPosition = blendedXZ + parentWorldRotation * output;
 
-            BasisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
+            basisAvatar.transform.SetPositionAndRotation(childWorldPosition, parentWorldRotation);
             return parentWorldRotation;
         }
     }

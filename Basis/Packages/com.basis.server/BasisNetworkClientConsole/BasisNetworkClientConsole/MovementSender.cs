@@ -11,15 +11,12 @@ namespace Basis.Network
     {
         public static byte[] AvatarMessage = new byte[LocalAvatarSyncMessage.AvatarSyncSize + 2];
         public static Quaternion Rotation = new Quaternion(0, 0, 0, 1);
-        public static float[] FloatArray = new float[LocalAvatarSyncMessage.StoredBones];
-        public static ushort[] UshortArray = new ushort[LocalAvatarSyncMessage.StoredBones];
         private const ushort UShortMin = ushort.MinValue; // 0
         private const ushort UShortMax = ushort.MaxValue; // 65535
         private const ushort ushortRangeDifference = UShortMax - UShortMin;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         public static Vector3 MinPosition = new Vector3(30, 30, 30);
         public static Vector3 MaxPosition = new Vector3(80, 80, 80);
-        public static int LengthUshortBytes = LocalAvatarSyncMessage.StoredBones * 2; // Initialize LengthBytes first
         public static Vector3[] PlayersCurrentPosition;
         public static void Initialize(int clientCount)
         {
@@ -51,7 +48,7 @@ namespace Basis.Network
             PlayersCurrentPosition[index] = PlayersCurrentPosition[index] +  delta;
             WriteVectorFloatToBytes(PlayersCurrentPosition[index], ref AvatarMessage, ref offset);
             WriteQuaternionToBytes(Rotation, ref AvatarMessage, ref offset, RotationCompression);
-            WriteUShortsToBytes(UshortArray, ref AvatarMessage, ref offset);
+            WriteZeroBytes(ref AvatarMessage, ref offset);
             CompressScale(1, ref AvatarMessage, ref offset);
 
             peer.Send(AvatarMessage, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
@@ -105,15 +102,19 @@ namespace Basis.Network
             bytes[offset + 3] = (byte)((intValue >> 24) & 0xFF);
             offset += 4;
         }
-        public static void WriteUShortsToBytes(ushort[] values, ref byte[] bytes, ref int offset)
+        public static void WriteZeroBytes(ref byte[] bytes, ref int offset, int count = 137)
         {
-            EnsureSize(ref bytes, offset + LengthUshortBytes);
-
-            // Manually copy ushort values as bytes
-            for (int index = 0; index < LocalAvatarSyncMessage.StoredBones; index++)
+            // Ensure the array is large enough
+            if (bytes.Length < offset + count)
             {
-                WriteUShortToBytes(values[index], ref bytes, ref offset);
+                Array.Resize(ref bytes, offset + count);
             }
+
+            // Fill with zeros
+            Array.Clear(bytes, offset, count);
+
+            // Move the offset
+            offset += count;
         }
         // Manual ushort to bytes conversion (without BitConverter)
         private unsafe static void WriteUShortToBytes(ushort value, ref byte[] bytes, ref int offset)

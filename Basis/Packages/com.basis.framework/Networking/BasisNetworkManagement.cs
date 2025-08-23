@@ -13,7 +13,6 @@ using BasisNetworkClient;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -144,18 +143,19 @@ namespace Basis.Scripts.Networking
             {
                 Instance = this;
             }
-            if(HasDisconnectReason)
+            BasisRemoteNetworkDriver.Initialize(95, Unity.Collections.Allocator.Persistent);
+            if (HasDisconnectReason)
             {
                 HandleDisconnectionReason(LastDisconnectInfo);
                 HasDisconnectReason = false;
                 LastDisconnectInfo = default;
             }
+            BasisAudioTransformDriver.Initialize(1024);
             BasisAudioRemoteSource.Initalize();
             instantiationParameters = new InstantiationParameters(Vector3.zero, Quaternion.identity, BasisDeviceManagement.Instance.transform);
-            BasisAvatarMuscleRange.Initalize();
+            BasisMuscleRange.Initalize();
             MainThreadContext = SynchronizationContext.Current;
             // Initialize AvatarBuffer
-            BasisAvatarBufferPool.AvatarBufferPool(30);
             OwnershipPairing.Clear();
             ServerMetaDataMessage = new ServerMetaDataMessage();
             ServerMetaDataMessage.ClientMetaDataMessage = new ClientMetaDataMessage();
@@ -189,12 +189,12 @@ namespace Basis.Scripts.Networking
             BasisAudioRemoteSource.DeInitalize();
             Players.Clear();
             await Shutdown();
-            BasisAvatarBufferPool.Clear();
             NetworkClient.Disconnect();
             NetworkRunning = false;
         }
         public async Task Shutdown()
         {
+            BasisRemoteNetworkDriver.Shutdown();
             // Reset static fields
             Ip = "0.0.0.0";
             Port = 0;
@@ -216,7 +216,7 @@ namespace Basis.Scripts.Networking
             BasisNetworkPlayer.OnLocalPlayerLeft = null;
             BasisNetworkPlayer.OnRemotePlayerLeft = null;
             OnEnableInstanceCreate = null;
-
+            BasisAudioTransformDriver.Shutdown();
             // Reset instance fields
             Instance = null;
             OwnershipPairing.Clear();
@@ -230,7 +230,7 @@ namespace Basis.Scripts.Networking
 
             BasisDebug.Log("BasisNetworkManagement has been successfully shutdown.", BasisDebug.LogTag.Networking);
         }
-        public static void SimulateNetworkCompute(double TimeAsDouble)
+        public static void SimulateNetworkCompute()
         {
             if (NetworkRunning)
             {
@@ -239,24 +239,28 @@ namespace Basis.Scripts.Networking
                 {
                     if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiversSnapshot[Index].Compute(TimeAsDouble);
+                        ReceiversSnapshot[Index].Compute();
                     }
                 }
+                BasisRemoteNetworkDriver.Compute();
                 BasisNetworkProfiler.Update();
             }
         }
-        public static void SimulateNetworkApply(double TimeAsDouble)
+        public static void SimulateNetworkApply()
         {
             if (NetworkRunning)
             {
+                BasisRemoteNetworkDriver.Apply();
                 // Complete tasks and apply results
                 for (int Index = 0; Index < ReceiverCount; Index++)
                 {
                     if (ReceiversSnapshot[Index] != null)
                     {
-                        ReceiversSnapshot[Index].Apply(TimeAsDouble);
+                        ReceiversSnapshot[Index].Apply();
                     }
                 }
+                BasisAudioTransformDriver.BeginFrame();
+                BasisAudioTransformDriver.EndFrame();
             }
         }
         public static bool TryGetLocalPlayerID(out ushort LocalID)
@@ -308,7 +312,8 @@ namespace Basis.Scripts.Networking
                     playerDisplayName = BasisLocalPlayer.DisplayName
                 }
             };
-            BasisNetworkAvatarCompressor.InitalAvatarData(BasisLocalPlayer.Instance.BasisAvatar.Animator, out readyMessage.localAvatarSyncMessage);
+            BasisNetworkAvatarCompressor.InitalAvatarData(BasisLocalPlayer.Instance.BasisAvatar.Animator, out var DataSet);
+            readyMessage.localAvatarSyncMessage = DataSet.LASM;
             BasisDebug.Log("Network Starting Client");
             // BasisDebug.Log("Size is " + BasisNetworkClient.AuthenticationMessage.Message.Length);
             LocalPlayerPeer = NetworkClient.StartClient(IpString, Port, readyMessage, Encoding.UTF8.GetBytes(PrimitivePassword), true);

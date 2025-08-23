@@ -2,10 +2,8 @@
     "name": "Basis Framework",
     "rootNamespace": "",
     "references": [
-        "GUID:08e043fee1083724eb9a215c6b5ffacd",
         "GUID:2684ea0d564097444a05d23355ff46a1",
         "GUID:2bafac87e7f4b9b418d9448d219b01ab",
-        "GUID:3e4bdb8597ff0de42b05a502fabce576",
         "GUID:7f7d1af65c2641843945d409d28f2e20",
         "GUID:84651a3751eca9349aac36a66bba901b",
         "GUID:75469ad4d38634e559750d17036d5f7c",
@@ -16,7 +14,6 @@
         "GUID:15fc0a57446b3144c949da3e2b9737a9",
         "GUID:b4517ec124862cb4bb3b8b27d72843a6",
         "GUID:df3fa0179ce6ca743a82a4e60fa1ccd1",
-        "GUID:72b5e4dc72fd9db409163073e9655ef3",
         "GUID:e0cd26848372d4e5c891c569017e11f1",
         "GUID:df380645f10b7bc4b97d4f5eb6303d95",
         "GUID:b4ae365a73764ee478adc74cb89832fe",
@@ -36,7 +33,8 @@
         "GUID:fe5c9d210f6859a4eac877d630830953",
         "GUID:b41b79a7b1dfc39458fe04a9dd001de4",
         "GUID:fe25561d224ed4743af4c60938a59d0b",
-        "GUID:5e0b455853cd340e0813387221dfd501"
+        "GUID:5e0b455853cd340e0813387221dfd501",
+        "GUID:a16aeb37b717b1945aec1e5f96e604d8"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

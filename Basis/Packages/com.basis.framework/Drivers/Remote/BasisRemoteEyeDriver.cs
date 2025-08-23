@@ -68,7 +68,7 @@ public class BasisRemoteEyeDriver
 
         if (isLooking)
         {
-            float[] eyes = LinkedPlayer.NetworkReceiver.Eyes;
+            float[] eyes = LinkedPlayer.NetworkReceiver.EyesAndMouth;
             // Smoothly move both eyes toward the target position
             float DeltaSpeed = LookSpeed * Time.deltaTime;
 
@@ -86,7 +86,7 @@ public class BasisRemoteEyeDriver
             {
                 isLooking = false;
             }
-            LinkedPlayer.NetworkReceiver.Eyes = eyes;
+            LinkedPlayer.NetworkReceiver.EyesAndMouth = eyes;
         }
     }
 

@@ -1,4 +1,5 @@
 using Basis.Scripts.Device_Management;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.UI_Panels
@@ -12,13 +13,13 @@ namespace Basis.Scripts.UI.UI_Panels
             VRButton.onClick.AddListener(OpenVRLoader);
             DesktopButton.onClick.AddListener(Desktop);
         }
-        public void Desktop()
+        public async void Desktop()
         {
-            BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
+            await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
         }
-        public void OpenVRLoader()
+        public async void OpenVRLoader()
         {
-            BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
+            await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
         }
     }
 }

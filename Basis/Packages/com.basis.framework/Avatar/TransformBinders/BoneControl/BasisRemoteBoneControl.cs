@@ -27,9 +27,6 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public BasisCalibratedCoords IncomingData = new BasisCalibratedCoords();
         public int GizmoReference = -1;
         public bool HasGizmo = false;
-
-        public int TposeGizmoReference = -1;
-        public bool TposeHasGizmo = false;
         public void ComputeMovementRemote()
         {
             if (hasTrackerDriver == BasisHasTracked.HasTracker)

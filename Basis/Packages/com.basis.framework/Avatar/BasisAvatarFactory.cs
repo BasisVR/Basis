@@ -2,6 +2,7 @@ using Basis.Scripts.Addressable_Driver;
 using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -208,7 +209,7 @@ namespace Basis.Scripts.Avatar
             DeleteLastAvatar(Player);
             Player.IsConsideredFallBackAvatar = isFallback;
             Player.BasisAvatar = avatar;
-            Player.BasisAvatarTransform = avatar.transform;
+            Player.AvatarTransform = avatar.transform;
             Player.BasisAvatar.Renders = avatar.GetComponentsInChildren<Renderer>(true);
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
 
@@ -289,16 +290,20 @@ namespace Basis.Scripts.Avatar
         public static void SetupRemoteAvatar(BasisRemotePlayer Player)
         {
             Player.RemoteAvatarDriver.RemoteCalibration(Player);
-            Player.AvatarInitalize();
             SetupAvatar(Player, BasisLayerMapper.RemoteAvatarLayer);
             Player.BasisAvatar.OnAvatarReady?.Invoke(false);
+
+            Player.RemoteAvatarDriver.RemoveJiggleRigs();
+            Player.RemoteAvatarDriver.AddJiggleRigs(Player.RemoteAvatarDriver.References);
         }
         public static void SetupLocalAvatar(BasisLocalPlayer Player)
         {
             Player.LocalAvatarDriver.InitialLocalCalibration(Player);
-            Player.AvatarInitalize();
             SetupAvatar(Player, BasisLayerMapper.LocalAvatarLayer);
             Player.BasisAvatar.OnAvatarReady?.Invoke(true);
+
+            Player.LocalAvatarDriver.RemoveJiggleRigs();
+            Player.LocalAvatarDriver.AddJiggleRigs(BasisLocalAvatarDriver.References);
         }
         public static void SetupAvatar(BasisPlayer Player, int Layer)
         {

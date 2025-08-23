@@ -65,6 +65,7 @@ public class BasisNetworkManagementEditor : Editor
                 EditorGUILayout.LabelField("Distance Results:", BasisNetworkManagement.Transmitter.DistanceResults.IsCreated ? "Created" : "Not Created");
                 EditorGUILayout.LabelField("Hearing Results:", BasisNetworkManagement.Transmitter.HearingResults.IsCreated ? "Created" : "Not Created");
                 EditorGUILayout.LabelField("Avatar Results:", BasisNetworkManagement.Transmitter.AvatarResults.IsCreated ? "Created" : "Not Created");
+                EditorGUILayout.LabelField("Mesh Results:", BasisNetworkManagement.Transmitter.MeshLodResults.IsCreated ? "Created" : "Not Created");
             }
 
             EditorGUILayout.Space();

@@ -61,7 +61,11 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisDebug.LogError("No Active Loader Present! falling back to desktop!");
             }
             BasisDebug.Log($"Found Loader {result}", BasisDebug.LogTag.Device);
-            BasisDeviceManagement.Instance.StartDevices(result);
+            StartDevice(result);
+        }
+        public async void StartDevice(string result)
+        {
+           await BasisDeviceManagement.Instance.StartDevices(result);
         }
         public void StopXR()
         {

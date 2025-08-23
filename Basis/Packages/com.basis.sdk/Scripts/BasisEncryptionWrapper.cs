@@ -38,7 +38,7 @@ public static class BasisEncryptionWrapper
     }
 
     // Threshold to decide when to offload encryption to a separate thread
-    private const long LargeFileThreshold = 100L * 1024L * 1024L; // 100 MB
+    private const long LargeFileThreshold = 25L * 1024L * 1024L; // 25 MB
 
     public static Task EncryptFileAsync(string UniqueID, BasisPassword password, string inputPath, string outputPath, BasisProgressReport reportProgress)
     {

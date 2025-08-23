@@ -3,9 +3,12 @@ public static partial class SerializableBasis
 {
     public struct LocalAvatarSyncMessage
     {
-        public byte[] array;//position -> rotation -> rotation -> scale
-        public const int AvatarSyncSize = 206;//plus a additional 1 byte after this for additional avatar data
-        public const int StoredBones = 89;
+        public byte[] array;//position -> rotation -> muscle rotation -> scale
+        /// <summary>
+        /// true = 25 bytes
+        /// false = 64 ushorts (*2)
+        /// </summary>
+        public const int AvatarSyncSize = 181;//153 + 12 +14 + 2
 
         public AdditionalAvatarData[] AdditionalAvatarDatas;
         public byte AdditionalAvatarDataSize;
@@ -18,86 +21,74 @@ public static partial class SerializableBasis
 
         public void Deserialize(NetDataReader Writer)
         {
-            if (Writer == null)
-            {
-                BNL.LogError("Deserialize failed: NetDataReader was null!");
-                return;
-            }
-
             int Bytes = Writer.AvailableBytes;
             if (Bytes >= AvatarSyncSize)
             {
                 array ??= new byte[AvatarSyncSize];
                 Writer.GetBytes(array, AvatarSyncSize);
-
                 if (Writer.TryGetByte(out AdditionalAvatarDataSize))
                 {
                     if (AdditionalAvatarDataSize != 0)
                     {
-                        if (!Writer.TryGetByte(out LinkedAvatarIndex))
+                        if (Writer.TryGetByte(out LinkedAvatarIndex))
+                        {
+
+                        }
+                        else
                         {
                             BNL.LogError("Missing LinkedAvatarIndex!");
                         }
-
                         AdditionalAvatarDatas = new AdditionalAvatarData[AdditionalAvatarDataSize];
                         for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
                         {
                             AdditionalAvatarDatas[Index] = new AdditionalAvatarData();
                             AdditionalAvatarDatas[Index].Deserialize(Writer);
                         }
+                        //  BNL.Log("found additional message " + AdditionalAvatarDatas.Length);
                     }
                 }
                 else
                 {
-                    BNL.LogError("Fundamental error: missing Additional Avatar Data Byte");
+                    BNL.LogError("fundamental error missing Additional Avatar Data Byte");
                 }
             }
             else
             {
-                BNL.LogError($"Unable to read LocalAvatarSyncMessage. Remaining bytes: {Bytes}, expected: {AvatarSyncSize}+");
+                BNL.LogError($"Unable to read Remaining bytes where {Bytes} in LocalAvatarSyncMessage");
             }
         }
-
         public void Serialize(NetDataWriter Writer)
         {
-            if (Writer == null)
-            {
-                BNL.LogError("Serialize failed: NetDataWriter was null!");
-                return;
-            }
-
             if (array == null)
             {
-                BNL.LogError("Serialize failed: array was null!");
-                Writer.Put(new byte[AvatarSyncSize]); // fail-safe: put empty array
+                BNL.LogError("array was null!!");
             }
             else
             {
                 Writer.Put(array);
             }
-
             if (AdditionalAvatarDatas == null || AdditionalAvatarDatas.Length == 0 || AdditionalAvatarDatas.Length > 256)
             {
                 Writer.Put((byte)0);
-                return;
-            }
-
-            AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
-            Writer.Put(AdditionalAvatarDataSize);
-
-            if (AdditionalAvatarDataSize != 0)
-            {
-                Writer.Put(LinkedAvatarIndex); // include linked avatar if we have additional avatar data
             }
             else
             {
-                return;
-            }
-
-            for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
-            {
-                AdditionalAvatarData AAD = AdditionalAvatarDatas[Index];
-                AAD.Serialize(Writer);
+                AdditionalAvatarDataSize = (byte)AdditionalAvatarDatas.Length;
+                Writer.Put(AdditionalAvatarDataSize);
+                if (AdditionalAvatarDataSize != 0)
+                {
+                    Writer.Put(LinkedAvatarIndex);//we only include the linked avatar if there is additional avatar size.
+                }
+                else
+                {
+                    return;
+                }
+                for (int Index = 0; Index < AdditionalAvatarDataSize; Index++)
+                {
+                    AdditionalAvatarData AAD = AdditionalAvatarDatas[Index];
+                    AAD.Serialize(Writer);
+                }
+                //   BNL.Log("sending additional message " + AdditionalAvatarDatas.Length);
             }
         }
     }

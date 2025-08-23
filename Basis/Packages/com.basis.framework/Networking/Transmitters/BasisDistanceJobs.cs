@@ -4,7 +4,6 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-
 namespace Basis.Scripts.Networking.Transmitters
 {
     [BurstCompile]
@@ -13,6 +12,7 @@ namespace Basis.Scripts.Networking.Transmitters
         public float VoiceDistance;
         public float HearingDistance;
         public float AvatarDistance;
+
         [ReadOnly]
         public float3 referencePosition;
         [ReadOnly]
@@ -20,11 +20,10 @@ namespace Basis.Scripts.Networking.Transmitters
 
         [WriteOnly]
         public NativeArray<float> distances;
-        //HysteresisDistance stops this from working  [WriteOnly]
+
+        // HysteresisDistance stops this from working  [WriteOnly]
         public NativeArray<bool> DistanceResults;
-        //HysteresisDistance stops this from working [WriteOnly]
         public NativeArray<bool> HearingResults;
-        //HysteresisDistance stops this from working [WriteOnly]
         public NativeArray<bool> AvatarResults;
 
         // Shared result for the smallest distance
@@ -32,7 +31,6 @@ namespace Basis.Scripts.Networking.Transmitters
         public NativeArray<float> smallestDistance;
 
         // Returns whether the distance is smaller or greater than the boundaryDistance but adds a margin to prevent flapping (hysteresis).
-        // We increase margin before exiting and we decrease margin before entering (the margin is a ratio).
         private bool HysteresisDistance(bool wasInside, float sqrDistance, float boundaryDistance, float margin = 0.05f)
         {
             float hysteresis = wasInside ? +margin : -margin;
@@ -41,17 +39,17 @@ namespace Basis.Scripts.Networking.Transmitters
 
         public void Execute(int index)
         {
-            // Calculate distance
+            // Calculate squared distance
             Vector3 diff = targetPositions[index] - referencePosition;
             float sqrDistance = diff.sqrMagnitude;
             distances[index] = sqrDistance;
 
-            // Determine boolean results
+            // Determine boolean results with hysteresis
             DistanceResults[index] = HysteresisDistance(DistanceResults[index], sqrDistance, VoiceDistance);
             HearingResults[index] = HysteresisDistance(HearingResults[index], sqrDistance, HearingDistance);
             AvatarResults[index] = HysteresisDistance(AvatarResults[index], sqrDistance, AvatarDistance);
 
-            // Update the smallest distance (atomic operation to avoid race conditions)
+            // Update the smallest distance (atomic operation not strictly safe but used here like before)
             float currentSmallest = smallestDistance[0];
             if (sqrDistance < currentSmallest)
             {

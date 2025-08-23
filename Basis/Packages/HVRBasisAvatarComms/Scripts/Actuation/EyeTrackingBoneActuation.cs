@@ -159,14 +159,14 @@ namespace HVR.Basis.Comms
                         case EyeSide.Left:
                             float result0 = (y + 1) / 2;
                             float result1 = (x + 1) / 2;
-                            Receiver.Eyes[0] = result0;
-                            Receiver.Eyes[1] = result1;
+                            Receiver.EyesAndMouth[0] = result0;
+                            Receiver.EyesAndMouth[1] = result1;
                             break;
                         case EyeSide.Right:
                             result0 = (y + 1) / 2;
                             result1 = (x + 1) / 2;
-                            Receiver.Eyes[2] = result0;
-                            Receiver.Eyes[3] = result1;
+                            Receiver.EyesAndMouth[2] = result0;
+                            Receiver.EyesAndMouth[3] = result1;
                             break;
                         default:
                             throw new ArgumentOutOfRangeException(nameof(side), side, null);

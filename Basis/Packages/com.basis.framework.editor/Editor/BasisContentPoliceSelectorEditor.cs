@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 [CustomEditor(typeof(ContentPoliceSelector))]
 public class BasisContentPoliceSelectorEditor : Editor
@@ -11,7 +12,8 @@ public class BasisContentPoliceSelectorEditor : Editor
     public bool[] selectedFlags;
     public ContentPoliceSelector selector;
 
-    // This method is called when the object is selected or changed
+    private string searchQuery = ""; // <-- search filter
+
     public void OnEnable()
     {
         // Get all MonoBehaviour types in the project
@@ -27,7 +29,6 @@ public class BasisContentPoliceSelectorEditor : Editor
         selector = (ContentPoliceSelector)target;
         selectedFlags = new bool[typeNames.Length];
 
-        // Clear selectedFlags and update based on currently selected types
         for (int i = 0; i < typeNames.Length; i++)
         {
             selectedFlags[i] = selector.selectedTypes.Contains(typeNames[i]);
@@ -37,28 +38,38 @@ public class BasisContentPoliceSelectorEditor : Editor
     public override void OnInspectorGUI()
     {
         EditorGUILayout.LabelField("Allowed Components Used On Avatars", EditorStyles.boldLabel);
-        int TypeCount = typeNames.Length;
-        // Loop through the type names and create checkboxes
-        for (int Index = 0; Index < TypeCount; Index++)
-        {
-            bool previousFlag = selectedFlags[Index];
-            selectedFlags[Index] = EditorGUILayout.ToggleLeft(typeNames[Index], selectedFlags[Index]);
 
-            // If the state of the checkbox has changed, update the selector's selectedTypes list
-            if (previousFlag != selectedFlags[Index])
+        // 🔍 Search bar
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField("Search:", GUILayout.Width(50));
+        searchQuery = EditorGUILayout.TextField(searchQuery).ToLower();
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.Space();
+
+        int typeCount = typeNames.Length;
+        for (int index = 0; index < typeCount; index++)
+        {
+            string typeName = typeNames[index];
+            if (!string.IsNullOrEmpty(searchQuery) && !typeName.ToLower().Contains(searchQuery))
             {
-                if (selectedFlags[Index])
+                continue; // Skip if it doesn't match the search
+            }
+
+            bool previousFlag = selectedFlags[index];
+            selectedFlags[index] = EditorGUILayout.ToggleLeft(typeName, selectedFlags[index]);
+
+            if (previousFlag != selectedFlags[index])
+            {
+                if (selectedFlags[index])
                 {
-                    // Add to the list if selected
-                    selector.selectedTypes.Add(typeNames[Index]);
+                    selector.selectedTypes.Add(typeName);
                 }
                 else
                 {
-                    // Remove from the list if unselected
-                    selector.selectedTypes.Remove(typeNames[Index]);
+                    selector.selectedTypes.Remove(typeName);
                 }
 
-                // Mark the object as dirty so the changes are saved
                 EditorUtility.SetDirty(selector);
             }
         }

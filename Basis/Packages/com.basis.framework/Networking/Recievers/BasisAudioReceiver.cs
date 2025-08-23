@@ -74,16 +74,13 @@ namespace Basis.Scripts.Networking.Receivers
             }
             if (AudioSourceTransform != null)
             {
+                BasisAudioTransformDriver.RequestRemove(AudioSourceTransform);
                 BasisAudioRemoteSource.Return(AudioSourceTransform.gameObject);
                 AudioSourceTransform = null;
                 HasTransform = false;
                 BasisRemoteVisemeAudioDriver = null;
             }
             IsPlaying = false;
-        }
-        public void MoveAudio(BasisCalibratedCoords Coords)
-        {
-            AudioSourceTransform.SetPositionAndRotation(Coords.position, Coords.rotation);
         }
         public void Initalize(BasisNetworkPlayer networkedPlayer)
         {

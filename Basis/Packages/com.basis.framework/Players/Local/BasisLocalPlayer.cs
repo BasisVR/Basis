@@ -155,7 +155,7 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public void Teleport(Vector3 position, Quaternion rotation)
         {
-            BasisAvatarStrainJiggleDriver.PrepareTeleport();
+          //here  BasisAvatarStrainJiggleDriver.PrepareTeleport();
             BasisDebug.Log("Teleporting");
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
@@ -164,7 +164,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 LocalAnimatorDriver.HandleTeleport();
             }
-            BasisAvatarStrainJiggleDriver.FinishTeleport();
+            //here     BasisAvatarStrainJiggleDriver.FinishTeleport();
             OnSpawnedEvent?.Invoke();
         }
 
@@ -262,12 +262,6 @@ namespace Basis.Scripts.BasisSdk.Players
             //Apply Animator Weights
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
-            //now that everything has been processed jiggles can move.
-            if (HasJiggles)
-            {
-                //we use distance = 0 as the local avatar jiggles should always be processed.
-                BasisAvatarStrainJiggleDriver.Simulate(0);
-            }
             //now that everything has been processed lets update WorldPosition in BoneDriver.
             //this is so AfterFinalMove can use world position coords. (stops Laggy pickups)
             LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix);

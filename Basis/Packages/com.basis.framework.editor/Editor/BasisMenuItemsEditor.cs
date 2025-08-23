@@ -60,14 +60,15 @@ public static class BasisMenuItemsEditor
     {
         DestroyXRInput();
         List<BasisStoredPreviousDevice> allDevicesToRemove = new List<BasisStoredPreviousDevice>(BasisDeviceManagement.Instance.PreviouslyConnectedDevices);
+        var Value = FindSimulate();
         foreach (var device in allDevicesToRemove)
         {
-           FindSimulate().CreatePhysicalTrackedDevice(device.UniqueID, "{htc}vr_tracker_vive_3_0");
+            Value.CreatePhysicalTrackedDevice(device.UniqueID, "{htc}vr_tracker_vive_3_0");
         }
     }
     public static BasisSimulateXR FindSimulate()
     {
-        if (BasisDeviceManagement.Instance.TryFindBasisBaseTypeManagement("SimulateXR", out List<BasisBaseTypeManagement> Matched))
+        if (BasisDeviceManagement.Instance.TryFindBasisBaseTypeManagement("SimulateXR", out List<BasisBaseTypeManagement> Matched,true))
         {
             foreach (var m in Matched)
             {
@@ -81,8 +82,8 @@ public static class BasisMenuItemsEditor
     public static  void CreatePuckTracker()
     {
         BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
-
-        FindSimulate().CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
+        var Value = FindSimulate();
+        Value.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
         BasisDeviceManagement.VisibleTrackers(true);
         BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
     }
@@ -90,7 +91,8 @@ public static class BasisMenuItemsEditor
     public static  void CreateViveRightTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl RightHand, BasisBoneTrackedRole.RightHand);
-        BasisInputXRSimulate RightTracker =  FindSimulate().CreatePhysicalTrackedDevice("{indexcontroller}valve_controller_knu_3_0_right" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{indexcontroller}valve_controller_knu_3_0_right", BasisBoneTrackedRole.RightHand, true);
+       var Value = FindSimulate();
+        BasisInputXRSimulate RightTracker = Value.CreatePhysicalTrackedDevice("{indexcontroller}valve_controller_knu_3_0_right" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{indexcontroller}valve_controller_knu_3_0_right", BasisBoneTrackedRole.RightHand, true);
         RightTracker.FollowMovement.position = RightHand.OutgoingWorldData.position;
         RightTracker.FollowMovement.rotation = Quaternion.identity;
         BasisDeviceManagement.VisibleTrackers(true);
@@ -99,7 +101,8 @@ public static class BasisMenuItemsEditor
     public static  void CreateViveLeftTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand);
-        BasisInputXRSimulate LeftTracker =  FindSimulate().CreatePhysicalTrackedDevice("{indexcontroller}valve_controller_knu_3_0_left" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{indexcontroller}valve_controller_knu_3_0_left", BasisBoneTrackedRole.LeftHand, true);
+        var Value = FindSimulate();
+        BasisInputXRSimulate LeftTracker = Value.CreatePhysicalTrackedDevice("{indexcontroller}valve_controller_knu_3_0_left" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{indexcontroller}valve_controller_knu_3_0_left", BasisBoneTrackedRole.LeftHand, true);
         LeftTracker.FollowMovement.position = LeftHand.OutgoingWorldData.position;
         LeftTracker.FollowMovement.rotation = Quaternion.identity;
         BasisDeviceManagement.VisibleTrackers(true);
@@ -108,7 +111,8 @@ public static class BasisMenuItemsEditor
     public static  void CreateUnknowonTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand);
-        BasisInputXRSimulate LeftTracker =  FindSimulate().CreatePhysicalTrackedDevice("Unknown" + UnityEngine.Random.Range(-9999999999999, 999999999999), "Unknown", BasisBoneTrackedRole.CenterEye, false);
+        var Value = FindSimulate();
+        BasisInputXRSimulate LeftTracker = Value.CreatePhysicalTrackedDevice("Unknown" + UnityEngine.Random.Range(-9999999999999, 999999999999), "Unknown", BasisBoneTrackedRole.CenterEye, false);
         LeftTracker.FollowMovement.position = LeftHand.OutgoingWorldData.position;
         LeftTracker.FollowMovement.rotation = Quaternion.identity;
         BasisDeviceManagement.VisibleTrackers(true);
@@ -284,7 +288,7 @@ public static class BasisMenuItemsEditor
             if (Transmitter != null)
             {
                 BasisDebug.Log("Apply SpawnFakeRemote");
-                serverSideSyncPlayerMessage.localReadyMessage.localAvatarSyncMessage = Transmitter.LASM;
+                serverSideSyncPlayerMessage.localReadyMessage.localAvatarSyncMessage = Transmitter.storedAvatarData.LASM;
             }
             CreateTestRemotePlayer(serverSideSyncPlayerMessage);
         }

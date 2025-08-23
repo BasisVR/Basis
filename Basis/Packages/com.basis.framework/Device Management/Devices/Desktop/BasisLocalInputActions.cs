@@ -8,6 +8,7 @@ using Basis.Scripts.Common;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
+using System.Threading.Tasks;
 
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
@@ -289,25 +290,25 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             InputState.PrimaryButtonGetState = false;
         }
-        public void OnSwitchDesktop(InputAction.CallbackContext ctx)
+        public async void OnSwitchDesktop(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
             {
-                BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
+               await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
             }
         }
-        public void OnSwitchOpenXR(InputAction.CallbackContext ctx)
+        public async void OnSwitchOpenXR(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
             {
-                BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenXRLoader);
+              await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
             }
         }
-        public void OnSwitchOpenVR(InputAction.CallbackContext ctx)
+        public async void OnSwitchOpenVR(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
             {
-                BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
+                await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
             }
         }
         public void OnLeftMouse(InputAction.CallbackContext ctx)

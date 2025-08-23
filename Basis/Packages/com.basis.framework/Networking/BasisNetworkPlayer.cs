@@ -11,6 +11,7 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -33,13 +34,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         private readonly object _lock = new object(); // Lock object for thread-safety
         private bool _hasReasonToSendAudio;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
+        public const int MuscleCount = 95;
         [SerializeField]
-        public HumanPose HumanPose = new HumanPose();
+        public HumanPose HumanPose = new HumanPose() { muscles = new float[MuscleCount] };
         [SerializeField]
         public HumanPoseHandler PoseHandler;
         public BasisPlayer Player;
-        [SerializeField]
-        public PlayerIdMessage PlayerIDMessage = new PlayerIdMessage();
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -58,20 +58,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-        public ushort playerId
+        public ushort playerId;
+        public Dictionary<byte, ServerAvatarDataMessageQueue> NextMessages = new Dictionary<byte, ServerAvatarDataMessageQueue>();
+        public struct ServerAvatarDataMessageQueue
         {
-            get
-            {
-                if (hasID)
-                {
-                    return PlayerIDMessage.playerID;
-                }
-                else
-                {
-                    BasisDebug.LogError("Missing Network ID!");
-                    return 0;
-                }
-            }
+            public ServerAvatarDataMessage ServerAvatarDataMessage;
+            public LiteNetLib.DeliveryMethod Method;
         }
         public abstract void Initialize();
         public abstract void DeInitialize();
@@ -114,7 +106,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // All checks pas
                 PoseHandler = new HumanPoseHandler(
                     basisAvatar.Animator.avatar,
-                    Player.BasisAvatarTransform
+                    Player.AvatarTransform
                 );
                 PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;

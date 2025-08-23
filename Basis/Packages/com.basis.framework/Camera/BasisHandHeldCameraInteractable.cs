@@ -269,7 +269,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
                 }
                 break;
             case CameraPinSpace.PlaySpace:
-                BasisLocalPlayer.Instance.BasisAvatarTransform.GetPositionAndRotation(out Vector3 pinParentPos, out Quaternion pinParentRot);
+                BasisLocalPlayer.Instance.AvatarTransform.GetPositionAndRotation(out Vector3 pinParentPos, out Quaternion pinParentRot);
                 cameraPinConstraint.UpdateSourcePositionAndRotation(0, pinParentPos, pinParentRot);
 
                 MoveCameraFlying();

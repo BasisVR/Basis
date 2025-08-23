@@ -46,4 +46,5 @@ public static class BasisNetworkHandleAvatar
             BasisDebug.Log("Missing Player For Message " + ServerAvatarChangeMessage.uShortPlayerId.playerID);
         }
     }
+
 }

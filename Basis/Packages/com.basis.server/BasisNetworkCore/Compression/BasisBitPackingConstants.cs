@@ -1,5 +1,3 @@
-using static SerializableBasis;
-
 namespace Basis.Network.Core.Compression
 {
     public static class BasisBitPackingConstants
@@ -8,6 +6,5 @@ namespace Basis.Network.Core.Compression
         public const int UShortSize = sizeof(ushort);
         public const int Vector3Size = 3 * FloatSize;
         public const int QuaternionSize = 3 * FloatSize + UShortSize;
-        public static readonly int LengthUshortBytes = LocalAvatarSyncMessage.StoredBones * UShortSize;
     }
 }
