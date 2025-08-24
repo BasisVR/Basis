@@ -34,26 +34,49 @@ namespace Basis.Scripts.Editor
             UpdateAvatarPosition(Color.blue, ref avatar.AvatarMouthPosition, inspector.AvatarMouthPositionState, avatar.transform.rotation, bottom, previousAvatarMouthPosition, BasisSDKConstants.avatarMouthPositionField, inspector.uiElementsRoot, avatar);
         }
 
-        private static void UpdateAvatarPosition(Color GizmoColor,ref Vector2 avatarPosition, bool positionState, Quaternion rotation, Vector3 bottom, Vector2 previousPosition, string positionField, VisualElement uiElementsRoot, BasisAvatar avatar)
+        private static void UpdateAvatarPosition(
+            Color GizmoColor,
+            ref Vector2 avatarPosition,
+            bool positionState,
+            Quaternion rotation,
+            Vector3 bottom,
+            Vector2 previousPosition,
+            string positionField,
+            VisualElement uiElementsRoot,
+            BasisAvatar avatar)
         {
             if (!positionState)
-            {
                 return;
-            }
+
+#if UNITY_EDITOR
             Handles.color = GizmoColor;
-            Vector3 ConvertedToVector3 = BasisHelpers.AvatarPositionConversion(avatarPosition);
+#endif
 
-            Vector3 worldSpaceAvatarPosition = BasisHelpers.ConvertFromLocalSpace(ConvertedToVector3, bottom);
+            // Convert the 2D "avatarPosition" (y,z) into a local-space Vector3 (x=0).
+            Vector3 localAvatarPos = BasisHelpers.AvatarPositionConversion(avatarPosition);
+
+            // ✅ Convert from LOCAL → WORLD using origin + rotation
+            Vector3 worldSpaceAvatarPosition = BasisHelpers.ConvertFromLocalSpace(localAvatarPos, bottom, rotation);
+
+            // Let your gizmo handler move the point in world space (already rotated correctly)
             BasisHelpersGizmo.PositionHandler(ref worldSpaceAvatarPosition, rotation);
-            Handles.DrawWireDisc(worldSpaceAvatarPosition, Vector3.forward, 0.01f);
-            Vector3 convertedPosition = BasisHelpers.ConvertToLocalSpace(worldSpaceAvatarPosition, bottom);
-            avatarPosition = BasisHelpers.AvatarPositionConversion(convertedPosition);
 
+#if UNITY_EDITOR
+            Handles.DrawWireDisc(worldSpaceAvatarPosition, Vector3.forward, 0.01f);
+#endif
+
+            // ✅ Convert back WORLD → LOCAL using inverse rotation
+            Vector3 newLocalPos = BasisHelpers.ConvertToLocalSpace(worldSpaceAvatarPosition, bottom, rotation);
+
+            // Back to your 2D representation
+            avatarPosition = BasisHelpers.AvatarPositionConversion(newLocalPos);
 
             if (avatarPosition != previousPosition)
             {
                 BasisHelpersGizmo.SetValueVector2Field(uiElementsRoot, positionField, avatarPosition);
+#if UNITY_EDITOR
                 EditorUtility.SetDirty(avatar);
+#endif
             }
         }
     }

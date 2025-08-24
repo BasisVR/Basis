@@ -22,7 +22,7 @@ namespace Basis.Scripts.Behaviour
         {
 
         }
-        public virtual void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
+        public virtual void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
             BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageReceived", this.gameObject, BasisDebug.LogTag.Avatar);
         }
@@ -31,7 +31,7 @@ namespace Basis.Scripts.Behaviour
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="IsADifferentAvatarLocally">Indicates if the avatar worn matches or not</param>
-        public virtual void OnNetworkMessageServerReductionSystem(byte[] buffer, bool IsADifferentAvatarLocally)
+        public virtual void OnNetworkMessageServerReductionSystem(byte[] buffer)
         {
             BasisDebug.LogError("Data was Received but nothing interpreted it! OnNetworkMessageServerReductionSystem", this.gameObject, BasisDebug.LogTag.Avatar);
         }

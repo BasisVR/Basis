@@ -48,6 +48,21 @@ ExportedObj/
 *.mdb
 *.opendb
 *.VC.db
+.consulo.meta
+*.csproj.meta
+*.unityproj.meta
+*.sln.meta
+*.suo.meta
+*.tmp.meta
+*.user.meta
+*.userprefs.meta
+*.pidb.meta
+*.booproj.meta
+*.svd.meta
+*.pdb.meta
+*.mdb.meta
+*.opendb.meta
+*.VC.db.meta
 
 # Unity3D generated meta files
 *.pidb.meta
@@ -112,3 +127,9 @@ mono_crash.mem.*.*.blob
 
 /[Aa]ssets/[Pp]lugins/[Yy]outube[Dd][Ll]/
 /[Aa]ssets/[Pp]lugins/[Yy]outube[Dd][Ll].meta
+
+# Linux Special DLL imports
+csc.*
+
+# Thry Editor (Poiyomi)
+Thry

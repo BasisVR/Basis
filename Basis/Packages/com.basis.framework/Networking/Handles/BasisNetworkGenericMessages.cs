@@ -169,14 +169,16 @@ public static class BasisNetworkGenericMessages
                             };
                         }
                     }
-
-                    if (output.messageIndex < player.NetworkBehaviourCount)
-                    {
-                        player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(SADM.playerIdMessage.playerID, output.payload, Method, isDifferentAvatar);
-                    }
                     else
                     {
-                        BasisDebug.LogError($"this Should never occur Message Index did not exist {output.messageIndex}");
+                        if (output.messageIndex < player.NetworkBehaviourCount)
+                        {
+                            player.NetworkBehaviours[output.messageIndex].OnNetworkMessageReceived(SADM.playerIdMessage.playerID, output.payload, Method);
+                        }
+                        else
+                        {
+                            BasisDebug.LogError($"this Should never occur Message Index did not exist {output.messageIndex}");
+                        }
                     }
                 }
             }

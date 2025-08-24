@@ -66,13 +66,8 @@ namespace HVR.Basis.Comms
                 NetworkMessageSend(featureNetworking.GetRemoteRequestsInitializationPacket(), DeliveryMethod.ReliableOrdered, new ushort[] { NetworkedPlayer.playerId });
             }
         }
-        public override void OnNetworkMessageReceived(ushort whoSentThis, byte[] unsafeBuffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
+        public override void OnNetworkMessageReceived(ushort whoSentThis, byte[] unsafeBuffer, DeliveryMethod DeliveryMethod)
         {
-            if(IsADifferentAvatarLocally)
-            {
-               // ProtocolError("Protocol error: IsADifferentAvatarLocally");
-                return;
-            }
             // Ignore all net messages as long as this is disabled
             if (!isActiveAndEnabled)
             {
@@ -244,12 +239,8 @@ namespace HVR.Basis.Comms
         {
             BasisDebug.Log(message, BasisDebug.LogTag.Avatar);
         }
-        public override void OnNetworkMessageServerReductionSystem(byte[] unsafeBuffer, bool IsSameAvatar)
+        public override void OnNetworkMessageServerReductionSystem(byte[] unsafeBuffer)
         {
-            if (IsSameAvatar == false)
-            {
-                return;
-            }
             // Ignore all net messages as long as this is disabled
             if (!isActiveAndEnabled) return;
 

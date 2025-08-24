@@ -48,15 +48,54 @@ namespace Basis.Scripts.BasisSdk.Helpers
             boneTransform = animator.GetBoneTransform(bone);
             return boneTransform != null;
         }
-
-        public static Vector3 ConvertToLocalSpace(float3 notFloorPosition, float3 floorPosition)
+        /// <summary>
+        /// Local → World: world = origin + rotation * local
+        /// </summary>
+        public static Vector3 ConvertFromLocalSpace(Vector3 localPosition, Vector3 origin, Quaternion rotation)
         {
+            return origin + rotation * localPosition;
+        }
+
+        /// <summary>
+        /// World → Local: local = inverse(rotation) * (world - origin)
+        /// </summary>
+        public static Vector3 ConvertToLocalSpace(Vector3 worldPosition, Vector3 origin, Quaternion rotation)
+        {
+            return Quaternion.Inverse(rotation) * (worldPosition - origin);
+        }
+
+        // --- LEGACY SIGNATURES (if something else calls these) -------------------
+        // If other code still calls the old methods (without rotation), they will behave
+        // like your original “no-rotation” logic. Prefer using the rotation-aware ones.
+
+        public static Vector3 ConvertFromLocalSpace(Vector3 notFloorPosition, Vector3 floorPosition)
+        {
+            // original behavior: translation only
+            return notFloorPosition + floorPosition;
+        }
+
+        public static Vector3 ConvertToLocalSpace(Vector3 notFloorPosition, Vector3 floorPosition)
+        {
+            // original behavior: translation only
             return notFloorPosition - floorPosition;
         }
 
-        public static Vector3 ConvertFromLocalSpace(float3 notFloorPosition, float3 floorPosition)
+        // --- 2D/3D AVATAR POSITION MAPPINGS --------------------------------------
+
+        /// <summary>
+        /// Map (y,z) -> (x=0, y, z) for use in 3D local/world math
+        /// </summary>
+        public static Vector3 AvatarPositionConversion(Vector2 input)
         {
-            return notFloorPosition + floorPosition;
+            return new Vector3(0f, input.x, input.y);
+        }
+
+        /// <summary>
+        /// Map (x=ignored, y, z) -> (y,z)
+        /// </summary>
+        public static Vector2 AvatarPositionConversion(Vector3 input)
+        {
+            return new Vector2(input.y, input.z);
         }
         public static bool TryGetVector3Bone(Animator animator, HumanBodyBones bone, out Vector3 position)
         {
@@ -76,16 +115,6 @@ namespace Basis.Scripts.BasisSdk.Helpers
             }
             position = Vector3.zero;
             return false;
-        }
-
-        public static Vector3 AvatarPositionConversion(Vector2 input)
-        {
-            return new Vector3(0, input.x, input.y);
-        }
-
-        public static Vector2 AvatarPositionConversion(Vector3 input)
-        {
-            return new Vector2(input.y, input.z);
         }
         public static void CalculateReflectionMatrix(ref Matrix4x4 reflectionMat, Vector4 plane)
         {

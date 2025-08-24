@@ -142,7 +142,7 @@ namespace Basis.Scripts.UGC.BlendShapes
 
             ServerReductionSystemMessageSend(buffer);
         }
-        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
+        public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
             NetworkIntrepData(buffer);
         }
@@ -176,7 +176,7 @@ namespace Basis.Scripts.UGC.BlendShapes
 
             basisUGCBlendShapesItems[SelectedItemIndex] = item;
         }
-        public override void OnNetworkMessageServerReductionSystem(byte[] buffer, bool SameAvatar)
+        public override void OnNetworkMessageServerReductionSystem(byte[] buffer)
         {
             NetworkIntrepData(buffer);
         }

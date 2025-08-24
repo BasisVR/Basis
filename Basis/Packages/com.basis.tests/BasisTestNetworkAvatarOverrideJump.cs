@@ -17,7 +17,7 @@ public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
             }
         }
     }
-    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod, bool IsADifferentAvatarLocally)
+    public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
         BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
     }

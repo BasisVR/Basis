@@ -244,23 +244,89 @@ public static class BasisAudioTransformDriver
         _mirror.Capacity = math.max(_mirror.Capacity, newCap);
     }
 
+    /// <summary>
+    /// Rebuild _indexOf from _mirror (and sanity-trim managed/native lists to match _taa.length).
+    /// Call this if anything looks out-of-sync.
+    /// </summary>
+    private static void RebuildIndexMapAndRealign()
+    {
+        // If the managed lists got longer than _taa (e.g., external destruction or prior errors), trim them.
+        int targetLen = _taa.length;
+
+        // Trim managed lists down to targetLen
+        while (_mirror.Count > targetLen) _mirror.RemoveAt(_mirror.Count - 1);
+        while (_positions.Length > targetLen) _positions.RemoveAtSwapBack(_positions.Length - 1);
+        while (_rotations.Length > targetLen) _rotations.RemoveAtSwapBack(_rotations.Length - 1);
+        while (_entryGen.Length > targetLen) _entryGen.RemoveAtSwapBack(_entryGen.Length - 1);
+
+        // If managed lists are shorter (shouldn't happen here), we won't try to re-expand;
+        // they'll be filled on next EnqueueSet.
+
+        _indexOf.Clear();
+        for (int i = 0; i < _mirror.Count; i++)
+        {
+            var tr = _mirror[i];
+            if (tr != null && !_indexOf.ContainsKey(tr))
+                _indexOf.Add(tr, i);
+        }
+    }
+
     private static void FlushRemovals()
     {
         if (_queuedRemovals.Count == 0) return;
 
+        // Quick pre-check: if anything smells off, fix alignment first.
+        // (These should always match during normal operation.)
+        if (_taa.length != _mirror.Count ||
+            _positions.Length != _taa.length ||
+            _rotations.Length != _taa.length ||
+            _entryGen.Length != _taa.length)
+        {
+            RebuildIndexMapAndRealign();
+        }
+
+        // Avoid mutating while iterating the set.
+        // Also, remove duplicates and nulls just in case.
+        _tmpRemovalBuffer.Clear();
         foreach (var t in _queuedRemovals)
         {
-            if (!_indexOf.TryGetValue(t, out int idx)) continue;
+            if (t != null) _tmpRemovalBuffer.Add(t);
+        }
+
+        for (int n = 0; n < _tmpRemovalBuffer.Count; n++)
+        {
+            var t = _tmpRemovalBuffer[n];
+
+            // Try fast lookup
+            if (!_indexOf.TryGetValue(t, out int idx))
+            {
+                // Fallback: scan mirror once (robust against any stale map edge cases)
+                idx = _mirror.IndexOf(t);
+                if (idx < 0) continue; // already gone
+            }
+
+            // If the index is out of bounds for TAA, we got desynced; resync and try again.
+            if (idx < 0 || idx >= _taa.length)
+            {
+                RebuildIndexMapAndRealign();
+
+                // Try again after resync
+                idx = -1;
+                _indexOf.TryGetValue(t, out idx);
+                if (idx < 0 || idx >= _taa.length) continue; // still not valid -> skip
+            }
+
             int lastIdx = _taa.length - 1;
 
-            // Remove from TAA (swap-back)
+            // Remove from TAA first (swap-back)
             _taa.RemoveAtSwapBack(idx);
 
             // Mirror & arrays swap-back to keep indices consistent
-            int lastMirrorIdx = _mirror.Count - 1;
+            int lastMirrorIdx = _mirror.Count - 1; // still old count here
 
             if (idx != lastIdx)
             {
+                // Copy the tail entry into idx
                 _positions[idx] = _positions[lastMirrorIdx];
                 _rotations[idx] = _rotations[lastMirrorIdx];
                 _entryGen[idx] = _entryGen[lastMirrorIdx];
@@ -272,17 +338,29 @@ public static class BasisAudioTransformDriver
                     _indexOf[movedT] = idx;
             }
 
-            // Pop last
+            // Pop the tail from managed/native mirrors
             _positions.RemoveAtSwapBack(lastMirrorIdx);
             _rotations.RemoveAtSwapBack(lastMirrorIdx);
             _entryGen.RemoveAtSwapBack(lastMirrorIdx);
             _mirror.RemoveAt(lastMirrorIdx);
 
+            // Finally remove from the lookup
             _indexOf.Remove(t);
         }
 
         _queuedRemovals.Clear();
+
+        // Final sanity: ensure everything is aligned after a batch of removals
+        if (_taa.length != _mirror.Count ||
+            _positions.Length != _taa.length ||
+            _rotations.Length != _taa.length ||
+            _entryGen.Length != _taa.length)
+        {
+            RebuildIndexMapAndRealign();
+        }
     }
+
+    private static readonly List<Transform> _tmpRemovalBuffer = new List<Transform>(1024);
 
     private static void FlushQueuedSets()
     {
@@ -303,7 +381,8 @@ public static class BasisAudioTransformDriver
             var (t, p, r) = _queuedSetsThisFrame[i];
             if (t == null) continue;
 
-            if (!_indexOf.TryGetValue(t, out int idx))
+            int idx;
+            if (!_indexOf.TryGetValue(t, out idx))
             {
                 int newIdx = _taa.length;
                 _taa.Add(t);
@@ -318,6 +397,28 @@ public static class BasisAudioTransformDriver
             }
             else
             {
+                // Guard against rare desync: if idx is invalid, rebuild, then retry this one.
+                if (idx < 0 || idx >= _taa.length)
+                {
+                    RebuildIndexMapAndRealign();
+
+                    if (!_indexOf.TryGetValue(t, out idx) || idx < 0 || idx >= _taa.length)
+                    {
+                        // If still invalid after rebuild, treat as a fresh add.
+                        int newIdx = _taa.length;
+                        _taa.Add(t);
+                        _mirror.Add(t);
+
+                        _positions.Add(p);
+                        _rotations.Add(r);
+                        _entryGen.Add(_currentGen);
+                        _indexOf[t] = newIdx;
+
+                        _dirtyCountThisGen++;
+                        continue;
+                    }
+                }
+
                 _positions[idx] = p;
                 _rotations[idx] = r;
 

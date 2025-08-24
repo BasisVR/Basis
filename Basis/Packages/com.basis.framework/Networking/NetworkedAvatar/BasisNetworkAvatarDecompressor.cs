@@ -292,6 +292,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (message.AdditionalAvatarDataSize > 0 && message.AdditionalAvatarDatas != null)
             {
                 bool isDifferentAvatar = message.LinkedAvatarIndex != baseReceiver.LastLinkedAvatarIndex;
+                if (isDifferentAvatar)
+                {
+                    return;
+                }
 
                 for (int Index = 0; Index < message.AdditionalAvatarDataSize; Index++)
                 {
@@ -299,7 +303,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
                     if (data.messageIndex < baseReceiver.NetworkBehaviourCount)
                     {
-                        baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array, isDifferentAvatar);
+                        baseReceiver.NetworkBehaviours[data.messageIndex].OnNetworkMessageServerReductionSystem(data.array);
                     }
                 }
             }

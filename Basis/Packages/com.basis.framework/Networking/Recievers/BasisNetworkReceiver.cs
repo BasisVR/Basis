@@ -231,8 +231,7 @@ namespace Basis.Scripts.Networking.Receivers
                     NetworkBehaviours[message.Key].OnNetworkMessageReceived(
                         playerIdMessage.playerID,
                         Remote.payload,
-                        message.Value.Method,
-                        false
+                        message.Value.Method
                     );
 
                     // mark this message as successfully sent
