@@ -112,3 +112,9 @@ mono_crash.mem.*.*.blob
 
 /[Aa]ssets/[Pp]lugins/[Yy]outube[Dd][Ll]/
 /[Aa]ssets/[Pp]lugins/[Yy]outube[Dd][Ll].meta
+
+# Linux Special DLL imports
+csc.*
+
+# Thry Editor (Poiyomi)
+Thry
