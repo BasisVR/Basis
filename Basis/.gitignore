@@ -48,6 +48,21 @@ ExportedObj/
 *.mdb
 *.opendb
 *.VC.db
+.consulo.meta
+*.csproj.meta
+*.unityproj.meta
+*.sln.meta
+*.suo.meta
+*.tmp.meta
+*.user.meta
+*.userprefs.meta
+*.pidb.meta
+*.booproj.meta
+*.svd.meta
+*.pdb.meta
+*.mdb.meta
+*.opendb.meta
+*.VC.db.meta
 
 # Unity3D generated meta files
 *.pidb.meta
