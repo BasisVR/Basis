@@ -146,6 +146,7 @@ public static class BasisBundleBuild
         }
         catch (Exception ex)
         {
+            Debug.LogException(ex);
             Debug.LogError($"BuildBundle error: {ex.Message}");
             EditorUtility.ClearProgressBar();
             return (false, $"BuildBundle Exception: {ex.Message}");
