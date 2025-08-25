@@ -146,6 +146,7 @@ public static class BasisBundleBuild
         }
         catch (Exception ex)
         {
+            Debug.LogException(ex);
             Debug.LogError($"BuildBundle error: {ex.Message}");
             EditorUtility.ClearProgressBar();
             return (false, $"BuildBundle Exception: {ex.Message}");
@@ -298,6 +299,9 @@ public static class BasisBundleBuild
     {
         // Get the root path of the project (up to the Assets folder)
         string projectRoot = Application.dataPath.Replace("/Assets", "");
+        if (string.IsNullOrEmpty(relativePath)) {
+            return projectRoot;
+        }
 
         // If the relative path starts with './', remove it
         if (relativePath.StartsWith("./"))
