@@ -298,6 +298,9 @@ public static class BasisBundleBuild
     {
         // Get the root path of the project (up to the Assets folder)
         string projectRoot = Application.dataPath.Replace("/Assets", "");
+        if (string.IsNullOrEmpty(relativePath)) {
+            return projectRoot;
+        }
 
         // If the relative path starts with './', remove it
         if (relativePath.StartsWith("./"))
