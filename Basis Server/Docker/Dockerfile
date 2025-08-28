@@ -1,5 +1,5 @@
 # Stage 1: Build the server
-FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS build
 WORKDIR /src
 
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
@@ -12,16 +12,7 @@ RUN dotnet restore ./BasisNetworkConsole.csproj
 RUN dotnet publish -c Release --no-restore -o /app/publish
 
 # Stage 2: Create runtime image
-FROM mcr.microsoft.com/dotnet/runtime:9.0-alpine
-
-# https://github.com/dotnet/dotnet-docker/blob/main/samples/enable-globalization.md
-ENV \
-    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false \
-    LC_ALL=en_US.UTF-8 \
-    LANG=en_US.UTF-8
-RUN apk add --no-cache \
-    icu-data-full \
-    icu-libs
+FROM mcr.microsoft.com/dotnet/runtime:9.0-bookworm-slim
     
 WORKDIR /app
 
