@@ -148,7 +148,9 @@ public static class BasisEncryptionWrapper
         int readIv = await msInput.ReadAsync(iv, 0, IvSize);
 
         if (readSalt != SaltSize || readIv != IvSize)
+        {
             throw new InvalidDataException("Encrypted data is corrupted or incomplete.");
+        }
 
         using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
         byte[] keyBytes = key.GetBytes(KeySize);

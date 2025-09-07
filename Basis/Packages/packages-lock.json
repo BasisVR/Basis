@@ -6,12 +6,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.basis.addressables": {
-      "version": "file:com.basis.addressables",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.basis.bundlemanagement": {
       "version": "file:com.basis.bundlemanagement",
       "depth": 0,
@@ -38,6 +32,12 @@
     },
     "com.basis.eventdriver": {
       "version": "file:com.basis.eventdriver",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.basis.examples": {
+      "version": "file:com.basis.examples",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
@@ -99,12 +99,6 @@
     },
     "com.basis.settings": {
       "version": "file:com.basis.settings",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.basis.tests": {
-      "version": "file:com.basis.tests",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

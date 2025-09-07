@@ -1,5 +1,4 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
+
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using TMPro;
@@ -54,8 +53,7 @@ public class BasisUIAcceptDenyPanel : BasisUIBase
 
     public static void OpenAcceptDenyPanel(string information, Action<bool> callback)
     {
-        AddressableGenericResource resource = new AddressableGenericResource(LoadPath, AddressableExpectedResult.SingleItem);
-        BasisUIBase baseUI = OpenMenuNow(resource);
+        BasisUIBase baseUI = OpenMenuNow(LoadPath);
         BasisUIAcceptDenyPanel uiPanel = (BasisUIAcceptDenyPanel)baseUI;
         uiPanel.Setup(information, callback);
     }

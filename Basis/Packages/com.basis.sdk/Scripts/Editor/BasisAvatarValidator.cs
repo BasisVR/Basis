@@ -35,6 +35,7 @@ public class BasisAvatarValidator
 
     private void UpdateValidation()
     {
+        CheckTranslation(Avatar);
         if (ValidateAvatar(out List<BasisValidationIssue> errors, out List<BasisValidationIssue> warnings, out List<string> passes))
         {
             HideErrorPanel();
@@ -331,6 +332,54 @@ public class BasisAvatarValidator
             }
         }
         return errors.Count == 0;
+    }
+    /// <summary>
+    /// Enables Translation DoF (HumanDescription.hasTranslationDoF = true) on the source model that a prefab comes from.
+    /// - Accepts either a prefab asset (Project window) or a prefab instance (in the Scene/Hierarchy).
+    /// - Only affects Humanoid rigs. (Optionally, set forceHumanoid = true to switch the importer to Humanoid.)
+    /// Returns true if the setting was applied or already enabled. Returns false if not applicable.
+    /// </summary>
+    /// <param name="prefab">Prefab asset or prefab instance GameObject.</param>
+    /// <param name="forceHumanoid">If true and the importer isn't Humanoid, switch it to Humanoid before applying.</param>
+    public static void CheckTranslation(BasisAvatar Avatar)
+    {
+        foreach (Renderer renderer in Avatar.Renders)
+        {
+            // Only process SkinnedMeshRenderer
+            if (renderer is SkinnedMeshRenderer skinnedRenderer && skinnedRenderer.sharedMesh != null)
+            {
+                string filePath = AssetDatabase.GetAssetOrScenePath(skinnedRenderer.sharedMesh);
+
+                // The Translation DoF toggle lives on the ModelImporter (the .fbx/.model that produced this prefab)
+                var modelImporter = AssetImporter.GetAtPath(filePath) as ModelImporter;
+                if (modelImporter == null)
+                {
+                    continue;
+                }
+
+                // Read/modify/write the human description
+                var hd = modelImporter.humanDescription;
+                if (hd.hasTranslationDoF == false)
+                {
+                    // Already enabled
+                    continue;
+                }
+
+                hd.hasTranslationDoF = false;
+                modelImporter.humanDescription = hd;
+
+                // Apply by reimporting the asset
+                try
+                {
+                    modelImporter.SaveAndReimport();
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[EnableTranslationDofForPrefab] Reimport failed for '{skinnedRenderer}': {e.Message}");
+                }
+            }
+
+        }
     }
     public void CheckTextures(Renderer Renderer,ref List<BasisValidationIssue> warnings)
     {

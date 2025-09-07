@@ -47,29 +47,29 @@ namespace Basis.Scripts.BasisSdk.Players
                     SelectedPlayerHeight = CustomPlayerEyeHeight;
                     SelectedAvatarHeight = CustomAvatarEyeHeight;
 
-                    SelectedPlayerToDefaultScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / BasisLocalPlayer.DefaultAvatarEyeHeight;
-                    SelectedAvatarToAvatarDefaultScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarHeight / BasisLocalPlayer.DefaultPlayerEyeHeight;
+                    SelectedPlayerToDefaultScale = SelectedPlayerHeight / BasisLocalPlayer.DefaultAvatarEyeHeight;
+                    SelectedAvatarToAvatarDefaultScale = SelectedAvatarHeight / BasisLocalPlayer.DefaultPlayerEyeHeight;
                     break;
             }
         }
-        public void CopyTo(BasisLocalHeightInformation target)
+        public void CopyTo(ref BasisLocalHeightInformation ApplyTo)
         {
-            if (target == null)
+            if (ApplyTo == null)
             {
                 BasisDebug.Log("Missing Target Height Information");
                 return;
             }
-            target.AvatarName = this.AvatarName;
-            target.PlayerEyeHeight = this.PlayerEyeHeight;
-            target.AvatarEyeHeight = this.AvatarEyeHeight;
-            target.EyeRatioPlayerToDefaultScale = this.EyeRatioPlayerToDefaultScale;
-            target.EyeRatioAvatarToAvatarDefaultScale = this.EyeRatioAvatarToAvatarDefaultScale;
-            target.ArmRatioPlayerToDefaultScale = this.ArmRatioPlayerToDefaultScale;
-            target.ArmRatioAvatarToAvatarDefaultScale = this.ArmRatioAvatarToAvatarDefaultScale;
-            target.SelectedAvatarHeight = this.SelectedAvatarHeight;
-            target.SelectedPlayerHeight = this.SelectedPlayerHeight;
-            target.CustomPlayerEyeHeight = this.CustomPlayerEyeHeight;
-            target.CustomAvatarEyeHeight = this.CustomAvatarEyeHeight;
+            ApplyTo.AvatarName = this.AvatarName;
+            ApplyTo.PlayerEyeHeight = this.PlayerEyeHeight;
+            ApplyTo.AvatarEyeHeight = this.AvatarEyeHeight;
+            ApplyTo.EyeRatioPlayerToDefaultScale = this.EyeRatioPlayerToDefaultScale;
+            ApplyTo.EyeRatioAvatarToAvatarDefaultScale = this.EyeRatioAvatarToAvatarDefaultScale;
+            ApplyTo.ArmRatioPlayerToDefaultScale = this.ArmRatioPlayerToDefaultScale;
+            ApplyTo.ArmRatioAvatarToAvatarDefaultScale = this.ArmRatioAvatarToAvatarDefaultScale;
+            ApplyTo.SelectedAvatarHeight = this.SelectedAvatarHeight;
+            ApplyTo.SelectedPlayerHeight = this.SelectedPlayerHeight;
+            ApplyTo.CustomPlayerEyeHeight = this.CustomPlayerEyeHeight;
+            ApplyTo.CustomAvatarEyeHeight = this.CustomAvatarEyeHeight;
         }
     }
 }

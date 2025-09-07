@@ -52,6 +52,8 @@ SpriteRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -73,6 +75,7 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 32767
@@ -255,7 +258,6 @@ MonoBehaviour:
   m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
   m_RequiresDepthTexture: 0
   m_RequiresColorTexture: 0
-  m_Version: 2
   m_TaaSettings:
     m_Quality: 3
     m_FrameInfluence: 0.1
@@ -263,6 +265,7 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!114 &3245914674684743984
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -318,6 +321,9 @@ MonoBehaviour:
   SpriteMicrophoneOn: {fileID: 21300000, guid: df4c5b7b152475f48adb88ead5775eb0, type: 3}
   SpriteMicrophoneOff: {fileID: 21300000, guid: f184b79ab72cc224e94720390fb038c2, type: 3}
   DesktopMicrophoneViewportPosition: {x: 0.2, y: 0.15, z: 1}
+  DepthFromCamera: 1
+  ScreenHeightFraction: 0.06
+  ViewportMargin: 0.03
   VRMicrophoneOffset: {x: -0.0001, y: -0.00025, z: 1}
   MuteSound: {fileID: 8300000, guid: 5b9ed5013ea1941499840ac97ad2b8e9, type: 3}
   UnMuteSound: {fileID: 8300000, guid: fbd61add38ba2d04baedb52b69c6e1b3, type: 3}
@@ -528,11 +534,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   DisplayName: 
   UUID: 
+  SafeDisplayName: 
   BasisAvatar: {fileID: 0}
-  BasisAvatarTransform: {fileID: 0}
+  AvatarTransform: {fileID: 0}
+  PlayerSelf: {fileID: 0}
   FaceIsVisible: 0
   FaceRenderer: {fileID: 0}
-  HasJiggles: 0
   IsConsideredFallBackAvatar: 1
   AvatarLoadMode: 0
   AvatarMetaData:
@@ -547,9 +554,6 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  BasisAvatarStrainJiggleDriver:
-    Jiggler: {fileID: 0}
-    JiggleRigRendererLOD: {fileID: 0}
   FacialBlinkDriver:
     meshRenderer: {fileID: 0}
     minBlinkInterval: 5
@@ -559,59 +563,6 @@ MonoBehaviour:
     blendShapeIndex: 
     blendShapeCount: 0
     LinkedPlayer: {fileID: 0}
-  GroundMask:
-    serializedVersion: 2
-    m_Bits: 1
-  HasEvents: 0
-  SpawnPlayerOnSceneLoad: 1
-  HasCalibrationEvents: 0
-  ToggleAvatarSim: 0
-  currentDistance: 0
-  direction:
-    x: 0
-    y: 0
-    z: 0
-  overshoot: 0
-  correction:
-    x: 0
-    y: 0
-    z: 0
-  output:
-    x: 0
-    y: 0
-    z: 0
-  CurrentHeight:
-    AvatarName: 
-    PlayerEyeHeight: 1.64
-    AvatarEyeHeight: 1.64
-    PlayerArmSpan: 1.7
-    AvatarArmSpan: 1.7
-    CustomPlayerEyeHeight: 1.7
-    CustomAvatarEyeHeight: 1.7
-    EyeRatioPlayerToDefaultScale: 1
-    EyeRatioAvatarToAvatarDefaultScale: 1
-    ArmRatioPlayerToDefaultScale: 1
-    ArmRatioAvatarToAvatarDefaultScale: 1
-    SelectedPlayerHeight: 1.7
-    SelectedAvatarHeight: 1.7
-    SelectedPlayerToDefaultScale: 1
-    SelectedAvatarToAvatarDefaultScale: 1
-  LastHeight:
-    AvatarName: 
-    PlayerEyeHeight: 1.64
-    AvatarEyeHeight: 1.64
-    PlayerArmSpan: 1.7
-    AvatarArmSpan: 1.7
-    CustomPlayerEyeHeight: 1.7
-    CustomAvatarEyeHeight: 1.7
-    EyeRatioPlayerToDefaultScale: 1
-    EyeRatioAvatarToAvatarDefaultScale: 1
-    ArmRatioPlayerToDefaultScale: 1
-    ArmRatioAvatarToAvatarDefaultScale: 1
-    SelectedPlayerHeight: 1.7
-    SelectedAvatarHeight: 1.7
-    SelectedPlayerToDefaultScale: 1
-    SelectedAvatarToAvatarDefaultScale: 1
   LocalCameraDriver: {fileID: 22857711927985140}
   LocalBoneDriver:
     ControlsLength: 0
@@ -619,115 +570,16 @@ MonoBehaviour:
     trackedRoles: 
     HasControls: 0
   LocalAvatarDriver:
-    References:
-      AnimatorRoot: {fileID: 0}
-      HasAnimatorRoot: 0
-      Hips: {fileID: 0}
-      HasHips: 0
-      spine: {fileID: 0}
-      Hasspine: 0
-      chest: {fileID: 0}
-      Haschest: 0
-      Upperchest: {fileID: 0}
-      HasUpperchest: 0
-      neck: {fileID: 0}
-      Hasneck: 0
-      head: {fileID: 0}
-      Hashead: 0
-      LeftEye: {fileID: 0}
-      HasLeftEye: 0
-      RightEye: {fileID: 0}
-      HasRightEye: 0
-      leftShoulder: {fileID: 0}
-      HasleftShoulder: 0
-      leftUpperArm: {fileID: 0}
-      HasleftUpperArm: 0
-      leftLowerArm: {fileID: 0}
-      HasleftLowerArm: 0
-      leftHand: {fileID: 0}
-      HasleftHand: 0
-      RightShoulder: {fileID: 0}
-      HasRightShoulder: 0
-      RightUpperArm: {fileID: 0}
-      HasRightUpperArm: 0
-      RightLowerArm: {fileID: 0}
-      HasRightLowerArm: 0
-      rightHand: {fileID: 0}
-      HasrightHand: 0
-      LeftUpperLeg: {fileID: 0}
-      HasLeftUpperLeg: 0
-      LeftLowerLeg: {fileID: 0}
-      HasLeftLowerLeg: 0
-      leftFoot: {fileID: 0}
-      HasleftFoot: 0
-      leftToes: {fileID: 0}
-      HasleftToes: 0
-      RightUpperLeg: {fileID: 0}
-      HasRightUpperLeg: 0
-      RightLowerLeg: {fileID: 0}
-      HasRightLowerLeg: 0
-      rightFoot: {fileID: 0}
-      HasrightFoot: 0
-      rightToes: {fileID: 0}
-      HasrightToes: 0
-      LeftThumb:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasLeftThumb: 000000
-      LeftIndex:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasLeftIndex: 000000
-      LeftMiddle:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasLeftMiddle: 000000
-      LeftRing:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasLeftRing: 000000
-      LeftLittle:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasLeftLittle: 000000
-      RightThumb:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasRightThumb: 000000
-      RightIndex:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasRightIndex: 000000
-      RightMiddle:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasRightMiddle: 000000
-      RightRing:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasRightRing: 000000
-      RightLittle:
-      - {fileID: 0}
-      - {fileID: 0}
-      - {fileID: 0}
-      HasRightLittle: 000000
-    SavedruntimeAnimatorController: {fileID: 0}
-    SkinnedMeshRenderer: []
-    Player: {fileID: 0}
-    CurrentlyTposing: 0
-    HasEvents: 0
-    ActiveMatrixOverrides: 
-    SkinnedMeshRendererLength: 0
-    HeadTwoBoneIK: {fileID: 0}
+    JiggleColliders: []
+    ScaleAvatarModification:
+      DuringCalibrationScale: {x: 1, y: 1, z: 1}
+      ApplyScale: 0
+      FinalScale: {x: 1, y: 1, z: 1}
+  LocalRigDriver:
+    MinCutoff: 5.5
+    Beta: 3.25
+    DerivativeCutoff: 3
+    SpineIK: {fileID: 0}
     LeftFootTwoBoneIK: {fileID: 0}
     RightFootTwoBoneIK: {fileID: 0}
     LeftHandTwoBoneIK: {fileID: 0}
@@ -737,13 +589,12 @@ MonoBehaviour:
     RightToeConstraint: {fileID: 0}
     LeftToeRig: {fileID: 0}
     RightToeRig: {fileID: 0}
-    RigSpineRig: {fileID: 0}
-    RigHeadRig: {fileID: 0}
+    HeadRig: {fileID: 0}
+    SpineRig: {fileID: 0}
     LeftHandRig: {fileID: 0}
     RightHandRig: {fileID: 0}
     LeftFootRig: {fileID: 0}
     RightFootRig: {fileID: 0}
-    ChestSpineRig: {fileID: 0}
     LeftShoulderRig: {fileID: 0}
     RightShoulderRig: {fileID: 0}
     LeftHandLayer:
@@ -764,13 +615,13 @@ MonoBehaviour:
     RightToeLayer:
       m_Rig: {fileID: 0}
       m_Active: 0
-    RigHeadLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
     RigSpineLayer:
       m_Rig: {fileID: 0}
       m_Active: 0
-    ChestSpineLayer:
+    RigChainSpineLayer:
+      m_Rig: {fileID: 0}
+      m_Active: 0
+    HeadLayer:
       m_Rig: {fileID: 0}
       m_Active: 0
     LeftShoulderLayer:
@@ -782,13 +633,6 @@ MonoBehaviour:
     Rigs: []
     Builder: {fileID: 0}
     AdditionalTransforms: []
-    HasTPoseEvent: 0
-    Locomotion: Locomotion
-    MaxExtendedDistance: 0
-    ScaleAvatarModification:
-      DuringCalibrationScale: {x: 1, y: 1, z: 1}
-      ApplyScale: 0
-      FinalScale: {x: 1, y: 1, z: 1}
   LocalCharacterDriver:
     LocalPlayer: {fileID: 4587526044252889482}
     characterController: {fileID: 5548795088377030369}
@@ -876,6 +720,18 @@ MonoBehaviour:
     smoothFactor: 30
     smoothedRotation: {x: 0, y: 0, z: 0, w: 0}
   LocalHandDriver:
+    LeftHand:
+      ThumbPercentage: {x: 0, y: 0}
+      IndexPercentage: {x: 0, y: 0}
+      MiddlePercentage: {x: 0, y: 0}
+      RingPercentage: {x: 0, y: 0}
+      LittlePercentage: {x: 0, y: 0}
+    RightHand:
+      ThumbPercentage: {x: 0, y: 0}
+      IndexPercentage: {x: 0, y: 0}
+      MiddlePercentage: {x: 0, y: 0}
+      RingPercentage: {x: 0, y: 0}
+      LittlePercentage: {x: 0, y: 0}
     Current:
       LeftThumb: []
       LeftIndex: []
@@ -897,18 +753,6 @@ MonoBehaviour:
     RightMiddle: []
     RightRing: []
     RightLittle: []
-    LeftHand:
-      ThumbPercentage: {x: 0, y: 0}
-      IndexPercentage: {x: 0, y: 0}
-      MiddlePercentage: {x: 0, y: 0}
-      RingPercentage: {x: 0, y: 0}
-      LittlePercentage: {x: 0, y: 0}
-    RightHand:
-      ThumbPercentage: {x: 0, y: 0}
-      IndexPercentage: {x: 0, y: 0}
-      MiddlePercentage: {x: 0, y: 0}
-      RingPercentage: {x: 0, y: 0}
-      LittlePercentage: {x: 0, y: 0}
     LastLeftThumbPercentage: {x: -1.1, y: -1.1}
     LastLeftIndexPercentage: {x: -1.1, y: -1.1}
     LastLeftMiddlePercentage: {x: -1.1, y: -1.1}
@@ -1075,57 +919,23 @@ MonoBehaviour:
     rightEyeTransform: {fileID: 0}
     HeadTransform: {fileID: 0}
     LeftEyeInitallocalSpace:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
+      rotation: {x: 0, y: 0, z: 0, w: 0}
+      position: {x: 0, y: 0, z: 0}
     RightEyeInitallocalSpace:
-      rotation:
-        value:
-          x: 0
-          y: 0
-          z: 0
-          w: 0
-      position:
-        x: 0
-        y: 0
-        z: 0
-    RandomizedPosition:
-      x: 0
-      y: 0
-      z: 0
+      rotation: {x: 0, y: 0, z: 0, w: 0}
+      position: {x: 0, y: 0, z: 0}
+    RandomizedPosition: {x: 0, y: 0, z: 0}
     HasLeftEye: 0
     HasRightEye: 0
     LeftEyeHasGizmo: 0
     RightEyeHasGizmo: 0
     LeftEyeGizmoIndex: 0
     RightEyeGizmoIndex: 0
-    LeftEyeTargetWorld:
-      x: 0
-      y: 0
-      z: 0
-    RightEyeTargetWorld:
-      x: 0
-      y: 0
-      z: 0
-    CenterTargetWorld:
-      x: 0
-      y: 0
-      z: 0
-    AppliedOffset:
-      x: 0
-      y: 0
-      z: 0
-    EyeForwards:
-      x: 0
-      y: 0
-      z: 1
+    LeftEyeTargetWorld: {x: 0, y: 0, z: 0}
+    RightEyeTargetWorld: {x: 0, y: 0, z: 0}
+    CenterTargetWorld: {x: 0, y: 0, z: 0}
+    AppliedOffset: {x: 0, y: 0, z: 0}
+    EyeForwards: {x: 0, y: 0, z: 1}
     CurrentLookAroundInterval: 0
     timer: 0
     DistanceBeforeTeleport: 30
@@ -1144,6 +954,22 @@ MonoBehaviour:
     WasSuccessful: 0
     HashInstanceID: -1
     uLipSyncEnabledState: 1
+  CurrentHeight:
+    AvatarName: 
+    PlayerEyeHeight: 1.64
+    AvatarEyeHeight: 1.64
+    PlayerArmSpan: 1.7
+    AvatarArmSpan: 1.7
+    CustomPlayerEyeHeight: 1.7
+    CustomAvatarEyeHeight: 1.7
+    EyeRatioPlayerToDefaultScale: 1
+    EyeRatioAvatarToAvatarDefaultScale: 1
+    ArmRatioPlayerToDefaultScale: 1
+    ArmRatioAvatarToAvatarDefaultScale: 1
+    SelectedPlayerHeight: 1.7
+    SelectedAvatarHeight: 1.7
+    SelectedPlayerToDefaultScale: 1
+    SelectedAvatarToAvatarDefaultScale: 1
 --- !u!143 &5548795088377030369
 CharacterController:
   m_ObjectHideFlags: 0

@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 public class SMModuleDistanceBasedReductions : BasisSettingsBase
 {
@@ -10,7 +11,7 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
     public static event Action<float> OnMicrophoneRangeChanged;
     public static event Action<float> OnHearingRangeChanged;
     public static event Action<float> OnAvatarRangeChanged;
-    public static event Action<float> OnMeshLodChanged; 
+    public static event Action<float> OnMeshLodChanged;
 
     /// <summary>
     /// will be value * value returned pre-squared
@@ -111,6 +112,13 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
 #else
                     MeshLod = lod * lod;
 #endif
+                }
+                break;
+            case "global meshlod":
+                if (SliderReadOption(optionValue, out float GlobalLOD))
+                {
+                    BasisDebug.Log($"Global MESHLOD set to {GlobalLOD}");
+                    QualitySettings.meshLodThreshold = GlobalLOD;
                 }
                 break;
 

@@ -65,6 +65,7 @@ public class BasisEventDriver : MonoBehaviour
     public void FixedUpdate()
     {
         BasisSceneFactory.Simulate();
+        JigglePhysics.ScheduleSimulate(Time.timeAsDouble, Time.fixedTimeAsDouble, Time.fixedDeltaTime);
     }
     public void LateUpdate()
     {
@@ -90,15 +91,15 @@ public class BasisEventDriver : MonoBehaviour
         if(BasisLocalAvatarDriver.IsNormalHead == false)
         {
             BasisLocalAvatarDriver.ScaleHeadToNormal();
-            JigglePhysics.ScheduleUpdate(TimeAsDouble);
-            JigglePhysics.CompleteUpdate();
+            JigglePhysics.SchedulePose(TimeAsDouble);
+            JigglePhysics.CompletePose();
             BasisLocalAvatarDriver.ScaleheadToZero();
         }
         else
         {
             //if the local head is good already just continue on.
-            JigglePhysics.ScheduleUpdate(TimeAsDouble);
-            JigglePhysics.CompleteUpdate();
+            JigglePhysics.SchedulePose(TimeAsDouble);
+            JigglePhysics.CompletePose();
         }
     }
     private void OnBeforeRender()

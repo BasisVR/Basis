@@ -10,6 +10,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
+using Basis.Scripts.Addressable_Driver.Resource;
 
 public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 {
@@ -97,6 +98,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         OnPickupUse -= OnPickupUseCapture;
         base.OnDestroy();
+        AddressableResourceProcess.ReleaseGameobject(this.gameObject);
     }
     private void OnEnable()
     {

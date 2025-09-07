@@ -1,5 +1,6 @@
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
@@ -7,28 +8,26 @@ namespace GatorDragonGames.JigglePhysics {
 
 [BurstCompile]
 public struct JiggleJobBulkTransformReset : IJobParallelForTransform {
-    [ReadOnly]
-    public NativeArray<JiggleTransform> simulateInputPoses;
-
     public NativeArray<JiggleTransform> restPoseTransforms;
 
     [ReadOnly] public NativeArray<JiggleTransform> previousLocalTransforms;
 
     public JiggleJobBulkTransformReset(JiggleMemoryBus bus) {
-        simulateInputPoses = bus.simulateInputPoses;
         restPoseTransforms = bus.restPoseTransforms;
         previousLocalTransforms = bus.previousLocalRestPoseTransforms;
     }
 
     public void UpdateArrays(JiggleMemoryBus bus) {
-        simulateInputPoses = bus.simulateInputPoses;
         restPoseTransforms = bus.restPoseTransforms;
         previousLocalTransforms = bus.previousLocalRestPoseTransforms;
     }
 
+    public bool HasChanged(float3 oldPosition, Vector3 newPosition, quaternion oldRotation, Quaternion newRotation) {
+        return newPosition == (Vector3)oldPosition && newRotation == (Quaternion)oldRotation;
+    }
+
     public void Execute(int index, TransformAccess transform) {
-        var jiggleTransform = simulateInputPoses[index];
-        if (!transform.isValid || jiggleTransform.isVirtual) {
+        if (!transform.isValid) {
             return;
         }
 
@@ -36,8 +35,11 @@ public struct JiggleJobBulkTransformReset : IJobParallelForTransform {
         var restTransform = restPoseTransforms[index];
 
         var localTransform = previousLocalTransforms[index];
-        if (localPosition == (Vector3)localTransform.position &&
-            localRotation == (Quaternion)localTransform.rotation) {
+        if (localTransform.isVirtual) {
+            return;
+        }
+        
+        if (HasChanged(localTransform.position, localPosition, localTransform.rotation, localRotation)) {
             transform.SetLocalPositionAndRotation(restTransform.position, restTransform.rotation);
         } else {
             restTransform.position = localPosition;

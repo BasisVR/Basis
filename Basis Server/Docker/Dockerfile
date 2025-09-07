@@ -1,5 +1,5 @@
 # Stage 1: Build the server
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS build
 WORKDIR /src
 
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
@@ -9,10 +9,11 @@ WORKDIR "/src/Server/BasisServerConsole"
 
 # Restore dependencies and publish the application
 RUN dotnet restore ./BasisNetworkConsole.csproj
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish -c Release --no-restore -o /app/publish
 
 # Stage 2: Create runtime image
-FROM mcr.microsoft.com/dotnet/runtime:9.0
+FROM mcr.microsoft.com/dotnet/runtime:9.0-bookworm-slim
+    
 WORKDIR /app
 
 # Copy the published output

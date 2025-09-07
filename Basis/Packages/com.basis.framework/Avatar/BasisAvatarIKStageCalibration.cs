@@ -47,6 +47,9 @@ namespace Basis.Scripts.Avatar
 
             //now that we have latest * scale we can run calibration
             BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
+            BasisLocalPlayer.Instance.DriveTpose();//update the avatars position.
+
+
             List<BasisBoneTrackedRole> rolesToDiscover = GetAllRoles();
             List<BasisBoneTrackedRole> trackInputRoles = new List<BasisBoneTrackedRole>();
             int count = rolesToDiscover.Count;

@@ -505,22 +505,46 @@ namespace Basis.Scripts.Common
             rotation = default;
             return false;
         }
+        public BasisCalibratedCoords TposeHead = new BasisCalibratedCoords();
+        public BasisCalibratedCoords TposeHips = new BasisCalibratedCoords();
+        public Quaternion AnimatorRotation; // rotation during calibration
 
-
-        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TPoseRecords = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public void RecordPoses(Animator animator)
         {
-            //Tpose
-            for (int Index = 0; Index < 53; Index++)
+            // Capture animator rotation in world space
+            AnimatorRotation = animator.transform.rotation;
+
+            if (GetTransform(HumanBodyBones.Head, out Transform headBoneTransform))
             {
-                HumanBodyBones bone = (HumanBodyBones)Index;
-                if (GetTransform(bone, out Transform boneTransform))
-                {
-                    boneTransform.GetLocalPositionAndRotation(out var pos, out var rot);
-                    TPoseRecords[bone] = new BasisCalibratedCoords(pos, rot);
-                }
+                headBoneTransform.GetPositionAndRotation(out var pos, out var rot);
+
+                // Local rotation relative to animator's rotation
+                Quaternion relativeRot = Quaternion.Inverse(AnimatorRotation) * rot;
+
+                TposeHead.position = pos;
+                TposeHead.rotation = relativeRot;
+            }
+            else
+            {
+                TposeHead.position = Vector3.zero;
+                TposeHead.rotation = Quaternion.identity;
+            }
+
+            if (GetTransform(HumanBodyBones.Hips, out Transform hipsBoneTransform))
+            {
+                hipsBoneTransform.GetPositionAndRotation(out var pos, out var rot);
+
+                // Local rotation relative to animator's rotation
+                Quaternion relativeRot = Quaternion.Inverse(AnimatorRotation) * rot;
+
+                TposeHips.position = pos;
+                TposeHips.rotation = relativeRot;
+            }
+            else
+            {
+                TposeHips.position = Vector3.zero;
+                TposeHips.rotation = Quaternion.identity;
             }
         }
-       
     }
 }

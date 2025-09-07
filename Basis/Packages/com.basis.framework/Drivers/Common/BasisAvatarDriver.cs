@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
@@ -173,7 +174,7 @@ namespace Basis.Scripts.Drivers
             return false;
         }
         public List<JiggleColliderSerializable> JiggleColliders;
-        public void AddJiggleRigs(BasisTransformMapping Mapping)
+        public void AddJiggleRigColliders(BasisTransformMapping Mapping)
         {
             JiggleCreatorHelper(Mapping.leftFoot);
             JiggleCreatorHelper(Mapping.rightFoot);
@@ -191,6 +192,7 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.RightRing);
             JiggleCreatorHelper(Mapping.RightLittle);
             JiggleCreatorHelper(Mapping.rightHand);
+            BasisDebug.Log("Creating Collider Rigs");
             foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
             {
                 JigglePhysics.AddJiggleCollider(Jiggle);
@@ -210,22 +212,34 @@ namespace Basis.Scripts.Drivers
                 JiggleColliderSerializable jiggleColliderSerializable = new JiggleColliderSerializable
                 {
                     collider = new JiggleCollider()
+                    {
+                        type = JiggleCollider.JiggleColliderType.Sphere,
+                        localToWorldMatrix = Parent.localToWorldMatrix,
+                        radius = 0.1f
+                    }
                 };
                 jiggleColliderSerializable.collider.type = JiggleCollider.JiggleColliderType.Sphere;
-                jiggleColliderSerializable.collider.worldRadius = 0.1f;
                 jiggleColliderSerializable.transform = Parent;
 
                 JiggleColliders.Add(jiggleColliderSerializable);
             }
         }
-        public void RemoveJiggleRigs()
+        public void RemoveJiggleRigColliders()
         {
+            BasisDebug.Log("Removed Collider Rigs");
             foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
             {
                 JigglePhysics.RemoveJiggleCollider(Jiggle);
             }
             JiggleColliders.Clear();
         }
-
+        public static void SetupAvatarLayers(BasisPlayer Player, int Layer)
+        {
+            int RenderCount = Player.BasisAvatar.Renders.Length;
+            for (int Index = 0; Index < RenderCount; Index++)
+            {
+                Player.BasisAvatar.Renders[Index].gameObject.layer = Layer;
+            }
+        }
     }
 }

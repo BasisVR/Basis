@@ -53,9 +53,11 @@ public class BasisPropSDKInspector : Editor
             Debug.LogError("No build targets selected.");
             return;
         }
+        Texture2D Image = AssetPreview.GetAssetPreview(BasisProp.gameObject);
+        byte[] ImageBytes = BasisTextureCompression.ToPngBytes(Image);
 
         Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
-        (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(BasisProp, targets);
+        (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets);
         EditorUtility.ClearProgressBar();
         // Clear any previous result label
         ClearResultLabel();

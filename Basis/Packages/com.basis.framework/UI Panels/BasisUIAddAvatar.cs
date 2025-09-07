@@ -1,5 +1,4 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
+
 using Basis.Scripts.BasisSdk.Players;
 using System;
 using System.Collections.Generic;
@@ -47,8 +46,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         public static void OpenAddAvatarUI()
         {
-            AddressableGenericResource resource = new AddressableGenericResource(MenuString, AddressableExpectedResult.SingleItem);
-            OpenMenuNow(resource);
+            OpenMenuNow(MenuString);
         }
         public override void InitalizeEvent()
         {

@@ -1,6 +1,8 @@
+using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Receivers;
+using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.NamePlate;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -33,7 +35,7 @@ namespace Basis.Scripts.BasisSdk.Players
         public byte AlwaysRequestedMode;//0 downloading 1 local
         [HideInInspector]
         public BasisLoadableBundle AlwaysRequestedAvatar;
-        public async Task RemoteInitialize(ClientAvatarChangeMessage cACM, ClientMetaDataMessage PlayerMetaDataMessage)
+        public async Task RemoteInitialize(ClientAvatarChangeMessage cACM, ClientMetaDataMessage PlayerMetaDataMessage, string LoadableNamePlatename = "Assets/UI/Prefabs/NamePlate.prefab")
         {
             CACM = cACM;
             DisplayName = PlayerMetaDataMessage.playerDisplayName;
@@ -48,7 +50,24 @@ namespace Basis.Scripts.BasisSdk.Players
                 RemoteAvatarDriver.CalibrationComplete += RemoteCalibration;
                 HasEvents = true;
             }
-            await BasisRemoteNamePlateFactory.LoadRemoteNamePlate(this);
+            var data = await AddressableResourceProcess.LoadSystemGameobject(LoadableNamePlatename, new UnityEngine.ResourceManagement.ResourceProviders.InstantiationParameters());
+            if (data.TryGetComponent(out RemoteNamePlate))
+            {
+                if (this == null)
+                {
+                    AddressableResourceProcess.ReleaseGameobject(data);
+                    return;
+                }
+                RemoteNamePlate.transform.SetParent(transform, false);
+                if (RemoteBoneDriver.FindBone(out BasisRemoteBoneControl Hips, BasisBoneTrackedRole.Hips))
+                {
+                    RemoteNamePlate.Initalize(Hips, this);
+                }
+                else
+                {
+                    BasisDebug.LogError("Missing Hips!");
+                }
+            }
         }
         public async void LoadAvatarFromInitial(ClientAvatarChangeMessage CACM)
         {
@@ -136,6 +155,10 @@ namespace Basis.Scripts.BasisSdk.Players
                 RemoteEyeDriver.OnDestroy();
             }
             RemoteBoneDriver.DeInitializeGizmos();
+            if (RemoteNamePlate != null)
+            {
+                AddressableResourceProcess.ReleaseGameobject(RemoteNamePlate.gameObject);
+            }
         }
         public void RemoteCalibration()
         {

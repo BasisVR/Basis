@@ -1,5 +1,4 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
+
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -31,8 +30,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         public static void OpenPlayerMenu()
         {
-            AddressableGenericResource resource = new AddressableGenericResource(AddressableID, AddressableExpectedResult.SingleItem);
-            OpenMenuNow(resource);
+            OpenMenuNow(AddressableID);
         }
 
         public void OpenPanel(GameObject panel)

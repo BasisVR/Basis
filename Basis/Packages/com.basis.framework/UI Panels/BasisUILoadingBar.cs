@@ -1,5 +1,4 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
+
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -57,7 +56,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         public static void ProgressReport(string UniqueID, float progress, string info)
         {
-            BasisDeviceManagement.EnqueueOnMainThread(() =>
+            BasisDeviceManagement.EnqueueOnMainThread((Action)(() =>
             {
                 if (progress == 100)
                 {
@@ -67,12 +66,11 @@ namespace Basis.Scripts.UI.UI_Panels
                 {
                     if (Instance == null)
                     {
-                        AddressableGenericResource resource = new AddressableGenericResource(LoadingBar, AddressableExpectedResult.SingleItem);
-                        BasisUIBase.OpenMenuNow(resource);
+                        BasisUIBase.OpenMenuNow(LoadingBar);
                     }
                     Instance.AddOrUpdateDisplay(UniqueID, progress, info);
                 }
-            });
+            }));
         }
 
         public static void CloseLoadingBar()

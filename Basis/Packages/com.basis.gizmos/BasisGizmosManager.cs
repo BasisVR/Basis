@@ -36,7 +36,7 @@ public static class BasisGizmoManager
     /// <summary>
     /// Creates a new sphere gizmo.
     /// </summary>
-    public static bool CreateSphereGizmo(out int linkedID, Vector3 position, float size, Color color)
+    public static bool CreateSphereGizmo(string GizmoName,out int linkedID, Vector3 position, float size, Color color)
     {
         TryCreateParent();
         linkedID = CreateNewID();
@@ -75,6 +75,7 @@ public static class BasisGizmoManager
             basisGizmos.ConfigureMeshGizmo(material, Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx"), color);
             Gizmos[linkedID] = basisGizmos;
 
+            tempSphere.name = GizmoName;
             tempSphere.transform.position = position;
             tempSphere.transform.localScale = Vector3.one * size;
 
@@ -103,7 +104,7 @@ public static class BasisGizmoManager
         gizmo.UpdatePosition(position);
         return true;
     }
-    public static bool CreateLineGizmo(int linkedID, Vector3 start, Vector3 end, float width, Color color,GameObject Reference)
+    public static bool CreateLineGizmo(string GizmoName,int linkedID, Vector3 start, Vector3 end, float width, Color color,GameObject Reference)
     {
         TryCreateParent();
         GameObject gizmoObject = UnityEngine.Object.Instantiate(Reference,Parent.transform);
@@ -117,6 +118,7 @@ public static class BasisGizmoManager
             lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
             lineRenderer.startColor = color;
             lineRenderer.endColor = color;
+            lineRenderer.name = GizmoName;
             GizmosLine[linkedID] = basisGizmos;
 
             BasisDebug.Log($"Created LineGizmo with ID {linkedID}", BasisDebug.LogTag.Gizmo);
@@ -129,7 +131,7 @@ public static class BasisGizmoManager
             return false;
         }
     }
-    public static bool CreateLineGizmo(out int linkedID, Vector3 start, Vector3 end, float width, Color color)
+    public static bool CreateLineGizmo(string GizmoName,out int linkedID, Vector3 start, Vector3 end, float width, Color color)
     {
         linkedID = CreateNewID();
         if (GizmosLine.ContainsKey(linkedID))
@@ -147,7 +149,7 @@ public static class BasisGizmoManager
             BasisDebug.LogError($"Failed to load LineGizmo prefab from {GameobjectGizmoLine}", BasisDebug.LogTag.Gizmo);
             return false;
         }
-        return CreateLineGizmo(linkedID, start, end, width, color, LoadedLineGizmo);
+        return CreateLineGizmo(GizmoName,linkedID, start, end, width, color, LoadedLineGizmo);
     }
 
     /// <summary>
@@ -160,7 +162,6 @@ public static class BasisGizmoManager
             BasisDebug.LogError($"No LineGizmo found with ID {linkedID}. Use CreateLineGizmo first.", BasisDebug.LogTag.Gizmo);
             return false;
         }
-
         gizmo.LineRenderer.SetPosition(0, start);
         gizmo.LineRenderer.SetPosition(1, end);
         return true;

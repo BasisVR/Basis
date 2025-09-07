@@ -63,8 +63,10 @@ public class BasisSceneSDKInspector : Editor
             Debug.LogError("Invalid scene. AssetBundle build aborted.");
             return;
         }
+        Texture2D Image = AssetPreview.GetAssetPreview(BasisScene);
+        byte[] ImageBytes = BasisTextureCompression.ToPngBytes(Image);
         // Call the build function and capture result
-        (bool success, string message) = await BasisBundleBuild.SceneBundleBuild(BasisScene, targets);
+        (bool success, string message) = await BasisBundleBuild.SceneBundleBuild(ImageBytes, BasisScene, targets);
         EditorUtility.ClearProgressBar();
         // Clear any previous result label
         ClearResultLabel();

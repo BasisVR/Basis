@@ -44,6 +44,10 @@ namespace Basis.Scripts.UI.UI_Panels
 
             ApplySize();
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
+            if(BasisNetworkManagement.Instance != null)
+            {
+                LoadCurrentSettings();
+            }
         }
         public void ApplySize()
         {

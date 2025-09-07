@@ -28,7 +28,7 @@ public static class BasisMenuItemsEditor
     [MenuItem("Basis/Avatar/ReloadAvatar")]
     public static async Task ReloadAvatar()
     {
-        if (BasisDataStore.LoadAvatar(BasisLocalPlayer.LoadFileNameAndExtension, BasisLocalPlayer.DefaultAvatar, BasisPlayer.LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastSavedAvatar))
+        if (BasisDataStore.LoadAvatar(BasisLocalPlayer.LoadFileNameAndExtension, BasisBeeConstants.DefaultAvatar, BasisPlayer.LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastSavedAvatar))
         {
             await BasisLocalPlayer.Instance.LoadInitialAvatar(LastSavedAvatar);
         }
@@ -254,8 +254,6 @@ public static class BasisMenuItemsEditor
         BasisAvatarEyeInput basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisAvatarEyeInput>();
         if (basisAvatarEyeInput != null)
         {
-            basisAvatarEyeInput.InjectedX = UnityEngine.Random.Range(-3, 3);
-            basisAvatarEyeInput.InjectedZ = UnityEngine.Random.Range(-3, 3);
             basisAvatarEyeInput.rotationX = UnityEngine.Random.Range(-360, 360);
         }
         BasisLocalPlayer.Instance.StartCoroutine(WaitAndCreatePuck3Tracker());

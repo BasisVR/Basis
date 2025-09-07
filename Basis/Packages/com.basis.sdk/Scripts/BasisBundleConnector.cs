@@ -9,12 +9,13 @@ public class BasisBundleConnector
     public string UniqueVersion;
     public BasisBundleDescription BasisBundleDescription;
     public BasisBundleGenerated[] BasisBundleGenerated;
-
-    public BasisBundleConnector(string version, BasisBundleDescription basisBundleDescription, BasisBundleGenerated[] basisBundleGenerated)
+    public byte[] ImageBytes;
+    public BasisBundleConnector(string version, BasisBundleDescription basisBundleDescription, BasisBundleGenerated[] basisBundleGenerated, byte[] imageBytes)
     {
         UniqueVersion = version ?? throw new ArgumentNullException(nameof(version));
         BasisBundleDescription = basisBundleDescription ?? throw new ArgumentNullException(nameof(basisBundleDescription));
         BasisBundleGenerated = basisBundleGenerated ?? throw new ArgumentNullException(nameof(basisBundleGenerated));
+        ImageBytes = imageBytes;
     }
     public BasisBundleConnector()
     {

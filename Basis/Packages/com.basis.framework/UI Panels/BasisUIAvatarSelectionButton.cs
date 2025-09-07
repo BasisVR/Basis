@@ -6,4 +6,5 @@ public class BasisUIAvatarSelectionButton : MonoBehaviour
 {
     public Button Button;
     public TextMeshProUGUI Text;
+    public RawImage Image;
 }

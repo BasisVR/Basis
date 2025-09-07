@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -5,37 +6,38 @@ using UnityEngine.Profiling;
 namespace GatorDragonGames.JigglePhysics {
 
 public static class JigglePhysics {
-    private static HashSet<JiggleTreeSegment> jiggleTreeSegments;
     private static Dictionary<Transform, JiggleTreeSegment> jiggleRootLookup;
     private static bool _globalDirty = true;
-    private static HashSet<JiggleTree> jiggleTrees;
     private static readonly List<Transform> tempTransforms = new List<Transform>();
     private static readonly List<JiggleSimulatedPoint> tempPoints = new List<JiggleSimulatedPoint>();
+    private static readonly List<JigglePointParameters> tempParameters = new List<JigglePointParameters>();
     private static readonly List<JiggleCollider> tempColliders = new List<JiggleCollider>();
     private static readonly List<Transform> tempColliderTransforms = new List<Transform>();
     private static List<JiggleTreeSegment> rootJiggleTreeSegments;
+    private static bool initializedRendering = false;
 
-    private static double time = 0f;
-    public const double FIXED_DELTA_TIME = 1.0 / 30.0;
-    public const double FIXED_DELTA_TIME_SQUARED = FIXED_DELTA_TIME * FIXED_DELTA_TIME;
+    private static double lastFixedCurrentTime = 0f;
+    public const float MERGE_DISTANCE = 0.001f;
 
     private static JiggleJobs jobs;
 
-    public static void ScheduleUpdate(double currentTime) {
-        if (currentTime-time < FIXED_DELTA_TIME) {
-            jobs?.SchedulePoses(currentTime);
+    public static void ScheduleSimulate(double currentTime, double fixedCurrentTime, float fixedDeltaTime) {
+        if (Math.Abs(lastFixedCurrentTime - fixedCurrentTime) < 0.0001f) {
             return;
         }
+        
+        lastFixedCurrentTime = fixedCurrentTime;
 
-        while (currentTime-time >= FIXED_DELTA_TIME) {
-            time += FIXED_DELTA_TIME;
-        }
-
-        jobs = GetJiggleJobs();
-        jobs.Simulate(time, currentTime);
+        jobs = GetJiggleJobs(currentTime, fixedDeltaTime);
+        jobs.Simulate(fixedCurrentTime, currentTime);
     }
 
-    public static void CompleteUpdate() {
+    public static void SchedulePose(double currentTime) {
+        jobs?.SchedulePoses(currentTime);
+    }
+
+
+    public static void CompletePose() {
         jobs?.CompletePoses();
     }
 
@@ -44,46 +46,65 @@ public static class JigglePhysics {
             return;
         }
 
-        GetJiggleJobs().OnDrawGizmos();
+        jobs?.OnDrawGizmos();
     }
     
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Initialize() {
-        jiggleTreeSegments = new HashSet<JiggleTreeSegment>();
         rootJiggleTreeSegments = new List<JiggleTreeSegment>();
         jiggleRootLookup = new Dictionary<Transform, JiggleTreeSegment>();
-        jiggleTrees = new HashSet<JiggleTree>();
+        initializedRendering = false;
         _globalDirty = true;
-        time = 0f;
         jobs?.Dispose();
-        jobs = new JiggleJobs();
+        jobs = new JiggleJobs(Time.timeAsDouble, Time.fixedDeltaTime);
     }
 
     public static void Dispose() {
         jobs?.Dispose();
-        jiggleTreeSegments = new HashSet<JiggleTreeSegment>();
+        JiggleRenderer.Dispose();
         rootJiggleTreeSegments = new List<JiggleTreeSegment>();
         jiggleRootLookup = new Dictionary<Transform, JiggleTreeSegment>();
-        jiggleTrees = new HashSet<JiggleTree>();
         _globalDirty = true;
         jobs = null;
+    }
+
+    public static void ScheduleRender() {
+        if (!initializedRendering) {
+            JiggleRenderer.OnEnable(jobs);
+            initializedRendering = true;
+        }
+        JiggleRenderer.PrepareRender(jobs);
+    }
+
+    public static void CompleteRender(Material proceduralMaterial, Mesh sphere) {
+        if (!initializedRendering) {
+            JiggleRenderer.OnEnable(jobs);
+            initializedRendering = true;
+        }
+
+        JiggleRenderer.FinishRender(proceduralMaterial, sphere);
     }
     
     public static void SetGlobalDirty() => _globalDirty = true;
 
     public static void AddJiggleCollider(JiggleColliderSerializable collider) {
-        jobs?.Add(collider);
+        jobs.ScheduleAdd(collider);
     }
 
     public static void RemoveJiggleCollider(JiggleColliderSerializable collider) {
-        jobs?.Remove(collider);
+        jobs?.ScheduleRemove(collider);
+    }
+    public static void FreeOnComplete(IntPtr pointer) {
+        jobs.FreeOnComplete(pointer);
     }
     
     public static void AddJiggleTreeSegment(JiggleTreeSegment jiggleTreeSegment) {
-        jiggleTreeSegments.Add(jiggleTreeSegment);
-        if (TryAddRootJiggleTreeSegment(jiggleTreeSegment)) {
-            jiggleRootLookup.Add(jiggleTreeSegment.transform, jiggleTreeSegment);
+        if (!jiggleRootLookup.TryAdd(jiggleTreeSegment.transform, jiggleTreeSegment)) {
+            Debug.LogError("Multiple Jiggle trees detected targeting the same root transform, Jiggle Physics doesn't support this.", jiggleTreeSegment.transform);
+            return;
         }
+        RemoveAddChildren(jiggleTreeSegment.transform);
+        TryAddRootJiggleTreeSegment(jiggleTreeSegment);
         _globalDirty = true;
     }
     
@@ -120,11 +141,23 @@ public static class JigglePhysics {
             return true;
         }
     }
+
+    private static void RemoveAddChildren(Transform t) {
+        foreach (Transform child in t) {
+            if (jiggleRootLookup.TryGetValue(child, out var jiggleRootSegment)) {
+                rootJiggleTreeSegments.Remove(jiggleRootSegment);
+                TryAddRootJiggleTreeSegment(jiggleRootSegment);
+            }
+            RemoveAddChildren(child);
+        }
+    }
     
-    public static JiggleJobs GetJiggleJobs() {
+    private static JiggleJobs GetJiggleJobs(double currentTimeAsDouble, float fixedDeltaTime) {
         if (!_globalDirty) {
             return jobs;
         }
+        jobs ??= new JiggleJobs(currentTimeAsDouble, fixedDeltaTime);
+        jobs.SetFixedDeltaTime(fixedDeltaTime);
         GetJiggleTrees();
         _globalDirty = false;
         return jobs;
@@ -135,22 +168,20 @@ public static class JigglePhysics {
         // TODO: Cleanup previous trees, or reuse them.
         foreach (var rootJiggleTreeSegment in rootJiggleTreeSegments) {
             var currentTree = rootJiggleTreeSegment.jiggleTree;
-            if (currentTree != null && jiggleTrees.Contains(currentTree) && !currentTree.dirty) {
+            if (currentTree is { dirty: false }) {
                 continue;
             }
-            if (currentTree == null || currentTree.dirty) {
-                CreateJiggleTree(rootJiggleTreeSegment.rig, rootJiggleTreeSegment);
-            }
-            jiggleTrees.Add(rootJiggleTreeSegment.jiggleTree);
-            jobs.Add(rootJiggleTreeSegment.jiggleTree);
+            rootJiggleTreeSegment.RegenerateJiggleTreeIfNeeded();
+            jobs.ScheduleAdd(rootJiggleTreeSegment.jiggleTree);
         }
         Profiler.EndSample();
     }
 
-    public static JiggleTree CreateJiggleTree(JiggleRigData jiggleRig, JiggleTreeSegment segment) {
+    public static JiggleTree CreateJiggleTree(JiggleRigData jiggleRig, JiggleTree tree) {
         Profiler.BeginSample("JiggleTreeUtility.CreateJiggleTree");
         tempTransforms.Clear();
         tempPoints.Clear();
+        tempParameters.Clear();
         jiggleRig.GetJiggleColliders(tempColliders);
         jiggleRig.GetJiggleColliderTransforms(tempColliderTransforms);
         if (!jiggleRig.GetNormalizedDistanceFromRootListIsValid()) jiggleRig.BuildNormalizedDistanceFromRootList();
@@ -161,7 +192,7 @@ public static class JigglePhysics {
             var diff = pos - childPos;
             backProjection = pos + diff;
         } else {
-            backProjection = jiggleRig.rootBone.position;
+            backProjection = jiggleRig.rootBone.position + jiggleRig.rootBone.up * 0.25f;
         }
         var lossyScaleSample = jiggleRig.rootBone.lossyScale;
         var lossyScale = (lossyScaleSample.x + lossyScaleSample.y + lossyScaleSample.z)/3f;
@@ -169,29 +200,26 @@ public static class JigglePhysics {
         tempPoints.Add(new JiggleSimulatedPoint() { // Back projected virtual root
             position = backProjection,
             lastPosition = backProjection,
-            childenCount = 1,
-            parameters = jiggleRig.GetJiggleBoneParameter(0f, cachedScale, lossyScale),
+            childenCount = 0,
             parentIndex = -1,
             hasTransform = false,
             animated = false,
         });
+        tempParameters.Add(jiggleRig.GetJiggleBoneParameter(0f, cachedScale, lossyScale));
         tempTransforms.Add(jiggleRig.rootBone);
-        Visit(jiggleRig.rootBone, tempTransforms, tempPoints, 0, jiggleRig, jiggleRig.rootBone.position, 0f, out int childIndex);
-        unsafe {
+        Visit(jiggleRig.rootBone, tempTransforms, tempPoints, tempParameters, 0, jiggleRig, backProjection, 0f, out int childIndex);
+        if (childIndex != -1) {
             var rootPoint = tempPoints[0];
-            rootPoint.childrenIndices[0] = childIndex;
+            AddChildToPoint(ref rootPoint, childIndex);
             tempPoints[0] = rootPoint;
         }
+
         Profiler.EndSample();
-        bool hasSegment = segment != null;
-        if (hasSegment && segment.jiggleTree != null) {
-            segment.jiggleTree.Set(tempTransforms, tempPoints, tempColliderTransforms, tempColliders);
-            return segment.jiggleTree;
-        } else if (hasSegment) {
-            segment.SetJiggleTree(new JiggleTree(tempTransforms, tempPoints, tempColliderTransforms, tempColliders));
-            return segment.jiggleTree;
+        if (tree != null) {
+            tree.Set(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders);
+            return tree;
         } else {
-            return new JiggleTree(tempTransforms, tempPoints, tempColliderTransforms, tempColliders);
+            return new JiggleTree(tempTransforms, tempPoints, tempParameters, tempColliderTransforms, tempColliders);
         }
     }
 
@@ -210,18 +238,51 @@ public static class JigglePhysics {
         }
     }
 
-    private static void Visit(Transform t, List<Transform> transforms, List<JiggleSimulatedPoint> points, int parentIndex, JiggleRigData lastJiggleRig, Vector3 lastPosition, float currentLength, out int newIndex) {
+    private static void Visit(Transform t, List<Transform> transforms, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, int parentIndex, JiggleRigData lastJiggleRig, Vector3 lastPosition, float currentLength, out int newIndex) {
         if (Application.isPlaying && GetJiggleTreeSegmentByBone(t, out JiggleTreeSegment currentJiggleTreeSegment)) {
             lastJiggleRig = currentJiggleTreeSegment.rig;
         }
         if (!lastJiggleRig.GetIsExcluded(t)) {
-            transforms.Add(t);
+            var validChildrenCount = lastJiggleRig.GetValidChildrenCount(t);
+            var currentPosition = t.position;
             var lossyScaleSample = t.lossyScale;
             var lossyScale = (lossyScaleSample.x + lossyScaleSample.y + lossyScaleSample.z) / 3f;
             var cachedLossyScale = lastJiggleRig.GetCachedLossyScale(t);
-            var parameters = lastJiggleRig.GetJiggleBoneParameter(lastJiggleRig.GetNormalizedDistanceFromRoot(t), cachedLossyScale, lossyScale);
+            if (Vector3.Distance(t.position, lastPosition) < MERGE_DISTANCE) {
+                if (validChildrenCount > 0) {
+                    for (int i = 0; i < validChildrenCount; i++) {
+                        var child = lastJiggleRig.GetValidChild(t, i);
+                        Visit(child, transforms, points, parameters, parentIndex, lastJiggleRig, lastPosition, currentLength, out int childIndex);
+                        if (childIndex != -1) {
+                            var record = points[parentIndex];
+                            AddChildToPoint(ref record, childIndex);
+                            points[parentIndex] = record;
+                        }
+                    }
+                    newIndex = -1;
+                } else {
+                    transforms.Add(t);
+                    points.Add(new JiggleSimulatedPoint() { // virtual projected tip
+                        position = currentPosition + (currentPosition - lastPosition),
+                        lastPosition = currentPosition + (currentPosition - lastPosition),
+                        childenCount = 0,
+                        distanceFromRoot = currentLength,
+                        parentIndex = parentIndex,
+                        hasTransform = false,
+                        animated = false,
+                    });
+                    parameters.Add(lastJiggleRig.GetJiggleBoneParameter(lastJiggleRig.GetNormalizedDistanceFromRoot(t), cachedLossyScale, lossyScale));
+                    var record = points[parentIndex];
+                    AddChildToPoint(ref record, points.Count - 1);
+                    points[parentIndex] = record;
+                    newIndex = points.Count - 1;
+                }
+                return;
+            }
+            transforms.Add(t);
+            var parameter = lastJiggleRig.GetJiggleBoneParameter(lastJiggleRig.GetNormalizedDistanceFromRoot(t), cachedLossyScale, lossyScale);
             if ((lastJiggleRig.excludeRoot && t == lastJiggleRig.rootBone) || lastJiggleRig.GetIsExcluded(t)) {
-                parameters = new JigglePointParameters() {
+                parameter = new JigglePointParameters() {
                     angleElasticity = 1f,
                     lengthElasticity = 1f,
                     rootElasticity = 1f,
@@ -233,19 +294,17 @@ public static class JigglePhysics {
                 currentLength += Vector3.Distance(lastPosition, t.position);
             }
             
-            var currentPosition = t.position;
 
-            var validChildrenCount = lastJiggleRig.GetValidChildrenCount(t);
             points.Add(new JiggleSimulatedPoint() { // Regular point
                 position = currentPosition,
                 lastPosition = currentPosition,
-                childenCount = validChildrenCount == 0 ? 1 : validChildrenCount,
+                childenCount = 0,
                 distanceFromRoot = currentLength,
-                parameters = parameters,
                 parentIndex = parentIndex,
                 hasTransform = true,
                 animated = true,
             });
+            parameters.Add(parameter);
             newIndex = points.Count - 1;
             
             if (validChildrenCount == 0) {
@@ -255,23 +314,21 @@ public static class JigglePhysics {
                     lastPosition = currentPosition + (currentPosition - lastPosition),
                     childenCount = 0,
                     distanceFromRoot = currentLength,
-                    parameters = lastJiggleRig.GetJiggleBoneParameter(lastJiggleRig.GetNormalizedDistanceFromRoot(t), cachedLossyScale, lossyScale),
                     parentIndex = newIndex,
                     hasTransform = false,
                     animated = false,
                 });
-                unsafe { // WEIRD
-                    var record = points[newIndex];
-                    record.childrenIndices[0] = points.Count - 1;
-                    points[newIndex] = record;
-                }
+                parameters.Add(lastJiggleRig.GetJiggleBoneParameter(lastJiggleRig.GetNormalizedDistanceFromRoot(t), cachedLossyScale, lossyScale));
+                var record = points[newIndex];
+                AddChildToPoint(ref record, points.Count - 1);
+                points[newIndex] = record;
             } else {
                 for (int i = 0; i < validChildrenCount; i++) {
                     var child = lastJiggleRig.GetValidChild(t, i);
-                    Visit(child, transforms, points, newIndex, lastJiggleRig, currentPosition, currentLength, out int childIndex);
-                    unsafe { // WEIRD
+                    Visit(child, transforms, points, parameters, newIndex, lastJiggleRig, currentPosition, currentLength, out int childIndex);
+                    if (childIndex != -1) {
                         var record = points[newIndex];
-                        record.childrenIndices[i] = childIndex;
+                        AddChildToPoint(ref record, childIndex);
                         points[newIndex] = record;
                     }
                 }
@@ -281,6 +338,18 @@ public static class JigglePhysics {
         }
 
     }
+
+    public static unsafe void AddChildToPoint(ref JiggleSimulatedPoint point, int childIndex) {
+        if (point.childenCount>=JiggleSimulatedPoint.MAX_CHILDREN) {
+            return;
+        }
+        point.childrenIndices[point.childenCount] = childIndex;
+        point.childenCount++;
+    }
+    
+    public static void ScheduleRemoveJiggleTree(JiggleTree jiggleTree) {
+        jobs?.ScheduleRemove(jiggleTree);
+    }
     
     public static void RemoveJiggleTreeSegment(JiggleTreeSegment jiggleTreeSegment) {
         if (rootJiggleTreeSegments.Contains(jiggleTreeSegment)) {
@@ -288,19 +357,9 @@ public static class JigglePhysics {
         }
 
         jiggleRootLookup.Remove(jiggleTreeSegment.transform);
-
-        if (jiggleTreeSegments.Contains(jiggleTreeSegment)) {
-            jiggleTreeSegments.Remove(jiggleTreeSegment);
-        }
         
-        if (jiggleTreeSegment.jiggleTree != null) {
-            if (jiggleTrees.Contains(jiggleTreeSegment.jiggleTree)) {
-                jiggleTrees.Remove(jiggleTreeSegment.jiggleTree);
-                jobs.Remove(jiggleTreeSegment.jiggleTree);
-            }
-            jiggleTreeSegment.jiggleTree.Dispose();
-        }
-
+        jiggleTreeSegment.SetDirty();
+        
         if (jiggleTreeSegment.parent != null) {
             jiggleTreeSegment.parent.SetDirty();
             jiggleTreeSegment.SetParent(null);

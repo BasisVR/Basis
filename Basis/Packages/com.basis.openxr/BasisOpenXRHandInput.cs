@@ -26,6 +26,7 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty PalmPoseActionRotation;
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
+        HandBiasSplay = 0;
         leftHandToIKRotationOffset = new Vector3(0, 90, -30);
         rightHandToIKRotationOffset = new Vector3(0, -90,30);
 
@@ -187,12 +188,34 @@ public class BasisOpenXRHandInput : BasisInputController
         fingerPose.MiddlePercentage[0] = RemapFingerValue(hand, XRHandFingerID.Middle);
         fingerPose.RingPercentage[0] = RemapFingerValue(hand, XRHandFingerID.Ring);
         fingerPose.LittlePercentage[0] = RemapFingerValue(hand, XRHandFingerID.Little);
+
+        float ThumbPercentage = RemapSplayFingerValue(hand, XRHandFingerID.Thumb);
+        float IndexPercentage = RemapSplayFingerValue(hand, XRHandFingerID.Index);
+        float MiddlePercentage = RemapSplayFingerValue(hand, XRHandFingerID.Middle);
+        float RingPercentage = RemapSplayFingerValue(hand, XRHandFingerID.Ring);
+        float LittlePercentage = RemapSplayFingerValue(hand, XRHandFingerID.Little);
+
+
+        // Map to your rig space [-1..1] and assign to the splay channel [1]
+        fingerPose.ThumbPercentage[1] = ThumbPercentage;
+        fingerPose.IndexPercentage[1] = IndexPercentage;
+        fingerPose.MiddlePercentage[1] = MiddlePercentage;
+        fingerPose.RingPercentage[1] = RingPercentage;
+        fingerPose.LittlePercentage[1] = LittlePercentage;
     }
     private float RemapFingerValue(XRHand hand, XRHandFingerID fingerID)
     {
         if (TryGetShapePercentage(hand, fingerID, XRFingerShapeTypes.FullCurl, XRFingerShapeType.FullCurl, out float value))
         {
             return Remap01ToMinus1To1(value);
+        }
+        return 0f;
+    }
+    private float RemapSplayFingerValue(XRHand hand, XRHandFingerID fingerID)
+    {
+        if (TryGetShapePercentage(hand, fingerID, XRFingerShapeTypes.Spread, XRFingerShapeType.Spread, out float value))
+        {
+            return SplayConversion(value);
         }
         return 0f;
     }
@@ -214,7 +237,7 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void ShowTrackedVisual()
     {
-        if (BasisVisualTracker == null && LoadedDeviceRequest == null)
+        if (BasisVisualTracker == null)
         {
             DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
             if (Match.CanDisplayPhysicalTracker)

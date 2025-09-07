@@ -90,7 +90,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         [SerializeField]
         public BasisCalibratedCoords TposeLocalScaled = new BasisCalibratedCoords();
 
-        public void ComputeMovementLocal(Matrix4x4 parentMatrix, Quaternion Rotation, float DeltaTime)
+        public void ComputeMovementLocal(Matrix4x4 parentMatrix, float DeltaTime)
         {
             if (hasTrackerDriver == BasisHasTracked.HasTracker)
             {
@@ -113,7 +113,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                     OutGoingData.rotation = IncomingData.rotation;
                     OutGoingData.position = IncomingData.position;
                 }
-                ApplyWorldAndLast(parentMatrix, Rotation);
+                ApplyWorldAndLast(parentMatrix);
             }
             else
             {
@@ -130,7 +130,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
 
                     // Interpolate between the last position and the target position
                     OutGoingData.position = Vector3.Lerp(LastRunData.position, targetPosition, lerpFactor);
-                    ApplyWorldAndLast(parentMatrix, Rotation);
+                    ApplyWorldAndLast(parentMatrix);
                 }
             }
         }
@@ -173,7 +173,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
             // Clamp the interpolation factor to ensure it stays between 0 and 1
             return math.clamp(lerpAmount * DeltaTime, 0f, 1f);
         }
-        public void ApplyWorldAndLast(Matrix4x4 parentMatrix, Quaternion Rotation)
+        public void ApplyWorldAndLast(Matrix4x4 parentMatrix)
         {
             LastRunData.position = OutGoingData.position;
             LastRunData.rotation = OutGoingData.rotation;
@@ -181,7 +181,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
             OutgoingWorldData.position = parentMatrix.MultiplyPoint3x4(OutGoingData.position);
 
             // Transform rotation via quaternion multiplication
-            OutgoingWorldData.rotation = Rotation * OutGoingData.rotation;
+            OutgoingWorldData.rotation = parentMatrix.rotation * OutGoingData.rotation;
         }
     }
 }

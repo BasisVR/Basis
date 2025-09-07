@@ -1,5 +1,5 @@
 using Basis.Scripts.Device_Management.Devices;
-using BattlePhaze.SettingsManager.Intergrations;
+
 using UnityEngine;
 namespace Basis.Scripts.BasisSdk.Interactions
 {
@@ -92,7 +92,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public override void OnInteractStart(BasisInput input)
         {
-            input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume / 80);
+            input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume);
             // save object distance and rotation
             anchor = input.transform;
 

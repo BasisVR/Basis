@@ -1,7 +1,7 @@
-using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
+using System;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -125,12 +125,12 @@ namespace Basis.Scripts.Eye_Follow
             {
                 if (LeftEyeHasGizmo == false)
                 {
-                    BasisGizmoManager.CreateSphereGizmo(out LeftEyeGizmoIndex, LeftEyeTargetWorld, 0.1f, Color.cyan);
+                    BasisGizmoManager.CreateSphereGizmo("LeftEye Target", out LeftEyeGizmoIndex, LeftEyeTargetWorld, 0.1f, Color.cyan);
                     LeftEyeHasGizmo = true;
                 }
                 if (RightEyeHasGizmo == false)
                 {
-                    BasisGizmoManager.CreateSphereGizmo(out RightEyeGizmoIndex, RightEyeTargetWorld, 0.1f, Color.magenta);
+                    BasisGizmoManager.CreateSphereGizmo("RightEye Target", out RightEyeGizmoIndex, RightEyeTargetWorld, 0.1f, Color.magenta);
                     RightEyeHasGizmo = true;
                 }
             }

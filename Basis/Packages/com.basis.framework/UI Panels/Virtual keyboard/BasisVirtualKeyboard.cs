@@ -1,5 +1,4 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
+
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
 using System;
@@ -37,8 +36,7 @@ namespace Basis.Scripts.Virtual_keyboard
         public static void CreateMenu(InputField inputField, TMP_InputField tMP_InputField)
         {
             HasInstance = true;
-            AddressableGenericResource resource = new AddressableGenericResource(VirtualKeyboard, AddressableExpectedResult.SingleItem);
-            OpenMenuNow(resource);
+            OpenMenuNow(VirtualKeyboard);
             InputField = inputField;
             TMPInputField = tMP_InputField;
         }

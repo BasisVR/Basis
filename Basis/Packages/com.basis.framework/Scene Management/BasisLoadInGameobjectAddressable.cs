@@ -1,21 +1,26 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
-using Basis.Scripts.Addressable_Driver.Factory;
+using Basis.Scripts.Addressable_Driver.Resource;
 using UnityEngine;
+using UnityEngine.ResourceManagement.ResourceProviders;
 
 public class BasisLoadInGameobjectAddressable : MonoBehaviour
 {
-    public AddressableGenericResource Resource;
     public string LoadRequest;
+    public ChecksRequired RequiredChecks;
+    public BundledContentHolder.Selector Selector = BundledContentHolder.Selector.Prop;
+    public GameObject Result;
+    public Vector3 Position;
+    public Quaternion Rotation;
+    public bool ReleaseOnDestroy = false;
     async void Start()
     {
-        Resource = new AddressableGenericResource(LoadRequest, AddressableExpectedResult.SingleItem);
-        await AddressableLoadFactory.LoadAddressableResourceAsync<GameObject>(Resource);
-        GameObject Result = (GameObject)Resource.Handles[0].Result;
-        Result = GameObject.Instantiate(Result);
+        InstantiationParameters instantiationParameters = new InstantiationParameters(Position, Rotation, null);
+        Result = await AddressableResourceProcess.LoadAsGameObjectsAsync(LoadRequest, instantiationParameters, RequiredChecks, Selector);
     }
     public void OnDestroy()
     {
-        AddressableLoadFactory.ReleaseResource(Resource);
+        if (ReleaseOnDestroy)
+        {
+            AddressableResourceProcess.ReleaseGameobject(Result);
+        }
     }
 }

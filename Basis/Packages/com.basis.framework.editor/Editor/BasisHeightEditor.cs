@@ -66,7 +66,7 @@ public class BasisHeightEditorWindow : EditorWindow
 
     private static void CapturePlayerHeight()
     {
-        BasisHeightDriver.CapturePlayerHeight();
+        BasisHeightDriver.CapturePlayerHeight(BasisLocalPlayer.Instance);
         BasisDebug.Log("Player height captured successfully.");
     }
 

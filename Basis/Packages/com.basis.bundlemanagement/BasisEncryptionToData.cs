@@ -70,6 +70,7 @@ public static class BasisEncryptionToData
 
         BasisDebug.Log("Converting byte array to JSON string...", BasisDebug.LogTag.Event);
         connector = SerializationUtility.DeserializeValue<BasisBundleConnector>(data, DataFormat.JSON);
+        BasisDebug.Log("Converted byte array to JSON string...", BasisDebug.LogTag.Event);
         return true;
     }
 }

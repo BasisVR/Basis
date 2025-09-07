@@ -31,12 +31,29 @@ namespace Basis.Scripts.UI.UI_Panels
 
         public Button DeleteAvatar;
         public Button ShowAvatarPassword;
+        public Button ShowAvatarURL;
         public Button GoBack;
         public Button ChangeIntoAvatar;
         public BasisLoadableBundle SelectedBundle;
         public TMP_InputField AvatarPassword;
+        public TMP_InputField AvatarURL;
         public TextMeshProUGUI Name;
         public TextMeshProUGUI Description;
+        public TextMeshProUGUI UniqueVersion;
+        public RawImage AvatarBigImage;
+        public Texture FallbackImage;
+        public RectTransform Content;
+        public GridLayoutGroup gridLayout;
+        public List<Texture> AvatarImages = new List<Texture>();
+        public GameObject WindowsIcon;
+        public GameObject LinuxIcon;
+        public GameObject AndroidIcon;
+        public Sprite EyeOn;
+        public Sprite EyeOff;
+        public Image EyePasswordIcon;
+        public Image EyeURLIcon;
+        public bool ISShowingPassword = false;
+        public bool ISShowingURL = false;
         private async void Start()
         {
             BasisDataStoreAvatarKeys.DisplayKeys();
@@ -45,25 +62,75 @@ namespace Basis.Scripts.UI.UI_Panels
             GoBack.onClick.AddListener(ShowAvatarSelectionPanel);
             DeleteAvatar.onClick.AddListener(SelectedDeleteAvatar);
             ShowAvatarPassword.onClick.AddListener(SelectedShowAvatarPassword);
+            ShowAvatarURL.onClick.AddListener(SelectedShowAvatarURL);
+
+            EyePasswordIcon.sprite = EyeOn;
+            EyeURLIcon.sprite = EyeOn;
+
             ShowAvatarSelectionPanel();
-            AvatarPassword.gameObject.SetActive(false);
             await Initialize();
         }
-        public async void SelectedDeleteAvatar()
+
+        public void SelectedShowAvatarPassword()
         {
+            ISShowingPassword = !ISShowingPassword;
+            AvatarPassword.readOnly = true;
+            if (ISShowingPassword)
+            {
+                AvatarPassword.text = SelectedBundle.UnlockPassword;
+                EyePasswordIcon.sprite = EyeOn;
+            }
+            else
+            {
+                EyePasswordIcon.sprite = EyeOff;
+                AvatarPassword.text = string.Empty;
+            }
+        }
+        public void SelectedShowAvatarURL()
+        {
+            ISShowingURL = !ISShowingURL;
+            AvatarURL.readOnly = true;
+            if (ISShowingURL)
+            { 
+                AvatarURL.text = SelectedBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation;
+                EyeURLIcon.sprite = EyeOn;
+            }
+            else
+            {
+                EyeURLIcon.sprite = EyeOff;
+                AvatarURL.text = string.Empty;
+            }
+        }
+
+        public void OnDestroy()
+        {
+            foreach (Texture image in AvatarImages)
+            {
+                Destroy(image);
+            }
+            AvatarImages.Clear();
+        }
+        public void SelectedDeleteAvatar()
+        {
+
             BasisDataStoreAvatarKeys.AvatarKey Key = new BasisDataStoreAvatarKeys.AvatarKey()
             {
                 Pass = SelectedBundle.UnlockPassword,
                 Url = SelectedBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation
             };
-            await BasisDataStoreAvatarKeys.RemoveKey(Key);
             CloseThisMenu();
+            BasisUIAcceptDenyPanel.OpenAcceptDenyPanel("do you want to delete this avatar?", (bool accepted) =>
+            {
+                if (accepted)
+                {
+                    RemoveKey(Key);
+                    CloseThisMenu();
+                }
+            });
         }
-        public void SelectedShowAvatarPassword()
+        public async void RemoveKey(BasisDataStoreAvatarKeys.AvatarKey Key)
         {
-            AvatarPassword.gameObject.SetActive(!AvatarPassword.gameObject.activeSelf);
-            AvatarPassword.text = SelectedBundle.UnlockPassword;
-            AvatarPassword.readOnly = true;
+            await BasisDataStoreAvatarKeys.RemoveKey(Key);
         }
         public override void InitalizeEvent()
         {
@@ -85,9 +152,9 @@ namespace Basis.Scripts.UI.UI_Panels
             await BasisDataStoreAvatarKeys.LoadKeys();
 
             int preloadedCount = preLoadedBundles.Count;
-            for (int i = 0; i < preloadedCount; i++)
+            for (int Index = 0; Index < preloadedCount; Index++)
             {
-                BasisLoadableBundle loadableBundle = preLoadedBundles[i];
+                BasisLoadableBundle loadableBundle = preLoadedBundles[Index];
                 var key = new BasisDataStoreAvatarKeys.AvatarKey
                 {
                     Pass = loadableBundle.UnlockPassword,
@@ -111,7 +178,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 {
                     switch (key.Url)
                     {
-                        case BasisLocalPlayer.DefaultAvatar:
+                        case BasisBeeConstants.DefaultAvatar:
                             break;
                         default:
                             if (string.IsNullOrEmpty(key.Url))
@@ -157,6 +224,92 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             await CreateAvatarButtons();
+            UpdateHeight();
+        }
+        /// <summary>
+        /// Call this if you already know the item count.
+        /// </summary>
+        public void UpdateHeight()
+        {
+            // Guard: no items -> just keep padding height.
+            int count = createdCopies.Count;
+            int rows, columns;
+            GetGridDimensions(count, out rows, out columns);
+
+            float cellH = gridLayout.cellSize.y;
+            float spacingY = gridLayout.spacing.y;
+            int padTop = gridLayout.padding.top;
+            int padBot = gridLayout.padding.bottom;
+
+            float totalHeight =
+                (rows > 0 ? rows * cellH + (rows - 1) * spacingY : 0f) +
+                padTop + padBot;
+
+            // Use SetSizeWithCurrentAnchors so it behaves correctly even if the Content is vertically stretched.
+            Content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, totalHeight);
+        }
+        /// <summary>
+        /// Determines rows/columns based on GridLayoutGroup settings and item count.
+        /// Handles FixedColumnCount, FixedRowCount, and Flexible.
+        /// </summary>
+        private void GetGridDimensions(int count, out int rows, out int columns)
+        {
+            rows = 0;
+            columns = 0;
+
+            if (count <= 0)
+            {
+                rows = 0;
+                columns = 0;
+                return;
+            }
+
+            switch (gridLayout.constraint)
+            {
+                case GridLayoutGroup.Constraint.FixedColumnCount:
+                    {
+                        columns = Mathf.Max(1, gridLayout.constraintCount);
+                        rows = Mathf.CeilToInt((float)count / columns);
+                        break;
+                    }
+                case GridLayoutGroup.Constraint.FixedRowCount:
+                    {
+                        rows = Mathf.Max(1, gridLayout.constraintCount);
+                        columns = Mathf.CeilToInt((float)count / rows);
+                        break;
+                    }
+                case GridLayoutGroup.Constraint.Flexible:
+                default:
+                    {
+                        // Infer columns from available width if filling horizontally,
+                        // otherwise fall back to 1 column.
+                        bool fillHorizontal = gridLayout.startAxis == GridLayoutGroup.Axis.Horizontal;
+
+                        if (fillHorizontal)
+                        {
+                            float availableWidth =
+                                Content.rect.width
+                                - gridLayout.padding.left
+                                - gridLayout.padding.right;
+
+                            float stepX = gridLayout.cellSize.x + gridLayout.spacing.x;
+                            // columns = how many cells fit; add spacing back to allow exact fits
+                            columns = Mathf.Max(1, Mathf.FloorToInt((availableWidth + gridLayout.spacing.x) / stepX));
+                            rows = Mathf.CeilToInt((float)count / columns);
+                        }
+                        else
+                        {
+                            // Vertical fill + Flexible height is underdetermined without a target height,
+                            // so default to one column.
+                            columns = 1;
+                            rows = count;
+#if UNITY_EDITOR
+                            Debug.LogWarning("[GridContentResizer] startAxis=Vertical with Flexible constraint: defaulting to 1 column. Consider using FixedColumnCount.");
+#endif
+                        }
+                        break;
+                    }
+            }
         }
         private async Task CreateAvatarButtons()
         {
@@ -193,14 +346,23 @@ namespace Basis.Scripts.UI.UI_Panels
                     };
                     try
                     {
-                        if (bundle.UnlockPassword == BasisLocalPlayer.DefaultAvatar)
+                        if (bundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
                         {
-                            SelectionButton.Text.text = BasisLocalPlayer.DefaultAvatar;
+                            SelectionButton.Text.text = BasisBeeConstants.DefaultAvatar;
                         }
                         else
                         {
-                            await BasisLoadHandler.HandleBundleAndMetaLoading(wrapper, Report, CancellationToken,true);
+                            await BasisBeeManagement.HandleMetaOnlyLoad(wrapper, Report, CancellationToken);
                             SelectionButton.Text.text = wrapper.LoadableBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
+                            if (wrapper.LoadableBundle.BasisBundleConnector.ImageBytes != null)
+                            {
+                                SelectionButton.Image.texture = BasisTextureCompression.FromPngBytes(wrapper.LoadableBundle.BasisBundleConnector.ImageBytes);
+                                AvatarImages.Add(SelectionButton.Image.texture);
+                            }
+                            else
+                            {
+                                SelectionButton.Image.texture = FallbackImage;
+                            }
                         }
                     }
                     catch (Exception E)
@@ -231,26 +393,52 @@ namespace Basis.Scripts.UI.UI_Panels
             AvatarSelectionPanel.SetActive(false);
             AvatarInformationPanel.SetActive(true);
         }
-        public TextMeshProUGUI UniqueVersion;
-        public TextMeshProUGUI SupportedPlatformsText;
         private void ShowInformation(BasisLoadableBundle avatarLoadRequest)
         {
             if (BasisLocalPlayer.Instance != null)
             {
                 ChangeIntoAvatar.onClick.RemoveAllListeners();
                 SelectedBundle = avatarLoadRequest;
-                ChangeIntoAvatar.onClick.AddListener(async () => await LoadAvatar(avatarLoadRequest)); // Fix: Use lambda
 
-                if (SelectedBundle.BasisBundleConnector.GetPlatform(out BasisBundleGenerated platformBundle))
+                ChangeIntoAvatar.onClick.AddListener(async () => await LoadAvatar(avatarLoadRequest));
+
+                Name.text = SelectedBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
+                Description.text = SelectedBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleDescription;
+                UniqueVersion.text = SelectedBundle.BasisBundleConnector.UniqueVersion;
+
+                string[] Platforms = SelectedBundle.BasisBundleConnector.BasisBundleGenerated.Select(pair => pair.Platform).ToArray();
+
+                WindowsIcon.SetActive(false);
+                AndroidIcon.SetActive(false);
+                LinuxIcon.SetActive(false);
+
+                foreach (string Platform in Platforms)
                 {
-                    string assetMode = platformBundle.AssetMode;
+                    switch (Platform)
+                    {
+                        case "StandaloneWindows64":
+                            WindowsIcon.SetActive(true);
+
+                            break;
+                        case "StandaloneLinux64":
+                            AndroidIcon.SetActive(true);
+                            break;
+                        case "Android":
+                            LinuxIcon.SetActive(true);
+                            break;
+                    }
                 }
-                Name.text = $"Avatar Name: {SelectedBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName}";
-                Description.text = $"Avatar Description: {SelectedBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleDescription}";
-                UniqueVersion.text = $"Version ID: {SelectedBundle.BasisBundleConnector.UniqueVersion}";
-                string SupportedPlatforms = string.Join(", ", SelectedBundle.BasisBundleConnector.BasisBundleGenerated
-                    .Select(pair => pair.Platform));
-                SupportedPlatformsText.text = "Supported Platforms : " + SupportedPlatforms;
+                if (avatarLoadRequest.BasisBundleConnector.ImageBytes != null)
+                {
+                    AvatarBigImage.texture = BasisTextureCompression.FromPngBytes(avatarLoadRequest.BasisBundleConnector.ImageBytes);
+                    AvatarImages.Add(AvatarBigImage.texture);
+                }
+                else
+                {
+                    AvatarBigImage.texture = FallbackImage;
+                }
+
+
                 ShowInformationPanel();
             }
             else
@@ -270,7 +458,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 }
                 else
                 {
-                    if (avatarLoadRequest.UnlockPassword == BasisLocalPlayer.DefaultAvatar)
+                    if (avatarLoadRequest.UnlockPassword == BasisBeeConstants.DefaultAvatar)
                     {
                         await BasisLocalPlayer.Instance.CreateAvatar(1, avatarLoadRequest);
                     }

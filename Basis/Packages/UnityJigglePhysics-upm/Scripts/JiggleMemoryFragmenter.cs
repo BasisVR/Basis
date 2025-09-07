@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Unity.Mathematics;
+using UnityEngine;
 using UnityEngine.Assertions;
 
 namespace GatorDragonGames.JigglePhysics {
@@ -9,7 +11,7 @@ public class JiggleMemoryFragmenter {
         public int count;
     }
 
-    private int startingSize;
+    private int currentSize;
     private List<Fragment> fragments;
 
     public JiggleMemoryFragmenter(int size) {
@@ -19,7 +21,15 @@ public class JiggleMemoryFragmenter {
                 count = size
             }
         };
-        startingSize = size;
+        currentSize = size;
+    }
+    
+    public int GetHighestAllocatedIndex() {
+        if (fragments.Count <= 0) {
+            return currentSize;
+        }
+        var lastFragment = fragments[^1];
+        return lastFragment.startIndex - 1;
     }
 
     public bool TryAllocate(int size, out int startIndex) {
@@ -39,28 +49,59 @@ public class JiggleMemoryFragmenter {
                 return true;
             }
         }
-
         startIndex = -1;
         return false;
     }
 
     public void Resize(int newSize) {
-        Assert.IsTrue(startingSize <= newSize);
-        var fragment = fragments[^1];
-        fragment.count += newSize - startingSize;
-        fragments[^1] = fragment;
+        Assert.IsTrue(currentSize <= newSize);
+        if (fragments.Count != 0) {
+            var fragment = fragments[^1];
+            fragment.count += newSize - currentSize;
+            fragments[^1] = fragment;
+        } else {
+            fragments.Add(new Fragment {
+                startIndex = currentSize,
+                count = newSize - currentSize
+            });
+        }
+        currentSize = newSize;
     }
 
     public void Free(int startIndex, int size) {
         var fragmentCount = fragments.Count;
+        #if UNITY_EDITOR
         for (int i = 0; i < fragmentCount; i++) {
             var fragment = fragments[i];
+            var smallRange = math.min(fragment.count, size);
+            var larger = math.max(fragment.startIndex, startIndex);
+            var smaller = math.min(fragment.startIndex, startIndex);
+            if (larger - smaller < smallRange) {
+                throw new UnityException($"Double free detected at index {startIndex}, count {size}, not allowed! (overlaps with fragment at index {fragment.startIndex}, count {fragment.count})");
+            }
+        }
+        #endif
+
+        for (int i = 0; i < fragmentCount; i++) {
+            var fragment = fragments[i];
+            if (i + 1 < fragmentCount) {
+                var nextFragment = fragments[i + 1];
+                if (fragment.startIndex + fragment.count == startIndex && startIndex + size == nextFragment.startIndex) {
+                    // Merge with previous and next fragment
+                    fragment.count += size + nextFragment.count;
+                    fragments[i] = fragment;
+                    fragments.RemoveAt(i + 1);
+                    return;
+                }
+            }
+
             if (fragment.startIndex + fragment.count == startIndex) {
                 // Merge with previous fragment
                 fragment.count += size;
                 fragments[i] = fragment;
                 return;
-            } else if (startIndex + size == fragment.startIndex) {
+            }
+            if (startIndex + size == fragment.startIndex) {
                 // Merge with next fragment
                 fragment.startIndex -= size;
                 fragment.count += size;
@@ -85,8 +126,22 @@ public class JiggleMemoryFragmenter {
         fragments.Add(newFragment);
     }
 
+    public bool GetIsAllocated(int index) {
+        if (index < 0 || index >= currentSize) {
+            return false;
+        }
+        var fragmentCount = fragments.Count;
+        for (int i = 0; i < fragmentCount; i++) {
+            var fragment = fragments[i];
+            if (index >= fragment.startIndex && index < fragment.startIndex + fragment.count) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public void CopyFrom(JiggleMemoryFragmenter other) {
-        startingSize = other.startingSize;
+        currentSize = other.currentSize;
         fragments.Clear();
         fragments.AddRange(other.fragments);
     }

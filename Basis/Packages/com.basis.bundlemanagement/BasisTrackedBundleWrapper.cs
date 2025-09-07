@@ -2,28 +2,21 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-
 [System.Serializable]
 public class BasisTrackedBundleWrapper
 {
     [SerializeField]
     public BasisLoadableBundle LoadableBundle;
-
     [SerializeField]
     public AssetBundle AssetBundle;
-
     private int _requestedTimes = 0;
-
     public bool DidErrorOccur = false;
-
-    public static TimeSpan TimeSpan = TimeSpan.FromSeconds(BasisLoadHandler.TimeUntilMemoryRemoval);
-
+    public static TimeSpan TimeSpan = TimeSpan.FromSeconds(BasisBeeConstants.TimeUntilMemoryRemoval);
     /// <summary>
     /// for example this is the scene path. we can use this to see 
     /// if this scene is unloaded so we can remove the memory.
     /// </summary>
     public string MetaLink;
-
     // Method to await the completion of the bundle loading
     public async Task WaitForBundleLoadAsync()
     {
@@ -37,14 +30,12 @@ public class BasisTrackedBundleWrapper
             await Task.Yield(); // Yield to avoid blocking the main thread
         }
     }
-
     // Method to check if the bundle is fully loaded
     private bool IsBundleCompleteAndLoaded()
     {
         // You can implement your actual logic to check if the bundle is loaded here
         return AssetBundle != null; // Assuming AssetBundle being non-null means it's loaded
     }
-
     public async Task<bool> UnloadIfReady()
     {
         if (AssetBundle == null)
@@ -52,7 +43,6 @@ public class BasisTrackedBundleWrapper
             BasisDebug.LogError("Asset Bundle was null this should never occur");
             return false;
         }
-
         if (Volatile.Read(ref _requestedTimes) <= 0)
         {
             await Task.Delay(TimeSpan);
@@ -60,10 +50,9 @@ public class BasisTrackedBundleWrapper
             {
                 if (AssetBundle == null)
                 {
-                    BasisDebug.LogError("Already Unloaded this bundle, check logic");
+                    BasisDebug.LogError("Already Unloaded this bundle, check logic could be ok if you loaded this a few times and unloaded it quickly aswell.");
                     return false;
                 }
-
                 BasisDebug.Log("Unloading Bundle " + AssetBundle.name);
                 AssetBundle.Unload(true);
                 return true;
@@ -79,14 +68,12 @@ public class BasisTrackedBundleWrapper
             return false;
         }
     }
-
     public bool Increment()
     {
         Interlocked.Increment(ref _requestedTimes);
       //  BasisDebug.Log($"Incremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.LocalConnectorPath}");
         return true;
     }
-
     public bool DeIncrement()
     {
         int current;

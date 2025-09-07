@@ -11,9 +11,6 @@ public class SMModuleAudio : BasisSettingsBase
         Instance = this;
         base.Awake();
     }
-    /// <summary>
-    /// 0 to 1 rest or 0 to 100
-    /// </summary>
     public static Action<float> MainVolume;
     public static Action<float> MenusVolume;
     public static Action<float> WorldVolume;
@@ -29,6 +26,7 @@ public class SMModuleAudio : BasisSettingsBase
             case "main volume":
                 if (SliderReadOption(optionValue, out float NewActiveMainVolume))
                 {
+                    BasisDebug.Log($"setting main Volume to {NewActiveMainVolume}");
                     ActiveMainVolume = NewActiveMainVolume / 100;
                     MainVolume?.Invoke(ActiveMainVolume);
                     AudioListener.volume = ActiveMainVolume;
@@ -37,39 +35,40 @@ public class SMModuleAudio : BasisSettingsBase
             case "menu volume":
                 if (SliderReadOption(optionValue, out float NewActiveMenusVolume))
                 {
-                    ActiveMenusVolume = NewActiveMenusVolume;
+                    BasisDebug.Log($"setting Menu Volume to {NewActiveMenusVolume}");
+                    ActiveMenusVolume = ChangeVolume(NewActiveMenusVolume, "menu");
                     MenusVolume?.Invoke(ActiveMenusVolume);
-                    ChangeVolume(ActiveMenusVolume, "menu");
                 }
                 break;
             case "world volume":
                 if (SliderReadOption(optionValue, out float NewActiveWorldVolume))
                 {
-                    ActiveWorldVolume = NewActiveWorldVolume;
+                    BasisDebug.Log($"setting world Volume to {NewActiveWorldVolume}");
+                    ActiveWorldVolume = ChangeVolume(NewActiveWorldVolume, "world");
                     WorldVolume?.Invoke(ActiveWorldVolume);
-                    ChangeVolume(ActiveWorldVolume, "world");
                 }
                 break;
             case "player volume":
                 if (SliderReadOption(optionValue, out float NewActivePlayerVolume))
                 {
-                    ActivePlayerVolume = NewActivePlayerVolume;
+                    BasisDebug.Log($"setting player Volume to {NewActivePlayerVolume}");
+                    ActivePlayerVolume = ChangeVolume(NewActivePlayerVolume, "player");
                     PlayerVolume?.Invoke(ActivePlayerVolume);
-                    ChangeVolume(ActivePlayerVolume, "player");
                 }
+                break;
+            default:
+                BasisDebug.LogError($"Missing Audio Settings for {matchedSettingName}");
                 break;
         }
     }
-    public void ChangeVolume(float value, string name)
+    public float ChangeVolume(float value, string name)
     {
         // Convert 0–100 slider to 0.0001–1 (linear scale)
         float linear = Mathf.Clamp01(value / 100f);
 
         // Convert linear 0–1 to decibels (-80dB to 0dB)
         float dB = Mathf.Log10(Mathf.Max(linear, 0.0001f)) * 20f;
-
-        // Debug & apply
-        BasisDebug.Log($"{name} set to {value} (linear: {linear}, dB: {dB})");
         Mixer.SetFloat(name, dB);
+        return linear;
     }
 }

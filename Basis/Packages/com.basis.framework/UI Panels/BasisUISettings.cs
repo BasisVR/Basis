@@ -1,5 +1,4 @@
-using Basis.Scripts.Addressable_Driver;
-using Basis.Scripts.Addressable_Driver.Enums;
+
 namespace Basis.Scripts.UI.UI_Panels
 {
     public class BasisUISettings : BasisUIBase
@@ -21,20 +20,17 @@ namespace Basis.Scripts.UI.UI_Panels
         public void OpenConsole()
         {
             BasisUIManagement.CloseAllMenus();
-            AddressableGenericResource resource = new AddressableGenericResource("LoggerUI", AddressableExpectedResult.SingleItem);
-            OpenMenuNow(resource);
+            OpenMenuNow("LoggerUI");
         }
         public void OpenAdminPanel()
         {
             BasisUIManagement.CloseAllMenus();
-            AddressableGenericResource resource = new AddressableGenericResource("BasisUIAdminPanel", AddressableExpectedResult.SingleItem);
-            OpenMenuNow(resource);
+            OpenMenuNow("BasisUIAdminPanel");
         }
         public void OpenControllerConfig()
         {
             BasisUIManagement.CloseAllMenus();
-            AddressableGenericResource resource = new AddressableGenericResource("Assets/Prefabs/UI/BasisUIOffsetsManager.prefab", AddressableExpectedResult.SingleItem);
-            OpenMenuNow(resource);
+            OpenMenuNow("Assets/Prefabs/UI/BasisUIOffsetsManager.prefab");
         }
     }
 }

@@ -13,10 +13,10 @@ public struct BasisDampedTransformData : IAnimationJobData, BasisIDampedTransfor
     [SyncSceneToStream, SerializeField]
     public Vector3 TargetPosition;
     [SyncSceneToStream, SerializeField]
-    public Vector3 TargetRotation;
+    public Quaternion TargetRotation;
     Vector3 BasisIDampedTransformData.TargetPosition { get => TargetPosition; }
 
-    Vector3 BasisIDampedTransformData.TargetRotation { get => TargetRotation; }
+    Quaternion BasisIDampedTransformData.TargetRotation { get => TargetRotation; }
 
     public string TargetpositionVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetPosition));
 
@@ -59,7 +59,7 @@ namespace UnityEngine.Animations.Rigging
         /// <summary>The transform handle for the target transform.</summary>
         public Vector3Property targetPosition;
         /// <summary>The transform handle for the target transform.</summary>
-        public Vector3Property targetRotation;
+        public Vector4Property targetRotation;
 
         /// <summary>Initial TR offset from source to constrained object.</summary>
         public AffineTransform localBindTx;
@@ -82,7 +82,7 @@ namespace UnityEngine.Animations.Rigging
             float w = jobWeight.Get(stream);
             if (w > 0f)
             {
-                AffineTransform sourceTx = new AffineTransform(targetPosition.Get(stream), Quaternion.Euler(targetRotation.Get(stream)));
+                AffineTransform sourceTx = new AffineTransform(targetPosition.Get(stream), Vector4ToRotation(targetRotation.Get(stream)));
                 AffineTransform targetTx = sourceTx * localBindTx;
                 driven.SetGlobalTR(stream, targetTx.translation, targetTx.rotation);
             }
@@ -90,6 +90,12 @@ namespace UnityEngine.Animations.Rigging
             {
                 AnimationRuntimeUtils.PassThrough(stream, driven);
             }
+        }
+        public Quaternion Vector4ToRotation(Vector4 Rotation)
+        {
+
+            Quaternion hipsRot = new Quaternion(Rotation.x, Rotation.y, Rotation.z, Rotation.w);
+            return hipsRot;
         }
     }
 
@@ -101,7 +107,7 @@ namespace UnityEngine.Animations.Rigging
         /// <summary>The Transform affected by the constraint Source Transform.</summary>
         Transform constrainedObject { get; }
         public Vector3 TargetPosition { get; }
-        public Vector3 TargetRotation { get; }
+        public Quaternion TargetRotation { get; }
 
         /// <summary>The path to the override position property in the constraint component.</summary>
         string TargetpositionVector3Property { get; }
@@ -125,10 +131,10 @@ namespace UnityEngine.Animations.Rigging
 
 
             var drivenTx = new AffineTransform(data.constrainedObject.position, data.constrainedObject.rotation);
-            var sourceTx = new AffineTransform(data.TargetPosition, Quaternion.Euler(data.TargetRotation));
+            var sourceTx = new AffineTransform(data.TargetPosition, data.TargetRotation);
 
             job.targetPosition = Vector3Property.Bind(animator, component, data.TargetpositionVector3Property);
-            job.targetRotation = Vector3Property.Bind(animator, component, data.TargetrotationVector3Property);
+            job.targetRotation = Vector4Property.Bind(animator, component, data.TargetrotationVector3Property);
 
             job.localBindTx = sourceTx.InverseMul(drivenTx);
 

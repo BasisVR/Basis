@@ -9,8 +9,6 @@ using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 using Vector3 = UnityEngine.Vector3;
-
-
 namespace Basis.Scripts.Drivers
 {
     public class BasisLocalCameraDriver : MonoBehaviour
@@ -105,11 +103,11 @@ namespace Basis.Scripts.Drivers
         public bool LocalIsTransmitting = false;
         private void OnPausedEvent(bool IsMuted)
         {
-            UpdateMicrophoneVisuals(IsMuted,true);
+            UpdateMicrophoneVisuals(IsMuted, true);
         }
         public void UpdateMicrophoneVisuals(bool IsMuted, bool PlaySound)
         {
-           // BasisDebug.Log(nameof(UpdateMicrophoneVisuals));
+            // BasisDebug.Log(nameof(UpdateMicrophoneVisuals));
             // Cancel the current coroutine if it's running
             if (scaleCoroutine != null)
             {
@@ -259,11 +257,11 @@ namespace Basis.Scripts.Drivers
                 return RightEye;
             }
         }
-        public static void GetPositionAndRotation(out Vector3 Position,out Quaternion Rotation)
+        public static void GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation)
         {
             if (HasInstance)
             {
-                 Instance.transform.GetPositionAndRotation(out Position,out Rotation);
+                Instance.transform.GetPositionAndRotation(out Position, out Rotation);
             }
             else
             {
@@ -307,7 +305,7 @@ namespace Basis.Scripts.Drivers
             {
                 if (Camera.GetInstanceID() == CameraInstanceID)
                 {
-                    this.transform.GetPositionAndRotation(out Position,out Rotation);
+                    this.transform.GetPositionAndRotation(out Position, out Rotation);
                     BasisLocalAvatarDriver.ScaleheadToZero();
                     if (CameraData.allowXRRendering)
                     {
@@ -331,10 +329,10 @@ namespace Basis.Scripts.Drivers
         Vector3 CalculatePosition(Vector2 size, Vector3 percentage)
         {
             // The center of the object is assumed to be at (0, 0, 0) for simplicity
-            Vector3 center = size/2;
+            Vector3 center = size / 2;
 
             // Calculate position relative to the center based on the percentage and size
-            Vector3 offset = new Vector3((percentage.x - 0.5f) * size.x,(percentage.y - 0.5f) * size.y, percentage.z);
+            Vector3 offset = new Vector3((percentage.x - 0.5f) * size.x, (percentage.y - 0.5f) * size.y, percentage.z);
 
             // The position is the center plus the offset
             return offset + center;

@@ -135,10 +135,10 @@ MonoBehaviour:
   FaceVisemeMovement: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
   BlinkViseme: ffffffff
   laughterBlendTarget: -1
+  AnimatorHumanScale: {x: 1, y: 1, z: 1}
   IsOwnedLocally: 0
   Renders:
   - {fileID: 8839165641088738499}
-  JiggleStrains: []
 --- !u!95 &7103285763428802826
 Animator:
   serializedVersion: 7

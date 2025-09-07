@@ -30,7 +30,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public static string LoadFileNameAndExtension = "LastUsedAvatar.BAS";
         public static bool HasEvents = false;
         public static bool SpawnPlayerOnSceneLoad = true;
-        public const string DefaultAvatar = "LoadingAvatar";
         public static bool HasCalibrationEvents = false;
 
         public static Action OnLocalPlayerCreatedAndReady;
@@ -74,7 +73,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisAudioAndVisemeDriver LocalVisemeDriver = new BasisAudioAndVisemeDriver();
         [Header("Height Information")]
         public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
-        public BasisLocalHeightInformation LastHeight = new BasisLocalHeightInformation();
         public async Task LocalInitialize()
         {
             if (BasisHelpers.CheckInstance(Instance))
@@ -97,7 +95,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 SceneManager.sceneLoaded += OnSceneLoadedCallback;
                 HasEvents = true;
             }
-            bool LoadedState = BasisDataStore.LoadAvatar(LoadFileNameAndExtension, DefaultAvatar, LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastUsedAvatar);
+            bool LoadedState = BasisDataStore.LoadAvatar(LoadFileNameAndExtension, BasisBeeConstants.DefaultAvatar, LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastUsedAvatar);
             if (LoadedState)
             {
                 await LoadInitialAvatar(LastUsedAvatar);
@@ -123,7 +121,7 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
         {
-            if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisOnDiscInformation info))
+            if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisBEEExtensionMeta info))
             {
                 await BasisDataStoreAvatarKeys.LoadKeys();
                 List<BasisDataStoreAvatarKeys.AvatarKey> activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
@@ -134,7 +132,7 @@ namespace Basis.Scripts.BasisSdk.Players
                         BasisLoadableBundle bundle = new BasisLoadableBundle
                         {
                             BasisRemoteBundleEncrypted = info.StoredRemote,
-                            BasisBundleConnector = new BasisBundleConnector("1", new BasisBundleDescription("Loading Avatar", "Loading Avatar"), new BasisBundleGenerated[] { new BasisBundleGenerated() }),
+                            BasisBundleConnector = new BasisBundleConnector("1", new BasisBundleDescription("Loading Avatar", "Loading Avatar"), new BasisBundleGenerated[] { new BasisBundleGenerated()}, null),
                             BasisLocalEncryptedBundle = info.StoredLocal,
                             UnlockPassword = Key.Pass
                         };
@@ -155,7 +153,6 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public void Teleport(Vector3 position, Quaternion rotation)
         {
-          //here  BasisAvatarStrainJiggleDriver.PrepareTeleport();
             BasisDebug.Log("Teleporting");
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
@@ -164,7 +161,6 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 LocalAnimatorDriver.HandleTeleport();
             }
-            //here     BasisAvatarStrainJiggleDriver.FinishTeleport();
             OnSpawnedEvent?.Invoke();
         }
 
@@ -248,23 +244,26 @@ namespace Basis.Scripts.BasisSdk.Players
             //moves all bones to where they belong
             LocalBoneDriver.SimulateAndApply(this, DeltaTime);
 
-            //moves Avatar Hip Transform to where it belongs
-            Quaternion Rotation = LocalAvatarDriver.MoveAvatar(BasisAvatar);
+            //moves Avatar Hip Transform to where it belongs in tpose.
+            if (BasisLocalAvatarDriver.CurrentlyTposing)
+            {
+                DriveTpose();
+            }
 
             //Simulate Final Destination of IK
             //then
             //process Animator and IK processes.
-            LocalRigDriver.SimulateIKDestinations(Rotation, DeltaTime);
+            LocalRigDriver.SimulateIKDestinations(DeltaTime);
 
-            //we move the player at the very end after everything has been processed.
+            //now lets move the local player position.
             LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
-
-            //Apply Animator Weights
-            LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
             //now that everything has been processed lets update WorldPosition in BoneDriver.
             //this is so AfterFinalMove can use world position coords. (stops Laggy pickups)
             LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix);
+
+            //Apply Animator Weights using most current data and outside movement effectors.
+            LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
             //handles fingers
             LocalHandDriver.UpdateFingers(BasisLocalAvatarDriver.References);
@@ -272,7 +271,25 @@ namespace Basis.Scripts.BasisSdk.Players
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();
         }
+        public void DriveTpose()
+        {
+            // World-space inputs
+            Vector3 headPosWS = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position;
+            Quaternion headRotWS = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
 
+            // Flatten head forward onto the XZ plane to get yaw-only orientation
+            Vector3 flatFwd = Vector3.ProjectOnPlane(headRotWS * Vector3.forward, Vector3.up);
+            if (flatFwd.sqrMagnitude < 1e-6f) flatFwd = Vector3.forward; // fallback
+            Quaternion desiredRotWS = Quaternion.LookRotation(flatFwd.normalized, Vector3.up);
+
+            // Full T-pose local offset from hips/root to head (already scaled)
+            Vector3 headTposeLocal = BasisLocalBoneDriver.HeadControl.TposeLocalScaled.position;
+
+            // Place avatar so that (hips + desiredRot * headTposeLocal) == headPosWS
+            Vector3 avatarWorldPos = headPosWS - (desiredRotWS * headTposeLocal);
+
+            AvatarTransform.SetPositionAndRotation(avatarWorldPos, desiredRotWS);
+        }
         // Define the delegate type
         public delegate void NextFrameAction();
 

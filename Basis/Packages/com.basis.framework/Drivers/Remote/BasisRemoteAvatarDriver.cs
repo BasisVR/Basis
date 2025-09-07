@@ -1,12 +1,14 @@
-using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.TransformBinders.BoneControl;
-using System;
-using UnityEngine;
 using Basis.Scripts.BasisSdk;
-using Basis.Scripts.Common;
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.TransformBinders.BoneControl;
+using GatorDragonGames.JigglePhysics;
+using System;
 using Unity.Mathematics;
+using UnityEngine;
+using UnityEngine.AddressableAssets;
 namespace Basis.Scripts.Drivers
 {
     [System.Serializable]
@@ -20,9 +22,9 @@ namespace Basis.Scripts.Drivers
         public bool HasEvents = false;
         public int SkinnedMeshRendererLength;
         public Vector3 AvatarInitalScale = Vector3.one;
-        public void RemoteCalibration(BasisRemotePlayer remotePlayer)
+        public void RemoteCalibration(BasisRemotePlayer player)
         {
-            if (!IsAble(remotePlayer))
+            if (!IsAble(player))
             {
                 return;
             }
@@ -30,43 +32,96 @@ namespace Basis.Scripts.Drivers
             {
                 //  BasisDebug.Log("RemoteCalibration Underway", BasisDebug.LogTag.Avatar);
             }
+
+            Player = player;
+
+
             SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
+            SetupAvatarLayers(Player, BasisLayerMapper.RemoteAvatarLayer);
+            PutAvatarIntoTPose();
+
             AvatarInitalScale = Player.BasisAvatar.transform.localScale;
-            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, remotePlayer.BasisAvatar.transform, ref References);
+            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, player.BasisAvatar.transform, ref References);
             References.RecordPoses(Player.BasisAvatar.Animator);
+            var JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
+
+            foreach (JiggleRig Rig in JiggleRigs)
+            {
+                Rig.OnInitialize();
+            }
+
             Player.FaceIsVisible = false;
-            if (remotePlayer.BasisAvatar == null)
+            if (player.BasisAvatar == null)
             {
                 BasisDebug.LogError("Missing Avatar On Remote", BasisDebug.LogTag.Avatar);
             }
-            if (remotePlayer.BasisAvatar.FaceVisemeMesh == null)
+            if (player.BasisAvatar.FaceVisemeMesh == null)
             {
                 BasisDebug.Log("Missing Face for " + Player.DisplayName, BasisDebug.LogTag.Avatar);
             }
-            Player.UpdateFaceVisibility(remotePlayer.BasisAvatar.FaceVisemeMesh.isVisible);
+            Player.UpdateFaceVisibility(player.BasisAvatar.FaceVisemeMesh.isVisible);
             if (Player.FaceRenderer != null)
             {
                 GameObject.Destroy(Player.FaceRenderer);
             }
-            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(remotePlayer.BasisAvatar.FaceVisemeMesh.gameObject);
+            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(player.BasisAvatar.FaceVisemeMesh.gameObject);
             Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
 
-            if (BasisFacialBlinkDriver.MeetsRequirements(remotePlayer.BasisAvatar))
+            if (BasisFacialBlinkDriver.MeetsRequirements(player.BasisAvatar))
             {
-                Player.FacialBlinkDriver.Initialize(Player, remotePlayer.BasisAvatar);
+                Player.FacialBlinkDriver.Initialize(Player, player.BasisAvatar);
             }
-            remotePlayer.RemoteEyeDriver.Initalize(this, remotePlayer);
-            UpdateWhenOffscreen(false);
-            remotePlayer.BasisAvatar.Animator.logWarnings = false;
-            for (int Index = 0; Index < SkinnedMeshRenderer.Length; Index++)
+            player.RemoteEyeDriver.Initalize(this, player);
+            UpdateWhenOffscreenAndDisableMatrixRecal(false);
+            player.BasisAvatar.Animator.logWarnings = false;
+            CalculateTransformPositions(player, player.RemoteBoneDriver);
+            ComputeOffsets(player.RemoteBoneDriver);
+            player.BasisAvatar.Animator.enabled = false;
+
+            SetupAvatarJiggleColliders();
+            ResetAvatarAnimator();
+        }
+        public bool CurrentlyTposing;
+        public RuntimeAnimatorController SavedruntimeAnimatorController;
+        public void PutAvatarIntoTPose()
+        {
+            BasisDebug.Log("PutAvatarIntoTPose", BasisDebug.LogTag.Avatar);
+            CurrentlyTposing = true;
+            if (SavedruntimeAnimatorController == null)
             {
-                SkinnedMeshRenderer[Index].forceMatrixRecalculationPerRender = false;
+                SavedruntimeAnimatorController = Player.BasisAvatar.Animator.runtimeAnimatorController;
             }
-            CalculateTransformPositions(remotePlayer, remotePlayer.RemoteBoneDriver);
-            ComputeOffsets(remotePlayer.RemoteBoneDriver);
-            remotePlayer.BasisAvatar.Animator.enabled = false;
-            CalibrationComplete?.Invoke();
+            UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op = Addressables.LoadAssetAsync<RuntimeAnimatorController>(TPose);
+            RuntimeAnimatorController RAC = op.WaitForCompletion();
+            Player.BasisAvatar.Animator.runtimeAnimatorController = RAC;
+            ForceUpdateAnimator(Player.BasisAvatar.Animator);
+        }
+        public const string TPose = "Assets/Animator/Animated TPose.controller";
+        public void ForceUpdateAnimator(Animator Anim)
+        {
+            // Specify the time you want the Animator to update to (in seconds)
+            float desiredTime = Time.deltaTime;
+
+            // Call the Update method to force the Animator to update to the desired time
+            Anim.Update(desiredTime);
+        }
+
+        public void ResetAvatarAnimator()
+        {
+            BasisDebug.Log("ResetAvatarAnimator", BasisDebug.LogTag.Avatar);
+            Player.BasisAvatar.Animator.runtimeAnimatorController = SavedruntimeAnimatorController;
+            SavedruntimeAnimatorController = null;
+            CurrentlyTposing = false;
+        }
+        public async void SetupAvatarJiggleColliders()
+        {
+            RemoveJiggleRigColliders();
+            BasisPlayerSettingsData BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(Player.UUID);
+            if (BasisPlayerSettingsData.AvatarInteraction)
+            {
+                AddJiggleRigColliders(References);
+            }
         }
         public void ComputeOffsets(BasisRemoteBoneDriver BBD)
         {
@@ -108,46 +163,60 @@ namespace Basis.Scripts.Drivers
                 return BasisLocalPlayer.FallbackSize;
             }
         }
-        public void CalculateTransformPositions(BasisPlayer BasisPlayer, BasisRemoteBoneDriver driver)
+        public void CalculateTransformPositions(BasisPlayer basisPlayer, BasisRemoteBoneDriver driver)
         {
-            Transform Transform = BasisPlayer.BasisAvatar.Animator.transform;
-            float3 bottom = Transform.position;
+            Transform Transform = basisPlayer.BasisAvatar.Animator.transform;
+            Animator animator = basisPlayer.BasisAvatar.Animator;
+            Transform rootTransform = animator.transform;
+            float3 Position = Transform.position;
             for (int Index = 0; Index < driver.ControlsLength; Index++)
             {
-                BasisRemoteBoneControl Control = driver.Controls[Index];
-                if (driver.trackedRoles[Index] == BasisBoneTrackedRole.CenterEye)
+                var control = driver.Controls[Index];
+                var role = driver.trackedRoles[Index];
+
+                switch (driver.trackedRoles[Index])
                 {
-                    GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarEyePosition, bottom, out float3 TposeWorld);
-                    SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
-                }
-                else
-                {
-                    if (driver.trackedRoles[Index] == BasisBoneTrackedRole.Mouth)
-                    {
-                        GetWorldSpaceRotAndPos(() => Player.BasisAvatar.AvatarMouthPosition, bottom, out float3 TposeWorld);
-                        SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
-                    }
-                    else
-                    {
-                        if (BasisDeviceManagement.Instance.FBBD.FindBone(out BasisFallBone FallBackBone, driver.trackedRoles[Index]))
+                    case BasisBoneTrackedRole.CenterEye:
                         {
-                            if (TryConvertToHumanoidRole(driver.trackedRoles[Index], out HumanBodyBones HumanBones))
+                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarEyePosition), Position, out float3 world);
+                            SetInitialData(rootTransform, control, role, world);
+                            break;
+                        }
+
+                    case BasisBoneTrackedRole.Mouth:
+                        {
+                            GetWorldSpacePos(BasisHelpers.AvatarPositionConversion(basisPlayer.BasisAvatar.AvatarMouthPosition), Position, out float3 world);
+                            SetInitialData(rootTransform, control, role, world);
+                            break;
+                        }
+
+                    default:
+                        {
+                            if (BasisDeviceManagement.Instance.FBBD.FindBone(out BasisFallBone fallback, driver.trackedRoles[Index]))
                             {
-                                GetBoneRotAndPos(BasisPlayer.transform, BasisPlayer.BasisAvatar, HumanBones, FallBackBone.PositionPercentage, out quaternion Rotation, out float3 TposeWorld, out bool UsedFallback);
-                                SetInitialData(Transform, Control, driver.trackedRoles[Index], TposeWorld);
+                                if (TryConvertToHumanoidRole(driver.trackedRoles[Index], out HumanBodyBones human))
+                                {
+                                    GetBoneRotAndPos(basisPlayer.transform, basisPlayer.BasisAvatar, human, fallback.PositionPercentage, out quaternion _, out float3 world, out bool _);
+                                    SetInitialData(rootTransform, control, role, world);
+                                }
+                                else
+                                {
+                                    BasisDebug.LogError("cant Convert to humanbodybone " + driver.trackedRoles[Index]);
+                                }
                             }
                             else
                             {
-                                BasisDebug.LogError("cant Convert to humanbodybone " + driver.trackedRoles[Index]);
+                                BasisDebug.LogError("cant find Fallback Bone for " + driver.trackedRoles[Index]);
                             }
+
+                            break;
                         }
-                        else
-                        {
-                            BasisDebug.LogError("cant find Fallback Bone for " + driver.trackedRoles[Index]);
-                        }
-                    }
                 }
             }
+        }
+        public void GetWorldSpacePos(Vector3 localAvatarSpace, Vector3 AnimatorPosition, out float3 position)
+        {
+            position = BasisHelpers.ConvertFromLocalSpace(localAvatarSpace, AnimatorPosition);
         }
         public void GetBoneRotAndPos(Transform driver, BasisAvatar BasisAvatar, HumanBodyBones bone, Vector3 heightPercentage, out quaternion Rotation, out float3 Position, out bool UsedFallback)
         {
@@ -183,11 +252,6 @@ namespace Basis.Scripts.Drivers
         {
             Vector3 height = fallbackHeight * heightPercentage;
             return bone == HumanBodyBones.Hips ? math.mul(height, -Vector3.up) : math.mul(height, Vector3.up);
-        }
-        public void GetWorldSpaceRotAndPos(Func<Vector2> positionSelector, float3 bottom, out float3 position)
-        {
-            Vector3 convertedToVector3 = BasisHelpers.AvatarPositionConversion(positionSelector());
-            position = BasisHelpers.ConvertFromLocalSpace(convertedToVector3, bottom);
         }
         public bool IsNull(UnityEngine.Object obj)
         {
@@ -230,12 +294,13 @@ namespace Basis.Scripts.Drivers
             }
             BaseBoneDriver.CreateRotationalLock(AssignedToAddToBone, LockToBone);
         }
-        public void UpdateWhenOffscreen(bool State)
+        public void UpdateWhenOffscreenAndDisableMatrixRecal(bool State)
         {
             for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
             {
                 SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
                 Render.updateWhenOffscreen = State;
+                Render.forceMatrixRecalculationPerRender = false;
             }
         }
     }

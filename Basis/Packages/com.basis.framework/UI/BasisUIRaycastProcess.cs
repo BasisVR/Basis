@@ -1,6 +1,6 @@
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
-using BattlePhaze.SettingsManager.Intergrations;
+
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -120,10 +120,8 @@ namespace Basis.Scripts.UI
                 {
                     if (currentEventData.WasLastDown)
                     {
-                        EffectiveMouseUp(hit, currentEventData);
+                        EffectiveMouseUp(hit, currentEventData, BaseInput);
                         currentEventData.WasLastDown = false;
-                        BaseInput.PlayHaptic(0.1f, 1f, 0.5f);
-                        BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
                     }
                 }
 
@@ -188,7 +186,7 @@ namespace Basis.Scripts.UI
                 ExecuteEvents.Execute(dragObject, CurrentEventData, ExecuteEvents.initializePotentialDrag);
             }
         }
-        public void EffectiveMouseUp(RaycastUIHitData hit, BasisPointerEventData CurrentEventData)
+        public void EffectiveMouseUp(RaycastUIHitData hit, BasisPointerEventData CurrentEventData, BasisInput BaseInput)
         {
             var target = CurrentEventData.pointerPress;
             ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.pointerUpHandler);
@@ -197,6 +195,8 @@ namespace Basis.Scripts.UI
             var pointerDrag = CurrentEventData.pointerDrag;
             if (target == pointerUpHandler && CurrentEventData.eligibleForClick)
             {
+                BaseInput.PlayHaptic(0.1f, 1f, 0.5f);
+              //  BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
                 ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.pointerClickHandler);
             }
             else if (CurrentEventData.dragging && pointerDrag != null)

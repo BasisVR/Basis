@@ -381,6 +381,7 @@ MonoBehaviour:
   - HearingRange
   - AvatarRange
   - MeshLod
+  - global meshlod
 --- !u!114 &8285517692325404402
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -737,7 +738,6 @@ GameObject:
   m_Component:
   - component: {fileID: 7986300708970645016}
   - component: {fileID: -8771156173352421049}
-  - component: {fileID: 6370897756145117596}
   - component: {fileID: -3484738083713026149}
   - component: {fileID: 508802122937325065}
   - component: {fileID: -1434852531052301144}
@@ -808,18 +808,6 @@ MonoBehaviour:
   ForcedDefault: 
   LipSyncProfile: {fileID: 11400000, guid: 0beeb56a431ea1646bb55ff6c6fc5a62, type: 2}
   BasisNetworking: {fileID: 1872085853221644195}
---- !u!114 &6370897756145117596
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 9135220577826176361}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4da8d078d89b337479355b40c108f122, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &-3484738083713026149
 MonoBehaviour:
   m_ObjectHideFlags: 0

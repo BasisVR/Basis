@@ -1,153 +1,41 @@
 using Unity.Collections;
-using UnityEngine;
+
 namespace UnityEngine.Animations.Rigging
 {
     /// <summary>
-    /// The TwoBoneIK constraint data.
-    /// </summary>
-    [System.Serializable]
-    public struct BasisBoneChainIKConstraintData : IAnimationJobData, BasisIBoneChainIKConstraintData
-    {
-
-        [SerializeField] Transform m_Mid;
-        [SerializeField] Transform m_Tip;
-        [SyncSceneToStream, SerializeField]
-        public Vector3 HintPosition;
-        [SyncSceneToStream, SerializeField]
-        public Vector3 HintRotation;
-
-        [SyncSceneToStream, SerializeField]
-        public Vector3 TargetPosition;
-        [SyncSceneToStream, SerializeField]
-        public Vector3 TargetRotation;
-        Vector3 BasisIBoneChainIKConstraintData.targetPosition { get => TargetPosition; }
-
-        Vector3 BasisIBoneChainIKConstraintData.targetRotation { get => TargetRotation; }
-
-        Vector3 BasisIBoneChainIKConstraintData.hintPosition { get => HintPosition; }
-        Vector3 BasisIBoneChainIKConstraintData.HintRotation { get => HintRotation; }
-        [SyncSceneToStream, SerializeField]
-        bool m_HintWeight;
-        /// <inheritdoc />
-        public Transform mid { get => m_Mid; set => m_Mid = value; }
-        /// <inheritdoc />
-        public Transform tip { get => m_Tip; set => m_Tip = value; }
-        /// <inheritdoc />
-        /// <summary>The weight for which hint transform has an effect on IK calculations. This is a value in between 0 and 1.</summary>
-        public bool hintWeight { get => m_HintWeight; set => m_HintWeight = value; }
-        /// <inheritdoc />
-        string BasisIBoneChainIKConstraintData.hintWeightFloatProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_HintWeight));
-
-        string BasisIBoneChainIKConstraintData.TargetpositionVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetPosition));
-
-        string BasisIBoneChainIKConstraintData.TargetrotationVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetRotation));
-
-        string  BasisIBoneChainIKConstraintData.HintpositionVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(HintPosition));
-
-        string BasisIBoneChainIKConstraintData.HintrotationVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(HintRotation));
-
-        string BasisIBoneChainIKConstraintData.HintDirectionProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_HintDirection));
-
-        [SyncSceneToStream, SerializeField]
-        public Vector3 M_CalibratedOffset;
-        [SyncSceneToStream, SerializeField]
-        public Vector3 M_CalibratedRotation;
-
-        public Vector3 CalibratedOffset
-        {
-            get
-            {
-                return M_CalibratedOffset;
-            }
-        }
-
-        public Vector3 CalibratedRotation
-        {
-            get
-            {
-                return M_CalibratedRotation;
-            }
-        }
-        [SyncSceneToStream, SerializeField]
-        public Vector3 m_HintDirection;
-        Vector3 BasisIBoneChainIKConstraintData.HintDirection
-        {
-            get
-            {
-                return m_HintDirection;
-            }
-        }
-
-        Transform[] BasisIBoneChainIKConstraintData.Destinations => throw new System.NotImplementedException();
-
-        Transform BasisIBoneChainIKConstraintData.mid => throw new System.NotImplementedException();
-
-        Transform BasisIBoneChainIKConstraintData.tip => throw new System.NotImplementedException();
-
-        Vector3 BasisIBoneChainIKConstraintData.CalibratedOffset => throw new System.NotImplementedException();
-
-        Vector3 BasisIBoneChainIKConstraintData.CalibratedRotation => throw new System.NotImplementedException();
-
-        /// <inheritdoc />
-        bool IAnimationJobData.IsValid() => (m_Tip != null && m_Mid != null && m_Tip.IsChildOf(m_Mid));
-
-        /// <inheritdoc />
-        void IAnimationJobData.SetDefaultValues()
-        {
-            m_Mid = null;
-            m_Tip = null;
-            m_HintWeight = true;
-
-        }
-    }
-
-    /// <summary>
-    /// TwoBoneIK constraint
-    /// </summary>
-    [DisallowMultipleComponent, AddComponentMenu("Animation Rigging/Two Bone IK Constraint")]
-    [HelpURL("https://docs.unity3d.com/Packages/com.unity.animation.rigging@1.3/manual/constraints/TwoBoneIKConstraint.html")]
-    public class BasisBoneChainIKConstraint : RigConstraint<BasisBoneChainIKConstraintJob, BasisBoneChainIKConstraintData, BasisBoneChainIKConstraintJobBinder<BasisBoneChainIKConstraintData>>
-    {
-        /// <inheritdoc />
-        protected override void OnValidate()
-        {
-            base.OnValidate();
-            m_Data.hintWeight = m_Data.hintWeight;
-        }
-    }
-    /// <summary>
-    /// The TwoBoneIK constraint job.
+    /// The ChainIK constraint job.
     /// </summary>
     [Unity.Burst.BurstCompile]
-    public struct BasisBoneChainIKConstraintJob : IWeightedAnimationJob
+    public struct BasisChainIKConstraintJob : IWeightedAnimationJob
     {
-        /// <summary>The transform handle for the root transform.</summary>
-        public ReadWriteTransformHandle root;
-        /// <summary>The transform handle for the mid transform.</summary>
-        public ReadWriteTransformHandle mid;
-        /// <summary>The transform handle for the tip transform.</summary>
-        public ReadWriteTransformHandle tip;
+        /// <summary>An array of Transform handles that represents the Transform chain.</summary>
+        public NativeArray<ReadWriteTransformHandle> chain;
+        /// <summary>The Transform handle for the target Transform.</summary>
+        public Vector3Property TargetPosition;
+        /// <summary>The Transform handle for the target Transform.</summary>
+        public Vector3Property TargetRotation;
 
-        /// <summary>The transform handle for the hint transform.</summary>
-        public Vector3Property hintPosition;
-        /// <summary>The transform handle for the target transform.</summary>
-        public Vector3Property targetPosition;
+        /// <summary>An array of length in between Transforms in the chain.</summary>
+        public NativeArray<float> linkLengths;
 
-        /// <summary>The transform handle for the hint transform.</summary>
-        public Vector3Property hintRotation;
-        /// <summary>The transform handle for the target transform.</summary>
-        public Vector3Property targetRotation;
+        /// <summary>An array of positions for Transforms in the chain.</summary>
+        public NativeArray<Vector3> linkPositions;
 
-        /// <summary>The offset applied to the target transform if maintainTargetPositionOffset or maintainTargetRotationOffset is enabled.</summary>
-        public AffineTransform targetOffset;
-        /// <summary>The weight for which hint transform has an effect on IK calculations. This is a value in between 0 and 1.</summary>
-        public BoolProperty hintWeight;
+        /// <summary>CacheIndex to ChainIK tolerance value.</summary>
+        /// <seealso cref="AnimationJobCache"/>
+        public CacheIndex toleranceIdx;
+        /// <summary>CacheIndex to ChainIK maxIterations value.</summary>
+        /// <seealso cref="AnimationJobCache"/>
+        public CacheIndex maxIterationsIdx;
+        /// <summary>Cache for static properties in the job.</summary>
+        public AnimationJobCache cache;
 
-        /// <summary>The main weight given to the constraint. This is a value in between 0 and 1.</summary>
+        /// <summary>The maximum distance the Transform chain can reach.</summary>
+        public float maxReach;
+
+        /// <inheritdoc />
         public FloatProperty jobWeight { get; set; }
 
-        /// <summary>The transform handle for the hint transform.</summary>
-        public Vector3Property BendNormal;
         /// <summary>
         /// Defines what to do when processing the root motion.
         /// </summary>
@@ -163,103 +51,173 @@ namespace UnityEngine.Animations.Rigging
             float w = jobWeight.Get(stream);
             if (w > 0f)
             {
-                // BasisDebug.Log("Value is " + targetPosition);
-               Vector3 Position = targetPosition.Get(stream);
-                float Tolerence = 1;
+              //  Debug.Log($"chain {chain.Length}");
+                for (int i = 0; i < chain.Length; ++i)
+                {
+                    var handle = chain[i];
+                    linkPositions[i] = handle.GetPosition(stream);
+                    chain[i] = handle;
+                }
 
-                NativeArray<Vector3> linkPositions = new NativeArray<Vector3>(3, Allocator.TempJob);
-                NativeArray<float> linkLengths = new NativeArray<float>(3, Allocator.TempJob);
-                float MaxReach = 1;
-                int MaxSolve = 12;
-                BasisAnimationRuntimeUtils.SolveFABRIK(ref linkPositions,ref linkLengths, Position, Tolerence, MaxReach, MaxSolve);
+                int tipIndex = chain.Length - 1;
+                if (AnimationRuntimeUtils.SolveFABRIK(ref linkPositions, ref linkLengths, TargetPosition.Get(stream),//targetOffset.translation
+                    cache.GetRaw(toleranceIdx), maxReach, (int)cache.GetRaw(maxIterationsIdx)))
+                {
+                    var chainRWeight =  w;
+                    for (int i = 0; i < tipIndex; ++i)
+                    {
+                        var prevDir = chain[i + 1].GetPosition(stream) - chain[i].GetPosition(stream);
+                        var newDir = linkPositions[i + 1] - linkPositions[i];
+                        var rot = chain[i].GetRotation(stream);
+                        chain[i].SetRotation(stream, Quaternion.Lerp(rot, QuaternionExt.FromToRotation(prevDir, newDir) * rot, chainRWeight));
+                    }
+                }
+
+                chain[tipIndex].SetRotation(
+                    stream,
+                    Quaternion.Lerp(
+                        chain[tipIndex].GetRotation(stream),
+                        Quaternion.Euler(TargetRotation.Get(stream)),// * targetOffset.rotation
+                         w
+                        )
+                    );
             }
             else
             {
-                BasisAnimationRuntimeUtils.PassThrough(stream, root);
-                BasisAnimationRuntimeUtils.PassThrough(stream, mid);
-                BasisAnimationRuntimeUtils.PassThrough(stream, tip);
+                for (int i = 0; i < chain.Length; ++i)
+                    AnimationRuntimeUtils.PassThrough(stream, chain[i]);
             }
         }
     }
 
     /// <summary>
-    /// This interface defines the data mapping for the TwoBoneIK constraint.
+    /// This interface defines the data mapping for the ChainIK constraint.
     /// </summary>
-    public interface BasisIBoneChainIKConstraintData
+    public interface BasisIChainIKConstraintData
     {
-        /// <summary>The root transform of the two bones hierarchy.</summary>
-        Transform[] Destinations { get; }
-        /// <summary>The mid transform of the two bones hierarchy.</summary>
-        Transform mid { get; }
-        /// <summary>The tip transform of the two bones hierarchy.</summary>
+        /// <summary>The root Transform of the ChainIK hierarchy.</summary>
+        Transform root { get; }
+        /// <summary>The tip Transform of the ChainIK hierarchy. The tip needs to be a descendant/child of the root Transform.</summary>
         Transform tip { get; }
-        public Vector3 targetPosition { get; }
-        public Vector3 targetRotation { get; }
-        public Vector3 hintPosition { get; }
-        public Vector3 HintRotation { get; }
 
-        public Vector3 CalibratedOffset { get; }
-        public Vector3 CalibratedRotation { get; }
-        /// <summary>The path to the hint weight property in the constraint component.</summary>
-        string hintWeightFloatProperty { get; }
-
-        /// <summary>The path to the override position property in the constraint component.</summary>
-        string TargetpositionVector3Property { get; }
-        /// <summary>The path to the override rotation property in the constraint component.</summary>
-        string TargetrotationVector3Property { get; }
-
-        /// <summary>The path to the override position property in the constraint component.</summary>
-        string HintpositionVector3Property { get; }
-        /// <summary>The path to the override rotation property in the constraint component.</summary>
-        string HintrotationVector3Property { get; }
-        string HintDirectionProperty { get; }
-
-        public Vector3 HintDirection { get; }
-
+        /// <summary>The path to the chain rotation weight property in the constraint component.</summary>
+        string targetRotationProperty { get; }
+        /// <summary>The path to the tip rotation weight property in the constraint component.</summary>
+        string targetPositionProperty { get; }
     }
 
     /// <summary>
-    /// The TwoBoneIK constraint job binder.
+    /// The ChainIK constraint job binder.
     /// </summary>
     /// <typeparam name="T">The constraint data type</typeparam>
-    public class BasisBoneChainIKConstraintJobBinder<T> : AnimationJobBinder<BasisBoneChainIKConstraintJob, T> where T : struct, IAnimationJobData, BasisIBoneChainIKConstraintData
+    public class BasisChainIKConstraintJobBinder<T> : AnimationJobBinder<BasisChainIKConstraintJob, T>
+        where T : struct, IAnimationJobData, BasisIChainIKConstraintData
     {
-        /// <summary>
-        /// Creates the animation job.
-        /// </summary>
-        /// <param name="animator">The animated hierarchy Animator component.</param>
-        /// <param name="data">The constraint data.</param>
-        /// <param name="component">The constraint component.</param>
-        /// <returns>Returns a new job interface.</returns>
-        public override BasisBoneChainIKConstraintJob Create(Animator animator, ref T data, Component component)
+        /// <inheritdoc />
+        public override BasisChainIKConstraintJob Create(Animator animator, ref T data, Component component)
         {
-            BasisBoneChainIKConstraintJob job = new BasisBoneChainIKConstraintJob
+            Transform[] chain = ConstraintsUtils.ExtractChain(data.root, data.tip);
+
+            var job = new BasisChainIKConstraintJob();
+        //    Debug.Log($"Length was {chain.Length}");
+            job.chain = new NativeArray<ReadWriteTransformHandle>(chain.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            job.linkLengths = new NativeArray<float>(chain.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            job.linkPositions = new NativeArray<Vector3>(chain.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            job.maxReach = 0f;
+
+            int tipIndex = chain.Length - 1;
+            for (int i = 0; i < chain.Length; ++i)
             {
-             //   root = ReadWriteTransformHandle.Bind(animator, data.root),
-                mid = ReadWriteTransformHandle.Bind(animator, data.mid),
-                tip = ReadWriteTransformHandle.Bind(animator, data.tip),
-                targetPosition = Vector3Property.Bind(animator, component, data.TargetpositionVector3Property),
-                targetRotation = Vector3Property.Bind(animator, component, data.TargetrotationVector3Property),
+                job.chain[i] = ReadWriteTransformHandle.Bind(animator, chain[i]);
+                job.linkLengths[i] = (i != tipIndex) ? Vector3.Distance(chain[i].position, chain[i + 1].position) : 0f;
+                job.maxReach += job.linkLengths[i];
+            }
 
-                hintPosition = Vector3Property.Bind(animator, component, data.HintpositionVector3Property),
-                hintRotation = Vector3Property.Bind(animator, component, data.HintrotationVector3Property),
+            job.TargetPosition = Vector3Property.Bind(animator, component, data.targetPositionProperty);
+            job.TargetRotation = Vector3Property.Bind(animator,component, data.targetRotationProperty);
 
-                targetOffset = AffineTransform.identity,
-            };
-            job.targetOffset.translation = data.CalibratedOffset;
-            job.targetOffset.rotation = Quaternion.Euler(data.CalibratedRotation);
-            job.hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty);
-            job.BendNormal = Vector3Property.Bind(animator, component, data.HintDirectionProperty);
+            var cacheBuilder = new AnimationJobCacheBuilder();
+            job.maxIterationsIdx = cacheBuilder.Add(16);
+            job.toleranceIdx = cacheBuilder.Add(0.001f);
+            job.cache = cacheBuilder.Build();
 
             return job;
         }
 
-        /// <summary>
-        /// Destroys the animation job.
-        /// </summary>
-        /// <param name="job">The animation job to destroy.</param>
-        public override void Destroy(BasisBoneChainIKConstraintJob job)
+        /// <inheritdoc />
+        public override void Destroy(BasisChainIKConstraintJob job)
         {
+            job.chain.Dispose();
+            job.linkLengths.Dispose();
+            job.linkPositions.Dispose();
+            job.cache.Dispose();
+        }
+
+        /// <inheritdoc />
+        public override void Update(BasisChainIKConstraintJob job, ref T data)
+        {
+            job.cache.SetRaw(16, job.maxIterationsIdx);
+            job.cache.SetRaw(0.001f, job.toleranceIdx);
+        }
+    }
+
+    /// <summary>
+    /// The ChainIK constraint data.
+    /// </summary>
+    [System.Serializable]
+    public struct BasisChainIKConstraintData : IAnimationJobData, BasisIChainIKConstraintData
+    {
+
+        [SerializeField] Transform m_Root;
+        [SerializeField] Transform m_Tip;
+
+        [SyncSceneToStream, SerializeField] public Vector3 headTargetPosition;
+        [SyncSceneToStream, SerializeField] public Vector3 headTargetRotationEuler; // degrees
+
+        /// <inheritdoc />
+        public Transform root { get => m_Root; set => m_Root = value; }
+        /// <inheritdoc />
+        public Transform tip { get => m_Tip; set => m_Tip = value; }
+
+        public string targetRotationProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(headTargetPosition));
+
+        public string targetPositionProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(headTargetRotationEuler));
+        /// <inheritdoc />
+        bool IAnimationJobData.IsValid()
+        {
+            if (m_Root == null || m_Tip == null)
+                return false;
+
+            int count = 1;
+            Transform tmp = m_Tip;
+            while (tmp != null && tmp != m_Root)
+            {
+                tmp = tmp.parent;
+                ++count;
+            }
+
+            return (tmp == m_Root && count > 2);
+        }
+
+        /// <inheritdoc />
+        void IAnimationJobData.SetDefaultValues()
+        {
+            m_Root = null;
+            m_Tip = null;
+
+        }
+    }
+    [DisallowMultipleComponent]
+    [AddComponentMenu("BasisChainIKConstraint")]
+    [HelpURL("https://docs.unity3d.com/Packages/com.unity.animation.rigging@1.3/manual/index.html")]
+    public class BasisChainIKConstraint
+        : RigConstraint<BasisChainIKConstraintJob,
+                        BasisChainIKConstraintData,
+                        BasisChainIKConstraintJobBinder<BasisChainIKConstraintData>>
+    {
+        protected override void OnValidate()
+        {
+
         }
     }
 }
