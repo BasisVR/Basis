@@ -356,7 +356,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnEscapePerformed(InputAction.CallbackContext ctx)
         {
-            BasisHamburgerMenu.ToggleHamburgerMenu();
+            // BasisHamburgerMenu.ToggleHamburgerMenu();
+            VowganUI.MenuPanelManager.ToggleHomeMenu();
         }
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx)
