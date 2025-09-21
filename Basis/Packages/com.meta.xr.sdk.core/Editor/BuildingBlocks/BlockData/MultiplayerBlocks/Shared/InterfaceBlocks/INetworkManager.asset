@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: INetworkManager
+  m_EditorClassIdentifier: 
+  id: 1d8db162-54f6-43df-b4ef-b499df1f6769
+  version: 1
+  blockName: Network Manager
+  description: Base block for the network connection
+  tags:
+    array:
+    - name: Multiplayer
+    - name: Hidden
+  thumbnail: {fileID: 2800000, guid: 90ad9cc1b602b4e469c9c261b6323292, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  externalBlockDependencies: []
+  dependencies: []
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 
+  featureDocumentationName: Multiplayer Building Blocks Setup and Intro
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/bb-multiplayer-blocks

@@ -170,6 +170,8 @@ GameObject:
   - component: {fileID: 4926678751529155332}
   - component: {fileID: 1359221182720975491}
   - component: {fileID: 8285517692325404402}
+  - component: {fileID: 251103215370718543}
+  - component: {fileID: 2819247879703846172}
   m_Layer: 0
   m_Name: Modules
   m_TagString: Untagged
@@ -397,6 +399,34 @@ MonoBehaviour:
   SettingsNames:
   - Field Of View
   SelectedFOV: 82
+--- !u!114 &251103215370718543
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3197856584617865972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a928657f3fe208c408626a3a898760a8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::SMModuleIcons
+  SettingsNames:
+  - Microphone Icon
+--- !u!114 &2819247879703846172
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3197856584617865972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e770f21f6832f143836b947c062a5b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::SMModuleSitStand
+  SettingsNames:
+  - Seated Mode
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0
@@ -460,6 +490,8 @@ MonoBehaviour:
   RightMousePressed: {fileID: -240064975923332847, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  DesktopLeftMove: {fileID: 405334284703550776, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  DesktopRightMove: {fileID: -8048210062446332474, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
   Input: {fileID: 297858091515769489}
@@ -932,6 +964,7 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
+      ImageBytes: 
   DefaultAvatar:
     UnlockPassword: 
     BasisRemoteBundleEncrypted:
@@ -944,6 +977,7 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
+      ImageBytes: 
   UseAddressablesToLoadScene: 0
   UseSceneProvidedHere: 0
 --- !u!114 &6910429841152494025
@@ -962,3 +996,5 @@ MonoBehaviour:
   timeSinceLastUpdate: 0
   DeltaTime: 0
   TimeAsDouble: 0
+  proceduralMaterial: {fileID: 2100000, guid: 4fe20975baa16b1d4986440508067f23, type: 2}
+  sphereMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}

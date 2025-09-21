@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f02343db1ed65fb4a8419c4f08d8e195, type: 3}
+  m_Name: TextToSpeech
+  m_EditorClassIdentifier: 
+  id: ab791591-5ee2-431a-93e7-1749d1b5ad8f
+  version: 1
+  blockName: Text-to-Speech
+  description: Enables your app to read out a provided text.
+  tags:
+    array:
+    - name: Voice
+  thumbnail: {fileID: 2800000, guid: e19dd181df67c81468e76d169719c758, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  externalBlockDependencies: []
+  dependencies: []
+  packageDependencies:
+  - com.meta.xr.sdk.voice
+  isSingleton: 1
+  usageInstructions: 'Adding this block to the scene will create a building block
+    with a TTSWitService providing and TTSSpeaker game objects as children.
+
+    Move
+    and duplicate the TTSSpeaker to all the locations in your app where you would
+    like text-to-speech to be played by calling its Speak(textToSpeak : string) method.
+
+
+    Full
+    instructions in  https://developer.oculus.com/documentation/unity/voice-sdk-tts-overview/.'
+  featureDocumentationName: Voice SDK TTS
+  featureDocumentationUrl: https://developer.oculus.com/documentation/unity/voice-sdk-tts-overview/

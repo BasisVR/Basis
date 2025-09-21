@@ -1,20 +1,21 @@
 using UnityEngine;
 public class SMModuleDebugOptions : BasisSettingsBase
 {
+    public static bool UseGizmos = false;
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
         if (bool.TryParse(optionValue.ToLower(), out bool Selected))
         {
-            if (BasisGizmoManager.UseGizmos != Selected)
+            if (UseGizmos != Selected)
             {
-                BasisGizmoManager.UseGizmos = Selected;
-                BasisDebug.Log($"Gizmo State is {BasisGizmoManager.UseGizmos} {Selected}");
-                if (BasisGizmoManager.UseGizmos)
+                UseGizmos = Selected;
+                BasisDebug.Log($"Gizmo State is {UseGizmos} {Selected}");
+                if (UseGizmos)
                 {
                     BasisGizmoManager.TryCreateParent();
                 }
-                BasisGizmoManager.OnUseGizmosChanged?.Invoke(BasisGizmoManager.UseGizmos);
-                if (BasisGizmoManager.UseGizmos == false)
+                BasisGizmoManager.OnUseGizmosChanged?.Invoke(UseGizmos);
+                if (UseGizmos == false)
                 {
                     BasisGizmoManager.DestroyParent();
                     foreach (BasisGizmos BasisGizmos in BasisGizmoManager.Gizmos.Values)

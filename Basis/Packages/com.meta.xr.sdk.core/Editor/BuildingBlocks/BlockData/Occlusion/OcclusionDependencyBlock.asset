@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35c4ad19f06c67e44a2d7ba8d05f31b7, type: 3}
+  m_Name: OcclusionDependencyBlock
+  m_EditorClassIdentifier: 
+  id: ece9de6e-19c8-4f64-bb33-313ed23e6c5c
+  version: 1
+  blockName: Occlusion Dependencies
+  description: Occlusion dependencies block
+  tags:
+    array:
+    - name: Hidden
+    - name: Internal
+  thumbnail: {fileID: 0}
+  order: 20
+  prefab: {fileID: 957427737911234583, guid: 719f06e7e5da93143aa477900c86a5e6, type: 3}
+  externalBlockDependencies: []
+  dependencies: []
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 

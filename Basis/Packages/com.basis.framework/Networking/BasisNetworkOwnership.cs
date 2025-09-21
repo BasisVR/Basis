@@ -39,7 +39,7 @@ public static partial class BasisNetworkOwnership
         {
             playerIdMessage = new PlayerIdMessage
             {
-                playerID = (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId,
+                playerID = (ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId,
             },
             ownershipID = UniqueNetworkId
         };
@@ -47,7 +47,7 @@ public static partial class BasisNetworkOwnership
         var netDataWriter = new NetDataWriter();
         ownershipTransferMessage.Serialize(netDataWriter);
 
-        var peer = BasisNetworkManagement.LocalPlayerPeer;
+        var peer = BasisNetworkConnection.LocalPlayerPeer;
         if (peer != null)
         {
             peer.Send(netDataWriter, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, DeliveryMethod.ReliableSequenced);
@@ -101,7 +101,7 @@ public static partial class BasisNetworkOwnership
         var netDataWriter = new NetDataWriter();
         ownershipTransferMessage.Serialize(netDataWriter);
 
-        var peer = BasisNetworkManagement.LocalPlayerPeer;
+        var peer = BasisNetworkConnection.LocalPlayerPeer;
         if (peer != null)
         {
             peer.Send(netDataWriter, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
@@ -122,9 +122,9 @@ public static partial class BasisNetworkOwnership
     /// </summary>
     public static bool IsOwnerLocalValidation(string OwnershipId)
     {
-        if (BasisNetworkManagement.OwnershipPairing.TryGetValue(OwnershipId, out ushort Unique))
+        if (BasisNetworkPlayers.OwnershipPairing.TryGetValue(OwnershipId, out ushort Unique))
         {
-            if (Unique == (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId)
+            if (Unique == (ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId)
             {
                 return true;
             }
@@ -133,7 +133,7 @@ public static partial class BasisNetworkOwnership
     }
     public static async Task<BasisOwnershipResult> RequestCurrentOwnershipAsync(string UniqueNetworkId, int timeoutMs = 5000)
     {
-        if (BasisNetworkManagement.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique))
+        if (BasisNetworkPlayers.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique))
         {
             return new BasisOwnershipResult(true, Unique);
         }
@@ -163,7 +163,7 @@ public static partial class BasisNetworkOwnership
         {
             playerIdMessage = new PlayerIdMessage
             {
-                playerID = (ushort)BasisNetworkManagement.LocalPlayerPeer.RemoteId,
+                playerID = (ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId,
             },
             ownershipID = UniqueNetworkId
         };
@@ -171,7 +171,7 @@ public static partial class BasisNetworkOwnership
         var netDataWriter = new NetDataWriter();
         ownershipTransferMessage.Serialize(netDataWriter);
 
-        var peer = BasisNetworkManagement.LocalPlayerPeer;
+        var peer = BasisNetworkConnection.LocalPlayerPeer;
         if (peer != null)
         {
             peer.Send(netDataWriter, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);

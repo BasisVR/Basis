@@ -1,0 +1,42 @@
+{
+    "name": "Meta.XR.EnvironmentDepth",
+    "rootNamespace": "Meta.XR.EnvironmentDepth",
+    "references": [
+        "Oculus.VR",
+        "Unity.XR.Oculus",
+        "Unity.XR.Management",
+        "Unity.XR.ARSubsystems",
+        "Unity.XR.OpenXR",
+        "Unity.XR.MetaOpenXR"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.2.0",
+            "define": "XR_OCULUS_4_2_0_OR_NEWER"
+        },
+        {
+            "name": "com.unity.xr.meta-openxr",
+            "expression": "2.1.0",
+            "define": "OPEN_XR_META_2_1_OR_NEWER"
+        },
+        {
+            "name": "com.unity.xr.management",
+            "expression": "",
+            "define": "USING_XR_MANAGEMENT"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

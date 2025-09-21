@@ -32,7 +32,7 @@ public static class BasisNetworkHandleVoice
                     audioUpdate = new ServerAudioSegmentMessage();
                 }
                 audioUpdate.Deserialize(Reader);
-                if (BasisNetworkManagement.RemotePlayers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver player))
+                if (BasisNetworkPlayers.RemotePlayers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver player))
                 {
                     if (cancellationToken.IsCancellationRequested)
                     {

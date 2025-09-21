@@ -2,6 +2,9 @@ using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using BasisNetworkClientConsole;
 using LiteNetLib;
+using LiteNetLib.Utils;
+using System;
+using System.Reflection;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
 
@@ -9,134 +12,134 @@ namespace Basis.Network
 {
     public static class MovementSender
     {
-        public static byte[] AvatarMessage = new byte[LocalAvatarSyncMessage.AvatarSyncSize + 2];
         public static Quaternion Rotation = new Quaternion(0, 0, 0, 1);
-        private const ushort UShortMin = ushort.MinValue; // 0
-        private const ushort UShortMax = ushort.MaxValue; // 65535
-        private const ushort ushortRangeDifference = UShortMax - UShortMin;
+
+        private const ushort UShortMin = ushort.MinValue;   // 0
+        private const ushort UShortMax = ushort.MaxValue;   // 65535
+        private const ushort UShortRangeDifference = UShortMax - UShortMin;
+
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
-        public static Vector3 MinPosition = new Vector3(30, 30, 30);
-        public static Vector3 MaxPosition = new Vector3(80, 80, 80);
+
         public static Vector3[] PlayersCurrentPosition;
+        public static PlayerData[] ActivePlayerData;
+
+        public struct PlayerData
+        {
+            public NetDataWriter Writer;
+            public LocalAvatarSyncMessage Message;
+        }
+
+        // Precompute compressed scale once; reused for all messages.
+        private static readonly ushort CompressedScale = CompressScaleOnce(1);
+
         public static void Initialize(int clientCount)
         {
             PlayersCurrentPosition = new Vector3[clientCount];
-            for (int Index = 0; Index < PlayersCurrentPosition.Length; Index++)
+            ActivePlayerData = new PlayerData[clientCount];
+
+            for (int Index = 0; Index < clientCount; Index++)
             {
                 PlayersCurrentPosition[Index] = Randomizer.GetRandomOffset();
+                ActivePlayerData[Index] = Generate();
             }
         }
-        public static void ProcessSingle(NetPeer peer, int index)
+        public static PlayerData Generate()
         {
-            SendMovement(peer, index);
-        }
-        public static void Process(NetPeer[] peers)
-        {
-            int Peers = peers.Length;
-            for (int Index = 0; Index < Peers; Index++)
+            var pd = new PlayerData
             {
-                SendMovement(peers[Index], Index);
-            }
+                Writer = new NetDataWriter(),
+                Message = new LocalAvatarSyncMessage
+                {
+                    AdditionalAvatarDatas = null,
+                    AdditionalAvatarDataSize = 0,
+                    LinkedAvatarIndex = 0,
+                    array = new byte[LocalAvatarSyncMessage.AvatarSyncSize],
+                }
+            };
+
+            int offset = 0;
+            var message = pd.Message;
+            // Position (12 bytes)
+            WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset);//12
+
+            // Rotation xyz (12 bytes) + compressed w (2 bytes)
+            WriteQuaternionToBytes(Rotation, ref message.array, ref offset, RotationCompression);//14
+
+            // Scale (2 bytes) at the end
+            int scaleOffset = 171;
+            WriteUShort(CompressedScale, ref message.array, ref scaleOffset);//2
+            pd.Message = message;
+            return pd;
         }
 
-        private static void SendMovement(NetPeer peer, int index)
+        public static void ProcessSingle(NetPeer peer, int index)
         {
             if (peer == null) return;
 
+            // Update position
+            PlayersCurrentPosition[index] += Randomizer.GetRandomOffset();
+
+            // Overwrite just the position region in the message buffer
             int offset = 0;
-            Vector3 delta = Randomizer.GetRandomOffset();
-            PlayersCurrentPosition[index] = PlayersCurrentPosition[index] +  delta;
-            WriteVectorFloatToBytes(PlayersCurrentPosition[index], ref AvatarMessage, ref offset);
-            WriteQuaternionToBytes(Rotation, ref AvatarMessage, ref offset, RotationCompression);
-            WriteZeroBytes(ref AvatarMessage, ref offset);
-            CompressScale(1, ref AvatarMessage, ref offset);
+            var Message = ActivePlayerData[index].Message;
+            WritePosition(PlayersCurrentPosition[index], ref Message.array, ref offset);
+            var Writer = ActivePlayerData[index].Writer;
+            // Reset writer before (re)serialization
+            Writer.Reset();
+            Message.Serialize(Writer);
 
-            peer.Send(AvatarMessage, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+            peer.Send(Writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+
+            ActivePlayerData[index].Message = Message;
         }
-        // Ensure the byte array is large enough to hold the data
-        private static void EnsureSize(ref byte[] bytes, int requiredSize)
+
+        public static void WritePosition(Scripts.Networking.Compression.Vector3 position, ref byte[] buffer, ref int offset)
         {
-            if (bytes == null)
+            unsafe
             {
-                bytes = new byte[requiredSize];
-                return;
+                fixed (byte* dst = &buffer[offset])
+                {
+                    float* f = (float*)dst;
+                    f[0] = position.x;
+                    f[1] = position.y;
+                    f[2] = position.z;
+                }
             }
-            if (bytes.Length < requiredSize)
+            offset += 12;
+        }
+
+        public unsafe static void WriteQuaternionToBytes(Quaternion q, ref byte[] bytes, ref int offset, BasisRangedUshortFloatData compressor)
+        {
+            fixed (byte* ptr = &bytes[offset])
             {
-                Array.Resize(ref bytes, requiredSize);
+                *((float*)ptr) = float.IsNaN(q.value.x) ? 0f : q.value.x;
+                *((float*)(ptr + 4)) = float.IsNaN(q.value.y) ? 0f : q.value.y;
+                *((float*)(ptr + 8)) = float.IsNaN(q.value.z) ? 0f : q.value.z;
             }
-        }
-        // Manual conversion of quaternion to bytes (without BitConverter)
-        public static void WriteQuaternionToBytes(Quaternion rotation, ref byte[] bytes, ref int offset, BasisRangedUshortFloatData compressor)
-        {
-            EnsureSize(ref bytes, offset + 14);
-            ushort compressedW = compressor.Compress(rotation.value.w);
+            offset += 12;
 
-            // Write the quaternion's components
-            WriteFloatToBytes(rotation.value.x, ref bytes, ref offset);
-            WriteFloatToBytes(rotation.value.y, ref bytes, ref offset);
-            WriteFloatToBytes(rotation.value.z, ref bytes, ref offset);
-
-            // Write the compressed 'w' component
-            bytes[offset] = (byte)(compressedW & 0xFF);           // Low byte
-            bytes[offset + 1] = (byte)((compressedW >> 8) & 0xFF); // High byte
-            offset += 2;
-        }
-        public static void WriteVectorFloatToBytes(Vector3 values, ref byte[] bytes, ref int offset)
-        {
-            EnsureSize(ref bytes, offset + 12);
-            WriteFloatToBytes(values.x, ref bytes, ref offset);//4
-            WriteFloatToBytes(values.y, ref bytes, ref offset);//8
-            WriteFloatToBytes(values.z, ref bytes, ref offset);//12
+            float w = float.IsNaN(q.value.w) ? 1f : q.value.w;
+            ushort compressedW = compressor.Compress(w);
+            WriteUShort(compressedW, ref bytes, ref offset);
         }
 
-        private unsafe static void WriteFloatToBytes(float value, ref byte[] bytes, ref int offset)
+        private static ushort CompressScaleOnce(float scale)
         {
-            // Convert the float to a uint using its bitwise representation
-            uint intValue = *((uint*)&value);
+            const float Min = 0.005f;
+            const float Max = 150f;
+            const float Range = Max - Min;
+            float clamped = scale;//math.clamp(scale, Min, Max);
+            // Normalized value of a uniform scale of 1.0 within [Min, Max]
+            float normalized = (clamped - Min) / Range;
+            ushort compressed = (ushort)(normalized * UShortRangeDifference);
 
-            // Manually write the bytes
-            bytes[offset] = (byte)(intValue & 0xFF);
-            bytes[offset + 1] = (byte)((intValue >> 8) & 0xFF);
-            bytes[offset + 2] = (byte)((intValue >> 16) & 0xFF);
-            bytes[offset + 3] = (byte)((intValue >> 24) & 0xFF);
-            offset += 4;
+            return compressed;
         }
-        public static void WriteZeroBytes(ref byte[] bytes, ref int offset, int count = 140)
+
+        public static void WriteUShort(ushort value, ref byte[] bytes, ref int offset)
         {
-            // Ensure the array is large enough
-            if (bytes.Length < offset + count)
-            {
-                Array.Resize(ref bytes, offset + count);
-            }
-
-            // Fill with zeros
-            Array.Clear(bytes, offset, count);
-
-            // Move the offset
-            offset += count;
-        }
-        // Manual ushort to bytes conversion (without BitConverter)
-        private unsafe static void WriteUShortToBytes(ushort value, ref byte[] bytes, ref int offset)
-        {
-            // Manually write the bytes
-            bytes[offset] = (byte)(value & 0xFF);
-            bytes[offset + 1] = (byte)((value >> 8) & 0xFF);
-            offset += 2;
-        }
-        public static void CompressScale(float Scale, ref byte[] bytes, ref int Offset)
-        {
-            //we can squeeze out more 
-            const float MinimumValueSupported = 0.005f;
-            const float MaximumValueSupported = 150;
-            const float valueDiffence = MaximumValueSupported - MinimumValueSupported;
-
-            //basis does not support ununiform scaling, if your avatar is not uniform you need to get help. - dooly
-            float value = Math.Clamp(Scale, MinimumValueSupported, MaximumValueSupported);
-            float normalized = (value - MinimumValueSupported) / valueDiffence; // 0..1
-            ushort ScaleUshort = (ushort)(normalized * ushortRangeDifference);
-
-            WriteUShortToBytes(ScaleUshort, ref AvatarMessage, ref Offset);
+            bytes[offset++] = (byte)value;
+            bytes[offset++] = (byte)(value >> 8);
         }
     }
 }

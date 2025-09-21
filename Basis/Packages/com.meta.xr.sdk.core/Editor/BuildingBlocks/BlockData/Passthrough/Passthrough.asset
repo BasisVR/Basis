@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35c4ad19f06c67e44a2d7ba8d05f31b7, type: 3}
+  m_Name: Passthrough
+  m_EditorClassIdentifier: 
+  id: f0540b20-dfd6-420e-b20d-c270f88dc77e
+  version: 1
+  blockName: Passthrough
+  description: Passthrough provides a real-time and perceptually comfortable 3D visualization
+    of the physical world in the Meta Quest headsets. The Passthrough API allows
+    developers to integrate the passthrough visualization with their virtual experiences.
+  tags:
+    array:
+    - name: Core
+    - name: Passthrough
+  thumbnail: {fileID: 2800000, guid: ee83bb931d724374bac6a8645b30d386, type: 3}
+  order: -9
+  prefab: {fileID: 443585054829974785, guid: 49b59b98df4db24489116c4da648c11f, type: 3}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  guidedSetupName: 
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 
+  featureDocumentationName: 
+  featureDocumentationUrl: 

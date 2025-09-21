@@ -14,7 +14,7 @@ public static class BasisNetworkHandleAvatar
             SSM = new ServerSideSyncPlayerMessage();
         }
         SSM.Deserialize(Reader);
-        if (BasisNetworkManagement.RemotePlayers.TryGetValue(SSM.playerIdMessage.playerID, out BasisNetworkReceiver player))
+        if (BasisNetworkPlayers.RemotePlayers.TryGetValue(SSM.playerIdMessage.playerID, out BasisNetworkReceiver player))
         {
             BasisNetworkAvatarDecompressor.DecompressAndProcessAvatar(player, SSM);
         }
@@ -36,7 +36,7 @@ public static class BasisNetworkHandleAvatar
         ServerAvatarChangeMessage ServerAvatarChangeMessage = new ServerAvatarChangeMessage();
         ServerAvatarChangeMessage.Deserialize(reader);
         ushort PlayerID = ServerAvatarChangeMessage.uShortPlayerId.playerID;
-        if (BasisNetworkManagement.Players.TryGetValue(PlayerID, out BasisNetworkPlayer Player))
+        if (BasisNetworkPlayers.Players.TryGetValue(PlayerID, out BasisNetworkPlayer Player))
         {
             BasisNetworkReceiver networkReceiver = (BasisNetworkReceiver)Player;
             networkReceiver.ReceiveAvatarChangeRequest(ServerAvatarChangeMessage);

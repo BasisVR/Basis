@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35c4ad19f06c67e44a2d7ba8d05f31b7, type: 3}
+  m_Name: RoomModel
+  m_EditorClassIdentifier: 
+  id: be2b0240-1191-4e84-90bb-40fb6d75848b
+  version: 1
+  blockName: Room Model
+  description: Load the recorded room elements
+  tags:
+    array:
+    - name: Scene
+    - name: Deprecated
+  thumbnail: {fileID: 2800000, guid: e9e12fd1a426e804eb879518b6202ed8, type: 3}
+  order: -8
+  prefab: {fileID: 747806495401477014, guid: 07716e3d7cb93b84a91002545323c1d8, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 

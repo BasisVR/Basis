@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10b955a50813f50408f29596e0c22759, type: 3}
+  m_Name: NetworkedGrabbableObjectNGOInstallationRoutine
+  m_EditorClassIdentifier: 
+  id: d5c83ff6-47e4-4c98-acdd-041d4686912f
+  targetBlockDataId: e9b4b64f-1c7e-4dff-8f3c-ce409bdc3951
+  prefab: {fileID: 0}
+  packageDependencies:
+  - com.unity.netcode.gameobjects@^1.7.1
+  implementation: 0
+  installMatchmaking: 0
+  _useGravity: 1

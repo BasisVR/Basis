@@ -1,0 +1,158 @@
+{
+    "name": "Oculus.VR.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Oculus.VR",
+        "Unity.XR.Oculus",
+        "Unity.XR.OpenXR",
+        "Unity.XR.OpenXR.Editor",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.XR.CoreUtils.Editor",
+        "Meta.XR.BuildingBlocks",
+        "Meta.XR.Editor.Callbacks",
+        "Meta.XR.Editor.UserInterface",
+        "Meta.XR.Editor.StatusMenu",
+        "Unity.Addressables.Editor",
+        "Meta.XR.Editor.Reflection",
+        "Meta.XR.Editor.ToolingSupport",
+        "Meta.XR.Editor.Settings",
+        "Meta.XR.Editor.Id",
+        "Unity.TextMeshPro.Editor",
+        "Unity.TextMeshPro",
+        "Meta.XR.Guides.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.management",
+            "expression": "",
+            "define": "USING_XR_MANAGEMENT"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "",
+            "define": "USING_XR_SDK_OCULUS"
+        },
+        {
+            "name": "com.unity.xr.openxr",
+            "expression": "",
+            "define": "USING_XR_SDK_OPENXR"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "1.4.0",
+            "define": "USING_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "",
+            "define": "USING_URP"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "1.7.0",
+            "define": "__OVERRIDED__PRIORITIZE_OCULUS_XR_SETTINGS"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "[2.2-pre,3.0-pre)",
+            "define": "USING_QUEST_PRO_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "3.2.1-pre",
+            "define": "USING_QUEST_PRO_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "1.12.0",
+            "define": "OCULUS_XR_SYMMETRIC"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "3.2.1-pre",
+            "define": "OCULUS_XR_EYE_TRACKED_FOVEATED_RENDERING"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "3.2.1",
+            "define": "OCULUS_XR_PLUGIN_3_2_1_OR_NEWER"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.0.0",
+            "define": "OCULUS_XR_PLUGIN_QUEST_ONE_REMOVED"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.3.0",
+            "define": "OCULUS_XR_PLUGIN_4_3_0_OR_NEWER"
+        },
+        {
+            "name": "com.unity.xr.core-utils",
+            "expression": "2.2.1",
+            "define": "UNITY_XR_CORE_UTILS"
+        },
+        {
+            "name": "com.unity.xr.management",
+            "expression": "4.4.0",
+            "define": "XR_MGMT_4_4_0_OR_NEWER"
+        },
+        {
+            "name": "com.unity.addressables",
+            "expression": "1.18.19",
+            "define": "ADDRESSABLES_1_18_19_OR_NEWER"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "14.0.0",
+            "define": "URP_14_OR_NEWER"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "14.0.9",
+            "define": "URP_14_0_9_OR_NEWER"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "16.0.0",
+            "define": "URP_16_OR_NEWER"
+        },
+        {
+            "name": "com.unity.render-pipelines.universal",
+            "expression": "17.0.0",
+            "define": "URP_17_OR_NEWER"
+        },
+        {
+            "name": "com.unity.xr.openxr",
+            "expression": "1.11.0",
+            "define": "UNITY_OPENXR_PLUGIN_1_11_0_OR_NEWER"
+        },
+        {
+            "name": "Unity",
+            "expression": "2022.3.35f1",
+            "define": "UNITY_GRAPHICS_JOB_FIX"
+        },
+        {
+            "name": "com.unity.textmeshpro",
+            "expression": "",
+            "define": "UNITY_TEXTMESHPRO"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

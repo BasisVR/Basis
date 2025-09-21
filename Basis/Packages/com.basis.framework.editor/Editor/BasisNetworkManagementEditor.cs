@@ -35,10 +35,10 @@ public class BasisNetworkManagementEditor : Editor
         portProp.intValue = EditorGUILayout.IntField("Port", portProp.intValue);
         passwordProp.stringValue = EditorGUILayout.PasswordField("Password", passwordProp.stringValue);
 
-        EditorGUILayout.LabelField("Total Players:", BasisNetworkManagement.Players.Count.ToString());
-        EditorGUILayout.LabelField("Remote Players:", BasisNetworkManagement.RemotePlayers.Count.ToString());
-        EditorGUILayout.LabelField("Joining Players:", BasisNetworkManagement.JoiningPlayers.Count.ToString());
-        EditorGUILayout.LabelField("Receiver Count:", BasisNetworkManagement.ReceiverCount.ToString());
+        EditorGUILayout.LabelField("Total Players:", BasisNetworkPlayers.Players.Count.ToString());
+        EditorGUILayout.LabelField("Remote Players:", BasisNetworkPlayers.RemotePlayers.Count.ToString());
+        EditorGUILayout.LabelField("Joining Players:", BasisNetworkPlayers.JoiningPlayers.Count.ToString());
+        EditorGUILayout.LabelField("Receiver Count:", BasisNetworkPlayers.ReceiverCount.ToString());
 
         if (BasisNetworkManagement.Instance == null)
         {
@@ -82,12 +82,12 @@ public class BasisNetworkManagementEditor : Editor
         receiverArrayFoldout = EditorGUILayout.Foldout(receiverArrayFoldout, "Receiver Array Data", true);
         if (receiverArrayFoldout)
         {
-            if (BasisNetworkManagement.ReceiversSnapshot != null && BasisNetworkManagement.ReceiversSnapshot.Length > 0)
+            if (BasisNetworkPlayers.ReceiversSnapshot != null && BasisNetworkPlayers.ReceiversSnapshot.Length > 0)
             {
-                EditorGUILayout.LabelField($"Receiver Array Length: {BasisNetworkManagement.ReceiversSnapshot.Length}");
-                selectedReceiverIndex = EditorGUILayout.IntSlider("Select Receiver", selectedReceiverIndex, 0, BasisNetworkManagement.ReceiversSnapshot.Length - 1);
+                EditorGUILayout.LabelField($"Receiver Array Length: {BasisNetworkPlayers.ReceiversSnapshot.Length}");
+                selectedReceiverIndex = EditorGUILayout.IntSlider("Select Receiver", selectedReceiverIndex, 0, BasisNetworkPlayers.ReceiversSnapshot.Length - 1);
 
-                var receiver = BasisNetworkManagement.ReceiversSnapshot[selectedReceiverIndex];
+                var receiver = BasisNetworkPlayers.ReceiversSnapshot[selectedReceiverIndex];
                 if (receiver != null)
                 {
                     EditorGUILayout.BeginVertical("box");

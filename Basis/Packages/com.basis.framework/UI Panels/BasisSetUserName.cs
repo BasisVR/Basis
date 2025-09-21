@@ -24,8 +24,10 @@ namespace Basis.Scripts.UI.UI_Panels
         public Toggle HostMode;
         public TextMeshProUGUI ConnectText;
         public Vector3 InitalScale;
+        public static BasisSetUserName Instance;
         public void Start()
         {
+            Instance = this;
             InitalScale = gameObject.transform.localScale;
             UserNameTMP_InputField.text = BasisDataStore.LoadString(LoadFileName, string.Empty);
             Ready.onClick.AddListener(HasUserName);
@@ -113,7 +115,6 @@ namespace Basis.Scripts.UI.UI_Panels
                     BasisNetworkManagement.Instance.Connect();
                     Ready.interactable = false;
                     BasisDebug.Log("connecting to default");
-                    Destroy(this.gameObject);
                 }
             }
             else
@@ -122,6 +123,11 @@ namespace Basis.Scripts.UI.UI_Panels
                 // Re-enable button interaction if username is empty
                 Ready.interactable = true;
             }
+        }
+        public void DestroyUserNamePanel()
+        {
+            Destroy(this.gameObject);
+            BasisSetUserName.Instance = null;
         }
         public void ToggleAdvancedSettings()
         {

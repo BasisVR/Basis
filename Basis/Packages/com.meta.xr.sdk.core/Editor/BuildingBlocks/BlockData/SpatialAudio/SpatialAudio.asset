@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2bbfcccc4c3a20146ba719198d58ab0e, type: 3}
+  m_Name: SpatialAudio
+  m_EditorClassIdentifier: 
+  id: 6737262b-4fab-4779-a38b-fe74012fa505
+  version: 1
+  blockName: Spatial Audio
+  description: Add spatialization to your sound effects
+  tags:
+    array:
+    - name: Audio
+  thumbnail: {fileID: 2800000, guid: ece7f22ca0181924187420a1fcc92263, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies: []
+  guidedSetupName: 
+  packageDependencies:
+  - com.meta.xr.sdk.audio
+  isSingleton: 0
+  usageInstructions: Please note that the Audio SDK supports using the FMOD and Wwise
+    audio engines which are currently not supported by this Building Block. Full
+    instructions in https://developer.oculus.com/documentation/unity/meta-xr-audio-sdk-unity-spatialize/.
+  featureDocumentationName: Meta XR Audio SDK
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/meta-xr-audio-sdk-unity

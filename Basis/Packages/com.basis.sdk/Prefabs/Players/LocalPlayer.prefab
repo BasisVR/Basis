@@ -315,28 +315,30 @@ MonoBehaviour:
   DefaultCameraFov: 80
   BasisLockToInput: {fileID: 3806033592985501336}
   HasEvents: 0
-  ParentOfUI: {fileID: 7984352310526030848}
-  SpriteRendererIcon: {fileID: 8202654958605531215}
-  SpriteRendererIconTransform: {fileID: 2290955745392714449}
-  SpriteMicrophoneOn: {fileID: 21300000, guid: df4c5b7b152475f48adb88ead5775eb0, type: 3}
-  SpriteMicrophoneOff: {fileID: 21300000, guid: f184b79ab72cc224e94720390fb038c2, type: 3}
   DesktopMicrophoneViewportPosition: {x: 0.2, y: 0.15, z: 1}
-  DepthFromCamera: 1
-  ScreenHeightFraction: 0.06
-  ViewportMargin: 0.03
-  VRMicrophoneOffset: {x: -0.0001, y: -0.00025, z: 1}
-  MuteSound: {fileID: 8300000, guid: 5b9ed5013ea1941499840ac97ad2b8e9, type: 3}
-  UnMuteSound: {fileID: 8300000, guid: fbd61add38ba2d04baedb52b69c6e1b3, type: 3}
-  AudioSource: {fileID: 3487408718883139867}
   NearClip: 0.01
-  StartingScale: {x: 0, y: 0, z: 0}
-  duration: 0.35
-  halfDuration: 0
-  largerScale: {x: 0, y: 0, z: 0}
-  UnMutedMutedIconColorActive: {r: 1, g: 1, b: 1, a: 0.6745098}
-  UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.6745098}
-  MutedColor: {r: 1, g: 0, b: 0, a: 0.6784314}
-  LocalIsTransmitting: 0
+  ParentOfUI: {fileID: 7984352310526030848}
+  microphoneIconDriver:
+    DisplayMode: 1
+    SpriteRendererIcon: {fileID: 8202654958605531215}
+    SpriteRendererIconTransform: {fileID: 2290955745392714449}
+    SpriteMicrophoneOn: {fileID: 21300000, guid: df4c5b7b152475f48adb88ead5775eb0, type: 3}
+    SpriteMicrophoneOff: {fileID: 21300000, guid: f184b79ab72cc224e94720390fb038c2, type: 3}
+    VRdesiredNormXY: {x: -0.42, y: -0.52}
+    VRextraViewportPad: 0.022
+    iconHalfRU: {x: 0, y: 0}
+    LocalIsTransmitting: 0
+    UnMutedMutedIconColorActive: {r: 1, g: 1, b: 1, a: 0.67058825}
+    UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.67058825}
+    MutedColor: {r: 1, g: 0, b: 0, a: 0.67058825}
+    StartingScale: {x: 0, y: 0, z: 0}
+    largerScale: {x: 0, y: 0, z: 0}
+    MuteSound: {fileID: 8300000, guid: 5b9ed5013ea1941499840ac97ad2b8e9, type: 3}
+    UnMuteSound: {fileID: 8300000, guid: fbd61add38ba2d04baedb52b69c6e1b3, type: 3}
+    AudioSource: {fileID: 3487408718883139867}
+    duration: 0.35
+    halfDuration: 0
+    CameraDriver: {fileID: 22857711927985140}
 --- !u!114 &3806033592985501336
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -361,7 +363,7 @@ AudioSource:
   m_GameObject: {fileID: 7399882423328331619}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: -2806993401203009225, guid: 471a0209081144d4da2426822e8a0b47, type: 2}
+  OutputAudioMixerGroup: {fileID: -2806993401203009225, guid: 1ff7d045b2e32054aad6c5815495d8b8, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
@@ -554,6 +556,7 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
+      ImageBytes: 
   FacialBlinkDriver:
     meshRenderer: {fileID: 0}
     minBlinkInterval: 5
@@ -661,6 +664,7 @@ MonoBehaviour:
     <MovementSpeedScale>k__BackingField: 0
     <MovementSpeedBoost>k__BackingField: 0
     CrouchBlend: 1
+    BasisLocalPlayerTransform: {fileID: 0}
     IsEnabled: 1
     CurrentSpeed: 0
   LocalAnimatorDriver:
@@ -893,7 +897,7 @@ MonoBehaviour:
         RightRing: []
         RightLittle: []
       Coord: {x: 0, y: 0}
-    LerpSpeed: 17
+    LerpSpeed: 22
     Poses: []
   LocalEyeDriver:
     leftEyeInitialRotation:

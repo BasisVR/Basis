@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9c88ed7d275b0148be25eb7978bf57b, type: 3}
+  m_Name: NetworkedAvatarFusionInstallationRoutine
+  m_EditorClassIdentifier: 
+  id: 4e28f6ff-1e9b-4a90-b9e0-ebc3fb118408
+  targetBlockDataId: b627f6cd-e738-4827-bfb1-7332719112b3
+  prefab: {fileID: 8445033755430152954, guid: d3a7f55920bbadd41a821514d2e6d287, type: 3}
+  packageDependencies:
+  - com.exitgames.photonfusion
+  implementation: 1
+  installMatchmaking: 0
+  prefabV28Plus: {fileID: 8445033755430152954, guid: 9fb488e2f275b6b4792c0b43debcce6d, type: 3}

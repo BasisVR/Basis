@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: ILocalMatchmaking
+  m_EditorClassIdentifier: 
+  id: 9141594f-eab4-43f9-b05e-17f2f40db586
+  version: 1
+  blockName: Local Matchmaking
+  description: Connect with players who're nearby with Bluetooth and WiFi.
+  tags:
+    array:
+    - name: Multiplayer
+  thumbnail: {fileID: 2800000, guid: 37ace9aacc61a4405a43bb89992f2baf, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies:
+  - c5bea02f-8079-4142-87f9-56da5993f861
+  guidedSetupName: 
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 'This block works best with Colocation block with useColocationSession
+    option enabled to provide an end to end working Colocated experience.
+
+
+    When
+    prototyping, enable `AutomaticHostOrJoin` option to start your application, where
+    the first player will automatically host the session if no other local session
+    is discovered after a period of time.
+
+    When closer to production, we recommend
+    turning off `AutomaticHostOrJoin`, and hook your application''s UI with the `StartAsHost`
+    and `StartAsGuest` functions so host/guest are intentionally managed by the players.
+
+
+    When
+    testing you should make sure the headset''s Bluetooth and WiFi are turned on,
+    and ideally testing with two headsets. Note: it''s a known problem that one Quest
+    Link + one headset cannot discover each other locally, hence recommending not
+    using Quest Link for testing this feature'
+  featureDocumentationName: Colocation Discovery
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/unity-colocation-discovery

@@ -16,7 +16,7 @@ namespace Basis.Scripts.UI.UI_Panels
         [SerializeField] public RectTransform ParentedAvatarButtons;
         [SerializeField] public GameObject ButtonPrefab;
 
-        public const string AvatarSelection = "BasisUIAvatarSelection";
+        public const string AvatarPanel = "BasisUIAvatarSelection";
 
         [SerializeField] public Button AddAvatarApply;
         [SerializeField] public BasisProgressReport Report = new BasisProgressReport();
@@ -124,7 +124,6 @@ namespace Basis.Scripts.UI.UI_Panels
                 if (accepted)
                 {
                     RemoveKey(Key);
-                    CloseThisMenu();
                 }
             });
         }
@@ -134,7 +133,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         public override void InitalizeEvent()
         {
-            BasisCursorManagement.UnlockCursor(AvatarSelection);
+            BasisCursorManagement.UnlockCursor(AvatarPanel);
             BasisUINeedsVisibleTrackers.Instance.Add(this);
         }
 
@@ -475,7 +474,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         public override void DestroyEvent()
         {
-            BasisCursorManagement.LockCursor(AvatarSelection);
+            BasisCursorManagement.LockCursor(AvatarPanel);
             BasisUINeedsVisibleTrackers.Instance.Remove(this);
         }
     }

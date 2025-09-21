@@ -1,0 +1,67 @@
+{
+    "name": "Meta.XR.BuildingBlocks.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Oculus.VR",
+        "Oculus.VR.Editor",
+        "Meta.XR.BuildingBlocks",
+        "Meta.XR.Editor.Tags",
+        "Oculus.VR.Scripts.Editor",
+        "Oculus.Platform",
+        "Meta.XR.Editor.UserInterface",
+        "Meta.XR.Editor.Callbacks",
+        "Meta.XR.Guides.Editor",
+        "Meta.XR.Audio",
+        "Meta.XR.Editor.Reflection",
+        "VoiceSDK.Editor",
+        "VoiceSDK.Dictation.Editor",
+        "VoiceSDK.Dictation.Runtime",
+        "Meta.Wit.Dictation",
+        "Meta.WitAi",
+        "Meta.WitAi.Editor",
+        "Meta.WitAi.TTS",
+        "Meta.WitAi.TTS.Editor",
+        "Oculus.Haptics",
+        "Meta.XR.Editor.Settings",
+        "Meta.XR.Editor.Id",
+        "Meta.XR.Editor.ToolingSupport",
+        "Meta.XR.Editor.UPST.Notifications"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.meta.xr.sdk.platform",
+            "expression": "",
+            "define": "USING_META_XR_PLATFORM_SDK"
+        },
+        {
+            "name": "com.meta.xr.sdk.audio",
+            "expression": "",
+            "define": "USING_META_XR_AUDIO_SDK"
+        },
+        {
+            "name": "com.meta.xr.sdk.voice",
+            "expression": "",
+            "define": "USING_META_XR_VOICE_SDK"
+        },
+        {
+            "name": "com.meta.xr.sdk.haptics",
+            "expression": "71.99.99",
+            "define": "USING_META_XR_HAPTICS_SDK"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

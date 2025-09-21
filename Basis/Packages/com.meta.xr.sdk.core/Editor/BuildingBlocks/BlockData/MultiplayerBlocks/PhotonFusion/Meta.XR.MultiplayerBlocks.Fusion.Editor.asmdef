@@ -1,0 +1,53 @@
+{
+    "name": "Meta.XR.MultiplayerBlocks.Fusion.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Meta.XR.BuildingBlocks",
+        "Meta.XR.BuildingBlocks.Editor",
+        "Oculus.Interaction",
+        "Oculus.Interaction.OVR.Editor",
+        "Oculus.VR",
+        "Oculus.VR.Editor",
+        "PhotonVoice",
+        "PhotonRealtime",
+        "PhotonVoice.Fusion",
+        "Meta.XR.MultiplayerBlocks.Fusion",
+        "Fusion.Unity.Editor",
+        "Fusion.Unity",
+        "Fusion.Addons.Physics",
+        "Meta.XR.MultiplayerBlocks.Shared.Editor",
+        "Meta.XR.MultiplayerBlocks.Shared"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.meta.xr.sdk.interaction.ovr",
+            "expression": "",
+            "define": "META_INTERACTION_SDK_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars",
+            "expression": "",
+            "define": "META_AVATAR_SDK_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars",
+            "expression": "28.0.0",
+            "define": "META_AVATAR_SDK_28_OR_NEWER"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

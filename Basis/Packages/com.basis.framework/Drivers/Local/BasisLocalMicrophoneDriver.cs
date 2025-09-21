@@ -5,7 +5,6 @@ using Basis.Scripts.Device_Management;
 using System.Threading;
 using Unity.Collections;
 using Unity.Jobs;
-
 public static class BasisLocalMicrophoneDriver
 {
     private static int head = 0;
@@ -29,30 +28,23 @@ public static class BasisLocalMicrophoneDriver
     public static bool IsInitialize = false;
     public static string MicrophoneDevice = null;
     public static float Volume = 1f;
-
     [HideInInspector] public static float[] microphoneBufferArray;
     [HideInInspector] public static float[] processBufferArray;
     [HideInInspector] public static float[] rmsValues;
-
     public static int rmsIndex = 0;
     public static float averageRms;
-
 #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
     public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
 #endif
-
     public static int minFreq = 48000;
     public static int maxFreq = 48000;
     public static int SampleRate;
-
     private static bool ScheduleMainHasAudio;
     private static bool ScheduleMainHasSilence;
     public static Action MainThreadOnHasAudio;
     public static Action MainThreadOnHasSilence;
-
     private static readonly object _lock = new object();
     public static bool isPaused = false;
-
     private static bool IsPaused
     {
         get => isPaused;
@@ -64,13 +56,10 @@ public static class BasisLocalMicrophoneDriver
             OnPausedAction?.Invoke(isPaused);
         }
     }
-
     private static CancellationTokenSource processingTokenSource;
-
     // Warmup: discard first chunk(s) after (re)start to avoid crackle/garbage frames.
     private static int warmupSamples = 0;
     private static bool inWarmup = false;
-
     public static bool Initialize()
     {
         if (IsInitialize) return true;
@@ -106,29 +95,23 @@ public static class BasisLocalMicrophoneDriver
 
             StopProcessingThread();
             UnregisterEvents();
-
             StopSelectedMicrophone();
-
             if (handle.IsCompleted == false)
             {
                 handle.Complete();
             }
-
             if (VAJ.processBufferArray.IsCreated)
             {
                 VAJ.processBufferArray.Dispose();
             }
-
 #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
             Denoiser?.Dispose();
             Denoiser = null;
 #endif
-
             clip = null;
             microphoneBufferArray = null;
             processBufferArray = null;
             rmsValues = null;
-
             IsInitialize = false;
             BasisDebug.Log("Microphone Driver Deinitialized.");
         }
@@ -142,7 +125,6 @@ public static class BasisLocalMicrophoneDriver
         SMDMicrophone.OnMicrophoneVolumeChanged += ChangeMicrophoneVolume;
         SMDMicrophone.OnMicrophoneUseDenoiserChanged += ConfigureDenoiser;
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
-
         HasEvents = true;
     }
 
@@ -154,54 +136,44 @@ public static class BasisLocalMicrophoneDriver
         SMDMicrophone.OnMicrophoneVolumeChanged -= ChangeMicrophoneVolume;
         SMDMicrophone.OnMicrophoneUseDenoiserChanged -= ConfigureDenoiser;
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
-
         HasEvents = false;
     }
-
     private static void ConfigureDenoiser(bool useDenoiser)
     {
         UseDenoiser = useDenoiser;
         BasisDebug.Log("Setting Denoiser To " + UseDenoiser);
     }
-
     private static void OnBootModeChanged(string mode)
     {
         ResetMicrophones(SMDMicrophone.SelectedMicrophone);
     }
-
     public static void ResetMicrophones(string newMicrophone)
     {
         // Prevent the processing thread from touching shared state while we reconfigure.
         lock (processingLock)
         {
             processingEvent.Reset();
-
             if (string.IsNullOrEmpty(newMicrophone))
             {
                 BasisDebug.LogError("Microphone was empty or null");
                 return;
             }
-
             if (Microphone.devices.Length == 0)
             {
                 BasisDebug.LogError("No Microphones found!");
                 return;
             }
-
             if (!Microphone.devices.Contains(newMicrophone))
             {
                 newMicrophone = Microphone.devices[0]; // fallback to first device
             }
-
             // Ensure the selected device is not already recording
             if (Microphone.IsRecording(newMicrophone))
             {
                 Microphone.End(newMicrophone);
             }
-
             // Stop the current device if any
             StopSelectedMicrophone_Internal();
-
             if (IsPaused)
             {
                 BasisDebug.Log("Microphone Is Paused");
@@ -210,9 +182,7 @@ public static class BasisLocalMicrophoneDriver
                 MicrophoneDevice = null;
                 return;
             }
-
             BasisDebug.Log("Starting Microphone: " + newMicrophone);
-
             Microphone.GetDeviceCaps(newMicrophone, out minFreq, out maxFreq);
             // Some drivers return 0/0 for “any”. Default to 48000 for RNNoise compatibility.
             if (minFreq == 0 && maxFreq == 0)
@@ -220,12 +190,8 @@ public static class BasisLocalMicrophoneDriver
                 minFreq = 48000;
                 maxFreq = 48000;
             }
-
             LocalOpusSettings.SetDeviceAudioConfig(maxFreq);
-
-            clip = Microphone.Start(newMicrophone, true,
-                                    LocalOpusSettings.RecordingFullLength,
-                                    LocalOpusSettings.MicrophoneSampleRate);
+            clip = Microphone.Start(newMicrophone, true, LocalOpusSettings.RecordingFullLength, LocalOpusSettings.MicrophoneSampleRate);
 
             // Reset ring buffer pointers and positions
             head = 0;
@@ -292,20 +258,20 @@ public static class BasisLocalMicrophoneDriver
             clip = null; // Make sure old clip is released
         }
     }
-
     private static void ClearStateAfterStop()
     {
         head = 0;
         position = 0;
         inWarmup = false;
         warmupSamples = 0;
-
         if (microphoneBufferArray != null)
+        {
             Array.Clear(microphoneBufferArray, 0, microphoneBufferArray.Length);
-
+        }
         if (processBufferArray != null)
+        {
             Array.Clear(processBufferArray, 0, processBufferArray.Length);
-
+        }
         if (rmsValues != null)
         {
             Array.Clear(rmsValues, 0, rmsValues.Length);
@@ -313,7 +279,6 @@ public static class BasisLocalMicrophoneDriver
             averageRms = 0f;
         }
     }
-
     private static void StopSelectedMicrophone()
     {
         lock (processingLock)
@@ -323,7 +288,6 @@ public static class BasisLocalMicrophoneDriver
             ClearStateAfterStop();
         }
     }
-
     public static void HandleBasisVolumeAdjustmentJob()
     {
         if (handle.IsCompleted == false)
@@ -347,23 +311,23 @@ public static class BasisLocalMicrophoneDriver
 
         VAJ.Volume = Volume;
     }
-
     public static void ToggleIsPaused()
     {
         IsPaused = !IsPaused;
     }
-
     public static void MicrophoneUpdate()
     {
         if (!MicrophoneIsStarted || string.IsNullOrEmpty(MicrophoneDevice) || clip == null)
+        {
             return;
-
+        }
         // Wait until the device actually starts feeding samples
         int currentPosition = Microphone.GetPosition(MicrophoneDevice);
         position = currentPosition; // volatile write
-
         if (position <= 0)
+        {
             return;
+        }
 
         // Copy the whole circular clip into our read buffer (fast in native)
         clip.GetData(microphoneBufferArray, 0);
@@ -371,7 +335,9 @@ public static class BasisLocalMicrophoneDriver
         // Only signal processing when there's at least one full frame of new data
         int dataLength = GetDataLength(bufferLength, head, position);
         if (dataLength < SampleRate)
+        {
             return;
+        }
 
         // Signal processing thread
         processingEvent.Set();
@@ -390,7 +356,6 @@ public static class BasisLocalMicrophoneDriver
             }
         }
     }
-
     private static void StartProcessingThread()
     {
         processingTokenSource = new CancellationTokenSource();
@@ -415,7 +380,6 @@ public static class BasisLocalMicrophoneDriver
         processingThread.IsBackground = true;
         processingThread.Start();
     }
-
     public static void StopProcessingThread()
     {
         processingTokenSource?.Cancel();
@@ -425,12 +389,10 @@ public static class BasisLocalMicrophoneDriver
         {
             processingThread.Join();
         }
-
         processingThread = null;
         processingTokenSource?.Dispose();
         processingTokenSource = null;
     }
-
     public static void ProcessAudioData(int posSnapshot)
     {
         // Discard initial warmup samples to avoid crackle/garbage frames after start
@@ -448,9 +410,7 @@ public static class BasisLocalMicrophoneDriver
                 return;
             }
         }
-
         int dataLength = GetDataLength(bufferLength, head, posSnapshot);
-
         while (dataLength >= SampleRate)
         {
             int remain = bufferLength - head;
@@ -463,16 +423,12 @@ public static class BasisLocalMicrophoneDriver
             {
                 Array.Copy(microphoneBufferArray, head, processBufferArray, 0, SampleRate);
             }
-
             AdjustVolume();
-
             if (UseDenoiser)
             {
                 ApplyDeNoise();
             }
-
             RollingRMS();
-
             if (IsTransmitWorthy())
             {
                 OnHasAudio?.Invoke();
@@ -488,7 +444,6 @@ public static class BasisLocalMicrophoneDriver
             dataLength -= SampleRate;
         }
     }
-
     public static void AdjustVolume()
     {
         // Mirror processBufferArray into NativeArray, run job, copy back.
@@ -497,7 +452,6 @@ public static class BasisLocalMicrophoneDriver
         handle.Complete();
         VAJ.processBufferArray.CopyTo(processBufferArray);
     }
-
     public static float GetRMS()
     {
         double sum = 0.0;
@@ -508,19 +462,16 @@ public static class BasisLocalMicrophoneDriver
         }
         return Mathf.Sqrt((float)(sum / SampleRate));
     }
-
     public static int GetDataLength(int len, int h, int pos)
     {
         return (pos < h) ? (len - h + pos) : (pos - h);
     }
-
     public static void ChangeMicrophoneVolume(float volume)
     {
         Volume = volume;
         VAJ.Volume = Volume;
         BasisDebug.Log($"Set Microphone Volume To {Volume}");
     }
-
     public static void ApplyDeNoise()
     {
 #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
@@ -528,7 +479,6 @@ public static class BasisLocalMicrophoneDriver
         Denoiser?.Denoise(processBufferArray);
 #endif
     }
-
     public static void RollingRMS()
     {
         float rms = GetRMS();
@@ -536,7 +486,6 @@ public static class BasisLocalMicrophoneDriver
         rmsIndex = (rmsIndex + 1) % LocalOpusSettings.rmsWindowSize;
         averageRms = rmsValues.Average();
     }
-
     public static bool IsTransmitWorthy()
     {
         return averageRms > LocalOpusSettings.silenceThreshold;

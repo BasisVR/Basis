@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35c4ad19f06c67e44a2d7ba8d05f31b7, type: 3}
+  m_Name: ControllerButtonsMapper
+  m_EditorClassIdentifier: 
+  id: 80aa2eb2-af2f-40a9-ad9e-18044ce65bee
+  version: 1
+  blockName: Controller Buttons Mapper
+  description: A block for mapping controller buttons easily.
+  tags:
+    array:
+    - name: Helper
+    - name: Interaction
+    - name: Experimental
+  thumbnail: {fileID: 2800000, guid: 1d66a150b7116734dacf2f40c4103150, type: 3}
+  order: 11
+  prefab: {fileID: 6562618446772997398, guid: 7f2c10fd4e18aee42b3be07fb299acc3, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  packageDependencies: []
+  isSingleton: 0
+  usageInstructions: 

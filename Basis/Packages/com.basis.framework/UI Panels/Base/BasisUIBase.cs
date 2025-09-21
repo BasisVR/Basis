@@ -13,6 +13,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             BasisUIManagement.RemoveUI(this);
             DestroyEvent();
+
             Addressables.ReleaseInstance(this.gameObject);
             Destroy(this.gameObject);
         }

@@ -1,4 +1,5 @@
 using Basis.Scripts.Avatar;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using UnityEngine;
@@ -28,10 +29,10 @@ public static class BasisNetworkHandleRemoval
         }
 
         // Queue removal on Unity's main thread
-        BasisNetworkManagement.MainThreadContext.Post(_ =>
+        BasisDeviceManagement.EnqueueOnMainThread(() =>
         {
             HandleDisconnectIdImmediate(disconnectedID);
-        }, null);
+        });
     }
 
     public static void HandleDisconnectIdImmediate(ushort disconnectedID)
@@ -43,11 +44,11 @@ public static class BasisNetworkHandleRemoval
         }
 
         // Remove from network manager
-        if (BasisNetworkManagement.RemovePlayer(disconnectedID, out BasisNetworkPlayer network))
+        if (BasisNetworkPlayers.RemovePlayer(disconnectedID, out BasisNetworkPlayer network))
         {
             if (network == null)
             {
-                BasisDebug.LogError($"z Missing Player for removing ID {disconnectedID}");
+                BasisDebug.LogError($"Missing Networked Player for removing ID {disconnectedID}");
                 return;
             }
 
@@ -58,7 +59,7 @@ public static class BasisNetworkHandleRemoval
             }
             else
             {
-                BasisDebug.LogError($"A Missing Player for removing ID {disconnectedID}");
+                BasisDebug.LogError($"Missing Player for removing ID {disconnectedID}");
             }
             BasisNetworkPlayer.OnPlayerLeft?.Invoke(network);
 

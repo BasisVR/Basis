@@ -1,0 +1,30 @@
+{
+    "name": "Meta.XR.Editor.ToolingSupport",
+    "rootNamespace": "",
+    "references": [
+        "Meta.XR.Editor.UserInterface",
+        "Meta.XR.Editor.Tags",
+        "Meta.XR.Editor.Settings",
+        "Meta.XR.Editor.Reflection",
+        "Meta.XR.Editor.Id",
+        "Oculus.VR",
+        "Meta.XR.ReportBug"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

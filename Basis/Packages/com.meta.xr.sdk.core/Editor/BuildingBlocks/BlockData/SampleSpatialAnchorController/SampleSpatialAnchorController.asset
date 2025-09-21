@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e826f064998f5b743b0ecb16ca134ae7, type: 3}
+  m_Name: SampleSpatialAnchorController
+  m_EditorClassIdentifier: 
+  id: 1f4566e8-f4ba-46d2-9e47-3748c9869766
+  version: 1
+  blockName: Sample Spatial Anchor Controller
+  description: Create, save, load, and erase spatial anchor with controller
+  tags:
+    array:
+    - name: Colocation
+    - name: Spatial Anchor
+    - name: Experimental
+    - name: Prototyping
+  thumbnail: {fileID: 2800000, guid: 5a9d3959d5cc6c346bf7998612a568a6, type: 3}
+  order: 13
+  prefab: {fileID: 2865301061337241238, guid: 1c43829f2162c02489c573215d68d590, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  - a383f5ea-3856-4c23-a11c-7fdbb9408035
+  - 80aa2eb2-af2f-40a9-ad9e-18044ce65bee
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 'By default, user can use the right oculus controller to create,
+    load, and erase anchors.
+
+
+    Default button configurations:
+
+    - Button A:
+    Create and save anchor at local storage
+
+    - Button B: Load anchor from local
+    storage
+
+    - Thumbstick UP: Erase all visible anchors'
+  featureDocumentationName: 
+  featureDocumentationUrl: 

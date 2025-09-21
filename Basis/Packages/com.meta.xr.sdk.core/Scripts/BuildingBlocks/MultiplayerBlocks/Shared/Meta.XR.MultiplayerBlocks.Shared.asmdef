@@ -1,0 +1,60 @@
+{
+    "name": "Meta.XR.MultiplayerBlocks.Shared",
+    "rootNamespace": "",
+    "references": [
+        "Oculus.VR",
+        "Oculus.Platform",
+        "Meta.XR.BuildingBlocks",
+        "Oculus.Interaction",
+        "meta.xr.mrutilitykit",
+        "Oculus.Interaction.OVR",
+        "Oculus.AvatarSDK2",
+        "Oculus.AvatarSDK2.Samples",
+        "Meta.XR.ImmersiveDebugger.Interface"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.meta.xr.sdk.platform",
+            "expression": "",
+            "define": "META_PLATFORM_SDK_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.interaction.ovr",
+            "expression": "",
+            "define": "META_INTERACTION_SDK_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.mrutilitykit",
+            "expression": "",
+            "define": "META_MR_UTILITY_KIT_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars.sample.assets",
+            "expression": "",
+            "define": "META_AVATAR_SAMPLE_ASSETS_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars",
+            "expression": "",
+            "define": "META_AVATAR_SDK_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars",
+            "expression": "28.0.0",
+            "define": "META_AVATAR_SDK_28_OR_NEWER"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

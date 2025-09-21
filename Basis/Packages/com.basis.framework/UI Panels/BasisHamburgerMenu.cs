@@ -1,4 +1,3 @@
-
 using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
@@ -6,16 +5,15 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.UI;
-
 namespace Basis.Scripts.UI.UI_Panels
 {
     public class BasisHamburgerMenu : BasisUIBase
     {
         public Button Settings;
+        public Button Servers;
         public Button AvatarButton;
         public Button FullBody;
         public Button Respawn;
@@ -37,6 +35,7 @@ namespace Basis.Scripts.UI.UI_Panels
             UpdateMirrorState();
 
             Settings.onClick.AddListener(SettingsPanel);
+            Servers.onClick.AddListener(ServerButtonPanel);
             AvatarButton.onClick.AddListener(AvatarButtonPanel);
             FullBody.onClick.AddListener(PutIntoCalibrationMode);
             Respawn.onClick.AddListener(RespawnLocalPlayer);
@@ -54,6 +53,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             // Remove listeners
             Settings.onClick.RemoveListener(SettingsPanel);
+            Servers.onClick.RemoveListener(ServerButtonPanel);
             AvatarButton.onClick.RemoveListener(AvatarButtonPanel);
             FullBody.onClick.RemoveListener(PutIntoCalibrationMode);
             Respawn.onClick.RemoveListener(RespawnLocalPlayer);
@@ -113,10 +113,23 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisAvatarIKStageCalibration.FullBodyCalibration();
             }
         }
+        public static void ServerButtonPanel()
+        {
+            if (BasisUIServers.Instance != null)
+            {
+                BasisUIServers.Instance.CloseThisMenu();
+                return;
+            }
+            else
+            {
+                BasisHamburgerMenu.Instance.CloseThisMenu();
+                BasisUISettings.OpenMenuNow(BasisUIServers.ServerPanel);
+            }
+        }
         private static void AvatarButtonPanel()
         {
             BasisHamburgerMenu.Instance.CloseThisMenu();
-            BasisUISettings.OpenMenuNow(BasisUIAvatarSelection.AvatarSelection);
+            BasisUISettings.OpenMenuNow(BasisUIAvatarSelection.AvatarPanel);
         }
 
         public static void SettingsPanel()
@@ -197,6 +210,7 @@ namespace Basis.Scripts.UI.UI_Panels
                     }
                 }
             }
+            BasisUIManagement.CloseAllMenus();
         }
     }
 }

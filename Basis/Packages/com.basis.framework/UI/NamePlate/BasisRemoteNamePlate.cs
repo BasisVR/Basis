@@ -2,19 +2,16 @@ using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
-using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections;
 using TMPro;
-using Unity.Mathematics;
+using Unity.Jobs;
 using UnityEngine;
 namespace Basis.Scripts.UI.NamePlate
 {
     public class BasisRemoteNamePlate : BasisInteractableObject
     {
-        public BasisRemoteBoneControl HipTarget;
-        public BasisRemoteBoneControl MouthTarget;
         public SpriteRenderer LoadingBar;
         public MeshFilter Filter;
         public TextMeshPro LoadingText;
@@ -35,16 +32,13 @@ namespace Basis.Scripts.UI.NamePlate
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
         /// <param name="hipTarget"></param>
-        /// <param name="basisRemotePlayer"></param>
-        public void Initalize(BasisRemoteBoneControl hipTarget, BasisRemotePlayer basisRemotePlayer)
+        /// <param name="RemotePlayer"></param>
+        public void Initalize(BasisRemotePlayer RemotePlayer)
         {
             cachedReturnDelay = new WaitForSeconds(BasisRemoteNamePlateDriver.returnDelay);
             cachedEndOfFrame = new WaitForEndOfFrame();
-            BasisRemotePlayer = basisRemotePlayer;
-            HipTarget = hipTarget;
-            MouthTarget = BasisRemotePlayer.RemoteBoneDriver.Mouth;
+            BasisRemotePlayer = RemotePlayer;
             BasisRemotePlayer.RemoteNamePlate = this;
-            BasisRemotePlayer.HasRemoteNamePlate = true;
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
             BasisRemotePlayer.AudioReceived += OnAudioReceived;
             BasisRemotePlayer.OnAvatarSwitched += RebuildRenderCheck;
@@ -52,7 +46,12 @@ namespace Basis.Scripts.UI.NamePlate
             Self = this.transform;
             BasisRemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
             LoadingText.enableVertexGradient = false;
-
+        }
+        public void DeInitalize()
+        {
+            BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
+            BasisRemotePlayer.AudioReceived -= OnAudioReceived;
+            DeInitalizeCallToRender();
         }
         public void RebuildRenderCheck()
         {
@@ -63,7 +62,7 @@ namespace Basis.Scripts.UI.NamePlate
             HasRendererCheckWiredUp = false;
             if (BasisRemotePlayer != null && BasisRemotePlayer.FaceRenderer != null)
             {
-              //  BasisDebug.Log("Wired up Renderer Check For Blinking");
+                //  BasisDebug.Log("Wired up Renderer Check For Blinking");
                 BasisRemotePlayer.FaceRenderer.Check += UpdateFaceVisibility;
                 BasisRemotePlayer.FaceRenderer.DestroyCalled += AvatarUnloaded;
                 UpdateFaceVisibility(BasisRemotePlayer.FaceIsVisible);
@@ -99,7 +98,7 @@ namespace Basis.Scripts.UI.NamePlate
                 Color targetColor = BasisRemotePlayer.OutOfRangeFromLocal
                     ? hasRealAudio ? BasisRemoteNamePlateDriver.StaticOutOfRangeColor : BasisRemoteNamePlateDriver.StaticNormalColor
                     : hasRealAudio ? BasisRemoteNamePlateDriver.StaticIsTalkingColor : BasisRemoteNamePlateDriver.StaticNormalColor;
-                BasisNetworkManagement.MainThreadContext.Post(_ =>
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     if (this != null)
                     {
@@ -115,7 +114,7 @@ namespace Basis.Scripts.UI.NamePlate
                             }
                         }
                     }
-                }, null);
+                });
             }
         }
         private IEnumerator TransitionColor(Color targetColor)
@@ -147,13 +146,6 @@ namespace Basis.Scripts.UI.NamePlate
             yield return cachedReturnDelay;
             yield return StartCoroutine(TransitionColor(BasisRemoteNamePlateDriver.StaticNormalColor));
             returnToNormalCoroutine = null;
-        }
-        public new void OnDestroy()
-        {
-            BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
-            BasisRemotePlayer.AudioReceived -= OnAudioReceived;
-            DeInitalizeCallToRender();
-            base.OnDestroy();
         }
         public void DeInitalizeCallToRender()
         {
@@ -311,18 +303,6 @@ namespace Basis.Scripts.UI.NamePlate
         {
             // click or mostly triggered
             return input.CurrentInputState.Trigger >= 0.9;
-        }
-        public const float x = 0;
-        public const float z = 0;
-        public static Vector3 dirToCamera;
-        public static Vector3 cachedDirection;
-        public static float YHeightMultiplier = 1.25f;
-        public void Simulate()
-        {
-            cachedDirection = HipTarget.OutGoingData.position;
-            cachedDirection.y += MouthTarget.TposeLocalScaled.position.y / YHeightMultiplier;
-            dirToCamera = BasisLocalCameraDriver.Position - cachedDirection;
-            Self.SetPositionAndRotation(cachedDirection, Quaternion.Euler(x, math.atan2(dirToCamera.x, dirToCamera.z) * Mathf.Rad2Deg, z));
         }
     }
 }

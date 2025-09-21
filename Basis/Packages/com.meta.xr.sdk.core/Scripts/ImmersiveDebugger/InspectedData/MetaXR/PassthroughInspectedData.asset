@@ -1,0 +1,126 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82874db8faf1071438bbcf855a2e8a93, type: 3}
+  m_Name: PassthroughInspectedData
+  m_EditorClassIdentifier: 
+  DisplayName: '[Meta] Passthrough'
+  InspectedMembers:
+  - enabled: 1
+    typeName: OVRManager, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 1
+      Category: Meta XR
+      DisplayName: 
+    memberName: isInsightPassthroughEnabled
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 1
+      Category: Meta XR
+      DisplayName: 
+    memberName: textureOpacity
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 1
+      Category: Meta XR
+      DisplayName: 
+    memberName: edgeRenderingEnabled
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 0
+      Category: Meta XR
+      DisplayName: 
+    memberName: overlayType
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 0
+      Category: Meta XR
+      DisplayName: 
+    memberName: colorMapEditorType
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 0
+      Category: Meta XR
+      DisplayName: 
+    memberName: edgeColor
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: -1
+      Max: 1
+      Category: Meta XR
+      DisplayName: Contrast
+    memberName: colorMapEditorContrast
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: -1
+      Max: 1
+      Category: Meta XR
+      DisplayName: Brightness
+    memberName: colorMapEditorBrightness
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: 0
+      Max: 1
+      Category: Meta XR
+      DisplayName: Posterize
+    memberName: colorMapEditorPosterize
+  - enabled: 1
+    typeName: OVRPassthroughLayer, Oculus.VR
+    attribute:
+      GizmoType: 0
+      Color: {r: 0, g: 0, b: 0, a: 0}
+      Tweakable: 1
+      Min: -1
+      Max: 1
+      Category: Meta XR
+      DisplayName: Saturation
+    memberName: colorMapEditorSaturation

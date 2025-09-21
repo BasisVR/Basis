@@ -101,20 +101,20 @@ public static class BasisNetworkGenericMessages
     {
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);
-        BasisNetworkManagement.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID);
+        BasisNetworkPlayers.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID,out ushort OldPlayerID);
         BasisNetworkPlayer.OnOwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
     }
     public static void HandleOwnership(OwnershipTransferMessage OwnershipTransferMessage)
     {
-        if (BasisNetworkManagement.OwnershipPairing.ContainsKey(OwnershipTransferMessage.ownershipID))
+        if (BasisNetworkPlayers.OwnershipPairing.ContainsKey(OwnershipTransferMessage.ownershipID))
         {
-            BasisNetworkManagement.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
+            BasisNetworkPlayers.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
         }
         else
         {
-            BasisNetworkManagement.OwnershipPairing.TryAdd(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID);
+            BasisNetworkPlayers.OwnershipPairing.TryAdd(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID);
         }
-        if (BasisNetworkManagement.TryGetLocalPlayerID(out ushort Id))
+        if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort Id))
         {
             bool isLocalOwner = OwnershipTransferMessage.playerIdMessage.playerID == Id;
 
@@ -129,7 +129,7 @@ public static class BasisNetworkGenericMessages
         SADM.Deserialize(reader);
 
         ushort playerID = SADM.avatarDataMessage.PlayerIdMessage.playerID; // destination
-        if (BasisNetworkManagement.Players.TryGetValue(playerID, out BasisNetworkPlayer player))
+        if (BasisNetworkPlayers.Players.TryGetValue(playerID, out BasisNetworkPlayer player))
         {
             if (player.Player == null)
             {
@@ -208,12 +208,12 @@ public static class BasisNetworkGenericMessages
         {
             netDataWriter.Put(BasisNetworkCommons.SceneChannel);
             sceneDataMessage.Serialize(netDataWriter);
-            BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, deliveryMethod);
+            BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, deliveryMethod);
         }
         else
         {
             sceneDataMessage.Serialize(netDataWriter);
-            BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.SceneChannel, deliveryMethod);
+            BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.SceneChannel, deliveryMethod);
         }
 
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SceneData, netDataWriter.Length);

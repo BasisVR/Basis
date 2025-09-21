@@ -36,11 +36,11 @@ namespace Basis
             
             // Handle legacy resource directory name migrations and similar.
             // after a version bump or two this should be removed
-            string[] legacyPaths = new string[] {
+            string[] legacyPaths = [
                 "initalresources",    // dooly spelling
                 "initialressources",  // if you're french
                 "intialresources",   // another common typo
-            };
+            ];
             
             string correctPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.InitialResourcesFolderName);
 

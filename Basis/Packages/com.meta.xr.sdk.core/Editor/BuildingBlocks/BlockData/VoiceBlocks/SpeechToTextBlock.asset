@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 320fb5bdf6d847c42afb01067abf8caa, type: 3}
+  m_Name: SpeechToTextBlock
+  m_EditorClassIdentifier:
+  id: af49bc82-4174-46e0-b1e4-40f1c05b4908
+  version: 1
+  blockName: Dictation
+  description: Enables your app to efficiently transcribe speech to text in real
+    time.
+  tags:
+    array:
+    - name: Voice
+  thumbnail: {fileID: 2800000, guid: e1faf0485fad56242bca4a2d15c5d60a, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  externalBlockDependencies: []
+  dependencies: []
+  packageDependencies:
+  - com.meta.xr.sdk.voice
+  isSingleton: 0
+  usageInstructions: "For a basic setup:\n  - Add this block to the scene, this will
+    add a game object with an AppDictationExperience component.\n  - Call the component's
+    Activate() method to start listening.\n  - Register handlers on the component's
+    events; these can be found in the inspector under Events. For example, register
+    a Transcription Events > onTranscriptionComplete to receive the transcribed text."
+  featureDocumentationName: Dictation
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/voice-sdk-dictation/

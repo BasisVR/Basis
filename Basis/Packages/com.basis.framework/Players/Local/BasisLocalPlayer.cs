@@ -136,31 +136,28 @@ namespace Basis.Scripts.BasisSdk.Players
                             BasisLocalEncryptedBundle = info.StoredLocal,
                             UnlockPassword = Key.Pass
                         };
-                        BasisDebug.Log("loading previously loaded avatar");
+                        BasisDebug.Log("loading previously loaded avatar", BasisDebug.LogTag.Avatar);
                         await CreateAvatar(LastUsedAvatar.loadmode, bundle);
                         return;
                     }
                 }
-                BasisDebug.Log("failed to load last used : no key found to load but was found on disc");
+                BasisDebug.Log("failed to load last used : no key found to load but was found on disc", BasisDebug.LogTag.Avatar);
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
             else
             {
-                BasisDebug.Log("failed to load last used : url was not found on disc");
+                BasisDebug.Log("failed to load last used : url was not found on disc", BasisDebug.LogTag.Avatar);
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
         }
 
         public void Teleport(Vector3 position, Quaternion rotation)
         {
-            BasisDebug.Log("Teleporting");
+            BasisDebug.Log("Teleporting", BasisDebug.LogTag.Local);
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
             LocalCharacterDriver.IsEnabled = true;
-            if (LocalAnimatorDriver != null)
-            {
-                LocalAnimatorDriver.HandleTeleport();
-            }
+            LocalAnimatorDriver.HandleTeleport();
             OnSpawnedEvent?.Invoke();
         }
 
@@ -211,6 +208,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisLocalMicrophoneDriver.OnHasSilence -= DriveAudioToViseme;
                 HasCalibrationEvents = false;
             }
+            BasisLocalMicrophoneDriver.DeInitialize();
             if (LocalHandDriver != null)
             {
                 LocalHandDriver.Dispose();
@@ -241,6 +239,11 @@ namespace Basis.Scripts.BasisSdk.Players
 
         public void SimulateOnRender(float DeltaTime)
         {
+
+            //now lets move the local player position.
+            LocalCharacterDriver.SimulateMovement(DeltaTime);
+
+
             //moves all bones to where they belong
             LocalBoneDriver.SimulateAndApply(this, DeltaTime);
 
@@ -255,9 +258,6 @@ namespace Basis.Scripts.BasisSdk.Players
             //process Animator and IK processes.
             LocalRigDriver.SimulateIKDestinations(DeltaTime);
 
-            //now lets move the local player position.
-            LocalCharacterDriver.SimulateMovement(DeltaTime, this.transform);
-
             //now that everything has been processed lets update WorldPosition in BoneDriver.
             //this is so AfterFinalMove can use world position coords. (stops Laggy pickups)
             LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix);
@@ -266,7 +266,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
             //handles fingers
-            LocalHandDriver.UpdateFingers(BasisLocalAvatarDriver.References);
+            LocalHandDriver.UpdateFingers(DeltaTime);
 
             //now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
             AfterFinalMove?.Invoke();
@@ -274,8 +274,9 @@ namespace Basis.Scripts.BasisSdk.Players
         public void DriveTpose()
         {
             // World-space inputs
-            Vector3 headPosWS = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position;
-            Quaternion headRotWS = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
+            var OutgoingWorldData = BasisLocalBoneDriver.HeadControl.OutgoingWorldData;
+            Vector3 headPosWS = OutgoingWorldData.position;
+            Quaternion headRotWS = OutgoingWorldData.rotation;
 
             // Flatten head forward onto the XZ plane to get yaw-only orientation
             Vector3 flatFwd = Vector3.ProjectOnPlane(headRotWS * Vector3.forward, Vector3.up);

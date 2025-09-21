@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: IColocation
+  m_EditorClassIdentifier:
+  id: f308c8f0-7a4b-4cd5-88be-c15b6399f823
+  version: 3
+  blockName: Colocation
+  description: Allows all players share the same frame of reference with Shared Spatial
+    Anchor in mixed reality at the same physical location.
+  tags:
+    array:
+    - name: Spatial Anchor
+    - name: Multiplayer
+    - name: Experimental
+  thumbnail: {fileID: 2800000, guid: 421b2265eddeb4589b88151439da716f, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 2
+  externalBlockDependencies: []
+  dependencies:
+  - f0540b20-dfd6-420e-b20d-c270f88dc77e
+  - 1d8db162-54f6-43df-b4ef-b499df1f6769
+  guidedSetupName: Meta.XR.Guides.Editor.MetaAccountSetupGuide, Meta.XR.Guides.Editor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 'When using Colocation Session, you should make sure the headset''s
+    Bluetooth and WiFi are turned on, and ideally testing with two headsets. Note:
+    it''s a known problem that one Quest Link + one headset cannot discover each
+    other''s colocation sessions, hence recommending not using Quest Link for testing
+    this Colocation Session feature.
+
+    To troubleshoot issues, you can go to Debugging
+    Options under ColocationController component to turn on verbose logging, you
+    can also disable the visualization of the reference anchor there.
+
+    More troubleshooting
+    guide in https://developer.oculus.com/documentation/unity/unity-ssa-ts/.'
+  featureDocumentationName: Multiplayer Building Blocks Setup Guide
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/bb-multiplayer-blocks

@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: INetworkedAvatar
+  m_EditorClassIdentifier: 
+  id: b627f6cd-e738-4827-bfb1-7332719112b3
+  version: 1
+  blockName: Networked Avatar
+  description: Loads the player's avatar and networks its movements to all other
+    player connected to the same game room
+  tags:
+    array:
+    - name: Avatars
+    - name: Multiplayer
+  thumbnail: {fileID: 2800000, guid: dc3e5b4641485485d905bd218bac77aa, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  selectedGuidedSetupIndex: 3
+  externalBlockDependencies: []
+  dependencies:
+  - 1d8db162-54f6-43df-b4ef-b499df1f6769
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  - 40089589-8290-4ae3-a056-d9ca1ccaa35a
+  guidedSetupName: Meta.XR.Guides.Editor.MetaAvatarsSetupGuide, Meta.XR.Guides.Editor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  packageDependencies:
+  - com.meta.xr.sdk.avatars
+  - com.meta.xr.sdk.avatars.sample.assets
+  - com.meta.xr.sdk.avatars:Sample Scenes
+  isSingleton: 1
+  usageInstructions: "To show default avatars for anonymous users or whoever failed
+    entitlement check, download Meta XR Avatar SDK Sample Assets package (com.meta.xr.sdk.avatars.sample.assets).\nWithout
+    sample assets, default avatar would show as blue colored, only users who has
+    setup Avatars in Oculus OS would show their own Avatar.\n\nWhen using Avatar
+    SDK v28 or newer leg movement animation is avaible by importing the Sample \"Sample
+    Scenes\" from the UPM package.\n\nWhen testing user's own Avatars during development,
+    AppId needs to be filled in. \nSee guidance from menu of Oculus > Tools > Meta
+    Account Setup Guide.\nDoc: https://developer.oculus.com/documentation/unity/meta-avatars-app-config/"
+  featureDocumentationName: Networked Avatar
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/meta-avatars-networking

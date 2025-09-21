@@ -41,8 +41,6 @@ namespace Basis.Scripts.Networking.Transmitters
                 DetachMicrophoneEvents();
             }
 
-            BasisLocalMicrophoneDriver.DeInitialize();
-
             encoder?.Dispose();
             encoder = null;
         }
@@ -128,7 +126,7 @@ namespace Basis.Scripts.Networking.Transmitters
 
         public void SendOutVoice(NetDataWriter writer, bool State)
         {
-            BasisNetworkManagement.LocalPlayerPeer.Send(writer, BasisNetworkCommons.VoiceChannel, DeliveryMethod.Sequenced);
+            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.VoiceChannel, DeliveryMethod.Sequenced);
             if (BasisLocalPlayer.Instance != null)
             {
                 BasisLocalPlayer.Instance.AudioReceived?.Invoke(State);

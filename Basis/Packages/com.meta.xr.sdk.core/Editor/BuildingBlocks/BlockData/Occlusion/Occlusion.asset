@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d369b86a2df63434f8f587c6abd1cbed, type: 3}
+  m_Name: Occlusion
+  m_EditorClassIdentifier: 
+  id: c1dbe32c-fed2-4835-8e6a-3fbb4f4f4315
+  version: 1
+  blockName: Occlusion
+  description: Use occlusion in Passthrough using DepthAPI.
+  tags:
+    array:
+    - name: Depth
+    - name: Passthrough
+  thumbnail: {fileID: 2800000, guid: 7e5f2a89b5e35214698b4b96959eee17, type: 3}
+  order: 10
+  prefab: {fileID: 3253279385362999837, guid: 6eb0bdef7d5d3804a816dedfed7979fe, type: 3}
+  selectedGuidedSetupIndex: 2
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  - f0540b20-dfd6-420e-b20d-c270f88dc77e
+  - ece9de6e-19c8-4f64-bb33-313ed23e6c5c
+  guidedSetupName: Meta.XR.Guides.Editor.OcclusionBlockSetupInfo, Meta.XR.Guides.Editor,
+    Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  packageDependencies: []
+  isSingleton: 0
+  usageInstructions: Drag and drop this block on desired GameObject with MeshRenderer
+    to make that GameObject occludable in Passthrough.
+  featureDocumentationName: 
+  featureDocumentationUrl: 

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7021cb8d95b567b4b92ac6e8e89964a4, type: 3}
+  m_Name: DropdownBackground
+  m_EditorClassIdentifier: 
+  enabled: 1
+  icon: {fileID: 0}
+  sprite: {fileID: 1421935145, guid: 5526903be7994124dae39fe89a67ebcc, type: 3}
+  color: {r: 0.28627452, g: 0.32156864, b: 0.39607844, a: 1}
+  colorHover: {r: 0.28627452, g: 0.32156864, b: 0.39607844, a: 1}
+  colorOff: {r: 0.22, g: 0.22, b: 0.22, a: 0.25882354}
+  pixelDensityMultiplier: 4

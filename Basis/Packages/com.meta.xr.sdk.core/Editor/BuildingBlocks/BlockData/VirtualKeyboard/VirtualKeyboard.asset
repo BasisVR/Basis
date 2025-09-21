@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e75160a1bbe3a6945aac30180acc8570, type: 3}
+  m_Name: VirtualKeyboard
+  m_EditorClassIdentifier: 
+  id: bac08eda-400f-4f61-8842-77e7699e068d
+  version: 1
+  blockName: Virtual Keyboard
+  description: Adds a virtual keyboard to your scene
+  tags:
+    array:
+    - name: UI
+  thumbnail: {fileID: 2800000, guid: d5377891cf6386b4a9337b2fb62b1e80, type: 3}
+  order: -3
+  prefab: {fileID: 2844263358417267744, guid: 425a911bab27f3f4c8a25d35813093f0, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  - 5817f7c0-f2a5-45f9-a5ca-64264e0166e8
+  - 8b26b298-7bf4-490e-b245-a039c0184303
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 
+  featureDocumentationName: Virtual Keyboard
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/VK-unity-overview

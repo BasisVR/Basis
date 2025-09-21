@@ -1,0 +1,73 @@
+/*
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * Licensed under the Oculus SDK License Agreement (the "License");
+ * you may not use the Oculus SDK except in compliance with the License,
+ * which is provided at the time of installation or download, or which
+ * otherwise accompanies this software in either electronic or hard copy form.
+ *
+ * You may obtain a copy of the License at
+ *
+ * https://developer.oculus.com/licenses/oculussdk/
+ *
+ * Unless required by applicable law or agreed to in writing, the Oculus SDK
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+using Meta.XR.ImmersiveDebugger.Manager;
+using Meta.XR.ImmersiveDebugger.Utils;
+
+namespace Meta.XR.ImmersiveDebugger.Hierarchy
+{
+    internal class Manager : DebugManagerAddon<Manager>
+    {
+        protected override Telemetry.Method Method => Telemetry.Method.Hierarchy;
+
+        private readonly SceneRegistry _sceneRegistry = new();
+
+        public void ProcessItem(Item item)
+        {
+            var handle = item.Handle;
+            _instanceCache.RegisterHandle(handle);
+            _uiPanel?.RegisterInspector(handle, item.Category);
+
+            // Process Sub Managers
+            // Search for all member infos, and build their attribute
+            if (item is not ComponentItem componentItem) return;
+
+            var component = componentItem.TypedOwner;
+            var type = component.GetType();
+            var members = type.GetMembers(InspectedMember.Flags);
+            foreach (var member in members)
+            {
+                if (!member.IsCompatibleWithDebugInspector()) continue;
+                if (!member.IsPublic() && !RuntimeSettings.Instance.HierarchyViewShowsPrivateMembers) continue;
+
+                foreach (var manager in _subDebugManagers)
+                {
+                    manager.ProcessTypeFromHierarchy(item, member);
+                }
+            }
+        }
+
+        public void UnprocessItem(Item item)
+        {
+            var handle = item.Handle;
+            _uiPanel?.UnregisterInspector(handle, item.Category, false);
+            _instanceCache.UnregisterHandle(handle);
+        }
+
+        public void Refresh()
+        {
+            if (_sceneRegistry.ComputeNeedsRefresh())
+            {
+                _sceneRegistry.BuildChildren();
+            }
+        }
+    }
+}
+

@@ -140,6 +140,24 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "Desktop Left",
+                    "type": "Button",
+                    "id": "e030056a-bc4b-4cb1-bce1-8acf3cde04c9",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Desktop Right",
+                    "type": "Button",
+                    "id": "993c2420-16b9-4f6c-83f9-3b9ce0eb4edc",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -525,6 +543,28 @@
                     "processors": "",
                     "groups": "",
                     "action": "MiddleMouse",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "20839d3c-32aa-4639-851e-33a180379edd",
+                    "path": "<Keyboard>/comma",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "Desktop Left",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "8ffec8d5-370f-450c-a506-664aa9124a55",
+                    "path": "<Keyboard>/period",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "Desktop Right",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

@@ -29,7 +29,6 @@ public class BasisIndividualPlayerSettings : BasisUIBase
 
     [Header("Config")]
     public float step = 0.05f; // The interval between values
-
     public override void DestroyEvent()
     {
         BasisCursorManagement.LockCursor(CursorRequest);
@@ -135,5 +134,7 @@ public class BasisIndividualPlayerSettings : BasisUIBase
         {
             RemotePlayer.NetworkReceiver.AudioReceiverModule.ChangeRemotePlayersVolumeSettings(volume);
         }
+        bool over = volume > 1.0f;
+        SliderVolumePercentage.color = over ? Color.red : Color.white;
     }
 }

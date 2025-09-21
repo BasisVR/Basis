@@ -29,24 +29,32 @@ public struct JiggleRigData {
     [SerializeField] public JiggleColliderSerializable[] jiggleColliders;
     
     [NonSerialized]
-    private JiggleTreeSegment segment;
-    
-    public void ResampleRestPose() {
-        segment.jiggleTree.ResampleRestPose();
-    }
+    private Dictionary<Transform, JiggleTransformCachedData> transformToCachedDataMap;
 
-    public void OnEnable() {
-        if (rootBone == null) {
-            throw new UnityException("Jiggle Rig enabled without a root bone assigned!");
+    private bool TryUpdateSerialization() {
+        switch (serializedVersion) {
+            case "v0.0.0":
+                if (rootBone == null) {
+                    return false;
+                }
+                var cachedScale = GetCache(rootBone);
+                var scale = rootBone.lossyScale;
+                var scaleSample = (scale.x + scale.y + scale.z)/3f;
+                var scaleCorrection = cachedScale.lossyScale*(1f/(scaleSample*scaleSample));
+                jiggleTreeInputParameters.collisionRadius.value *= scaleCorrection;
+                serializedVersion = "v0.0.1";
+                return true;
+            default:
+                return false;
         }
-
-        segment ??= new JiggleTreeSegment(rootBone, this);
-        segment.SetDirty();
-        JigglePhysics.AddJiggleTreeSegment(segment);
     }
-    public void OnDisable() {
-        if (segment != null) {
-            JigglePhysics.RemoveJiggleTreeSegment(segment);
+
+    public void RegenerateCacheLookup() {
+        transformToCachedDataMap = new Dictionary<Transform, JiggleTransformCachedData>();
+        var count = transformCachedData.Length;
+        for (int i = 0; i < count; i++) {
+            var cachedData = transformCachedData[i];
+            transformToCachedDataMap[cachedData.bone] = cachedData;
         }
     }
 
@@ -85,6 +93,11 @@ public struct JiggleRigData {
         ValidateCurve(ref jiggleTreeInputParameters.gravity.curve);
         ValidateCurve(ref jiggleTreeInputParameters.collisionRadius.curve);
         BuildNormalizedDistanceFromRootList();
+        for (int i = 0; i < 100; i++) {
+            if (!TryUpdateSerialization()) {
+                break;
+            }
+        }
         if (jiggleColliders is { Length: > 32 }) {
             Debug.LogWarning("JigglePhysics: Maximum of 32 personal Jiggle Colliders are supported per tree. Extra colliders will be dropped.");
             Array.Resize(ref jiggleColliders, 32);
@@ -98,6 +111,7 @@ public struct JiggleRigData {
         var data = new List<JiggleTransformCachedData>();
         VisitAndSetCacheData(data, rootBone, rootBone.position, 0f, totalLength);
         transformCachedData = data.ToArray();
+        RegenerateCacheLookup();
     }
     
     public void VisitAndSetCacheData(List<JiggleTransformCachedData> data, Transform t, Vector3 lastPosition, float currentLength, float totalLength) {
@@ -152,57 +166,33 @@ public struct JiggleRigData {
     }
     
     public bool GetHasRootTransformError() => !rootBone;
-    public bool GetNormalizedDistanceFromRootListIsValid() => transformCachedData is { Length: > 0 };
-    public float GetNormalizedDistanceFromRoot(Transform t) {
-        var count = transformCachedData.Length;
-        for (int i = 0; i < count; i++) {
-            var cachedData = transformCachedData[i];
-            if (cachedData.bone == t) {
-                return cachedData.normalizedDistanceFromRoot;
-            }
-        }
-        return 0f;
+    public bool GetCacheIsValid() => transformCachedData is { Length: > 0 } && transformToCachedDataMap != null && transformToCachedDataMap.Count == transformCachedData.Length;
+    public JiggleTransformCachedData GetCache(Transform t) {
+        return transformToCachedDataMap[t];
     }
 
     /// <summary>
     /// Sends updated parameters to the jiggle tree on the jobs side. Uses the provided list to prevent allocations.
     /// </summary>
+    /// <param name="tree">Tree to update</param>
     /// <param name="parameters">empty list purely used to prevent allocations</param>
-    public void UpdateParameters(List<JigglePointParameters> parameters) {
-        if (segment == null || segment.jiggleTree == null) {
-            return;
-        }
-        
+    public void UpdateParameters(JiggleTree tree, List<JigglePointParameters> parameters) {
         parameters.Clear();
-        var bones = segment?.jiggleTree.bones;
+        var bones = tree.bones;
         if (bones == null) {
             return;
         }
         var boneCount = bones.Length;
         for (int i = 0; i < boneCount; i++) {
             var bone = bones[i];
-            var normalizedDistanceFromRoot = GetNormalizedDistanceFromRoot(bone);
-            var cachedScale = GetCachedLossyScale(bone);
-            var lossySample = bone.lossyScale;
-            var lossyRealScale = (lossySample.x + lossySample.y + lossySample.z)/3f;
-            parameters.Add(GetJiggleBoneParameter(normalizedDistanceFromRoot, cachedScale, lossyRealScale));
+            var cache = GetCache(bone);
+            parameters.Add(GetJiggleBoneParameter(cache.normalizedDistanceFromRoot));
         }
-        segment?.jiggleTree.SetParameters(parameters);
+        tree.SetParameters(parameters);
     }
     
-    public float GetCachedLossyScale(Transform t) {
-        var count = transformCachedData.Length;
-        for (int i = 0; i < count; i++) {
-            var cachedData = transformCachedData[i];
-            if (cachedData.bone == t) {
-                return cachedData.lossyScale;
-            }
-        }
-        return 1f;
-    }
-    
-    public JigglePointParameters GetJiggleBoneParameter(float normalizedDistanceFromRoot, float lossyCachedSacle, float lossyRealScale) {
-        return jiggleTreeInputParameters.ToJigglePointParameters(normalizedDistanceFromRoot, lossyCachedSacle, lossyRealScale);
+    public JigglePointParameters GetJiggleBoneParameter(float normalizedDistanceFromRoot) {
+        return jiggleTreeInputParameters.ToJigglePointParameters(normalizedDistanceFromRoot);
     }
     
     public Transform[] GetJiggleBoneTransforms() {
@@ -232,7 +222,7 @@ public struct JiggleRigData {
         }
         
         if (!rootBone) return;
-        Gizmos.color = Color.whiteSmoke;
+        Gizmos.color = new Color(0.9607844f, 0.9607844f, 0.9607844f, 1f);
         var jiggleTree = JigglePhysics.CreateJiggleTree(this, null);
         var points = jiggleTree.points;
         var parameters = jiggleTree.parameters;

@@ -1,13 +1,13 @@
-using System;
-using GatorDragonGames.JigglePhysics;
 using UnityEngine;
 
+namespace GatorDragonGames.JigglePhysics {
 public class JiggleColliderExample : MonoBehaviour {
-    [SerializeField]
-    private JiggleColliderSerializable jiggleCollider;
+    [SerializeField] private JiggleColliderSerializable jiggleCollider;
+
     private void OnEnable() {
         JigglePhysics.AddJiggleCollider(jiggleCollider);
     }
+
     private void OnDisable() {
         JigglePhysics.RemoveJiggleCollider(jiggleCollider);
     }
@@ -15,4 +15,5 @@ public class JiggleColliderExample : MonoBehaviour {
     private void OnDrawGizmos() {
         jiggleCollider.OnDrawGizmosSelected();
     }
+}
 }

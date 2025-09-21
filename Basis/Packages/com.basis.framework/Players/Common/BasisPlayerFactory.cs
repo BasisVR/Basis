@@ -42,7 +42,7 @@ namespace Basis.Scripts.Player
             await CreatedLocalPlayer.LocalInitialize();
             return CreatedLocalPlayer;
         }
-        public static async Task<BasisRemotePlayer> CreateRemotePlayer(InstantiationParameters InstantiationParameters, ClientAvatarChangeMessage AvatarURL, ClientMetaDataMessage PlayerMetaDataMessage)
+        public static BasisRemotePlayer CreateRemotePlayer(InstantiationParameters InstantiationParameters, ClientAvatarChangeMessage AvatarURL, ClientMetaDataMessage PlayerMetaDataMessage)
         {
             GameObject gameObject = GameObject.Instantiate(RemotePlayerReadyToSpawn, InstantiationParameters.Position, InstantiationParameters.Rotation, InstantiationParameters.Parent);
             if (gameObject.TryGetComponent<BasisRemotePlayer>(out BasisRemotePlayer CreatedRemotePlayer))
@@ -54,7 +54,7 @@ namespace Basis.Scripts.Player
                 BasisDebug.LogError("Missing RemotePlayer");
             }
             CreatedRemotePlayer.PlayerSelf = CreatedRemotePlayer.transform;
-            await CreatedRemotePlayer.RemoteInitialize(AvatarURL, PlayerMetaDataMessage);
+            CreatedRemotePlayer.RemoteInitialize(AvatarURL, PlayerMetaDataMessage);
             return CreatedRemotePlayer;
         }
     }

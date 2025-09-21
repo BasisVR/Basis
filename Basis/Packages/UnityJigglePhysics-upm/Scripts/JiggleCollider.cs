@@ -16,7 +16,7 @@ public struct JiggleColliderSerializable {
         }
         var position = transform.position;
         collider.Read(transform);
-        Gizmos.color = Color.goldenRod;
+        Gizmos.color = new Color(0.854902f, 0.6470588f, 0.1254902f, 1f);
         switch (collider.type) {
             case JiggleCollider.JiggleColliderType.Sphere:
                 Gizmos.DrawWireSphere(position, collider.worldRadius);
@@ -25,7 +25,7 @@ public struct JiggleColliderSerializable {
     }
 }
 
-[System.Serializable]
+[Serializable]
 public struct JiggleCollider {
     public enum JiggleColliderType {
         Sphere,

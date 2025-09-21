@@ -49,6 +49,8 @@ public class Configuration
     public int HowManyDuplicateAuthCanExist = 2;
     public int AuthValidationTimeOutMiliseconds = 9000;
     public bool EnableConsole = true;
+    public bool DisableWriteUnlessAdminPersistentFlag = true;
+    public bool DisableReadUnlessAdminPersistentFlag = false;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

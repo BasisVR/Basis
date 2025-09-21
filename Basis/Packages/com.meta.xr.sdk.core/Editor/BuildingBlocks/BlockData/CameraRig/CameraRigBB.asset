@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c37920b2384c61442b4f9520188e5594, type: 3}
+  m_Name: CameraRigBB
+  m_EditorClassIdentifier: 
+  id: e47682b9-c270-40b1-b16d-90b627a5ce1b
+  version: 1
+  blockName: Camera Rig
+  description: Camera Rig for Meta Quest Development
+  tags:
+    array:
+    - name: Core
+    - name: Tracking
+  thumbnail: {fileID: 2800000, guid: 5bbac4b39c4d6e046a86e35f184a7a26, type: 3}
+  order: -10
+  prefab: {fileID: 100004, guid: 126d619cf4daa52469682f85c1378b4a, type: 3}
+  selectedGuidedSetupIndex: 0
+  externalBlockDependencies: []
+  dependencies: []
+  guidedSetupName: 
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 
+  featureDocumentationName: Meta XR Camera
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/unity-ovrcamerarig/

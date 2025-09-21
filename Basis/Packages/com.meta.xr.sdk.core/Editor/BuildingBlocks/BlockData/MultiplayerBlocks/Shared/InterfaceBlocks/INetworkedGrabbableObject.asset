@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: INetworkedGrabbableObject
+  m_EditorClassIdentifier:
+  id: e9b4b64f-1c7e-4dff-8f3c-ce409bdc3951
+  version: 1
+  blockName: Networked Grabbable Object
+  description: Grabbable object whose transform is synced over the network
+  tags:
+    array:
+    - name: Interaction
+    - name: ISDK
+    - name: Experimental
+    - name: Multiplayer
+  thumbnail: {fileID: 2800000, guid: 1d14abf370e5143499c5282b269fdc5d, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  externalBlockDependencies: []
+  dependencies:
+  - 1d8db162-54f6-43df-b4ef-b499df1f6769
+  packageDependencies:
+  - com.meta.xr.sdk.interaction.ovr
+  isSingleton: 0
+  usageInstructions: 'You can apply this block to any 3D objects in your scene by
+    dropping this block onto the object. If no objects are dropped onto, a Cube will
+    be spawned.
+
+    By selecting UseGravity to true, be sure to setup your game
+    object with a valid Rigidbody that useGravity.'
+  featureDocumentationName: Multiplayer Building Blocks Setup Guide
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/bb-multiplayer-blocks

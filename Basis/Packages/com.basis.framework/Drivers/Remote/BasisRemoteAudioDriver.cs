@@ -22,15 +22,8 @@ namespace Basis.Scripts.Drivers
         }
         public void Initalize(BasisAudioAndVisemeDriver basisVisemeDriver)
         {
-            if (basisVisemeDriver != null)
-            {
-                BasisAudioAndVisemeDriver = basisVisemeDriver;
-                Initalized = true;
-            }
-            else
-            {
-                this.enabled = false;
-            }
+            BasisAudioAndVisemeDriver = basisVisemeDriver;
+            Initalized = true;
         }
     }
 }

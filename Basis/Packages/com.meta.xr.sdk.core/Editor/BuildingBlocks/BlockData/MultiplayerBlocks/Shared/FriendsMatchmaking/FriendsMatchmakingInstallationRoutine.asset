@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e33b86fd03f4d1b48a5215eb29d1836e, type: 3}
+  m_Name: FriendsMatchmakingInstallationRoutine
+  m_EditorClassIdentifier: 
+  id: a2ef7fc8-fd7f-45d4-89f8-a668792d0c76
+  targetBlockDataId: a29fd151-3fe0-46e4-8ae6-c899e8b9be35
+  prefab: {fileID: 3609187071157327920, guid: d399fe77d01127949be199078bc670e2, type: 3}
+  packageDependencies: []

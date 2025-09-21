@@ -1,0 +1,58 @@
+{
+    "name": "Meta.XR.MultiplayerBlocks.NGO.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Oculus.VR",
+        "Oculus.VR.Editor",
+        "Meta.XR.BuildingBlocks",
+        "Oculus.VR.Scripts.Editor",
+        "Meta.XR.MultiplayerBlocks.Shared.Editor",
+        "Meta.XR.BuildingBlocks.Editor",
+        "Oculus.Interaction",
+        "Oculus.Interaction.OVR",
+        "Unity.Netcode.Components",
+        "Unity.Netcode.Runtime",
+        "Meta.XR.MultiplayerBlocks.NGO",
+        "Meta.XR.MultiplayerBlocks.Shared",
+        "Oculus.Interaction.OVR.Editor",
+        "Oculus.Interaction.Editor",
+        "Unity.Netcode.Editor"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.meta.xr.sdk.interaction.ovr",
+            "expression": "",
+            "define": "META_INTERACTION_SDK_DEFINED"
+        },
+        {
+            "name": "com.unity.netcode.gameobjects",
+            "expression": "1.7.1",
+            "define": "UNITY_NGO_MODULE_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars",
+            "expression": "",
+            "define": "META_AVATAR_SDK_DEFINED"
+        },
+        {
+            "name": "com.meta.xr.sdk.avatars",
+            "expression": "28.0.0",
+            "define": "META_AVATAR_SDK_28_OR_NEWER"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

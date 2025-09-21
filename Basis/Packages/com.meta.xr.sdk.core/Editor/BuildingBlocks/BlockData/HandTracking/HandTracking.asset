@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 484800a18d70d2d4386ee3f42ef24113, type: 3}
+  m_Name: HandTracking
+  m_EditorClassIdentifier: 
+  id: 8b26b298-7bf4-490e-b245-a039c0184303
+  version: 1
+  blockName: Hand Tracking
+  description: 'Hand tracking enables the use of hands as an input method for the
+    Meta Quest headsets. Using hands as an input method delivers a new sense of presence,
+    enhances social engagement, and delivers more natural interactions.
+
+    This
+    blocks enables hand tracking and adds visuals for the hands.
+
+'
+  tags:
+    array:
+    - name: Core
+    - name: Tracking
+  thumbnail: {fileID: 2800000, guid: ac048d3b15e843e4ab5b54c6392bedb7, type: 3}
+  order: -4
+  prefab: {fileID: 1870938896605422, guid: 929a4e1a0ccfe2048b9390905f78fc4d, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 'Note: This block does not rely on the Interaction SDK. The
+    recommended way to integrate hand tracking for Unity developers is to use the
+    Interaction SDK, which provides standardized interactions and gestures. Building
+    custom interactions without the SDK can be a significant challenge and makes
+    it difficult to get approved in the store.'
+  featureDocumentationName: Hand Tracking Overview
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/unity-handtracking-overview

@@ -1,166 +1,214 @@
 using Basis.Scripts.BasisSdk.Players;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 public class BasisUIVolumeSampler : MonoBehaviour
 {
-    public Image[] MicrophoneSections;
-    public int sampleSize = 512; // Number of samples per frame
-    public float MicrophoneSectionsLength;
-
-    public float UINormalizerValue = 2; // Scales the RMS value to make the UI more sensitive
-
-    public float[] spectrumData;
-    public float rms;
-    public float peak;
-    public bool HasEvent;
+    [Header("Remote source (set via Initialize)")]
     public BasisRemotePlayer RemotePlayer;
 
-    public void Initalize(BasisRemotePlayer Remoteplayer)
+
+    [Tooltip("Optional thin Image used as a peak-hold tick.")]
+    public Image peakTick;
+    [Tooltip("Gradient from quiet→loud (e.g., green→yellow→red).")]
+    public Gradient colorByLevel;
+    [Header("Level mapping")]
+    [Tooltip("Lower dB bound mapped to 0. Typical noise floor.")]
+    public float minDb = -60f;
+    [Tooltip("Upper dB bound mapped to 1. Full-scale ~ 0 dBFS.")]
+    public float maxDb = 0f;
+    [Tooltip("dB offset after calibration (fine-tune).")]
+    public float gainDb = 0f;
+
+    [Header("Dynamics (feel)")]
+    [Tooltip("Seconds to rise toward louder levels.")]
+    public float attack = 0.06f;
+    [Tooltip("Seconds to fall toward quieter levels.")]
+    public float release = 0.20f;
+    [Tooltip("How long to hold the peak before it starts falling.")]
+    public float peakHoldTime = 0.6f;
+    [Tooltip("How fast the peak tick falls (normalized units / sec).")]
+    public float peakFallPerSecond = 1.5f;
+
+    [Header("Look")]
+    [Tooltip("Color for inactive segments.")]
+    public Color inactiveColor = new Color(0.4f, 0.4f, 0.4f, 1f);
+    [Tooltip("Color override when signal exceeds maxDb (overdrive).")]
+    public Color overdriveColor = Color.red;
+    [Tooltip("Image set to Filled/Horizontal. Acts as the main bar.")]
+    public Image fill;
+
+    bool subscribed;
+
+    // raw measurements derived from audio callback
+    volatile float instantaneousRms;      // linear 0..+ (not clamped)
+    volatile float instantaneousPeak;     // linear 0..+
+
+    // UI-driving state (normalized 0..1 unless noted)
+    float smoothed; // meter fill (0..1)
+    float peakNorm; // 0..1 peak-hold position
+    float peakTimer;
+
+
+    [Header("References")]
+    public Slider slider;
+    public Image bandRecommended;
+    public Image bandOverdrive;
+    public Image defaultTick; // thin vertical image
+
+    [Header("Semantics (in slider units)")]
+    [Tooltip("Lower bound of 'recommended' range, e.g., 0.6 (60%).")]
+    public float recommendedMin = 0.6f;
+    [Tooltip("Default/standard reference, typically 1.0 (100%).")]
+    public float defaultValue = 1.0f;
+    public void Initalize(BasisRemotePlayer remotePlayer)
     {
-        RemotePlayer = Remoteplayer;
-        if (RemotePlayer == null || RemotePlayer.NetworkReceiver == null || RemotePlayer.NetworkReceiver.AudioReceiverModule == null || RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver == null)
+        RemotePlayer = remotePlayer;
+
+        TryUnsubscribe(); // in case we were already wired
+
+        if (RemotePlayer == null ||RemotePlayer.NetworkReceiver == null ||
+            RemotePlayer.NetworkReceiver.AudioReceiverModule == null ||
+            RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver == null)
         {
+            // Remote stream not available (yet).
             return;
         }
+        // Drive UI
+        fill.fillAmount = smoothed;
+        fill.color = colorByLevel.Evaluate(smoothed);
 
-        MicrophoneSectionsLength = MicrophoneSections.Length;
-
-        if (!IsPowerOfTwo(sampleSize) || sampleSize < 64 || sampleSize > 8192)
-        {
-            Debug.LogError("Sample size must be a power of two between 64 and 8192. Defaulting to 1024.");
-            sampleSize = 1024;
-        }
-
-        spectrumData = new float[sampleSize];
         RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver.AudioData += OnAudio;
-        HasEvent = true;
-    }
+        subscribed = true;
 
-    public void OnDestroy()
-    {
-        if (HasEvent)
+        float span = Mathf.Max(0.0001f, slider.maxValue - slider.minValue);
+
+        // Helper to set a child Image’s anchors in normalized [0..1] space along X.
+        void SetBand(Image img, float xMin, float xMax)
         {
-            HasEvent = false;
-            if (RemotePlayer == null)
-            {
-                return;
-            }
-            if (RemotePlayer.NetworkReceiver == null)
-            {
-                return;
-            }
-            if (RemotePlayer.NetworkReceiver.AudioReceiverModule == null)
-            {
-                return;
-            }
-            if (RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver == null)
-            {
-                return;
-            }
-            //this can be null if the player goes outside of our voice range.
-            RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver.AudioData -= OnAudio;
+            if (!img) return;
+            var rt = img.rectTransform;
+            rt.anchorMin = new Vector2(Mathf.Clamp01(xMin), 0f);
+            rt.anchorMax = new Vector2(Mathf.Clamp01(xMax), 1f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
+        bandRecommended.color = new Color(0f, 0.8f, 0.4f, 0.4f); // semi-transparent green
+        bandOverdrive.color = new Color(0.9f, 0f, 0f, 0.4f); // semi-transparent red
+
+        float recMinN = (recommendedMin - slider.minValue) / span;
+        float defN = (defaultValue - slider.minValue) / span;
+        float overMinN = defN;
+        float overMaxN = 1f; // up to max
+
+        SetBand(bandRecommended, recMinN, defN);
+        SetBand(bandOverdrive, overMinN, overMaxN);
+
+        if (defaultTick)
+        {
+            var rt = defaultTick.rectTransform;
+            rt.anchorMin = new Vector2(defN, 0f);
+            rt.anchorMax = new Vector2(defN, 1f);
+            rt.anchoredPosition = Vector2.zero;
+            // Make sure DefaultTick has a LayoutElement or fixed width so it’s visible.
         }
     }
-
-    private bool IsPowerOfTwo(int value)
-    {
-        return (value & (value - 1)) == 0 && value > 0;
-    }
-
-    private void OnAudio(float[] data, int channels)
+    void OnDisable() => TryUnsubscribe();
+    void OnDestroy() => TryUnsubscribe();
+    void OnAudio(float[] data, int channels)
     {
         if (data == null || data.Length == 0)
-        {
             return;
-        }
 
-        System.Array.Copy(data, spectrumData, Mathf.Min(data.Length, spectrumData.Length));
+        // Compute linear RMS and peak without GC
+        // Treat buffer as interleaved; we just consider absolute sample values overall
+        double sumSq = 0.0;
+        float peak = 0f;
 
-        for (int i = 0; i < spectrumData.Length; i++)
+        // Clamp pass (just in case) and collect stats
+        for (int i = 0; i < data.Length; i++)
         {
-            if (float.IsNaN(spectrumData[i]) || float.IsInfinity(spectrumData[i]))
-            {
-                spectrumData[i] = 0f;
-            }
+            float s = data[i];
+
+            // Purge NaN/Inf defensively (cheap)
+            if (!float.IsFinite(s)) s = 0f;
+
+            float abs = (s >= 0f) ? s : -s;
+            if (abs > peak) peak = abs;
+
+            // Use double for numerical headroom
+            sumSq += (double)s * (double)s;
         }
 
-        rms = CalculateSpectrumRMS();
-        peak = CalculateSpectrumPeak();
+        float rms = Mathf.Sqrt((float)(sumSq / Mathf.Max(1, data.Length)));
+
+        instantaneousRms = rms;
+        instantaneousPeak = peak;
     }
-
-    public void Update()
+    void Update()
     {
-        UpdateVolumeDisplay(rms, peak);
-    }
+        // Map current measurement to target normalized 0..1 (can exceed 1 before clamp for overdrive detection)
+        float targetUnit = RmsToUnit(instantaneousRms);
+        float targetClamped = Mathf.Clamp01(targetUnit);
 
-    private void UpdateVolumeDisplay(float rms, float peak)
-    {
-        float normalizedRMS = Mathf.Clamp(rms * UINormalizerValue, 0f, 1.5f);
-        float normalizedPeak = Mathf.Clamp(peak * UINormalizerValue, 0f, 1.5f);
+        // Smooth with different time constants for rise/fall
+        float dt = Time.unscaledDeltaTime;
+        float tau = (targetClamped > smoothed) ? Mathf.Max(0.0001f, attack) : Mathf.Max(0.0001f, release);
+        float coeff = 1f - Mathf.Exp(-dt / tau);
+        smoothed = Mathf.Lerp(smoothed, targetClamped, coeff);
 
-        if (MicrophoneSections == null || MicrophoneSections.Length == 0)
+        // Drive UI
+        fill.fillAmount = smoothed;
+        fill.color = colorByLevel.Evaluate(smoothed);
+
+        // Peak-hold tick (optional)
+        if (peakTick)
         {
-            Debug.LogError("No microphone sections assigned!");
-            return;
-        }
+            // Calculate current normalized peak from instantaneousPeak
+            float peakUnit = RmsToUnit(instantaneousPeak);
+            float peakClamped = Mathf.Clamp01(peakUnit);
 
-        float Maximum = Mathf.Max(normalizedRMS, normalizedPeak);
-
-        for (int i = 0; i < MicrophoneSectionsLength; i++)
-        {
-            float sectionValue = (float)i / MicrophoneSectionsLength;
-            Color barColor = GetColorGradient(sectionValue, Maximum);
-            MicrophoneSections[i].color = barColor;
-        }
-    }
-
-    // ✅ Modified function to return red when volume > 1
-    private Color GetColorGradient(float sectionValue, float volumeLevel)
-    {
-        if (sectionValue < Mathf.Max(volumeLevel, 0))
-        {
-            if (volumeLevel > 1.0f)
+            if (peakClamped > peakNorm)
             {
-                return Color.red; // Overdriven red
-            }
-            else if (volumeLevel < 0.3f)
-            {
-                return Color.Lerp(Color.green, Color.yellow, volumeLevel * 3.33f);
-            }
-            else if (volumeLevel < 0.7f)
-            {
-                return Color.Lerp(Color.yellow, new Color(1f, 0.647f, 0f), (volumeLevel - 0.3f) * 3.33f); // Yellow to Orange
+                peakNorm = peakClamped;
+                peakTimer = peakHoldTime;
             }
             else
             {
-                return Color.Lerp(new Color(1f, 0.647f, 0f), Color.red, (volumeLevel - 0.7f) * 3.33f); // Orange to Red
+                if (peakTimer > 0f) peakTimer -= dt;
+                else peakNorm = Mathf.Max(0f, peakNorm - peakFallPerSecond * dt);
             }
-        }
 
-        return Color.gray;
+            // Place tick at X = peakNorm
+            var rt = peakTick.rectTransform;
+            rt.anchorMin = new Vector2(peakNorm, 0f);
+            rt.anchorMax = new Vector2(peakNorm, 1f);
+            rt.anchoredPosition = Vector2.zero;
+
+            // Color tick: red on overdrive, otherwise follow gradient at that position
+            peakTick.color = (targetUnit > 1f) ? overdriveColor : colorByLevel.Evaluate(peakNorm);
+        }
     }
-
-    private float CalculateSpectrumRMS()
+    float RmsToUnit(float rms)
     {
-        if (spectrumData == null || spectrumData.Length == 0)
-        {
-            return 0f;
-        }
-
-        float sumOfSquares = spectrumData.Sum(value => value * value);
-        float rmsValue = Mathf.Sqrt(sumOfSquares / spectrumData.Length);
-        return float.IsNaN(rmsValue) || float.IsInfinity(rmsValue) ? 0f : rmsValue;
+        // Convert to dB, then map to 0..1 across [minDb..maxDb].
+        float db = 20f * Mathf.Log10(Mathf.Max(1e-7f, rms)) + gainDb;
+        return Mathf.InverseLerp(minDb, maxDb, db);
     }
-
-    private float CalculateSpectrumPeak()
+    void TryUnsubscribe()
     {
-        if (spectrumData == null || spectrumData.Length == 0)
+        if (!subscribed) return;
+
+        // The stream can vanish mid-session; guard every hop.
+        if (RemotePlayer != null &&
+            RemotePlayer.NetworkReceiver != null &&
+            RemotePlayer.NetworkReceiver.AudioReceiverModule != null &&
+            RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver != null)
         {
-            return 0f;
+            RemotePlayer.NetworkReceiver.AudioReceiverModule.BasisRemoteVisemeAudioDriver.AudioData -= OnAudio;
         }
 
-        float peakValue = spectrumData.Max();
-        return float.IsNaN(peakValue) || float.IsInfinity(peakValue) ? 0f : peakValue;
+        subscribed = false;
     }
 }

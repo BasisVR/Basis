@@ -4,12 +4,14 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace GatorDragonGames.JigglePhysics {
 [BurstCompile]
 public unsafe struct JiggleGridCell {
-    public static int2 GetKey(float3 position) {
-        return (int2)position.xz;
+    public static int2 GetKeyForPosition(float3 position) {
+        const float gridSizeMeters = 1f;
+        return (int2)math.round(position.xz*(1f/gridSizeMeters));
     }
 
     public int staleness;
@@ -38,13 +40,16 @@ public unsafe struct JiggleGridCell {
 [BurstCompile]
 public struct JiggleJobBroadPhaseClear : IJob {
     public NativeHashMap<int2, JiggleGridCell> broadPhaseMap;
+    public NativeReference<JiggleGridCell> globalCell;
 
     public JiggleJobBroadPhaseClear(JiggleMemoryBus bus) {
         broadPhaseMap = bus.broadPhaseMap;
+        globalCell = bus.globalCell;
     }
 
     public void UpdateArrays(JiggleMemoryBus bus) {
         broadPhaseMap = bus.broadPhaseMap;
+        globalCell = bus.globalCell;
     }
 
     public void Execute() {
@@ -62,7 +67,11 @@ public struct JiggleJobBroadPhaseClear : IJob {
                 broadPhaseMap[key] = gridCell;
             }
         }
-
+        
+        var global = globalCell.Value;
+        global.count = 0;
+        globalCell.Value = global;
+        
         keyArray.Dispose();
     }
 }
@@ -70,39 +79,54 @@ public struct JiggleJobBroadPhaseClear : IJob {
 [BurstCompile]
 public struct JiggleJobBroadPhase : IJob {
     public NativeHashMap<int2, JiggleGridCell> broadPhaseMap;
+    public NativeReference<JiggleGridCell> globalCell;
     [ReadOnly] public NativeArray<JiggleCollider> jiggleColliders;
     public int jiggleColliderCount;
+    public const int MAX_COLLIDERS = 128;
+    public const int GLOBAL_COLLIDER_EDGE_LENGTH = 10;
+    private const int GLOBAL_COLLIDER_CELLS = GLOBAL_COLLIDER_EDGE_LENGTH*GLOBAL_COLLIDER_EDGE_LENGTH;
 
     public JiggleJobBroadPhase(JiggleMemoryBus bus) {
         broadPhaseMap = bus.broadPhaseMap;
         jiggleColliders = bus.sceneColliders;
         jiggleColliderCount = bus.sceneColliderCount;
+        globalCell = bus.globalCell;
     }
 
     public void UpdateArrays(JiggleMemoryBus bus) {
         broadPhaseMap = bus.broadPhaseMap;
         jiggleColliders = bus.sceneColliders;
         jiggleColliderCount = bus.sceneColliderCount;
+        globalCell = bus.globalCell;
     }
 
     public void Execute() {
         for (int i = 0; i < jiggleColliderCount; i++) {
             var collider = jiggleColliders[i];
             float3 position = collider.localToWorldMatrix.c3.xyz;
-            int2 gridPosition = JiggleGridCell.GetKey(position);
-            int boundingRange = ((int)collider.worldRadius*2);
-            for (int x = -boundingRange; x <= boundingRange; x++) {
-                for (int y = -boundingRange; y <= boundingRange; y++) {
-                    int2 grid = gridPosition + new int2(x, y);
+            int2 min = JiggleGridCell.GetKeyForPosition(position-new float3(collider.worldRadius));
+            int2 max = JiggleGridCell.GetKeyForPosition(position+new float3(collider.worldRadius));
+            if ((max.x - min.x) * (max.y - min.y) > GLOBAL_COLLIDER_CELLS) {
+                var global = globalCell.Value;
+                unsafe {
+                    global.colliderIndices[global.count] = i;
+                    global.count = math.min(global.count + 1, MAX_COLLIDERS-1);
+                }
+                globalCell.Value = global;
+                continue;
+            }
+            for (int x = min.x; x <= max.x; x++) {
+                for (int y = min.y; y <= max.y; y++) {
+                    int2 grid = new int2(x, y);
                     if (!broadPhaseMap.ContainsKey(grid)) {
-                        broadPhaseMap.Add(grid, new JiggleGridCell(255));
+                        broadPhaseMap.Add(grid, new JiggleGridCell(MAX_COLLIDERS));
                     }
 
                     if (broadPhaseMap.TryGetValue(grid, out JiggleGridCell gridCell)) {
                         gridCell.staleness = 0;
                         unsafe {
                             gridCell.colliderIndices[gridCell.count] = i;
-                            gridCell.count = math.min(gridCell.count + 1, 255);
+                            gridCell.count = math.min(gridCell.count + 1, MAX_COLLIDERS-1);
                         }
                         broadPhaseMap[grid] = gridCell;
                     }

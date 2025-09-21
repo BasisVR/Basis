@@ -319,7 +319,11 @@ public partial class BasisAvatarSDKInspector : Editor
             }
             //here
             Texture2D Image = AssetPreview.GetAssetPreview(Avatar.gameObject);
-            byte[] ImageBytes = BasisTextureCompression.ToPngBytes(Image);
+            byte[] ImageBytes = null;
+            if (Image != null)
+            {
+                ImageBytes = BasisTextureCompression.ToPngBytes(Image);
+            }
             Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
             (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes,Avatar, targets);
             EditorUtility.ClearProgressBar();

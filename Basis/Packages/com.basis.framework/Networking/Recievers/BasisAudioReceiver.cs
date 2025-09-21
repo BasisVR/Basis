@@ -1,5 +1,4 @@
 using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using OpusSharp.Core;
@@ -12,9 +11,7 @@ namespace Basis.Scripts.Networking.Receivers
     public class BasisAudioReceiver
     {
         public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
-        [SerializeField]
         public AudioSource audioSource;
-        [SerializeField]
         public BasisAudioAndVisemeDriver visemeDriver = new BasisAudioAndVisemeDriver();
         public BasisVoiceRingBuffer InOrderRead = new BasisVoiceRingBuffer();
         public bool IsPlaying = false;
@@ -24,7 +21,7 @@ namespace Basis.Scripts.Networking.Receivers
         public Transform AudioSourceTransform;
         public float[] resampledSegment;
         public bool HasTransform = false;
-        public BasisNetworkPlayer BasisNetworkPlayer;
+        public BasisNetworkReceiver BasisNetworkReceiver;
         //everything can safely share the same silent data as we only copy it.
         public static float[] silentData;
         public static int outputSampleRate;
@@ -44,12 +41,12 @@ namespace Basis.Scripts.Networking.Receivers
                 InOrderRead.Add(silentData, RemoteOpusSettings.FrameSize);
             }
         }
-        public async void LoadAudioSource(BasisNetworkPlayer networkedPlayer)
+        public async void LoadAudioSource(BasisNetworkPlayer networkedPlayer,Transform MouthParent)
         {
             if (AudioSourceTransform == null)
             {
-                AudioSourceTransform = BasisAudioRemoteSource.RequestAudio().transform;
-                AudioSourceTransform.name = $"[Audio] {BasisNetworkPlayer.Player.DisplayName}";
+                AudioSourceTransform = BasisAudioRemoteSource.RequestAudio(MouthParent).transform;
+                AudioSourceTransform.name = $"[Audio] {BasisNetworkReceiver.Player.DisplayName}";
                 HasTransform = true;
                 if (audioSource == null)
                 {
@@ -74,7 +71,6 @@ namespace Basis.Scripts.Networking.Receivers
             }
             if (AudioSourceTransform != null)
             {
-                BasisAudioTransformDriver.RequestRemove(AudioSourceTransform);
                 BasisAudioRemoteSource.Return(AudioSourceTransform.gameObject);
                 AudioSourceTransform = null;
                 HasTransform = false;
@@ -82,7 +78,7 @@ namespace Basis.Scripts.Networking.Receivers
             }
             IsPlaying = false;
         }
-        public void Initalize(BasisNetworkPlayer networkedPlayer)
+        public void Initalize(BasisNetworkReceiver networkedPlayer)
         {
 #if UNITY_SERVER
        return;
@@ -92,7 +88,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 silentData = new float[RemoteOpusSettings.FrameSize];
             }
-            BasisNetworkPlayer = networkedPlayer;
+            BasisNetworkReceiver = networkedPlayer;
         }
         public void OnDestroy()
         {
@@ -133,9 +129,9 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
        return;
 #endif
-            if (BasisNetworkPlayer != null)
+            if (BasisNetworkReceiver != null)
             {
-                LoadAudioSource(BasisNetworkPlayer);
+                LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform);
             }
         }
         public void ChangeRemotePlayersVolumeSettings(float volume = 1.0f,float dopplerLevel = 0,float spatialBlend = 1.0f,bool spatialize = true,bool spatializePostEffects = true)

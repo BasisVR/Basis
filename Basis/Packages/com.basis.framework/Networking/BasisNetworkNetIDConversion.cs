@@ -11,7 +11,7 @@ public static class BasisNetworkIdResolver
 {
 
     public static ConcurrentDictionary<string, ushort> KnownIdMap = new ConcurrentDictionary<string, ushort>();
-    private static ConcurrentDictionary<string, TaskCompletionSource<ushort>> PendingResolutions = new ConcurrentDictionary<string, TaskCompletionSource<ushort>>();
+    public static ConcurrentDictionary<string, TaskCompletionSource<ushort>> PendingResolutions = new ConcurrentDictionary<string, TaskCompletionSource<ushort>>();
     private const int TimeoutMilliseconds = 10000; // 10 seconds
 
     public static async Task<BasisIdResolutionResult> ResolveAsync(string stringId)
@@ -44,7 +44,7 @@ public static class BasisNetworkIdResolver
             NetIDMessage requestMessage = new NetIDMessage { UniqueID = stringId };
             requestMessage.Serialize(writer);
 
-            BasisNetworkManagement.LocalPlayerPeer.Send(writer, BasisNetworkCommons.netIDAssignChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.netIDAssignChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
 
             return await AwaitWithTimeout(tcs.Task, stringId);
         }

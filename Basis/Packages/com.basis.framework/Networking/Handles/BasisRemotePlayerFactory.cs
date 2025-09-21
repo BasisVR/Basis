@@ -2,9 +2,6 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Player;
-using Basis.Scripts.TransformBinders.BoneControl;
-using System.Threading.Tasks;
-using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
 
@@ -12,39 +9,37 @@ namespace Basis.Scripts.Networking
 {
     public static class BasisRemotePlayerFactory
     {
-        public static async Task HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader, InstantiationParameters Parent)
+        public static void HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader, InstantiationParameters Parent)
         {
            // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
             ServerReadyMessage ServerReadyMessage = new ServerReadyMessage();
             ServerReadyMessage.Deserialize(reader);
 
-            await CreateRemotePlayer(ServerReadyMessage, Parent);
+             CreateRemotePlayer(ServerReadyMessage, Parent);
         }
-        public static async Task<BasisNetworkPlayer> CreateRemotePlayer(ServerReadyMessage ServerReadyMessage, InstantiationParameters instantiationParameters)
+        public static BasisNetworkPlayer CreateRemotePlayer(ServerReadyMessage ServerReadyMessage, InstantiationParameters instantiationParameters)
         {
 
             ClientAvatarChangeMessage avatarID = ServerReadyMessage.localReadyMessage.clientAvatarChangeMessage;
 
             if (avatarID.byteArray != null)
             {
-                BasisNetworkManagement.JoiningPlayers.Add(ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkPlayers.JoiningPlayers.Add(ServerReadyMessage.playerIdMessage.playerID);
 
                 // Start both tasks simultaneously
-                Task<BasisRemotePlayer> createRemotePlayerTask = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
+                BasisRemotePlayer remote = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
                 BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(ServerReadyMessage.playerIdMessage.playerID);
-                // Retrieve the results
-                BasisRemotePlayer remote = await createRemotePlayerTask;
                 // Continue with the rest of the code
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
                 BasisNetworkReceiver.LastLinkedAvatarIndex = avatarID.LocalAvatarIndex;
-                if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
+                if (BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                 {
                     //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
                 }
                 else
                 {
                     BasisNetworkHandleRemoval.HandleDisconnectId(ServerReadyMessage.playerIdMessage.playerID);
-                    if (BasisNetworkManagement.AddPlayer(BasisNetworkReceiver))
+                    if (BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                     {
                         BasisDebug.LogError($"Player Forcefully removed and readded with new Identity : {ServerReadyMessage.playerIdMessage.playerID}");
                     }
@@ -58,7 +53,7 @@ namespace Basis.Scripts.Networking
                 BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
                 BasisNetworkPlayer.OnPlayerJoined?.Invoke(BasisNetworkReceiver);
 
-                BasisNetworkManagement.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkPlayers.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
                 remote.LoadAvatarFromInitial(avatarID);
 
                 return BasisNetworkReceiver;
@@ -80,7 +75,6 @@ namespace Basis.Scripts.Networking
                     RemotePlayer.RemoteAvatarDriver.CalibrationComplete += BasisNetworkReceiver.OnAvatarCalibrationRemote;
                     RemotePlayer.RemoteAvatarDriver.HasEvents = true;
                 }
-                RemotePlayer.RemoteBoneDriver.FindBone(out BasisNetworkReceiver.MouthBone, BasisBoneTrackedRole.Mouth);
             }
             else
             {

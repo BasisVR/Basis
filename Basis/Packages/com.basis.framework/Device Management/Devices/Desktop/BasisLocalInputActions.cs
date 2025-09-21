@@ -1,4 +1,3 @@
-using System;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
@@ -8,8 +7,6 @@ using Basis.Scripts.Common;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
-using System.Threading.Tasks;
-
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
     [DefaultExecutionOrder(15003)]
@@ -34,6 +31,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
+
+        public InputActionReference DesktopLeftMove;
+        public InputActionReference DesktopRightMove;
 
         public float MouseSensitivity = 1f;
         public float JoystickSensitivity = 1f;
@@ -107,8 +107,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Enable();
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
-        }
 
+            DesktopLeftMove.action.Enable();
+            DesktopRightMove.action.Enable();
+        }
         private void DisableActions()
         {
             DesktopSwitch.action.Disable();
@@ -125,6 +127,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Disable();
             MiddleMouseScroll.action.Disable();
             MiddleMouseScrollClick.action.Disable();
+
+            DesktopLeftMove.action.Disable();
+            DesktopRightMove.action.Disable();
         }
 
         private void AddCallbacks()
@@ -144,6 +149,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             XRSwitch.action.performed += OnSwitchOpenXR;
             VRSwitch.action.performed += OnSwitchOpenVR;
 
+            DesktopLeftMove.action.performed += StartGoingLeft;
+            DesktopRightMove.action.performed += StartGoingRight;
+
             CrouchAction.action.canceled += OnCrouchCancelled;
             DesktopSwitch.action.canceled += OnSwitchDesktop;
             Escape.action.canceled += OnEscapeCancelled;
@@ -156,6 +164,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.canceled += OnRightMouse;
             RunButton.action.canceled += OnRunCancelled;
             LookAction.action.canceled += OnLookActionCancelled;
+
+            DesktopLeftMove.action.canceled += StopGoingLeft;
+            DesktopRightMove.action.canceled += StopGoingRight;
         }
 
         private void RemoveCallbacks()
@@ -175,6 +186,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             XRSwitch.action.performed -= OnSwitchOpenXR;
             VRSwitch.action.performed -= OnSwitchOpenVR;
 
+            DesktopLeftMove.action.performed += StartGoingLeft;
+            DesktopRightMove.action.performed += StartGoingRight;
+
             CrouchAction.action.canceled -= OnCrouchCancelled;
             DesktopSwitch.action.canceled -= OnSwitchDesktop;
             Escape.action.canceled -= OnEscapeCancelled;
@@ -187,8 +201,77 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.canceled -= OnRightMouse;
             RunButton.action.canceled -= OnRunCancelled;
             LookAction.action.canceled -= OnLookActionCancelled;
+
+            DesktopLeftMove.action.canceled -= StopGoingLeft;
+            DesktopRightMove.action.canceled -= StopGoingRight;
         }
 
+        public void StartGoingRight(InputAction.CallbackContext ctx)
+        {
+           StartGoingRight();
+        }
+
+        public void StopGoingRight(InputAction.CallbackContext ctx)
+        {
+           StopGoingRight();
+        }
+
+        public void StartGoingLeft(InputAction.CallbackContext ctx)
+        {
+            StartGoingLeft();
+        }
+
+        public void StopGoingLeft(InputAction.CallbackContext ctx)
+        {
+            StopGoingLeft();
+        }
+        private Vector2 manualMoveVector = Vector2.zero;
+
+        public void StartGoingLeft()
+        {
+            manualMoveVector.x = -1;
+            ApplyManualMovement();
+        }
+
+        public void StopGoingLeft()
+        {
+            // Only zero if we're not still holding right
+            if (manualMoveVector.x < 0)
+            {
+                manualMoveVector.x = 0;
+            }
+
+            ApplyManualMovement();
+        }
+
+        public void StartGoingRight()
+        {
+            manualMoveVector.x = 1;
+            ApplyManualMovement();
+        }
+
+        public void StopGoingRight()
+        {
+            // Only zero if we're not still holding left
+            if (manualMoveVector.x > 0)
+            {
+                manualMoveVector.x = 0;
+            }
+
+            ApplyManualMovement();
+        }
+        private void ApplyManualMovement()
+        {
+
+            var lookDelta = manualMoveVector;
+            if (IsCrouchHeld)
+            {
+                LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
+                lookDelta.y = 0;
+            }
+
+            if (AvatarEyeInput) AvatarEyeInput.SetLookRotationVector(lookDelta);
+        }
         // Input action methods
         public void OnMoveActionPerformed(InputAction.CallbackContext ctx)
         {
@@ -294,14 +377,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             if (ctx.phase == InputActionPhase.Performed)
             {
-               await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
+                await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
             }
         }
         public async void OnSwitchOpenXR(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
             {
-              await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
+                await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
             }
         }
         public async void OnSwitchOpenVR(InputAction.CallbackContext ctx)

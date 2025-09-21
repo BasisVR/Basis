@@ -42,13 +42,14 @@ namespace Basis.Network
                     clientAvatarChangeMessage = new ClientAvatarChangeMessage
                     {
                         byteArray = avatarBytes,
-                        loadMode = 1
+                        loadMode = 1,
+                        LocalAvatarIndex = 0,
                     },
                     localAvatarSyncMessage = new LocalAvatarSyncMessage
                     {
-                        array = MovementSender.AvatarMessage,
-                         AdditionalAvatarDataSize = 0,
-                          LinkedAvatarIndex = 0,
+                        array = MovementSender.Generate().Message.array,
+                        AdditionalAvatarDataSize = 0,
+                        LinkedAvatarIndex = 0,
                     }
                 };
 
@@ -103,11 +104,13 @@ namespace Basis.Network
                 clientAvatarChangeMessage = new ClientAvatarChangeMessage
                 {
                     byteArray = avatarBytes,
-                    loadMode = 1
+                    loadMode = 1,
+                    LocalAvatarIndex = 0,
+
                 },
                 localAvatarSyncMessage = new LocalAvatarSyncMessage
                 {
-                    array = MovementSender.AvatarMessage,
+                    array = MovementSender.Generate().Message.array,
                     AdditionalAvatarDataSize = 0,
                     LinkedAvatarIndex = 0,
                 }

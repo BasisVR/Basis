@@ -115,6 +115,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68c19bcf0d450994caac14b3bc546184
+    m_Address: BasisUIServers
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 861fed068fe3fd4449deba6697749c16
     m_Address: UserNamePanel
     m_ReadOnly: 0
@@ -175,6 +180,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c1e44be3809ebf446b1c38479ca9d1ed
+    m_Address: Packages/com.basis.sdk/Prefabs/UI/ControllerConfig.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c92fd7b20eb8eaf4eb4a6e236e4ac620
     m_Address: Virtual Keyboard
     m_ReadOnly: 0
@@ -202,6 +212,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: edec16241d972bb47bf0210f7678d6ba
     m_Address: Packages/com.basis.sdk/Prefabs/UI/PlayerSelectionPanel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f84144c055f881f4797d59bd2802d4a4
+    m_Address: Packages/com.basis.sdk/Prefabs/Boot/BasisOnSceneLoadCleanup.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

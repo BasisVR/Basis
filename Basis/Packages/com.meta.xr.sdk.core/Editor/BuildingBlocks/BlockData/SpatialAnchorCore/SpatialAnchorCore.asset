@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35c4ad19f06c67e44a2d7ba8d05f31b7, type: 3}
+  m_Name: SpatialAnchorCore
+  m_EditorClassIdentifier: 
+  id: a383f5ea-3856-4c23-a11c-7fdbb9408035
+  version: 1
+  blockName: Spatial Anchor Core
+  description: Core functionalities for creating, loading, and erasing spatial anchors.
+  tags:
+    array:
+    - name: Spatial Anchor
+  thumbnail: {fileID: 2800000, guid: df5b9490c9e8d0546b277a9ce0813d1c, type: 3}
+  order: 14
+  prefab: {fileID: 2837072267541810702, guid: 97dc87d8a31752848aa51059a8287dd2, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: "Use the following public methods to create, load, and erase
+    anchors.\n\n- void InstantiateSpatialAnchor(GameObject prefab, Vector3 position,
+    Quaternion rotation)\n- void LoadAndInstantiateAnchors(GameObject prefab, List<Guid>
+    uuids)\n- void EraseAllAnchors()\n- void EraseAnchorByUuid(Guid uuid)\n\n\nAnd,
+    the following event shall be fired on completion of the jobs.\n\n- OnAnchorCreateCompleted(OVRSpatialAnchor,
+    OVRSpatialAnchor.OperationResult)\r\n- OnAnchorsLoadCompleted(List<OVRSpatialAnchor>)\r\n-
+    OnAnchorsEraseAllCompleted(OVRSpatialAnchor.OperationResult)\r\n- OnAnchorEraseCompleted(OVRSpatialAnchor,
+    OVRSpatialAnchor.OperationResult)\r"
+  featureDocumentationName: 
+  featureDocumentationUrl: 

@@ -31,14 +31,14 @@ public class BasisFrameRateVisualization : MonoBehaviour
             stringBuilder.Append("FPS: ");
             stringBuilder.Append(fps.ToString("F2"));
 
-            if (BasisNetworkManagement.LocalPlayerPeer != null)
+            if (BasisNetworkConnection.LocalPlayerPeer != null)
             {
                 stringBuilder.Append(" RTT: ");
-                stringBuilder.Append(BasisNetworkManagement.LocalPlayerPeer.RoundTripTime);
+                stringBuilder.Append(BasisNetworkConnection.LocalPlayerPeer.RoundTripTime);
                 stringBuilder.Append(" STT: ");
-                stringBuilder.Append(BasisNetworkManagement.LocalPlayerPeer.Ping);
+                stringBuilder.Append(BasisNetworkConnection.LocalPlayerPeer.Ping);
                 stringBuilder.Append(" CCU: ");
-                stringBuilder.Append(BasisNetworkManagement.ReceiverCount +1);
+                stringBuilder.Append(BasisNetworkPlayers.ReceiverCount +1);
             }
             // Update the TextMeshProUGUI text
             fpsText.text = stringBuilder.ToString();

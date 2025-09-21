@@ -505,7 +505,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             {
                 captureCamera.enabled = false;
                 LastVisibilityState = false;
-                BasisLocalPlayer.Instance.LocalAvatarDriver.RemoveActiveMatrixOverride(InstanceID);
             }
         }
         else
@@ -514,7 +513,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             {
                 captureCamera.enabled = true;
                 LastVisibilityState = true;
-                BasisLocalPlayer.Instance.LocalAvatarDriver.TryActiveMatrixOverride(InstanceID);
             }
         }
     }

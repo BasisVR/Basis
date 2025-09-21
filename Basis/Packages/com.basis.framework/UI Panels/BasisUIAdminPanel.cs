@@ -49,7 +49,7 @@ public class BasisUIAdminPanel : BasisUIBase
             GameObject.Destroy(Button.gameObject);
         }
         AdminButtons.Clear();
-        foreach (BasisNetworkPlayer Player in BasisNetworkManagement.Players.Values)
+        foreach (BasisNetworkPlayer Player in BasisNetworkPlayers.Players.Values)
         {
             var buttonObject = Instantiate(ButtonPrefab.gameObject, Parent);
             buttonObject.name = Player.Player.DisplayName;
@@ -112,7 +112,7 @@ public class BasisUIAdminPanel : BasisUIBase
     }
     public bool FindID(string UUID, out ushort Id)
     {
-        foreach (BasisNetworkPlayer Player in BasisNetworkManagement.Players.Values)
+        foreach (BasisNetworkPlayer Player in BasisNetworkPlayers.Players.Values)
         {
             if (UUID == Player.Player.UUID)
             {

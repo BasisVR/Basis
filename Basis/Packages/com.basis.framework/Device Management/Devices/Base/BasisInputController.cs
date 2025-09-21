@@ -12,11 +12,12 @@ public abstract class BasisInputController : BasisInput
 
     public Vector3 leftHandToIKRotationOffset;
     public Vector3 rightHandToIKRotationOffset;
-    public Vector3 LeftRaycastRotationOffset;
-    public Vector3 RightRaycastRotationOffset;
+    public Vector3 LeftRaycastRotationOffset = new Vector3(30, -90, 0);
+    public Vector3 RightRaycastRotationOffset = new Vector3(150, -90, 0);
     public Quaternion ActiveRaycastOffset;
     public Vector3 leftHandToIKPositionOffset = Vector3.zero;
     public Vector3 rightHandToIKPositionOffset = Vector3.zero;
+    public bool UseIKPositionOffset = true;
     public quaternion HandleHandFinalRotation(quaternion IncomingRotation)
     {
         if (TryGetRole(out BasisBoneTrackedRole AssignedRole))
@@ -63,4 +64,5 @@ public abstract class BasisInputController : BasisInput
         RaycastCoord.position = HandFinal.position;
         RaycastCoord.rotation = HandFinal.rotation * ActiveRaycastOffset;
     }
+
 }

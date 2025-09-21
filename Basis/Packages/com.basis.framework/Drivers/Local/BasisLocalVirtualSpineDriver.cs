@@ -14,7 +14,8 @@ public class BasisLocalVirtualSpineDriver
 
     [Header("Positioning")]
     [Tooltip("0 = place hips strictly by neck + preserved spine length; 1 = keep original tracked hips XZ. Useful to keep some tracker authority.")]
-    [Range(0f, 1f)] public float HipsXZFollowBlend = 0.35f;
+    [Range(0f, 1f)]
+    public float HipsXZFollowBlend = 0.35f;
 
     [Tooltip("Apply a small forward bias for hips under the neck to avoid perfectly vertical stacks.")]
     public float HipsForwardBias = 0.02f; // meters
@@ -178,10 +179,18 @@ public class BasisLocalVirtualSpineDriver
     private void ApplyPositionControl(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, bool torsoLock)
     {
         Quaternion rot = boneControl.Target.OutGoingData.rotation;
-        if (torsoLock) rot = ExtractYawRotation(rot);
+
+        if (torsoLock)
+        {
+            rot = ExtractYawRotation(rot);
+        }
 
         Vector3 localOffset = boneControl.ScaledOffset;
-        if (torsoLock) localOffset.y = 0f;
+
+        if (torsoLock)
+        {
+            localOffset.y = 0f;
+        }
 
         Vector3 desired = boneControl.Target.OutGoingData.position + (rot * localOffset);
 
@@ -198,10 +207,17 @@ public class BasisLocalVirtualSpineDriver
     private void ApplyPositionWithGivenBase(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, Vector3 basePositionWorld, bool torsoLock)
     {
         Quaternion rot = boneControl.OutGoingData.rotation;
-        if (torsoLock) rot = ExtractYawRotation(rot);
+        if (torsoLock)
+        {
+            rot = ExtractYawRotation(rot);
+        }
 
         Vector3 localOffset = boneControl.ScaledOffset;
-        if (torsoLock) localOffset.y = 0f;
+
+        if (torsoLock)
+        {
+            localOffset.y = 0f;
+        }
 
         Vector3 desired = basePositionWorld + (rot * localOffset);
 

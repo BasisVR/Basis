@@ -38,7 +38,7 @@ public class AvatarLoaderEditorWindow : EditorWindow
             BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle()
         };
 
-        foreach (var players in BasisNetworkManagement.RemotePlayers)
+        foreach (var players in BasisNetworkPlayers.RemotePlayers)
         {
             await players.Value.RemotePlayer.CreateAvatar(loadmode, loadableBundle);
         }

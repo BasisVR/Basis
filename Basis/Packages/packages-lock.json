@@ -143,11 +143,10 @@
       "dependencies": {}
     },
     "com.meta.xr.sdk.core": {
-      "version": "77.0.0",
+      "version": "file:com.meta.xr.sdk.core",
       "depth": 0,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.steam.steamaudio": {
       "version": "file:com.steam.steamaudio",
@@ -174,7 +173,7 @@
       "dependencies": {}
     },
     "com.unity.addressables": {
-      "version": "2.7.2",
+      "version": "2.7.3",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -184,7 +183,7 @@
         "com.unity.modules.jsonserialize": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",
         "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.scriptablebuildpipeline": "2.4.1",
+        "com.unity.scriptablebuildpipeline": "2.4.2",
         "com.unity.modules.unitywebrequestassetbundle": "1.0.0"
       },
       "url": "https://packages.unity.com"
@@ -236,7 +235,7 @@
       "dependencies": {}
     },
     "com.unity.ide.rider": {
-      "version": "3.0.36",
+      "version": "3.0.38",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -270,7 +269,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.memoryprofiler": {
-      "version": "1.1.8",
+      "version": "1.1.9",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -347,7 +346,7 @@
       }
     },
     "com.unity.scriptablebuildpipeline": {
-      "version": "2.4.1",
+      "version": "2.4.2",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -364,7 +363,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.services.analytics": {
-      "version": "6.1.0",
+      "version": "6.1.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -501,7 +500,7 @@
       }
     },
     "com.unity.xr.core-utils": {
-      "version": "2.5.2",
+      "version": "2.5.3",
       "depth": 1,
       "source": "registry",
       "dependencies": {

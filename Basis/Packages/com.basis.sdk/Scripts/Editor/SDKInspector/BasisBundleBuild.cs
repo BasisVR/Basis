@@ -1,9 +1,11 @@
 using BasisSerializer.OdinSerializer;
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -130,7 +132,11 @@ public static class BasisBundleBuild
             string FilePath = Path.Combine(assetBundleObject.AssetBundleDirectory, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
+            EditorUtility.DisplayProgressBar("Saving Generated BEE file", "Saving Generated BEE file", 100);
+
             await AssetBundleBuilder.SaveFileAsync(assetBundleObject.AssetBundleDirectory, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
+
+            EditorUtility.DisplayProgressBar("Finshed File Combining", "Finshed File Combining", 100);
 
             DeleteFolders(assetBundleObject.AssetBundleDirectory);
             if (assetBundleObject.OpenFolderOnDisc)
@@ -223,76 +229,81 @@ public static class BasisBundleBuild
         return value + 1;
     }
 
-    public static async Task CombineFiles(string outputPath, List<string> bundlePaths, byte[] EncryptedConnector)
+    public static async Task CombineFiles(string outputPath,List<string> bundlePaths,byte[] encryptedConnector, CancellationToken ct = default(CancellationToken))
     {
+        // --- prep: total lengths for preallocation + progress ---
+        long headerLen = encryptedConnector != null ? encryptedConnector.Length : 0L;
+        long dataLen = 0;
+        for (int i = 0; i < bundlePaths.Count; i++)
+        {
+            string p = bundlePaths[i];
+            if (!File.Exists(p))
+                throw new FileNotFoundException("File not found", p);
+            dataLen += new FileInfo(p).Length;
+        }
+        long totalLen = 8L + headerLen + dataLen; // 8 bytes: header length prefix
+
+        // --- big reusable buffer from the pool ---
+        const int BufferSize = 8 * 1024 * 1024;  // try 4–8 MiB; 8 MiB if RAM allows
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+
+        var lenBytes = BitConverter.GetBytes(headerLen); // little-endian
+
+        long bytesDone = 0;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long nextUiMs = 0;
+
         try
         {
-            long headerLength = EncryptedConnector.Length;
-
-            using (FileStream outputStream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+            using (var output = new FileStream(outputPath,FileMode.Create,FileAccess.Write,FileShare.Read, BufferSize, useAsync: true))
             {
-                // Write header length (8 bytes)
-                byte[] headerBytes = BitConverter.GetBytes(headerLength);
-                if (headerBytes.Length != 8)
-                {
-                    throw new Exception($"Header byte conversion failed! {headerBytes.Length} was not 8 bytes!");
-                }
-                await outputStream.WriteAsync(headerBytes, 0, 8);
-                // Write encrypted header
-                await outputStream.WriteAsync(EncryptedConnector, 0, EncryptedConnector.Length);
+                // pre-size once — reduces fragmentation and page faults
+                output.SetLength(totalLen);
 
-                int totalFiles = bundlePaths.Count;
-                for (int i = 0; i < totalFiles; i++)
+                // write 8-byte length + header
+                await output.WriteAsync(lenBytes, 0, lenBytes.Length, ct);
+                bytesDone += lenBytes.Length;
+
+                if (headerLen > 0)
+                {
+                    await output.WriteAsync(encryptedConnector, 0, encryptedConnector.Length, ct);
+                    bytesDone += encryptedConnector.Length;
+                }
+
+                // stream all input files
+                for (int i = 0; i < bundlePaths.Count; i++)
                 {
                     string path = bundlePaths[i];
-
-                    if (!File.Exists(path))
+                    using (var input = new FileStream(path,FileMode.Open,FileAccess.Read, FileShare.Read, BufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan))
                     {
-                        BasisDebug.LogError($"File not found: {path}");
-                        throw new FileNotFoundException($"ERROR File not found: {path}");
+                        int read;
+                        while ((read = await input.ReadAsync(buffer, 0, BufferSize, ct)) > 0)
+                        {
+                            await output.WriteAsync(buffer, 0, read, ct);
+                            bytesDone += read;
+
+                            // throttle UI to ~5 Hz
+                            if (sw.ElapsedMilliseconds >= nextUiMs)
+                            {
+                                float progress = (float)((double)bytesDone / (double)totalLen);
+                                EditorUtility.DisplayProgressBar("Combining Files","Processing: " + Path.GetFileName(path),progress);
+                                nextUiMs = sw.ElapsedMilliseconds + 200;
+                            }
+                        }
                     }
-
-                    float progress = (float)i / totalFiles;
-                    EditorUtility.DisplayProgressBar("Combining Files", $"Processing: {Path.GetFileName(path)}", progress);
-
-                    // Adjust buffer size dynamically based on file size
-                    long fileSize = new FileInfo(path).Length;
-                    int bufferSize = GetAdaptiveBufferSize(fileSize);
-
-                    await AppendFileToOutput(path, outputStream, bufferSize);
                 }
             }
-
-            BasisDebug.Log($"Files combined successfully into: {outputPath}");
+            BasisDebug.Log("Files combined successfully into: " + outputPath);
         }
         catch (Exception ex)
         {
-            BasisDebug.LogError($"Error combining files: {ex.Message}");
-            EditorUtility.ClearProgressBar();
-            throw; // propagate error
-        }
-    }
-
-    private static async Task AppendFileToOutput(string path, FileStream outputStream, int bufferSize)
-    {
-        try
-        {
-            byte[] buffer = new byte[bufferSize];
-
-            using (FileStream inputStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize,
-                FileOptions.SequentialScan | FileOptions.Asynchronous))
-            {
-                int bytesRead;
-                while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                {
-                    await outputStream.WriteAsync(buffer, 0, bytesRead);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            BasisDebug.LogError($"Error appending file to output: {ex.Message}");
+            BasisDebug.LogError("Error combining files: " + ex.Message);
             throw;
+        }
+        finally
+        {
+            EditorUtility.ClearProgressBar();
+            ArrayPool<byte>.Shared.Return(buffer); // important: return to pool
         }
     }
     public static string PathConversion(string relativePath)

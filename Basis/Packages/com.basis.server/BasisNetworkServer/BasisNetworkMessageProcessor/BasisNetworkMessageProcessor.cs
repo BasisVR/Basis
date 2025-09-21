@@ -85,7 +85,7 @@ public static class BasisNetworkMessageProcessor
                     break;
 
                 case BasisNetworkCommons.StoreDatabaseChannel:
-                    BasisServerHandleEvents.HandleStoreDatabase(reader);//recycles inside
+                    BasisServerHandleEvents.HandleStoreDatabase(reader,peer);//recycles inside
                     break;
 
                 case BasisNetworkCommons.RequestStoreDatabaseChannel:

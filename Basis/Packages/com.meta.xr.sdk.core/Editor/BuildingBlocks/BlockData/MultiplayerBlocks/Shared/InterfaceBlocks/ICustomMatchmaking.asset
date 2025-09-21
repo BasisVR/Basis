@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81d5758cfb47823489080981979f33be, type: 3}
+  m_Name: ICustomMatchmaking
+  m_EditorClassIdentifier: 
+  id: c5bea02f-8079-4142-87f9-56da5993f861
+  version: 1
+  blockName: Custom Matchmaking
+  description: Creates a room upon request and allows other players to join if they
+    have the room token
+  tags:
+    array:
+    - name: Multiplayer
+  thumbnail: {fileID: 2800000, guid: 57b03d0a194a60e439ec9b413a2148ad, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  externalBlockDependencies: []
+  dependencies:
+  - 1d8db162-54f6-43df-b4ef-b499df1f6769
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: 'With Custom Matchmaking you have control over how a game room
+    is created and who gets to join and how. For a simpler matchmaking for prototyping
+    over a small number of players please consider using Auto Matchmaking.
+
+
+    Usage:
+
+
+    Use
+    the public API of the CustomMatchmaking component to run the matchmaking operations:
+
+
+    -
+    Task<RoomOperationResult> CreateRoom(RoomCreationOptions options)
+
+    - Task<RoomOperationResult>
+    JoinRoom(string roomToken, string roomPassword)
+
+    - Task<RoomOperationResult>
+    JoinOpenRoom(string roomLobby)
+
+    - void LeaveRoom()
+
+    - bool IsConnected
+
+    -
+    string ConnectedRoomToken
+
+
+    You can also subscribe to these events to be
+    informed when the asynchronous operations have finished.
+
+
+    - UnityEvent<RoomOperationResult>
+    onRoomCreationFinished
+
+    - UnityEvent<RoomOperationResult> onRoomJoinFinished
+
+    -
+    UnityEvent onRoomLeaveFinished
+
+
+    These fields are also avaialable in the
+    components inspector UI for easy development/debugging.
+
+'
+  featureDocumentationName: Multiplayer Building Blocks Setup Guide
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/bb-multiplayer-blocks

@@ -1,3 +1,4 @@
+using Basis.Contrib.Auth.DecentralizedIds;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
@@ -524,8 +525,22 @@ namespace BasisServerHandle
             //we need to convert the string int a  ushort.
         }
         #endregion
-        public static void HandleStoreDatabase(NetPacketReader reader)
+        public static void HandleStoreDatabase(NetPacketReader reader, NetPeer peer)
         {
+            if (NetworkServer.Configuration.DisableReadUnlessAdminPersistentFlag)
+            {
+                if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) == false)
+                {
+                    BNL.LogError($"User UUID not found for peer: {peer}");
+                    return;
+                }
+
+                if (NetworkServer.AuthIdentity.IsNetPeerAdmin(uuid) == false)
+                {
+                    BNL.LogError($"Unauthorized admin access attempt by UUID: {uuid}");
+                    return;
+                }
+            }
             var dataMessage = new DatabasePrimativeMessage();
             dataMessage.Deserialize(reader);
             reader.Recycle();
@@ -536,6 +551,20 @@ namespace BasisServerHandle
 
         public static void HandleRequestStoreDatabase(NetPacketReader reader, NetPeer peer)
         {
+            if(NetworkServer.Configuration.DisableWriteUnlessAdminPersistentFlag)
+            {
+                if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) == false)
+                {
+                    BNL.LogError($"User UUID not found for peer: {peer}");
+                    return;
+                }
+
+                if (NetworkServer.AuthIdentity.IsNetPeerAdmin(uuid) == false)
+                {
+                    BNL.LogError($"Unauthorized admin access attempt by UUID: {uuid}");
+                    return;
+                }
+            }
             var dataRequest = new DataBaseRequest();
             dataRequest.Deserialize(reader);
             reader.Recycle();

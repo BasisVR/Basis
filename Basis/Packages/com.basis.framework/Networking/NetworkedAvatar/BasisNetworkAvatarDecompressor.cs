@@ -2,6 +2,7 @@ using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Profiler;
 using System;
+using Unity.Collections;
 using Unity.Mathematics;
 using static SerializableBasis;
 namespace Basis.Scripts.Networking.NetworkedAvatar
@@ -63,19 +64,44 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             BasisAvatarBuffer Buffer = BasisAvatarBufferPool.Get();
             Buffer.Position = BasisUnityBitPackerExtensionsUnsafe.ReadPosition(ref data, ref offset);
-            Buffer.rotation = BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset);
+            if (!IsFinite(Buffer.Position))
+            {
+                // If position broke, keep last known good (0 if none)
+                Buffer.Position = new Unity.Mathematics.float3(0, 0, 0);
+            }
+            Buffer.rotation = SanitizeRotation(BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset));
             DecompressAvatarMuscles_NoLoop(data, ref Buffer.Muscles, ref offset);
             Buffer.Scale = MuscleDecompress(BasisUnityBitPackerExtensionsUnsafe.ReadUShort(ref data, ref offset), MinimumValueSupported, MaximumValueSupported);
-            Buffer.SecondsInterval = SecondsInterval;
+
+            // Seconds interval — clamp to a sane minimum so interpolation works
+            if (!math.isfinite((float)SecondsInterval) || SecondsInterval <= 0)
+            {
+                Buffer.SecondsInterval = 1.0 / 60.0;
+            }
+            else
+            {
+                Buffer.SecondsInterval = SecondsInterval;
+            }
             return Buffer;
         }
+        private static quaternion SanitizeRotation(quaternion q)
+        {
+            // If not finite or nearly zero length, use identity
+            if (!math.isfinite(q.value.x) || !math.isfinite(q.value.y) || !math.isfinite(q.value.z) || !math.isfinite(q.value.w))
+                return quaternion.identity;
 
-        public static void DecompressAvatarMuscles_NoLoop(byte[] data, ref float[] floatArray, ref int offset)
+            float magSq = q.value.x * q.value.x + q.value.y * q.value.y + q.value.z * q.value.z + q.value.w * q.value.w;
+            if (magSq < 1e-8f) return quaternion.identity;
+            return math.normalize(q);
+        }
+        private static bool IsFinite(Unity.Mathematics.float3 v) => math.isfinite(v.x) && math.isfinite(v.y) && math.isfinite(v.z);
+        public static void DecompressAvatarMuscles_NoLoop(byte[] data, ref NativeArray<float> outputArray, ref int offset)
         {
             int dataPos = offset;
 
+            float[] floatArray = outputArray.ToArray();
             // Sections in the same order as the original method
-            DecompressSpineChestHead(data, ref dataPos, floatArray);
+            DecompressSpineChestHead(data, ref dataPos, ref floatArray);
 
             // no need to put this data on the network! 6 in total (saves between 6 and 16 bytes)
             //DecompressEyesJaw(data, ref dataPos, floatArray); // (intentionally skipped as in original)
@@ -88,12 +114,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             DecompressRightHandFingers(data, ref dataPos, floatArray);
 
             offset = dataPos;
+            outputArray.CopyFrom(floatArray);
         }
-
         // ----------------------
         // Section: Spine/Chest/Head
         // ----------------------
-        private static void DecompressSpineChestHead(byte[] data, ref int dataPos, float[] floatArray)
+        private static void DecompressSpineChestHead(byte[] data, ref int dataPos,ref float[] floatArray)
         {
             ReadCompressed(data, ref dataPos, 0, false, floatArray); // Spine Front-Back: Range 80
             ReadCompressed(data, ref dataPos, 1, false, floatArray); // Spine Left-Right: Range 80

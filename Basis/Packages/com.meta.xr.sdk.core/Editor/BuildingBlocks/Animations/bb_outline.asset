@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c84d40c65a252f4b98000235614545b, type: 3}
+  m_Name: bb_outline
+  m_EditorClassIdentifier: 
+  frames:
+  - {fileID: 2800000, guid: 0df6b5d007f0c064a862ce0a7393196a, type: 3}
+  - {fileID: 2800000, guid: 0df6b5d007f0c064a862ce0a7393196a, type: 3}
+  - {fileID: 2800000, guid: c91f1eb70a4bdfb4490ddb0b55d7870d, type: 3}
+  - {fileID: 2800000, guid: ac201414ee3ef3a4183f8b5f6d9e9694, type: 3}
+  - {fileID: 2800000, guid: b62ea05aab642a84aa10dda65834bf55, type: 3}
+  - {fileID: 2800000, guid: 6c93320b42205d742a1aa9c894b1ad19, type: 3}
+  - {fileID: 2800000, guid: a743f349118878d45b7b78c71abb2aa2, type: 3}
+  - {fileID: 2800000, guid: 37b36a602d2bd604fb7a7ca6e7b4ff49, type: 3}
+  frameDuration: 0.12

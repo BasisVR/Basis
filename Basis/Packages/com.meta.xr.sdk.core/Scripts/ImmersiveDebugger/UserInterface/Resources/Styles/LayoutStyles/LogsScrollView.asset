@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 903ec19e159dfe74ea558a68518298aa, type: 3}
+  m_Name: LogsScrollView
+  m_EditorClassIdentifier: 
+  flexDirection: 2
+  layout: 1
+  anchor: 0
+  pivot: 0
+  size: {x: 0, y: 0}
+  margin: {x: 16, y: 48}
+  useBottomRightMargin: 1
+  bottomRightMargin: {x: 16, y: 140}
+  spacing: 0
+  masks: 1
+  adaptHeight: 0
+  autoFitChildren: 0
+  ignorePosition: 0

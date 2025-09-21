@@ -128,7 +128,7 @@ namespace Basis.Scripts.Networking.Transmitters
             {
                 try
                 {
-                    Receivers.BasisNetworkReceiver Rec = BasisNetworkManagement.ReceiversSnapshot[Index];
+                    Receivers.BasisNetworkReceiver Rec = BasisNetworkPlayers.ReceiversSnapshot[Index];
                     if (Rec == null)
                     {
                         //this can happen when a remote player leaves during this iteration from the other thread.
@@ -191,7 +191,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 };
                 NetDataWriter writer = new NetDataWriter();
                 VRM.Serialize(writer);
-                BasisNetworkManagement.LocalPlayerPeer.Send(writer, BasisNetworkCommons.AudioRecipientsChannel, DeliveryMethod.ReliableOrdered);
+                BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.AudioRecipientsChannel, DeliveryMethod.ReliableOrdered);
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioRecipients, writer.Length);
             }
         }
@@ -247,21 +247,29 @@ namespace Basis.Scripts.Networking.Transmitters
             distanceJob.HearingDistance = SMModuleDistanceBasedReductions.HearingRange;
             distanceJob.VoiceDistance = SMModuleDistanceBasedReductions.MicrophoneRange;
             distanceJob.referencePosition = MouthBone.OutgoingWorldData.position;
-            if (IndexLength != BasisNetworkManagement.ReceiverCount)
-            {
-                ResizeOrCreateArrayData(BasisNetworkManagement.ReceiverCount);
-                LastMicrophoneRangeIndex = new bool[BasisNetworkManagement.ReceiverCount];
-                MicrophoneRangeIndex = new bool[BasisNetworkManagement.ReceiverCount];
-                HearingIndex = new bool[BasisNetworkManagement.ReceiverCount];
-                AvatarIndex = new bool[BasisNetworkManagement.ReceiverCount];
-                CalculatedDistances = new float[BasisNetworkManagement.ReceiverCount];
 
-                IndexLength = BasisNetworkManagement.ReceiverCount;
-                HearingIndexToId = BasisNetworkManagement.RemotePlayers.Keys.ToArray();
-            }
-            for (int Index = 0; Index < BasisNetworkManagement.ReceiverCount; Index++)
+            int ReceiverCount = BasisNetworkPlayers.ReceiverCount;
+            if (IndexLength != ReceiverCount)
             {
-                targetPositions[Index] = BasisNetworkManagement.ReceiversSnapshot[Index].MouthBone.OutGoingData.position;
+                ResizeOrCreateArrayData(ReceiverCount);
+
+                LastMicrophoneRangeIndex = new bool[ReceiverCount];
+                MicrophoneRangeIndex = new bool[ReceiverCount];
+                HearingIndex = new bool[ReceiverCount];
+                AvatarIndex = new bool[ReceiverCount];
+                CalculatedDistances = new float[ReceiverCount];
+
+                IndexLength = ReceiverCount;
+                HearingIndexToId = BasisNetworkPlayers.RemotePlayers.Keys.ToArray();
+            }
+            Receivers.BasisNetworkReceiver[] Snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+            for (int Index = 0; Index < ReceiverCount; Index++)
+            {
+                var RemotePlayers = Snapshot[Index];
+                if (RemoteBoneJobSystem.GetOutGoingMouth(RemotePlayers.playerId, out float3 outgoing))
+                {
+                    targetPositions[Index] = outgoing;
+                }
             }
             smallestDistance[0] = float.MaxValue;
             distanceJobHandle = distanceJob.Schedule(targetPositions.Length, 64);
@@ -369,7 +377,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 LocalAvatarIndex = LastLinkedAvatarIndex,
             };
             ClientAvatarChangeMessage.Serialize(Writer);
-            BasisNetworkManagement.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);
+            BasisNetworkConnection.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarChange, Writer.Length);
         }
     }

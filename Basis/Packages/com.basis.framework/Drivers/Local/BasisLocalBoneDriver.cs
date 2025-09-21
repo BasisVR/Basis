@@ -71,7 +71,7 @@ namespace Basis.Scripts.Drivers
             {
                 Controls[Index].ComputeMovementLocal(parentMatrix, deltaTime);
             }
-            if (BasisGizmoManager.UseGizmos)
+            if (SMModuleDebugOptions.UseGizmos)
             {
                 DrawGizmos();
             }
@@ -87,7 +87,7 @@ namespace Basis.Scripts.Drivers
                 Controls[Index].LastRunData.rotation = Controls[Index].OutGoingData.rotation;
                 Controls[Index].ComputeMovementLocal(parentMatrix, DeltaTime);
             }
-            if (BasisGizmoManager.UseGizmos)
+            if (SMModuleDebugOptions.UseGizmos)
             {
                 DrawGizmos();
             }

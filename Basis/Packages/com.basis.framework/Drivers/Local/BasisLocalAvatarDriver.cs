@@ -31,7 +31,6 @@ namespace Basis.Scripts.Drivers
 		public static RuntimeAnimatorController SavedruntimeAnimatorController;
 		public static SkinnedMeshRenderer[] SkinnedMeshRenderer;
 		public static bool HasEvents = false;
-		public static List<int> ActiveMatrixOverrides = new List<int>();
 		public static int SkinnedMeshRendererLength;
 		public Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms = new Dictionary<BasisBoneTrackedRole, Transform>();
 
@@ -88,8 +87,8 @@ namespace Basis.Scripts.Drivers
 			Calibration(player);
 			player.LocalBoneDriver.RemoveAllListeners();
 			player.LocalEyeDriver.Initalize(this, player);
-			SetMatrixOverride();
-			UpdateWhenOffscreen(true);
+            SetAllMatrixRecalculation(true);
+            UpdateWhenOffscreen(true);
 			if (References.Hashead)
 			{
 				HeadScale = References.head.localScale;
@@ -127,8 +126,11 @@ namespace Basis.Scripts.Drivers
 			player.LocalRigDriver.BuildBuilder();
 			IsNormalHead = true;
 			RemoveJiggleRigColliders();
-			AddJiggleRigColliders(References);
-		}
+            if (player.IsConsideredFallBackAvatar == false)
+            {
+                AddJiggleRigColliders(References);
+            }
+        }
 
 		public static void ScaleHeadToNormal()
 		{
@@ -219,43 +221,6 @@ namespace Basis.Scripts.Drivers
 				return BasisLocalPlayer.FallbackSize;
 			}
 		}
-
-		public void TryActiveMatrixOverride(int InstanceID)
-		{
-			if (ActiveMatrixOverrides.Contains(InstanceID) == false)
-			{
-				ActiveMatrixOverrides.Add(InstanceID);
-				SetAllMatrixRecalculation(true);
-			}
-		}
-
-		public void RemoveActiveMatrixOverride(int InstanceID)
-		{
-			if (ActiveMatrixOverrides.Remove(InstanceID))
-			{
-				if (ActiveMatrixOverrides.Count == 0)
-				{
-					SetAllMatrixRecalculation(false);
-				}
-			}
-		}
-
-		public void SetMatrixOverride()
-		{
-#if UNITY_EDITOR
-			SetAllMatrixRecalculation(true);
-#else
-			if (ActiveMatrixOverrides.Count != 0)
-			{
-				SetAllMatrixRecalculation(true);
-			}
-			else
-			{
-				SetAllMatrixRecalculation(false);
-			}
-#endif
-		}
-
 		public void Calibration(BasisLocalPlayer LocalPlayer)
 		{
 			var Avatar = LocalPlayer.BasisAvatar;

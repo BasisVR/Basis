@@ -217,7 +217,7 @@ namespace Basis.Scripts.Eye_Follow
                     RightEyeTargetWorld = CenterTargetWorld + RightEyeInitallocalSpace.position;
                     rightEyeTransform.rotation = LookAtTarget(rightEyeTransform.position, RightEyeTargetWorld, math.mul(RightEyeInitallocalSpace.rotation, InversedHeadRotation), HeadTransform.up);
                 }
-                if (BasisGizmoManager.UseGizmos)
+                if (SMModuleDebugOptions.UseGizmos)
                 {
                     if (RightEyeHasGizmo)
                     {

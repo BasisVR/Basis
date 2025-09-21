@@ -2,10 +2,10 @@ using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Receivers;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.NamePlate;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using static SerializableBasis;
 namespace Basis.Scripts.BasisSdk.Players
 {
@@ -16,8 +16,8 @@ namespace Basis.Scripts.BasisSdk.Players
         [SerializeField]
         public BasisRemoteEyeDriver RemoteEyeDriver = new BasisRemoteEyeDriver();
         [Header("Bone Driver")]
-        [SerializeField]
-        public BasisRemoteBoneDriver RemoteBoneDriver = new BasisRemoteBoneDriver();
+       // [SerializeField]
+       // public BasisRemoteBoneDriver RemoteBoneDriver = new BasisRemoteBoneDriver();
         [Header("Avatar Driver")]
         [SerializeField]
         public BasisRemoteAvatarDriver RemoteAvatarDriver = new BasisRemoteAvatarDriver();
@@ -27,15 +27,30 @@ namespace Basis.Scripts.BasisSdk.Players
         [Header("Name Plate")]
         [SerializeField]
         public BasisRemoteNamePlate RemoteNamePlate = null;
-        public bool HasRemoteNamePlate = false;
-        public bool HasEvents = false;
         public bool OutOfRangeFromLocal = false;
         public ClientAvatarChangeMessage CACM;
         public bool InAvatarRange = true;
         public byte AlwaysRequestedMode;//0 downloading 1 local
         [HideInInspector]
         public BasisLoadableBundle AlwaysRequestedAvatar;
-        public async Task RemoteInitialize(ClientAvatarChangeMessage cACM, ClientMetaDataMessage PlayerMetaDataMessage, string LoadableNamePlatename = "Assets/UI/Prefabs/NamePlate.prefab")
+        public static GameObject NamePlate;
+        public int RemotePlayerDataIndex;
+        public Transform MouthTransform;
+        /// <summary>
+        /// we are leaking this memory atm!
+        /// </summary>
+        /// <param name="LoadableNamePlatename"></param>
+        /// <returns></returns>
+        public static GameObject LoadFromHandle(string LoadableNamePlatename)
+        {
+            if (NamePlate == null)
+            {
+                UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(LoadableNamePlatename);
+                NamePlate = op.WaitForCompletion();
+            }
+            return NamePlate;
+        }
+        public void RemoteInitialize(ClientAvatarChangeMessage cACM, ClientMetaDataMessage PlayerMetaDataMessage, string LoadableNamePlatename = "Assets/UI/Prefabs/NamePlate.prefab")
         {
             CACM = cACM;
             DisplayName = PlayerMetaDataMessage.playerDisplayName;
@@ -43,14 +58,7 @@ namespace Basis.Scripts.BasisSdk.Players
             this.name = DisplayName;
             UUID = PlayerMetaDataMessage.playerUUID;
             IsLocal = false;
-            RemoteBoneDriver.CreateInitialArrays(false);
-            RemoteBoneDriver.InitializeRemote();
-            if (HasEvents == false)
-            {
-                RemoteAvatarDriver.CalibrationComplete += RemoteCalibration;
-                HasEvents = true;
-            }
-            var data = await AddressableResourceProcess.LoadSystemGameobject(LoadableNamePlatename, new UnityEngine.ResourceManagement.ResourceProviders.InstantiationParameters());
+            GameObject data = GameObject.Instantiate(LoadFromHandle(LoadableNamePlatename), transform);
             if (data.TryGetComponent(out RemoteNamePlate))
             {
                 if (this == null)
@@ -58,15 +66,7 @@ namespace Basis.Scripts.BasisSdk.Players
                     AddressableResourceProcess.ReleaseGameobject(data);
                     return;
                 }
-                RemoteNamePlate.transform.SetParent(transform, false);
-                if (RemoteBoneDriver.FindBone(out BasisRemoteBoneControl Hips, BasisBoneTrackedRole.Hips))
-                {
-                    RemoteNamePlate.Initalize(Hips, this);
-                }
-                else
-                {
-                    BasisDebug.LogError("Missing Hips!");
-                }
+                RemoteNamePlate.Initalize(this);
             }
         }
         public async void LoadAvatarFromInitial(ClientAvatarChangeMessage CACM)
@@ -96,8 +96,9 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
-                BasisDebug.LogError("trying to create Avatar with empty Bundle");
-                return;
+                BasisDebug.LogError("trying to create Avatar with empty Bundle", BasisDebug.LogTag.Remote);
+                BasisLoadableBundle = BasisAvatarFactory.LoadingAvatar;
+                Mode = 0;
             }
             //BasisDebug.Log("Remote Player Create Avatar Request");
             BasisPlayerSettingsData BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(UUID);
@@ -129,23 +130,11 @@ namespace Basis.Scripts.BasisSdk.Players
                 {
                     return;
                 }
-                if (NetworkReceiver.HasAvatarQueue)
-                {
-                    NetworkReceiver.ApplyComputedData();
-                }
             }
             LastComputedMeshLod = -1;
         }
         public void OnDestroy()
         {
-            if (HasEvents)
-            {
-                if (RemoteAvatarDriver != null)
-                {
-                    RemoteAvatarDriver.CalibrationComplete -= RemoteCalibration;
-                    HasEvents = false;
-                }
-            }
             if (FacialBlinkDriver != null)
             {
                 FacialBlinkDriver.OnDestroy();
@@ -154,31 +143,38 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 RemoteEyeDriver.OnDestroy();
             }
-            RemoteBoneDriver.DeInitializeGizmos();
             if (RemoteNamePlate != null)
             {
+                RemoteNamePlate.DeInitalize();
                 AddressableResourceProcess.ReleaseGameobject(RemoteNamePlate.gameObject);
             }
-        }
-        public void RemoteCalibration()
-        {
-            RemoteBoneDriver.OnCalibration(this);
+            if (RemoteAvatarDriver.hasDatainBoneDriver)
+            {
+                RemoteBoneJobSystem.RemoveRemotePlayer(NetworkReceiver.playerId);
+                RemoteAvatarDriver.hasDatainBoneDriver = false;
+            }
         }
         public short LastComputedMeshLod = -1;
         public void ChangeMeshLOD(float DistanceToPlayer, float ReductionMultiplier)
         {
-            // Normalize distance into [0,1]
-            float normalized = DistanceToPlayer * ReductionMultiplier;
-
-            // Map evenly to 0–3 LOD (4 levels total)
-            short grid = (short)Mathf.Clamp(Mathf.FloorToInt(normalized * 4f), 0, 3);
-
-            if (LastComputedMeshLod != grid)
+            if (BasisAvatar != null && BasisAvatar.Renders != null)
             {
-                LastComputedMeshLod = grid;
-                foreach (Renderer renderer in BasisAvatar.Renders)
+                // Normalize distance into [0,1]
+                float normalized = DistanceToPlayer * ReductionMultiplier;
+
+                // Map evenly to 0–3 LOD (4 levels total)
+                short grid = (short)Mathf.Clamp(Mathf.FloorToInt(normalized * 4f), 0, 3);
+
+                if (LastComputedMeshLod != grid)
                 {
-                    renderer.forceMeshLod = grid;          // Correct property, not "forceMeshLod"
+                    LastComputedMeshLod = grid;
+                    foreach (Renderer renderer in BasisAvatar.Renders)
+                    {
+                        if (renderer != null)
+                        {
+                            renderer.forceMeshLod = grid;          // Correct property, not "forceMeshLod"
+                        }
+                    }
                 }
             }
         }

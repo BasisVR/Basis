@@ -65,7 +65,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     private bool CanHover(BasisInput input)
     {
         // Allow hover if we aren't connected
-        if (!BasisNetworkManagement.LocalPlayerIsConnected)
+        if (!BasisNetworkConnection.LocalPlayerIsConnected)
         {
             return true;
         }

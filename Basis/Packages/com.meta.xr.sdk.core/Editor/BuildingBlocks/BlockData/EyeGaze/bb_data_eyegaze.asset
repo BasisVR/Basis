@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 97dca17360f5b2a42ba159835181cd60, type: 3}
+  m_Name: bb_data_eyegaze
+  m_EditorClassIdentifier: 
+  id: f92445a7-db19-452c-8d3d-96820f6c8972
+  version: 1
+  blockName: Eye Gaze
+  description: "Eye tracking technology detects eye movements to control an avatar\u2019s
+    eye transformations as the user looks around. It can additionally be used to
+    extract position and rotation information to let you follow the eye gaze."
+  tags:
+    array:
+    - name: Core
+    - name: Quest Pro Only
+    - name: Tracking
+  thumbnail: {fileID: 2800000, guid: 3aba4c4778b69ce4397e3883bbfb9c65, type: 3}
+  order: -6
+  prefab: {fileID: 381618635065875269, guid: cd20efabdb0a60745a5015c0d733df31, type: 3}
+  externalBlockDependencies: []
+  dependencies:
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  packageDependencies: []
+  isSingleton: 1
+  usageInstructions: "In the OVREyeGaze component, enable Apply Rotation to allow
+    real-time rotation of the eye GameObject as it tracks the corresponding eye.
+    Optionally, enable Apply Position to allow positional adjustments.\nThis component
+    needs a reference frame in world space orientation to function correctly, typically
+    aligned with the eye\u2019s forward direction, to calculate the eye GameObject\u2019s
+    initial offset."
+  featureDocumentationName: Eye Tracking for Movement SDK
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/move-eye-tracking/

@@ -2,13 +2,12 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders;
-using System.Collections;
 using SteamAudio;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.XR;
 using Vector3 = UnityEngine.Vector3;
+using System;
 namespace Basis.Scripts.Drivers
 {
     public class BasisLocalCameraDriver : MonoBehaviour
@@ -22,184 +21,18 @@ namespace Basis.Scripts.Drivers
         public SteamAudio.SteamAudioListener SteamAudioListener;
         public BasisLocalPlayer LocalPlayer;
         public int DefaultCameraFov = 90;
-        // Static event to notify when the instance exists
-        public static event System.Action InstanceExists;
+        public static event Action InstanceExists;
         public BasisLockToInput BasisLockToInput;
         public bool HasEvents = false;
-        public Transform ParentOfUI;
-        public SpriteRenderer SpriteRendererIcon;
-        public Transform SpriteRendererIconTransform;
-        public Sprite SpriteMicrophoneOn;
-        public Sprite SpriteMicrophoneOff;
-
         public Vector3 DesktopMicrophoneViewportPosition = new(0.2f, 0.15f, 1f); // Adjust as needed for canvas position and depth
-        public Vector3 VRMicrophoneOffset = new Vector3(-0.0004f, -0.0015f, 2f);
-
-        public AudioClip MuteSound;
-        public AudioClip UnMuteSound;
-        public AudioSource AudioSource;
         public float NearClip = 0.001f;
-        private Coroutine scaleCoroutine;
-
-        public Vector3 StartingScale = Vector3.zero;
-        public float duration = 0.35f;
-        public float halfDuration;
-        public Vector3 largerScale;
         public static Vector3 LeftEye;
         public static Vector3 RightEye;
-
-        public Color UnMutedMutedIconColorActive = Color.white;
-        public Color UnMutedMutedIconColorInactive = Color.grey;
-        public Color MutedColor = Color.grey;
-        public void OnEnable()
-        {
-            if (BasisHelpers.CheckInstance(Instance))
-            {
-                Instance = this;
-                HasInstance = true;
-            }
-            Camera.nearClipPlane = NearClip;
-            Camera.farClipPlane = 1500;
-            CameraInstanceID = Camera.GetInstanceID();
-            //fire static event that says the instance exists
-            OnHeightChanged();
-            if (HasEvents == false)
-            {
-                BasisLocalMicrophoneDriver.OnPausedAction += OnPausedEvent;
-                BasisLocalMicrophoneDriver.MainThreadOnHasAudio += MicrophoneTransmitting;
-                BasisLocalMicrophoneDriver.MainThreadOnHasSilence += MicrophoneNotTransmitting;
-                RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
-                BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
-                InstanceExists?.Invoke();
-                HasEvents = true;
-            }
-            halfDuration = duration / 2f; // Time to scale up and down
-            StartingScale = SpriteRendererIcon.transform.localScale;
-            // Target scale for the "bounce" effect (e.g., 1.2 times larger)
-            largerScale = StartingScale * 1.2f;
-            UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
-
-#if STEAMAUDIO_ENABLED
-            if (SteamAudioListener != null)
-            {
-                SteamAudioManager.NotifyAudioListenerChanged();
-            }
-#endif
-            SpriteRendererIcon.gameObject.SetActive(true);
-        }
-        public void MicrophoneTransmitting()
-        {
-            SpriteRendererIcon.color = UnMutedMutedIconColorActive;
-            SpriteRendererIconTransform.localScale = largerScale;
-            LocalIsTransmitting = true;
-        }
-        public void MicrophoneNotTransmitting()
-        {
-            SpriteRendererIcon.color = UnMutedMutedIconColorInactive;
-            SpriteRendererIconTransform.localScale = StartingScale;
-            LocalIsTransmitting = false;
-        }
-        public bool LocalIsTransmitting = false;
-        private void OnPausedEvent(bool IsMuted)
-        {
-            UpdateMicrophoneVisuals(IsMuted, true);
-        }
-        public void UpdateMicrophoneVisuals(bool IsMuted, bool PlaySound)
-        {
-            // BasisDebug.Log(nameof(UpdateMicrophoneVisuals));
-            // Cancel the current coroutine if it's running
-            if (scaleCoroutine != null)
-            {
-                StopCoroutine(scaleCoroutine);
-            }
-            if (IsMuted)
-            {
-                // BasisDebug.Log(nameof(UpdateMicrophoneVisuals) + IsMuted);
-                SpriteRendererIcon.sprite = SpriteMicrophoneOff;
-                if (PlaySound)
-                {
-                    AudioSource.PlayOneShot(MuteSound);
-
-                }
-                SpriteRendererIcon.color = MutedColor;
-                // Start a new coroutine for the scale animation
-                scaleCoroutine = StartCoroutine(ScaleIcons(SpriteRendererIcon.gameObject));
-            }
-            else
-            {
-                // BasisDebug.Log(nameof(UpdateMicrophoneVisuals) + IsMuted);
-
-                SpriteRendererIcon.sprite = SpriteMicrophoneOn;
-                if (PlaySound)
-                {
-                    AudioSource.PlayOneShot(UnMuteSound);
-                }
-                if (LocalIsTransmitting)
-                {
-                    SpriteRendererIcon.color = UnMutedMutedIconColorActive;
-
-                }
-                else
-                {
-                    SpriteRendererIcon.color = UnMutedMutedIconColorInactive;
-                }
-                // Start a new coroutine for the scale animation
-                scaleCoroutine = StartCoroutine(ScaleIcons(SpriteRendererIconTransform.gameObject));
-            }
-        }
-        private IEnumerator ScaleIcons(GameObject iconToScale)
-        {
-            float time = 0f;
-
-            // Phase 1: Scale up
-            while (time < halfDuration)
-            {
-                time += Time.deltaTime;
-                float t = time / halfDuration;
-
-                // Scale the icon up
-                iconToScale.transform.localScale = Vector3.Lerp(StartingScale, largerScale, t);
-                yield return null; // Wait for the next frame
-            }
-
-            // Ensure the final scale at the end of phase 1 is set to largerScale
-            iconToScale.transform.localScale = largerScale;
-
-            // Reset time for the second phase
-            time = 0f;
-
-            // Phase 2: Scale down
-            while (time < halfDuration)
-            {
-                time += Time.deltaTime;
-                float t = time / halfDuration;
-
-                // Scale the icon down back to the original scale
-                iconToScale.transform.localScale = Vector3.Lerp(largerScale, StartingScale, t);
-                yield return null; // Wait for the next frame
-            }
-
-            // Ensure the final scale at the end of phase 2 is set to originalScale
-            iconToScale.transform.localScale = StartingScale;
-        }
-        public void OnDestroy()
-        {
-            RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
-            BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
-            BasisLocalMicrophoneDriver.OnPausedAction -= OnPausedEvent;
-            HasEvents = false;
-            HasInstance = false;
-        }
-        private void OnModeSwitch(string mode)
-        {
-            if (mode == BasisConstants.Desktop)
-            {
-                Camera.fieldOfView = DefaultCameraFov;
-            }
-            OnHeightChanged();
-        }
+        public static Vector3 Position;
+        public static Quaternion Rotation;
+        public Transform ParentOfUI;
+        [SerializeField]
+        public BasisLocalMicrophoneIconDriver microphoneIconDriver = new BasisLocalMicrophoneIconDriver();
         public static Vector3 Forward()
         {
             if (HasInstance)
@@ -233,8 +66,6 @@ namespace Basis.Scripts.Drivers
                 return Vector3.zero;
             }
         }
-        public static Vector3 Position;
-        public static Quaternion Rotation;
         public static Vector3 LeftEyePosition()
         {
             if (BasisDeviceManagement.IsUserInDesktop())
@@ -257,6 +88,77 @@ namespace Basis.Scripts.Drivers
                 return RightEye;
             }
         }
+        public void OnEnable()
+        {
+            if (BasisHelpers.CheckInstance(Instance))
+            {
+                Instance = this;
+                HasInstance = true;
+            }
+            Camera.nearClipPlane = NearClip;
+            Camera.farClipPlane = 1500;
+            CameraInstanceID = Camera.GetInstanceID();
+            //fire static event that says the instance exists
+            OnHeightChanged();
+            if (HasEvents == false)
+            {
+                BasisLocalMicrophoneDriver.OnPausedAction += microphoneIconDriver.OnPausedEvent;
+                BasisLocalMicrophoneDriver.MainThreadOnHasAudio += microphoneIconDriver.MicrophoneTransmitting;
+                BasisLocalMicrophoneDriver.MainThreadOnHasSilence += microphoneIconDriver.MicrophoneNotTransmitting;
+                RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
+                RenderPipelineManager.endCameraRendering += EndCameraRendering;
+                BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
+                InstanceExists?.Invoke();
+                HasEvents = true;
+            }
+            microphoneIconDriver.Initalize(this);
+            microphoneIconDriver.UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
+
+#if STEAMAUDIO_ENABLED
+            if (SteamAudioListener != null)
+            {
+                SteamAudioManager.NotifyAudioListenerChanged();
+            }
+#endif
+            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(true);
+            // 2) Icon half-size in meters, in camera-local axes
+            microphoneIconDriver.iconHalfRU = microphoneIconDriver.GetIconHalfSizeRUInCameraSpace(Camera, ParentOfUI);
+        }
+        public void OnDestroy()
+        {
+            RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
+            RenderPipelineManager.endCameraRendering -= EndCameraRendering;
+            BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
+            BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
+            HasEvents = false;
+            HasInstance = false;
+        }
+        public void OnDisable()
+        {
+            if (BasisLocalAvatarDriver.References != null && BasisLocalAvatarDriver.References.head != null)
+            {
+                BasisLocalAvatarDriver.References.head.localScale = BasisLocalAvatarDriver.HeadScale;
+            }
+            if (HasEvents)
+            {
+                RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
+                RenderPipelineManager.endCameraRendering -= EndCameraRendering;
+                BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
+                BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= microphoneIconDriver.MicrophoneTransmitting;
+                BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= microphoneIconDriver.MicrophoneNotTransmitting;
+                HasEvents = false;
+            }
+        }
+        private void OnModeSwitch(string mode)
+        {
+            if (mode == BasisConstants.Desktop)
+            {
+                Camera.fieldOfView = DefaultCameraFov;
+            }
+            OnHeightChanged();
+        }
         public static void GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation)
         {
             if (HasInstance)
@@ -271,34 +173,20 @@ namespace Basis.Scripts.Drivers
         }
         public void OnHeightChanged()
         {
-
             //the normal users scale is 1.6m
             //so a avatar the size of 
             this.transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            // Calculate the scale relative to the parent
-            Vector3 parentScale = this.transform.lossyScale;
-            ParentOfUI.localScale = new Vector3(
-               0.02f / parentScale.x,
-                0.02f / parentScale.y,
-               0.02f / parentScale.z
-            );
         }
-        public void OnDisable()
+        private void EndCameraRendering(ScriptableRenderContext context, Camera camera)
         {
-            if (BasisLocalAvatarDriver.References != null && BasisLocalAvatarDriver.References.head != null)
+            if (BasisLocalAvatarDriver.References.Hashead)
             {
-                BasisLocalAvatarDriver.References.head.localScale = BasisLocalAvatarDriver.HeadScale;
-            }
-            if (HasEvents)
-            {
-                RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
-                BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
-                BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= MicrophoneTransmitting;
-                BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= MicrophoneNotTransmitting;
-                HasEvents = false;
+                if (Camera.GetInstanceID() == CameraInstanceID)
+                {
+                    BasisLocalAvatarDriver.ScaleHeadToNormal();
+                }
             }
         }
-
         public void BeginCameraRendering(ScriptableRenderContext context, Camera Camera)
         {
             if (BasisLocalAvatarDriver.References.Hashead)
@@ -307,10 +195,11 @@ namespace Basis.Scripts.Drivers
                 {
                     this.transform.GetPositionAndRotation(out Position, out Rotation);
                     BasisLocalAvatarDriver.ScaleheadToZero();
+
                     if (CameraData.allowXRRendering)
                     {
-                        Vector2 EyeTextureSize = new Vector2(XRSettings.eyeTextureWidth, XRSettings.eyeTextureHeight);
-                        ParentOfUI.localPosition = CalculatePosition(EyeTextureSize, VRMicrophoneOffset);
+                        ParentOfUI.localPosition = microphoneIconDriver.CalculateClampedLocal(Camera, Position);
+
                     }
                     else
                     {
@@ -319,23 +208,7 @@ namespace Basis.Scripts.Drivers
                         ParentOfUI.localPosition = localPos;
                     }
                 }
-                else
-                {
-                    BasisLocalAvatarDriver.ScaleHeadToNormal();
-                }
             }
-        }
-        // Function to calculate the position
-        Vector3 CalculatePosition(Vector2 size, Vector3 percentage)
-        {
-            // The center of the object is assumed to be at (0, 0, 0) for simplicity
-            Vector3 center = size / 2;
-
-            // Calculate position relative to the center based on the percentage and size
-            Vector3 offset = new Vector3((percentage.x - 0.5f) * size.x, (percentage.y - 0.5f) * size.y, percentage.z);
-
-            // The position is the center plus the offset
-            return offset + center;
         }
         public static void AllowXRRenderering(bool AllowXRRendering)
         {

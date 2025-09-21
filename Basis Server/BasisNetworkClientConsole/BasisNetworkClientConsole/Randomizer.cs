@@ -9,9 +9,9 @@ namespace BasisNetworkClientConsole
         public static Vector3 GetRandomOffset()
         {
             return new Vector3(
-                (float)(_random.NextDouble() * 2 - 1),
-                (float)(_random.NextDouble() * 2 - 1),
-                (float)(_random.NextDouble() * 2 - 1)
+                (float)(_random.NextDouble() * 2 - 1) / 4f,
+                (float)(_random.NextDouble() * 2 - 1) / 4f,
+                (float)(_random.NextDouble() * 2 - 1) / 4f
             );
         }
     }

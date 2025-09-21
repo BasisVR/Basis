@@ -111,7 +111,6 @@ public class BasisSDKMirror : MonoBehaviour
 
         BasisLocalCameraDriver.InstanceExists -= Initialize;
         RenderPipeline.beginCameraRendering -= UpdateCamera;
-        BasisLocalPlayer.Instance.LocalAvatarDriver.RemoveActiveMatrixOverride(instanceID);
         basisMeshRendererCheck.Check -= VisibilityFlag;
     }
     private void Initialize()
@@ -129,21 +128,18 @@ public class BasisSDKMirror : MonoBehaviour
     private void UpdateCamera(ScriptableRenderContext context, Camera camera)
     {
         if (!IsAbleToRender || !IsActive) return;
-        if (!IsCameraAble(camera)) return;
+        if (!IsCameraAble(camera)) return;//is the camera local or sceneview
+
+        BasisLocalAvatarDriver.ScaleHeadToNormal();
 
         OnCamerasRenderering?.Invoke();
-        BasisLocalAvatarDriver.ScaleHeadToNormal();
-        if (BasisLocalAvatarDriver.Instance != null)
-        {
-            BasisLocalAvatarDriver.Instance.TryActiveMatrixOverride(instanceID);
-        }
-
         thisPosition = Renderer.transform.position;
         normal = Renderer.transform.TransformDirection(projectionDirection);
-        UpdateCameraState(context, camera);
+        RenderCameras(context, camera);
 
         OnCamerasFinished?.Invoke();
         BasisLocalAvatarDriver.ScaleheadToZero();
+        // the local camera will set the scale back to big once its done rendering its own camera
     }
     private bool IsCameraAble(Camera camera)
     {
@@ -153,7 +149,7 @@ public class BasisSDKMirror : MonoBehaviour
 #endif
         return camera.GetInstanceID() == BasisLocalCameraDriver.CameraInstanceID;
     }
-    private void UpdateCameraState(ScriptableRenderContext context, Camera camera)
+    private void RenderCameras(ScriptableRenderContext context, Camera camera)
     {
         if (InsideRendering) return;
 

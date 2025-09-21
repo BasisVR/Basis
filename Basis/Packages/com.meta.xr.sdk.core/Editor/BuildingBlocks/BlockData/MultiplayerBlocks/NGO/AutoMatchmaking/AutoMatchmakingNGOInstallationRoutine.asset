@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 940cc35ab3492024a89571d632a07b0a, type: 3}
+  m_Name: AutoMatchmakingNGOInstallationRoutine
+  m_EditorClassIdentifier: 
+  id: 0d740637-ae4c-40f5-98e2-1a9bac152d35
+  targetBlockDataId: d45b4309-f823-42e4-b871-0f58e8e647d8
+  prefab: {fileID: 9061308331643601917, guid: bb884e2082b168c44a08de53bc92717d, type: 3}
+  packageDependencies:
+  - com.unity.netcode.gameobjects@^1.7.1
+  - com.unity.services.multiplayer@>=1.1.0
+  selectedGuidedSetupIndex: 0
+  guidedSetupName: 
+  implementation: 0
+  installMatchmaking: 0

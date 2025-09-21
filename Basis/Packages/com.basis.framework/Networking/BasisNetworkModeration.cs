@@ -48,7 +48,7 @@ public static class BasisNetworkModeration
         foreach (var write in dataWriters)
             write(writer);
 
-        BasisNetworkManagement.LocalPlayerPeer.Send(
+        BasisNetworkConnection.LocalPlayerPeer.Send(
             writer,
             BasisNetworkCommons.AdminChannel,
             DeliveryMethod.ReliableSequenced
@@ -181,7 +181,7 @@ public static class BasisNetworkModeration
     }
     public static bool TryTeleportToPlayer(ushort netId)
     {
-        if (BasisNetworkManagement.Players.TryGetValue(netId, out var player) && ValidateForAnimator(player))
+        if (BasisNetworkPlayers.Players.TryGetValue(netId, out var player) && ValidateForAnimator(player))
         {
             Transform hips = player.Player.BasisAvatar.Animator.GetBoneTransform(HumanBodyBones.Hips);
             BasisLocalPlayer.Instance.Teleport(hips.position, Quaternion.identity);

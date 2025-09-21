@@ -25,7 +25,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             transmitter.storedAvatarData.LASM.AdditionalAvatarDatas = transmitter.SendingOutAvatarData.Count == 0 ? null : transmitter.SendingOutAvatarData.Values.ToArray();
             transmitter.storedAvatarData.LASM.Serialize(transmitter.AvatarSendWriter);
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.LocalAvatarSync, transmitter.AvatarSendWriter.Length);
-            BasisNetworkManagement.LocalPlayerPeer.Send(transmitter.AvatarSendWriter, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+            BasisNetworkConnection.LocalPlayerPeer.Send(transmitter.AvatarSendWriter, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
             transmitter.AvatarSendWriter.Reset();
             transmitter.ClearAdditional();
         }
@@ -48,13 +48,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             // Compress Rotation 3*4 = 12 + 2 = 14 bytes
             BasisUnityBitPackerExtensionsUnsafe.WriteQuaternionToBytes(animator.bodyRotation, ref AvatarData.LASM.array, ref offset, BasisNetworkPlayer.RotationCompression);
 
-            // Compress Muscles totals 137 bytes
+            // Compress Muscles totals 153 bytes
             CompressAvatarMuscles_NoLoop(ref pose.muscles, ref AvatarData.LASM, ref offset);
 
             // Compress Scale 2 bytes
             CompressScale(animator.transform.localScale.y, ref AvatarData.LASM, ref offset);
-            //28
-            // 12 + 14 + 137 + 2 = 165 bytes
         }
         const int muscleCount = 95 - 6;//we remove the stuff we dont even put on the network first.
         public static byte[][] CBytes = new byte[muscleCount][];

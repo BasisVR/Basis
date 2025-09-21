@@ -116,33 +116,6 @@ namespace Basis.Scripts.BasisSdk.Helpers
             position = Vector3.zero;
             return false;
         }
-        public static void CalculateReflectionMatrix(ref Matrix4x4 reflectionMat, Vector4 plane)
-        {
-            reflectionMat.m00 = (1F - 2F * plane[0] * plane[0]);
-            reflectionMat.m01 = (-2F * plane[0] * plane[1]);
-            reflectionMat.m02 = (-2F * plane[0] * plane[2]);
-            reflectionMat.m03 = (-2F * plane[3] * plane[0]);
-
-            reflectionMat.m10 = (-2F * plane[1] * plane[0]);
-            reflectionMat.m11 = (1F - 2F * plane[1] * plane[1]);
-            reflectionMat.m12 = (-2F * plane[1] * plane[2]);
-            reflectionMat.m13 = (-2F * plane[3] * plane[1]);
-
-            reflectionMat.m20 = (-2F * plane[2] * plane[0]);
-            reflectionMat.m21 = (-2F * plane[2] * plane[1]);
-            reflectionMat.m22 = (1F - 2F * plane[2] * plane[2]);
-            reflectionMat.m23 = (-2F * plane[3] * plane[2]);
-
-            reflectionMat.m30 = 0F;
-            reflectionMat.m31 = 0F;
-            reflectionMat.m32 = 0F;
-            reflectionMat.m33 = 1F;
-        }
-        /// <summary>
-        /// Optimized sign function using built-in math
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float sgn(float a) => Mathf.Sign(a);
 
         /// <summary>
         /// Calculates camera-space plane from a world-space plane
@@ -156,26 +129,6 @@ namespace Basis.Scripts.BasisSdk.Helpers
             float3 cNormal = worldToCameraMatrix.MultiplyVector(normal) * sideSign;
 
             return new float4(cNormal.x, cNormal.y, cNormal.z, -math.dot(cPos, cNormal));
-        }
-        public static void ConvertData(Transform parentTransform, float scale, Vector3 localRawPosition, Quaternion localRawRotation, Vector3 TposePosition, Quaternion TposeRotation, out Vector3 convertedPosition, out quaternion convertedRotation)
-        {
-            localRawPosition -= TposePosition;
-            localRawRotation *= Quaternion.Inverse(TposeRotation);
-            float3 scaledPosition = localRawPosition * scale;
-            quaternion localRotation = localRawRotation;
-
-            convertedPosition = parentTransform.localToWorldMatrix.MultiplyPoint3x4(scaledPosition);
-            convertedRotation = parentTransform.rotation * localRotation;
-        }
-        public static void ConvertData(Matrix4x4 parentTransform,Quaternion Rotation, float scale, Vector3 localRawPosition, Quaternion localRawRotation, Vector3 TposePosition, Quaternion TposeRotation, out Vector3 convertedPosition, out quaternion convertedRotation)
-        {
-            localRawPosition -= TposePosition;
-            localRawRotation *= Quaternion.Inverse(TposeRotation);
-            float3 scaledPosition = localRawPosition * scale;
-            quaternion localRotation = localRawRotation;
-
-            convertedPosition = parentTransform.MultiplyPoint3x4(scaledPosition);
-            convertedRotation = Rotation * localRotation;
         }
     }
 }

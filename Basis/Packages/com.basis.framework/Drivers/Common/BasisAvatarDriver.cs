@@ -4,7 +4,6 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System.Collections.Generic;
 using UnityEngine;
-
 namespace Basis.Scripts.Drivers
 {
     [System.Serializable]
@@ -176,8 +175,8 @@ namespace Basis.Scripts.Drivers
         public List<JiggleColliderSerializable> JiggleColliders;
         public void AddJiggleRigColliders(BasisTransformMapping Mapping)
         {
-            JiggleCreatorHelper(Mapping.leftFoot);
-            JiggleCreatorHelper(Mapping.rightFoot);
+            JiggleCreatorHelper(Mapping.leftFoot, 0.015f);
+            JiggleCreatorHelper(Mapping.rightFoot, 0.015f);
 
             JiggleCreatorHelper(Mapping.LeftThumb);
             JiggleCreatorHelper(Mapping.LeftIndex);
@@ -192,7 +191,7 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.RightRing);
             JiggleCreatorHelper(Mapping.RightLittle);
             JiggleCreatorHelper(Mapping.rightHand);
-            BasisDebug.Log("Creating Collider Rigs");
+         //   BasisDebug.Log("Creating Collider Rigs");
             foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
             {
                 JigglePhysics.AddJiggleCollider(Jiggle);
@@ -205,7 +204,7 @@ namespace Basis.Scripts.Drivers
                 JiggleCreatorHelper(Parent);
             }
         }
-        public void JiggleCreatorHelper(Transform Parent)
+        public void JiggleCreatorHelper(Transform Parent,float Scale = 0.005f)
         {
             if (Parent != null)
             {
@@ -215,18 +214,17 @@ namespace Basis.Scripts.Drivers
                     {
                         type = JiggleCollider.JiggleColliderType.Sphere,
                         localToWorldMatrix = Parent.localToWorldMatrix,
-                        radius = 0.1f
-                    }
+                        radius = Scale / (Parent.lossyScale.magnitude /3) // Scaled radius
+                    },
+                    transform = Parent
                 };
-                jiggleColliderSerializable.collider.type = JiggleCollider.JiggleColliderType.Sphere;
-                jiggleColliderSerializable.transform = Parent;
 
                 JiggleColliders.Add(jiggleColliderSerializable);
             }
         }
         public void RemoveJiggleRigColliders()
         {
-            BasisDebug.Log("Removed Collider Rigs");
+           // BasisDebug.Log("Removed Collider Rigs");
             foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
             {
                 JigglePhysics.RemoveJiggleCollider(Jiggle);

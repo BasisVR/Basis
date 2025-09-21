@@ -1,0 +1,31 @@
+{
+    "name": "Meta.XR.Editor.TelemetryUI",
+    "rootNamespace": "",
+    "references": [
+        "GUID:20fd4e76c6b382c4192a75d60d32629d",
+        "GUID:d2761a0af0f567748a72629d4bb18a26",
+        "GUID:4093c291d144c2341a2250e08a358ed9",
+        "GUID:f64c9ebcd7899c3448a08dc9f9ddbe30",
+        "GUID:72a933f94d34d054baaa26f7ecc4b09f",
+        "GUID:8a3cbe02f62409842a1e9a9aae973af1",
+        "GUID:86d3c260f0a41e846ab28cd9e4fed3a8",
+        "GUID:d2b0729f56904db44bb4c831145e17e6"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

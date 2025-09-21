@@ -14,8 +14,6 @@ public static class BasisGizmoManager
     public static string GameobjectGizmo = "Packages/com.basis.gizmos/Gizmo.prefab";
     public static string GameobjectGizmoLine = "Packages/com.basis.gizmos/GizmoLine.prefab";
     public static Action<bool> OnUseGizmosChanged; // Callback delegate.
-
-    public static bool UseGizmos = false;
     public static GameObject LoadedLineGizmo;
     public static GameObject LoadedGizmo;
     public static GameObject Parent;

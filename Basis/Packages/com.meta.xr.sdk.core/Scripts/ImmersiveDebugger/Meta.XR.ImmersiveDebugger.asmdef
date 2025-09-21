@@ -1,0 +1,24 @@
+{
+    "name": "Meta.XR.ImmersiveDebugger",
+    "rootNamespace": "",
+    "references": [
+        "Meta.XR.Editor.Callbacks",
+        "Meta.XR.ImmersiveDebugger.Interface",
+        "Oculus.VR"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

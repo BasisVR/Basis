@@ -1,10 +1,8 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.TransformBinders.BoneControl;
-using Unity.Mathematics;
 using UnityEngine;
 using Valve.VR;
-
 namespace Basis.Scripts.Device_Management.Devices.OpenVR
 {
     [DefaultExecutionOrder(15001)]
@@ -25,7 +23,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
         public SteamVR_Utils.RigidTransform DeviceLocalSpace;
         public EVRCompositorError result;
-        public void Initialize( OpenVRDevice device,string UniqueID,string UnUniqueID, string subSystems, bool AssignTrackedRole,  BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
+        public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
             HandBiasSplay = -0.8f;
 
@@ -35,11 +33,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             // default position offsets (tweak as needed; mirrored on X by default).
             // set to zero if you prefer to tune in inspector.
-            leftHandToIKPositionOffset = new Vector3(0,0.05f,-0.02f);
+            leftHandToIKPositionOffset = new Vector3(0, 0.05f, -0.02f);
             rightHandToIKPositionOffset = new Vector3(0, 0.05f, -0.02f);
-
-            LeftRaycastRotationOffset = new Vector3(30, -90, 0);
-            RightRaycastRotationOffset = new Vector3(150, -90, 0);
 
             if (HasOnUpdate && DeviceposeAction != null)
             {
@@ -181,12 +176,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             Quaternion baseWristWorldRot = UnscaledDeviceCoord.rotation * wristLocalRot;
             Quaternion wristWorldRot = baseWristWorldRot * rotOffset;
 
-            // -------- NEW: apply configurable position offset (device space), properly scaled
-            // The offset is authored in controller/device local coordinates (meters).
-            // We multiply by avatarScale to preserve proportions, then rotate by the device rotation
-            // so it moves with the controller orientation.
             Vector3 posOffsetLocal = isLeft ? leftHandToIKPositionOffset : rightHandToIKPositionOffset;
-            if (posOffsetLocal.sqrMagnitude > 0f)
+            if (UseIKPositionOffset)
             {
                 Vector3 posOffsetWorld = UnscaledDeviceCoord.rotation * (posOffsetLocal * avatarScale);
                 wristWorldPos += posOffsetWorld;
@@ -206,21 +197,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
         public override void ShowTrackedVisual()
         {
-            if (BasisVisualTracker == null)
-            {
-                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
-                if (Match.CanDisplayPhysicalTracker)
-                {
-                    LoadModelWithKey(Match.DeviceID);
-                }
-                else
-                {
-                    if (UseFallbackModel())
-                    {
-                        LoadModelWithKey(FallbackDeviceID);
-                    }
-                }
-            }
+            ShowTrackedVisualDefaultImplementation();
         }
 
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 21d226f9763b447f932b23b780b148cf, type: 3}
+  m_Name: NetworkedGrabbableObjectFusionInstallationRoutine
+  m_EditorClassIdentifier:
+  id: 54548176-30f4-4a4a-8057-340a383c6102
+  routineName: Networked Grabbbale Object Fusion Installation Routine
+  description: Installation Routine for Networked Grabbable Object via Fusion
+  targetBlockDataId: e9b4b64f-1c7e-4dff-8f3c-ce409bdc3951
+  prefab: {fileID: 0}
+  packageDependencies:
+  - com.exitgames.photonfusion
+  implementation: 1
+  _useGravity: 0

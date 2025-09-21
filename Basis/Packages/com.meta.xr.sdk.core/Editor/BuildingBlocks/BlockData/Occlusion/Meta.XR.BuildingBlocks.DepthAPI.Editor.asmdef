@@ -1,0 +1,38 @@
+{
+    "name": "Meta.XR.BuildingBlocks.DepthAPI.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Oculus.VR.Editor",
+        "Unity.XR.Oculus",
+        "Oculus.VR",
+        "Meta.XR.BuildingBlocks.DepthAPI",
+        "Meta.XR.BuildingBlocks",
+        "Meta.XR.BuildingBlocks.Editor",
+        "Meta.XR.Editor.Tags",
+        "Meta.XR.Editor.UserInterface",
+        "Meta.XR.Guides.Editor",
+        "Meta.XR.EnvironmentDepth"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "4.2.0",
+            "define": "XR_OCULUS_4_2_0_OR_NEWER"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

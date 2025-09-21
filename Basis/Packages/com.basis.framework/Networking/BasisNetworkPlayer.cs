@@ -36,7 +36,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         public const int MuscleCount = 95;
         [SerializeField]
-        public HumanPose HumanPose = new HumanPose() { muscles = new float[MuscleCount] };
+        public HumanPose HumanPose = new HumanPose()
+        {
+            muscles = new float[MuscleCount],
+             bodyPosition = Vector3.zero,
+              bodyRotation = Quaternion.identity,
+        };
         [SerializeField]
         public HumanPoseHandler PoseHandler;
         public BasisPlayer Player;
@@ -83,17 +88,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             else
             {
-                if (BasisNetworkManagement.MainThreadContext == null)
-                {
-                    BasisDebug.LogError("Main thread context is not set. Ensure this script is started on the main thread.");
-                    return;
-                }
-
                 // Post the task to the main thread
-                BasisNetworkManagement.MainThreadContext.Post(_ =>
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     AvatarLoadComplete();
-                }, null);
+                });
             }
         }
         public int NetworkBehaviourCount = 0;
@@ -176,40 +175,40 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 netDataWriter.Put(BasisNetworkCommons.AvatarChannel);
                 AvatarDataMessage.Serialize(netDataWriter);
-                BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, DeliveryMethod);
+                BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, DeliveryMethod);
             }
             else
             {
                 AvatarDataMessage.Serialize(netDataWriter);
-                BasisNetworkManagement.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
+                BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
             }
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarDataMessage, netDataWriter.Length);
         }
         public static bool AvatarToPlayer(BasisAvatar Avatar, out BasisPlayer BasisPlayer)
         {
-            return BasisNetworkManagement.AvatarToPlayer(Avatar, out BasisPlayer);
+            return BasisNetworkPlayers.AvatarToPlayer(Avatar, out BasisPlayer);
         }
         public static bool PlayerToNetworkedPlayer(BasisPlayer BasisPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
-            return BasisNetworkManagement.PlayerToNetworkedPlayer(BasisPlayer, out BasisNetworkPlayer);
+            return BasisNetworkPlayers.PlayerToNetworkedPlayer(BasisPlayer, out BasisNetworkPlayer);
         }
         public static BasisNetworkPlayer LocalPlayer => BasisNetworkManagement.Transmitter as BasisNetworkPlayer;
         public static bool GetPlayerById(ushort allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
-            return BasisNetworkManagement.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);
+           return BasisNetworkPlayers.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);
         }
         public static BasisNetworkPlayer GetPlayerById(ushort allowedPlayer)
         {
-            BasisNetworkManagement.GetPlayerById(allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
+           BasisNetworkPlayers.GetPlayerById(allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
             return BasisNetworkPlayer;
         }
         public static bool GetPlayerById(int allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
-            return BasisNetworkManagement.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer);
+         return  BasisNetworkPlayers.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer);
         }
         public static BasisNetworkPlayer GetPlayerById(int allowedPlayer)
         {
-            BasisNetworkManagement.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
+           BasisNetworkPlayers.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
             return BasisNetworkPlayer;
         }
         /// <summary>
@@ -265,7 +264,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             BasisOwnershipResult Current = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(UniqueID);
             if (Current.Success)
             {
-                if (BasisNetworkManagement.GetPlayerById(Current.PlayerId, out BasisNetworkPlayer Player))
+                if (BasisNetworkPlayers.GetPlayerById(Current.PlayerId, out BasisNetworkPlayer Player))
                 {
                     return new(Current.Success, Player);
                 }
@@ -432,16 +431,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         public static BasisNetworkPlayer[] GetAllPlayers()
         {
-           return BasisNetworkManagement.Players.Values.ToArray();
+           return BasisNetworkPlayers.Players.Values.ToArray();
         }
 
         public static int GetPlayerCount()
         {
-            return BasisNetworkManagement.Players.Count;
+            return BasisNetworkPlayers.Players.Count;
         }
         public static bool PlayerToName(string name,out BasisNetworkPlayer NetworkPlayer)
         {
-            foreach(var player in BasisNetworkManagement.Players.Values)
+            foreach(var player in BasisNetworkPlayers.Players.Values)
             {
                 if(player != null)
                 {

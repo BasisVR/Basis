@@ -1,4 +1,5 @@
 using Basis.Scripts.Common;
+using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -60,7 +61,7 @@ public class BasisLocalHandDriver
     public NativeArray<Vector2> CoordKeysArray;
     public NativeArray<float> DistancesArray;
     public NativeArray<int> closestIndexArray;
-    public float LerpSpeed = 17f;
+    public float LerpSpeed = 22F;
     public Vector2[] Poses;
     public void Dispose()
     {
@@ -193,7 +194,7 @@ public class BasisLocalHandDriver
         }
         GameObject.Destroy(CopyOfOrigionally);
     }
-    public void UpdateFingers(BasisTransformMapping Map)
+    public void UpdateFingers(float DeltaTime)
     {
         bool GetClosestValue(Vector2 percentage, out BasisPoseDataAdditional result)
         {
@@ -243,7 +244,8 @@ public class BasisLocalHandDriver
         TryUpdateFingerPose(ref LastRightRingPercentage, RightHand.RingPercentage, ref RightRingAdditional);
         TryUpdateFingerPose(ref LastRightLittlePercentage, RightHand.LittlePercentage, ref RightLittleAdditional);
 
-        float Percentage = LerpSpeed * Time.deltaTime;
+        float Percentage = LerpSpeed * DeltaTime;
+        var Map = BasisLocalAvatarDriver.References;
         // Apply finger transforms - Left Hand
         UpdateFingerPoses(Map.LeftThumb, LeftThumbAdditional.PoseData.LeftThumb, ref Current.LeftThumb, Map.HasLeftThumb, Percentage);
         UpdateFingerPoses(Map.LeftIndex, LeftIndexAdditional.PoseData.LeftIndex, ref Current.LeftIndex, Map.HasLeftIndex, Percentage);

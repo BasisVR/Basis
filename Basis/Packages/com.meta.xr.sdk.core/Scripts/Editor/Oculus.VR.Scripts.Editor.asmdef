@@ -1,0 +1,81 @@
+{
+    "name": "Oculus.VR.Scripts.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Oculus.VR",
+        "Oculus.VR.Editor",
+        "Unity.XR.Oculus",
+        "Unity.XR.OpenXR",
+        "Unity.XR.OpenXR.Editor",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.xr.management",
+            "expression": "",
+            "define": "USING_XR_MANAGEMENT"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "",
+            "define": "USING_XR_SDK_OCULUS"
+        },
+        {
+            "name": "com.unity.xr.openxr",
+            "expression": "",
+            "define": "USING_XR_SDK_OPENXR"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "1.7.0",
+            "define": "__OVERRIDED__PRIORITIZE_OCULUS_XR_SETTINGS"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "[2.2-pre,3.0-pre)",
+            "define": "USING_QUEST_PRO_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "3.2.1-pre",
+            "define": "USING_QUEST_PRO_COMPATIBLE_OCULUS_XR_PLUGIN_VERSION"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "3.2.1-pre",
+            "define": "OCULUS_XR_DEPTH_SUBMISSION"
+        },
+        {
+            "name": "com.unity.xr.oculus",
+            "expression": "3.3.0",
+            "define": "OCULUS_XR_3_3_0_OR_NEWER"
+        },
+        {
+            "name": "com.meta.xr.simulator",
+            "expression": "",
+            "define": "USING_META_XR_SIMULATOR"
+        },
+        {
+            "name": "com.unity.textmeshpro",
+            "expression": "",
+            "define": "UNITY_TEXTMESHPRO"
+        },
+        {
+            "define": "OVR_UNITY_PACKAGE_MANAGER",
+            "name": "com.meta.xr.sdk.core",
+            "expression": ""
+        }
+    ],
+    "noEngineReferences": false
+}

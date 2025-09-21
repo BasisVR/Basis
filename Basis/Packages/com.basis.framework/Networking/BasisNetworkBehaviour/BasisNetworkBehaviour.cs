@@ -34,7 +34,7 @@ namespace Basis
         /// </summary>
         public void Start()
         {
-            if (BasisNetworkManagement.LocalPlayerIsConnected == false)
+            if (BasisNetworkConnection.LocalPlayerIsConnected == false)
             {
                 BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
                 BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
@@ -71,7 +71,7 @@ namespace Basis
         }
         private async void OnLocalPlayerJoined(BasisNetworkPlayer player1, BasisLocalPlayer player2)
         {
-            if (BasisNetworkManagement.LocalPlayerIsConnected)
+            if (BasisNetworkConnection.LocalPlayerIsConnected)
             {
                 bool wassuccesful = TryGetNetworkGUIDIdentifier(out string NetworkGuidID);
                 if (wassuccesful == false)//this will happen to anything that has not got a GUID from the server
@@ -97,7 +97,7 @@ namespace Basis
                     BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
                     var InitalOwnershipStatus = await output;
                     CurrentOwnerId = InitalOwnershipStatus.PlayerId;
-                    BasisNetworkManagement.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
+                   BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
                     HasNetworkID = IDResolverResult.Success;
                     NetworkID = IDResolverResult.Id;
                     if (HasNetworkID)
@@ -122,7 +122,7 @@ namespace Basis
                 IsOwnedLocallyOnServer = isOwner;
                 IsOwnedLocallyOnClient = isOwner;
                 CurrentOwnerId = NetIdNewOwner;
-                if (BasisNetworkManagement.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer))
+                if (BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer))
                 {
                     OnOwnershipTransfer(currentOwnedPlayer);
                 }
@@ -244,7 +244,7 @@ namespace Basis
             CurrentOwnerId = BasisNetworkPlayer.LocalPlayer.playerId;
             currentOwnedPlayer = BasisNetworkPlayer.LocalPlayer;
             //no need to use await ownership will get back here from lower level.
-            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkManagement.LocalPlayerPeer.RemoteId, Timout);
+            BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkConnection.LocalPlayerPeer.RemoteId, Timout);
             return Result;
         }
         public virtual void OnNetworkReady()

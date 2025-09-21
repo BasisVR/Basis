@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1da95feb0c3505468f501bda437fde7, type: 3}
+  m_Name: PlayerVoiceChatInterfaceBlockData
+  m_EditorClassIdentifier:
+  id: 5523ee0f-69d0-4e9f-b4b3-1ca61874f631
+  version: 1
+  blockName: Player Voice Chat
+  description: Enable Photon Voice2 audio support for your multiplayer experience
+  tags:
+    array:
+    - name: Voice
+    - name: Multiplayer
+  thumbnail: {fileID: 2800000, guid: d8946f5c2e9b1430e902d6a90753f7d1, type: 3}
+  order: 0
+  prefab: {fileID: 0}
+  externalBlockDependencies: []
+  dependencies:
+  - 1d8db162-54f6-43df-b4ef-b499df1f6769
+  - e47682b9-c270-40b1-b16d-90b627a5ce1b
+  packageDependencies:
+  - com.exitgames.photonvoice
+  isSingleton: 1
+  usageInstructions: Supported by Photon Fusion only. Be sure to create your own
+    Voice app id and fill into the Photon Realtime settings.
+  featureDocumentationName: Multiplayer Building Blocks Setup Guide
+  featureDocumentationUrl: https://developers.meta.com/horizon/documentation/unity/bb-multiplayer-blocks

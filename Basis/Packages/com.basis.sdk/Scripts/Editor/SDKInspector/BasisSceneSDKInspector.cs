@@ -64,7 +64,11 @@ public class BasisSceneSDKInspector : Editor
             return;
         }
         Texture2D Image = AssetPreview.GetAssetPreview(BasisScene);
-        byte[] ImageBytes = BasisTextureCompression.ToPngBytes(Image);
+        byte[] ImageBytes = null;
+        if (Image != null)
+        {
+            ImageBytes = BasisTextureCompression.ToPngBytes(Image);
+        }
         // Call the build function and capture result
         (bool success, string message) = await BasisBundleBuild.SceneBundleBuild(ImageBytes, BasisScene, targets);
         EditorUtility.ClearProgressBar();

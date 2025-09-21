@@ -1,10 +1,12 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.Drivers;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Transmitters;
+using Basis.Scripts.UI.NamePlate;
 using GatorDragonGames.JigglePhysics;
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 public class BasisEventDriver : MonoBehaviour
@@ -13,6 +15,13 @@ public class BasisEventDriver : MonoBehaviour
     public float timeSinceLastUpdate = 0f;
     public float DeltaTime;
     public double TimeAsDouble;
+    public double fixedTimeAsDouble;
+    public float fixedDeltaTime;
+    public float unscaledDeltaTime;
+    [SerializeField]
+    private Material proceduralMaterial;
+    [SerializeField]
+    private Mesh sphereMesh;
     public void OnEnable()
     {
 #if UNITY_SERVER
@@ -21,11 +30,14 @@ public class BasisEventDriver : MonoBehaviour
 #endif
         BasisSceneFactory.Initalize();
         BasisObjectSyncDriver.Initalization();
+        RemoteBoneJobSystem.Initialize();
     }
     public void OnDestroy()
     {
         BasisObjectSyncDriver.OnDestroy();
         Application.onBeforeRender -= OnBeforeRender;
+        RemoteBoneJobSystem.Dispose();
+        BasisAvatarBufferPool.DeInitalize();
     }
     public void OnDisable()
     {
@@ -38,7 +50,17 @@ public class BasisEventDriver : MonoBehaviour
     {
         DeltaTime = Time.deltaTime;
         TimeAsDouble = Time.timeAsDouble;
-        BasisNetworkManagement.SimulateNetworkCompute();
+        unscaledDeltaTime = Time.unscaledDeltaTime;
+        // Drain everything that arrived from worker threads
+        while (BasisDeviceManagement.mainThreadActions.TryDequeue(out System.Action action))
+        {
+            try { action.Invoke(); }
+            catch (Exception ex) { Debug.LogError($"MainThread action failed: {ex}"); }
+        }
+
+
+
+        BasisNetworkManagement.SimulateNetworkCompute(unscaledDeltaTime);
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
 
 #if UNITY_SERVER
@@ -52,23 +74,16 @@ public class BasisEventDriver : MonoBehaviour
             timeSinceLastUpdate -= updateInterval; // Subtract interval instead of resetting to zero
             BasisConsoleLogger.QueryLogDisplay();
         }
-        if (!BasisDeviceManagement.hasPendingActions) return;
-
-        while (BasisDeviceManagement.mainThreadActions.TryDequeue(out System.Action action))
-        {
-            action.Invoke();
-        }
-
-        // Reset flag once all actions are executed
-        BasisDeviceManagement.hasPendingActions = !BasisDeviceManagement.mainThreadActions.IsEmpty;
     }
     public void FixedUpdate()
     {
+        TimeAsDouble = Time.timeAsDouble;
         BasisSceneFactory.Simulate();
-        JigglePhysics.ScheduleSimulate(Time.timeAsDouble, Time.fixedTimeAsDouble, Time.fixedDeltaTime);
     }
     public void LateUpdate()
     {
+        fixedTimeAsDouble = Time.fixedTimeAsDouble;
+        fixedDeltaTime = Time.fixedDeltaTime;
         BasisDeviceManagement.OnDeviceManagementLoop?.Invoke();
         if (BasisLocalEyeDriver.RequiresUpdate())
         {
@@ -84,23 +99,23 @@ public class BasisEventDriver : MonoBehaviour
 #endif
         BasisObjectSyncDriver.TransmitOwnedPickups(TimeAsDouble);
         BasisNetworkManagement.SimulateNetworkApply();
+
+        JigglePhysics.ScheduleSimulate(fixedTimeAsDouble, TimeAsDouble, Time.fixedDeltaTime);
+
         BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
+        JigglePhysics.SchedulePose(TimeAsDouble);
+        if (SMModuleDebugOptions.UseGizmos)
+        {
+            JigglePhysics.ScheduleRender();
+        }
+        JigglePhysics.CompletePose();
+        if (SMModuleDebugOptions.UseGizmos)
+        {
+            JigglePhysics.CompleteRender(proceduralMaterial, sphereMesh);
+        }
 #if UNITY_SERVER
         OnBeforeRender();
 #endif
-        if(BasisLocalAvatarDriver.IsNormalHead == false)
-        {
-            BasisLocalAvatarDriver.ScaleHeadToNormal();
-            JigglePhysics.SchedulePose(TimeAsDouble);
-            JigglePhysics.CompletePose();
-            BasisLocalAvatarDriver.ScaleheadToZero();
-        }
-        else
-        {
-            //if the local head is good already just continue on.
-            JigglePhysics.SchedulePose(TimeAsDouble);
-            JigglePhysics.CompletePose();
-        }
     }
     private void OnBeforeRender()
     {

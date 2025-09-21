@@ -1,5 +1,4 @@
 using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -33,9 +32,6 @@ public class BasisOpenXRHandInput : BasisInputController
         LeftHandPalmCorrection = new Vector3(-90, 90, -30);
 
         RightHandPalmCorrection = new Vector3(-90,90,-150);
-
-        LeftRaycastRotationOffset = new Vector3(30, -90, 0);
-        RightRaycastRotationOffset = new Vector3(150, -90, 0);
 
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
@@ -237,21 +233,7 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void ShowTrackedVisual()
     {
-        if (BasisVisualTracker == null)
-        {
-            DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
-            if (Match.CanDisplayPhysicalTracker)
-            {
-                LoadModelWithKey(Match.DeviceID);
-            }
-            else
-            {
-                if (UseFallbackModel())
-                {
-                    LoadModelWithKey(FallbackDeviceID);
-                }
-            }
-        }
+        ShowTrackedVisualDefaultImplementation();
     }
     /// <summary>
     /// Duration does not work on OpenXRHands, in the future we should handle it for the user.

@@ -1,0 +1,548 @@
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.TransformBinders.BoneControl;
+using Basis.Scripts.UI;
+using Basis.Scripts.UI.UI_Panels;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using UnityEngine;
+
+/// <summary>
+/// Routes input actions to one or more tracked roles and runs the bound action delegates efficiently.
+/// </summary>
+public static class BasisActionDriver
+{
+    public const string FileName = "BasisActionBindingsV1.json";
+    public const string FolderPath = "BasisActions";
+    public static string SavePath => Path.Combine(Application.persistentDataPath, FolderPath, BasisDeviceManagement.StaticCurrentMode, FileName);
+    /// <summary>
+    /// True if a bindings file exists on disk.
+    /// </summary>
+    public static bool HasSavedBindings
+    {
+        get
+        {
+            return File.Exists(SavePath);
+        }
+    }
+    /// <summary>
+    /// Identifiers for executable input actions.
+    /// </summary>
+    public enum ActionId
+    {
+        // Movement
+        SetMovementSpeedMultiplierFromPrimary2DAxis = 0,
+        SetMovementVectorFromPrimary2DAxis = 1,
+        TickMovementSpeed = 2,
+
+        // UI / System
+        ToggleHamburgerOnSecondaryRelease = 3,
+        ToggleMicOnPrimaryReleaseIfNoHover = 4,
+
+        // Camera/Character orientation & locomotion
+        RotateFromPrimary2DAxis = 5,
+        JumpOnPrimaryButton = 6,
+
+        // Keep this as the last entry for sizing arrays.
+        Count = 7
+    }
+    /// <summary>
+    /// Binds an action to a role. Duplicate binds are ignored.
+    /// </summary>
+    public static void Bind(ActionId action, BasisBoneTrackedRole role)
+    {
+        if (!s_RoleToActions.TryGetValue(role, out var actionsForRole))
+        {
+            actionsForRole = new List<ActionId>(8);
+            s_RoleToActions[role] = actionsForRole;
+        }
+
+        if (!actionsForRole.Contains(action))
+        {
+            actionsForRole.Add(action);
+            if (!s_SuppressRebuild)
+            {
+                RebuildCompiledActionsForRole(role);
+            }
+        }
+
+        if (!s_ActionToRoles.TryGetValue(action, out var rolesForAction))
+        {
+            rolesForAction = new HashSet<BasisBoneTrackedRole>();
+            s_ActionToRoles[action] = rolesForAction;
+        }
+
+        if (!rolesForAction.Contains(role))
+        {
+            rolesForAction.Add(role);
+        }
+    }
+    /// <summary>
+    /// Unbinds an action from a specific role.
+    /// </summary>
+    public static void Unbind(ActionId action, BasisBoneTrackedRole role)
+    {
+        if (s_RoleToActions.TryGetValue(role, out var list))
+        {
+            if (list.Remove(action))
+            {
+                if (!s_SuppressRebuild)
+                {
+                    RebuildCompiledActionsForRole(role);
+                }
+            }
+        }
+
+        if (s_ActionToRoles.TryGetValue(action, out var set))
+        {
+            set.Remove(role);
+            if (set.Count == 0)
+            {
+                s_ActionToRoles.Remove(action);
+            }
+        }
+    }
+    /// <summary>
+    /// Unbinds an action from all roles.
+    /// </summary>
+    public static void UnbindAll(ActionId action)
+    {
+        if (!s_ActionToRoles.TryGetValue(action, out var set) || set.Count == 0)
+        {
+            return;
+        }
+
+        s_SuppressRebuild = true;
+
+        foreach (var role in set)
+        {
+            if (s_RoleToActions.TryGetValue(role, out var list))
+            {
+                list.Remove(action);
+            }
+        }
+
+        s_ActionToRoles.Remove(action);
+        s_SuppressRebuild = false;
+
+        foreach (var role in s_RoleToActions.Keys)
+        {
+            RebuildCompiledActionsForRole(role);
+        }
+    }
+    /// <summary>
+    /// Gets the first role bound to an action or null.
+    /// </summary>
+    public static BasisBoneTrackedRole? GetBinding(ActionId action)
+    {
+        if (s_ActionToRoles.TryGetValue(action, out var set))
+        {
+            foreach (var r in set)
+            {
+                return r;
+            }
+        }
+
+        return null;
+    }
+    /// <summary>
+    /// Gets all roles bound to an action.
+    /// </summary>
+    public static IReadOnlyList<BasisBoneTrackedRole> GetBindings(ActionId action)
+    {
+        if (s_ActionToRoles.TryGetValue(action, out var set))
+        {
+            if (set.Count == 0)
+            {
+                return s_EmptyRoles;
+            }
+
+            var arr = new BasisBoneTrackedRole[set.Count];
+            var i = 0;
+
+            foreach (var r in set)
+            {
+                arr[i++] = r;
+            }
+
+            return arr;
+        }
+
+        return s_EmptyRoles;
+    }
+    /// <summary>
+    /// Gets all actions bound to a role.
+    /// </summary>
+    public static IReadOnlyList<ActionId> GetActionsForRole(BasisBoneTrackedRole role)
+    {
+        if (s_RoleToActions.TryGetValue(role, out var list))
+        {
+            return list;
+        }
+
+        return s_EmptyActions;
+    }
+    /// <summary>
+    /// Loads default bindings, then loads saved bindings if present, else saves defaults.
+    /// </summary>
+    public static async Task LoadBindings()
+    {
+        s_ActionToRoles.Clear();
+        s_RoleToActions.Clear();
+        s_RoleToCompiled.Clear();
+
+        s_SuppressRebuild = true;
+
+        Bind(ActionId.SetMovementSpeedMultiplierFromPrimary2DAxis, BasisBoneTrackedRole.LeftHand);
+        Bind(ActionId.SetMovementVectorFromPrimary2DAxis, BasisBoneTrackedRole.LeftHand);
+        Bind(ActionId.TickMovementSpeed, BasisBoneTrackedRole.LeftHand);
+        Bind(ActionId.ToggleHamburgerOnSecondaryRelease, BasisBoneTrackedRole.LeftHand);
+
+        Bind(ActionId.RotateFromPrimary2DAxis, BasisBoneTrackedRole.RightHand);
+        Bind(ActionId.JumpOnPrimaryButton, BasisBoneTrackedRole.RightHand);
+
+        if (BasisDeviceManagement.IsCurrentModeVR() == false)
+        {
+            Bind(ActionId.ToggleMicOnPrimaryReleaseIfNoHover, BasisBoneTrackedRole.CenterEye);
+        }
+        else
+        {
+            Bind(ActionId.ToggleMicOnPrimaryReleaseIfNoHover, BasisBoneTrackedRole.LeftHand);
+        }
+
+        s_SuppressRebuild = false;
+        RebuildAllCompiled();
+
+        if (File.Exists(SavePath))
+        {
+            await LoadApplyToDriverAsync();
+        }
+        else
+        {
+            await SaveFromDriver();
+        }
+    }
+    /// <summary>
+    /// Executes all compiled actions for a role given current and last input states.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void UpdatePlayerControl(BasisBoneTrackedRole trackedRole, ref BasisInputState CurrentInputState, ref BasisInputState LastInputState)
+    {
+        if (!s_RoleToCompiled.TryGetValue(trackedRole, out var compiled) || compiled.Length == 0)
+        {
+            return;
+        }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        for (int Index = 0; Index < compiled.Length; Index++)
+        {
+            var actionImpl = compiled[Index];
+
+            try
+            {
+                actionImpl(ref CurrentInputState, ref LastInputState);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex, BasisDebug.LogTag.Input);
+            }
+        }
+#else
+        for (int Index = 0; Index < compiled.Length; Index++)
+        {
+            compiled[Index](ref CurrentInputState, ref LastInputState);
+        }
+#endif
+    }
+    public delegate void InputAction(ref BasisInputState current, ref BasisInputState last);
+    /// <summary>
+    /// Sets movement speed multiplier from the dominant axis of the primary 2D input.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void SetMovementSpeedMultiplierFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
+    {
+        Vector2 axis = current.Primary2DAxis;
+        float largestValue = Mathf.Abs(axis.x) > Mathf.Abs(axis.y) ? axis.x : axis.y;
+        var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        controller.SetMovementSpeedMultiplier(largestValue);
+    }
+    /// <summary>
+    /// Sets the character movement vector from the primary 2D input.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void SetMovementVectorFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
+    {
+        var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        controller.SetMovementVector(current.Primary2DAxis);
+    }
+    /// <summary>
+    /// Updates the character movement speed.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void TickMovementSpeed(ref BasisInputState current, ref BasisInputState last)
+    {
+        var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        controller.UpdateMovementSpeed(true);
+    }
+    /// <summary>
+    /// Toggles the hamburger menu on secondary button release.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ToggleHamburgerOnSecondaryRelease(ref BasisInputState current, ref BasisInputState last)
+    {
+        if (current.SecondaryButtonGetState == false && last.SecondaryButtonGetState)
+        {
+            if (BasisHamburgerMenu.Instance == null)
+            {
+                BasisHamburgerMenu.OpenHamburgerMenuNow();
+            }
+            else
+            {
+                BasisHamburgerMenu.Instance.CloseThisMenu();
+            }
+        }
+    }
+    /// <summary>
+    /// Toggles the microphone pause state on primary button release when not hovering UI.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void ToggleMicOnPrimaryReleaseIfNoHover(ref BasisInputState current, ref BasisInputState last)
+    {
+        if (current.PrimaryButtonGetState == false && last.PrimaryButtonGetState)
+        {
+            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
+            {
+                BasisLocalMicrophoneDriver.ToggleIsPaused();
+            }
+        }
+    }
+    /// <summary>
+    /// Sets the character rotation from the primary 2D input.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void RotateFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
+    {
+        var driver = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        driver.Rotation = current.Primary2DAxis;
+    }
+    /// <summary>
+    /// Triggers the jump handler while the primary button is held.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void JumpOnPrimaryButton(ref BasisInputState current, ref BasisInputState last)
+    {
+        if (current.PrimaryButtonGetState)
+        {
+            BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
+        }
+    }
+
+    private static readonly InputAction[] s_ActionImplArray = new InputAction[(int)ActionId.Count]
+    {
+        SetMovementSpeedMultiplierFromPrimary2DAxis,   // 0
+        SetMovementVectorFromPrimary2DAxis,            // 1
+        TickMovementSpeed,                             // 2
+        ToggleHamburgerOnSecondaryRelease,             // 3
+        ToggleMicOnPrimaryReleaseIfNoHover,            // 4
+        RotateFromPrimary2DAxis,                       // 5
+        JumpOnPrimaryButton                            // 6
+    };
+
+    private static readonly Dictionary<ActionId, HashSet<BasisBoneTrackedRole>> s_ActionToRoles = new Dictionary<ActionId, HashSet<BasisBoneTrackedRole>>(capacity: 16);
+
+    private static readonly Dictionary<BasisBoneTrackedRole, List<ActionId>> s_RoleToActions = new Dictionary<BasisBoneTrackedRole, List<ActionId>>(capacity: 8);
+
+    private static readonly Dictionary<BasisBoneTrackedRole, InputAction[]> s_RoleToCompiled = new Dictionary<BasisBoneTrackedRole, InputAction[]>(capacity: 8);
+
+    private static readonly List<ActionId> s_EmptyActions = new List<ActionId>(0);
+    private static readonly List<BasisBoneTrackedRole> s_EmptyRoles = new List<BasisBoneTrackedRole>(0);
+    private static readonly InputAction[] s_EmptyImpls = Array.Empty<InputAction>();
+    private static bool s_SuppressRebuild;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void RebuildCompiledActionsForRole(BasisBoneTrackedRole role)
+    {
+        if (!s_RoleToActions.TryGetValue(role, out var list) || list == null || list.Count == 0)
+        {
+            s_RoleToCompiled[role] = s_EmptyImpls;
+            return;
+        }
+
+        int count = list.Count;
+        var compiled = new InputAction[count];
+
+        for (int Index = 0; Index < count; Index++)
+        {
+            var action = list[Index];
+            compiled[Index] = s_ActionImplArray[(int)action];
+        }
+
+        s_RoleToCompiled[role] = compiled;
+    }
+
+    private static void RebuildAllCompiled()
+    {
+        foreach (var kvp in s_RoleToActions)
+        {
+            RebuildCompiledActionsForRole(kvp.Key);
+        }
+    }
+
+    /// <summary>
+    /// Deletes the saved bindings file if it exists.
+    /// </summary>
+    public static void DeleteSaveFile()
+    {
+        if (!File.Exists(SavePath))
+        {
+            return;
+        }
+
+        try
+        {
+            File.Delete(SavePath);
+            BasisDebug.Log($"Bindings Deleted {SavePath}", BasisDebug.LogTag.Input);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Bindings Failed to delete save file: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Saves all current (action, role) bindings to disk.
+    /// </summary>
+    public static async Task SaveFromDriver()
+    {
+        List<BasisBindingRecord> list = new List<BasisBindingRecord>(32);
+
+        foreach (var pair in s_ActionToRoles)
+        {
+            ActionId action = pair.Key;
+
+            if (action != ActionId.Count)
+            {
+                foreach (var role in pair.Value)
+                {
+                    list.Add(new BasisBindingRecord
+                    {
+                        action = action.ToString(),
+                        role = role.ToString()
+                    });
+                }
+            }
+        }
+
+        BindingWrapper wrapper = new BindingWrapper { records = list.ToArray() };
+        await WriteWrapperToDisk(wrapper);
+    }
+
+    /// <summary>
+    /// Loads bindings from disk and applies them to the driver.
+    /// </summary>
+    public static async Task LoadApplyToDriverAsync()
+    {
+        if (!File.Exists(SavePath))
+        {
+            return;
+        }
+
+        BindingWrapper wrapper;
+
+        try
+        {
+            string json = await File.ReadAllTextAsync(SavePath);
+
+            if (string.IsNullOrEmpty(json))
+            {
+                return;
+            }
+
+            wrapper = JsonUtility.FromJson<BindingWrapper>(json);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Bindings Failed to read/parse bindings file: {ex.Message}", BasisDebug.LogTag.Input);
+            await SaveFromDriver();
+            return;
+        }
+
+        if (wrapper.records == null || wrapper.records.Length == 0)
+        {
+            return;
+        }
+
+        s_SuppressRebuild = true;
+
+        for (int Index = 0; Index < wrapper.records.Length; Index++)
+        {
+            var rec = wrapper.records[Index];
+
+            if (EnumTryParse(rec.action, out ActionId action) && EnumTryParse(rec.role, out BasisBoneTrackedRole role))
+            {
+                Bind(action, role);
+            }
+        }
+
+        s_SuppressRebuild = false;
+        RebuildAllCompiled();
+    }
+
+    private static async Task WriteWrapperToDisk(BindingWrapper wrapper)
+    {
+        string json = JsonUtility.ToJson(wrapper, prettyPrint: true);
+
+        try
+        {
+            string dir = Path.GetDirectoryName(SavePath);
+
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            await File.WriteAllTextAsync(SavePath, json);
+
+#if UNITY_EDITOR
+            BasisDebug.Log($"Bindings Saved {wrapper.records?.Length ?? 0} bindings to {SavePath}", BasisDebug.LogTag.Input);
+#endif
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Bindings Failed to save bindings to disk: {ex.Message}", BasisDebug.LogTag.Input);
+        }
+    }
+
+    private static bool EnumTryParse<TEnum>(string s, out TEnum value) where TEnum : struct
+    {
+#if UNITY_2021_2_OR_NEWER
+        return Enum.TryParse(s, true, out value);
+#else
+        try
+        {
+            value = (TEnum)Enum.Parse(typeof(TEnum), s, true);
+            return true;
+        }
+        catch
+        {
+            value = default;
+            return false;
+        }
+#endif
+    }
+
+    [Serializable]
+    public struct BasisBindingRecord
+    {
+        public string action;
+        public string role;
+    }
+
+    [Serializable]
+    public struct BindingWrapper
+    {
+        public BasisBindingRecord[] records;
+    }
+}

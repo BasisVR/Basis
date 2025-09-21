@@ -30,7 +30,7 @@ namespace Basis.Scripts.UI.UI_Panels
         public void OpenControllerConfig()
         {
             BasisUIManagement.CloseAllMenus();
-            OpenMenuNow("Assets/Prefabs/UI/BasisUIOffsetsManager.prefab");
+            OpenMenuNow("Packages/com.basis.sdk/Prefabs/UI/ControllerConfig.prefab");
         }
     }
 }

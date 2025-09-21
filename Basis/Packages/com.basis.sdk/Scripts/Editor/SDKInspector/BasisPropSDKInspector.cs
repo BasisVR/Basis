@@ -54,8 +54,11 @@ public class BasisPropSDKInspector : Editor
             return;
         }
         Texture2D Image = AssetPreview.GetAssetPreview(BasisProp.gameObject);
-        byte[] ImageBytes = BasisTextureCompression.ToPngBytes(Image);
-
+        byte[] ImageBytes = null;
+        if (Image != null)
+        {
+            ImageBytes = BasisTextureCompression.ToPngBytes(Image);
+        }
         Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
         (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets);
         EditorUtility.ClearProgressBar();

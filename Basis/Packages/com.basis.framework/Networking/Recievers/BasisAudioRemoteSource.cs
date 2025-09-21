@@ -1,4 +1,3 @@
-using Basis.Scripts.Device_Management;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 namespace Basis.Scripts.Networking.Receivers
@@ -17,9 +16,9 @@ namespace Basis.Scripts.Networking.Receivers
         {
             Loadable.Release();
         }
-        public static GameObject RequestAudio()
+        public static GameObject RequestAudio(Transform Parent)
         {
-            GameObject Object = GameObject.Instantiate(LoadableAudioSource, BasisDeviceManagement.Instance.transform);
+            GameObject Object = GameObject.Instantiate(LoadableAudioSource, Parent);
             return Object;
         }
         public static void Return(GameObject obj)
