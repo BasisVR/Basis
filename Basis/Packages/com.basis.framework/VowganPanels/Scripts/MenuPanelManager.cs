@@ -30,7 +30,7 @@ namespace Basis.VowganUI
                 HomeRowAsset = Addressables.LoadAssetAsync<PanelDataObject>(REFERENCE_HOME_ROW).WaitForCompletion();
             }
             HomeRowInstance = MenuPanelGroup.CreateNew();
-            HomeRowInstance.CreatePanelInGroup(HomeRowAsset.Data);
+            HomeRowInstance.CreatePanelInGroup(HomeRowAsset.Data, true);
         }
     }
 }

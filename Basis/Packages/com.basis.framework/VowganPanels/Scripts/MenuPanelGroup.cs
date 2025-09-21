@@ -18,7 +18,7 @@ namespace Basis.VowganUI
         [SerializeField] private float _creationMargin = 64;
 
         [Header("Readout")]
-        [SerializeField] private MenuPanel _activePanel;
+        [SerializeField] private MenuPanel _focusedPanel;
         [SerializeField] private List<MenuPanel> _allPanels;
 
 
@@ -46,40 +46,46 @@ namespace Basis.VowganUI
         [ContextMenu("DEMO: Create Panel")]
         private void DemoCreatePanel()
         {
-            CreatePanelInGroup(_demoData);
+            CreatePanelInGroup(_demoData, true);
+        }
+
+        [ContextMenu("DEMO: Create Panel, No Focus")]
+        private void DemoCreatePanelNoFocus()
+        {
+            CreatePanelInGroup(_demoData, false);
         }
 
         /// <summary>
         /// Instantiate a new panel within this group with the given data.
         /// </summary>
-        public void CreatePanelInGroup(PanelData data)
+        public void CreatePanelInGroup(PanelData data, bool focusNewPanel)
         {
             MenuPanel panel = MenuPanel.CreateNew(data, _groupRoot);
             panel.OnRelease += OnPanelReleased;
 
-            if (_activePanel)
+            if (_focusedPanel)
             {
-                panel.PlaceRelativeToParent(_activePanel, _demoDirection, _creationMargin);
+                panel.PlaceRelativeToParent(_focusedPanel, _demoDirection, _creationMargin);
             }
 
             _allPanels.Add(panel);
-            SetActivePanel(panel);
+            if (focusNewPanel) SetFocusedPanel(panel);
         }
 
         [ContextMenu("DEMO: Remove Panel")]
         private void DemoRemovePanel()
         {
-            _allPanels.Remove(_activePanel);
-            _activePanel.Release();
-            _activePanel = null;
+            _allPanels.Remove(_focusedPanel);
+            _focusedPanel.Release();
+            _focusedPanel = null;
         }
 
         /// <summary>
         /// Select and focus the given panel.
         /// </summary>
-        public void SetActivePanel(MenuPanel panel)
+        public void SetFocusedPanel(MenuPanel panel)
         {
-            _activePanel = panel;
+            _focusedPanel = panel;
 
             Vector3 target = _groupOffset.position;
             Vector3 delta = target - panel.transform.position;
@@ -89,8 +95,8 @@ namespace Basis.VowganUI
         private void OnPanelReleased(MenuPanel panel)
         {
             _allPanels.Remove(panel);
-            if (panel == _activePanel && panel.Parent)
-                SetActivePanel(panel.Parent);
+            if (panel == _focusedPanel && panel.Parent)
+                SetFocusedPanel(panel.Parent);
         }
 
         /// <summary>
