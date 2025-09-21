@@ -18,7 +18,6 @@ namespace Basis.VowganUI
 
         [Header("References")]
         [SerializeField] private RectTransform _selfTransform;
-        [SerializeField] private RectTransform _canvasTransform;
 
         [Header("Readout")]
         [SerializeField] private PanelData _data;
@@ -46,15 +45,17 @@ namespace Basis.VowganUI
             gameObject.name = data.Name;
             transform.localScale = Vector3.one * _data.Scale;
 
-            _canvasTransform.sizeDelta = data.PanelSize;
-            BasisGraphicUIRayCaster.SetBoxColliderToRectTransform(_canvasTransform.gameObject);
+            _selfTransform.sizeDelta = data.PanelSize;
+            BasisGraphicUIRayCaster.SetBoxColliderToRectTransform(gameObject);
         }
 
         /// <summary>
         /// Release this addressable instance and destroy the GameObject.
         /// </summary>
         [ContextMenu("Release Panel")]
-        public void Release(bool ignoreCallback = false)
+        public void Release() => Release(false);
+
+        public void Release(bool ignoreCallback)
         {
             foreach (MenuPanel child in _childPanels)
                 if (child)

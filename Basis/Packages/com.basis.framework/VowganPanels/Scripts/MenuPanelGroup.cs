@@ -9,7 +9,9 @@ namespace Basis.VowganUI
         public const string REFERENCE_GROUP = "PanelElement/PanelGroup";
 
         [Header("References")]
+        [Tooltip("Offsets from the current tracking mode.")]
         [SerializeField] private Transform _groupOffset;
+        [Tooltip("Used to move all child panels for focusing a specific panel.")]
         [SerializeField] private Transform _groupRoot;
 
         [Header("Settings")]

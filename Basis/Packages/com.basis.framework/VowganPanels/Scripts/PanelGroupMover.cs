@@ -50,7 +50,8 @@ namespace Basis.VowganUI
         public Vector3 Position;
         public Quaternion Rotation;
 
-        private bool _hasLocalPlayerCreationEvent;
+        private bool _hasLocalCreationEvent;
+        private bool _hasLocalMoveEvent;
 
         private void Start()
         {
@@ -61,26 +62,27 @@ namespace Basis.VowganUI
             else
             {
                 BasisLocalPlayer.OnLocalPlayerCreated += OnLocalPlayerCreated;
-                _hasLocalPlayerCreationEvent = true;
+                _hasLocalCreationEvent = true;
             }
+
+            ApplyOffset();
         }
 
         private void OnDestroy()
         {
-            // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
-            BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
             BasisLocalPlayer.Instance.OnAvatarSwitched -= ApplyOffset;
 
-            if (_hasLocalPlayerCreationEvent)
+            if (_hasLocalCreationEvent)
                 BasisLocalPlayer.OnLocalPlayerCreated -= OnLocalPlayerCreated;
+
+            // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
+            if(_hasLocalMoveEvent)
+                BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
         }
 
         private void OnLocalPlayerCreated()
         {
-            // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
-            BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUILocation);
             BasisLocalPlayer.Instance.OnAvatarSwitched += ApplyOffset;
-
             SetRootMode(BasisDeviceManagement.IsUserInDesktop() ? DesktopRootMode : RootMode);
         }
 
@@ -119,27 +121,55 @@ namespace Basis.VowganUI
             ApplyOffset();
         }
 
+        /// <summary>
+        /// Apply the offset for the Current Root Mode.
+        /// This also subscribes to the player's movement callback if needed.
+        /// </summary>
         private void ApplyOffset()
         {
             switch (CurrentRootMode)
             {
                 case PanelRootMode.World:
+                    SetMovementCallback(false);
                     SetRootOffset(WorldOffset);
                     break;
                 case PanelRootMode.Playspace:
+                    SetMovementCallback(true);
                     SetRootOffset(PlayspaceOffset);
                     break;
                 case PanelRootMode.Head:
+                    SetMovementCallback(true);
                     SetRootOffset(HeadOffset);
                     break;
                 case PanelRootMode.LeftHand:
+                    SetMovementCallback(true);
                     SetRootOffset(LeftHandOffset);
                     break;
                 case PanelRootMode.RightHand:
+                    SetMovementCallback(true);
                     SetRootOffset(RightHandOffset);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        private void SetMovementCallback(bool value)
+        {
+            if (value != _hasLocalMoveEvent)
+            {
+                if (value)
+                {
+                    // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
+                    BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUILocation);
+                }
+                else
+                {
+                    // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
+                    BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
+                }
+
+                _hasLocalMoveEvent = value;
             }
         }
 
