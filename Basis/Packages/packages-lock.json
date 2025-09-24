@@ -121,7 +121,7 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.hecomi.ulipsync": {
+    "com.hecomi.basisulipsync": {
       "version": "file:com.hecomi.ulipsync",
       "depth": 0,
       "source": "embedded",

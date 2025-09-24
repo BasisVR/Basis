@@ -10,7 +10,7 @@ public class JiggleUpdateExample : MonoBehaviour {
 
     private void LateUpdate() {
         var time = Time.timeAsDouble;
-            double fixedTime = Time.fixedTimeAsDouble;
+        var fixedTime = Time.fixedTimeAsDouble;
 
         JigglePhysics.ScheduleSimulate(fixedTime, time, Time.fixedDeltaTime);
         

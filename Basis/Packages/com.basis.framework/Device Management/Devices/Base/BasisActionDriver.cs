@@ -16,9 +16,21 @@ using UnityEngine;
 /// </summary>
 public static class BasisActionDriver
 {
+    /// <summary>
+    /// File name used to persist bindings to disk.
+    /// </summary>
     public const string FileName = "BasisActionBindingsV1.json";
+
+    /// <summary>
+    /// Folder within <see cref="Application.persistentDataPath"/> where bindings are saved.
+    /// </summary>
     public const string FolderPath = "BasisActions";
+
+    /// <summary>
+    /// Full path to the current-mode bindings file.
+    /// </summary>
     public static string SavePath => Path.Combine(Application.persistentDataPath, FolderPath, BasisDeviceManagement.StaticCurrentMode, FileName);
+
     /// <summary>
     /// True if a bindings file exists on disk.
     /// </summary>
@@ -29,30 +41,64 @@ public static class BasisActionDriver
             return File.Exists(SavePath);
         }
     }
+
     /// <summary>
     /// Identifiers for executable input actions.
     /// </summary>
     public enum ActionId
     {
         // Movement
+
+        /// <summary>
+        /// Sets the movement speed multiplier from the dominant axis of the primary 2D input.
+        /// </summary>
         SetMovementSpeedMultiplierFromPrimary2DAxis = 0,
+
+        /// <summary>
+        /// Sets the movement vector from the primary 2D input.
+        /// </summary>
         SetMovementVectorFromPrimary2DAxis = 1,
+
+        /// <summary>
+        /// Updates the character movement speed each frame.
+        /// </summary>
         TickMovementSpeed = 2,
 
         // UI / System
+
+        /// <summary>
+        /// Toggles the hamburger menu when the secondary button is released.
+        /// </summary>
         ToggleHamburgerOnSecondaryRelease = 3,
+
+        /// <summary>
+        /// Toggles microphone pause when the primary button is released and no UI hover is present.
+        /// </summary>
         ToggleMicOnPrimaryReleaseIfNoHover = 4,
 
         // Camera/Character orientation & locomotion
+
+        /// <summary>
+        /// Rotates the character from the primary 2D input.
+        /// </summary>
         RotateFromPrimary2DAxis = 5,
+
+        /// <summary>
+        /// Triggers jump while the primary button is held.
+        /// </summary>
         JumpOnPrimaryButton = 6,
 
-        // Keep this as the last entry for sizing arrays.
+        /// <summary>
+        /// Keep this as the last entry for sizing arrays.
+        /// </summary>
         Count = 7
     }
+
     /// <summary>
     /// Binds an action to a role. Duplicate binds are ignored.
     /// </summary>
+    /// <param name="action">The action to bind.</param>
+    /// <param name="role">The tracked role that will execute the action.</param>
     public static void Bind(ActionId action, BasisBoneTrackedRole role)
     {
         if (!s_RoleToActions.TryGetValue(role, out var actionsForRole))
@@ -81,9 +127,12 @@ public static class BasisActionDriver
             rolesForAction.Add(role);
         }
     }
+
     /// <summary>
     /// Unbinds an action from a specific role.
     /// </summary>
+    /// <param name="action">The action to unbind.</param>
+    /// <param name="role">The role to remove the binding from.</param>
     public static void Unbind(ActionId action, BasisBoneTrackedRole role)
     {
         if (s_RoleToActions.TryGetValue(role, out var list))
@@ -106,9 +155,11 @@ public static class BasisActionDriver
             }
         }
     }
+
     /// <summary>
     /// Unbinds an action from all roles.
     /// </summary>
+    /// <param name="action">The action to remove from all roles.</param>
     public static void UnbindAll(ActionId action)
     {
         if (!s_ActionToRoles.TryGetValue(action, out var set) || set.Count == 0)
@@ -134,9 +185,12 @@ public static class BasisActionDriver
             RebuildCompiledActionsForRole(role);
         }
     }
+
     /// <summary>
-    /// Gets the first role bound to an action or null.
+    /// Gets the first role bound to an action or <c>null</c> if none.
     /// </summary>
+    /// <param name="action">The action to query.</param>
+    /// <returns>The first role if any; otherwise <c>null</c>.</returns>
     public static BasisBoneTrackedRole? GetBinding(ActionId action)
     {
         if (s_ActionToRoles.TryGetValue(action, out var set))
@@ -149,9 +203,12 @@ public static class BasisActionDriver
 
         return null;
     }
+
     /// <summary>
     /// Gets all roles bound to an action.
     /// </summary>
+    /// <param name="action">The action to query.</param>
+    /// <returns>A read-only list of roles (may be empty).</returns>
     public static IReadOnlyList<BasisBoneTrackedRole> GetBindings(ActionId action)
     {
         if (s_ActionToRoles.TryGetValue(action, out var set))
@@ -174,9 +231,12 @@ public static class BasisActionDriver
 
         return s_EmptyRoles;
     }
+
     /// <summary>
-    /// Gets all actions bound to a role.
+    /// Gets all actions currently bound to a role.
     /// </summary>
+    /// <param name="role">The role to query.</param>
+    /// <returns>A read-only list of actions (may be empty).</returns>
     public static IReadOnlyList<ActionId> GetActionsForRole(BasisBoneTrackedRole role)
     {
         if (s_RoleToActions.TryGetValue(role, out var list))
@@ -186,8 +246,9 @@ public static class BasisActionDriver
 
         return s_EmptyActions;
     }
+
     /// <summary>
-    /// Loads default bindings, then loads saved bindings if present, else saves defaults.
+    /// Loads default bindings, then loads saved bindings if present; otherwise saves defaults.
     /// </summary>
     public static async Task LoadBindings()
     {
@@ -226,9 +287,13 @@ public static class BasisActionDriver
             await SaveFromDriver();
         }
     }
+
     /// <summary>
     /// Executes all compiled actions for a role given current and last input states.
     /// </summary>
+    /// <param name="trackedRole">The role whose actions will be executed.</param>
+    /// <param name="CurrentInputState">Current input snapshot.</param>
+    /// <param name="LastInputState">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void UpdatePlayerControl(BasisBoneTrackedRole trackedRole, ref BasisInputState CurrentInputState, ref BasisInputState LastInputState)
     {
@@ -257,10 +322,19 @@ public static class BasisActionDriver
         }
 #endif
     }
+
+    /// <summary>
+    /// Delegate signature for compiled input actions.
+    /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     public delegate void InputAction(ref BasisInputState current, ref BasisInputState last);
+
     /// <summary>
     /// Sets movement speed multiplier from the dominant axis of the primary 2D input.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetMovementSpeedMultiplierFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
@@ -269,27 +343,36 @@ public static class BasisActionDriver
         var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
         controller.SetMovementSpeedMultiplier(largestValue);
     }
+
     /// <summary>
     /// Sets the character movement vector from the primary 2D input.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetMovementVectorFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
         var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
         controller.SetMovementVector(current.Primary2DAxis);
     }
+
     /// <summary>
     /// Updates the character movement speed.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void TickMovementSpeed(ref BasisInputState current, ref BasisInputState last)
     {
         var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
         controller.UpdateMovementSpeed(true);
     }
+
     /// <summary>
     /// Toggles the hamburger menu on secondary button release.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ToggleHamburgerOnSecondaryRelease(ref BasisInputState current, ref BasisInputState last)
     {
@@ -305,9 +388,12 @@ public static class BasisActionDriver
             }
         }
     }
+
     /// <summary>
     /// Toggles the microphone pause state on primary button release when not hovering UI.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ToggleMicOnPrimaryReleaseIfNoHover(ref BasisInputState current, ref BasisInputState last)
     {
@@ -319,18 +405,24 @@ public static class BasisActionDriver
             }
         }
     }
+
     /// <summary>
     /// Sets the character rotation from the primary 2D input.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void RotateFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
         var driver = BasisLocalPlayer.Instance.LocalCharacterDriver;
         driver.Rotation = current.Primary2DAxis;
     }
+
     /// <summary>
     /// Triggers the jump handler while the primary button is held.
     /// </summary>
+    /// <param name="current">Current input snapshot.</param>
+    /// <param name="last">Previous input snapshot.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void JumpOnPrimaryButton(ref BasisInputState current, ref BasisInputState last)
     {
@@ -352,9 +444,7 @@ public static class BasisActionDriver
     };
 
     private static readonly Dictionary<ActionId, HashSet<BasisBoneTrackedRole>> s_ActionToRoles = new Dictionary<ActionId, HashSet<BasisBoneTrackedRole>>(capacity: 16);
-
     private static readonly Dictionary<BasisBoneTrackedRole, List<ActionId>> s_RoleToActions = new Dictionary<BasisBoneTrackedRole, List<ActionId>>(capacity: 8);
-
     private static readonly Dictionary<BasisBoneTrackedRole, InputAction[]> s_RoleToCompiled = new Dictionary<BasisBoneTrackedRole, InputAction[]>(capacity: 8);
 
     private static readonly List<ActionId> s_EmptyActions = new List<ActionId>(0);
@@ -362,6 +452,10 @@ public static class BasisActionDriver
     private static readonly InputAction[] s_EmptyImpls = Array.Empty<InputAction>();
     private static bool s_SuppressRebuild;
 
+    /// <summary>
+    /// Rebuilds and caches the compiled action delegate array for a single role.
+    /// </summary>
+    /// <param name="role">The role to rebuild for.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void RebuildCompiledActionsForRole(BasisBoneTrackedRole role)
     {
@@ -383,6 +477,9 @@ public static class BasisActionDriver
         s_RoleToCompiled[role] = compiled;
     }
 
+    /// <summary>
+    /// Rebuilds and caches compiled action delegates for all roles.
+    /// </summary>
     private static void RebuildAllCompiled()
     {
         foreach (var kvp in s_RoleToActions)
@@ -491,6 +588,10 @@ public static class BasisActionDriver
         RebuildAllCompiled();
     }
 
+    /// <summary>
+    /// Writes the wrapper to disk as JSON.
+    /// </summary>
+    /// <param name="wrapper">The container of binding records.</param>
     private static async Task WriteWrapperToDisk(BindingWrapper wrapper)
     {
         string json = JsonUtility.ToJson(wrapper, prettyPrint: true);
@@ -515,6 +616,13 @@ public static class BasisActionDriver
         }
     }
 
+    /// <summary>
+    /// Tries to parse an enum value from a string in a Unity and version-friendly way.
+    /// </summary>
+    /// <typeparam name="TEnum">Enum type to parse.</typeparam>
+    /// <param name="s">Input string.</param>
+    /// <param name="value">Parsed enum value on success; default on failure.</param>
+    /// <returns><c>true</c> if parsed; otherwise <c>false</c>.</returns>
     private static bool EnumTryParse<TEnum>(string s, out TEnum value) where TEnum : struct
     {
 #if UNITY_2021_2_OR_NEWER
@@ -533,16 +641,32 @@ public static class BasisActionDriver
 #endif
     }
 
+    /// <summary>
+    /// Serializable record describing a single (action, role) binding.
+    /// </summary>
     [Serializable]
     public struct BasisBindingRecord
     {
+        /// <summary>
+        /// Action identifier (string form of <see cref="ActionId"/>).
+        /// </summary>
         public string action;
+
+        /// <summary>
+        /// Role identifier (string form of <see cref="BasisBoneTrackedRole"/>).
+        /// </summary>
         public string role;
     }
 
+    /// <summary>
+    /// Serializable wrapper used for JSON persistence of bindings.
+    /// </summary>
     [Serializable]
     public struct BindingWrapper
     {
+        /// <summary>
+        /// Array of (action, role) binding records.
+        /// </summary>
         public BasisBindingRecord[] records;
     }
 }

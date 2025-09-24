@@ -169,9 +169,6 @@ namespace SteamAudio
 
         public static SteamAudioListener GetSteamAudioListener()
         {
-            if (sSingleton.mListenerComponent == null)
-                return null;
-
             return sSingleton.mListenerComponent;
         }
 

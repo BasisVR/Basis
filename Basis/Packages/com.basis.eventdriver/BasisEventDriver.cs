@@ -87,7 +87,7 @@ public class BasisEventDriver : MonoBehaviour
         BasisDeviceManagement.OnDeviceManagementLoop?.Invoke();
         if (BasisLocalEyeDriver.RequiresUpdate())
         {
-            BasisLocalEyeDriver.Instance.Simulate();
+            BasisLocalEyeDriver.Instance.Simulate(DeltaTime);
         }
         if (BasisLocalPlayer.PlayerReady)
         {

@@ -8,61 +8,122 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
+
+/// <summary>
+/// Drives per-finger poses for both hands by sampling a 2D pose atlas (thumb/index style percentages),
+/// finding the nearest baked pose on a grid via Burst jobs, and smoothly blending toward it.
+/// </summary>
 [DefaultExecutionOrder(15001)]
 [System.Serializable]
 public class BasisLocalHandDriver
 {
+    /// <summary>Desired left-hand finger percentages (inputs).</summary>
     [SerializeField]
     public BasisFingerPose LeftHand;
+
+    /// <summary>Desired right-hand finger percentages (inputs).</summary>
     [SerializeField]
     public BasisFingerPose RightHand;
 
+    /// <summary>Current baked/buffered finger pose (last recorded result).</summary>
     [SerializeField]
     public BasisPoseData Current;
+
+    /// <summary>Grid step size for generating the 2D pose atlas (X,Y in [-1..1]).</summary>
     public const float increment = 0.1f;
 
+    // --- Muscle arrays captured from TPose (Unity HumanPose muscle indices) ---
+
+    /// <summary>Left thumb muscle quartet (start at 55).</summary>
     public float[] LeftThumb;
+    /// <summary>Left index muscle quartet.</summary>
     public float[] LeftIndex;
+    /// <summary>Left middle muscle quartet.</summary>
     public float[] LeftMiddle;
+    /// <summary>Left ring muscle quartet.</summary>
     public float[] LeftRing;
+    /// <summary>Left little muscle quartet.</summary>
     public float[] LeftLittle;
 
+    /// <summary>Right thumb muscle quartet (start at 75).</summary>
     public float[] RightThumb;
+    /// <summary>Right index muscle quartet.</summary>
     public float[] RightIndex;
+    /// <summary>Right middle muscle quartet.</summary>
     public float[] RightMiddle;
+    /// <summary>Right ring muscle quartet.</summary>
     public float[] RightRing;
+    /// <summary>Right little muscle quartet.</summary>
     public float[] RightLittle;
 
+    // --- Last requested percentages (used to avoid redundant nearest-neighbor queries) ---
+
+    /// <summary>Last applied left thumb percentages.</summary>
     public Vector2 LastLeftThumbPercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied left index percentages.</summary>
     public Vector2 LastLeftIndexPercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied left middle percentages.</summary>
     public Vector2 LastLeftMiddlePercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied left ring percentages.</summary>
     public Vector2 LastLeftRingPercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied left little percentages.</summary>
     public Vector2 LastLeftLittlePercentage = new Vector2(-1.1f, -1.1f);
 
+    /// <summary>Last applied right thumb percentages.</summary>
     public Vector2 LastRightThumbPercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied right index percentages.</summary>
     public Vector2 LastRightIndexPercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied right middle percentages.</summary>
     public Vector2 LastRightMiddlePercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied right ring percentages.</summary>
     public Vector2 LastRightRingPercentage = new Vector2(-1.1f, -1.1f);
+    /// <summary>Last applied right little percentages.</summary>
     public Vector2 LastRightLittlePercentage = new Vector2(-1.1f, -1.1f);
 
+    /// <summary>Lookup from 2D coordinate to precomputed pose data.</summary>
     public Dictionary<Vector2, BasisPoseDataAdditional> CoordToPose = new Dictionary<Vector2, BasisPoseDataAdditional>();
+
+    /// <summary>Resolved pose for current left thumb target.</summary>
     public BasisPoseDataAdditional LeftThumbAdditional;
+    /// <summary>Resolved pose for current left index target.</summary>
     public BasisPoseDataAdditional LeftIndexAdditional;
+    /// <summary>Resolved pose for current left middle target.</summary>
     public BasisPoseDataAdditional LeftMiddleAdditional;
+    /// <summary>Resolved pose for current left ring target.</summary>
     public BasisPoseDataAdditional LeftRingAdditional;
+    /// <summary>Resolved pose for current left little target.</summary>
     public BasisPoseDataAdditional LeftLittleAdditional;
 
+    /// <summary>Resolved pose for current right thumb target.</summary>
     public BasisPoseDataAdditional RightThumbAdditional;
+    /// <summary>Resolved pose for current right index target.</summary>
     public BasisPoseDataAdditional RightIndexAdditional;
+    /// <summary>Resolved pose for current right middle target.</summary>
     public BasisPoseDataAdditional RightMiddleAdditional;
+    /// <summary>Resolved pose for current right ring target.</summary>
     public BasisPoseDataAdditional RightRingAdditional;
+    /// <summary>Resolved pose for current right little target.</summary>
     public BasisPoseDataAdditional RightLittleAdditional;
 
+    // --- Burst job scratch ---
+
+    /// <summary>Flattened atlas coordinates for nearest-neighbor search (persistent).</summary>
     public NativeArray<Vector2> CoordKeysArray;
+    /// <summary>Per-key distances to target (temp per query).</summary>
     public NativeArray<float> DistancesArray;
+    /// <summary>Single-element array storing the index of the min distance.</summary>
     public NativeArray<int> closestIndexArray;
+
+    /// <summary>Slerp speed for blending current → target finger rotations.</summary>
     public float LerpSpeed = 22F;
+
+    /// <summary>All generated 2D coordinates used to bake poses.</summary>
     public Vector2[] Poses;
+
+    /// <summary>
+    /// Disposes persistent NativeArrays used by the nearest-neighbor jobs.
+    /// Safe to call multiple times.
+    /// </summary>
     public void Dispose()
     {
         // Dispose NativeArrays if allocated
@@ -79,11 +140,17 @@ public class BasisLocalHandDriver
             closestIndexArray.Dispose();
         }
     }
+
+    /// <summary>
+    /// Generates a square grid of 2D pose coordinates in [-1,1] with spacing <see cref="increment"/>,
+    /// builds persistent arrays for Burst distance/min reductions.
+    /// </summary>
     public void Initialize()
     {
         Dispose();
-        float epsilon = 0.05f; // Adjust this value for approximate closeness
+        float epsilon = 0.05f; // approximate-duplicate guard
         List<Vector2> points = new List<Vector2>();
+
         bool IsApproximateDuplicate(Vector2 newCoord)
         {
             foreach (var existingCoord in points)
@@ -102,12 +169,13 @@ public class BasisLocalHandDriver
                 points.Add(poseData);
             }
         }
-        // Define the corners
+
+        // Grid over the square with given increment
         Vector2 TopLeft = new Vector2(-1f, 1f);
         Vector2 TopRight = new Vector2(1f, 1f);
         Vector2 BottomLeft = new Vector2(-1f, -1f);
         Vector2 BottomRight = new Vector2(1f, -1f);
-        // Loop through the square grid using the increment
+
         for (float x = BottomLeft.x; x <= BottomRight.x; x += increment)
         {
             for (float y = BottomLeft.y; y <= TopLeft.y; y += increment)
@@ -116,17 +184,22 @@ public class BasisLocalHandDriver
             }
         }
 
-        // Ensure corners are included exactly
-        AddPose(TopLeft);
-        AddPose(TopRight);
-        AddPose(BottomLeft);
-        AddPose(BottomRight);
+        // Ensure corners exist exactly
+        AddPose(TopLeft); AddPose(TopRight); AddPose(BottomLeft); AddPose(BottomRight);
+
         Poses = points.ToArray();
-        // Initialize and set up arrays
+
+        // Persistent arrays for jobs
         CoordKeysArray = new NativeArray<Vector2>(Poses, Allocator.Persistent);
         closestIndexArray = new NativeArray<int>(1, Allocator.Persistent);
         DistancesArray = new NativeArray<float>(Poses.Length, Allocator.Persistent);
     }
+
+    /// <summary>
+    /// Rebuilds pose atlas by sampling Unity HumanPose muscles on a hidden duplicate of the provided animator.
+    /// Captures TPose finger muscle blocks, bakes poses for every coordinate, and fills <see cref="CoordToPose"/>.
+    /// </summary>
+    /// <param name="OriginalAnimator">Source animator with humanoid avatar to sample.</param>
     public void ReInitialize(Animator OriginalAnimator)
     {
         BasisTransformMapping Mapping = new BasisTransformMapping();
@@ -142,47 +215,41 @@ public class BasisLocalHandDriver
             GameObject.Destroy(CopyOfOrigionally);
             return;
         }
-        //safely does it
-        // Aggregate data for all fingers
+
+        // Aggregate all finger transforms & masks
         Transform[] allTransforms = AggregateFingerTransforms(Mapping.LeftThumb, Mapping.LeftIndex, Mapping.LeftMiddle, Mapping.LeftRing, Mapping.LeftLittle, Mapping.RightThumb, Mapping.RightIndex, Mapping.RightMiddle, Mapping.RightRing, Mapping.RightLittle);
         bool[] allHasProximal = AggregateHasProximal(Mapping.HasLeftThumb, Mapping.HasLeftIndex, Mapping.HasLeftMiddle, Mapping.HasLeftRing, Mapping.HasLeftLittle, Mapping.HasRightThumb, Mapping.HasRightIndex, Mapping.HasRightMiddle, Mapping.HasRightRing, Mapping.HasRightLittle);
-        // Initialize the HumanPoseHandler with the animator's avatar and transform
+
+        // Get TPose muscles
         HumanPoseHandler poseHandler = new HumanPoseHandler(Animator.avatar, Animator.transform);
-        // Initialize the HumanPose
         HumanPose Tpose = new HumanPose();
-        // Get the current human pose
         poseHandler.GetHumanPose(ref Tpose);
-        // Assign muscle indices to each finger array using Array.Copy
-        LeftThumb = new float[4];
-        System.Array.Copy(Tpose.muscles, 55, LeftThumb, 0, 4);
-        LeftIndex = new float[4];
-        System.Array.Copy(Tpose.muscles, 59, LeftIndex, 0, 4);
-        LeftMiddle = new float[4];
-        System.Array.Copy(Tpose.muscles, 63, LeftMiddle, 0, 4);
-        LeftRing = new float[4];
-        System.Array.Copy(Tpose.muscles, 67, LeftRing, 0, 4);
-        LeftLittle = new float[4];
-        System.Array.Copy(Tpose.muscles, 71, LeftLittle, 0, 4);
 
-        RightThumb = new float[4];
-        System.Array.Copy(Tpose.muscles, 75, RightThumb, 0, 4);
-        RightIndex = new float[4];
-        System.Array.Copy(Tpose.muscles, 79, RightIndex, 0, 4);
-        RightMiddle = new float[4];
-        System.Array.Copy(Tpose.muscles, 83, RightMiddle, 0, 4);
-        RightRing = new float[4];
-        System.Array.Copy(Tpose.muscles, 87, RightRing, 0, 4);
-        RightLittle = new float[4];
-        System.Array.Copy(Tpose.muscles, 91, RightLittle, 0, 4);
+        // Capture muscle blocks (left: 55.., right: 75..)
+        LeftThumb = new float[4]; Array.Copy(Tpose.muscles, 55, LeftThumb, 0, 4);
+        LeftIndex = new float[4]; Array.Copy(Tpose.muscles, 59, LeftIndex, 0, 4);
+        LeftMiddle = new float[4]; Array.Copy(Tpose.muscles, 63, LeftMiddle, 0, 4);
+        LeftRing = new float[4]; Array.Copy(Tpose.muscles, 67, LeftRing, 0, 4);
+        LeftLittle = new float[4]; Array.Copy(Tpose.muscles, 71, LeftLittle, 0, 4);
 
+        RightThumb = new float[4]; Array.Copy(Tpose.muscles, 75, RightThumb, 0, 4);
+        RightIndex = new float[4]; Array.Copy(Tpose.muscles, 79, RightIndex, 0, 4);
+        RightMiddle = new float[4]; Array.Copy(Tpose.muscles, 83, RightMiddle, 0, 4);
+        RightRing = new float[4]; Array.Copy(Tpose.muscles, 87, RightRing, 0, 4);
+        RightLittle = new float[4]; Array.Copy(Tpose.muscles, 91, RightLittle, 0, 4);
+
+        // Record current (TPose) for baseline
         Current = RecordCurrentPose(allTransforms, allHasProximal);
+
         CoordToPose.Clear();
 
+        // Bake all coordinates → pose data
         int length = Poses.Length;
         for (int Index = 0; Index < length; Index++)
         {
             AddPose(Poses[Index]);
         }
+
         void AddPose(Vector2 coord)
         {
             BasisPoseDataAdditional poseAdd = new BasisPoseDataAdditional
@@ -192,10 +259,18 @@ public class BasisLocalHandDriver
             };
             CoordToPose.TryAdd(poseAdd.Coord, poseAdd);
         }
+
         GameObject.Destroy(CopyOfOrigionally);
     }
+
+    /// <summary>
+    /// Updates finger targets from current input percentages, finds nearest baked pose per finger via Burst,
+    /// and blends transforms toward the new targets.
+    /// </summary>
+    /// <param name="DeltaTime">Frame delta time (seconds).</param>
     public void UpdateFingers(float DeltaTime)
     {
+        // Find nearest baked pose using two-stage job: distance + min reduction
         bool GetClosestValue(Vector2 percentage, out BasisPoseDataAdditional result)
         {
             BasisFindClosestPointJob distanceJob = new BasisFindClosestPointJob
@@ -221,6 +296,7 @@ public class BasisLocalHandDriver
             return CoordToPose.TryGetValue(CoordKeysArray[closestIndex], out result);
         }
 
+        // Cache/avoid duplicate queries
         void TryUpdateFingerPose(ref Vector2 currentValue, Vector2 newValue, ref BasisPoseDataAdditional additional)
         {
             if (currentValue != newValue && GetClosestValue(newValue, out var result))
@@ -230,36 +306,47 @@ public class BasisLocalHandDriver
             }
         }
 
-        // Update Left Hand finger poses
+        // Left hand
         TryUpdateFingerPose(ref LastLeftThumbPercentage, LeftHand.ThumbPercentage, ref LeftThumbAdditional);
         TryUpdateFingerPose(ref LastLeftIndexPercentage, LeftHand.IndexPercentage, ref LeftIndexAdditional);
         TryUpdateFingerPose(ref LastLeftMiddlePercentage, LeftHand.MiddlePercentage, ref LeftMiddleAdditional);
         TryUpdateFingerPose(ref LastLeftRingPercentage, LeftHand.RingPercentage, ref LeftRingAdditional);
         TryUpdateFingerPose(ref LastLeftLittlePercentage, LeftHand.LittlePercentage, ref LeftLittleAdditional);
 
-        // Update Right Hand finger poses
+        // Right hand
         TryUpdateFingerPose(ref LastRightThumbPercentage, RightHand.ThumbPercentage, ref RightThumbAdditional);
         TryUpdateFingerPose(ref LastRightIndexPercentage, RightHand.IndexPercentage, ref RightIndexAdditional);
         TryUpdateFingerPose(ref LastRightMiddlePercentage, RightHand.MiddlePercentage, ref RightMiddleAdditional);
         TryUpdateFingerPose(ref LastRightRingPercentage, RightHand.RingPercentage, ref RightRingAdditional);
         TryUpdateFingerPose(ref LastRightLittlePercentage, RightHand.LittlePercentage, ref RightLittleAdditional);
 
+        // Apply to transforms
         float Percentage = LerpSpeed * DeltaTime;
         var Map = BasisLocalAvatarDriver.References;
-        // Apply finger transforms - Left Hand
+
+        // Left
         UpdateFingerPoses(Map.LeftThumb, LeftThumbAdditional.PoseData.LeftThumb, ref Current.LeftThumb, Map.HasLeftThumb, Percentage);
         UpdateFingerPoses(Map.LeftIndex, LeftIndexAdditional.PoseData.LeftIndex, ref Current.LeftIndex, Map.HasLeftIndex, Percentage);
         UpdateFingerPoses(Map.LeftMiddle, LeftMiddleAdditional.PoseData.LeftMiddle, ref Current.LeftMiddle, Map.HasLeftMiddle, Percentage);
         UpdateFingerPoses(Map.LeftRing, LeftRingAdditional.PoseData.LeftRing, ref Current.LeftRing, Map.HasLeftRing, Percentage);
         UpdateFingerPoses(Map.LeftLittle, LeftLittleAdditional.PoseData.LeftLittle, ref Current.LeftLittle, Map.HasLeftLittle, Percentage);
 
-        // Apply finger transforms - Right Hand
+        // Right
         UpdateFingerPoses(Map.RightThumb, RightThumbAdditional.PoseData.RightThumb, ref Current.RightThumb, Map.HasRightThumb, Percentage);
         UpdateFingerPoses(Map.RightIndex, RightIndexAdditional.PoseData.RightIndex, ref Current.RightIndex, Map.HasRightIndex, Percentage);
         UpdateFingerPoses(Map.RightMiddle, RightMiddleAdditional.PoseData.RightMiddle, ref Current.RightMiddle, Map.HasRightMiddle, Percentage);
         UpdateFingerPoses(Map.RightRing, RightRingAdditional.PoseData.RightRing, ref Current.RightRing, Map.HasRightRing, Percentage);
         UpdateFingerPoses(Map.RightLittle, RightLittleAdditional.PoseData.RightLittle, ref Current.RightLittle, Map.HasRightLittle, Percentage);
     }
+
+    /// <summary>
+    /// Blends each proximal/middle/distal joint toward the target rotations and writes to transforms.
+    /// </summary>
+    /// <param name="proximal">3-joint transform array for the finger.</param>
+    /// <param name="poses">Target local rotations for the 3 joints.</param>
+    /// <param name="currentPoses">In/out: current smoothed rotations.</param>
+    /// <param name="hasProximal">Mask for which joints exist in the skeleton.</param>
+    /// <param name="Percentage">Slerp factor for this frame.</param>
     public void UpdateFingerPoses(Transform[] proximal, Quaternion[] poses, ref Quaternion[] currentPoses, bool[] hasProximal, float Percentage)
     {
         for (int FingerBoneIndex = 0; FingerBoneIndex < 3; FingerBoneIndex++)
@@ -275,6 +362,11 @@ public class BasisLocalHandDriver
             proximal[FingerBoneIndex].localRotation = newRotation;
         }
     }
+
+    /// <summary>
+    /// Records current local rotations of all finger joints into a <see cref="BasisPoseData"/> snapshot.
+    /// Missing joints receive identity rotation.
+    /// </summary>
     public BasisPoseData RecordCurrentPose(Transform[] allTransforms, bool[] allHasProximal)
     {
         BasisPoseData poseData = new BasisPoseData();
@@ -301,8 +393,28 @@ public class BasisLocalHandDriver
 
         return poseData;
     }
+
+    /// <summary>
+    /// Concatenates finger transform arrays in left→right order.
+    /// </summary>
     private Transform[] AggregateFingerTransforms(params Transform[][] fingerTransforms) => fingerTransforms.SelectMany(f => f).ToArray();
+
+    /// <summary>
+    /// Concatenates per-finger "has joint" masks in left→right order.
+    /// </summary>
     private bool[] AggregateHasProximal(params bool[][] hasProximalArrays) => hasProximalArrays.SelectMany(h => h).ToArray();
+
+    /// <summary>
+    /// Sets muscles for both hands according to a 2D coordinate (fill + spline),
+    /// writes them into a <see cref="HumanPose"/>, applies it, and records the resulting transform-space pose.
+    /// </summary>
+    /// <param name="fillValue">Base fill for the 4-muscle block.</param>
+    /// <param name="Splane">Value placed in the second muscle for shaping (s-plane).</param>
+    /// <param name="poseHandler">HumanPose handler bound to the duplicated avatar.</param>
+    /// <param name="pose">In/out: pose struct to update and apply.</param>
+    /// <param name="allTransforms">All finger joints left→right, 3 per finger.</param>
+    /// <param name="allHasProximal">Mask for missing joints.</param>
+    /// <returns>The recorded <see cref="BasisPoseData"/>.</returns>
     public BasisPoseData SetAndRecordPose(float fillValue, float Splane, HumanPoseHandler poseHandler, ref HumanPose pose, Transform[] allTransforms, bool[] allHasProximal)
     {
         // Apply muscle data to both hands
@@ -318,22 +430,31 @@ public class BasisLocalHandDriver
         SetMuscleData(ref RightRing, fillValue, Splane);
         SetMuscleData(ref RightLittle, fillValue, Splane);
 
-        // Update the finger muscle values in the poses array using Array.Copy
-        System.Array.Copy(LeftThumb, 0, pose.muscles, 55, 4);
-        System.Array.Copy(LeftIndex, 0, pose.muscles, 59, 4);
-        System.Array.Copy(LeftMiddle, 0, pose.muscles, 63, 4);
-        System.Array.Copy(LeftRing, 0, pose.muscles, 67, 4);
-        System.Array.Copy(LeftLittle, 0, pose.muscles, 71, 4);
+        // Write into human pose muscle array
+        Array.Copy(LeftThumb, 0, pose.muscles, 55, 4);
+        Array.Copy(LeftIndex, 0, pose.muscles, 59, 4);
+        Array.Copy(LeftMiddle, 0, pose.muscles, 63, 4);
+        Array.Copy(LeftRing, 0, pose.muscles, 67, 4);
+        Array.Copy(LeftLittle, 0, pose.muscles, 71, 4);
 
-        System.Array.Copy(RightThumb, 0, pose.muscles, 75, 4);
-        System.Array.Copy(RightIndex, 0, pose.muscles, 79, 4);
-        System.Array.Copy(RightMiddle, 0, pose.muscles, 83, 4);
-        System.Array.Copy(RightRing, 0, pose.muscles, 87, 4);
-        System.Array.Copy(RightLittle, 0, pose.muscles, 91, 4);
+        Array.Copy(RightThumb, 0, pose.muscles, 75, 4);
+        Array.Copy(RightIndex, 0, pose.muscles, 79, 4);
+        Array.Copy(RightMiddle, 0, pose.muscles, 83, 4);
+        Array.Copy(RightRing, 0, pose.muscles, 87, 4);
+        Array.Copy(RightLittle, 0, pose.muscles, 91, 4);
+
         poseHandler.SetHumanPose(ref pose);
+
         Current = RecordCurrentPose(allTransforms, allHasProximal);
         return Current;
     }
+
+    /// <summary>
+    /// Fills a 4-element muscle array with a base value and a specific override at index 1.
+    /// </summary>
+    /// <param name="muscleArray">Target 4-element muscle block.</param>
+    /// <param name="fillValue">Uniform fill value.</param>
+    /// <param name="specificValue">Value assigned to the second muscle (index 1).</param>
     public void SetMuscleData(ref float[] muscleArray, float fillValue, float specificValue)
     {
         Array.Fill(muscleArray, fillValue);

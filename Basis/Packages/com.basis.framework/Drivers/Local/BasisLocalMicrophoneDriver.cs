@@ -5,46 +5,125 @@ using Basis.Scripts.Device_Management;
 using System.Threading;
 using Unity.Collections;
 using Unity.Jobs;
+
+/// <summary>
+/// Captures microphone audio into a ring buffer, optionally denoises it, adjusts volume via a Burst job,
+/// computes rolling RMS to detect voice activity, and raises main-thread callbacks for UI/UX.
+/// Uses a background processing thread and a ManualResetEvent to decouple capture from processing.
+/// </summary>
 public static class BasisLocalMicrophoneDriver
 {
+    /// <summary>Ring-buffer head index into the circular <see cref="clip"/> samples.</summary>
     private static int head = 0;
+
+    /// <summary>Total number of samples in the circular recording clip.</summary>
     private static int bufferLength;
+
+    /// <summary>Whether event hooks (device/volume/denoiser/bootmode) are registered.</summary>
     public static bool HasEvents = false;
+
+    /// <summary>Network packet size in samples (derived from <see cref="SampleRate"/>).</summary>
     public static int PacketSize;
+
+    /// <summary>Flag for enabling the RNNoise denoiser on processed audio frames.</summary>
     public static bool UseDenoiser = false;
+
+    /// <summary>Invoked when pause state changes; argument is the new paused state.</summary>
     public static Action<bool> OnPausedAction;
+
+    /// <summary>True when the selected microphone has successfully started recording.</summary>
     private static bool MicrophoneIsStarted = false;
+
+    /// <summary>Background thread that processes audio frames when signaled.</summary>
     private static Thread processingThread;
+
+    /// <summary>Global running flag (not strictly required with <see cref="processingTokenSource"/>).</summary>
     public static bool isRunning = true;
+
+    /// <summary>Signal used to wake the processing thread once a full frame is available.</summary>
     private static ManualResetEvent processingEvent = new ManualResetEvent(false);
+
+    /// <summary>Lock for protecting shared state during reconfiguration (device resets, stops).</summary>
     private static readonly object processingLock = new object();
+
+    /// <summary>Volatile write of current microphone cursor (sample index) from <see cref="MicrophoneUpdate"/>.</summary>
     private static volatile int position;
+
+    /// <summary>Burst job that applies volume scalar to the current process buffer.</summary>
     private static BasisVolumeAdjustmentJob VAJ = new BasisVolumeAdjustmentJob();
+
+    /// <summary>Handle for the in-flight volume adjustment job.</summary>
     private static JobHandle handle;
+
+    /// <summary>PlayerPrefs key storing paused state across sessions.</summary>
     public const string MicrophoneState = "MicrophoneState";
+
+    /// <summary>Raised on the processing thread when a frame is considered voice-active.</summary>
     public static Action OnHasAudio;
+
+    /// <summary>Raised on the processing thread when a frame is considered silence.</summary>
     public static Action OnHasSilence;
+
+    /// <summary>Unity microphone recording clip (circular buffer).</summary>
     public static AudioClip clip;
+
+    /// <summary>Whether the driver has been initialized.</summary>
     public static bool IsInitialize = false;
+
+    /// <summary>Name of the active microphone device.</summary>
     public static string MicrophoneDevice = null;
+
+    /// <summary>Current volume gain applied by the Burst job.</summary>
     public static float Volume = 1f;
+
+    /// <summary>Backing buffer that mirrors data read from <see cref="clip"/> each update.</summary>
     [HideInInspector] public static float[] microphoneBufferArray;
+
+    /// <summary>Scratch buffer for the current frame (size == <see cref="SampleRate"/>).</summary>
     [HideInInspector] public static float[] processBufferArray;
+
+    /// <summary>Rolling RMS window values.</summary>
     [HideInInspector] public static float[] rmsValues;
+
+    /// <summary>Current index into <see cref="rmsValues"/>.</summary>
     public static int rmsIndex = 0;
+
+    /// <summary>Mean of the rolling RMS window.</summary>
     public static float averageRms;
+
 #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
+    /// <summary>RNNoise denoiser instance (requires 48 kHz input).</summary>
     public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
 #endif
+
+    /// <summary>Device-reported minimum frequency; 0/0 indicates "any". Defaults to 48 kHz.</summary>
     public static int minFreq = 48000;
+
+    /// <summary>Device-reported maximum frequency; defaults to 48 kHz if unspecified.</summary>
     public static int maxFreq = 48000;
+
+    /// <summary>Frame size in samples used by processing/transmit (derived by <see cref="LocalOpusSettings.EnsureProcessBuffer"/>).</summary>
     public static int SampleRate;
+
+    /// <summary>Flag to schedule <see cref="MainThreadOnHasAudio"/> on the next <see cref="MicrophoneUpdate"/> call.</summary>
     private static bool ScheduleMainHasAudio;
+
+    /// <summary>Flag to schedule <see cref="MainThreadOnHasSilence"/> on the next <see cref="MicrophoneUpdate"/> call.</summary>
     private static bool ScheduleMainHasSilence;
+
+    /// <summary>Main-thread callback mirroring <see cref="OnHasAudio"/> for UI/gameplay logic.</summary>
     public static Action MainThreadOnHasAudio;
+
+    /// <summary>Main-thread callback mirroring <see cref="OnHasSilence"/> for UI/gameplay logic.</summary>
     public static Action MainThreadOnHasSilence;
+
+    /// <summary>Coarse-grain lock for init/deinit and scheduling of main-thread events.</summary>
     private static readonly object _lock = new object();
+
+    /// <summary>Latched paused state (persisted to <see cref="PlayerPrefs"/> via <see cref="MicrophoneState"/>).</summary>
     public static bool isPaused = false;
+
+    /// <summary>Property wrapper that persists pause, resets microphones, and invokes <see cref="OnPausedAction"/>.</summary>
     private static bool IsPaused
     {
         get => isPaused;
@@ -56,10 +135,21 @@ public static class BasisLocalMicrophoneDriver
             OnPausedAction?.Invoke(isPaused);
         }
     }
+
+    /// <summary>Cancellation token for the processing thread loop.</summary>
     private static CancellationTokenSource processingTokenSource;
-    // Warmup: discard first chunk(s) after (re)start to avoid crackle/garbage frames.
+
+    /// <summary>Samples to discard after (re)start to avoid crackle/garbage frames.</summary>
     private static int warmupSamples = 0;
+
+    /// <summary>True while warmup frames are being discarded.</summary>
     private static bool inWarmup = false;
+
+    /// <summary>
+    /// Initializes the driver: registers events, chooses a device, configures denoiser, and starts the processing thread.
+    /// Safe to call multiple times.
+    /// </summary>
+    /// <returns>True if initialization succeeded or was already initialized.</returns>
     public static bool Initialize()
     {
         if (IsInitialize) return true;
@@ -87,6 +177,10 @@ public static class BasisLocalMicrophoneDriver
         }
     }
 
+    /// <summary>
+    /// Shuts down the driver: stops processing thread, unregisters events, stops microphone,
+    /// completes/cleans Burst resources, disposes denoiser, and clears buffers.
+    /// </summary>
     public static void DeInitialize()
     {
         lock (_lock)
@@ -117,6 +211,9 @@ public static class BasisLocalMicrophoneDriver
         }
     }
 
+    /// <summary>
+    /// Subscribes to microphone device/volume/denoiser and boot-mode events once.
+    /// </summary>
     private static void RegisterEvents()
     {
         if (HasEvents) return;
@@ -128,6 +225,9 @@ public static class BasisLocalMicrophoneDriver
         HasEvents = true;
     }
 
+    /// <summary>
+    /// Unsubscribes from all events if previously registered.
+    /// </summary>
     private static void UnregisterEvents()
     {
         if (!HasEvents) return;
@@ -138,15 +238,29 @@ public static class BasisLocalMicrophoneDriver
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         HasEvents = false;
     }
+
+    /// <summary>
+    /// Enables or disables the denoiser flag; actual denoiser instance is managed on (re)start.
+    /// </summary>
     private static void ConfigureDenoiser(bool useDenoiser)
     {
         UseDenoiser = useDenoiser;
         BasisDebug.Log("Setting Denoiser To " + UseDenoiser);
     }
+
+    /// <summary>
+    /// Reacts to boot-mode changes by reselecting and restarting the microphone.
+    /// </summary>
     private static void OnBootModeChanged(string mode)
     {
         ResetMicrophones(SMDMicrophone.SelectedMicrophone);
     }
+
+    /// <summary>
+    /// (Re)starts the selected microphone safely, reinitializing buffers and processing state.
+    /// When paused, it cleans state and bails without starting recording.
+    /// </summary>
+    /// <param name="newMicrophone">Device name to select; falls back to the first device if not found.</param>
     public static void ResetMicrophones(string newMicrophone)
     {
         // Prevent the processing thread from touching shared state while we reconfigure.
@@ -238,7 +352,9 @@ public static class BasisLocalMicrophoneDriver
         }
     }
 
-    // Only call while holding processingLock
+    /// <summary>
+    /// Stops the current microphone device (if any). Call only under <see cref="processingLock"/>.
+    /// </summary>
     private static void StopSelectedMicrophone_Internal()
     {
         if (string.IsNullOrEmpty(MicrophoneDevice))
@@ -258,6 +374,10 @@ public static class BasisLocalMicrophoneDriver
             clip = null; // Make sure old clip is released
         }
     }
+
+    /// <summary>
+    /// Clears ring-buffer pointers and zeroes arrays after stopping recording.
+    /// </summary>
     private static void ClearStateAfterStop()
     {
         head = 0;
@@ -279,6 +399,10 @@ public static class BasisLocalMicrophoneDriver
             averageRms = 0f;
         }
     }
+
+    /// <summary>
+    /// Public stop wrapper that acquires <see cref="processingLock"/> and fully clears state.
+    /// </summary>
     private static void StopSelectedMicrophone()
     {
         lock (processingLock)
@@ -288,6 +412,11 @@ public static class BasisLocalMicrophoneDriver
             ClearStateAfterStop();
         }
     }
+
+    /// <summary>
+    /// Ensures the volume adjustment job has a correctly sized persistent NativeArray and sets gain.
+    /// Completes any in-flight job before resizing.
+    /// </summary>
     public static void HandleBasisVolumeAdjustmentJob()
     {
         if (handle.IsCompleted == false)
@@ -311,10 +440,20 @@ public static class BasisLocalMicrophoneDriver
 
         VAJ.Volume = Volume;
     }
+
+    /// <summary>
+    /// Toggles paused state (persists preference, restarts/cleans devices accordingly).
+    /// </summary>
     public static void ToggleIsPaused()
     {
         IsPaused = !IsPaused;
     }
+
+    /// <summary>
+    /// Called on the main thread to poll the microphone ring buffer position,
+    /// copy fresh data, and signal the processing thread when at least one frame is available.
+    /// Also dispatches scheduled main-thread audio/silence callbacks.
+    /// </summary>
     public static void MicrophoneUpdate()
     {
         if (!MicrophoneIsStarted || string.IsNullOrEmpty(MicrophoneDevice) || clip == null)
@@ -356,6 +495,10 @@ public static class BasisLocalMicrophoneDriver
             }
         }
     }
+
+    /// <summary>
+    /// Starts the background processing thread that consumes frames when signaled by <see cref="processingEvent"/>.
+    /// </summary>
     private static void StartProcessingThread()
     {
         processingTokenSource = new CancellationTokenSource();
@@ -380,6 +523,10 @@ public static class BasisLocalMicrophoneDriver
         processingThread.IsBackground = true;
         processingThread.Start();
     }
+
+    /// <summary>
+    /// Requests the processing thread to stop and waits for it to join.
+    /// </summary>
     public static void StopProcessingThread()
     {
         processingTokenSource?.Cancel();
@@ -393,6 +540,12 @@ public static class BasisLocalMicrophoneDriver
         processingTokenSource?.Dispose();
         processingTokenSource = null;
     }
+
+    /// <summary>
+    /// Consumes available audio frames from the ring buffer, applies volume gain and optional denoise,
+    /// updates RMS windows, and raises audio/silence events. Advances the head index by <see cref="SampleRate"/> per frame.
+    /// </summary>
+    /// <param name="posSnapshot">Snapshot of the current microphone position to compute available samples.</param>
     public static void ProcessAudioData(int posSnapshot)
     {
         // Discard initial warmup samples to avoid crackle/garbage frames after start
@@ -444,6 +597,10 @@ public static class BasisLocalMicrophoneDriver
             dataLength -= SampleRate;
         }
     }
+
+    /// <summary>
+    /// Runs the Burst volume adjustment job over <see cref="processBufferArray"/>.
+    /// </summary>
     public static void AdjustVolume()
     {
         // Mirror processBufferArray into NativeArray, run job, copy back.
@@ -452,6 +609,10 @@ public static class BasisLocalMicrophoneDriver
         handle.Complete();
         VAJ.processBufferArray.CopyTo(processBufferArray);
     }
+
+    /// <summary>
+    /// Computes RMS of the current frame buffer.
+    /// </summary>
     public static float GetRMS()
     {
         double sum = 0.0;
@@ -462,16 +623,29 @@ public static class BasisLocalMicrophoneDriver
         }
         return Mathf.Sqrt((float)(sum / SampleRate));
     }
+
+    /// <summary>
+    /// Computes available samples between ring-buffer head and the device write position.
+    /// </summary>
     public static int GetDataLength(int len, int h, int pos)
     {
         return (pos < h) ? (len - h + pos) : (pos - h);
     }
+
+    /// <summary>
+    /// Adjusts microphone gain and updates the Burst job parameter; persists to logs.
+    /// </summary>
     public static void ChangeMicrophoneVolume(float volume)
     {
         Volume = volume;
         VAJ.Volume = Volume;
         BasisDebug.Log($"Set Microphone Volume To {Volume}");
     }
+
+    /// <summary>
+    /// Applies RNNoise denoising to the current frame buffer (48 kHz expected).
+    /// No-op on Android/Linux where the binding is unavailable.
+    /// </summary>
     public static void ApplyDeNoise()
     {
 #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
@@ -479,6 +653,10 @@ public static class BasisLocalMicrophoneDriver
         Denoiser?.Denoise(processBufferArray);
 #endif
     }
+
+    /// <summary>
+    /// Updates a rolling RMS window and computes <see cref="averageRms"/>.
+    /// </summary>
     public static void RollingRMS()
     {
         float rms = GetRMS();
@@ -486,6 +664,10 @@ public static class BasisLocalMicrophoneDriver
         rmsIndex = (rmsIndex + 1) % LocalOpusSettings.rmsWindowSize;
         averageRms = rmsValues.Average();
     }
+
+    /// <summary>
+    /// Determines whether the current rolling window indicates voice activity above the silence threshold.
+    /// </summary>
     public static bool IsTransmitWorthy()
     {
         return averageRms > LocalOpusSettings.silenceThreshold;

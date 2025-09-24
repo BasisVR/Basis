@@ -73,7 +73,7 @@ public class JiggleRig : MonoBehaviour {
         jiggleRigData.UpdateParameters(segment.jiggleTree, parametersCache);
     }
     
-    public bool GetHasAnimatedParameters() => animatedParameters;
+    public bool GetHasAnimatedParameters => animatedParameters;
 
     private void OnValidate() {
         parametersCache ??= new();
@@ -81,6 +81,9 @@ public class JiggleRig : MonoBehaviour {
             jiggleRigData = JiggleRigData.Default();
         }
         jiggleRigData.OnValidate();
+        if (Application.isPlaying) {
+            UpdateParameters();
+        }
     }
 
     private void OnDrawGizmosSelected() {

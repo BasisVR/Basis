@@ -278,8 +278,11 @@ public static class BasisRemoteNetworkDriver
 
         [ReadOnly] public NativeArray<float> InterpolationTimes;
 
+        [WriteOnly]
         public NativeArray<float3> OutputPositions;
+        [WriteOnly]
         public NativeArray<float3> OutputScales;
+        [WriteOnly]
         public NativeArray<quaternion> OutputRotations;
 
         public void Execute(int index)
@@ -298,7 +301,7 @@ public static class BasisRemoteNetworkDriver
         [ReadOnly] public NativeArray<float> PreviousMuscles; // Flattened array
         [ReadOnly] public NativeArray<float> TargetMuscles;
         [ReadOnly] public NativeArray<float> InterpolationTimes;
-
+        [WriteOnly]
         public NativeArray<float> OutputMuscles;
         public int MuscleCountPerAvatar;
 

@@ -15,6 +15,8 @@
 //
 
 using UnityEngine;
+using SteamAudio;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -135,30 +137,28 @@ namespace SteamAudio
 
         [Header("Advanced Settings")]
         public bool EnableValidation = false;
-
-        static SteamAudioSettings sSingleton = null;
-
-        public static SteamAudioSettings Singleton
+        public static SteamAudioSettings Singleton;
+    }
+}
+public static class SteamAudioBoot
+{
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    static void PreloadSettings()
+    {
+        SteamAudioSettings.Singleton = Resources.Load<SteamAudioSettings>("SteamAudioSettings");
+        if (SteamAudioSettings.Singleton == null)
         {
-            get
+            SteamAudioSettings.Singleton = Resources.Load<SteamAudioSettings>("SteamAudioSettings");
+            if (SteamAudioSettings.Singleton == null)
             {
-                if (sSingleton == null)
-                {
-                    sSingleton = Resources.Load<SteamAudioSettings>("SteamAudioSettings");
-                    if (sSingleton == null)
-                    {
-                        sSingleton = CreateInstance<SteamAudioSettings>();
-                        sSingleton.name = "Steam Audio Settings";
+                SteamAudioSettings.Singleton = ScriptableObject.CreateInstance<SteamAudioSettings>();
+                SteamAudioSettings.Singleton.name = "Steam Audio Settings";
 
 #if UNITY_EDITOR
-                        sSingleton.defaultMaterial = (SteamAudioMaterial) AssetDatabase.LoadAssetAtPath("Assets/Plugins/SteamAudio/Resources/Materials/Default.asset", typeof(SteamAudioMaterial));
+                SteamAudioSettings.Singleton.defaultMaterial = (SteamAudioMaterial)AssetDatabase.LoadAssetAtPath("Assets/Plugins/SteamAudio/Resources/Materials/Default.asset", typeof(SteamAudioMaterial));
 
-                        AssetDatabase.CreateAsset(sSingleton, "Assets/third_party/Plugins/SteamAudio/Resources/SteamAudioSettings.asset");
+                AssetDatabase.CreateAsset(SteamAudioSettings.Singleton, "Assets/third_party/Plugins/SteamAudio/Resources/SteamAudioSettings.asset");
 #endif
-                    }
-                }
-
-                return sSingleton;
             }
         }
     }

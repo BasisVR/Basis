@@ -4,11 +4,30 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System.Collections.Generic;
 using UnityEngine;
+
 namespace Basis.Scripts.Drivers
 {
+    /// <summary>
+    /// Base functionality shared by avatar drivers, including role mapping utilities
+    /// and optional runtime jiggle-collider rig management.
+    /// </summary>
+    /// <remarks>
+    /// Provides helpers to translate between Unity humanoid bone enums and internal
+    /// <see cref="BasisBoneTrackedRole"/> values, spine membership checks, and utilities
+    /// to add/remove serialized jiggle colliders based on a <see cref="BasisTransformMapping"/>.
+    /// </remarks>
     [System.Serializable]
     public abstract class BasisAvatarDriver
     {
+        /// <summary>
+        /// Attempts to convert a Unity <see cref="HumanBodyBones"/> value into a <see cref="BasisBoneTrackedRole"/>.
+        /// </summary>
+        /// <param name="body">Humanoid bone identifier.</param>
+        /// <param name="result">On success, the corresponding tracked role.</param>
+        /// <returns>
+        /// <c>true</c> if the bone maps to a supported <see cref="BasisBoneTrackedRole"/>; otherwise <c>false</c>.
+        /// When <c>false</c>, <paramref name="result"/> is set to <see cref="BasisBoneTrackedRole.Hips"/>.
+        /// </returns>
         public static bool TryConvertToBoneTrackingRole(HumanBodyBones body, out BasisBoneTrackedRole result)
         {
             switch (body)
@@ -83,6 +102,16 @@ namespace Basis.Scripts.Drivers
             result = BasisBoneTrackedRole.Hips;
             return false;
         }
+
+        /// <summary>
+        /// Attempts to convert an internal <see cref="BasisBoneTrackedRole"/> into a Unity <see cref="HumanBodyBones"/> value.
+        /// </summary>
+        /// <param name="role">Tracked role to convert.</param>
+        /// <param name="result">On success, the corresponding humanoid bone enum.</param>
+        /// <returns>
+        /// <c>true</c> if a matching humanoid bone exists; otherwise <c>false</c>.
+        /// When <c>false</c>, <paramref name="result"/> is set to <see cref="HumanBodyBones.Hips"/>.
+        /// </returns>
         public static bool TryConvertToHumanoidRole(BasisBoneTrackedRole role, out HumanBodyBones result)
         {
             switch (role)
@@ -158,6 +187,14 @@ namespace Basis.Scripts.Drivers
             result = HumanBodyBones.Hips; // fallback
             return false;
         }
+
+        /// <summary>
+        /// Determines whether a tracked role belongs to the vertical spine/head chain.
+        /// </summary>
+        /// <param name="Role">Role to test.</param>
+        /// <returns>
+        /// <c>true</c> if the role is one of Hips, Chest, Spine, CenterEye, Mouth, or Head; otherwise <c>false</c>.
+        /// </returns>
         public static bool IsApartOfSpineVertical(BasisBoneTrackedRole Role)
         {
             if (Role == BasisBoneTrackedRole.Hips ||
@@ -172,7 +209,20 @@ namespace Basis.Scripts.Drivers
             }
             return false;
         }
+
+        /// <summary>
+        /// Backing store for jiggle colliders created for the avatar rig.
+        /// </summary>
         public List<JiggleColliderSerializable> JiggleColliders;
+
+        /// <summary>
+        /// Creates a set of jiggle colliders for the provided mapping and registers them with the global <see cref="JigglePhysics"/>.
+        /// </summary>
+        /// <param name="Mapping">Bone transform mapping used to generate colliders for feet and hands/fingers.</param>
+        /// <remarks>
+        /// Feet receive a slightly larger default collider radius than hands/fingers.
+        /// Created colliders are cached in <see cref="JiggleColliders"/> and added via <see cref="JigglePhysics.AddJiggleCollider(JiggleColliderSerializable)"/>.
+        /// </remarks>
         public void AddJiggleRigColliders(BasisTransformMapping Mapping)
         {
             JiggleCreatorHelper(Mapping.leftFoot, 0.015f);
@@ -191,20 +241,35 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.RightRing);
             JiggleCreatorHelper(Mapping.RightLittle);
             JiggleCreatorHelper(Mapping.rightHand);
-         //   BasisDebug.Log("Creating Collider Rigs");
+
+            //   BasisDebug.Log("Creating Collider Rigs");
             foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
             {
                 JigglePhysics.AddJiggleCollider(Jiggle);
             }
         }
+
+        /// <summary>
+        /// Helper that creates jiggle colliders for an array of transforms using the default hand/finger scale.
+        /// </summary>
+        /// <param name="Parents">Transforms that will each receive a collider.</param>
         public void JiggleCreatorHelper(Transform[] Parents)
         {
-            foreach(Transform Parent in Parents)
+            foreach (Transform Parent in Parents)
             {
                 JiggleCreatorHelper(Parent);
             }
         }
-        public void JiggleCreatorHelper(Transform Parent,float Scale = 0.005f)
+
+        /// <summary>
+        /// Creates a single spherical jiggle collider for a given transform and stores it in <see cref="JiggleColliders"/>.
+        /// </summary>
+        /// <param name="Parent">Transform that defines the collider's transform and space.</param>
+        /// <param name="Scale">
+        /// Base radius used to size the collider. Final radius is scaled by <c>1 / (Parent.lossyScale.magnitude / 3)</c>.
+        /// Default is <c>0.005</c>.
+        /// </param>
+        public void JiggleCreatorHelper(Transform Parent, float Scale = 0.005f)
         {
             if (Parent != null)
             {
@@ -214,7 +279,7 @@ namespace Basis.Scripts.Drivers
                     {
                         type = JiggleCollider.JiggleColliderType.Sphere,
                         localToWorldMatrix = Parent.localToWorldMatrix,
-                        radius = Scale / (Parent.lossyScale.magnitude /3) // Scaled radius
+                        radius = Scale / (Parent.lossyScale.magnitude / 3) // Scaled radius
                     },
                     transform = Parent
                 };
@@ -222,15 +287,25 @@ namespace Basis.Scripts.Drivers
                 JiggleColliders.Add(jiggleColliderSerializable);
             }
         }
+
+        /// <summary>
+        /// Unregisters all colliders previously added via <see cref="AddJiggleRigColliders(BasisTransformMapping)"/> and clears the cache.
+        /// </summary>
         public void RemoveJiggleRigColliders()
         {
-           // BasisDebug.Log("Removed Collider Rigs");
+            // BasisDebug.Log("Removed Collider Rigs");
             foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
             {
                 JigglePhysics.RemoveJiggleCollider(Jiggle);
             }
             JiggleColliders.Clear();
         }
+
+        /// <summary>
+        /// Sets the Unity layer on all avatar renderers to the provided value.
+        /// </summary>
+        /// <param name="Player">Player whose avatar renderers will be updated.</param>
+        /// <param name="Layer">Layer index to assign to each renderer's GameObject.</param>
         public static void SetupAvatarLayers(BasisPlayer Player, int Layer)
         {
             int RenderCount = Player.BasisAvatar.Renders.Length;

@@ -12,12 +12,14 @@ public struct PoseData {
     public JiggleTransform pose;
     public float3 rootPosition;
     public float3 rootOffset;
+    public float rootSnapStrength;
 
     public static PoseData Lerp(PoseData a, PoseData b, float t) {
         return new PoseData() {
             pose = JiggleTransform.Lerp(a.pose, b.pose, t),
             rootPosition = math.lerp(a.rootPosition, b.rootPosition, t),
             rootOffset = math.lerp(a.rootOffset, b.rootOffset, t),
+            rootSnapStrength = math.lerp(a.rootSnapStrength, b.rootSnapStrength, t)
         };
     }
 
@@ -634,6 +636,8 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 simulationOutputPoseDataArray[index + o] = poseData;
                 interpolationCurrentPoseDataArray[index + o] = poseData;
                 interpolationPreviousPoseDataArray[index + o] = poseData;
+                inputPosesCurrentArray[index + o] = pose;
+                inputPosesPreviousArray[index + o] = pose;
             }
         }
 
