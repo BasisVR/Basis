@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Basis Framework:Basis.VowganUI:PanelDataObject
   Data:
     Name: Home Row
-    PanelSize: {x: 800, y: 200}
+    PanelSize: {x: 1000, y: 200}
     Scale: 1
   Children:
   - Child: {fileID: 11400000, guid: 8fe28ee656b30914bb72ee569fdb3d11, type: 2}

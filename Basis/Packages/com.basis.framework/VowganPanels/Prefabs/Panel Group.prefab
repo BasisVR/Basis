@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 2744783348722161127}
   - component: {fileID: 3736147593821966157}
   m_Layer: 0
-  m_Name: Menu Panel Group
+  m_Name: Panel Group
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -78,16 +78,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cfc361a9ee65bed4ea7fb5d902267302, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Basis.UI.MenuGroup
-  _groupOffset: {fileID: 4170178412367742885}
-  _groupRoot: {fileID: 1456694075679738375}
-  _demoData:
+  GroupMover: {fileID: 3736147593821966157}
+  GroupOffset: {fileID: 4170178412367742885}
+  GroupRoot: {fileID: 1456694075679738375}
+  DemoData:
     Name: Menu Panel
     PanelSize: {x: 600, y: 400}
-    Scale: 1
-  _demoDirection: 4
-  _creationMargin: 64
-  _activePanel: {fileID: 0}
-  _allPanels: []
+  DemoDirection: 4
+  CreationMargin: 64
+  FocusedPanel: {fileID: 0}
+  AllPanels: []
 --- !u!114 &3736147593821966157
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -100,9 +100,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab9c2abaac71dcd4fbb32d30f4fac92d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.PanelGroupMover
-  OffsetRootTransform: {fileID: 4170178412367742885}
+  GroupOffset: {fileID: 4170178412367742885}
+  GroupRoot: {fileID: 1456694075679738375}
   RootMode: 1
   DesktopRootMode: 2
+  RootScale: 0.001
   WorldOffset:
     Position: {x: 0, y: 1, z: 0.75}
     EulerRotation: {x: 0, y: 0, z: 0}
@@ -112,9 +114,9 @@ MonoBehaviour:
     EulerRotation: {x: 0, y: 0, z: 0}
     Scale: 1
   HeadOffset:
-    Position: {x: 0, y: 0, z: 0.75}
+    Position: {x: 0, y: 0, z: 0.25}
     EulerRotation: {x: 0, y: 0, z: 0}
-    Scale: 1
+    Scale: 0.5
   LeftHandOffset:
     Position: {x: 0.25, y: 0.25, z: 0.1}
     EulerRotation: {x: 0, y: 0, z: 0}

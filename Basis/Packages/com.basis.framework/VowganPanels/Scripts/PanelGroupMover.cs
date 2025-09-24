@@ -11,7 +11,10 @@ namespace Basis.VowganUI
     public class PanelGroupMover : MonoBehaviour
     {
 
-        public enum PanelRootMode
+        /// <summary>
+        /// Which mode the panel group uses for placement.
+        /// </summary>
+        public enum PanelGroupRootMode
         {
             World,
             Playspace,
@@ -29,15 +32,17 @@ namespace Basis.VowganUI
             public Quaternion Rotation => Quaternion.Euler(EulerRotation);
         }
 
-        public PanelRootMode CurrentRootMode => BasisDeviceManagement.IsUserInDesktop() ? DesktopRootMode : RootMode;
+        public PanelGroupRootMode CurrentRootMode => BasisDeviceManagement.IsUserInDesktop() ? DesktopRootMode : RootMode;
 
 
         [Header("References")]
-        public Transform OffsetRootTransform;
+        public Transform GroupOffset;
+        public Transform GroupRoot;
 
         [Header("Settings")]
-        public PanelRootMode RootMode = PanelRootMode.Playspace;
-        public PanelRootMode DesktopRootMode = PanelRootMode.Head;
+        public PanelGroupRootMode RootMode = PanelGroupRootMode.Playspace;
+        public PanelGroupRootMode DesktopRootMode = PanelGroupRootMode.Head;
+        public float RootScale = 0.001f;
 
         [Header("Offsets are multiplied against the Player Eye Height.\nAssign your values assuming a height of 1 meter.")]
         public RootModeOffset WorldOffset;
@@ -50,6 +55,8 @@ namespace Basis.VowganUI
         public Vector3 Position;
         public Quaternion Rotation;
 
+        private BasisLocalBoneControl _leftHandControl;
+        private BasisLocalBoneControl _rightHandControl;
         private bool _hasLocalCreationEvent;
         private bool _hasLocalMoveEvent;
 
@@ -71,51 +78,63 @@ namespace Basis.VowganUI
         private void OnDestroy()
         {
             BasisLocalPlayer.Instance.OnAvatarSwitched -= ApplyOffset;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplyOffset;
 
             if (_hasLocalCreationEvent)
                 BasisLocalPlayer.OnLocalPlayerCreated -= OnLocalPlayerCreated;
 
-            // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
-            if(_hasLocalMoveEvent)
+            if (_hasLocalMoveEvent)
                 BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
         }
 
         private void OnLocalPlayerCreated()
         {
             BasisLocalPlayer.Instance.OnAvatarSwitched += ApplyOffset;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplyOffset;
             SetRootMode(BasisDeviceManagement.IsUserInDesktop() ? DesktopRootMode : RootMode);
+
+            BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _leftHandControl, BasisBoneTrackedRole.LeftHand);
+            BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _rightHandControl, BasisBoneTrackedRole.RightHand);
         }
 
 
         [ContextMenu("VR/SetRootMode World")]
-        public void SetRootModeWorld() => SetRootMode(PanelRootMode.World);
+        public void SetRootModeWorld() => SetRootMode(PanelGroupRootMode.World);
+
         [ContextMenu("VR/SetRootMode Playspace")]
-        public void SetRootModePlayspace() => SetRootMode(PanelRootMode.Playspace);
+        public void SetRootModePlayspace() => SetRootMode(PanelGroupRootMode.Playspace);
+
         [ContextMenu("VR/SetRootMode Head")]
-        public void SetRootModeHead() => SetRootMode(PanelRootMode.Head);
+        public void SetRootModeHead() => SetRootMode(PanelGroupRootMode.Head);
+
         [ContextMenu("VR/SetRootMode LeftHand")]
-        public void SetRootModeLeftHand() => SetRootMode(PanelRootMode.LeftHand);
+        public void SetRootModeLeftHand() => SetRootMode(PanelGroupRootMode.LeftHand);
+
         [ContextMenu("VR/SetRootMode RightHand")]
-        public void SetRootModeRightHand() => SetRootMode(PanelRootMode.RightHand);
+        public void SetRootModeRightHand() => SetRootMode(PanelGroupRootMode.RightHand);
 
         [ContextMenu("Desktop/SetDesktopRootMode World")]
-        public void SetDesktopRootModeWorld() => SetDesktopRootMode(PanelRootMode.World);
-        [ContextMenu("Desktop/SetDesktopRootMode Playspace")]
-        public void SetDesktopRootModePlayspace() => SetDesktopRootMode(PanelRootMode.Playspace);
-        [ContextMenu("Desktop/SetDesktopRootMode Head")]
-        public void SetDesktopRootModeHead() => SetDesktopRootMode(PanelRootMode.Head);
-        [ContextMenu("Desktop/SetDesktopRootMode LeftHand")]
-        public void SetDesktopRootModeLeftHand() => SetDesktopRootMode(PanelRootMode.LeftHand);
-        [ContextMenu("Desktop/SetDesktopRootMode RightHand")]
-        public void SetDesktopRootModeRightHand() => SetDesktopRootMode(PanelRootMode.RightHand);
+        public void SetDesktopRootModeWorld() => SetDesktopRootMode(PanelGroupRootMode.World);
 
-        public void SetRootMode(PanelRootMode mode)
+        [ContextMenu("Desktop/SetDesktopRootMode Playspace")]
+        public void SetDesktopRootModePlayspace() => SetDesktopRootMode(PanelGroupRootMode.Playspace);
+
+        [ContextMenu("Desktop/SetDesktopRootMode Head")]
+        public void SetDesktopRootModeHead() => SetDesktopRootMode(PanelGroupRootMode.Head);
+
+        [ContextMenu("Desktop/SetDesktopRootMode LeftHand")]
+        public void SetDesktopRootModeLeftHand() => SetDesktopRootMode(PanelGroupRootMode.LeftHand);
+
+        [ContextMenu("Desktop/SetDesktopRootMode RightHand")]
+        public void SetDesktopRootModeRightHand() => SetDesktopRootMode(PanelGroupRootMode.RightHand);
+
+        public void SetRootMode(PanelGroupRootMode mode)
         {
             RootMode = mode;
             ApplyOffset();
         }
 
-        public void SetDesktopRootMode(PanelRootMode mode)
+        public void SetDesktopRootMode(PanelGroupRootMode mode)
         {
             DesktopRootMode = mode;
             ApplyOffset();
@@ -129,23 +148,23 @@ namespace Basis.VowganUI
         {
             switch (CurrentRootMode)
             {
-                case PanelRootMode.World:
+                case PanelGroupRootMode.World:
                     SetMovementCallback(false);
                     SetRootOffset(WorldOffset);
                     break;
-                case PanelRootMode.Playspace:
+                case PanelGroupRootMode.Playspace:
                     SetMovementCallback(true);
                     SetRootOffset(PlayspaceOffset);
                     break;
-                case PanelRootMode.Head:
+                case PanelGroupRootMode.Head:
                     SetMovementCallback(true);
                     SetRootOffset(HeadOffset);
                     break;
-                case PanelRootMode.LeftHand:
+                case PanelGroupRootMode.LeftHand:
                     SetMovementCallback(true);
                     SetRootOffset(LeftHandOffset);
                     break;
-                case PanelRootMode.RightHand:
+                case PanelGroupRootMode.RightHand:
                     SetMovementCallback(true);
                     SetRootOffset(RightHandOffset);
                     break;
@@ -160,12 +179,10 @@ namespace Basis.VowganUI
             {
                 if (value)
                 {
-                    // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
                     BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUILocation);
                 }
                 else
                 {
-                    // No, I don't know why 120 is used. It was used in the BasisUIMovementDriver.
                     BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
                 }
 
@@ -176,38 +193,34 @@ namespace Basis.VowganUI
         private void SetRootOffset(RootModeOffset offset)
         {
             float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight;
-            OffsetRootTransform.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
-            OffsetRootTransform.localScale = Vector3.one * offset.Scale;
+            GroupOffset.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
+            GroupOffset.localScale = Vector3.one * RootScale;
+            GroupRoot.localScale = Vector3.one * offset.Scale;
             transform.localScale = Vector3.one * playerHeight;
         }
 
         private void UpdateUILocation()
         {
-            PanelRootMode mode = BasisDeviceManagement.IsUserInDesktop() ? DesktopRootMode : RootMode;
+            PanelGroupRootMode mode = BasisDeviceManagement.IsUserInDesktop() ? DesktopRootMode : RootMode;
 
             switch (mode)
             {
-                case PanelRootMode.World:
+                case PanelGroupRootMode.World:
                     break;
-                case PanelRootMode.Playspace:
+                case PanelGroupRootMode.Playspace:
                     Position = BasisLocalPlayer.Instance.AvatarTransform.position;
+                    Rotation = BasisLocalPlayer.Instance.AvatarTransform.rotation;
                     break;
-                case PanelRootMode.Head:
+                case PanelGroupRootMode.Head:
                     BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
                     break;
-                case PanelRootMode.LeftHand:
-                    BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(
-                        out BasisLocalBoneControl leftControl, BasisBoneTrackedRole.LeftHand);
-
-                    BasisCalibratedCoords leftData  = leftControl.OutgoingWorldData;
+                case PanelGroupRootMode.LeftHand:
+                    BasisCalibratedCoords leftData = _leftHandControl.OutgoingWorldData;
                     Position = leftData.position;
                     Rotation = leftData.rotation;
                     break;
-                case PanelRootMode.RightHand:
-                    BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(
-                        out BasisLocalBoneControl rightControl, BasisBoneTrackedRole.RightHand);
-
-                    BasisCalibratedCoords rightData  = rightControl.OutgoingWorldData;
+                case PanelGroupRootMode.RightHand:
+                    BasisCalibratedCoords rightData = _rightHandControl.OutgoingWorldData;
                     Position = rightData.position;
                     Rotation = rightData.rotation;
                     break;
