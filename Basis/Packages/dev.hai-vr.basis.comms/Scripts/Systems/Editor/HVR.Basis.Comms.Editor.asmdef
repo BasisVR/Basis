@@ -1,0 +1,21 @@
+{
+    "name": "HVR.Basis.Comms.Editor",
+    "rootNamespace": "",
+    "references": [
+        "BasisSDK",
+        "HVR.Basis.Comms",
+        "HVR.Basis.Comms.Networking",
+        "Basis Framework"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -95,6 +95,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 506f83456b9f93c40848e084d5684903
+    m_Address: HVR.Basis.Comms.FaceTracking.DefaultARKitDefinitionFile
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 561d30f605c713f49992f1f48529936b
     m_Address: LocalPlayer
     m_ReadOnly: 0
@@ -177,6 +182,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: bb4eb766250cf0b4d9e2dc0a7d939808
     m_Address: GizmoMaterial
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c65e15bc2eea6e24e8606a9091a4bf13
+    m_Address: HVR.Basis.Comms.FaceTracking.DefaultUnifiedExpressionsDefinitionFile
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
