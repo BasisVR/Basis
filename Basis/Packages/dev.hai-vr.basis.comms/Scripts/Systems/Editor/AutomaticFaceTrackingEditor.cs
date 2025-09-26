@@ -1,4 +1,6 @@
-﻿using UnityEditor;
+﻿using System;
+using System.IO;
+using UnityEditor;
 using UnityEngine;
 
 namespace HVR.Basis.Comms.Editor
@@ -62,6 +64,41 @@ namespace HVR.Basis.Comms.Editor
 
                 EditorGUILayout.EndVertical();
             }
+            else
+            {
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+                ResolveVRCFaceTrackingDummyFilePath(out _, out var filePath);
+                if (!File.Exists(filePath))
+                {
+                    EditorGUILayout.HelpBox($"VRCFaceTracking JSON file not found.\n\nPlease create it by clicking the button below:", MessageType.Warning);
+                }
+                if (GUILayout.Button("Create VRCFaceTracking JSON file", GUILayout.Height(EditorGUIUtility.singleLineHeight * 3)))
+                {
+                    CreateJSONFile();
+                }
+#endif
+            }
+        }
+
+        private void CreateJSONFile()
+        {
+            ResolveVRCFaceTrackingDummyFilePath(out var oscDirectory, out var destinationPath);
+
+            GUID.TryParse("05ebcb30596348ffb9968ff77110404d", out var guid);
+            var testAsset = AssetDatabase.LoadAssetByGUID<TextAsset>(guid);
+
+            Directory.CreateDirectory(oscDirectory);
+            File.WriteAllBytes(destinationPath, testAsset.bytes);
+        }
+
+        private static void ResolveVRCFaceTrackingDummyFilePath(out string directory, out string filePath)
+        {
+            directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "AppData/LocalLow/VRChat/vrchat/OSC/usr_ba515000-89b1-4313-aa2d-ba51500ba515/Avatars"
+            );
+            var destinationFileName = "avtr_00000000-89b1-4313-aa2d-000000000000.json";
+            filePath = Path.Combine(directory, destinationFileName);
         }
     }
 }
