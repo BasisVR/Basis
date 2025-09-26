@@ -141,10 +141,6 @@ namespace HVR.Basis.Comms
 
         private void ForceUpdate()
         {
-            if (IsLocal && !_anyAddressUpdated)
-            {
-                return;
-            }
             SetEyeRotation(_fEyeLeftX, _fEyeY, EyeSide.Left);
             SetEyeRotation(_fEyeRightX, _fEyeY, EyeSide.Right);
         }
