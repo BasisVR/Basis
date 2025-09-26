@@ -430,9 +430,9 @@ namespace Basis.Scripts.Networking.Transmitters
 
             public void Execute(int startIndex, int count)
             {
-                float v2 = VoiceDistance * VoiceDistance;
-                float h2 = HearingDistance * HearingDistance;
-                float a2 = AvatarDistance * AvatarDistance;
+                float v2 = VoiceDistance;
+                float h2 = HearingDistance;
+                float a2 = AvatarDistance;
 
                 float minD2 = float.PositiveInfinity;
                 int end = startIndex + count;

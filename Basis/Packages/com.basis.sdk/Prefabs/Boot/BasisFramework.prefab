@@ -114,6 +114,7 @@ MonoBehaviour:
         TotalLength: 0
         LengthUsed: 0
     IndexLength: 0
+    BatchSize: 0
     MicrophoneRangeIndex: 
     LastMicrophoneRangeIndex: 
     HearingIndex: 
@@ -172,6 +173,7 @@ GameObject:
   - component: {fileID: 8285517692325404402}
   - component: {fileID: 251103215370718543}
   - component: {fileID: 2819247879703846172}
+  - component: {fileID: 4245328840218215415}
   m_Layer: 0
   m_Name: Modules
   m_TagString: Untagged
@@ -427,6 +429,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Basis Framework::SMModuleSitStand
   SettingsNames:
   - Seated Mode
+--- !u!114 &4245328840218215415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3197856584617865972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bbb8ca56ea55b94da2fe9bfd6f69421, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::BasisVisualStateModule
+  SettingsNames:
+  - Visual State
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0
@@ -996,5 +1012,8 @@ MonoBehaviour:
   timeSinceLastUpdate: 0
   DeltaTime: 0
   TimeAsDouble: 0
+  fixedTimeAsDouble: 0
+  fixedDeltaTime: 0
+  unscaledDeltaTime: 0
   proceduralMaterial: {fileID: 2100000, guid: 4fe20975baa16b1d4986440508067f23, type: 2}
   sphereMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
