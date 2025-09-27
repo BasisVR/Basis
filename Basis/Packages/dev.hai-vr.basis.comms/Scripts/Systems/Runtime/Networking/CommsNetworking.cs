@@ -30,7 +30,7 @@ namespace HVR.Basis.Comms
 
     public class MutualizedInterpolationRange
     {
-        public string key;
+        public string address;
         public float lower;
         public float upper;
 

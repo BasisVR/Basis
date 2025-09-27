@@ -71,20 +71,18 @@ namespace HVR.Basis.Comms
 
     public class MutualizedFeatureInterpolator
     {
-        private readonly List<int> indices;
-        private readonly List<MutualizedInterpolationRange> mutualized;
+        private readonly List<int> oursToMutualizedIndex;
         private readonly HVRAvatarComms comms;
 
-        public MutualizedFeatureInterpolator(List<int> indices, List<MutualizedInterpolationRange> mutualized, HVRAvatarComms comms)
+        public MutualizedFeatureInterpolator(List<int> oursToMutualizedIndex, HVRAvatarComms comms)
         {
-            this.indices = indices;
-            this.mutualized = mutualized;
+            this.oursToMutualizedIndex = oursToMutualizedIndex;
             this.comms = comms;
         }
 
-        public void SubmitAbsolute(int key, float absolute)
+        public void SubmitAbsolute(int ours, float absolute)
         {
-            comms.SubmitAbsolute(indices[key], absolute);
+            comms.SubmitAbsolute(oursToMutualizedIndex[ours], absolute);
         }
     }
 

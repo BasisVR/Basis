@@ -69,9 +69,9 @@ namespace HVR.Basis.Comms
                 Receiver = NetworkedPlayer as BasisNetworkReceiver;
             }
 
-            var mutualizedInterpolationRanges = OurAddresses.Select(key => new MutualizedInterpolationRange
+            var mutualizedInterpolationRanges = OurAddresses.Select(address => new MutualizedInterpolationRange
             {
-                key = key,
+                address = address,
                 lower = -1f,
                 upper = 1f,
             }).ToList();

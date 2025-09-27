@@ -18,7 +18,7 @@ namespace HVR.Basis.Comms
 
         private bool _isWearer;
 
-        private readonly List<string> _keys = new();
+        private readonly List<string> _addresses = new();
         private readonly List<MutualizedInterpolationRange> _ranges = new();
         private readonly List<HVRNeedsInterpolationCallback> _needsInterpolation = new();
         private readonly List<HVRToSubmitLater> _toStoreLater = new();
@@ -98,7 +98,7 @@ namespace HVR.Basis.Comms
             };
             holder.SetActive(false);
             _streamedLateInit = holder.AddComponent<StreamedAvatarFeature>();
-            _streamedLateInit.valueArraySize = (byte)_keys.Count; // TODO: Sanitize count to be within bounds
+            _streamedLateInit.valueArraySize = (byte)_addresses.Count; // TODO: Sanitize count to be within bounds
             _streamedLateInit.transmitter = carrier;
             _streamedLateInit.isWearer = isWearer;
             _streamedLateInit.localIdentifier = 0;
@@ -107,20 +107,20 @@ namespace HVR.Basis.Comms
             // StreamedAvatarFeature only gets the ability to store data AFTER Awake() runs, so order matters here.
             foreach (var toStoreLater in _toStoreLater)
             {
-                var index = toStoreLater.index;
-                _streamedLateInit.Store(index, _ranges[index].AbsoluteToRange(toStoreLater.absolute));
+                var mutualizedIndex = toStoreLater.mutualizedIndex;
+                _streamedLateInit.Store(mutualizedIndex, _ranges[mutualizedIndex].AbsoluteToRange(toStoreLater.absolute));
             }
 
-            _streamedLateInit.OnInterpolatedDataChanged += data =>
+            _streamedLateInit.OnInterpolatedDataChanged += mutualizedData =>
             {
                 foreach (var callback in _needsInterpolation)
                 {
-                    for (var index = 0; index < callback.floats.Length; index++)
+                    for (var ours = 0; ours < callback.floats.Length; ours++)
                     {
-                        var indexInData = callback.indicesInData[index];
-                        var streamed01 = data[indexInData];
-                        var absolute = _ranges[indexInData].RangeToAbsolute(streamed01);
-                        callback.floats[index] = absolute;
+                        var mutualizedIndex = callback.oursToMutualizedIndex[ours];
+                        var streamed01 = mutualizedData[mutualizedIndex];
+                        var absolute = _ranges[mutualizedIndex].RangeToAbsolute(streamed01);
+                        callback.floats[ours] = absolute;
                     }
 
                     callback.callback(callback.floats);
@@ -141,25 +141,25 @@ namespace HVR.Basis.Comms
 
         public MutualizedFeatureInterpolator NeedsMutualizedInterpolator(List<MutualizedInterpolationRange> inputRanges, CommsNetworking.InterpolatedDataChanged interpolatedDataChanged)
         {
-            List<int> indices = new();
+            List<int> oursToMutualizedIndex = new();
             foreach (var inputRange in inputRanges)
             {
-                var key = inputRange.key;
-                if (!_keys.Contains(key))
+                var address = inputRange.address;
+                if (!_addresses.Contains(address))
                 {
-                    _keys.Add(key);
+                    _addresses.Add(address);
                     _ranges.Add(new MutualizedInterpolationRange
                     {
-                        key = key,
+                        address = address,
                         lower = inputRange.lower,
                         upper = inputRange.upper,
                     });
                 }
 
-                var index = _keys.IndexOf(key);
-                indices.Add(index);
+                var mutualizedIndex = _addresses.IndexOf(address);
+                oursToMutualizedIndex.Add(mutualizedIndex);
 
-                var storedRange = _ranges[index];
+                var storedRange = _ranges[mutualizedIndex];
                 if (inputRange.lower < storedRange.lower)
                 {
                     storedRange.lower = inputRange.lower;
@@ -172,25 +172,25 @@ namespace HVR.Basis.Comms
 
             _needsInterpolation.Add(new HVRNeedsInterpolationCallback
             {
-                indicesInData = indices,
-                floats = new float[indices.Count],
+                oursToMutualizedIndex = oursToMutualizedIndex,
+                floats = new float[oursToMutualizedIndex.Count],
                 callback = interpolatedDataChanged
             });
 
-            return new MutualizedFeatureInterpolator(indices, inputRanges, this);
+            return new MutualizedFeatureInterpolator(oursToMutualizedIndex, this);
         }
 
-        public void SubmitAbsolute(int index, float absolute)
+        public void SubmitAbsolute(int mutualizedIndex, float absolute)
         {
             if (_streamedLateInit != null)
             {
-                _streamedLateInit.Store(index, _ranges[index].AbsoluteToRange(absolute));
+                _streamedLateInit.Store(mutualizedIndex, _ranges[mutualizedIndex].AbsoluteToRange(absolute));
             }
             else
             {
                 _toStoreLater.Add(new HVRToSubmitLater
                 {
-                    index = index,
+                    mutualizedIndex = mutualizedIndex,
                     absolute = absolute
                 });
             }
@@ -239,14 +239,14 @@ namespace HVR.Basis.Comms
 
         private class HVRNeedsInterpolationCallback
         {
-            public List<int> indicesInData;
+            public List<int> oursToMutualizedIndex;
             public float[] floats;
             public CommsNetworking.InterpolatedDataChanged callback;
         }
 
         private class HVRToSubmitLater
         {
-            public int index;
+            public int mutualizedIndex;
             public float absolute;
         }
     }

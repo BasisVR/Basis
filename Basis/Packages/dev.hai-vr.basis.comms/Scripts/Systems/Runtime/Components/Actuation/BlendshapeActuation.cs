@@ -24,6 +24,7 @@ namespace HVR.Basis.Comms
         private Dictionary<string, int> _addressBase = new();
         private ComputedActuator[] _computedActuators;
         private ComputedActuator[][] _addressBaseIndexToActuators;
+        private Dictionary<string, (float, float)> _addressToStreamedLowerUpper;
 
         #region NetworkingFields
         // Can be null due to:
@@ -127,7 +128,7 @@ namespace HVR.Basis.Comms
             // All streamed avatar feature values are between 0 and 1.
             // If we want to stream values outside of this range (i.e. [-1; 1]), we need to collect all
             // possible InStart and InEnd values in order to lerp in that range.
-            var addressToStreamedLowerUpper = allDefinitions
+            _addressToStreamedLowerUpper = allDefinitions
                 .GroupBy(definition => definition.address)
                 .ToDictionary(grouping => grouping.Key, grouping =>
                 {
@@ -144,7 +145,7 @@ namespace HVR.Basis.Comms
                     var actuatorTargets = ComputeTargets(smrToBlendshapeNames, definition.blendshapes, definition.onlyFirstMatch);
                     if (actuatorTargets.Length == 0) return null;
 
-                    var (lower, upper) = addressToStreamedLowerUpper[definition.address];
+                    var (lower, upper) = _addressToStreamedLowerUpper[definition.address];
                     return new ComputedActuator
                     {
                         // The AddressIndex field is filled later.
@@ -222,14 +223,16 @@ namespace HVR.Basis.Comms
 
         private List<MutualizedInterpolationRange> MakeMutualized()
         {
-            return _computedActuators
-                .Select(actuator =>
+            return _addressBase.Keys
+                .Select(address =>
                 {
+                    // The key order are different between addressBase and addressToStreamedLowerUpper
+                    var (lower, upper) = _addressToStreamedLowerUpper[address];
                     return new MutualizedInterpolationRange
                     {
-                        key = actuator.RequestedFeature.identifier,
-                        lower = actuator.StreamedLower,
-                        upper = actuator.StreamedUpper,
+                        address = address,
+                        lower = lower,
+                        upper = upper,
                     };
                 })
                 .ToList();

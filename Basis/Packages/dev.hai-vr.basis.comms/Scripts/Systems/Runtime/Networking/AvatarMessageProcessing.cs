@@ -2,6 +2,7 @@
 using Basis.Scripts.Behaviour;
 using HVR.Basis.Comms.HVRUtility;
 using LiteNetLib;
+using UnityEngine;
 
 namespace HVR.Basis.Comms
 {

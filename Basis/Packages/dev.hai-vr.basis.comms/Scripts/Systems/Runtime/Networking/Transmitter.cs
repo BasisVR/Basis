@@ -1,5 +1,6 @@
 ﻿using Basis.Scripts.Behaviour;
 using LiteNetLib;
+using UnityEngine;
 
 namespace HVR.Basis.Comms
 {
