@@ -13,6 +13,7 @@ using UnityEngine.InputSystem;
 /// Central per-frame driver that coordinates device actions, networking compute/apply,
 /// physics scheduling for JigglePhysics, and various local simulation hooks.
 /// </summary>
+[DefaultExecutionOrder(-31950)]
 public class BasisEventDriver : MonoBehaviour
 {
     /// <summary>
