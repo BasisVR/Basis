@@ -222,14 +222,12 @@ namespace HVR.Basis.Comms
 
         private List<MutualizedInterpolationRange> MakeMutualized()
         {
-            return _addressBase
-                .Select(pair =>
+            return _computedActuators
+                .Select(actuator =>
                 {
-                    var actuator = _computedActuators[pair.Value];
-
                     return new MutualizedInterpolationRange
                     {
-                        key = pair.Key,
+                        key = actuator.RequestedFeature.identifier,
                         lower = actuator.StreamedLower,
                         upper = actuator.StreamedUpper,
                     };
