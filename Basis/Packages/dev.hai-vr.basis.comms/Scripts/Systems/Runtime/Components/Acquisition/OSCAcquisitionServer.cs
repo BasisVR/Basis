@@ -52,7 +52,12 @@ namespace HVR.Basis.Comms
                     var arg = message.arguments[0];
                     if (arg is float floatValue)
                     {
-                        OnAddressUpdated?.Invoke(message.path, floatValue);
+                        var messagePath = message.path;
+                        if (messagePath.StartsWith("/avatar/parameters/"))
+                        {
+                            messagePath = messagePath.Substring(19);
+                        }
+                        OnAddressUpdated?.Invoke(messagePath, floatValue);
                     }
                 }
             }
