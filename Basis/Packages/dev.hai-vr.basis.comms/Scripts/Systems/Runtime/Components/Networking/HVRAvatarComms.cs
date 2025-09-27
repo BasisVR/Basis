@@ -123,7 +123,7 @@ namespace HVR.Basis.Comms
                         callback.floats[index] = absolute;
                     }
 
-                    callback.callback(data);
+                    callback.callback(callback.floats);
                 }
             };
 
