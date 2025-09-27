@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Basis.Scripts.Behaviour;
 using LiteNetLib;
@@ -127,6 +128,14 @@ namespace HVR.Basis.Comms
             };
 
             avatarMessageProcessing = AvatarMessageProcessing.ForFeature(carrier, isWearer, avatar.LinkedPlayerID, new HVRRedirectToStreamed(_streamedLateInit));
+
+            StartCoroutine(SendInitialPacketNextFrame());
+        }
+
+        IEnumerator SendInitialPacketNextFrame()
+        {
+            // We want to send the initial packet when all BasisAvatarMonoBehaviours have been initialized.
+            yield return null;
             avatarMessageProcessing.SendInitialPacket();
         }
 

@@ -16,7 +16,7 @@ namespace HVR.Basis.Comms
 
         public void Awake()
         {
-            _comms = HVRCommsUtil.GetAvatar(this).GetComponent<HVRAvatarComms>();
+            _comms = HVRCommsUtil.GetAvatar(this).GetComponentInChildren<HVRAvatarComms>(true);
         }
 
         public override void OnNetworkMessageReceived(ushort remoteUser, byte[] buffer, DeliveryMethod deliveryMethod)

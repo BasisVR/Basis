@@ -53,7 +53,7 @@ namespace HVR.Basis.Comms
 
         public void OnHVRAvatarReady(bool isWearer)
         {
-            _isWearer = true;
+            _isWearer = isWearer;
             Discover();
         }
 

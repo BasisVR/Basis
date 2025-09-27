@@ -19,8 +19,8 @@ namespace HVR.Basis.Comms.Editor
             var avi = myTransform.GetComponentInParent<BasisAvatar>(true);
             if (avi == null) return;
 
-            var comms = avi.GetComponentInChildren<HVRAvatarComms>();
-            var carrier = avi.GetComponentInChildren<HVRNetworkingCarrier>();
+            var comms = avi.GetComponentInChildren<HVRAvatarComms>(true);
+            var carrier = avi.GetComponentInChildren<HVRNetworkingCarrier>(true);
             if (comms == null || carrier == null)
             {
                 if (GUID.TryParse(HVRNetworkingPrefabGuid, out var guid))
