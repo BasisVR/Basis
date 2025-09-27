@@ -1,5 +1,7 @@
 ﻿using System;
 using HVR.Basis.Comms.OSC;
+using HVR.Osushi;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -11,9 +13,10 @@ namespace HVR.Basis.Comms
         private static OSCAcquisitionServer _sceneInstance;
 
         private HVROsc _client;
+        private OsushiQuery _osushi;
         private const int OurFakeServerPort = 9000;
         private const int ExternalProgramReceiverPort = 9001;
-        
+
         public event AddressUpdated OnAddressUpdated;
         public delegate void AddressUpdated(string address, float value);
 
@@ -24,6 +27,12 @@ namespace HVR.Basis.Comms
                 _client = new HVROsc(OurFakeServerPort);
                 _client.Start();
                 _client.SetReceiverOscPort(ExternalProgramReceiverPort);
+
+                var root = OsushiUtil.CreateFaceTrackingNodes();
+                var rootText = JsonConvert.SerializeObject(root, Formatting.Indented);
+                var avtrText = JsonConvert.SerializeObject(root.CONTENTS["avatar"], Formatting.Indented);
+                _osushi = new OsushiQuery(rootText, avtrText);
+                _osushi.Start();
             }
             catch (Exception e)
             {
@@ -63,6 +72,20 @@ namespace HVR.Basis.Comms
                     Debug.LogWarning($"Failed to close client ({e.Message}");
                 }
                 _client = null;
+            }
+
+            if (_osushi != null)
+            {
+                try
+                {
+                    _osushi.Stop();
+                }
+                catch (Exception e)
+                {
+                    // Prevent avatar loading failure
+                    Debug.LogWarning($"Failed to close osushi service ({e.Message}");
+                }
+                _osushi = null;
             }
         }
 
