@@ -8,6 +8,8 @@ namespace HVR.Basis.Comms
     [AddComponentMenu("HVR.Basis/Comms/Internal/Streamed Avatar Feature")]
     public class StreamedAvatarFeature : MonoBehaviour
     {
+        private const bool PrioritizeLargeChanges = true;
+
         private const int HeaderBytes = 3;
         // 1/60 makes for a maximum encoded delta time of 4.25 seconds.
         private const float DeltaLocalIntToSeconds = 1 / 60f;
@@ -51,6 +53,17 @@ namespace HVR.Basis.Comms
         public void Store(int index, float value)
         {
             current[index] = value;
+            if (PrioritizeLargeChanges && isWearer)
+            {
+                // When prioritizing large changes, we want to put an emphasis on values that are further away from the previous value.
+                // We use the "target" array on the sender to store the furthest value,
+                // and the "previous" array on the sender to store the last value we sent for networking.
+                var previousValue = previous[index];
+                if (Mathf.Abs(value - previousValue) > Mathf.Abs(target[index] - previousValue))
+                {
+                    target[index] = value;
+                }
+            }
         }
 
         /// Exposed for testing purposes.
@@ -80,10 +93,18 @@ namespace HVR.Basis.Comms
                 var toSend = new StreamedAvatarFeaturePayload
                 {
                     DeltaTime = _timeLeft,
-                    FloatValues = current // Not copied: Process this message immediately
+                    FloatValues = PrioritizeLargeChanges ? target : current // Not copied: Process this message immediately
                 };
-
                 EncodeAndSubmit(toSend, null);
+                if (PrioritizeLargeChanges)
+                {
+                    // Order matters: Modify target after EncodeAndSubmit() executes.
+                    for (var i = 0; i < current.Length; i++)
+                    {
+                        previous[i] = target[i];
+                        target[i] = current[i];
+                    }
+                }
 
                 _timeLeft = 0;
             }
