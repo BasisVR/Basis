@@ -271,11 +271,15 @@ namespace HVR.Basis.Comms
             {
                 foreach (var target in computedActuator.Targets)
                 {
-                    foreach (var blendshapeIndex in target.BlendshapeIndices)
+                    if (null != target.Renderer && null != target.Renderer.sharedMesh)
                     {
-                        if (null != target.Renderer)
+                        var blendshapeCount = target.Renderer.sharedMesh.blendShapeCount;
+                        foreach (var blendshapeIndex in target.BlendshapeIndices)
                         {
-                            target.Renderer.SetBlendShapeWeight(blendshapeIndex, 0);
+                            if (blendshapeIndex < blendshapeCount)
+                            {
+                                target.Renderer.SetBlendShapeWeight(blendshapeIndex, 0);
+                            }
                         }
                     }
                 }
