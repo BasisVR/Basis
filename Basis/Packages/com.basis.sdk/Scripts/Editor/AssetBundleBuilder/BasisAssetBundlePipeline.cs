@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -58,6 +59,8 @@ public static class BasisAssetBundlePipeline
             else
             {
                 prefab = Object.Instantiate(asset);
+                DestroyEditorOnlyInAvatar(prefab);
+
                 OnBeforeBuildPrefab?.Invoke(prefab, settings);
                 assetPath = TemporaryStorageHandler.SavePrefabToTemporaryStorage(prefab, settings, ref wasModified, out uniqueID);
 
@@ -111,6 +114,34 @@ public static class BasisAssetBundlePipeline
                 PlayerSettings.SetScriptingBackend(namedBuildTarget, ResetTo);
             }
             return new(false, (null, new AssetBundleBuilder.InformationHash()));
+        }
+    }
+
+    public static void DestroyEditorOnlyInAvatar(GameObject avatar)
+    {
+        // We need to do this instead of iterating on avatar.transform so that we can destroy
+        // the objects that we're currently iterating through.
+        var transforms = Enumerable.Range(0, avatar.transform.childCount)
+            .Select(i => avatar.transform.GetChild(i))
+            .ToList();
+        foreach (Transform t in transforms)
+        {
+            DestroyIfEditorOnlyRecursive(t.gameObject);
+        }
+    }
+
+    private static void DestroyIfEditorOnlyRecursive(GameObject subject)
+    {
+        if (subject.CompareTag("EditorOnly"))
+        {
+            Object.DestroyImmediate(subject);
+        }
+        else
+        {
+            foreach (Transform child in subject.transform)
+            {
+                DestroyIfEditorOnlyRecursive(child.gameObject);
+            }
         }
     }
 }

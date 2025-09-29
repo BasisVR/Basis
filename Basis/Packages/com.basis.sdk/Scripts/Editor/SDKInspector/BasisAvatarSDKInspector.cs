@@ -517,9 +517,12 @@ public partial class BasisAvatarSDKInspector : Editor
             ScheduleCallback = false;
         }
         BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
+        var inSceneItem = GameObject.Instantiate(Avatar.gameObject);
+        BasisAssetBundlePipeline.DestroyEditorOnlyInAvatar(inSceneItem);
+
         BasisLoadableBundle LoadableBundle = new BasisLoadableBundle
         {
-            LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = GameObject.Instantiate(Avatar.gameObject) }
+            LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = inSceneItem }
         };
         LoadableBundle.LoadableGameobject.InSceneItem.transform.parent = null;
         LoadableBundle.BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
