@@ -77,7 +77,10 @@ jobs:
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: "Remove OpenXR when building for Linux"
         if: matrix.targetPlatform == 'StandaloneLinux64'
-        run: jq 'del(.dependencies ["com.meta.xr.sdk.core", "com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
+        run: jq 'del(.dependencies ["com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
+      - name: "Remove Meta XR Core when building for Linux"
+        if: matrix.targetPlatform == 'StandaloneLinux64'
+        run: rm -rf ${projectPath}/Packages/com.meta.xr.sdk.core
       - name: "Build Unity project"
         timeout-minutes: 100
         uses: kitlith/unity-builder@linux-extension
