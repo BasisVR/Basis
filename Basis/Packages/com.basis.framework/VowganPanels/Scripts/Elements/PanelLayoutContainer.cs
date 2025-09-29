@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace Basis.VowganUI
 {
-    public class LayoutContainer : AddressableUIInstanceBase
+    public class PanelLayoutContainer : AddressableUIInstanceBase
     {
 
         public static string ReferencePathVertical => "BasisUI/CanvasElement/LayoutContainerVertical";
@@ -12,6 +12,10 @@ namespace Basis.VowganUI
 
         public HorizontalOrVerticalLayoutGroup LayoutGroup;
         public ContentSizeFitter ContentFitter;
+
+        /// <summary>
+        /// Any changes to this will only be applied by calling ApplyLayoutOptions();
+        /// </summary>
         public LayoutContainerOptions ChildLayout;
 
         /// <summary>
@@ -20,18 +24,18 @@ namespace Basis.VowganUI
         public LayoutDirection Direction => _direction;
         private LayoutDirection _direction;
 
-        public static LayoutContainer CreateNew(Component parent, LayoutDirection direction)
+        public static PanelLayoutContainer CreateNew(Component parent, LayoutDirection direction)
         {
-            LayoutContainer element;
+            PanelLayoutContainer element;
             switch (direction)
             {
                 case LayoutDirection.Vertical:
-                    element = CreateNew<LayoutContainer>(ReferencePathVertical, parent);
+                    element = CreateNew<PanelLayoutContainer>(ReferencePathVertical, parent);
                     element._direction = LayoutDirection.Vertical;
                     return element;
 
                 case LayoutDirection.Horizontal:
-                    element = CreateNew<LayoutContainer>(ReferencePathHorizontal, parent);
+                    element = CreateNew<PanelLayoutContainer>(ReferencePathHorizontal, parent);
                     element._direction = LayoutDirection.Horizontal;
                     return element;
 
@@ -52,10 +56,10 @@ namespace Basis.VowganUI
             ApplyLayoutOptions();
         }
 
-        protected void ApplyLayoutOptions()
+        public void ApplyLayoutOptions()
         {
-            RectTrans.anchorMin = Vector2.zero;
-            RectTrans.anchorMax = Vector2.one;
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
 
             if (ChildLayout.Constrained)
             {

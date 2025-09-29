@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Basis.Scripts.BasisSdk.Helpers;
 using UnityEngine;
 
 namespace Basis.VowganUI
@@ -14,29 +13,14 @@ namespace Basis.VowganUI
         [Tooltip("Offsets from the current tracking mode.")]
         public Transform GroupOffset;
         [Tooltip("Used to move all child panels for focusing a specific panel.")]
-        public Transform GroupRoot;
-
-        [Header("Settings")]
-        public PanelData DemoData;
-        public PanelPlacementDirection DemoDirection = PanelPlacementDirection.Front;
-        public float DemoMargin = 64;
+        public Transform MovementRoot;
+        public Transform StaticRoot;
 
         [Header("Readout")]
         public Panel FocusedPanel;
-        public List<Panel> AllPanels;
+        public List<Panel> MovementPanels = new();
+        public List<Panel> StaticPanels = new();
 
-
-        [ContextMenu("DEMO: Create Panel")]
-        private void DemoCreatePanel()
-        {
-            CreatePanelInGroup(DemoData, DemoDirection, DemoMargin);
-        }
-
-        [ContextMenu("DEMO: Create Panel, No Focus")]
-        private void DemoCreatePanelNoFocus()
-        {
-            CreatePanelInGroup(DemoData, DemoDirection, DemoMargin, false);
-        }
 
         public static PanelGroup CreateNew()
         {
@@ -48,9 +32,19 @@ namespace Basis.VowganUI
             BasisCursorManagement.UnlockCursor(nameof(PanelGroupMover));
         }
 
-        protected override void OnDestroyEvent()
+        protected override void OnReleaseEvent()
         {
             BasisCursorManagement.LockCursor(nameof(PanelGroupMover));
+        }
+
+        public void RemoveAllMovementPanels()
+        {
+            List<Panel> panels = new();
+            panels.AddRange(MovementPanels);
+            foreach (Panel panel in panels)
+            {
+                panel.ReleaseInstance();
+            }
         }
 
         /// <summary>
@@ -73,27 +67,66 @@ namespace Basis.VowganUI
             bool focusNewPanel,
             string style)
         {
-            Panel panel = Panel.CreateNew(data, GroupRoot, style);
-            panel.OnDestroyed += () => OnPanelDestroyed(panel);
+            Panel panel = Panel.CreateNew(data, MovementRoot, style);
+            panel.OnReleased += () => OnMovementPanelReleased(panel);
 
             if (FocusedPanel)
             {
                 panel.PlaceRelativeToParent(FocusedPanel, direction, margin);
             }
 
-            AllPanels.Add(panel);
+            MovementPanels.Add(panel);
             if (focusNewPanel) SetFocusedPanel(panel);
 
             return panel;
         }
 
-        [ContextMenu("DEMO: Remove Panel")]
-        private void DemoRemovePanel()
+        /// <summary>
+        /// Instantiate a new Page Panel within this group with the given data.
+        /// </summary>
+        public Panel CreateRootPanelInGroup(
+            PanelData data,
+            string style)
         {
-            AllPanels.Remove(FocusedPanel);
-            FocusedPanel.DestroyInstance();
-            FocusedPanel = null;
+            Panel panel = Panel.CreateNew(data, MovementRoot, style);
+            panel.OnReleased += () => OnMovementPanelReleased(panel);
+
+            RemoveAllMovementPanels();
+
+            MovementPanels.Add(panel);
+            SetFocusedPanel(panel);
+
+            return panel;
         }
+
+        /// <summary>
+        /// Instantiate a new Page Panel within this group with the given data.
+        /// This panel will not move when new movement panels are focused.
+        /// </summary>
+        public Panel CreateStaticPanelInGroup(
+            PanelData data,
+            Vector3 offset) =>
+            CreateStaticPanelInGroup(data, offset, Panel.Styles.Default);
+
+        /// <summary>
+        /// Instantiate a new Page Panel within this group with the given data.
+        /// This panel will not move when new movement panels are focused.
+        /// </summary>
+        public Panel CreateStaticPanelInGroup(
+            PanelData data,
+            Vector3 offset,
+            string style)
+        {
+            Panel panel = Panel.CreateNew(data, StaticRoot, style);
+            panel.OnReleased += () => OnStaticPanelDestroyed(panel);
+
+            panel.PlaceRelativeToParent(StaticRoot, offset);
+
+            StaticPanels.Add(panel);
+
+            return panel;
+        }
+
 
         /// <summary>
         /// Select and focus the given panel.
@@ -104,14 +137,17 @@ namespace Basis.VowganUI
 
             Vector3 target = GroupOffset.position;
             Vector3 delta = target - panel.transform.position;
-            GroupRoot.position += delta;
+            MovementRoot.position += delta;
         }
 
-        private void OnPanelDestroyed(Panel panel)
+        private void OnMovementPanelReleased(Panel panel)
         {
-            AllPanels.Remove(panel);
-            if (panel == FocusedPanel && panel.ParentPanel)
-                SetFocusedPanel(panel.ParentPanel);
+            MovementPanels.Remove(panel);
+        }
+
+        private void OnStaticPanelDestroyed(Panel panel)
+        {
+            StaticPanels.Remove(panel);
         }
     }
 }

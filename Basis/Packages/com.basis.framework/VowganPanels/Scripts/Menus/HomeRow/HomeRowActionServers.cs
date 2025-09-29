@@ -1,0 +1,58 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Basis.VowganUI
+{
+
+    public class HomeRowActionServers : MenuActionProvider
+    {
+        [RuntimeInitializeOnLoadMethod]
+        public static void AddToMenu()
+        {
+            HomeRowMenu.AddActionProvider(new HomeRowActionServers());
+        }
+
+        public override string Title => "Servers";
+        public override Sprite Icon => null;
+        public override int Order => 1;
+
+
+        public override void RunAction() => ToggleActive();
+        public override void OnActionDisabled() => ReleasePanelForAction();
+        public override void OnActionEnabled() => CreateMenu();
+
+
+        public void CreateMenu()
+        {
+            Panel panel = HomeRowMenu.Group.CreateRootPanelInGroup(new PanelData
+                {
+                    Title = this.Title,
+                    PanelSize = new Vector2(300, 400)
+                },
+                Panel.Styles.Page);
+
+            panel.OnReleased += DisableAction;
+
+            PanelScrollView view = PanelScrollView.CreateNew(panel.ContentParent, LayoutDirection.Vertical);
+
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+
+        }
+
+    }
+}

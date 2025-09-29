@@ -11,7 +11,7 @@ namespace Basis.VowganUI
             public static string Horizontal => "BasisUI/CanvasElement/ScrollViewHorizontal";
         }
 
-        public LayoutContainer Layout;
+        public PanelLayoutContainer LayoutContainer;
 
         public static PanelScrollView CreateNew(Component parent, LayoutDirection direction)
         {

@@ -37,7 +37,8 @@ namespace Basis.VowganUI
 
         [Header("References")]
         public Transform GroupOffset;
-        public Transform GroupRoot;
+        public Transform GroupMovementRoot;
+        public Transform GroupStaticRoot;
 
         [Header("Settings")]
         public PanelGroupRootMode RootMode = PanelGroupRootMode.Playspace;
@@ -98,6 +99,7 @@ namespace Basis.VowganUI
         }
 
 
+        /*
         [ContextMenu("VR/SetRootMode World")]
         public void SetRootModeWorld() => SetRootMode(PanelGroupRootMode.World);
 
@@ -127,6 +129,7 @@ namespace Basis.VowganUI
 
         [ContextMenu("Desktop/SetDesktopRootMode RightHand")]
         public void SetDesktopRootModeRightHand() => SetDesktopRootMode(PanelGroupRootMode.RightHand);
+        */
 
         public void SetRootMode(PanelGroupRootMode mode)
         {
@@ -195,7 +198,8 @@ namespace Basis.VowganUI
             float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight;
             GroupOffset.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
             GroupOffset.localScale = Vector3.one * RootScale;
-            GroupRoot.localScale = Vector3.one * offset.Scale;
+            GroupMovementRoot.localScale = Vector3.one * offset.Scale;
+            GroupStaticRoot.localScale = Vector3.one * offset.Scale;
             transform.localScale = Vector3.one * playerHeight;
         }
 

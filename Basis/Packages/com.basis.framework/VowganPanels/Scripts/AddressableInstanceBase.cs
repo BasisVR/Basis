@@ -12,7 +12,8 @@ namespace Basis.VowganUI
     public abstract class AddressableInstanceBase : MonoBehaviour
     {
 
-        public Action OnDestroyed;
+        public Action OnReleased;
+        [HideInInspector]public bool IsReleased;
 
         /// <summary>
         /// Runs immediately after instantiation from Addressables.
@@ -22,14 +23,15 @@ namespace Basis.VowganUI
         /// <summary>
         /// Runs immediately before destruction and release from Addressables.
         /// </summary>
-        protected virtual void OnDestroyEvent(){}
+        protected virtual void OnReleaseEvent(){}
 
 
         /// <summary>
-        /// Create a new Addressable Instance from a given path.
+        /// Create a new Addressable UI Instance from a given path.
         /// </summary>
         public static TInstance CreateNew<TInstance>(string referencePath) where TInstance: AddressableInstanceBase
         {
+            //TODO: if the string is an invalid path, this will error. Create better handling for this.
             GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
             TInstance instance = obj.GetComponent<TInstance>();
             instance.OnCreateEvent();
@@ -37,31 +39,34 @@ namespace Basis.VowganUI
         }
 
         /// <summary>
-        /// Create a new Addressable Instance from a given path with an assigned parent.
+        /// Create a new Addressable UI Instance from a given path with an assigned parent.
+        /// "Parent" takes a component for easier assignment.
         /// </summary>
-        public static TElement CreateNew<TElement>(string referencePath, Transform parent) where TElement: AddressableInstanceBase
+        public static TElement CreateNew<TElement>(string referencePath, Component parent) where TElement: AddressableInstanceBase
         {
             GameObject obj = Addressables.InstantiateAsync(referencePath,
-                    new InstantiationParameters(parent, false)).WaitForCompletion();
+                new InstantiationParameters(parent.transform, false)).WaitForCompletion();
             TElement element = obj.GetComponent<TElement>();
             element.OnCreateEvent();
             return element;
         }
 
         /// <summary>
-        /// Destroy this addressable instance. Callbacks will run first, followed by a call to destroy it.
-        /// This object is released from Addressables during it's OnDestroy event.
+        /// Destroy this addressable instance.
+        /// Callbacks will run first, followed by an Addressables Release.
         /// </summary>
-        public void DestroyInstance()
+        public void ReleaseInstance()
         {
-            OnDestroyEvent();
-            OnDestroyed?.Invoke();
-            Destroy(gameObject);
+            IsReleased = true;
+            OnReleaseEvent();
+            OnReleased?.Invoke();
+            Addressables.ReleaseInstance(gameObject);
         }
 
-        private void OnDestroy()
+        protected virtual void OnDestroy()
         {
-            Addressables.ReleaseInstance(gameObject);
+            if (!IsReleased)
+                ReleaseInstance();
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.UI;
+using TMPro;
 using UnityEngine;
 
 namespace Basis.VowganUI
@@ -8,7 +9,7 @@ namespace Basis.VowganUI
     [Serializable]
     public struct PanelData
     {
-        public string Name;
+        public string Title;
         public Vector2 PanelSize;
     }
 
@@ -21,6 +22,7 @@ namespace Basis.VowganUI
         }
 
         [Header("References")]
+        public TextMeshProUGUI TitleLabel;
         public RectTransform ContentParent;
 
         [Header("Readout")]
@@ -48,27 +50,32 @@ namespace Basis.VowganUI
         {
             Data = data;
 
-            gameObject.name = data.Name;
+            gameObject.name = data.Title;
             transform.localScale = Vector3.one;
 
-            RectTrans.sizeDelta = data.PanelSize;
+            rectTransform.sizeDelta = data.PanelSize;
             BasisGraphicUIRayCaster.SetBoxColliderToRectTransform(gameObject);
+
+            if (TitleLabel) TitleLabel.text = data.Title;
         }
 
-        protected override void OnDestroyEvent()
+        protected override void OnReleaseEvent()
         {
-            base.OnDestroyEvent();
-            if (ParentPanel) ParentPanel.RemoveChildPanel(this);
+            base.OnReleaseEvent();
+            if (ParentPanel) ParentPanel.ChildPanels.Remove(this);
         }
 
-        public void AddChildPanel(Panel panel)
+        public void PlaceRelativeToParent(
+            Transform parent,
+            Vector3 offset)
         {
-            ChildPanels.Add(panel);
-        }
+            if (!parent)
+            {
+                Debug.LogWarning($"Attempted to assign a null parent panel to {gameObject}.", this);
+                return;
+            }
 
-        public void RemoveChildPanel(Panel panel)
-        {
-            ChildPanels.Remove(panel);
+            rectTransform.position = parent.TransformPoint(offset);
         }
 
         /// <summary>
@@ -86,36 +93,36 @@ namespace Basis.VowganUI
             }
 
             ParentPanel = parentPanel;
-            ParentPanel.AddChildPanel(this);
+            ParentPanel.ChildPanels.Add(this);
 
             switch (direction)
             {
                 case PanelPlacementDirection.Center:
-                    RectTrans.anchoredPosition = parentPanel.RectTrans.anchoredPosition;
+                    rectTransform.anchoredPosition = parentPanel.rectTransform.anchoredPosition;
                     break;
                 case PanelPlacementDirection.Left:
-                    RectTrans.anchoredPosition = Vector2.left * (GetOffsetWidth(this, parentPanel) + margin);
+                    rectTransform.anchoredPosition = Vector2.left * (GetOffsetWidth(this, parentPanel) + margin);
                     break;
                 case PanelPlacementDirection.Up:
-                    RectTrans.anchoredPosition = Vector2.up * (GetOffsetHeight(this, parentPanel) + margin);
+                    rectTransform.anchoredPosition = Vector2.up * (GetOffsetHeight(this, parentPanel) + margin);
                     break;
                 case PanelPlacementDirection.Right:
-                    RectTrans.anchoredPosition = Vector2.right * (GetOffsetWidth(this, parentPanel) + margin);
+                    rectTransform.anchoredPosition = Vector2.right * (GetOffsetWidth(this, parentPanel) + margin);
                     break;
                 case PanelPlacementDirection.Down:
-                    RectTrans.anchoredPosition = Vector2.down * (GetOffsetHeight(this, parentPanel) + margin);
+                    rectTransform.anchoredPosition = Vector2.down * (GetOffsetHeight(this, parentPanel) + margin);
                     break;
                 case PanelPlacementDirection.Front:
-                    RectTrans.localPosition += Vector3.back * margin;
+                    rectTransform.localPosition += Vector3.back * margin;
                     break;
                 case PanelPlacementDirection.Behind:
-                    RectTrans.localPosition += Vector3.forward * margin;
+                    rectTransform.localPosition += Vector3.forward * margin;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
 
-            RectTrans.localPosition += parentPanel.RectTrans.localPosition;
+            rectTransform.localPosition += parentPanel.rectTransform.localPosition;
         }
 
         /// <summary>

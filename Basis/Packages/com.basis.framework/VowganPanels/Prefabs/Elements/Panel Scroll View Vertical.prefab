@@ -448,7 +448,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a1d85f458525094ea5c2b6a4020300c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.UI.PanelScrollView
-  Layout: {fileID: 4677122252056149398}
+  IsReleased: 0
+  LayoutContainer: {fileID: 4677122252056149398}
 --- !u!1001 &9076473399482546895
 PrefabInstance:
   m_ObjectHideFlags: 0

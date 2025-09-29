@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.EventSystems;
@@ -14,7 +16,22 @@ namespace Basis.VowganUI
     public abstract class AddressableUIInstanceBase : UIBehaviour
     {
 
-        public Action OnDestroyed;
+        public Action OnReleased;
+        [HideInInspector]public bool IsReleased;
+
+        /// <summary>
+        /// Lazy initialization for the self RectTransform.
+        /// </summary>
+        public RectTransform rectTransform
+        {
+            get
+            {
+                if (!_rectTransform) _rectTransform = GetComponent<RectTransform>();
+                return _rectTransform;
+            }
+        }
+
+        private RectTransform _rectTransform;
 
         /// <summary>
         /// Runs immediately after instantiation from Addressables.
@@ -24,7 +41,7 @@ namespace Basis.VowganUI
         /// <summary>
         /// Runs immediately before destruction and release from Addressables.
         /// </summary>
-        protected virtual void OnDestroyEvent(){}
+        protected virtual void OnReleaseEvent(){}
 
 
         /// <summary>
@@ -53,34 +70,21 @@ namespace Basis.VowganUI
         }
 
         /// <summary>
-        /// Destroy this addressable instance. Callbacks will run first, followed by a call to destroy it.
-        /// This object is released from Addressables during it's OnDestroy event.
+        /// Destroy this addressable instance.
+        /// Callbacks will run first, followed by an Addressables Release.
         /// </summary>
-        public void DestroyInstance()
+        public void ReleaseInstance()
         {
-            OnDestroyEvent();
-            OnDestroyed?.Invoke();
-            Destroy(gameObject);
+            IsReleased = true;
+            OnReleaseEvent();
+            OnReleased?.Invoke();
+            Addressables.ReleaseInstance(gameObject);
         }
-
-        /// <summary>
-        /// Lazy initialization for the self RectTransform.
-        /// </summary>
-        public RectTransform RectTrans
-        {
-            get
-            {
-                if (!_rectTrans) _rectTrans = GetComponent<RectTransform>();
-                return _rectTrans;
-            }
-        }
-
-        private RectTransform _rectTrans;
 
         protected override void OnDestroy()
         {
-            base.OnDestroy();
-            Addressables.ReleaseInstance(gameObject);
+            if (!IsReleased)
+                ReleaseInstance();
         }
     }
 }
