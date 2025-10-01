@@ -142,6 +142,12 @@ public static class BasisAssetBundlePipeline
         if (animator == null || animator.avatar == null) return;
 
         var allHumanoidBoneTransforms = AllValidBonesOf(animator).ToHashSet();
+        var hips = animator.GetBoneTransform(HumanBodyBones.Hips);
+        if (hips != null && hips.parent != null)
+        {
+            // Animation Rigging also fails if the "Armature" object itself has a duplicated name. Not sure why exactly.
+            allHumanoidBoneTransforms.Add(hips.parent);
+        }
         var allHumanoidBoneNames = allHumanoidBoneTransforms
             .Select(transform => transform.name)
             .ToHashSet();
