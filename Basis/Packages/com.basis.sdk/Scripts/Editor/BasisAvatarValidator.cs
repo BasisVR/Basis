@@ -328,7 +328,14 @@ public class BasisAvatarValidator
         {
             if (entry.Value > 1)
             {
-                errors.Add(new BasisValidationIssue($"Duplicate name found: {entry.Key} ({entry.Value} times)", null));
+                if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.doNotAutoRenameBones)
+                {
+                    errors.Add(new BasisValidationIssue($"Duplicate name found: {entry.Key} ({entry.Value} times)", null));
+                }
+                else
+                {
+                    warnings.Add(new BasisValidationIssue($"Duplicate name found, it will be renamed automatically: {entry.Key} ({entry.Value} times)", null));
+                }
             }
         }
         return errors.Count == 0;
@@ -514,7 +521,7 @@ public class BasisAvatarValidator
         int FixMeButtonsCount = FixMeButtons.Count;
         for (int Index = 0; Index < FixMeButtonsCount; Index++)
         {
-            rootElement.Remove(FixMeButtons[Index]);    
+            rootElement.Remove(FixMeButtons[Index]);
         }
         FixMeButtons.Clear();
     }

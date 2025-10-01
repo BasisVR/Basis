@@ -113,5 +113,10 @@ namespace Basis.Scripts.BasisSdk
         /// Event triggered when the avatar is ready for further initialization or data queries.
         /// </summary>
         public OnReady OnAvatarReady;
+
+        /// <summary>
+        /// Processing options used when the avatar is processed. This is always null after the avatar is processed.
+        /// </summary>
+        public BasisProcessingAvatarOptions ProcessingAvatarOptions;
     }
 }

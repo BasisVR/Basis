@@ -253,6 +253,8 @@ public partial class BasisAvatarSDKInspector : Editor
 
         ObjectField AvatarIconField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.AvatarIcon);
 
+        Toggle AvatarDoNotAutoRenameBonesField = uiElementsRoot.Q<Toggle>(BasisSDKConstants.AvatarDoNotAutoRenameBonesField);
+
         animatorField.allowSceneObjects = true;
         faceBlinkMeshField.allowSceneObjects = true;
         faceVisemeMeshField.allowSceneObjects = true;
@@ -270,6 +272,9 @@ public partial class BasisAvatarSDKInspector : Editor
         AvatarDescriptionField.RegisterCallback<ChangeEvent<string>>(AvatarDescription);
 
         AvatarIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnAssignTexture2D);
+
+        AvatarDoNotAutoRenameBonesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.doNotAutoRenameBones : false;
+        AvatarDoNotAutoRenameBonesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarDoNotAutoRenameBonesField);
 
         // Button click events
         avatarEyePositionClick.clicked += () => ClickedAvatarEyePositionButton(avatarEyePositionClick);
@@ -523,6 +528,7 @@ public partial class BasisAvatarSDKInspector : Editor
         var inSceneItem = GameObject.Instantiate(Avatar.gameObject);
         BasisAssetBundlePipeline.DestroyEditorOnlyInAvatar(inSceneItem);
         OnBeforeTestInEditor?.Invoke(inSceneItem);
+        BasisAssetBundlePipeline.PostProcessAvatar(inSceneItem);
 
         BasisLoadableBundle LoadableBundle = new BasisLoadableBundle
         {
@@ -559,6 +565,14 @@ public partial class BasisAvatarSDKInspector : Editor
     public void AvatarName(ChangeEvent<string> evt)
     {
         Avatar.BasisBundleDescription.AssetBundleName = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        AssetDatabase.Refresh();
+    }
+    public void OnAvatarDoNotAutoRenameBonesField(ChangeEvent<bool> evt)
+    {
+        if (Avatar.ProcessingAvatarOptions == null) Avatar.ProcessingAvatarOptions = new BasisProcessingAvatarOptions();
+
+        Avatar.ProcessingAvatarOptions.doNotAutoRenameBones = evt.newValue;
         EditorUtility.SetDirty(Avatar);
         AssetDatabase.Refresh();
     }

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -60,8 +62,8 @@ public static class BasisAssetBundlePipeline
             {
                 prefab = Object.Instantiate(asset);
                 DestroyEditorOnlyInAvatar(prefab);
-
                 OnBeforeBuildPrefab?.Invoke(prefab, settings);
+                PostProcessAvatar(prefab);
                 assetPath = TemporaryStorageHandler.SavePrefabToTemporaryStorage(prefab, settings, ref wasModified, out uniqueID);
 
                 if (prefab != null)
@@ -115,6 +117,74 @@ public static class BasisAssetBundlePipeline
             }
             return new(false, (null, new AssetBundleBuilder.InformationHash()));
         }
+    }
+
+    public static void PostProcessAvatar(GameObject prefab)
+    {
+        var avatar = prefab.GetComponent<BasisAvatar>();
+        if (avatar == null) return;
+
+        var processing = avatar.ProcessingAvatarOptions;
+        if (processing == null) return;
+
+        if (!processing.doNotAutoRenameBones)
+        {
+            ProcessAutoRenameBones(prefab);
+        }
+
+        // We do not want to keep this data at runtime.
+        avatar.ProcessingAvatarOptions = null;
+    }
+
+    private static void ProcessAutoRenameBones(GameObject prefab)
+    {
+        var animator = prefab.GetComponent<Animator>();
+        if (animator == null || animator.avatar == null) return;
+
+        var allHumanoidBoneTransforms = AllValidBonesOf(animator).ToHashSet();
+        var allHumanoidBoneNames = allHumanoidBoneTransforms
+            .Select(transform => transform.name)
+            .ToHashSet();
+
+        var allNonHumanoidBonesNamedSimilarly = prefab.GetComponentsInChildren<Transform>()
+            .Where(transform => !allHumanoidBoneTransforms.Contains(transform))
+            .Where(transform => allHumanoidBoneNames.Contains(transform.name))
+            .ToList();
+
+        if (allNonHumanoidBonesNamedSimilarly.Count == 0) return;
+
+        var duplicateMessage = string.Join(", ", allNonHumanoidBonesNamedSimilarly.Select(transform => transform.name).Distinct().OrderBy(t => t));
+        BasisDebug.Log($"This avatar has duplicate humanoid bone names ({duplicateMessage}), we will auto-rename them to avoid an issue caused by AnimationRigging.");
+
+        foreach (var grouping in allNonHumanoidBonesNamedSimilarly.GroupBy(transform => transform.name))
+        {
+            var originalName = grouping.Key;
+            var elements = grouping.ToList();
+            for (var index = 0; index < elements.Count; index++)
+            {
+                var element = elements[index];
+
+                var number = index + 1;
+                element.name = $"{originalName}_{number}";
+            }
+        }
+    }
+
+    private static List<Transform> AllValidBonesOf(Animator animator)
+    {
+        var results = new List<Transform>();
+        if (animator.avatar == null) return results;
+
+        for (var bone = HumanBodyBones.Hips; bone < HumanBodyBones.LastBone; bone++)
+        {
+            var t = animator.GetBoneTransform(bone);
+            if (t != null)
+            {
+                results.Add(t);
+            }
+        }
+
+        return results;
     }
 
     public static void DestroyEditorOnlyInAvatar(GameObject avatar)
