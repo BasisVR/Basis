@@ -1,3 +1,4 @@
+using Basis.VowganUI.Styling;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -15,8 +16,16 @@ namespace Basis.VowganUI
         public Button ButtonComponent;
         public TextMeshProUGUI Label;
         public Image Icon;
+        public PaletteImage Styling;
         public UnityEvent OnClicked;
 
+        public PaletteStyle NormalStyle = PaletteStyle.ButtonColor;
+        public PaletteStyle ActiveStyle = PaletteStyle.SuccessColor;
+
+        public void UseActiveStyle(bool value)
+        {
+            Styling?.SetStyling(value ? ActiveStyle : NormalStyle);
+        }
 
         public static PanelButton CreateNew(Component parent)
         {
@@ -46,15 +55,29 @@ namespace Basis.VowganUI
             return button;
         }
 
-        protected override void OnCreateEvent()
+        public override void OnCreateEvent()
         {
             base.OnCreateEvent();
             ButtonComponent.onClick.AddListener(OnClick);
+            UseActiveStyle(false);
         }
 
         public virtual void OnClick()
         {
             OnClicked?.Invoke();
+        }
+
+        /// <summary>
+        /// Set this button active until the given element is released.
+        /// </summary>
+        public void BindActiveStateToAddressablesInstance(
+            IAddressableInstance instance)
+        {
+            UseActiveStyle(true);
+            instance.OnReleased += () =>
+            {
+                UseActiveStyle(false);
+            };
         }
     }
 }

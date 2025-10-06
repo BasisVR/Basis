@@ -3,13 +3,12 @@ using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public class RespawnProvider : BasisMenuActionProvider
+    public class RespawnProvider : BasisMenuActionProvider<BasisMainMenu>
     {
-
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMainMenu.AddActionProvider(new RespawnProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new RespawnProvider());
         }
 
         public override string Title => "Respawn";

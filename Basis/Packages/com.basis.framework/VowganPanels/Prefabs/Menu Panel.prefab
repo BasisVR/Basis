@@ -36,7 +36,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 20, y: 20}
+  m_SizeDelta: {x: 10, y: 10}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5652433402400973264
 CanvasRenderer:
@@ -75,7 +75,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 1.2
+  m_PixelsPerUnitMultiplier: 1.5
 --- !u!114 &5147385743325244947
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -335,7 +335,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8672c82301626d4aaa409fcfecd8c46, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.BasisMenuPanel
-  IsReleased: 0
+  HasRunCreateEvent: 0
   ContentParent: {fileID: 8175477522569772619}
   TitleLabel: {fileID: 0}
   Data:

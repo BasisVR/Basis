@@ -71,7 +71,7 @@ namespace Basis.VowganUIOld
             if (TitleLabel) TitleLabel.text = data.Title;
         }
 
-        protected override void OnReleaseEvent()
+        public override void OnReleaseEvent()
         {
             base.OnReleaseEvent();
             if (ParentPanel) ParentPanel.ChildPanels.Remove(this);

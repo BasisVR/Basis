@@ -4,21 +4,19 @@ using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public class BasisMainMenu : BasisMenuBase
+    public class BasisMainMenu : BasisMenuBase<BasisMainMenu>
     {
 
-        public static BasisMainMenu Instance;
-
         public BasisMenuPanel TabMenu;
-
         public PanelLayoutContainer TabContainer;
 
+        public override Component ProviderButtonParent => TabContainer;
 
         public BasisMainMenu()
         {
             TabMenu = BasisMenuPanel.CreateNew(
                 BasisMenuPanel.PanelData.Hotbar("Main Menu"),
-                MenuInstance.PanelRoot);
+                MenuObjectInstance.PanelRoot);
 
             TabContainer = PanelLayoutContainer.CreateNew(TabMenu.ContentParent, LayoutDirection.Horizontal);
 
@@ -74,51 +72,10 @@ namespace Basis.VowganUI
 
             Instance.ActiveMenu = BasisMenuPanel.CreateNew(
                 data,
-                Instance.MenuInstance.PanelRoot,
+                Instance.MenuObjectInstance.PanelRoot,
                 style);
             return Instance.ActiveMenu;
         }
-
-        #region Action Providers
-
-        public static List<BasisMenuActionProvider> ActionProviders = new();
-        public List<PanelButton> ProviderButtons = new();
-
-        public static void AddActionProvider(BasisMenuActionProvider provider)
-        {
-            ActionProviders.Add(provider);
-            ActionProviders.Sort();
-            if (Instance) Instance.BindProvidersToButtons();
-        }
-
-        public static void RemoveActionProvider(BasisMenuActionProvider provider)
-        {
-            ActionProviders.Remove(provider);
-            ActionProviders.Sort();
-            if (Instance) Instance.BindProvidersToButtons();
-        }
-
-        public void BindProvidersToButtons()
-        {
-            BindProvidersToButtonsInContainer(TabContainer.ContentParent);
-        }
-
-        public void BindProvidersToButtonsInContainer(Component container)
-        {
-            foreach (PanelButton button in ProviderButtons)
-                button.ReleaseInstance();
-
-            ProviderButtons.Clear();
-
-            foreach (BasisMenuActionProvider action in ActionProviders)
-            {
-                PanelButton button = PanelButton.CreateNew(container, action.Title);
-                action.BindToButton(this, button);
-                ProviderButtons.Add(button);
-            }
-        }
-
-        #endregion
 
     }
 }

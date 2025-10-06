@@ -28,12 +28,12 @@ namespace Basis.VowganUIOld
             return CreateNew<PanelGroup>(ReferencePath);
         }
 
-        protected override void OnCreateEvent()
+        public override void OnCreateEvent()
         {
             BasisCursorManagement.UnlockCursor(nameof(PanelGroupMover));
         }
 
-        protected override void OnReleaseEvent()
+        public override void OnReleaseEvent()
         {
             BasisCursorManagement.LockCursor(nameof(PanelGroupMover));
         }

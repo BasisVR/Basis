@@ -95,7 +95,7 @@ namespace Basis.VowganUIOld
 
 
 
-        protected override void OnCreateEvent()
+        public override void OnCreateEvent()
         {
             base.OnCreateEvent();
             RefreshValueLabel();

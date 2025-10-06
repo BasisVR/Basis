@@ -36,7 +36,7 @@ namespace Basis.VowganUI
         public Action<bool> Callback;
 
 
-        protected override void OnCreateEvent()
+        public override void OnCreateEvent()
         {
             base.OnCreateEvent();
             AcceptButton.onClick.AddListener(() =>
@@ -62,7 +62,7 @@ namespace Basis.VowganUI
             Action<bool> callback)
         {
             if (!BasisMainMenu.Instance) return null;
-            Component parent = BasisMainMenu.Instance.MenuInstance.PanelRoot;
+            Component parent = BasisMainMenu.Instance.MenuObjectInstance.PanelRoot;
 
             BasisMenuDialoguePanel panel = CreateNew<BasisMenuDialoguePanel>(DialogueStyle, parent);
             panel.LoadData(DialoguePanelData);
@@ -81,7 +81,7 @@ namespace Basis.VowganUI
             Action<bool> callback)
         {
             if (!BasisMainMenu.Instance) return null;
-            Component parent = BasisMainMenu.Instance.MenuInstance.PanelRoot;
+            Component parent = BasisMainMenu.Instance.MenuObjectInstance.PanelRoot;
 
             BasisMenuDialoguePanel panel = CreateNew<BasisMenuDialoguePanel>(DialogueStyle, parent);
             panel.LoadData(DialoguePanelData);

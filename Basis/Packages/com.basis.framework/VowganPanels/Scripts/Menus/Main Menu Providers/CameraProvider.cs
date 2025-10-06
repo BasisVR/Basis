@@ -4,13 +4,14 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace Basis.VowganUI
 {
-    public class CameraProvider : BasisMenuActionProvider
+    public class CameraProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMainMenu.AddActionProvider(new CameraProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new CameraProvider());
         }
+
 
         public override string Title => "Camera";
         public override Sprite Icon => null;
@@ -37,7 +38,7 @@ namespace Basis.VowganUI
                 BasisDebug.LogWarning("[OpenCamera] Tried to destroy camera, but none existed.");
             }
 
-            BasisMainMenu.Instance.MenuInstance.PanelRoot.GetPositionAndRotation(
+            BasisMainMenu.Instance.MenuObjectInstance.PanelRoot.GetPositionAndRotation(
                 out Vector3 position,
                 out Quaternion rotation);
 

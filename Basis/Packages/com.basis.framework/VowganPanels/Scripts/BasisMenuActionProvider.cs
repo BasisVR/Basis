@@ -1,12 +1,14 @@
 using System;
+using Basis.VowganUI.Styling;
 using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public abstract class BasisMenuActionProvider : IComparable<BasisMenuActionProvider>
+    public abstract class BasisMenuActionProvider<TMenu> :
+        IComparable<BasisMenuActionProvider<TMenu>>
+        where TMenu : BasisMenuBase<TMenu>
     {
-
-        public int CompareTo(BasisMenuActionProvider target)
+        public int CompareTo(BasisMenuActionProvider<TMenu> target)
         {
             if (Order < target.Order) return -1;
             if (Order > target.Order) return 1;
@@ -18,11 +20,26 @@ namespace Basis.VowganUI
         public abstract int Order { get; }
         public abstract void RunAction();
 
-        public virtual void BindToButton(BasisMenuBase menu, PanelButton button)
+
+        public virtual PaletteStyle NormalStyle => PaletteStyle.ButtonColor;
+        public virtual PaletteStyle ActiveStyle => PaletteStyle.SuccessColor;
+
+
+        public BasisMenuBase<TMenu> BoundMenu;
+        public PanelButton BoundButton;
+
+        public virtual void BindToButton(BasisMenuBase<TMenu> menu, PanelButton button)
         {
-            button.OnClicked.AddListener(() =>
+            BoundMenu = menu;
+            BoundButton = button;
+
+            BoundButton.NormalStyle = NormalStyle;
+            BoundButton.ActiveStyle = ActiveStyle;
+            BoundButton.UseActiveStyle(false);
+
+            BoundButton.OnClicked.AddListener(() =>
             {
-                if (!menu.Dialogue || !menu.Dialogue.BlocksOtherActions) RunAction();
+                if (!BoundMenu.Dialogue || !BoundMenu.Dialogue.BlocksOtherActions) RunAction();
             });
         }
     }

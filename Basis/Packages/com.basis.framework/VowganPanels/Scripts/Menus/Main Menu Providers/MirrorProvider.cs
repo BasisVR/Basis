@@ -4,12 +4,12 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace Basis.VowganUI
 {
-    public class MirrorProvider : BasisMenuActionProvider
+    public class MirrorProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMainMenu.AddActionProvider(new MirrorProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new MirrorProvider());
         }
 
         public override string Title => "Mirror";
@@ -38,7 +38,7 @@ namespace Basis.VowganUI
             {
                 HasMirror = true;
 
-                BasisMainMenu.Instance.MenuInstance.PanelRoot.GetPositionAndRotation(
+                BasisMainMenu.Instance.MenuObjectInstance.PanelRoot.GetPositionAndRotation(
                     out Vector3 position,
                     out Quaternion rotation);
 

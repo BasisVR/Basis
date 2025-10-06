@@ -238,29 +238,41 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3478480617654166149, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: Style
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_text
       value: Accept
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor.b
-      value: 0.93
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor.g
-      value: 0.92
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor.r
-      value: 0.9
+      value: 0.19
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor32.rgba
-      value: 4293782502
+      value: 4281545520
+      objectReference: {fileID: 0}
+    - target: {fileID: 4966906159922126201, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: NormalStyle
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5984988309183405275, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_Name
       value: Accept Button
+      objectReference: {fileID: 0}
+    - target: {fileID: 7896168063482609587, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: Style
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8762387526117824093, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_Color.b
@@ -277,13 +289,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 8758792135785943351, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 8855615079463984498}
-    - targetCorrespondingSourceObject: {fileID: 5784768270451909860, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 3181465599627609221}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
 --- !u!224 &2650194135638586956 stripped
 RectTransform:
@@ -295,30 +301,12 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
   m_PrefabInstance: {fileID: 950310606289480009}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6735008319013326253}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
---- !u!1 &6735008319013326253 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 5784768270451909860, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-  m_PrefabInstance: {fileID: 950310606289480009}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &3181465599627609221
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6735008319013326253}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  Style: 4
 --- !u!114 &7144710931750914654 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7932865115424465687, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
@@ -330,24 +318,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
---- !u!1 &8411973673168812158 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8758792135785943351, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-  m_PrefabInstance: {fileID: 950310606289480009}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &8855615079463984498
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8411973673168812158}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  Style: 10
 --- !u!1001 &4425373895090321516
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -488,9 +458,21 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6547189883857661924, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
+      propertyPath: OnClicked.m_PersistentCalls.m_Calls.Array.data[0].m_Target
+      value: 
+      objectReference: {fileID: 7564805103199474291}
+    - target: {fileID: 6547189883857661924, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
+      propertyPath: OnClicked.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
+      value: ReleaseInstance
+      objectReference: {fileID: 0}
+    - target: {fileID: 6547189883857661924, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
+      propertyPath: OnClicked.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
+      value: Basis.VowganUI.BasisMenuDialoguePanel, Basis Framework
+      objectReference: {fileID: 0}
     - target: {fileID: 7698972406513114066, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       propertyPath: m_PresetInfoIsWorld
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9029732850663309116, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       propertyPath: m_SizeDelta.y
@@ -529,9 +511,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4375861492064103770, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       insertIndex: -1
       addedObject: {fileID: 7564805103199474291}
-    - targetCorrespondingSourceObject: {fileID: 2463318249134918962, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 8849456397019881555}
     - targetCorrespondingSourceObject: {fileID: 5667441856951976219, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       insertIndex: -1
       addedObject: {fileID: 4680787313112370583}
@@ -553,7 +532,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d8f12b00b57d2224580b91cd061175da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.BasisMenuDialoguePanel
-  IsReleased: 0
+  HasRunCreateEvent: 0
   ContentParent: {fileID: 1694648907493561049}
   TitleLabel: {fileID: 2124833704707542572}
   Data:
@@ -564,6 +543,7 @@ MonoBehaviour:
   Description: 
   Accept: 
   Deny: 
+  BlocksOtherActions: 0
   DescriptionLabel: {fileID: 8280068581166145680}
   AcceptButton: {fileID: 7144710931750914654}
   AcceptLabel: {fileID: 5573326464125547768}
@@ -579,30 +559,12 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2312311313595627072, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
   m_PrefabInstance: {fileID: 4425373895090321516}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2253313811656848734}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
---- !u!1 &2253313811656848734 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 2463318249134918962, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
-  m_PrefabInstance: {fileID: 4425373895090321516}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &8849456397019881555
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2253313811656848734}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Style.PaletteTextMeshProUGUI
-  Style: 4
 --- !u!224 &4628038177676003152 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 9029732850663309116, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
@@ -727,29 +689,45 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3478480617654166149, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: Style
+      value: 12
+      objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_text
       value: Deny
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor.b
-      value: 0.93
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor.g
-      value: 0.92
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor.r
-      value: 0.9
+      value: 0.19
       objectReference: {fileID: 0}
     - target: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_fontColor32.rgba
-      value: 4293782502
+      value: 4281545520
+      objectReference: {fileID: 0}
+    - target: {fileID: 4966906159922126201, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: NormalStyle
+      value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 5984988309183405275, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_Name
       value: Deny Button
+      objectReference: {fileID: 0}
+    - target: {fileID: 7896168063482609587, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: Style
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8762387526117824093, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
+      propertyPath: m_Color.a
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8762387526117824093, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
       propertyPath: m_Color.b
@@ -766,43 +744,19 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 8758792135785943351, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 7416961341704649603}
-    - targetCorrespondingSourceObject: {fileID: 5784768270451909860, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 6254173221518276765}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
 --- !u!114 &1113727708822715264 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4641030428144639409, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
   m_PrefabInstance: {fileID: 5700574055362733617}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2259436958328062677}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
---- !u!1 &2259436958328062677 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 5784768270451909860, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-  m_PrefabInstance: {fileID: 5700574055362733617}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &6254173221518276765
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2259436958328062677}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  Style: 4
 --- !u!114 &2381193831002572070 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7932865115424465687, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
@@ -814,24 +768,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
---- !u!1 &3932199841638496006 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8758792135785943351, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}
-  m_PrefabInstance: {fileID: 5700574055362733617}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &7416961341704649603
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3932199841638496006}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  Style: 11
 --- !u!224 &7416247808687094068 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 3023973568265592581, guid: ddab2de083ef8d44991304a0cc35d9c6, type: 3}

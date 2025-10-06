@@ -6,16 +6,13 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace Basis.VowganUI
 {
-    /// <summary>
-    /// Type used by UI elements instantiated through Addressable instances.
-    /// This comes with the events for the Unity UI lifecycle.
-    /// For non-UI behaviours, AddressableInstanceBase should be used instead.
-    /// </summary>
-    public abstract class AddressableUIInstanceBase : UIBehaviour
+    public abstract class AddressableUIInstanceBase : UIBehaviour, IAddressableInstance
     {
-
-        public Action OnReleased;
-        [HideInInspector]public bool IsReleased;
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            if (!HasRunCreateEvent) OnCreateEvent();
+        }
 
         /// <summary>
         /// Lazy initialization for the self RectTransform.
@@ -31,16 +28,7 @@ namespace Basis.VowganUI
 
         private RectTransform _rectTransform;
 
-        /// <summary>
-        /// Runs immediately after instantiation from Addressables.
-        /// </summary>
-        protected virtual void OnCreateEvent(){}
-
-        /// <summary>
-        /// Runs immediately before destruction and release from Addressables.
-        /// </summary>
-        protected virtual void OnReleaseEvent(){}
-
+        public bool HasRunCreateEvent;
 
         /// <summary>
         /// Create a new Addressable UI Instance from a given path.
@@ -67,13 +55,39 @@ namespace Basis.VowganUI
             return element;
         }
 
+        public Action OnReleased
+        {
+            get => _onReleased;
+            set => _onReleased = value;
+        }
+        protected Action _onReleased;
+
+        public bool IsReleased => _isReleased;
+        protected bool _isReleased;
+
+
+        /// <summary>
+        /// Runs immediately after instantiation from Addressables.
+        /// </summary>
+        public virtual void OnCreateEvent()
+        {
+            HasRunCreateEvent = true;
+        }
+
+        /// <summary>
+        /// Runs immediately before destruction and release from Addressables.
+        /// </summary>
+        public virtual void OnReleaseEvent()
+        {
+        }
+
         /// <summary>
         /// Destroy this addressable instance.
         /// Callbacks will run first, followed by an Addressables Release.
         /// </summary>
         public void ReleaseInstance()
         {
-            IsReleased = true;
+            _isReleased = true;
             OnReleaseEvent();
             OnReleased?.Invoke();
             Addressables.ReleaseInstance(gameObject);

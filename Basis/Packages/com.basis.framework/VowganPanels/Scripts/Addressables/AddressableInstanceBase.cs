@@ -9,21 +9,28 @@ namespace Basis.VowganUI
     /// Type used by objects instantiated through Addressable instances.
     /// For UI behaviours, AddressableUIInstanceBase should be used instead.
     /// </summary>
-    public abstract class AddressableInstanceBase : MonoBehaviour
+    public abstract class AddressableInstanceBase : MonoBehaviour, IAddressableInstance
     {
 
-        public Action OnReleased;
-        [HideInInspector]public bool IsReleased;
+        public Action OnReleased
+        {
+            get => _onReleased;
+            set => _onReleased = value;
+        }
+        protected Action _onReleased;
+
+        public bool IsReleased => _isReleased;
+        protected bool _isReleased;
 
         /// <summary>
         /// Runs immediately after instantiation from Addressables.
         /// </summary>
-        protected virtual void OnCreateEvent(){}
+        public virtual void OnCreateEvent(){}
 
         /// <summary>
         /// Runs immediately before destruction and release from Addressables.
         /// </summary>
-        protected virtual void OnReleaseEvent(){}
+        public virtual void OnReleaseEvent(){}
 
 
         /// <summary>
@@ -57,7 +64,7 @@ namespace Basis.VowganUI
         /// </summary>
         public void ReleaseInstance()
         {
-            IsReleased = true;
+            _isReleased = true;
             OnReleaseEvent();
             OnReleased?.Invoke();
             Addressables.ReleaseInstance(gameObject);

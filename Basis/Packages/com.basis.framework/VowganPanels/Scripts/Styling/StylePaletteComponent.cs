@@ -4,13 +4,20 @@ namespace Basis.VowganUI.Styling
 {
     public abstract class StylePaletteComponent : MonoBehaviour
     {
-        public StylePaletteObject.Style Style;
-        public abstract void ApplyColor(StylePaletteObject palette);
+        public PaletteStyle Style;
+
+        public void SetStyling(PaletteStyle style)
+        {
+            Style = style;
+            ApplyColor();
+        }
+
+        public abstract void ApplyColor();
 
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            ApplyColor(StylePaletteObject.ActivePalette);
+            ApplyColor();
         }
 #endif
 

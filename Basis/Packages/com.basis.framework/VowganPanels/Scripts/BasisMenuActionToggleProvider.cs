@@ -1,8 +1,11 @@
+using System;
 using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public abstract class BasisMenuActionToggleProvider : BasisMenuActionProvider
+    public abstract class BasisToggleMenuActionProvider<TMenu> :
+        BasisMenuActionProvider<TMenu>
+        where TMenu : BasisMenuBase<TMenu>
     {
 
         public bool IsActive => _isActive;
@@ -12,7 +15,7 @@ namespace Basis.VowganUI
         /// <summary>
         /// Toggle the Action's state between Active and Inactive.
         /// </summary>
-        public void ToggleActive()
+        public void ToggleAction()
         {
             if (_isActive) DisableAction();
             else EnableAction();
@@ -45,10 +48,5 @@ namespace Basis.VowganUI
         public virtual void OnActionDisabled()
         {
         }
-
-        public override string Title { get; }
-        public override Sprite Icon { get; }
-        public override int Order { get; }
-        public abstract override void RunAction();
     }
 }

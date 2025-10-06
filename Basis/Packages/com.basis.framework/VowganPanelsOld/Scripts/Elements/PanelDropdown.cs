@@ -66,7 +66,7 @@ namespace Basis.VowganUIOld
             TmpDropdownComponent.AddOptions(OptionEntries);
         }
 
-        protected override void OnCreateEvent()
+        public override void OnCreateEvent()
         {
             base.OnCreateEvent();
             TmpDropdownComponent.onValueChanged.AddListener(OnDropdownValueChanged);

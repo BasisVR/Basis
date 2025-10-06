@@ -46,7 +46,7 @@ namespace Basis.VowganUI
             }
         }
 
-        protected override void OnCreateEvent()
+        public override void OnCreateEvent()
         {
             base.OnCreateEvent();
             ApplyLayoutOptions();

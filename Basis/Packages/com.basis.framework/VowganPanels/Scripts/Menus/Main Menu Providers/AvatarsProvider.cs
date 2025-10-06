@@ -2,12 +2,12 @@ using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public class AvatarsProvider : BasisMenuActionProvider
+    public class AvatarsProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMainMenu.AddActionProvider(new AvatarsProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new AvatarsProvider());
         }
 
         public override string Title => "Avatars";
@@ -19,6 +19,7 @@ namespace Basis.VowganUI
             BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
                 BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.Styles.Page);
+            BoundButton?.BindActiveStateToAddressablesInstance(panel);
         }
     }
 }

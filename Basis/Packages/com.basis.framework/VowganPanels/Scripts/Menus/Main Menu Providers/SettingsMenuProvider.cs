@@ -2,13 +2,13 @@ using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public class SettingsMenuProvider : BasisMenuActionProvider
+    public class SettingsMenuProvider : BasisMenuActionProvider<BasisMainMenu>
     {
 
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMainMenu.AddActionProvider(new SettingsMenuProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new SettingsMenuProvider());
         }
 
         public override string Title => "Settings";
@@ -20,6 +20,7 @@ namespace Basis.VowganUI
             BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
                 BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.Styles.Page);
+            BoundButton?.BindActiveStateToAddressablesInstance(panel);
         }
     }
 }
