@@ -1,0 +1,24 @@
+using UnityEngine;
+
+namespace Basis.VowganUI
+{
+    public class AvatarsProvider : BasisMenuActionProvider
+    {
+        [RuntimeInitializeOnLoadMethod]
+        public static void AddToMenu()
+        {
+            BasisMainMenu.AddActionProvider(new AvatarsProvider());
+        }
+
+        public override string Title => "Avatars";
+        public override Sprite Icon => null;
+        public override int Order => 2;
+
+        public override void RunAction()
+        {
+            BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
+                BasisMenuPanel.PanelData.Standard(Title),
+                BasisMenuPanel.Styles.Page);
+        }
+    }
+}

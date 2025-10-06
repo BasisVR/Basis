@@ -90,12 +90,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc58095392b6e2444879173630a4c5f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.LayoutContainer
+  IsReleased: 0
+  ContentParent: {fileID: 7698884056587150131}
   LayoutGroup: {fileID: 7962664633762634462}
   ContentFitter: {fileID: 1526951993343839177}
   ChildLayout:
     Alignment: 0
     Constrained: 0
-    ControlWidth: 0
-    ControlHeight: 0
-    ExpandWidth: 0
-    ExpandHeight: 0
+    StretchItemWidth: 0
+    StretchItemHeight: 0
+    SpreadItemWidth: 0
+    SpreadItemHeight: 0

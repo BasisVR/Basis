@@ -4,11 +4,13 @@ using UnityEngine.UI;
 
 namespace Basis.VowganUI
 {
-    public class PanelLayoutContainer : AddressableUIInstanceBase
+    public class PanelLayoutContainer : PanelElement
     {
-
-        public static string ReferencePathVertical => "BasisUI/CanvasElement/LayoutContainerVertical";
-        public static string ReferencePathHorizontal => "BasisUI/CanvasElement/LayoutContainerHorizontal";
+        public static class Styles
+        {
+            public static string Vertical => "VowganUI/Elements/LayoutContainerVertical";
+            public static string Horizontal => "VowganUI/Elements/LayoutContainerHorizontal";
+        }
 
         public HorizontalOrVerticalLayoutGroup LayoutGroup;
         public ContentSizeFitter ContentFitter;
@@ -22,7 +24,7 @@ namespace Basis.VowganUI
         /// Direction is handled via Horizontal/Vertical Layout Groups and cannot be changed at runtime.
         /// </summary>
         public LayoutDirection Direction => _direction;
-        private LayoutDirection _direction;
+        protected LayoutDirection _direction;
 
         public static PanelLayoutContainer CreateNew(Component parent, LayoutDirection direction)
         {
@@ -30,12 +32,12 @@ namespace Basis.VowganUI
             switch (direction)
             {
                 case LayoutDirection.Vertical:
-                    element = CreateNew<PanelLayoutContainer>(ReferencePathVertical, parent);
+                    element = CreateNew<PanelLayoutContainer>(Styles.Vertical, parent);
                     element._direction = LayoutDirection.Vertical;
                     return element;
 
                 case LayoutDirection.Horizontal:
-                    element = CreateNew<PanelLayoutContainer>(ReferencePathHorizontal, parent);
+                    element = CreateNew<PanelLayoutContainer>(Styles.Horizontal, parent);
                     element._direction = LayoutDirection.Horizontal;
                     return element;
 

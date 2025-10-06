@@ -45,6 +45,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 30ab3bcde2b3a7141b1e16d6add785f3
+    m_Address: VowganUI/Panel-Dialogue
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 356a8bb117010ea4084b0dd6463d28b0
     m_Address: LoggerUI
     m_ReadOnly: 0
@@ -140,6 +145,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 80400c0dd2aacdb4ead120b1c924f77d
+    m_Address: VowganUI/Menu
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 861fed068fe3fd4449deba6697749c16
     m_Address: UserNamePanel
     m_ReadOnly: 0
@@ -201,7 +211,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b8b1d961850dbd14a8b4a06909149831
-    m_Address: BasisUI/CanvasElement/LayoutContainerVertical
+    m_Address: VowganUI/Elements/LayoutContainerVertical
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -230,8 +240,18 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ce79cd386c49c7e45813375f1cf500c3
+    m_Address: VowganUI/Panel-Page
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d9849dc6948554a4a8f55614547f5449
+    m_Address: VowganUI/Panel
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: db69ae0e592fcd24ea338bfc58766dc6
-    m_Address: BasisUI/CanvasElement/LayoutContainerHorizontal
+    m_Address: VowganUI/Elements/LayoutContainerHorizontal
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -241,7 +261,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ddab2de083ef8d44991304a0cc35d9c6
-    m_Address: BasisUI/CanvasElement/Button
+    m_Address: VowganUI/Elements/Button
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

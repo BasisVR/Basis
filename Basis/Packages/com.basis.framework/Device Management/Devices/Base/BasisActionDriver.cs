@@ -296,7 +296,7 @@ public static class BasisActionDriver
         if (current.SecondaryButtonGetState == false && last.SecondaryButtonGetState)
         {
 
-            Basis.VowganUI.HomeRowMenu.ToggleMenu();
+            Basis.VowganUIOld.HomeRowMenu.ToggleMenu();
 
             if (BasisHamburgerMenu.Instance == null)
             {

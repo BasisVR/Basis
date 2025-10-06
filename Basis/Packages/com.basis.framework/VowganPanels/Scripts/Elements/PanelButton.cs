@@ -5,9 +5,12 @@ using UnityEngine.UI;
 
 namespace Basis.VowganUI
 {
-    public class PanelButton : AddressableUIInstanceBase
+    public class PanelButton : PanelElement
     {
-        public static string ReferencePath => "BasisUI/CanvasElement/Button";
+        public static class Styles
+        {
+            public static string Default => "VowganUI/Elements/Button";
+        }
 
         public Button ButtonComponent;
         public TextMeshProUGUI Label;
@@ -17,7 +20,7 @@ namespace Basis.VowganUI
 
         public static PanelButton CreateNew(Component parent)
         {
-            PanelButton button = CreateNew<PanelButton>(ReferencePath, parent);
+            PanelButton button = CreateNew<PanelButton>(Styles.Default, parent);
             return button;
         }
 
