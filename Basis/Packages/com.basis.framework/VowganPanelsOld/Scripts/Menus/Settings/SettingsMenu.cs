@@ -22,7 +22,7 @@ namespace Basis.VowganUIOld
         {
             PanelScrollView view = PanelScrollView.CreateNew(Panel.ContentParent, LayoutDirection.Vertical);
 
-            view.LayoutContainer.ChildLayout.StretchItemWidth = true;
+            view.LayoutContainer.ChildLayoutOptions.StretchItemWidth = true;
             view.LayoutContainer.ApplyLayoutOptions();
 
             PanelSlider.CreateNew(view.LayoutContainer, "Setting 1");

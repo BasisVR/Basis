@@ -18,7 +18,7 @@ MonoBehaviour:
   AccentColor: {r: 0.14, g: 0.46, b: 0.93, a: 1}
   FontColor1: {r: 0.9, g: 0.92, b: 0.93, a: 1}
   FontColor2: {r: 0.7, g: 0.71, b: 0.73, a: 1}
-  InputFieldColor: {r: 0.13, g: 0.13, b: 0.15, a: 1}
+  InputFieldColor: {r: 0.25169095, g: 0.26415092, b: 0.26415092, a: 1}
   ButtonColor: {r: 0.31, g: 0.32, b: 0.32, a: 1}
   WhiteColor: {r: 0.98, g: 1, b: 1, a: 1}
   BlackColor: {r: 0.02, g: 0.02, b: 0.04, a: 1}

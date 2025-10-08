@@ -38,10 +38,6 @@ namespace Basis.VowganUI
             public static string Page => "VowganUI/Panel-Page";
         }
 
-
-        [Header("References")]
-        public TextMeshProUGUI TitleLabel;
-
         [Header("Readout")]
         public PanelData Data;
 

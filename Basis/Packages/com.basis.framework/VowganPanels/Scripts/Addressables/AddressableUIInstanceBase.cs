@@ -28,7 +28,8 @@ namespace Basis.VowganUI
 
         private RectTransform _rectTransform;
 
-        public bool HasRunCreateEvent;
+        public bool HasRunCreateEvent => _hasRunCreateEvent;
+        protected bool _hasRunCreateEvent;
 
         /// <summary>
         /// Create a new Addressable UI Instance from a given path.
@@ -71,7 +72,7 @@ namespace Basis.VowganUI
         /// </summary>
         public virtual void OnCreateEvent()
         {
-            HasRunCreateEvent = true;
+            _hasRunCreateEvent = true;
         }
 
         /// <summary>

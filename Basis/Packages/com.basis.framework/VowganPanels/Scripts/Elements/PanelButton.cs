@@ -14,7 +14,6 @@ namespace Basis.VowganUI
         }
 
         public Button ButtonComponent;
-        public TextMeshProUGUI Label;
         public Image Icon;
         public PaletteImage Styling;
         public UnityEvent OnClicked;
@@ -36,14 +35,14 @@ namespace Basis.VowganUI
         public static PanelButton CreateNew(Component parent, string label)
         {
             PanelButton button = CreateNew(parent);
-            button.Label.text = label;
+            button.TitleLabel.text = label;
             return button;
         }
 
         public static PanelButton CreateNew(Component parent, string label, Sprite icon)
         {
             PanelButton button = CreateNew(parent);
-            button.Label.text = label;
+            button.TitleLabel.text = label;
             button.Icon.sprite = icon;
             return button;
         }

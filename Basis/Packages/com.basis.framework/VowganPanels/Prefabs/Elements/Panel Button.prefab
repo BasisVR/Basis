@@ -321,11 +321,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b55b8d04701f0a428dedf36b1a84cb1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.UI.PanelButton
-  IsReleased: 0
-  CreateEventHasRun: 0
+  TitleLabel: {fileID: 4641030428144639409}
   ContentParent: {fileID: 3023973568265592581}
   ButtonComponent: {fileID: 7932865115424465687}
-  Label: {fileID: 4641030428144639409}
   Icon: {fileID: 1209556436128560089}
   Styling: {fileID: 3478480617654166149}
   OnClicked:

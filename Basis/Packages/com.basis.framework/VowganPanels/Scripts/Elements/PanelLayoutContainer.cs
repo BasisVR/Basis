@@ -2,6 +2,10 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace Basis.VowganUI
 {
     public class PanelLayoutContainer : PanelElement
@@ -18,7 +22,7 @@ namespace Basis.VowganUI
         /// <summary>
         /// Any changes to this will only be applied by calling ApplyLayoutOptions();
         /// </summary>
-        public LayoutContainerOptions ChildLayout;
+        public LayoutContainerOptions ChildLayoutOptions;
 
         /// <summary>
         /// Direction is handled via Horizontal/Vertical Layout Groups and cannot be changed at runtime.
@@ -54,7 +58,7 @@ namespace Basis.VowganUI
 
         public void CopyLayoutOptions(LayoutContainerOptions options)
         {
-            ChildLayout = options;
+            ChildLayoutOptions = options;
             ApplyLayoutOptions();
         }
 
@@ -63,7 +67,7 @@ namespace Basis.VowganUI
             rectTransform.anchorMin = Vector2.zero;
             rectTransform.anchorMax = Vector2.one;
 
-            if (ChildLayout.Constrained)
+            if (ChildLayoutOptions.Constrained)
             {
                 switch (Direction)
                 {
@@ -75,22 +79,38 @@ namespace Basis.VowganUI
                         ContentFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
                         ContentFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
                         break;
-
                     default:
                         throw new ArgumentOutOfRangeException();
                 }
             }
 
-            LayoutGroup.childAlignment = ChildLayout.Alignment;
-            LayoutGroup.childControlWidth = ChildLayout.StretchItemWidth;
-            LayoutGroup.childControlHeight = ChildLayout.StretchItemHeight;
-            LayoutGroup.childForceExpandWidth = ChildLayout.SpreadItemWidth;
-            LayoutGroup.childForceExpandHeight = ChildLayout.SpreadItemHeight;
+            LayoutGroup.childAlignment = ChildLayoutOptions.Alignment;
+            LayoutGroup.childControlWidth = ChildLayoutOptions.StretchItemWidth;
+            LayoutGroup.childControlHeight = ChildLayoutOptions.StretchItemHeight;
+            LayoutGroup.childForceExpandWidth = ChildLayoutOptions.SpreadItemWidth;
+            LayoutGroup.childForceExpandHeight = ChildLayoutOptions.SpreadItemHeight;
         }
 
+
+#if UNITY_EDITOR
         protected override void OnValidate()
         {
-            ApplyLayoutOptions();
+            EditorApplication.delayCall += EditorApplyLayoutOptions;
         }
+
+        private void EditorApplyLayoutOptions()
+        {
+            if (!this || !gameObject) return;
+            if (PrefabUtility.IsPartOfPrefabAsset(gameObject)) return;
+
+            ApplyLayoutOptions();
+            if (rectTransform) LayoutRebuilder.MarkLayoutForRebuild(rectTransform);
+
+            EditorUtility.SetDirty(this);
+            if (rectTransform) EditorUtility.SetDirty(rectTransform);
+            if (LayoutGroup)   EditorUtility.SetDirty(LayoutGroup);
+            if (ContentFitter) EditorUtility.SetDirty(ContentFitter);
+        }
+#endif
     }
 }
