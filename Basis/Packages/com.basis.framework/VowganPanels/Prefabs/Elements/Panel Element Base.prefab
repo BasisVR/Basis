@@ -261,8 +261,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 25
-  m_fontSizeBase: 25
+  m_fontSize: 22
+  m_fontSizeBase: 22
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -370,7 +370,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
   m_IgnoreLayout: 0
   m_MinWidth: -1
-  m_MinHeight: 100
+  m_MinHeight: 70
   m_PreferredWidth: 9999
   m_PreferredHeight: -1
   m_FlexibleWidth: -1
@@ -394,7 +394,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_AnchorMax.y
@@ -406,7 +406,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_SizeDelta.x
@@ -426,7 +426,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -5.79965
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_LocalRotation.w
@@ -450,7 +450,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -100
+      value: -70
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
