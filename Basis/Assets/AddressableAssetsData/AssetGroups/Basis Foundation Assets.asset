@@ -145,6 +145,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7186a8cd468113a4b9dcb76426dc0888
+    m_Address: VowganUI/Elements/Group
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7278f2c9e1fe3c946a294458ce0e6128
     m_Address: BasisUI/CanvasElement/ScrollViewVertical
     m_ReadOnly: 0

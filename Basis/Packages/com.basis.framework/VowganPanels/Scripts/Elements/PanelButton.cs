@@ -8,7 +8,7 @@ namespace Basis.VowganUI
 {
     public class PanelButton : PanelElement
     {
-        public static class Styles
+        public static class ButtonStyles
         {
             public static string Default => "VowganUI/Elements/Button";
         }
@@ -28,7 +28,7 @@ namespace Basis.VowganUI
 
         public static PanelButton CreateNew(Component parent)
         {
-            PanelButton button = CreateNew<PanelButton>(Styles.Default, parent);
+            PanelButton button = CreateNew<PanelButton>(ButtonStyles.Default, parent);
             return button;
         }
 

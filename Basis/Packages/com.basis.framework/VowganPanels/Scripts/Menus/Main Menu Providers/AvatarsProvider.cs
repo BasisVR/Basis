@@ -16,6 +16,8 @@ namespace Basis.VowganUI
 
         public override void RunAction()
         {
+            if (BasisMainMenu.ActiveMenuName == Title) return;
+
             BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
                 BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.Styles.Page);

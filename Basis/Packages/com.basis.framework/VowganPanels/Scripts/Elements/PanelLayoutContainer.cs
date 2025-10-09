@@ -20,7 +20,7 @@ namespace Basis.VowganUI
         public ContentSizeFitter ContentFitter;
 
         /// <summary>
-        /// Any changes to this will only be applied by calling ApplyLayoutOptions();
+        /// Layout options must be applied immediately after through ApplyLayoutOptions().
         /// </summary>
         public LayoutContainerOptions ChildLayoutOptions;
 

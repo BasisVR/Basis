@@ -7,6 +7,15 @@ namespace Basis.VowganUI
     public class BasisMainMenu : BasisMenuBase<BasisMainMenu>
     {
 
+        public static string ActiveMenuName
+        {
+            get
+            {
+                if (!Instance || !Instance.ActiveMenu) return string.Empty;
+                return Instance.ActiveMenu.Data.Title;
+            }
+        }
+
         public BasisMenuPanel TabMenu;
         public PanelLayoutContainer TabContainer;
 
