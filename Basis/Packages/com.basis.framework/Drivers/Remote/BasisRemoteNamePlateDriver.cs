@@ -5,30 +5,95 @@ using UnityEngine;
 
 namespace Basis.Scripts.UI.NamePlate
 {
+    /// <summary>
+    /// Handles the generation and management of remote player nameplates,
+    /// including mesh creation, material selection, and text rendering.
+    /// </summary>
     public class BasisRemoteNamePlateDriver : MonoBehaviour
     {
+        /// <summary>
+        /// Singleton instance of the <see cref="BasisRemoteNamePlateDriver"/>.
+        /// </summary>
         public static BasisRemoteNamePlateDriver Instance;
+
+        /// <summary>
+        /// Default color for the nameplate when idle.
+        /// </summary>
         public Color NormalColor;
+
+        /// <summary>
+        /// Color used when the player is talking.
+        /// </summary>
         public Color IsTalkingColor;
+
+        /// <summary>
+        /// Color used when the player is out of range.
+        /// </summary>
         public Color OutOfRangeColor;
+
+        /// <summary>
+        /// Duration of the color transition animation in seconds.
+        /// </summary>
         [SerializeField]
         public static float transitionDuration = 0.3f;
+
+        /// <summary>
+        /// Delay before returning to the default color after an event.
+        /// </summary>
         [SerializeField]
         public static float returnDelay = 0.4f;
+
+        /// <summary>
+        /// Cached static reference for the default color.
+        /// </summary>
         public static Color StaticNormalColor;
+
+        /// <summary>
+        /// Cached static reference for the talking color.
+        /// </summary>
         public static Color StaticIsTalkingColor;
+
+        /// <summary>
+        /// Cached static reference for the out-of-range color.
+        /// </summary>
         public static Color StaticOutOfRangeColor;
+
+        /// <summary>
+        /// Reference to the text mesh used for displaying player names.
+        /// </summary>
         public TextMeshPro Text;
+
+        /// <summary>
+        /// Transparent material used for nameplates.
+        /// </summary>
         public Material TransParentNamePlateMaterial;
+
+        /// <summary>
+        /// Opaque material used for nameplates.
+        /// </summary>
         public Material OpaqueNamePlateMaterial;
+
+        /// <summary>
+        /// The currently selected material for the nameplate,
+        /// determined by device type (mobile vs. non-mobile).
+        /// </summary>
         [HideInInspector]
         public Material SelectedNamePlateMaterial;
+
+        /// <summary>
+        /// The mesh with rounded corners for nameplates.
+        /// </summary>
         [HideInInspector]
         public Mesh RoundedCornersMesh;
+
+        /// <summary>
+        /// Unity lifecycle method. Initializes the singleton,
+        /// assigns materials, caches colors, and generates the rounded mesh.
+        /// </summary>
         public void Awake()
         {
             Instance = this;
-            if (BasisDeviceManagement.IsMobile())
+            if (BasisDeviceManagement.IsMobilehardware())
             {
                 SelectedNamePlateMaterial = OpaqueNamePlateMaterial;
             }
@@ -39,9 +104,16 @@ namespace Basis.Scripts.UI.NamePlate
             StaticNormalColor = NormalColor;
             StaticIsTalkingColor = IsTalkingColor;
             StaticOutOfRangeColor = OutOfRangeColor;
+
             // Convert Sprite to Mesh with custom width and height
             RoundedCornersMesh = GenerateRoundedQuad();
         }
+
+        /// <summary>
+        /// Generates the text mesh for a remote player's nameplate.
+        /// </summary>
+        /// <param name="remotePlayer">The remote player whose display name will be shown.</param>
+        /// <param name="namePlate">The target nameplate object to assign the mesh to.</param>
         public void GenerateTextFactory(BasisRemotePlayer remotePlayer, BasisRemoteNamePlate namePlate)
         {
             Text.gameObject.SetActive(true);
@@ -61,6 +133,11 @@ namespace Basis.Scripts.UI.NamePlate
             Text.gameObject.SetActive(false);
         }
 
+        /// <summary>
+        /// Combines the rounded corner mesh and the text mesh
+        /// into a single final mesh for rendering on the nameplate.
+        /// </summary>
+        /// <param name="namePlate">The nameplate object to update with the combined mesh.</param>
         private void CreateFinalMesh(BasisRemoteNamePlate namePlate)
         {
             CombineInstance[] combine = new CombineInstance[2];
@@ -87,13 +164,30 @@ namespace Basis.Scripts.UI.NamePlate
             namePlate.Filter.sharedMesh = combinedMesh;
             namePlate.Renderer.materials = new Material[]
             {
-            SelectedNamePlateMaterial,
-            namePlate.Renderer.material
+                SelectedNamePlateMaterial,
+                namePlate.Renderer.material
             };
         }
+
+        /// <summary>
+        /// Controls the curvature of the rounded corners (0–1 scale).
+        /// </summary>
         public float RoundEdges = 0.85f;
-        public int CornerVertexCount = 8; // Must be > 2
-        public float zOffset = 0.06f; // Move mesh back on Z-axis;
+
+        /// <summary>
+        /// Number of vertices used per rounded corner (must be greater than 2).
+        /// </summary>
+        public int CornerVertexCount = 8;
+
+        /// <summary>
+        /// Z-axis offset applied to the generated mesh.
+        /// </summary>
+        public float zOffset = 0.06f;
+
+        /// <summary>
+        /// Generates a rectangular mesh with rounded corners for the nameplate background.
+        /// </summary>
+        /// <returns>A mesh with rounded edges and UV mapping applied.</returns>
         public Mesh GenerateRoundedQuad()
         {
             int cornerCount = CornerVertexCount;

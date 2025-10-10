@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
 using BasisDidLink;
+using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
@@ -152,6 +153,7 @@ public static class NetworkServer
             int queuedMessages = client.GetPacketsCountInQueue(channel, deliveryMethod);
             if (queuedMessages <= maxMessages)
             {
+                BasisNetworkStatistics.RecordOutbound(channel, writer.Length);
                 client.Send(writer, channel, deliveryMethod);
             }
             else
@@ -161,6 +163,7 @@ public static class NetworkServer
         }
         else
         {
+            BasisNetworkStatistics.RecordOutbound(channel, writer.Length);
             client.Send(writer, channel, deliveryMethod);
         }
     }

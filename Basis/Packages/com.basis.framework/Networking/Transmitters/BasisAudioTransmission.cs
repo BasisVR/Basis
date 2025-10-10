@@ -90,7 +90,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 SilentSegmentData = new AudioSegmentDataMessage(new byte[packetSize]);
             }
         }
-
+        public int SilentForHowLong = 0;
         public void OnAudioReady()
         {
             if (!NetworkedPlayer.HasReasonToSendAudio) return;
@@ -105,23 +105,33 @@ namespace Basis.Scripts.Networking.Transmitters
                 AudioSegmentData.buffer,
                 AudioSegmentData.TotalLength
             );
+            if(SilentForHowLong > 256)
+            {
+                AudioSegmentData.TotalPlayedInSilence = 0;
+            }
+            else
+            {
+                AudioSegmentData.TotalPlayedInSilence = (byte)SilentForHowLong;
+            }
             AudioSegmentData.Serialize(writer);
 
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, AudioSegmentData.LengthUsed);
             SendOutVoice(writer, true);
+            SilentForHowLong = 0;
         }
 
         private void SendSilenceOverNetwork()
         {
             if (!NetworkedPlayer.HasReasonToSendAudio) return;
 
-            writer.Reset();
+            // writer.Reset();
 
-            SilentSegmentData.LengthUsed = 0;
-            SilentSegmentData.Serialize(writer);
+            // SilentSegmentData.LengthUsed = 0;
+            // SilentSegmentData.Serialize(writer);
 
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, writer.Length);
-            SendOutVoice(writer, false);
+            //  BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, writer.Length);
+            //  SendOutVoice(writer, false);
+            SilentForHowLong++; //how long in sample size this way on the remote side we
         }
 
         public void SendOutVoice(NetDataWriter writer, bool State)

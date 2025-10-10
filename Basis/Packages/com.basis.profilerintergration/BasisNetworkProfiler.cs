@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using Unity.Profiling;
+using UnityEngine;
 
 namespace Basis.Scripts.Profiler
 {
@@ -7,25 +10,6 @@ namespace Basis.Scripts.Profiler
     {
         public static readonly ProfilerCategory Category = ProfilerCategory.Network;
 
-        // Profiler counters
-        private static readonly ProfilerCounter<int> AudioSegmentDataMessageCounter = new ProfilerCounter<int>(Category, AudioSegmentDataMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> AuthenticationMessageCounter = new ProfilerCounter<int>(Category, AuthenticationMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> AvatarDataMessageCounter = new ProfilerCounter<int>(Category, AvatarDataMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> CreateAllRemoteMessageCounter = new ProfilerCounter<int>(Category, CreateAllRemoteMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> CreateSingleRemoteMessageCounter = new ProfilerCounter<int>(Category, CreateSingleRemoteMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> LocalAvatarSyncMessageCounter = new ProfilerCounter<int>(Category, LocalAvatarSyncMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> OwnershipTransferMessageCounter = new ProfilerCounter<int>(Category, OwnershipTransferMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> RequestOwnershipTransferMessageCounter = new ProfilerCounter<int>(Category, RequestOwnershipTransferMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> PlayerIdMessageCounter = new ProfilerCounter<int>(Category, PlayerIdMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> PlayerMetaDataMessageCounter = new ProfilerCounter<int>(Category, PlayerMetaDataMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> ReadyMessageCounter = new ProfilerCounter<int>(Category, ReadyMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> SceneDataMessageCounter = new ProfilerCounter<int>(Category, SceneDataMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> ServerAudioSegmentMessageCounter = new ProfilerCounter<int>(Category, ServerAudioSegmentMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> ServerAvatarChangeMessageCounter = new ProfilerCounter<int>(Category, ServerAvatarChangeMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> ServerSideSyncPlayerMessageCounter = new ProfilerCounter<int>(Category, ServerSideSyncPlayerMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> AudioRecipientsMessageCounter = new ProfilerCounter<int>(Category, AudioRecipientsMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> AvatarChangeMessageCounter = new ProfilerCounter<int>(Category, AvatarChangeMessageText, ProfilerMarkerDataUnit.Bytes);
-        private static readonly ProfilerCounter<int> ServerAvatarDataMessageCounter = new ProfilerCounter<int>(Category, ServerAvatarDataMessageText, ProfilerMarkerDataUnit.Bytes);
         // Labels
         public const string AudioSegmentDataMessageText = "Audio Segment Data Message";
         public const string AuthenticationMessageText = "Authentication Message";
@@ -45,6 +29,26 @@ namespace Basis.Scripts.Profiler
         public const string AudioRecipientsMessageText = "Audio Recipients Message";
         public const string AvatarChangeMessageText = "Avatar Change Message";
         public const string ServerAvatarDataMessageText = "Server Avatar Data Message";
+
+        // Profiler counters (per-type; sampled via Update())
+        private static readonly ProfilerCounter<long> AudioSegmentDataMessageCounter = new(Category, AudioSegmentDataMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> AuthenticationMessageCounter = new(Category, AuthenticationMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> AvatarDataMessageCounter = new(Category, AvatarDataMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> CreateAllRemoteMessageCounter = new(Category, CreateAllRemoteMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> CreateSingleRemoteMessageCounter = new(Category, CreateSingleRemoteMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> LocalAvatarSyncMessageCounter = new(Category, LocalAvatarSyncMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> OwnershipTransferMessageCounter = new(Category, OwnershipTransferMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> RequestOwnershipTransferMessageCounter = new(Category, RequestOwnershipTransferMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> PlayerIdMessageCounter = new(Category, PlayerIdMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> PlayerMetaDataMessageCounter = new(Category, PlayerMetaDataMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ReadyMessageCounter = new(Category, ReadyMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> SceneDataMessageCounter = new(Category, SceneDataMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ServerAudioSegmentMessageCounter = new(Category, ServerAudioSegmentMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ServerAvatarChangeMessageCounter = new(Category, ServerAvatarChangeMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ServerSideSyncPlayerMessageCounter = new(Category, ServerSideSyncPlayerMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> AudioRecipientsMessageCounter = new(Category, AudioRecipientsMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> AvatarChangeMessageCounter = new(Category, AvatarChangeMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ServerAvatarDataMessageCounter = new(Category, ServerAvatarDataMessageText, ProfilerMarkerDataUnit.Bytes);
 
         private const int CounterCount = 18;
         private static readonly long[] counters = new long[CounterCount];
@@ -70,15 +74,75 @@ namespace Basis.Scripts.Profiler
             SampleAndReset(AvatarChangeMessageCounter, BasisNetworkProfilerCounter.AvatarChange);
             SampleAndReset(ServerAvatarDataMessageCounter, BasisNetworkProfilerCounter.ServerAvatarData);
         }
-
-        private static void SampleAndReset(ProfilerCounter<int> counter, BasisNetworkProfilerCounter index)
+        private static void SampleAndReset(ProfilerCounter<long> counter, BasisNetworkProfilerCounter index)
         {
             long value = Interlocked.Exchange(ref counters[(int)index], 0);
-            counter.Sample((int)value);
+            counter.Sample(value);
         }
-        public static void AddToCounter(BasisNetworkProfilerCounter counter, float value)
+
+        // prefer passing long to avoid truncation of small floats
+        public static void AddToCounter(BasisNetworkProfilerCounter counter, long value)
         {
-            Interlocked.Add(ref counters[(int)counter], (long)value);
+            Interlocked.Add(ref counters[(int)counter], value);
+        }
+
+        // ---------- Per-index inbound/outbound pairs using ProfilerCounterValue<T> ----------
+
+        // Using class (not struct) to avoid copies.
+        public sealed class CounterPair
+        {
+            public ProfilerCounterValue<long> Bytes;
+            public ProfilerCounterValue<long> Count;
+        }
+
+        // Inbound / Outbound: per-index counter pairs
+        private static readonly ConcurrentDictionary<int, CounterPair> InPerIndex = new();
+        private static readonly ConcurrentDictionary<int, CounterPair> OutPerIndex = new();
+        // Resolve a friendly name for each index/key.
+        // Replace with your own mapping if "index" is not a channelId.
+        public static Func<int, string> ResolveName = (index) => $"Index {index}";
+
+        public static CounterPair GetOrCreate(ConcurrentDictionary<int, CounterPair> dict, int index, string direction, string friendlyName)
+        {
+            return dict.GetOrAdd(index, _ =>
+            {
+                // Example names: "Inbound/Audio Segment Data Message Bytes", "Outbound/Scene Data Message Count"
+                var bytesName = $"{direction}/{friendlyName} Bytes";
+                var countName = $"{direction}/{friendlyName} Count";
+
+                var options = ProfilerCounterOptions.FlushOnEndOfFrame | ProfilerCounterOptions.ResetToZeroOnFlush;
+
+                return new CounterPair
+                {
+                    Bytes = new ProfilerCounterValue<long>(Category, bytesName, ProfilerMarkerDataUnit.Bytes, options),
+                    Count = new ProfilerCounterValue<long>(Category, countName, ProfilerMarkerDataUnit.Count, options)
+                };
+            });
+        }
+
+        public static void SampleInbound(int index, ulong bytes, ulong count)
+        {
+            var name = ResolveName(index);
+            CounterPair pair = GetOrCreate(InPerIndex, index, "Inbound", name);
+
+            long bytesToSample = (long)bytes;
+            long countToSample = (long)count;
+
+            // These are per-frame deltas; options ensure reset at end-of-frame.
+            pair.Bytes.Value = bytesToSample;
+            pair.Count.Value = countToSample;
+        }
+
+        public static void SampleOutbound(int index, ulong bytes, ulong count)
+        {
+            var name = ResolveName(index);
+            CounterPair pair = GetOrCreate(OutPerIndex, index, "Outbound", name);
+
+            long bytesToSample = (long)bytes;
+            long countToSample = (long)count;
+
+            pair.Bytes.Value = bytesToSample;
+            pair.Count.Value = countToSample;
         }
     }
 }

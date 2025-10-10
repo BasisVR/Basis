@@ -34,11 +34,11 @@ namespace Basis
         /// </summary>
         public void Start()
         {
+            BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
+            BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
+            BasisNetworkPlayer.OnPlayerLeft += OnPlayerLeft;
             if (BasisNetworkConnection.LocalPlayerIsConnected == false)
             {
-                BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
-                BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
-                BasisNetworkPlayer.OnPlayerLeft += OnPlayerLeft;
             }
             else
             {

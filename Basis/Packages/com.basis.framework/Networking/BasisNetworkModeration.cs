@@ -136,10 +136,13 @@ public static class BasisNetworkModeration
         }
     }
 
-    public static void TeleportAll(ushort destinationPlayerId)
+    public static void TeleportAll(ushort? destinationPlayerId)
     {
-        SendAdminRequest(AdminRequestMode.TeleportAll,
-            w => w.Put(destinationPlayerId));
+        if (destinationPlayerId.HasValue)
+        {
+            SendAdminRequest(AdminRequestMode.TeleportAll,
+                w => w.Put(destinationPlayerId.Value));
+        }
     }
 
     public static void TeleportHere(ushort uuid)

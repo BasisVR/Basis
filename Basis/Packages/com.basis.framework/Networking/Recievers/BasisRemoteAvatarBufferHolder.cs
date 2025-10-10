@@ -17,12 +17,12 @@ namespace Basis.Scripts.Networking.Receivers
         {
             if (HasFirst)
             {
-                BasisAvatarBufferPool.Release(ref First);
+                BasisAvatarBufferPool.Release(First);
                 HasFirst = false;
             }
             if (HasLast)
             {
-                BasisAvatarBufferPool.Release(ref Last);
+                BasisAvatarBufferPool.Release(Last);
                 HasLast = false;
             }
         }

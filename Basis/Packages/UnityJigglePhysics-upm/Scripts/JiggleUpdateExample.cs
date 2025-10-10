@@ -4,17 +4,15 @@ using UnityEngine;
 namespace GatorDragonGames.JigglePhysics {
 
 public class JiggleUpdateExample : MonoBehaviour {
-    [SerializeField] private bool debugDraw = false;
+    [SerializeField] private bool debugDraw;
     [SerializeField] private Material proceduralMaterial;
     [SerializeField] private Mesh sphereMesh;
 
-    private void FixedUpdate() {
-        var fixedTime = Time.fixedTimeAsDouble;
-        JigglePhysics.ScheduleSimulate(fixedTime, Time.fixedDeltaTime);
-    }
-
     private void LateUpdate() {
         var time = Time.timeAsDouble;
+        var fixedTime = Time.fixedTimeAsDouble;
+
+        JigglePhysics.ScheduleSimulate(fixedTime, time, Time.fixedDeltaTime);
         
         JigglePhysics.SchedulePose(time);
         if (debugDraw) {

@@ -14,9 +14,9 @@ public class BasisTMP_InputSetting : MonoBehaviour
         string defaultValue = platformDefault.GetDefault();
         input.text = BasisSettingsSystem.LoadString(settingKey, defaultValue);
 
-        input.onValueChanged.AddListener(async v =>
+        input.onValueChanged.AddListener(v =>
         {
-            await BasisSettingsSystem.SaveString(settingKey, v);
+            BasisSettingsSystem.SaveString(settingKey, v);
         });
 
         BasisSettingsSystem.OnSettingChanged += HandleSettingChanged;

@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright 2017-2023 Valve Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -140,31 +140,49 @@ namespace SteamAudio
 
         public void SetInputs(SimulationFlags flags)
         {
-            var inputs = new SimulationInputs { };
-            inputs.source.origin = Common.ConvertVector(transform.position);
-            inputs.source.ahead = Common.ConvertVector(transform.forward);
-            inputs.source.up = Common.ConvertVector(transform.up);
-            inputs.source.right = Common.ConvertVector(transform.right);
-            inputs.distanceAttenuationModel.type = DistanceAttenuationModelType.Default;
-            inputs.airAbsorptionModel.type = AirAbsorptionModelType.Default;
-            inputs.reverbScaleLow = 1.0f;
-            inputs.reverbScaleMid = 1.0f;
-            inputs.reverbScaleHigh = 1.0f;
-            inputs.hybridReverbTransitionTime = SteamAudioSettings.Singleton.hybridReverbTransitionTime;
-            inputs.hybridReverbOverlapPercent = SteamAudioSettings.Singleton.hybridReverbOverlapPercent / 100.0f;
-            inputs.baked = (reverbType != ReverbType.Realtime) ? Bool.True : Bool.False;
-            if (reverbType == ReverbType.Baked)
+            // One native hop instead of 5+
+            transform.GetPositionAndRotation(out var pos, out var rot);
+
+            // Derive axes in managed code (cheap math, no extra native calls)
+            var ahead = rot * UnityEngine.Vector3.forward;
+            var up = rot * UnityEngine.Vector3.up;
+            var right = rot * UnityEngine.Vector3.right;
+
+            // Build inputs
+            var settings = SteamAudioSettings.Singleton;
+            bool baked = reverbType != ReverbType.Realtime;
+
+            var inputs = new SimulationInputs
             {
+                source =
+        {
+            origin = Common.ConvertVector(pos),
+            ahead  = Common.ConvertVector(ahead),
+            up     = Common.ConvertVector(up),
+            right  = Common.ConvertVector(right),
+        },
+
+                distanceAttenuationModel = { type = DistanceAttenuationModelType.Default },
+                airAbsorptionModel = { type = AirAbsorptionModelType.Default },
+
+                reverbScaleLow = 1f,
+                reverbScaleMid = 1f,
+                reverbScaleHigh = 1f,
+
+                hybridReverbTransitionTime = settings.hybridReverbTransitionTime,
+                hybridReverbOverlapPercent = settings.hybridReverbOverlapPercent * 0.01f,
+
+                baked = baked ? Bool.True : Bool.False,
+
+                flags = 0,
+                directFlags = 0,
+            };
+
+            if (baked && reverbType == ReverbType.Baked)
                 inputs.bakedDataIdentifier = GetBakedDataIdentifier();
-            }
 
-            inputs.flags = 0;
             if (applyReverb)
-            {
-                inputs.flags = inputs.flags | SimulationFlags.Reflections;
-            }
-
-            inputs.directFlags = 0;
+                inputs.flags |= SimulationFlags.Reflections;
 
             mSource.SetInputs(flags, inputs);
         }

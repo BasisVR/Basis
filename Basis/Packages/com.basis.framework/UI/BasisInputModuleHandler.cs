@@ -10,26 +10,62 @@ using UnityEngine.UI;
 
 namespace Basis.Scripts.UI
 {
+    /// <summary>
+    /// Custom input module that manages text input focus, virtual keyboard spawning, and navigation
+    /// for TMP and legacy InputFields. Handles Tab/Enter flows and locks player movement while typing.
+    /// </summary>
     public class BasisInputModuleHandler : BaseInputModule
     {
+        /// <summary>
+        /// Reference to the active <see cref="UnityEngine.EventSystems.EventSystem"/>.
+        /// </summary>
         public EventSystem EventSystem;
+
         private InputAction tabAction;
         private InputAction enterAction;
         private InputAction keypadEnterAction;
 
+        /// <summary>
+        /// Currently selected TMP input field (if any).
+        /// </summary>
         public TMP_InputField CurrentSelectedTMP_InputField;
+
+        /// <summary>
+        /// Currently selected legacy <see cref="InputField"/> (if any).
+        /// </summary>
         public InputField CurrentSelectedInputField;
+
+        /// <summary>
+        /// Indicates whether the module currently has focus over an input field.
+        /// </summary>
         public bool HasHoverONInput = false;
+
+        /// <summary>
+        /// Forces the on-screen keyboard even outside XR.
+        /// </summary>
         public bool ForceKeyboard = false;
+
+        /// <summary>
+        /// UI raycast helper used during processing.
+        /// </summary>
         public BasisUIRaycastProcess basisUIRaycastProcess = new BasisUIRaycastProcess();
+
+        /// <summary>
+        /// Singleton-style reference to the active handler.
+        /// </summary>
         public static BasisInputModuleHandler Instance;
 
         private readonly BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+
+        /// <summary>
+        /// Unity enable hook. Sets up input actions and initializes the raycast helper.
+        /// </summary>
         protected override void OnEnable()
         {
             base.OnEnable();
             Instance = this;
+
             // Initialize the input actions for Tab and Enter keys
             tabAction = new InputAction(binding: "<Keyboard>/tab");
             tabAction.performed += OnTabPerformed;
@@ -39,18 +75,21 @@ namespace Basis.Scripts.UI
             enterAction.performed += OnEnterPerformed;
             enterAction.Enable();
 
-            // For the Keypad Enter
+            // Keypad Enter
             keypadEnterAction = new InputAction(binding: "<Keyboard>/numpadEnter");
             keypadEnterAction.performed += OnEnterPerformed;
             keypadEnterAction.Enable();
+
             basisUIRaycastProcess.Initalize();
         }
 
+        /// <summary>
+        /// Unity disable hook. Tears down input actions and listeners.
+        /// </summary>
         protected override void OnDisable()
         {
             base.OnDisable();
 
-            // Disable the input actions when the module is disabled
             tabAction.Disable();
             enterAction.Disable();
             keypadEnterAction.Disable();
@@ -59,8 +98,9 @@ namespace Basis.Scripts.UI
             enterAction.performed -= OnEnterPerformed;
             keypadEnterAction.performed -= OnEnterPerformed;
             basisUIRaycastProcess.OnDeInitalize();
-
         }
+
+        // Note: keyboard character input handlers kept for completeness; currently unused.
         private void OnTextInput(char character)
         {
             if (char.IsControl(character))
@@ -75,7 +115,7 @@ namespace Basis.Scripts.UI
 
         private void HandleControlCharacter(char character)
         {
-            if (character == '\b') // Backspace character
+            if (character == '\b') // Backspace
             {
                 if (CurrentSelectedTMP_InputField != null)
                 {
@@ -94,7 +134,6 @@ namespace Basis.Scripts.UI
                     }
                 }
             }
-            // Add more control character handling if needed
         }
 
         private void HandleTextCharacter(char character)
@@ -110,15 +149,19 @@ namespace Basis.Scripts.UI
                 CurrentSelectedInputField.onValueChanged.Invoke(CurrentSelectedInputField.text);
             }
         }
+
+        /// <summary>
+        /// Core event processing loop. Manages focus, movement locks, virtual keyboard, and selection state.
+        /// </summary>
         public override void Process()
         {
-            var localPlayer = BasisLocalPlayer.Instance;
+            var localPlayer = BasisLocalPlayer.Instance; // currently unused but kept for context
             basisUIRaycastProcess.Simulate();
-            // Process your input events here
+
             if (EventSystem.currentSelectedGameObject != null)
             {
                 var data = GetBaseEventData();
-                //  ExecuteEvents.Execute(EventSystem.currentSelectedGameObject, data, ExecuteEvents.submitHandler);
+
                 if (EventSystem.currentSelectedGameObject.TryGetComponent(out CurrentSelectedTMP_InputField))
                 {
                     if (HasHoverONInput == false)
@@ -126,7 +169,7 @@ namespace Basis.Scripts.UI
                         HasHoverONInput = true;
                         MovementLock.Add(nameof(BasisInputModuleHandler));
                         CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                        if (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard)
+                        if (KeyboardRequired())
                         {
                             if (BasisVirtualKeyboard.HasInstance == false)
                             {
@@ -144,7 +187,7 @@ namespace Basis.Scripts.UI
                             HasHoverONInput = true;
                             MovementLock.Add(nameof(BasisInputModuleHandler));
                             CrouchingLock.Add(nameof(BasisInputModuleHandler));
-                            if (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard)
+                            if (KeyboardRequired())
                             {
                                 if (BasisVirtualKeyboard.HasInstance == false)
                                 {
@@ -169,10 +212,16 @@ namespace Basis.Scripts.UI
                 }
             }
         }
+        public bool KeyboardRequired()
+        {
+            return (BasisDeviceManagement.IsCurrentModeVR() || ForceKeyboard || BasisDeviceManagement.IsCurrentModeVR() == false && BasisDeviceManagement.IsMobilehardware());
+        }
 
+        /// <summary>
+        /// Handles Tab navigation by selecting the next selectable UI element below the current one.
+        /// </summary>
         private void OnTabPerformed(InputAction.CallbackContext context)
         {
-            // Handle Tab key press
             if (context.performed)
             {
                 GameObject CurrentGameObject = EventSystem.currentSelectedGameObject;
@@ -188,9 +237,11 @@ namespace Basis.Scripts.UI
             }
         }
 
+        /// <summary>
+        /// Handles Enter/KeypadEnter by submitting the current object and moving to the next selectable.
+        /// </summary>
         private void OnEnterPerformed(InputAction.CallbackContext context)
         {
-            // Handle Enter key press
             if (context.performed)
             {
                 GameObject current = EventSystem.currentSelectedGameObject;
@@ -202,9 +253,13 @@ namespace Basis.Scripts.UI
             }
         }
 
+        /// <summary>
+        /// Finds the next selectable UI element below the current object.
+        /// </summary>
+        /// <param name="current">The currently selected GameObject.</param>
+        /// <returns>The next selectable's GameObject, or null if none exists.</returns>
         private GameObject FindNextSelectable(GameObject current)
         {
-            // Logic to find the next selectable UI element
             if (current.TryGetComponent(out Selectable Selectable))
             {
                 Selectable nextSelectable = Selectable.FindSelectableOnDown();

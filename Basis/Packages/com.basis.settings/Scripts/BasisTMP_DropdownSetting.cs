@@ -38,10 +38,10 @@ public class BasisTMP_DropdownSetting : MonoBehaviour
         dropdown.value = index;
         UpdateText(index);
 
-        dropdown.onValueChanged.AddListener(async v =>
+        dropdown.onValueChanged.AddListener(v =>
         {
             string optionName = GetOptionName(v);
-            await BasisSettingsSystem.SaveString(settingKey, optionName);
+             BasisSettingsSystem.SaveString(settingKey, optionName);
             UpdateText(v);
         });
 

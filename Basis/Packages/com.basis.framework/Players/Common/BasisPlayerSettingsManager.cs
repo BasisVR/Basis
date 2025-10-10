@@ -6,10 +6,29 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
+/// <summary>
+/// Manages per-player settings with a two-tier storage strategy:
+/// an in-memory LRU cache for hot entries and JSON files on disk for persistence.
+/// </summary>
+/// <remarks>
+/// <para><b>Scope</b>: Player-scoped settings keyed by UUID, stored under
+/// <see cref="Application.persistentDataPath"/>/<c>PlayerSettings</c>.</para>
+/// <para><b>Concurrency</b>:
+/// - Reads: lock-free for disk, guarded for cache access.
+/// - Writes: serialized per UUID via <see cref="SemaphoreSlim"/> to avoid races and partial writes.</para>
+/// <para><b>Durability</b>:
+/// Writes use a best-effort atomic protocol (temp file + replace/move) to minimize corruption on crashes.</para>
+/// </remarks>
 public static class BasisPlayerSettingsManager
 {
+    /// <summary>
+    /// Directory path used to persist settings files (one JSON per UUID).
+    /// </summary>
     private static readonly string settingsDirectory = Path.Combine(Application.persistentDataPath, "PlayerSettings");
 
+    /// <summary>
+    /// Maximum number of entries retained in the in-memory LRU cache.
+    /// </summary>
     private const int CacheSizeLimit = 1024;
 
     // In-memory LRU cache for recently accessed player settings
@@ -36,6 +55,18 @@ public static class BasisPlayerSettingsManager
     /// Uses LRU cache when possible, otherwise reads from disk,
     /// repairing corrupted files where feasible and persisting defaults if missing.
     /// </summary>
+    /// <param name="uuid">Unique player identifier used as the key for lookup and persistence.</param>
+    /// <returns>
+    /// A defensive copy of <see cref="BasisPlayerSettingsData"/> for the given <paramref name="uuid"/>.
+    /// The returned instance is detached from the cache to prevent unintended external mutation.
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="uuid"/> is null, empty, or whitespace.
+    /// </exception>
+    /// <remarks>
+    /// If the on-disk file is missing or corrupted, a default settings record is created,
+    /// persisted, cached, and returned.
+    /// </remarks>
     public static async Task<BasisPlayerSettingsData> RequestPlayerSettings(string uuid)
     {
         if (string.IsNullOrWhiteSpace(uuid))
@@ -109,6 +140,23 @@ public static class BasisPlayerSettingsManager
     /// Persists the provided settings to disk and updates the in-memory cache
     /// with the exact version that was successfully written.
     /// </summary>
+    /// <param name="settings">Settings object to persist. Must include a non-empty <see cref="BasisPlayerSettingsData.UUID"/>.</param>
+    /// <returns>A task that completes when the write and cache update have finished.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="settings"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="settings"/>.<see cref="BasisPlayerSettingsData.UUID"/> is null, empty, or whitespace.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// Volume is clamped to <c>[0, 5]</c> as a safety bound. Writes use a unique temporary file
+    /// and attempt <see cref="File.Replace(string, string, string)"/> for atomicity on Windows,
+    /// falling back to delete+move elsewhere.
+    /// </para>
+    /// <para>
+    /// Multiple concurrent writes to the same UUID are serialized via a per-UUID semaphore to prevent
+    /// partial/overlapping writes and inconsistent cache entries.
+    /// </para>
+    /// </remarks>
     public static async Task SetPlayerSettings(BasisPlayerSettingsData settings)
     {
         if (settings == null) throw new ArgumentNullException(nameof(settings));
@@ -159,9 +207,21 @@ public static class BasisPlayerSettingsManager
 
     /// <summary>
     /// Best-effort atomic write that avoids partially written files being observed by readers.
-    /// - Uses a unique temp file per call to avoid races.
-    /// - Attempts File.Replace (atomic on Windows) and falls back to delete+move.
     /// </summary>
+    /// <param name="targetPath">Final destination path for the settings file.</param>
+    /// <param name="content">Serialized JSON content to write.</param>
+    /// <returns>
+    /// <c>true</c> if the content was successfully written into place; otherwise <c>false</c>.
+    /// </returns>
+    /// <remarks>
+    /// Strategy:
+    /// <list type="number">
+    /// <item>Write to a unique temp file adjacent to the target.</item>
+    /// <item>Attempt <see cref="File.Replace(string, string, string)"/> (atomic on Windows).</item>
+    /// <item>Fallback to delete+move if replace is unavailable.</item>
+    /// </list>
+    /// Any leftover temp file is cleaned up in a <c>finally</c> block.
+    /// </remarks>
     private static async Task<bool> AtomicWriteText(string targetPath, string content)
     {
         // Unique temp name prevents concurrency conflicts (.tmp missing)
@@ -219,6 +279,10 @@ public static class BasisPlayerSettingsManager
         }
     }
 
+    /// <summary>
+    /// Deletes a file at the given path while swallowing any IO exceptions into logs.
+    /// </summary>
+    /// <param name="filePath">Absolute path to a settings file to delete.</param>
     private static void TryDelete(string filePath)
     {
         try
@@ -231,11 +295,20 @@ public static class BasisPlayerSettingsManager
         }
     }
 
+    /// <summary>
+    /// Computes the absolute file path for a sanitized UUID.
+    /// </summary>
+    /// <param name="sanitizedUuid">File-system safe UUID (see <see cref="SanitizeFileName"/>).</param>
     private static string GetFilePath(string sanitizedUuid)
     {
         return Path.Combine(settingsDirectory, $"{sanitizedUuid}.json");
     }
 
+    /// <summary>
+    /// Replaces any file-name invalid characters with underscores to make a safe file name.
+    /// </summary>
+    /// <param name="fileName">Original file name/UUID.</param>
+    /// <returns>A sanitized string safe for use as a file name.</returns>
     private static string SanitizeFileName(string fileName)
     {
         foreach (char c in Path.GetInvalidFileNameChars())
@@ -246,9 +319,14 @@ public static class BasisPlayerSettingsManager
     }
 
     /// <summary>
-    /// LRU cache insert/update. Stores a defensive copy to prevent external mutation
-    /// from desynchronizing cache content from disk.
+    /// Inserts or updates a settings snapshot into the LRU cache, evicting the least
+    /// recently used entry when the cache exceeds <see cref="CacheSizeLimit"/>.
     /// </summary>
+    /// <param name="uuid">Sanitized UUID key.</param>
+    /// <param name="data">Settings data to cache.</param>
+    /// <remarks>
+    /// A defensive copy is stored to keep the cache isolated from external references.
+    /// </remarks>
     private static void CacheSettings(string uuid, BasisPlayerSettingsData data)
     {
         // Store a copy to prevent later external mutation from affecting cached instance
@@ -273,6 +351,10 @@ public static class BasisPlayerSettingsManager
         }
     }
 
+    /// <summary>
+    /// Marks the specified UUID as the most recently used element in the LRU list.
+    /// </summary>
+    /// <param name="uuid">Sanitized UUID key.</param>
     private static void MoveToMostRecent(string uuid)
     {
         cacheOrder.Remove(uuid);
@@ -280,8 +362,12 @@ public static class BasisPlayerSettingsManager
     }
 
     /// <summary>
-    /// Creates a deep copy via JsonUtility to keep cache isolated from external references.
+    /// Creates a deep copy of the provided settings using <see cref="JsonUtility"/>.
     /// </summary>
+    /// <param name="src">Source settings object.</param>
+    /// <returns>
+    /// A deep-cloned instance, or the original reference if serialization fails.
+    /// </returns>
     private static BasisPlayerSettingsData Clone(BasisPlayerSettingsData src)
     {
         if (src == null) return null;

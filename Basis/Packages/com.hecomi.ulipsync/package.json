@@ -1,7 +1,7 @@
 {
-  "name": "com.hecomi.ulipsync",
-  "version": "3.1.1",
-  "displayName": "uLipSync",
+  "name": "com.hecomi.basisulipsync",
+  "version": "0.0.1",
+  "displayName": "BasisuLipSync",
   "description": "A MFCC-based LipSync plugin for Unity using Job and Burst Compiler\n\nmodified by basis",
   "author": {
     "name": "hecomi",
@@ -23,7 +23,7 @@
   "samples": [
     {
       "displayName": "00. Common",
-      "description": "Common assets required for all samples, including UnityChan © UTJ/UCL.",
+      "description": "Common assets required for all samples, including UnityChan \u00a9 UTJ/UCL.",
       "path": "Samples~/00. Common"
     },
     {

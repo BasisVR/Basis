@@ -59,41 +59,46 @@ public class BasisConsoleLogger : BasisUIBase
     public Canvas Canvas;
     private void OpenLatestCrashReportFolder()
     {
-        string crashDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Temp", "Unity", "Crashes"
-        );
-
-        if (!Directory.Exists(crashDirectory))
+        try
         {
-            BasisLogManager.HandleLog("Crash directory does not exist.","", LogType.Error);
-            return;
-        }
+            var crashDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Temp", "Unity", "Crashes");
 
-        var latestFolder = new DirectoryInfo(crashDirectory).GetDirectories()
-            .OrderByDescending(d => d.CreationTime)
-            .FirstOrDefault();
-
-        if (latestFolder != null)
-        {
-            try
+            if (!Directory.Exists(crashDir))
             {
-                // This opens File Explorer with the folder selected
-                Process.Start(new ProcessStartInfo()
-                {
-                    FileName = "explorer.exe",
-                    Arguments = $"/select,\"{Path.Combine(latestFolder.FullName, "error.log")}\"",
-                    UseShellExecute = true
-                });
+                BasisLogManager.HandleLog("Crash directory does not exist.", "", LogType.Error);
+                return;
             }
-            catch (Exception ex)
+
+            var latest = new DirectoryInfo(crashDir).GetDirectories()
+                          .OrderByDescending(d => d.LastWriteTimeUtc).FirstOrDefault();
+
+            if (latest == null)
             {
-                BasisLogManager.HandleLog($"Failed to open crash folder: {ex.Message}", ex.StackTrace, LogType.Error);
+                BasisLogManager.HandleLog("No crash folders found.", "", LogType.Error);
+                return;
             }
+
+            var target = Path.Combine(latest.FullName, "error.log");
+            if (!File.Exists(target)) target = latest.FullName; // fall back to folder
+
+#if UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"/select,\"{target}\"",
+                UseShellExecute = true
+            });
+#elif UNITY_STANDALONE_OSX || UNITY_EDITOR_OSX
+        Process.Start("open", $"-R \"{target}\"");
+#else
+        Application.OpenURL(latest.FullName);
+#endif
         }
-        else
+        catch (Exception ex)
         {
-            BasisLogManager.HandleLog("No crash folders found.", "", LogType.Error);
+            BasisLogManager.HandleLog($"Failed to open crash folder: {ex.Message}", ex.StackTrace, LogType.Error);
         }
     }
     public void ToggleMouse()

@@ -25,18 +25,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0fda108c2d97bc54ba016813c1eff3af
-    m_Address: BasisUI/Panel
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1a876a9e9a22e4643b0d03f0eb3d0c30
     m_Address: Locomotion
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 21c40287b4492f144b9393d3c5be8d8a
-    m_Address: VowganUI/Elements/Toggle
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -47,11 +37,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2ef52735e20e99c45ae63c674e0727cb
     m_Address: BasisUIAvatarSelection
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 30ab3bcde2b3a7141b1e16d6add785f3
-    m_Address: VowganUI/Panel-Dialogue
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -67,6 +52,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 3a3df1983396db742b32634900a6e4ad
     m_Address: BasisFramework
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3a4a4d43bcc9b7643a340212d6fddeb9
+    m_Address: OnScreenControls
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -105,18 +95,13 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 462ac13b40ee49446bb7898100a4bbc2
-    m_Address: VowganUI/Elements/Dropdown
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4b6d450b11ad8974e8c4ba0b1e0df50e
     m_Address: RemotePlayer
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 50ab883941d88ec489ec0be24527b2c0
-    m_Address: BasisUI/PanelGroup
+  - m_GUID: 506f83456b9f93c40848e084d5684903
+    m_Address: HVR.Basis.Comms.FaceTracking.DefaultARKitDefinitionFile
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -145,33 +130,13 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 7186a8cd468113a4b9dcb76426dc0888
-    m_Address: VowganUI/Elements/Group
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 7278f2c9e1fe3c946a294458ce0e6128
-    m_Address: BasisUI/CanvasElement/ScrollViewVertical
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 7944cba8d1d088f45915615d99217e11
-    m_Address: BasisUI/CanvasElement/Dropdown
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 80400c0dd2aacdb4ead120b1c924f77d
-    m_Address: VowganUI/Menu
+  - m_GUID: 856976bf03357524b9a73466df6c0e5f
+    m_Address: Adaptive Circle Display.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 861fed068fe3fd4449deba6697749c16
     m_Address: UserNamePanel
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 8c9e175d2f637e749b64358165402bca
-    m_Address: BasisUI/CanvasElement/ScrollViewHorizontal
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -225,11 +190,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b8b1d961850dbd14a8b4a06909149831
-    m_Address: VowganUI/Elements/LayoutContainerVertical
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: bb4eb766250cf0b4d9e2dc0a7d939808
     m_Address: GizmoMaterial
     m_ReadOnly: 0
@@ -240,8 +200,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c35ee6800f11edd43975d6e41b114001
-    m_Address: BasisUI/Panel-Page
+  - m_GUID: c65e15bc2eea6e24e8606a9091a4bf13
+    m_Address: HVR.Basis.Comms.FaceTracking.DefaultUnifiedExpressionsDefinitionFile
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -250,33 +210,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ccb46bcf8cc1a434b942aec7c51fe002
-    m_Address: BasisUI/CanvasElement/Slider
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ce79cd386c49c7e45813375f1cf500c3
-    m_Address: VowganUI/Panel-Page
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: d9849dc6948554a4a8f55614547f5449
-    m_Address: VowganUI/Panel
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: db69ae0e592fcd24ea338bfc58766dc6
-    m_Address: VowganUI/Elements/LayoutContainerHorizontal
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: dd1db054b177db7459cc81633b86e525
     m_Address: Assets/Scenes/initialization.unity
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ddab2de083ef8d44991304a0cc35d9c6
-    m_Address: VowganUI/Elements/Button
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -292,11 +227,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ed07444dbf3e0f744a12b80ab0a8a2b7
     m_Address: Packages/com.basis.sdk/Prefabs/UI/Personal Mirror Prefab/PersonalMirror.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: edbfaeb4eb1347d4fbc1d45582639b1e
-    m_Address: VowganUI/Elements/Slider
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

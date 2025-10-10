@@ -6,29 +6,59 @@ using UnityEngine;
 
 namespace Basis.Scripts.TransformBinders
 {
+    /// <summary>
+    /// Locks this GameObject’s transform to a specific tracked input role.
+    /// Useful for attaching objects (e.g. cameras or props) to controller or bone inputs.
+    /// </summary>
     public class BasisLockToInput : MonoBehaviour
     {
+        /// <summary>
+        /// The tracked role this object should follow (e.g. head, hand, etc.).
+        /// </summary>
         public BasisBoneTrackedRole TrackedRole;
+
+        /// <summary>
+        /// The resolved input device associated with <see cref="TrackedRole"/>.
+        /// </summary>
         public BasisInput BasisInput = null;
+
+        /// <summary>
+        /// True if events have been subscribed to <see cref="BasisDeviceManagement.AllInputDevices"/>.
+        /// </summary>
         public bool HasEvent = false;
+
+        /// <summary>
+        /// Unity lifecycle: ensures initialization occurs at startup.
+        /// </summary>
         public void Awake()
         {
             Initialize();
         }
+
+        /// <summary>
+        /// Registers this component with the device management system and hooks into input list events.
+        /// Also attempts to bind immediately to the specified <see cref="TrackedRole"/>.
+        /// </summary>
         public void Initialize()
         {
             if (BasisDeviceManagement.Instance.BasisLockToInputs.Contains(this) == false)
             {
                 BasisDeviceManagement.Instance.BasisLockToInputs.Add(this);
             }
+
             if (HasEvent == false)
             {
                 BasisDeviceManagement.Instance.AllInputDevices.OnListChanged += FindRole;
                 BasisDeviceManagement.Instance.AllInputDevices.OnListItemRemoved += ResetIfNeeded;
                 HasEvent = true;
             }
+
             FindRole();
         }
+
+        /// <summary>
+        /// Unity lifecycle: unsubscribes from events when destroyed.
+        /// </summary>
         public void OnDestroy()
         {
             if (HasEvent)
@@ -38,6 +68,11 @@ namespace Basis.Scripts.TransformBinders
                 HasEvent = false;
             }
         }
+
+        /// <summary>
+        /// Resets this object to follow the local player root if its current input is lost or removed.
+        /// </summary>
+        /// <param name="input">The input that was removed.</param>
         private void ResetIfNeeded(BasisInput input)
         {
             if (BasisInput == null || BasisInput == input)
@@ -47,11 +82,17 @@ namespace Basis.Scripts.TransformBinders
             }
         }
 
+        /// <summary>
+        /// Attempts to find and bind this object to the transform of the input matching <see cref="TrackedRole"/>.
+        /// Falls back to the local player root if not found.
+        /// </summary>
         public void FindRole()
         {
             this.transform.parent = BasisLocalPlayer.Instance.transform;
             int count = BasisDeviceManagement.Instance.AllInputDevices.Count;
+
             BasisDebug.Log("finding Lock " + TrackedRole, BasisDebug.LogTag.Device);
+
             for (int Index = 0; Index < count; Index++)
             {
                 BasisInput Input = BasisDeviceManagement.Instance.AllInputDevices[Index];
@@ -64,7 +105,7 @@ namespace Basis.Scripts.TransformBinders
                             BasisInput = Input;
                             this.transform.parent = BasisInput.transform;
                             this.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-                            this.transform.localScale = Vector3.one;
+                            this.transform.localScale = Vector3.one * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
                             return;
                         }
                     }
@@ -75,7 +116,7 @@ namespace Basis.Scripts.TransformBinders
                 }
                 else
                 {
-                    // when application is exiting, objects will be destroyed naturally, don't error log during this process
+                    // During application shutdown, destroyed objects may cause nulls — skip logging in play mode exit.
                     if (!Application.isPlaying) BasisDebug.LogError("There was a missing BasisInput at " + Index);
                 }
             }

@@ -60,8 +60,16 @@ public class JiggleRig : MonoBehaviour {
     /// Immediately resamples the rest pose of the bones in the tree. This can be useful if you have modified the bones' transforms on initialization and want to control when the rest pose is sampled.
     /// </summary>
     public void ResampleRestPose() {
-        segment.jiggleTree.ResampleRestPose();
+        jiggleRigData.ResampleRestPose();
+        if (segment != null && segment.jiggleTree != null) {
+            segment.jiggleTree.SetDirty();
+        }
     }
+
+    public void SnapToRestPose() {
+        jiggleRigData.SnapToRestPose();
+    }
+    
 
     /// <summary>
     /// Sends updated parameters to the jiggle tree on the jobs side. Uses the provided list to prevent allocations.
@@ -73,14 +81,17 @@ public class JiggleRig : MonoBehaviour {
         jiggleRigData.UpdateParameters(segment.jiggleTree, parametersCache);
     }
     
-    public bool GetHasAnimatedParameters() => animatedParameters;
+    public bool GetHasAnimatedParameters => animatedParameters;
 
-    void OnValidate() {
+    private void OnValidate() {
         parametersCache ??= new();
         if (!jiggleRigData.hasSerializedData) {
             jiggleRigData = JiggleRigData.Default();
         }
         jiggleRigData.OnValidate();
+        if (Application.isPlaying) {
+            UpdateParameters();
+        }
     }
 
     private void OnDrawGizmosSelected() {

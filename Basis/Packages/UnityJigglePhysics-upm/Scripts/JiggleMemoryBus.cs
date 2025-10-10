@@ -12,12 +12,14 @@ public struct PoseData {
     public JiggleTransform pose;
     public float3 rootPosition;
     public float3 rootOffset;
+    public float rootSnapStrength;
 
     public static PoseData Lerp(PoseData a, PoseData b, float t) {
         return new PoseData() {
             pose = JiggleTransform.Lerp(a.pose, b.pose, t),
             rootPosition = math.lerp(a.rootPosition, b.rootPosition, t),
             rootOffset = math.lerp(a.rootOffset, b.rootOffset, t),
+            rootSnapStrength = math.lerp(a.rootSnapStrength, b.rootSnapStrength, t)
         };
     }
 
@@ -492,13 +494,13 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 pose.isVirtual = true;
                 simulationOutputPoseDataArray[j].pose = pose;
 
-                var interpPose = interpolationCurrentPoseDataArray[j].pose;
-                interpPose.isVirtual = true;
-                interpolationCurrentPoseDataArray[j].pose = interpPose;
+                var interpolationPose = interpolationCurrentPoseDataArray[j].pose;
+                interpolationPose.isVirtual = true;
+                interpolationCurrentPoseDataArray[j].pose = interpolationPose;
 
-                var interpPose2 = interpolationPreviousPoseDataArray[j].pose;
-                interpPose2.isVirtual = true;
-                interpolationPreviousPoseDataArray[j].pose = interpPose2;
+                var interpolationPose2 = interpolationPreviousPoseDataArray[j].pose;
+                interpolationPose2.isVirtual = true;
+                interpolationPreviousPoseDataArray[j].pose = interpolationPose2;
             }
 
             break;
@@ -634,6 +636,8 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 simulationOutputPoseDataArray[index + o] = poseData;
                 interpolationCurrentPoseDataArray[index + o] = poseData;
                 interpolationPreviousPoseDataArray[index + o] = poseData;
+                inputPosesCurrentArray[index + o] = pose;
+                inputPosesPreviousArray[index + o] = pose;
             }
         }
 
@@ -747,15 +751,26 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             for (int i = 0; i < pendingAddCount; i++) {
                 var jiggleTree = pendingAddTrees[i];
                 var pointCount = (int)pendingAddTrees[i].GetStruct().pointCount;
+                if (pointCount > JiggleTreeJobData.MAX_POINTS) {
+                    pendingAddTrees.RemoveAt(i);
+                    Debug.LogError("JigglePhysics: Cannot add tree with more than " + JiggleTreeJobData.MAX_POINTS + " points to memory bus.");
+                    continue;
+                }
 
-                var found = memoryFragmenter.TryAllocate(pointCount, out var startIndex);
-                if (!found) {
-                    ResizeTransformCapacity(transformCapacity * 2);
-                    var alsoFound = memoryFragmenter.TryAllocate(pointCount, out startIndex);
+                var startIndex = -1;
+                const int maxResizeAttempts = 14; // 2^14 > 10000 points
+                for (int o = 0; o < maxResizeAttempts; o++) {
+                    var found = memoryFragmenter.TryAllocate(pointCount, out startIndex);
+                    if (!found) {
+                        ResizeTransformCapacity(transformCapacity * 2);
+                    } else {
+                        break;
+                    }
                 }
 
                 if (startIndex == -1) {
-                    throw new UnityException("bad index generated...");
+                    pendingAddTrees.RemoveAt(i);
+                    throw new UnityException("bad index generated... ran out of memory?");
                 }
 
                 if (!TryAddTransformsToSlice(startIndex, jiggleTree)) {

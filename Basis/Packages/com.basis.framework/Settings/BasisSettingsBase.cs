@@ -4,7 +4,7 @@ public abstract class BasisSettingsBase : MonoBehaviour
 {
     [Tooltip("List of setting names this component will react to.")]
     public string[] SettingsNames;
-    public void Awake()
+    public virtual void Awake()
     {
         BasisSettingsSystem.OnSettingChanged += OnSettingChanged;
     }

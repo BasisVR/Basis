@@ -2,11 +2,9 @@ using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
-using Basis.Scripts.Networking;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections;
 using TMPro;
-using Unity.Jobs;
 using UnityEngine;
 namespace Basis.Scripts.UI.NamePlate
 {
@@ -24,12 +22,9 @@ namespace Basis.Scripts.UI.NamePlate
         public Mesh bakedMesh;
         public MeshRenderer Renderer;
         private WaitForSeconds cachedReturnDelay;
-        private WaitForEndOfFrame cachedEndOfFrame;
         public Color CurrentColor;
         public Transform Self;
         public float InteractRange = 2f;
-        public static JobHandle NamePlateBatch;
-        public static bool HasScheduledNamePlateBatch;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -38,7 +33,6 @@ namespace Basis.Scripts.UI.NamePlate
         public void Initalize(BasisRemotePlayer RemotePlayer)
         {
             cachedReturnDelay = new WaitForSeconds(BasisRemoteNamePlateDriver.returnDelay);
-            cachedEndOfFrame = new WaitForEndOfFrame();
             BasisRemotePlayer = RemotePlayer;
             BasisRemotePlayer.RemoteNamePlate = this;
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
@@ -48,25 +42,29 @@ namespace Basis.Scripts.UI.NamePlate
             Self = this.transform;
             BasisRemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
             LoadingText.enableVertexGradient = false;
-            if(HasScheduledNamePlateBatch)
-            {
-                NamePlateBatch.Complete();
-                HasScheduledNamePlateBatch = false;
-            }
 
-            RemotePlayer.RemotePlayerDataIndex = BasisRemoteNamePlateBatchDriver.AllocateDataRow(new Unity.Mathematics.float4(0,0,0, 1));
-            BasisRemoteNamePlateBatchDriver.AddNameplate(Self, RemotePlayer.RemotePlayerDataIndex);
+            mpb = new MaterialPropertyBlock();
+            Renderer.GetPropertyBlock(mpb, 0);
+        }
+        private static readonly int ColorId = Shader.PropertyToID("_BaseColor"); // or "_Color" for Built-in RP
+        private MaterialPropertyBlock mpb;
+        private void SetPlateColor(Color c)
+        {
+            mpb.SetColor(ColorId, c);
+            Renderer.SetPropertyBlock(mpb, 0);
         }
         public void DeInitalize()
         {
-            if (HasScheduledNamePlateBatch)
+            if (BasisRemotePlayer != null)
             {
-                NamePlateBatch.Complete();
-                HasScheduledNamePlateBatch = false;
+                // Unsubscribe all events we hooked up
+                BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
+                BasisRemotePlayer.AudioReceived -= OnAudioReceived;
+                BasisRemotePlayer.OnAvatarSwitched -= RebuildRenderCheck;
+                BasisRemotePlayer.OnAvatarSwitchedFallBack -= RebuildRenderCheck;
             }
-            BasisRemoteNamePlateBatchDriver.RemoveNameplate(Self);
-            BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
-            BasisRemotePlayer.AudioReceived -= OnAudioReceived;
+
+            // Clean up rendering resources
             DeInitalizeCallToRender();
         }
         public void RebuildRenderCheck()
@@ -116,18 +114,15 @@ namespace Basis.Scripts.UI.NamePlate
                     : hasRealAudio ? BasisRemoteNamePlateDriver.StaticIsTalkingColor : BasisRemoteNamePlateDriver.StaticNormalColor;
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
-                    if (this != null)
+                    if (this != null && isActiveAndEnabled)
                     {
-                        if (isActiveAndEnabled)
+                        if (colorTransitionCoroutine != null)
                         {
-                            if (colorTransitionCoroutine != null)
-                            {
-                                StopCoroutine(colorTransitionCoroutine);
-                            }
-                            if (targetColor != CurrentColor)
-                            {
-                                colorTransitionCoroutine = StartCoroutine(TransitionColor(targetColor));
-                            }
+                            StopCoroutine(colorTransitionCoroutine);
+                        }
+                        if (targetColor != CurrentColor)
+                        {
+                            colorTransitionCoroutine = StartCoroutine(TransitionColor(targetColor));
                         }
                     }
                 });
@@ -135,28 +130,26 @@ namespace Basis.Scripts.UI.NamePlate
         }
         private IEnumerator TransitionColor(Color targetColor)
         {
-            CurrentColor = Renderer.sharedMaterials[0].color;
-            float elapsedTime = 0f;
-            float DeltaTime = Time.deltaTime;
-            while (elapsedTime < BasisRemoteNamePlateDriver.transitionDuration)
+            var startColor = CurrentColor;
+            float elapsed = 0f;
+            float dur = BasisRemoteNamePlateDriver.transitionDuration;
+
+            while (elapsed < dur)
             {
-                elapsedTime += DeltaTime;
-                float lerpProgress = Mathf.Clamp01(elapsedTime / BasisRemoteNamePlateDriver.transitionDuration);
-                Renderer.materials[0].color = Color.Lerp(CurrentColor, targetColor, lerpProgress);
-                yield return cachedEndOfFrame;
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / dur);
+                var c = Color.Lerp(startColor, targetColor, t);
+                SetPlateColor(c);
+                yield return null;
             }
 
-            Renderer.materials[0].color = targetColor;
+            SetPlateColor(targetColor);
             CurrentColor = targetColor;
             colorTransitionCoroutine = null;
 
-            if (returnToNormalCoroutine != null)
-            {
-                StopCoroutine(returnToNormalCoroutine);
-            }
+            if (returnToNormalCoroutine != null) StopCoroutine(returnToNormalCoroutine);
             returnToNormalCoroutine = StartCoroutine(DelayedReturnToNormal());
         }
-
         private IEnumerator DelayedReturnToNormal()
         {
             yield return cachedReturnDelay;
@@ -194,11 +187,11 @@ namespace Basis.Scripts.UI.NamePlate
                       {
                           LoadingText.text = info;
                       }
-                      UpdateProgressBar(UniqueID, progress);
+                      UpdateProgressBar( progress);
                   }
               });
         }
-        public void UpdateProgressBar(string UniqueID, float progress)
+        public void UpdateProgressBar(float progress)
         {
             Vector2 scale = LoadingBar.size;
             float NewX = progress / 2;
@@ -226,7 +219,6 @@ namespace Basis.Scripts.UI.NamePlate
                 found.GetState() == BasisInteractInputState.Hovering &&
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange);
         }
-
         public override void OnHoverStart(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
@@ -275,7 +267,6 @@ namespace Basis.Scripts.UI.NamePlate
                 BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " did not find role for input on Interact start");
             }
         }
-
         public override void OnInteractEnd(BasisInput input)
         {
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))

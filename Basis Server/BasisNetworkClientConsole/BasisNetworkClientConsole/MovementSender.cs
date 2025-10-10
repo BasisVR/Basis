@@ -88,6 +88,7 @@ namespace Basis.Network
             Writer.Reset();
             Message.Serialize(Writer);
 
+
             peer.Send(Writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
 
             ActivePlayerData[index].Message = Message;

@@ -223,7 +223,10 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             await CreateAvatarButtons();
-            UpdateHeight();
+            if (Content != null)
+            {
+                UpdateHeight();
+            }
         }
         /// <summary>
         /// Call this if you already know the item count.

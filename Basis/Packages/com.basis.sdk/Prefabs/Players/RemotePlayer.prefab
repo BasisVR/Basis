@@ -29,7 +29,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 8325976067560118047}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3578141255088103770
@@ -46,11 +47,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   DisplayName: 
   UUID: 
+  SafeDisplayName: 
   BasisAvatar: {fileID: 0}
-  BasisAvatarTransform: {fileID: 0}
+  AvatarTransform: {fileID: 0}
+  PlayerSelf: {fileID: 0}
   FaceIsVisible: 0
   FaceRenderer: {fileID: 0}
-  HasJiggles: 0
   IsConsideredFallBackAvatar: 1
   AvatarLoadMode: 0
   AvatarMetaData:
@@ -65,9 +67,7 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-  BasisAvatarStrainJiggleDriver:
-    Jiggler: {fileID: 0}
-    JiggleRigRendererLOD: {fileID: 0}
+      ImageBytes: 
   FacialBlinkDriver:
     meshRenderer: {fileID: 0}
     minBlinkInterval: 5
@@ -77,348 +77,12 @@ MonoBehaviour:
     blendShapeIndex: 
     blendShapeCount: 0
     LinkedPlayer: {fileID: 0}
-  EyeFollow:
+  RemoteEyeDriver:
     Override: 0
     LinkedPlayer: {fileID: 0}
     IsEnabled: 0
-  RemoteBoneDriver:
-    ControlsLength: 0
-    Controls: []
-    trackedRoles: 
-    HasControls: 0
-    RemotePlayer: {fileID: 3578141255088103770}
-    HeadAvatar: {fileID: 0}
-    HipsAvatar: {fileID: 0}
-    Head:
-      name: 
-      LerpAmountNormal: 0
-      LerpAmountFastMovement: 0
-      AngleBeforeSpeedup: 0
-      HasRotationalTarget: 0
-      HasLineDraw: 0
-      LineDrawIndex: 0
-      HasTarget: 0
-      Offset:
-        x: 0
-        y: 0
-        z: 0
-      ScaledOffset:
-        x: 0
-        y: 0
-        z: 0
-      LerpAmount: 0
-      OutGoingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      LastRunData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocal:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocalScaled:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      InverseOffsetFromBone:
-        Use: 0
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      IncomingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      OutgoingWorldData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      GizmoReference: -1
-      HasGizmo: 0
-      TposeGizmoReference: -1
-      TposeHasGizmo: 0
-      HasVirtualOverride: 0
-      trackersmooth: 25
-      IsHintRoleIgnoreRotation: 0
-      gizmoColor: {r: 0, g: 0, b: 1, a: 1}
-      HasEvents: 0
-      positionWeight: 1
-      rotationWeight: 1
-      hasTrackerDriver: 1
-      hasRigLayer: 1
-    Hips:
-      name: 
-      LerpAmountNormal: 0
-      LerpAmountFastMovement: 0
-      AngleBeforeSpeedup: 0
-      HasRotationalTarget: 0
-      HasLineDraw: 0
-      LineDrawIndex: 0
-      HasTarget: 0
-      Offset:
-        x: 0
-        y: 0
-        z: 0
-      ScaledOffset:
-        x: 0
-        y: 0
-        z: 0
-      LerpAmount: 0
-      OutGoingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      LastRunData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocal:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocalScaled:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      InverseOffsetFromBone:
-        Use: 0
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      IncomingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      OutgoingWorldData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      GizmoReference: -1
-      HasGizmo: 0
-      TposeGizmoReference: -1
-      TposeHasGizmo: 0
-      HasVirtualOverride: 0
-      trackersmooth: 25
-      IsHintRoleIgnoreRotation: 0
-      gizmoColor: {r: 0, g: 0, b: 1, a: 1}
-      HasEvents: 0
-      positionWeight: 1
-      rotationWeight: 1
-      hasTrackerDriver: 1
-      hasRigLayer: 1
-    Mouth:
-      name: 
-      LerpAmountNormal: 0
-      LerpAmountFastMovement: 0
-      AngleBeforeSpeedup: 0
-      HasRotationalTarget: 0
-      HasLineDraw: 0
-      LineDrawIndex: 0
-      HasTarget: 0
-      Offset:
-        x: 0
-        y: 0
-        z: 0
-      ScaledOffset:
-        x: 0
-        y: 0
-        z: 0
-      LerpAmount: 0
-      OutGoingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      LastRunData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocal:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocalScaled:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      InverseOffsetFromBone:
-        Use: 0
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      IncomingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      OutgoingWorldData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      GizmoReference: -1
-      HasGizmo: 0
-      TposeGizmoReference: -1
-      TposeHasGizmo: 0
-      HasVirtualOverride: 0
-      trackersmooth: 25
-      IsHintRoleIgnoreRotation: 0
-      gizmoColor: {r: 0, g: 0, b: 1, a: 1}
-      HasEvents: 0
-      positionWeight: 1
-      rotationWeight: 1
-      hasTrackerDriver: 1
-      hasRigLayer: 1
-    HasHead: 0
-    HasHips: 0
   RemoteAvatarDriver:
+    JiggleColliders: []
     References:
       AnimatorRoot: {fileID: 0}
       HasAnimatorRoot: 0
@@ -520,126 +184,28 @@ MonoBehaviour:
       - {fileID: 0}
       - {fileID: 0}
       HasRightLittle: 000000
-    SavedruntimeAnimatorController: {fileID: 0}
+      TposeHead:
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
+      TposeHips:
+        rotation: {x: 0, y: 0, z: 0, w: 0}
+        position: {x: 0, y: 0, z: 0}
+      AnimatorRotation: {x: 0, y: 0, z: 0, w: 0}
     SkinnedMeshRenderer: []
     Player: {fileID: 3578141255088103770}
-    CurrentlyTposing: 0
     HasEvents: 0
-    ActiveMatrixOverrides: 
     SkinnedMeshRendererLength: 0
+    AvatarInitalScale: {x: 1, y: 1, z: 1}
+    hasDatainBoneDriver: 0
+    CurrentlyTposing: 0
+    SavedruntimeAnimatorController: {fileID: 0}
   NetworkReceiver:
-    MouthBone:
-      name: 
-      LerpAmountNormal: 0
-      LerpAmountFastMovement: 0
-      AngleBeforeSpeedup: 0
-      HasRotationalTarget: 0
-      HasLineDraw: 0
-      LineDrawIndex: 0
-      HasTarget: 0
-      Offset:
-        x: 0
-        y: 0
-        z: 0
-      ScaledOffset:
-        x: 0
-        y: 0
-        z: 0
-      LerpAmount: 0
-      OutGoingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      LastRunData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocal:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      TposeLocalScaled:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      InverseOffsetFromBone:
-        Use: 0
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      IncomingData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      OutgoingWorldData:
-        rotation:
-          value:
-            x: 0
-            y: 0
-            z: 0
-            w: 0
-        position:
-          x: 0
-          y: 0
-          z: 0
-      GizmoReference: -1
-      HasGizmo: 0
-      TposeGizmoReference: -1
-      TposeHasGizmo: 0
-      HasVirtualOverride: 0
-      trackersmooth: 25
-      IsHintRoleIgnoreRotation: 0
-      gizmoColor: {r: 0, g: 0, b: 1, a: 1}
-      HasEvents: 0
-      positionWeight: 1
-      rotationWeight: 1
-      hasTrackerDriver: 1
-      hasRigLayer: 1
+    LastLinkedAvatarIndex: 0
     Player: {fileID: 3578141255088103770}
     hasID: 0
-    CopyData: 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    playerId: 0
+    NetworkBehaviourCount: 0
+    NetworkBehaviours: []
     AudioReceiverModule:
       BasisRemoteVisemeAudioDriver: {fileID: 0}
       audioSource: {fileID: 0}
@@ -656,127 +222,69 @@ MonoBehaviour:
         WasSuccessful: 0
         HashInstanceID: -1
         uLipSyncEnabledState: 1
-      SteamAudioSource: {fileID: 0}
       IsPlaying: 0
       pcmBuffer: []
       pcmLength: 0
-      IsReady: 0
-      silentData: []
       lastReadIndex: 0
       AudioSourceTransform: {fileID: 0}
       resampledSegment: []
       HasTransform: 0
-    delayTime: 0.10000000149011612
     RemotePlayer: {fileID: 3578141255088103770}
+    BufferHolder:
+      HasFirst: 0
+      HasLast: 0
+      First:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 1
+        Scale:
+          x: 1
+          y: 1
+          z: 1
+        Position:
+          x: 0
+          y: 0
+          z: 0
+        SecondsInterval: 0.01
+      Last:
+        rotation:
+          value:
+            x: 0
+            y: 0
+            z: 0
+            w: 1
+        Scale:
+          x: 1
+          y: 1
+          z: 1
+        Position:
+          x: 0
+          y: 0
+          z: 0
+        SecondsInterval: 0.01
     HasEvents: 0
-    MuscleFinalStageOutput:
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    OutputRotation:
+    HasAvatarQueue: 0
+    LogFirstError: 0
+    EyesAndMouth: []
+    Muscles: []
+    ApplyingRotation:
       value:
         x: 0
         y: 0
         z: 0
         w: 0
-    interpolationTime: 0
-    TimeBeforeCompletion: 0
-    TimeInThePast: 0
-    HasAvatarQueue: 0
-    enableEuroFilter: 1
-    LogFirstError: 0
-    Eyes:
-    - 0
-    - 0
-    - 0
-    - 0
-  HasEvents: 0
+    ApplyingPosition:
+      x: 0
+      y: 0
+      z: 0
+    ApplyingScale:
+      x: 0
+      y: 0
+      z: 0
+  RemoteNamePlate: {fileID: 0}
   OutOfRangeFromLocal: 0
   InAvatarRange: 1
   AlwaysRequestedMode: 0
@@ -792,3 +300,38 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
+      ImageBytes: 
+  RemotePlayerDataIndex: 0
+  MouthTransform: {fileID: 8325976067560118047}
+  LastComputedMeshLod: -1
+--- !u!1 &8934557530928215636
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8325976067560118047}
+  m_Layer: 3
+  m_Name: Mouth
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8325976067560118047
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8934557530928215636}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3249565482574355061}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

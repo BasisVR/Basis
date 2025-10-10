@@ -17,73 +17,176 @@ using UnityEngine.ResourceManagement.ResourceProviders;
 
 namespace Basis.Scripts.Device_Management
 {
-    public partial class BasisDeviceManagement : MonoBehaviour
+    /// <summary>
+    /// Central orchestrator for device discovery, start/stop, and mode switching across Desktop and XR.
+    /// </summary>
+    /// <remarks>
+    /// This MonoBehaviour is intended to exist exactly once in a scene. Use <see cref="Instance"/> for access.
+    /// It initializes players, loads settings/bindings, restores previously connected devices, and manages XR lifecycle.
+    /// </remarks>
+    public class BasisDeviceManagement : MonoBehaviour
     {
+        /// <summary>
+        /// Guard flag to prevent duplicate event subscriptions.
+        /// </summary>
         public static bool HasEvents = false;
+
+        /// <summary>
+        /// The currently active boot mode. For a safe static accessor, use <see cref="StaticCurrentMode"/>.
+        /// </summary>
         public string CurrentMode = BasisConstants.None;
+
+        /// <summary>
+        /// If <c>true</c>, activates <see cref="BasisNetworking"/> once initialization completes.
+        /// </summary>
         public bool FireOffNetwork = true;
+
+        /// <summary>
+        /// Static proxy for <see cref="CurrentMode"/> that is safe to use from anywhere.
+        /// </summary>
+        /// <value>Returns the instance's <see cref="CurrentMode"/>, or <see cref="BasisConstants.InvalidConst"/> if the instance is missing.</value>
         public static string StaticCurrentMode
         {
             get
             {
-                if (BasisDeviceManagement.Instance != null)
-                {
-                    return BasisDeviceManagement.Instance.CurrentMode;
-                }
-                else
-                {
-                    return BasisConstants.InvalidConst;
-                }
+                var inst = Instance;
+                return inst != null ? inst.CurrentMode : BasisConstants.InvalidConst;
             }
             set
             {
-                if (BasisDeviceManagement.Instance != null)
+                var inst = Instance;
+                if (inst != null)
                 {
-                    BasisDeviceManagement.Instance.CurrentMode = value;
+                    inst.CurrentMode = value;
                 }
                 else
                 {
-                    BasisDebug.LogError("Cant Set Missing CurrentMode");
+                    BasisDebug.LogError("Unable to set CurrentMode: Instance is null.");
                 }
             }
         }
 
+        /// <summary>
+        /// Fallback data for bone tracking; applied when device-provided bone data is unavailable.
+        /// </summary>
         public BasisFallBackBoneData FBBD;
+
+        /// <summary>
+        /// Singleton-style reference to the active <see cref="BasisDeviceManagement"/>.
+        /// </summary>
         public static BasisDeviceManagement Instance;
 
+        /// <summary>
+        /// Fired when the boot mode changes after a successful <see cref="SwitchSetMode(string)"/> or default mode selection.
+        /// </summary>
         public static event Action<string> OnBootModeChanged;
+
+        /// <summary>
+        /// Delegate signature for <see cref="OnInitializationCompleted"/>.
+        /// </summary>
         public delegate void InitializationCompletedHandler();
+
+        /// <summary>
+        /// Invoked once <see cref="Initialize"/> finishes successfully.
+        /// </summary>
         public static event InitializationCompletedHandler OnInitializationCompleted;
+
+        /// <summary>
+        /// A threadsafe queue of actions scheduled to run on Unity's main thread.
+        /// </summary>
         public static readonly ConcurrentQueue<Action> mainThreadActions = new ConcurrentQueue<Action>();
+
+        /// <summary>
+        /// Optional callback executed each update tick of the device-management loop (owner-controlled).
+        /// </summary>
         public static Action OnDeviceManagementLoop;
 
-        [SerializeField] public string[] BakedInCommandLineArgs = new string[] { };
+        /// <summary>
+        /// Command-line arguments baked into the build, used when platform args are unavailable (e.g., mobile).
+        /// </summary>
+        [SerializeField] public string[] BakedInCommandLineArgs = Array.Empty<string>();
+
+        /// <summary>
+        /// UI hover audio.
+        /// </summary>
         [SerializeField] public AudioClip HoverUI;
+
+        /// <summary>
+        /// UI press/click audio.
+        /// </summary>
         [SerializeField] public AudioClip pressUI;
+
+        /// <summary>
+        /// Live collection of all input devices currently managed by this system.
+        /// </summary>
         [SerializeField] public BasisObservableList<BasisInput> AllInputDevices = new();
+
+        /// <summary>
+        /// Wrapper for platform-specific XR start/stop/loading.
+        /// </summary>
         [SerializeField] public BasisXRManagement BasisXRManagement = new();
+
+        /// <summary>
+        /// Registered device SDK managers capable of booting into given modes (Desktop/XR/etc.).
+        /// </summary>
         [SerializeField] public List<BasisBaseTypeManagement> BaseTypes = new();
+
+        /// <summary>
+        /// Helpers that constrain transforms to input devices.
+        /// </summary>
         [SerializeField] public List<BasisLockToInput> BasisLockToInputs = new();
+
+        /// <summary>
+        /// Cache of previously connected devices to allow restoration of roles and offsets.
+        /// </summary>
         [SerializeField] public List<BasisStoredPreviousDevice> PreviouslyConnectedDevices = new();
+
+        /// <summary>
+        /// Input action asset for local player control.
+        /// </summary>
         [SerializeField] public BasisLocalInputActions InputActions;
 
+        /// <summary>
+        /// Optional device name matcher used when probing for base types.
+        /// </summary>
         public BasisDeviceNameMatcher BasisDeviceNameMatcher;
+
+        /// <summary>
+        /// Overrides the default mode selection when non-empty.
+        /// </summary>
         public string ForcedDefault = string.Empty;
 
+        /// <summary>
+        /// Optional LipSync profile used by audio-driven facial animation systems.
+        /// </summary>
         public Profile LipSyncProfile;
 
         #region Unity Lifecycle
 
-        async void Start()
+        /// <summary>
+        /// Unity start hook. Ensures singleton, sets culture to invariant, and kicks off <see cref="Initialize"/>.
+        /// </summary>
+        private async void Start()
         {
             if (BasisHelpers.CheckInstance(Instance)) Instance = this;
 
             StaticCurrentMode = BasisConstants.None;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-            await Initialize();
+
+            try
+            {
+                await Initialize();
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Initialize threw: {e}");
+            }
         }
 
-        void OnDestroy()
+        /// <summary>
+        /// Unity destroy hook. Tears down players/devices and unsubscribes events.
+        /// </summary>
+        private void OnDestroy()
         {
             BasisPlayerFactory.DeInitalize();
             StopAllDevices();
@@ -94,128 +197,206 @@ namespace Basis.Scripts.Device_Management
 
         #region Initialization
 
+        /// <summary>
+        /// Initializes the device system, creates a local player, starts persistent devices, and switches to the default mode.
+        /// </summary>
+        /// <returns>A task that completes when initialization and bindings load are finished.</returns>
         public async Task Initialize()
         {
             BasisPlayerFactory.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
+
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
             StartAllStartIfPermanentlyExists();
             await SwitchSetModeToDefault();
+
             SubscribeEvents();
+
             await BasisActionDriver.LoadBindings();
-            if (OnInitializationCompleted != null)
-            {
-                OnInitializationCompleted.Invoke();
-            }
+
+            OnInitializationCompleted?.Invoke();
         }
+
         #endregion
 
         #region Mode Handling
 
+        /// <summary>
+        /// Switches to the default mode based on platform and overrides (e.g., Server → Headless, Mobile → OpenXR, Desktop → Desktop).
+        /// </summary>
         public async Task SwitchSetModeToDefault()
         {
-            string mode = string.IsNullOrEmpty(ForcedDefault) ? DefaultMode() : ForcedDefault;
-           await SwitchSetMode(mode);
+            string mode;
+#if UNITY_SERVER
+            mode = BasisConstants.Headless;
+#else
+            mode = string.IsNullOrEmpty(ForcedDefault) ? DefaultMode() : ForcedDefault;
+#endif
+            await SwitchSetMode(mode);
         }
 
+        /// <summary>
+        /// Switches the system to a new mode, shutting down the previous one and starting devices or XR as needed.
+        /// </summary>
+        /// <param name="newMode">The mode to enter; see <see cref="BasisConstants"/> for known values.</param>
         public async Task SwitchSetMode(string newMode)
         {
             if (string.IsNullOrEmpty(newMode))
             {
-                BasisDebug.LogError("SwitchMode called with null or empty mode.", BasisDebug.LogTag.Device);
+                BasisDebug.LogError("SwitchSetMode called with null/empty mode.", BasisDebug.LogTag.Device);
                 return;
             }
-            if (StaticCurrentMode == newMode)
+
+            if (string.Equals(StaticCurrentMode, newMode, StringComparison.Ordinal))
             {
-                BasisDebug.LogError($"trying to boot Existing bailing, call {nameof(StopAllDevices)} first {newMode}", BasisDebug.LogTag.Device);
+                BasisDebug.LogError($"Mode '{newMode}' already active. Call {nameof(StopAllDevices)} first.", BasisDebug.LogTag.Device);
                 return;
             }
-            if (StaticCurrentMode != BasisConstants.None)
+
+            if (!string.Equals(StaticCurrentMode, BasisConstants.None, StringComparison.Ordinal))
             {
                 BasisDebug.Log($"Shutting down mode: {StaticCurrentMode}", BasisDebug.LogTag.Device);
                 StopAllDevices();
             }
             else
             {
-                BasisDebug.Log($"Skipping Device Shutdown: {StaticCurrentMode}", BasisDebug.LogTag.Device);
+                BasisDebug.Log($"No active mode to shutdown (was '{StaticCurrentMode}')", BasisDebug.LogTag.Device);
             }
 
             StaticCurrentMode = newMode;
+
+            // If XR loader does not take over, start devices directly.
             if (!BasisXRManagement.TryBeginLoad(StaticCurrentMode))
             {
                 await StartDevices(StaticCurrentMode);
             }
         }
+
         #endregion
 
         #region Device Management
 
+        /// <summary>
+        /// Starts all SDKs that match the requested mode and loads settings, microphones, and input bindings.
+        /// </summary>
+        /// <param name="mode">The target mode used to select matching <see cref="BasisBaseTypeManagement"/> entries.</param>
         public async Task StartDevices(string mode)
         {
             if (TryFindBasisBaseTypeManagement(mode, out var matched))
             {
-                foreach (var type in matched)
+                // Safely iterate and await each start
+                for (int i = 0; i < matched.Count; i++)
                 {
-                    await type?.AttemptStartSDK();
+                    var type = matched[i];
+                    if (type != null)
+                    {
+                        await type.AttemptStartSDK();
+                    }
                 }
             }
-            await BasisSettingsSystem.LoadAllSettingsAsync();
+
+            BasisSettingsSystem.LoadAllSettings();
             SMDMicrophone.LoadInMicrophoneData(mode);
             await BasisActionDriver.LoadBindings();
+
             OnBootModeChanged?.Invoke(mode);
             BasisDebug.Log($"Loading mode: {mode}", BasisDebug.LogTag.Device);
         }
 
+        /// <summary>
+        /// Stops all active device SDKs, resets the current mode, and shuts down XR.
+        /// </summary>
         public void StopAllDevices()
         {
-                foreach (var type in BaseTypes)
-                type?.AttemptStopSDK();
+            for (int i = 0; i < BaseTypes.Count; i++)
+            {
+                BaseTypes[i]?.AttemptStopSDK();
+            }
 
             StaticCurrentMode = BasisConstants.None;
             ShutDownXR();
         }
 
+        /// <summary>
+        /// Stops the XR loader and compacts the <see cref="AllInputDevices"/> list by removing null entries.
+        /// </summary>
         public void ShutDownXR()
         {
             BasisXRManagement.StopXR();
+
+            // Purge nulls to keep lists tidy
             AllInputDevices.RemoveAll(item => item == null);
         }
 
+        /// <summary>
+        /// Calls <see cref="BasisBaseTypeManagement.StartIfPermanentlyExists"/> on all base types to ensure persistent devices are started.
+        /// </summary>
         public void StartAllStartIfPermanentlyExists()
         {
-            foreach (var type in BaseTypes)
-                type?.StartIfPermanentlyExists();
+            for (int i = 0; i < BaseTypes.Count; i++)
+            {
+                BaseTypes[i]?.StartIfPermanentlyExists();
+            }
         }
 
+        /// <summary>
+        /// Unassigns all Full-Body (FB) trackers across managed devices.
+        /// </summary>
         public static void UnassignFBTrackers()
         {
-            foreach (var input in Instance.AllInputDevices)
-                input.UnAssignFBTracker();
+            var inst = Instance;
+            if (inst == null) return;
+
+            for (int i = 0; i < inst.AllInputDevices.Count; i++)
+            {
+                inst.AllInputDevices[i]?.UnAssignFBTracker();
+            }
         }
 
-        public bool TryFindBasisBaseTypeManagement(string name, out List<BasisBaseTypeManagement> match,bool OnlyFinding = false)
+        /// <summary>
+        /// Finds all <see cref="BasisBaseTypeManagement"/> entries that can boot for the supplied name.
+        /// </summary>
+        /// <param name="name">The mode or identifier to match.</param>
+        /// <param name="match">Output list of matched base types. Empty when none found.</param>
+        /// <param name="OnlyFinding">If <c>true</c>, only test for bootability; do not consider other constraints.</param>
+        /// <returns><c>true</c> if at least one match is found or the name equals <see cref="BasisConstants.Exiting"/>.</returns>
+        public bool TryFindBasisBaseTypeManagement(string name, out List<BasisBaseTypeManagement> match, bool OnlyFinding = false)
         {
             match = new List<BasisBaseTypeManagement>();
             if (string.IsNullOrEmpty(name) || BaseTypes == null) return false;
 
-            foreach (var type in BaseTypes)
+            for (int i = 0; i < BaseTypes.Count; i++)
             {
+                var type = BaseTypes[i];
                 if (type != null && type.AttemptIsDeviceBootable(name, OnlyFinding))
+                {
                     match.Add(type);
+                }
             }
 
-            return match.Count > 0 || name == BasisConstants.Exiting;
+            return match.Count > 0 || string.Equals(name, BasisConstants.Exiting, StringComparison.Ordinal);
         }
 
         #endregion
 
         #region Device Restore & Tracking
 
+        /// <summary>
+        /// Adds an input device to <see cref="AllInputDevices"/> if not present and attempts restoration of previous role/offsets.
+        /// </summary>
+        /// <param name="input">The device to register.</param>
+        /// <returns><c>true</c> if the device was added; <c>false</c> when null or already present.</returns>
         public bool TryAdd(BasisInput input)
         {
+            if (input == null)
+            {
+                BasisDebug.LogError("Tried to add null input device.", BasisDebug.LogTag.Device);
+                return false;
+            }
+
             if (AllInputDevices.Contains(input))
             {
-                BasisDebug.LogError("Already added an identical input device!", BasisDebug.LogTag.Device);
+                BasisDebug.LogError("Attempted to add duplicate input device.", BasisDebug.LogTag.Device);
                 return false;
             }
 
@@ -229,37 +410,59 @@ namespace Basis.Scripts.Device_Management
             return true;
         }
 
-        IEnumerator RestoreInversetOffsets(BasisInput input, BasisStoredPreviousDevice prev)
+        /// <summary>
+        /// Coroutine that applies stored inverse-offset and role to a device on the next frame.
+        /// </summary>
+        /// <param name="input">The device to restore.</param>
+        /// <param name="prev">The previously stored device metadata.</param>
+        private IEnumerator RestoreInversetOffsets(BasisInput input, BasisStoredPreviousDevice prev)
         {
             yield return new WaitForEndOfFrame();
 
-            if (input?.Control != null && CheckBeforeOverride(prev))
+            if (input != null && input.Control != null && CheckBeforeOverride(prev))
             {
-                BasisDebug.Log("Device restored: " + prev.trackedRole, BasisDebug.LogTag.Device);
+                BasisDebug.Log($"Device restored: {prev.trackedRole}", BasisDebug.LogTag.Device);
                 input.ApplyTrackerCalibration(prev.trackedRole);
                 input.Control.InverseOffsetFromBone = prev.InverseOffsetFromBone;
             }
         }
 
+        /// <summary>
+        /// Attempts to locate previously connected device info and remove it from the cache for consumption.
+        /// </summary>
+        /// <param name="subsystem">Subsystem identifier.</param>
+        /// <param name="id">Unique device identifier.</param>
+        /// <param name="restored">Outputs the stored device record when found.</param>
+        /// <returns><c>true</c> if a matching stored device was found; otherwise <c>false</c>.</returns>
         public bool RestoreDevice(string subsystem, string id, out BasisStoredPreviousDevice restored)
         {
-            foreach (var device in PreviouslyConnectedDevices)
+            restored = null;
+            if (PreviouslyConnectedDevices == null || PreviouslyConnectedDevices.Count == 0)
+                return false;
+
+            // Safe index-based remove when found
+            for (int i = 0; i < PreviouslyConnectedDevices.Count; i++)
             {
-                if (device.UniqueID == id && device.SubSystem == subsystem)
+                var dev = PreviouslyConnectedDevices[i];
+                if (dev != null && dev.UniqueID == id && dev.SubSystem == subsystem)
                 {
-                    PreviouslyConnectedDevices.Remove(device);
-                    restored = device;
-                    BasisDebug.Log("Device is restorable, restoring...", BasisDebug.LogTag.Device);
+                    restored = dev;
+                    PreviouslyConnectedDevices.RemoveAt(i);
+                    BasisDebug.Log("Device is restorable — restoring.", BasisDebug.LogTag.Device);
                     return true;
                 }
             }
-
-            restored = null;
             return false;
         }
 
+        /// <summary>
+        /// Caches device role and inverse-offset information to allow restoration after a disconnect.
+        /// </summary>
+        /// <param name="device">The device to snapshot.</param>
         public void CacheDevice(BasisInput device)
         {
+            if (device == null) return;
+
             if (device.TryGetRole(out var role) && device.Control != null)
             {
                 PreviouslyConnectedDevices.Add(new BasisStoredPreviousDevice
@@ -273,9 +476,14 @@ namespace Basis.Scripts.Device_Management
             }
         }
 
+        /// <summary>
+        /// Removes and destroys devices that match the given subsystem and id. Stores state for later restoration.
+        /// </summary>
+        /// <param name="subsystem">Subsystem identifier.</param>
+        /// <param name="id">Unique device identifier.</param>
         public void RemoveDevicesFrom(string subsystem, string id)
         {
-            for (int i = 0; i < AllInputDevices.Count; i++)
+            for (int i = AllInputDevices.Count - 1; i >= 0; i--)
             {
                 var device = AllInputDevices[i];
                 if (device != null && device.SubSystemIdentifier == subsystem && device.UniqueDeviceIdentifier == id)
@@ -289,20 +497,35 @@ namespace Basis.Scripts.Device_Management
             AllInputDevices.RemoveAll(item => item == null);
         }
 
+        /// <summary>
+        /// Checks whether a stored device can safely override an existing role assignment.
+        /// </summary>
+        /// <param name="stored">Previously stored device record.</param>
+        /// <returns><c>true</c> if no live device currently uses the stored role; otherwise <c>false</c>.</returns>
         public bool CheckBeforeOverride(BasisStoredPreviousDevice stored)
         {
-            foreach (var device in AllInputDevices)
+            if (stored == null) return false;
+
+            for (int i = 0; i < AllInputDevices.Count; i++)
             {
-                if (device?.TryGetRole(out var role) == true && role == stored.trackedRole)
+                var device = AllInputDevices[i];
+                if (device != null && device.TryGetRole(out var role) && role == stored.trackedRole)
                     return false;
             }
             return true;
         }
 
+        /// <summary>
+        /// Finds a live device by its tracked role.
+        /// </summary>
+        /// <param name="found">Outputs the matching device when found.</param>
+        /// <param name="FindRole">The target role.</param>
+        /// <returns><c>true</c> when a device with the role exists; otherwise <c>false</c>.</returns>
         public bool FindDevice(out BasisInput found, BasisBoneTrackedRole FindRole)
         {
-            foreach (var device in AllInputDevices)
+            for (int i = 0; i < AllInputDevices.Count; i++)
             {
+                var device = AllInputDevices[i];
                 if (device?.Control != null && device.TryGetRole(out var role) && role == FindRole)
                 {
                     found = device;
@@ -314,16 +537,22 @@ namespace Basis.Scripts.Device_Management
             return false;
         }
 
+        /// <summary>
+        /// Shows or hides visual debug objects for all tracked devices.
+        /// </summary>
+        /// <param name="show">If <c>true</c>, show visuals; otherwise hide.</param>
         public static void VisibleTrackers(bool show)
         {
-            if (Instance == null)
+            var inst = Instance;
+            if (inst == null)
             {
                 BasisDebug.LogError("Missing Device Manager", BasisDebug.LogTag.Device);
                 return;
             }
 
-            foreach (var input in Instance.AllInputDevices)
+            for (int i = 0; i < inst.AllInputDevices.Count; i++)
             {
+                var input = inst.AllInputDevices[i];
                 if (input == null) continue;
                 if (show) input.ShowTrackedVisual();
                 else input.HideTrackedVisual();
@@ -334,6 +563,9 @@ namespace Basis.Scripts.Device_Management
 
         #region Event Helpers
 
+        /// <summary>
+        /// Subscribes internal event handlers, guarded by <see cref="HasEvents"/>.
+        /// </summary>
         private void SubscribeEvents()
         {
             if (!HasEvents)
@@ -343,6 +575,9 @@ namespace Basis.Scripts.Device_Management
             }
         }
 
+        /// <summary>
+        /// Unsubscribes previously attached internal event handlers.
+        /// </summary>
         private void UnsubscribeEvents()
         {
             if (HasEvents)
@@ -351,48 +586,85 @@ namespace Basis.Scripts.Device_Management
                 HasEvents = false;
             }
         }
+
+        /// <summary>
+        /// Optional networking GameObject activated after initialization when <see cref="FireOffNetwork"/> is enabled.
+        /// </summary>
         public GameObject BasisNetworking;
+
+        /// <summary>
+        /// Event handler invoked after initialization to toggle networking activation.
+        /// </summary>
         private void RunAfterInitialized()
         {
-            if(FireOffNetwork)
+            if (FireOffNetwork && BasisNetworking != null)
             {
                 BasisNetworking.SetActive(true);
             }
         }
+
         #endregion
 
         #region Static Utility
 
+        /// <summary>
+        /// Enqueues an action to be executed on the Unity main thread.
+        /// </summary>
+        /// <param name="action">The action to execute.</param>
         public static void EnqueueOnMainThread(Action action)
         {
             if (action == null)
             {
-                BasisDebug.LogError("Missing Main Thread Message Enqueue");
+                BasisDebug.LogError("EnqueueOnMainThread received null action.");
                 return;
             }
             mainThreadActions.Enqueue(action);
         }
 
+        /// <summary>
+        /// Determines the default mode for the current platform and build configuration.
+        /// </summary>
+        /// <returns>
+        /// <list type="bullet">
+        /// <item><description><see cref="BasisConstants.Headless"/> on server builds.</description></item>
+        /// <item><description><see cref="BasisConstants.OpenXRLoader"/> on mobile platforms.</description></item>
+        /// <item><description><see cref="BasisConstants.Desktop"/> on desktop platforms.</description></item>
+        /// </list>
+        /// </returns>
         public string DefaultMode()
         {
 #if UNITY_SERVER
             return BasisConstants.Headless;
 #else
-#endif
-            if (IsMobile())
+            if (Application.isMobilePlatform) // try to boot vr first on standalone devices.
             {
+                // On mobile we assume OpenXR (tunable per project).
                 return BasisConstants.OpenXRLoader;
             }
             else
             {
                 return BasisConstants.Desktop;
             }
+#endif
         }
 
-        public static bool IsMobile() => Application.platform == RuntimePlatform.Android;
-        public static bool IsUserInDesktop() => StaticCurrentMode == BasisConstants.Desktop;
-        public static bool IsCurrentModeVR() => StaticCurrentMode == BasisConstants.OpenVRLoader || StaticCurrentMode == BasisConstants.OpenXRLoader;
+        /// <summary>
+        /// Indicates whether the current runtime is a mobile platform (Android).
+        /// </summary>
+        public static bool IsMobilehardware() => Application.isMobilePlatform;
 
-#endregion
+        /// <summary>
+        /// Returns <c>true</c> when the current static mode equals <see cref="BasisConstants.Desktop"/>.
+        /// </summary>
+        public static bool IsUserInDesktop() => string.Equals(StaticCurrentMode, BasisConstants.Desktop, StringComparison.Ordinal);
+
+        /// <summary>
+        /// Returns <c>true</c> when the current static mode indicates a VR/XR loader.
+        /// </summary>
+        public static bool IsCurrentModeVR() =>
+            string.Equals(StaticCurrentMode, BasisConstants.OpenVRLoader, StringComparison.Ordinal) ||
+            string.Equals(StaticCurrentMode, BasisConstants.OpenXRLoader, StringComparison.Ordinal);
+
+        #endregion
     }
 }

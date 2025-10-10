@@ -45,7 +45,7 @@ public class BasisFallBackBoneDataEditor : Editor
                     if (BasisAvatarDriver.TryConvertToBoneTrackingRole(bone, out BasisBoneTrackedRole role))
                     {
                         Transform boneTransform = Anim.GetBoneTransform(bone);
-                        BasisFallBone fallbackedBone = CreateFallbackBone(bone, role, bounds, boneTransform);
+                        BasisFallBackBone fallbackedBone = CreateFallbackBone(bone, role, bounds, boneTransform);
 
                         fallBackBoneData.FallBackPercentage.Add(fallbackedBone);
                         fallBackBoneData.BoneTrackedRoles.Add(role);
@@ -56,7 +56,7 @@ public class BasisFallBackBoneDataEditor : Editor
     }
     private void ComputeEyeBone(BasisFallBackBoneData fallBackBoneData)
     {
-        BasisFallBone EyeBone = new BasisFallBone
+        BasisFallBackBone EyeBone = new BasisFallBackBone
         {
             HumanBone =  HumanBodyBones.LeftEye,
             Role = BasisBoneTrackedRole.CenterEye
@@ -66,9 +66,9 @@ public class BasisFallBackBoneDataEditor : Editor
         fallBackBoneData.BoneTrackedRoles.Add( BasisBoneTrackedRole.CenterEye);
         fallBackBoneData.FallBackPercentage.Add(EyeBone);
     }
-    private BasisFallBone CreateFallbackBone(HumanBodyBones bone, BasisBoneTrackedRole role, Bounds bounds, Transform boneTransform)
+    private BasisFallBackBone CreateFallbackBone(HumanBodyBones bone, BasisBoneTrackedRole role, Bounds bounds, Transform boneTransform)
     {
-        BasisFallBone fallbackedBone = new BasisFallBone
+        BasisFallBackBone fallbackedBone = new BasisFallBackBone
         {
             HumanBone = bone,
             Role = role
