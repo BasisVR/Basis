@@ -1,0 +1,123 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6475414192387528719
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2648810944426345646}
+  - component: {fileID: 8468923551000836297}
+  - component: {fileID: 2921419182930430522}
+  - component: {fileID: 674902444429828035}
+  - component: {fileID: 301485393173022307}
+  - component: {fileID: 7066027939592692384}
+  - component: {fileID: 3001932645144085304}
+  m_Layer: 0
+  m_Name: HVR.Networking
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2648810944426345646
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8468923551000836297
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d6167f4251c45d3ab851be67e8d775d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: HVR.Basis.Comms::HVR.Basis.Comms.HVRAvatarComms
+  avatar: {fileID: 0}
+  isFromPrefab: 1
+--- !u!114 &2921419182930430522
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 130e0f8286394ed298f7e0dbcd022161, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: HVR.Basis.Comms::HVR.Basis.Comms.HVRNetworkingCarrier
+  IsInitalized: 0
+  MessageIndex: 0
+--- !u!114 &674902444429828035
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 130e0f8286394ed298f7e0dbcd022161, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: HVR.Basis.Comms::HVR.Basis.Comms.HVRNetworkingCarrier
+  IsInitalized: 0
+  MessageIndex: 0
+--- !u!114 &301485393173022307
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 130e0f8286394ed298f7e0dbcd022161, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: HVR.Basis.Comms::HVR.Basis.Comms.HVRNetworkingCarrier
+  IsInitalized: 0
+  MessageIndex: 0
+--- !u!114 &7066027939592692384
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 130e0f8286394ed298f7e0dbcd022161, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: HVR.Basis.Comms::HVR.Basis.Comms.HVRNetworkingCarrier
+  IsInitalized: 0
+  MessageIndex: 0
+--- !u!114 &3001932645144085304
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6475414192387528719}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 130e0f8286394ed298f7e0dbcd022161, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: HVR.Basis.Comms::HVR.Basis.Comms.HVRNetworkingCarrier
+  IsInitalized: 0
+  MessageIndex: 0

@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
+using BasisNetworkServer.BasisNetworking;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using System;
@@ -210,6 +211,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         NetDataWriter Writer = RentWriter();
                         tempMsg.Serialize(Writer);
                         peer.Send(Writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+                        BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.PlayerAvatarChannel, Writer.Length);
                         ReturnWriter(Writer);
                         sentTimes[playerJ.id] = nowTicks;
                     }
@@ -292,7 +294,26 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                 state.Position = BasisNetworkCompressionExtensions.ReadPosition(ref message.AvatarMessage.array);
                 state.SyncMessage.avatarSerialization = message.AvatarMessage;
-                state.HasNewDataFrom.SetAll(true);
+
+                // Mark all *other* players as having new data FROM this sender (id)
+                foreach (var kvp in playerStates)
+                {
+                    if (kvp.Key == id)
+                    {
+                        continue;
+                    }
+
+                    var other = kvp.Value;
+                    if (!other.IsActive)
+                    {
+                        continue;
+                    }
+
+                    lock (other)
+                    {
+                        other.HasNewDataFrom?.Set(id, true);
+                    }
+                }
             }
 
             QueuedMessagePool.Return(message);

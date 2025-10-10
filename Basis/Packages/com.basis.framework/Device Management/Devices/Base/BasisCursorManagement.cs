@@ -74,11 +74,19 @@ public static class BasisCursorManagement
         //  BasisDebug.Log("Cursor Confined");
         OnCursorStateChange?.Invoke(CursorLockMode.Confined, true);
     }
-
+    public static bool ForceIgnoreCursorRequests = false;
     private static bool ShouldIgnoreCursorRequests()
     {
+        if(ForceIgnoreCursorRequests)
+        {
+            return true;
+        }
+        //ignore if we are for example android and not in vr.
+        if(BasisDeviceManagement.IsMobilehardware() && BasisDeviceManagement.IsCurrentModeVR() == false)
+        {
+            return true;
+        }
         var isUserInVR = !BasisDeviceManagement.IsUserInDesktop();
-
         // When in VR mode, all cursor lock requests are must be ignored,
         // so that cursor control is not taken away from other external desktop overlay applications.
         return isUserInVR;

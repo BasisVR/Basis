@@ -42,7 +42,8 @@ public class BasisJitterBuffer
         }
         return false;
     }
-    public static bool IsAheadOf(byte current, byte next, out string Error)
+    /*
+     *     public static bool IsAheadOf(byte current, byte next, out string Error)
     {
         // Calculate the difference with proper wraparound
         int diff = (next - current + 64) % 64;
@@ -80,7 +81,6 @@ public class BasisJitterBuffer
             return false;  // next is behind or too far ahead
         }
     }
-    /*
      *         public void OnDecode(byte SequenceNumber, byte[] data, int length)
         {
             byte[] CopiedData = new byte[length];

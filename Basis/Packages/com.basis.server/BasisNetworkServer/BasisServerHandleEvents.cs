@@ -95,6 +95,7 @@ namespace BasisServerHandle
                     {
                        // if (client.Id != id)
                         {
+                            BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.DisconnectionChannel, writer.Length);
                             client.Send(writer, BasisNetworkCommons.DisconnectionChannel, DeliveryMethod.ReliableOrdered);
                         }
                     }
@@ -396,6 +397,7 @@ namespace BasisServerHandle
                     if (client != authClient)
                     {
                         client.Send(Writer, BasisNetworkCommons.CreateRemotePlayerChannel, DeliveryMethod.ReliableOrdered);
+                        BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.CreateRemotePlayerChannel, Writer.Length);
                     }
                 }
             }
@@ -582,6 +584,7 @@ namespace BasisServerHandle
 
             var writer = new NetDataWriter(true);
             msg.Serialize(writer);
+            BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.StoreDatabaseChannel, writer.Length);
             peer.Send(writer, BasisNetworkCommons.StoreDatabaseChannel, DeliveryMethod.ReliableOrdered);
         }
     }

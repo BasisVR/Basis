@@ -5,6 +5,7 @@ using Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -26,23 +27,44 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public static string SteamVRBehaviour = "SteamVR_Behaviour";
         private void OnDeviceConnected(uint deviceIndex, bool deviceConnected)
         {
-            if (deviceIndex != Valve.VR.OpenVR.k_unTrackedDeviceIndexInvalid)
+            StartCoroutine(DelayedOnDeviceConnectedCoroutine(deviceIndex, deviceConnected));
+        }
+
+        private IEnumerator DelayedOnDeviceConnectedCoroutine(uint deviceIndex, bool deviceConnected)
+        {
+            // Wait for 3 frames
+            for (int i = 0; i < 3; i++)
             {
-                BasisDebug.Log($"Device index {deviceIndex} is connected: {deviceConnected}");
-                var error = new ETrackedPropertyError();
-                var id = new StringBuilder(64);
-                Valve.VR.OpenVR.System.GetStringTrackedDeviceProperty(deviceIndex, ETrackedDeviceProperty.Prop_RenderModelName_String, id, 64, ref error);
-                ETrackedDeviceClass deviceClass = Valve.VR.OpenVR.System.GetTrackedDeviceClass(deviceIndex);
-                string uniqueID = $"{deviceIndex}|{id}";
-                string notUnique = id.ToString();
-                if (deviceConnected)
-                {
-                    CreateTrackerDevice(deviceIndex, deviceClass, uniqueID, notUnique);
-                }
-                else
-                {
-                    DestroyPhysicalTrackedDevice(uniqueID);
-                }
+                yield return null;
+            }
+
+            DelayedOnDeviceConnected(deviceIndex, deviceConnected);
+        }
+
+        private void DelayedOnDeviceConnected(uint deviceIndex, bool deviceConnected)
+        {
+            BasisDebug.Log($"Device index {deviceIndex} is connected: {deviceConnected}");
+
+            var error = new ETrackedPropertyError();
+            var id = new StringBuilder(64);
+            Valve.VR.OpenVR.System.GetStringTrackedDeviceProperty(
+                deviceIndex,
+                ETrackedDeviceProperty.Prop_RenderModelName_String,
+                id,
+                64,
+                ref error);
+
+            ETrackedDeviceClass deviceClass = Valve.VR.OpenVR.System.GetTrackedDeviceClass(deviceIndex);
+            string uniqueID = $"{deviceIndex}|{id}";
+            string notUnique = id.ToString();
+
+            if (deviceConnected)
+            {
+                CreateTrackerDevice(deviceIndex, deviceClass, uniqueID, notUnique);
+            }
+            else
+            {
+                DestroyPhysicalTrackedDevice(uniqueID);
             }
         }
         private void CreateTrackerDevice(uint deviceIndex, ETrackedDeviceClass deviceClass, string uniqueID, string notUniqueID)
@@ -146,6 +168,23 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         public bool TryAssignRole(ETrackedDeviceClass deviceClass, uint deviceIndex, string NameInCaseFallback, out BasisBoneTrackedRole role, out SteamVR_Input_Sources source)
         {
+
+            if(NameInCaseFallback.ToLower().Contains("/rendermodels/"))
+            {
+                BasisDebug.LogError("a controller had /rendermodels/ in its name why? this seems wrong!");
+                role = BasisBoneTrackedRole.CenterEye;
+                source = SteamVR_Input_Sources.Keyboard;
+                return false;
+            }
+            if (Valve.VR.OpenVR.System.IsTrackedDeviceConnected(deviceIndex))
+            {
+                BasisDebug.Log($"{deviceIndex} was found to be connected");
+            }
+            else
+            {
+                BasisDebug.LogError($"{deviceIndex} was found to not be connected");
+            }
+
             source = SteamVR_Input_Sources.Any;
             role = BasisBoneTrackedRole.CenterEye;
 
@@ -158,7 +197,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             if (deviceClass == ETrackedDeviceClass.Controller)
             {
-                var controllerRole = SteamVR.instance.hmd.GetControllerRoleForTrackedDeviceIndex(deviceIndex);
+                var controllerRole = Valve.VR.OpenVR.System.GetControllerRoleForTrackedDeviceIndex(deviceIndex);
                 if (controllerRole == ETrackedControllerRole.LeftHand)
                 {
                     role = BasisBoneTrackedRole.LeftHand;
@@ -176,7 +215,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 {
                     role = BasisBoneTrackedRole.LeftHand;
                     source = SteamVR_Input_Sources.LeftHand;
-                    BasisDebug.LogError("Unable to discover Correctly using Name for role lookup " + source);
+                    BasisDebug.LogError($"Unable to discover Correctly using Name for role lookup {source} device in Index was {controllerRole}");
                     return true;
                 }
                 else
@@ -185,11 +224,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     {
                         role = BasisBoneTrackedRole.RightHand;
                         source = SteamVR_Input_Sources.RightHand;
-                        BasisDebug.LogError("Unable to discover Correctly using Name for role lookup " + source);
+                        BasisDebug.LogError($"Unable to discover Correctly using Name for role lookup {source} device in Index was {controllerRole}");
                         return true;
                     }
                 }
-                BasisDebug.LogError("Device unknown " + NameInCaseFallback);
+                BasisDebug.LogError($"Device unknown {NameInCaseFallback} we poorly detected {controllerRole}");
             }
 
             return false;

@@ -93,6 +93,10 @@ namespace Basis.Scripts.Common
         public Transform[] RightLittle = new Transform[3];
         public bool[] HasRightLittle = new bool[3];
 
+
+        public  Vector3 Forwards;
+        public  Vector3 Upwards;
+
         public static bool AutoDetectReferences(Animator anim, Transform AnimatorRoot, ref BasisTransformMapping references)
         {
             if (references == null)
@@ -104,6 +108,8 @@ namespace Basis.Scripts.Common
                 BasisDebug.LogError("We need a Humanoid Animator");
                 return false;
             }
+            references.Forwards = anim.transform.forward;
+            references.Upwards = anim.transform.forward;
 
             references.AnimatorRoot = AnimatorRoot;
             references.HasAnimatorRoot = BoolState(references.AnimatorRoot);

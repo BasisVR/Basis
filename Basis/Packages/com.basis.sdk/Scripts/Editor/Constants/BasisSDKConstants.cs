@@ -31,6 +31,8 @@ public class BasisSDKConstants
     public static readonly string AvatarDocumentationURL = "https://docs.basisvr.org/docs/avatars/";
     public static readonly string AvatarTestInEditor = "TestInEditor";
     public static readonly string AvatarAnimatorControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
+
+    public static readonly string AvatarDoNotAutoRenameBonesField = "AvatarDoNotAutoRenameBonesField";
     #endregion
     #region Prop
     public static readonly string PropuxmlPath = $"{BasePath}{PropFile}";

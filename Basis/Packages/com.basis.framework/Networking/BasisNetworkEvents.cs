@@ -2,10 +2,17 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Transmitters;
+using Basis.Scripts.Profiler;
 using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
+using BasisNetworkServer.BasisNetworking;
 using LiteNetLib;
 using LiteNetLib.Utils;
+using System;
+using System.Linq;
+using System.Reflection;
+using UnityEditor;
 using UnityEngine;
 using static SerializableBasis;
 public static class BasisNetworkEvents
@@ -245,11 +252,46 @@ public static class BasisNetworkEvents
                 Reader.Recycle();
                 BasisNetworkManagement.OnRequestServerSideDatabaseItem?.Invoke(DatabasePrimativeMessage);
                 break;
+            case BasisNetworkCommons.ServerStatisticsChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                IncomingData(Reader);
+                Reader.Recycle();
+                break;
             default:
                 BNL.LogError($"this Channel was not been implemented {channel}");
                 Reader.Recycle();
                 break;
         }
+    }
+    public static Action<BasisNetworkStatistics.Snapshot> Snapshotdata;
+    public static void IncomingData(NetPacketReader Reader)
+    {
+        BasisNetworkStatistics.Snapshot Snapshot = BasisNetworkStatistics.Snapshot.Decode(Reader.GetRemainingBytesSegment(), true);
+        BasisDeviceManagement.EnqueueOnMainThread(() =>
+        {
+            Snapshotdata?.Invoke(Snapshot);
+        });
+    }
+    public static void RequestStatFrames()
+    {
+        NetDataWriter Writer = new NetDataWriter();
+        Writer.Put(true);
+        BasisNetworkConnection.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.ServerStatisticsChannel, DeliveryMethod.ReliableOrdered);
+        BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAvatarData, Writer.Length);
+        BasisDebug.Log("RequestStatFrames");
+    }
+
+    public static void StopStatFrames()
+    {
+        NetDataWriter Writer = new NetDataWriter();
+        Writer.Put(false);
+        BasisNetworkConnection.LocalPlayerPeer?.Send(Writer, BasisNetworkCommons.ServerStatisticsChannel, DeliveryMethod.ReliableOrdered);
+        BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAvatarData, Writer.Length);
+        BasisDebug.Log("StopStatFrames");
     }
     public static void AuthIdentityMessage(NetPeer peer, NetPacketReader Reader, byte channel)
     {

@@ -30,7 +30,6 @@ namespace Basis.Scripts.UI
             On,
             Off,
             NA
-
         }
         public BasisInput BasisInput;
         private string DeviceName;

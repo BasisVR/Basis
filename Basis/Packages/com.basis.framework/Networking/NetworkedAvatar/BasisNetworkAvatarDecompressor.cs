@@ -69,7 +69,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // If position broke, keep last known good (0 if none)
                 Buffer.Position = new Unity.Mathematics.float3(0, 0, 0);
             }
-            Buffer.rotation = SanitizeRotation(BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset));
+            Buffer.Rotation = SanitizeRotation(BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset));
             DecompressAvatarMuscles_NoLoop(data, ref Buffer.Muscles, ref offset);
             Buffer.Scale = MuscleDecompress(BasisUnityBitPackerExtensionsUnsafe.ReadUShort(ref data, ref offset), MinimumValueSupported, MaximumValueSupported);
 

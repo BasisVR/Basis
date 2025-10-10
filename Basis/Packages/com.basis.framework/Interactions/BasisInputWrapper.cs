@@ -18,20 +18,38 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public static bool TryNewTracking(BasisInput source, BasisInteractInputState state, out BasisInputWrapper wrapper)
         {
             wrapper = default;
+
             if (state == BasisInteractInputState.NotAdded)
             {
+                BasisDebug.LogError($"Unable to create device for {source?.name ?? "UNKNOWN (null source)"} because state was NotAdded", BasisDebug.LogTag.Device);
                 return false;
             }
 
-            if (source != null && source.TryGetRole(out BasisBoneTrackedRole role) && BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role))
+            if (source == null)
             {
-                wrapper.Source = source;
-                wrapper.BoneControl = control;
-                wrapper.State = state;
-                wrapper.Role = role;
-                return true;
+                BasisDebug.LogError("Source device was null", BasisDebug.LogTag.Device);
+                return false;
             }
-            return false;
+
+            if (!source.TryGetRole(out BasisBoneTrackedRole role))
+            {
+                BasisDebug.LogError($"Source {source.name} did not provide a valid role", BasisDebug.LogTag.Device);
+                return false;
+            }
+
+            if (!BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role))
+            {
+                BasisDebug.LogError($"Failed to find LocalBoneControl for role {role} from source {source.name}", BasisDebug.LogTag.Device);
+                return false;
+            }
+
+            // If we got this far, everything is valid
+            wrapper.Source = source;
+            wrapper.BoneControl = control;
+            wrapper.State = state;
+            wrapper.Role = role;
+
+            return true;
         }
         public BasisInput Source;
         public BasisLocalBoneControl BoneControl { get; set; }

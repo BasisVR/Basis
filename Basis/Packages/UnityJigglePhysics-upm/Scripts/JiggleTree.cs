@@ -19,8 +19,6 @@ public class JiggleTree {
         dirty = true;
     }
 
-    public void ClearDirty() => dirty = false;
-
     private bool hasJiggleTreeStruct = false;
     private JiggleTreeJobData jiggleTreeJobData;
 
@@ -35,21 +33,19 @@ public class JiggleTree {
     }
 
     public void ResetTransformsToRest() {
-        for(int i=0;i<points.Length;i++) {
+        for(var i=0;i<points.Length;i++) {
             var bone = bones[i];
-            if (bone) {
-                bone.localPosition = restPositions[i];
-                bone.localRotation = restRotations[i];
-            }
+            if (!bone) continue;
+            bone.localPosition = restPositions[i];
+            bone.localRotation = restRotations[i];
         }
     }
 
     public void Dispose() {
         ResetTransformsToRest();
-        if (hasJiggleTreeStruct) {
-            jiggleTreeJobData.Dispose();
-            hasJiggleTreeStruct = false;
-        }
+        if (!hasJiggleTreeStruct) return;
+        jiggleTreeJobData.Dispose();
+        hasJiggleTreeStruct = false;
     }
 
     /// <summary>
@@ -82,16 +78,11 @@ public class JiggleTree {
         jiggleTreeJobData.transformIndexOffset = (uint)offset;
     }
 
-    public JiggleTree(List<Transform> bones, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Transform> personalColliderTransforms, List<JiggleCollider> personalColliders) {
+    public JiggleTree(List<Transform> bones, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Transform> personalColliderTransforms, List<JiggleCollider> personalColliders, List<Vector3> restPositions, List<Quaternion> restRotations) {
         dirty = false;
         this.bones = bones.ToArray();
-        restPositions = new Vector3[this.bones.Length];
-        restRotations = new Quaternion[this.bones.Length];
-        for(int i=0;i<this.bones.Length;i++) {
-            bones[i].GetLocalPositionAndRotation(out var pos, out var rot);
-            restPositions[i] = pos;
-            restRotations[i] = rot;
-        }
+        this.restPositions = restPositions.ToArray();
+        this.restRotations = restRotations.ToArray();
         this.points = points.ToArray();
         this.parameters = parameters.ToArray();
         this.personalColliders = personalColliders.ToArray();
@@ -99,84 +90,25 @@ public class JiggleTree {
         rootID = bones[0].GetInstanceID();
     }
 
-    public void Set(List<Transform> bones, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Transform> personalColliderTransforms, List<JiggleCollider> personalColliders) {
+    public void Set(List<Transform> bones, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Transform> personalColliderTransforms, List<JiggleCollider> personalColliders, List<Vector3> restPositions, List<Quaternion> restRotations) {
         var bonesCount = bones.Count;
         var pointsCount = points.Count;
         if (bonesCount == this.bones.Length && pointsCount == this.points.Length) {
-            var oldRestPositions = restPositions;
-            var oldRestRotations = restRotations;
-            restPositions = new Vector3[this.bones.Length];
-            restRotations = new Quaternion[this.bones.Length];
-            for (int i = 0; i < bones.Count; i++) {
-                var boneA = bones[i];
-                if (!boneA) {
-                    continue;
-                }
-
-                bool found = false;
-                for (int o = 0; o < this.bones.Length; o++) {
-                    var boneB = this.bones[o];
-                    if (!boneB) {
-                        continue;
-                    }
-
-                    if (boneA == boneB) {
-                        restPositions[i] = oldRestPositions[o];
-                        restRotations[i] = oldRestRotations[o];
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found) {
-                    boneA.GetLocalPositionAndRotation(out var pos, out var rot);
-                    restPositions[i] = pos;
-                    restRotations[i] = rot;
-                }
-            }
             for (int i = 0; i < bonesCount; i++) {
                 this.bones[i] = bones[i];
+                this.restPositions[i] = restPositions[i];
+                this.restRotations[i] = restRotations[i];
             }
             for (int i = 0; i < pointsCount; i++) {
                 this.points[i] = points[i];
-            }
-            for (int i = 0; i < pointsCount; i++) {
                 this.parameters[i] = parameters[i];
             }
         } else {
-            var oldBones = this.bones;
-            var oldRestPositions = restPositions;
-            var oldRestRotations = restRotations;
             this.bones = bones.ToArray();
             this.points = points.ToArray();
             this.parameters = parameters.ToArray();
-            restPositions = new Vector3[this.bones.Length];
-            restRotations = new Quaternion[this.bones.Length];
-            for (int i = 0; i < this.bones.Length; i++) {
-                var boneA = this.bones[i];
-                if (!boneA) {
-                    continue;
-                }
-
-                bool found = false;
-                for (int o = 0; o < oldBones.Length; o++) {
-                    var boneB = oldBones[o];
-                    if (!boneB) {
-                        continue;
-                    }
-                    if (boneA == boneB) {
-                        restPositions[i] = oldRestPositions[o];
-                        restRotations[i] = oldRestRotations[o];
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    boneA.GetLocalPositionAndRotation(out var pos, out var rot);
-                    restPositions[i] = pos;
-                    restRotations[i] = rot;
-                }
-            }
+            this.restPositions = restPositions.ToArray();
+            this.restRotations = restRotations.ToArray();
         }
         
         var personalColliderTransformsCount = personalColliderTransforms.Count;

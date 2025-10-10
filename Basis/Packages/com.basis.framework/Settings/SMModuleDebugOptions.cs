@@ -6,6 +6,10 @@ public class SMModuleDebugOptions : BasisSettingsBase
     {
         if (bool.TryParse(optionValue.ToLower(), out bool Selected))
         {
+#if UNITY_SERVER
+Selected = false;
+#endif
+
             if (UseGizmos != Selected)
             {
                 UseGizmos = Selected;

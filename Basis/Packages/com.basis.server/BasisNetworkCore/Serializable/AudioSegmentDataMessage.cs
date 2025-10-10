@@ -4,6 +4,7 @@ public static partial class SerializableBasis
     [System.Serializable]
     public struct AudioSegmentDataMessage
     {
+        public byte TotalPlayedInSilence;
         public byte[] buffer;
         public int TotalLength;
         public int LengthUsed;
@@ -14,6 +15,7 @@ public static partial class SerializableBasis
         }
         public void Deserialize(NetDataReader Writer)
         {
+            TotalPlayedInSilence = Writer.GetByte();
             if (Writer.EndOfData)
             {
                 LengthUsed = 0;
@@ -35,6 +37,7 @@ public static partial class SerializableBasis
         }
         public void Serialize(NetDataWriter Writer)
         {
+            Writer.Put(TotalPlayedInSilence);
             if (LengthUsed != 0)
             {
                 Writer.Put(buffer, 0, LengthUsed);

@@ -15,6 +15,8 @@ public struct JiggleTransformCachedData {
     public Transform bone;
     public float normalizedDistanceFromRoot;
     public float lossyScale;
+    public Vector3 restLocalPosition;
+    public Vector4 restLocalRotation;
 }
 
 [Serializable]
@@ -30,6 +32,61 @@ public struct JiggleRigData {
     
     [NonSerialized]
     private Dictionary<Transform, JiggleTransformCachedData> transformToCachedDataMap;
+
+    private bool TryUpdateSerialization() {
+        switch (serializedVersion) {
+            case "v0.0.0": // Collision radius local space -> world space
+                if (rootBone == null) {
+                    return false;
+                }
+                var cachedScale = GetCache(rootBone);
+                var scale = rootBone.lossyScale;
+                var scaleSample = (scale.x + scale.y + scale.z)/3f;
+                var scaleCorrection = cachedScale.lossyScale*(1f/(scaleSample*scaleSample));
+                jiggleTreeInputParameters.collisionRadius.value *= scaleCorrection;
+                serializedVersion = "v0.0.1";
+                return true;
+            case "v0.0.1": // rest pose is now serialized on author, generate if missing.
+                var length = transformCachedData.Length;
+                for (int i = 0; i < length; i++) {
+                    var cachedData = transformCachedData[i];
+                    var t = cachedData.bone;
+                    if (!t) continue;
+                    t.GetLocalPositionAndRotation(out var localPosition, out var localRotation);
+                    cachedData.restLocalPosition = localPosition;
+                    cachedData.restLocalRotation = new Vector4(localRotation.x, localRotation.y, localRotation.z, localRotation.w);
+                    transformCachedData[i] = cachedData;
+                }
+                serializedVersion = "v0.0.2";
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    public void ResampleRestPose() {
+        var length = transformCachedData.Length;
+        for (int i = 0; i < length; i++) {
+            var cachedData = transformCachedData[i];
+            var t = cachedData.bone;
+            if (!t) continue;
+            t.GetLocalPositionAndRotation(out var localPosition, out var localRotation);
+            cachedData.restLocalPosition = localPosition;
+            cachedData.restLocalRotation = new Vector4(localRotation.x, localRotation.y, localRotation.z, localRotation.w);
+            transformCachedData[i] = cachedData;
+        }
+        RegenerateCacheLookup();
+    }
+
+    public void SnapToRestPose() {
+        var length = transformCachedData.Length;
+        for (int i = 0; i < length; i++) {
+            var cachedData = transformCachedData[i];
+            var t = cachedData.bone;
+            if (!t || t == rootBone) continue;
+            t.SetLocalPositionAndRotation(cachedData.restLocalPosition, new Quaternion(cachedData.restLocalRotation.x, cachedData.restLocalRotation.y, cachedData.restLocalRotation.z, cachedData.restLocalRotation.w));
+        }
+    }
 
     public void RegenerateCacheLookup() {
         transformToCachedDataMap = new Dictionary<Transform, JiggleTransformCachedData>();
@@ -75,6 +132,11 @@ public struct JiggleRigData {
         ValidateCurve(ref jiggleTreeInputParameters.gravity.curve);
         ValidateCurve(ref jiggleTreeInputParameters.collisionRadius.curve);
         BuildNormalizedDistanceFromRootList();
+        for (int i = 0; i < 100; i++) {
+            if (!TryUpdateSerialization()) {
+                break;
+            }
+        }
         if (jiggleColliders is { Length: > 32 }) {
             Debug.LogWarning("JigglePhysics: Maximum of 32 personal Jiggle Colliders are supported per tree. Extra colliders will be dropped.");
             Array.Resize(ref jiggleColliders, 32);
@@ -98,15 +160,18 @@ public struct JiggleRigData {
         var validChildrenCount = GetValidChildrenCount(t);
         var scale = t.lossyScale;
         currentLength += Vector3.Distance(lastPosition, t.position);
-        t.GetLocalPositionAndRotation(out var pos, out var rot);
+        t.GetLocalPositionAndRotation(out var localPosition, out var localRotation);
+        var position = t.position;
         data.Add(new JiggleTransformCachedData() {
             bone = t,
+            restLocalPosition = localPosition,
+            restLocalRotation = new Vector4(localRotation.x, localRotation.y, localRotation.z, localRotation.w),
             normalizedDistanceFromRoot = currentLength / totalLength,
             lossyScale = (scale.x + scale.y + scale.x)/3f,
         });
         for (int i = 0; i < validChildrenCount; i++) {
             var child = GetValidChild(t, i);
-            VisitAndSetCacheData(data, child, t.position, currentLength, totalLength);
+            VisitAndSetCacheData(data, child, position, currentLength, totalLength);
         }
     }
 
@@ -163,15 +228,13 @@ public struct JiggleRigData {
         for (int i = 0; i < boneCount; i++) {
             var bone = bones[i];
             var cache = GetCache(bone);
-            var lossySample = bone.lossyScale;
-            var lossyRealScale = (lossySample.x + lossySample.y + lossySample.z)/3f;
-            parameters.Add(GetJiggleBoneParameter(cache.normalizedDistanceFromRoot, cache.lossyScale, lossyRealScale));
+            parameters.Add(GetJiggleBoneParameter(cache.normalizedDistanceFromRoot));
         }
         tree.SetParameters(parameters);
     }
     
-    public JigglePointParameters GetJiggleBoneParameter(float normalizedDistanceFromRoot, float lossyCachedSacle, float lossyRealScale) {
-        return jiggleTreeInputParameters.ToJigglePointParameters(normalizedDistanceFromRoot, lossyCachedSacle, lossyRealScale);
+    public JigglePointParameters GetJiggleBoneParameter(float normalizedDistanceFromRoot) {
+        return jiggleTreeInputParameters.ToJigglePointParameters(normalizedDistanceFromRoot);
     }
     
     public Transform[] GetJiggleBoneTransforms() {

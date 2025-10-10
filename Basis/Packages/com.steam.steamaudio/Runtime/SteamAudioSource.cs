@@ -16,6 +16,7 @@
 
 using AOT;
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
@@ -167,6 +168,7 @@ namespace SteamAudio
 
         private void Awake()
         {
+            Transform = this.transform;
             mSimulator = SteamAudioManager.Simulator;
 
             var settings = SteamAudioManager.GetSimulationSettings(false);
@@ -232,9 +234,10 @@ namespace SteamAudio
                 mThis.Free();
             }
         }
-
+        public Transform Transform;
         private void OnEnable()
         {
+            Transform = this.transform;
             mSource.AddToSimulator(mSimulator);
             SteamAudioManager.AddSource(this);
 
@@ -271,106 +274,119 @@ namespace SteamAudio
 
                 var oldColor = Gizmos.color;
                 Gizmos.color = Color.red;
-                Gizmos.DrawWireMesh(mDeformedSphereMesh, transform.position, transform.rotation);
+                transform.GetPositionAndRotation(out UnityEngine.Vector3 Position, out UnityEngine.Quaternion Rotation);
+                Gizmos.DrawWireMesh(mDeformedSphereMesh, Position, Rotation);
                 Gizmos.color = oldColor;
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetInputs(SimulationFlags flags)
         {
+            // --- Fast transform read: one native hop ---
+            Transform.GetPositionAndRotation(out var pos, out var rot);
+            var ahead = rot * UnityEngine.Vector3.forward; // pure math (managed), no extra native calls
+            var up = rot * UnityEngine.Vector3.up;
+            var right = rot * UnityEngine.Vector3.right;
+
+            // --- Cache frequently used refs/values ---
+            var settings = mSettings; // SteamAudioSettings.Singleton if that's what mSettings is
             var listener = SteamAudioManager.GetSteamAudioListener();
 
+            // Precompute booleans once
+            bool reflectionsRealtime = reflectionsType == ReflectionsType.Realtime;
+            bool reflectionsBakedSrcActive = reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null;
+            bool reflectionsBakedLstActive = reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null;
+            bool reflectionsEnabledAny = reflections && (reflectionsRealtime || reflectionsBakedSrcActive || reflectionsBakedLstActive);
+
+            bool curveDrivenReflections = mSettings.audioEngine == AudioEngineType.Unity
+                                           && distanceAttenuation
+                                           && distanceAttenuationInput == DistanceAttenuationInput.CurveDriven
+                                           && reflections
+                                           && useDistanceCurveForReflections;
+
+            // --- Build inputs with minimal writes ---
             var inputs = new SimulationInputs { };
-            var t = transform;
-            inputs.source.origin = Common.ConvertVector(t.position);
-            inputs.source.ahead = Common.ConvertVector(t.forward);
-            inputs.source.up = Common.ConvertVector(t.up);
-            inputs.source.right = Common.ConvertVector(t.right);
 
-            if (mSettings.audioEngine == AudioEngineType.Unity &&
-                distanceAttenuation &&
-                distanceAttenuationInput == DistanceAttenuationInput.CurveDriven &&
-                reflections &&
-                useDistanceCurveForReflections)
-            {
-                inputs.distanceAttenuationModel = mCurveAttenuationModel;
-            }
-            else
-            {
-                inputs.distanceAttenuationModel.type = DistanceAttenuationModelType.Default;
-            }
+            // Source transform (4 converts; see prev message if you want the 1-quat-convert path)
+            inputs.source.origin = Common.ConvertVector(pos);
+            inputs.source.ahead = Common.ConvertVector(ahead);
+            inputs.source.up = Common.ConvertVector(up);
+            inputs.source.right = Common.ConvertVector(right);
 
+            // Distance attenuation model
+            inputs.distanceAttenuationModel = curveDrivenReflections
+                ? mCurveAttenuationModel
+                : new DistanceAttenuationModel { type = DistanceAttenuationModelType.Default };
+
+            // Air absorption + directivity
             inputs.airAbsorptionModel.type = AirAbsorptionModelType.Default;
             inputs.directivity.dipoleWeight = dipoleWeight;
             inputs.directivity.dipolePower = dipolePower;
+
+            // Occlusion / transmission
             inputs.occlusionType = occlusionType;
             inputs.occlusionRadius = occlusionRadius;
             inputs.numOcclusionSamples = occlusionSamples;
             inputs.numTransmissionRays = maxTransmissionSurfaces;
-            inputs.reverbScaleLow = 1.0f;
-            inputs.reverbScaleMid = 1.0f;
-            inputs.reverbScaleHigh = 1.0f;
-            inputs.hybridReverbTransitionTime = mSettings.hybridReverbTransitionTime;
-            inputs.hybridReverbOverlapPercent = mSettings.hybridReverbOverlapPercent / 100.0f;
+
+            // Reverb/scales/transition
+            inputs.reverbScaleLow = 1f;
+            inputs.reverbScaleMid = 1f;
+            inputs.reverbScaleHigh = 1f;
+            inputs.hybridReverbTransitionTime = settings.hybridReverbTransitionTime;
+            inputs.hybridReverbOverlapPercent = settings.hybridReverbOverlapPercent * 0.01f;
+
+            // Baking / pathing config
             inputs.baked = (reflectionsType != ReflectionsType.Realtime) ? Bool.True : Bool.False;
             inputs.pathingProbes = (pathingProbeBatch != null) ? pathingProbeBatch.GetProbeBatch() : IntPtr.Zero;
-            inputs.visRadius = mSettings.bakingVisibilityRadius;
-            inputs.visThreshold = mSettings.bakingVisibilityThreshold;
-            inputs.visRange = mSettings.bakingVisibilityRange;
-            inputs.pathingOrder = mSettings.bakingAmbisonicOrder;
+            inputs.visRadius = settings.bakingVisibilityRadius;
+            inputs.visThreshold = settings.bakingVisibilityThreshold;
+            inputs.visRange = settings.bakingVisibilityRange;
+            inputs.pathingOrder = settings.bakingAmbisonicOrder;
             inputs.enableValidation = pathValidation ? Bool.True : Bool.False;
             inputs.findAlternatePaths = findAlternatePaths ? Bool.True : Bool.False;
 
-            if (reflectionsType == ReflectionsType.BakedStaticSource)
+            // Baked identifiers (only when actually usable)
+            if (reflectionsBakedSrcActive)
             {
-                if (currentBakedSource != null)
-                {
-                    inputs.bakedDataIdentifier = currentBakedSource.GetBakedDataIdentifier();
-                }
+                inputs.bakedDataIdentifier = currentBakedSource.GetBakedDataIdentifier();
             }
-            else if (reflectionsType == ReflectionsType.BakedStaticListener)
+            else if (reflectionsBakedLstActive)
             {
-                if (listener != null && listener.currentBakedListener != null)
-                {
-                    inputs.bakedDataIdentifier = listener.currentBakedListener.GetBakedDataIdentifier();
-                }
+                inputs.bakedDataIdentifier = listener.currentBakedListener.GetBakedDataIdentifier();
             }
 
-            inputs.flags = SimulationFlags.Direct;
-            if (reflections)
-            {
-                if ((reflectionsType == ReflectionsType.Realtime) ||
-                    (reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null) ||
-                    (reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null))
-                {
-                    inputs.flags = inputs.flags | SimulationFlags.Reflections;
-                }
-            }
+            // --- Simulation flags (build once, no branches re-checking state) ---
+            var simFlags = SimulationFlags.Direct;
+            if (reflectionsEnabledAny) simFlags |= SimulationFlags.Reflections;
+
             if (pathing)
             {
                 if (pathingProbeBatch == null)
                 {
-                    pathing = false;
+                    pathing = false; // preserve existing side-effect
                     Debug.LogWarningFormat("Pathing probe batch not set, disabling pathing for source {0}.", gameObject.name);
                 }
                 else
                 {
-                    inputs.flags = inputs.flags | SimulationFlags.Pathing;
+                    simFlags |= SimulationFlags.Pathing;
                 }
             }
+            inputs.flags = simFlags;
 
-            inputs.directFlags = 0;
-            if (distanceAttenuation)
-                inputs.directFlags = inputs.directFlags | DirectSimulationFlags.DistanceAttenuation;
-            if (airAbsorption)
-                inputs.directFlags = inputs.directFlags | DirectSimulationFlags.AirAbsorption;
-            if (directivity)
-                inputs.directFlags = inputs.directFlags | DirectSimulationFlags.Directivity;
-            if (occlusion)
-                inputs.directFlags = inputs.directFlags | DirectSimulationFlags.Occlusion;
-            if (transmission)
-                inputs.directFlags = inputs.directFlags | DirectSimulationFlags.Transmission;
+            // Instead of: var direct = 0;
+            DirectSimulationFlags direct = default; // == (DirectSimulationFlags)0
 
+            if (distanceAttenuation) direct |= DirectSimulationFlags.DistanceAttenuation;
+            if (airAbsorption) direct |= DirectSimulationFlags.AirAbsorption;
+            if (directivity) direct |= DirectSimulationFlags.Directivity;
+            if (occlusion) direct |= DirectSimulationFlags.Occlusion;
+            if (transmission) direct |= DirectSimulationFlags.Transmission;
+
+            inputs.directFlags = direct;
+
+            // Final handoff
             mSource.SetInputs(flags, inputs);
         }
 

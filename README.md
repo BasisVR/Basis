@@ -59,6 +59,7 @@ Currently, OPENXR and SteamVR are supported, as well as OPENXR Quest.
 
  ## Contact
 
+basis enquiries - developerbasis@gmail.com
 Luke Dooly - [@lukedooly](https://x.com/lukedooly) - doolanl208@gmail.com
 
 Discord:</br>

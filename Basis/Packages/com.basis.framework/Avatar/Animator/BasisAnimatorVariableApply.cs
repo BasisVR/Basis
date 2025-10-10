@@ -2,14 +2,36 @@ using UnityEngine;
 
 namespace Basis.Scripts.Animator_Driver
 {
+    /// <summary>
+    /// Applies cached animator variables to an <see cref="Animator"/> efficiently.
+    /// Only writes parameters when values have changed to avoid unnecessary
+    /// Animator graph work and GC allocations.
+    /// </summary>
     [System.Serializable]
     public class BasisAnimatorVariableApply
     {
+        /// <summary>
+        /// Target animator to update.
+        /// </summary>
         public Animator Animator;
+
+        /// <summary>
+        /// Precomputed animator parameter hashes for fast access.
+        /// </summary>
         [SerializeField]
         public BasisAvatarAnimatorHash BasisAvatarAnimatorHash = new BasisAvatarAnimatorHash();
+
+        /// <summary>
+        /// Cached and current animator state variables.
+        /// </summary>
         [SerializeField]
         public BasisAnimatorVariables BasisAnimatorVariables = new BasisAnimatorVariables();
+
+        /// <summary>
+        /// Applies updated parameters to <see cref="Animator"/> if values changed.
+        /// Uses <paramref name="Scale"/> to normalize velocity-based parameters.
+        /// </summary>
+        /// <param name="Scale">Scale factor (e.g., avatar scale) to normalize velocities.</param>
         public void UpdateAnimator(float Scale)
         {
             // Check if values have changed before applying updates
@@ -59,14 +81,24 @@ namespace Basis.Scripts.Animator_Driver
                 Animator.SetBool(BasisAvatarAnimatorHash.HashIsJumping, BasisAnimatorVariables.IsJumping);
                 BasisAnimatorVariables.cachedIsJumping = BasisAnimatorVariables.IsJumping;
             }
-            // UpdateJumpState();
+
+            // Clear pause flag if we were previously stopped
             if (IsStopped != false)
             {
                 IsStopped = false;
                 Animator.SetBool(BasisAvatarAnimatorHash.IsPaused, false);
             }
         }
+
+        /// <summary>
+        /// True if the animator has been globally paused via <see cref="StopAll"/>.
+        /// </summary>
         public bool IsStopped = false;
+
+        /// <summary>
+        /// Resets all known animator parameters to a safe default and pauses the animator.
+        /// Also synchronizes cached variables to prevent redundant writes on resume.
+        /// </summary>
         public void StopAll()
         {
             BasisDebug.Log("Stopping all");
@@ -105,11 +137,17 @@ namespace Basis.Scripts.Animator_Driver
             IsStopped = true;
             Animator.SetBool(BasisAvatarAnimatorHash.IsPaused, true);
         }
+
+        /// <summary>
+        /// Computes and caches the integer hashes for all animator parameters used by this component.
+        /// Must be called before updating parameters.
+        /// </summary>
+        /// <param name="animator">Animator whose parameters should be hashed.</param>
         public void LoadCachedAnimatorHashes(Animator animator)
         {
             Animator = animator;
-            BasisAvatarAnimatorHash.HashCurrentHorizontalMovement = Animator.StringToHash("CurrentHorizontalMovement");
-            BasisAvatarAnimatorHash.HashCurrentVerticalMovement = Animator.StringToHash("CurrentVerticalMovement");
+            BasisAvatarAnimatorHash.HashCurrentHorizontalMovement = Animator.StringToHash("VelocityX");
+            BasisAvatarAnimatorHash.HashCurrentVerticalMovement = Animator.StringToHash("VelocityZ");
             BasisAvatarAnimatorHash.HashCurrentSpeed = Animator.StringToHash("CurrentSpeed");
             BasisAvatarAnimatorHash.HashCrouchBlend = Animator.StringToHash("CrouchBlend");
             BasisAvatarAnimatorHash.HashCrouchedState = Animator.StringToHash("CrouchedState");
@@ -121,6 +159,10 @@ namespace Basis.Scripts.Animator_Driver
             BasisAvatarAnimatorHash.HashIsLanding = Animator.StringToHash("IsLanding");
             BasisAvatarAnimatorHash.HashIsJumping = Animator.StringToHash("IsJumping");
         }
+
+        /// <summary>
+        /// Triggers the landing state on the animator (one-shot trigger).
+        /// </summary>
         public void UpdateIsLandingState()
         {
             Animator.SetTrigger(BasisAvatarAnimatorHash.HashIsLanding);

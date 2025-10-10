@@ -79,6 +79,7 @@ MonoBehaviour:
       UseInverseOffset: 0
       Color: {r: 0, g: 0, b: 1, a: 1}
       hasTrackerDriver: 1
+      DevicesWithRoles: []
       hasRigLayer: 1
       IncomingData:
         rotation: {x: 0, y: 0, z: 0, w: 0}
@@ -106,13 +107,16 @@ MonoBehaviour:
       IsInitalized: 0
       HasEvents: 0
       AudioSegmentData:
+        TotalPlayedInSilence: 0
         buffer: 
         TotalLength: 0
         LengthUsed: 0
       SilentSegmentData:
+        TotalPlayedInSilence: 0
         buffer: 
         TotalLength: 0
         LengthUsed: 0
+      SilentForHowLong: 0
     IndexLength: 0
     MicrophoneRangeIndex: 
     LastMicrophoneRangeIndex: 
@@ -125,6 +129,8 @@ MonoBehaviour:
     SmallestDistanceToAnotherPlayer: 0
     UnClampedInterval: 0
     DefaultInterval: 0
+    TalkingPoints: 
+    requiresRebuild: 0
 --- !u!114 &3490227392973501680
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -172,6 +178,7 @@ GameObject:
   - component: {fileID: 8285517692325404402}
   - component: {fileID: 251103215370718543}
   - component: {fileID: 2819247879703846172}
+  - component: {fileID: 4245328840218215415}
   m_Layer: 0
   m_Name: Modules
   m_TagString: Untagged
@@ -273,6 +280,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   SettingsNames:
   - voicedenoiser
+  - selectedvolumemicrophone
+  - selectedmicrophone
+  - microphone
+  - agcrelease
+  - agcattack
+  - agcmaxgaindb
+  - agctargetrms
+  - agc
+  - denoisewet
+  - denoisemakeupdb
+  - limitknee
+  - limitthreshold
 --- !u!114 &9218905915079737845
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -427,6 +446,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Basis Framework::SMModuleSitStand
   SettingsNames:
   - Seated Mode
+--- !u!114 &4245328840218215415
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3197856584617865972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bbb8ca56ea55b94da2fe9bfd6f69421, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::BasisVisualStateModule
+  SettingsNames:
+  - Visual State
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0
@@ -907,6 +940,8 @@ MonoBehaviour:
   IsDeviceBooted: 0
   DeviceMode: 0
   BasisAvatarEyeInput: {fileID: 0}
+  AlwaysSpawnHeadsUpControls: 0
+  Controls: {fileID: 0}
 --- !u!114 &-3061024371983229343
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -996,5 +1031,8 @@ MonoBehaviour:
   timeSinceLastUpdate: 0
   DeltaTime: 0
   TimeAsDouble: 0
+  fixedTimeAsDouble: 0
+  fixedDeltaTime: 0
+  unscaledDeltaTime: 0
   proceduralMaterial: {fileID: 2100000, guid: 4fe20975baa16b1d4986440508067f23, type: 2}
   sphereMesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}

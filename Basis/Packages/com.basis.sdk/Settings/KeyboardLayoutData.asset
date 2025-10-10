@@ -151,6 +151,17 @@ MonoBehaviour:
         m_ColorMultiplier: 1
         m_FadeDuration: 0.1
       BasisVirtualKeyboardSpecialKey: 5
+    - Match: Copy
+      WidthSize: 70
+      ColorBlock:
+        m_NormalColor: {r: 0.48235297, g: 0.48235297, b: 0.48235297, a: 1}
+        m_HighlightedColor: {r: 0.3019608, g: 0.3019608, b: 0.3019608, a: 1}
+        m_PressedColor: {r: 0.48235297, g: 0.48235297, b: 0.48235297, a: 1}
+        m_SelectedColor: {r: 1, g: 1, b: 1, a: 1}
+        m_DisabledColor: {r: 0.122641504, g: 0.122641504, b: 0, a: 1}
+        m_ColorMultiplier: 1
+        m_FadeDuration: 0.1
+      BasisVirtualKeyboardSpecialKey: 6
   - language: Mandarin Chinese
     style: Pinyin
     rows:

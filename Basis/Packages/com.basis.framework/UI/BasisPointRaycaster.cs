@@ -34,12 +34,10 @@ namespace Basis.Scripts.UI
         }
         public void UpdateRay()
         {
-            this.transform.SetLocalPositionAndRotation(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation);
-            ray = new Ray(this.transform.position,this.transform.forward);
+            ray = new Ray(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation * Vector3.forward);
         }
         /// <summary>
-        /// <summary>
-        /// Run after Input control apply, before `AfterControlApply`
+        /// Run after Input control apply, before `AfterControlApply` alloc free, uses camera raycasting when required of it.
         /// </summary>
         public void UpdateRaycast()
         {
@@ -49,7 +47,6 @@ namespace Basis.Scripts.UI
             }
             else
             {
-                // TODO: what? where does this come into play?
                 ray = BasisLocalCameraDriver.Instance.Camera.ScreenPointToRay(ScreenPoint, BasisLocalCameraDriver.Instance.Camera.stereoActiveEye);
             }
 
@@ -99,35 +96,6 @@ namespace Basis.Scripts.UI
         }
 
         /// <summary>
-        /// Gets the closest raycast hit up to maxDistance that is in the layerMask
-        /// </summary>
-        /// <param name="hitInfo"></param>
-        /// <param name="maxDistance"></param>
-        /// <param name="layerMask"></param>
-        /// <returns>true on valid hit</returns> 
-        public bool FirstHitInMask(out RaycastHit hitInfo, float maxDistance = float.PositiveInfinity, int layerMask = Physics.AllLayers)
-        {
-            hitInfo = default;
-
-            for (int Index = 0; Index < PhysicHitCount; Index++)
-            {
-                var hit = PhysicHits[Index];
-                if (hit.distance > maxDistance)
-                    return false;
-                if (hit.collider == null)
-                    continue;
-
-                if ((hit.collider.gameObject.layer & layerMask) != 0)
-                {
-                    hitInfo = hit;
-                    return true;
-                }
-            }
-            
-            return false;
-        }
-
-        /// <summary>
         /// Gets the closest raycast hit up to maxDistance
         /// </summary>
         /// <param name="hitInfo"></param>
@@ -147,7 +115,7 @@ namespace Basis.Scripts.UI
                 hitInfo = hit;
                 return true;
             }
-            
+
             return false;
         }
         private void UpdateDebug()
@@ -164,8 +132,11 @@ namespace Basis.Scripts.UI
         /// </summary>
         private void OnDrawGizmosSelected()
         {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * MaxDistance);
+            if (SMModuleDebugOptions.UseGizmos)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * MaxDistance);
+            }
         }
     }
 }

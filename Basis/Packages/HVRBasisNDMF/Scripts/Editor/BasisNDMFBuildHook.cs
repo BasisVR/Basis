@@ -10,15 +10,13 @@ namespace HVR.Basis.NDMF
     {
         static BasisNDMFBuildHook()
         {
-            BasisAssetBundlePipeline.OnBeforeBuildPrefab += (prefab, _) =>
-            {
-                BasisAvatarPrefabProcessor(prefab);
-            };
+            BasisAssetBundlePipeline.OnBeforeBuildPrefab += (prefab, _) => BasisAvatarPrefabProcessor(prefab);
+            BasisAvatarSDKInspector.OnBeforeTestInEditor += prefab => BasisAvatarPrefabProcessor(prefab);
         }
 
         private static GameObject BasisAvatarPrefabProcessor(GameObject copy)
         {
-            AvatarProcessor.ProcessAvatar(copy);
+            AvatarProcessor.ProcessAvatar(copy, BasisFrameworkPlatform.Instance);
             return copy;
         }
     }

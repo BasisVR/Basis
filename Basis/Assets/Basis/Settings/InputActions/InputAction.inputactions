@@ -167,7 +167,7 @@
                     "path": "<Gamepad>/leftStick",
                     "interactions": "",
                     "processors": "StickDeadzone",
-                    "groups": ";Gamepad",
+                    "groups": ";Gamepad;All",
                     "action": "Move",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -277,7 +277,7 @@
                     "path": "<Joystick>/stick",
                     "interactions": "",
                     "processors": "StickDeadzone",
-                    "groups": "Joystick",
+                    "groups": "Joystick;All",
                     "action": "Move",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -288,7 +288,7 @@
                     "path": "<Gamepad>/rightStick",
                     "interactions": "",
                     "processors": "ScaleVector2(x=25,y=25),StickDeadzone",
-                    "groups": ";Gamepad",
+                    "groups": ";Gamepad;All",
                     "action": "Look",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -310,7 +310,29 @@
                     "path": "<Joystick>/{Hatswitch}",
                     "interactions": "",
                     "processors": "StickDeadzone",
-                    "groups": "Joystick",
+                    "groups": "Joystick;All",
+                    "action": "Look",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a95c71b1-1450-4c6e-a426-c2f0091358ce",
+                    "path": "<Touchscreen>/touch*/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "Look",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c1a60e84-8b06-414d-adaf-b0f812a69117",
+                    "path": "<Pen>/position",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
                     "action": "Look",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -321,7 +343,7 @@
                     "path": "<Gamepad>/rightTrigger",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";Gamepad",
+                    "groups": ";Gamepad;All",
                     "action": "Fire",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -343,7 +365,7 @@
                     "path": "<Touchscreen>/primaryTouch/tap",
                     "interactions": "",
                     "processors": "",
-                    "groups": ";Touch",
+                    "groups": ";Touch;All",
                     "action": "Fire",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -354,7 +376,7 @@
                     "path": "<Joystick>/trigger",
                     "interactions": "",
                     "processors": "",
-                    "groups": "Joystick",
+                    "groups": "Joystick;All",
                     "action": "Fire",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -376,7 +398,7 @@
                     "path": "<Gamepad>/buttonSouth",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "Jump",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -398,7 +420,7 @@
                     "path": "<Gamepad>/leftStickPress",
                     "interactions": "Tap",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "Running",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -442,7 +464,7 @@
                     "path": "<Gamepad>/start",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "Escape",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -493,6 +515,28 @@
                 },
                 {
                     "name": "",
+                    "id": "1fe71ceb-c421-4873-8b14-6638b06122d8",
+                    "path": "<Pen>/tip",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse;All",
+                    "action": "LeftMouse",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "e1567ee8-784b-488d-b4fc-1fdc1941f754",
+                    "path": "<Touchscreen>/touch*/press",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Touch;All",
+                    "action": "LeftMouse",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
                     "id": "0296caff-c432-48fd-91c6-55ff32829a08",
                     "path": "<Mouse>/rightButton",
                     "interactions": "",
@@ -530,7 +574,7 @@
                     "path": "<Mouse>/scroll",
                     "interactions": "",
                     "processors": "",
-                    "groups": "",
+                    "groups": ";All",
                     "action": "ScrollWheel",
                     "isComposite": false,
                     "isPartOfComposite": false
