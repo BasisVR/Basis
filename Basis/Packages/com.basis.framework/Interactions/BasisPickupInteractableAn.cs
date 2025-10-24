@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using System.Collections;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
@@ -18,7 +19,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
     /// (hands or desktop center-eye). Handles highlight mesh creation, input-state transitions,
     /// constraint-based following, desktop zoom/rotate ("zoop") behavior, and realistic drop velocities.
     /// </summary>
-    public class BasisPickupInteractable : BasisInteractableObject
+    public class BasisPickupInteractableAn : BasisInteractableObject
     {
         #region Inspector: Pickup Settings
 
@@ -192,11 +193,83 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         #endregion
 
+
+        #region Advanced
+        [Header("Advanced")]
+        public bool enableAdvanced = false;
+        public Color color = Color.white;
+        public float maxScale = 5f;
+        public float minScale = 1f;
+        #endregion
+
+        #region Auto Re-Home
+        [Header("Auto Re-Home")]
+        [Tooltip("Target world position to move to.")]
+        public bool enableAutoReHome = true;
+        Vector3 _positionAtStart;
+        Quaternion _rotationAtStart;
+        Vector3 _scaleAtStart;
+
+        [Tooltip("Delay in seconds before moving.")]
+        public float delay = 3f;
+
+        [Tooltip("If > 0, the object will interpolate to the target over this duration; if 0, it will jump instantly.")]
+        public float duration = 0f;
+
+
+        [Tooltip("Easing preset to apply to the interpolation.")]
+        public EasingType easing = EasingType.Linear;
+
+        [Tooltip("Use a custom AnimationCurve instead of the preset easing.")]
+        public bool useCustomCurve = false;
+
+        [Tooltip("Custom easing curve evaluated over 0..1 (time).")]
+        public AnimationCurve customCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+
+        public enum EasingType
+        {
+            Linear,
+            SmoothStep,
+            EaseInQuad,
+            EaseOutQuad,
+            EaseInOutQuad,
+            EaseInCubic,
+            EaseOutCubic,
+            EaseInOutCubic
+        }
+
+        Renderer rend;
+        MaterialPropertyBlock mpb;
+        private float previousDistance = 0;
+        #endregion
+
+        #region Lock to Axis
+        [Header("Lock to Axis")]
+        [Tooltip("Choose axis (shown as a dropdown in the inspector).")]
+        public string constrainToAxis = "None";
+        public float constraintLimit = 0.2f;
+        # endregion
+
+
+
+        private void Awake()
+        {
+            base.Awake();
+            //BasisDeviceManagement.OnInitializationCompleted += OnInitializationCompleted;
+            rend = GetComponent<Renderer>();
+            mpb = new MaterialPropertyBlock();
+        }
+
         /// <summary>
         /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
         /// </summary>
         public void Start()
         {
+
+            _positionAtStart = transform.position;
+            _rotationAtStart = transform.rotation;
+            _scaleAtStart = transform.localScale;
+
             if (RigidRef == null)
             {
                 TryGetComponent(out RigidRef);
@@ -325,6 +398,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <param name="input">The input source starting interaction.</param>
         public override void OnInteractStart(BasisInput input)
         {
+
+            if(enableAdvanced)
+            {
+                AnUtils.SetColorWithPropertyBlock(rend, mpb, color, name);
+
+            }
+
             // Clean up interacting ourselves (system won't do this for us) when self-steal is allowed.
             if (CanSelfSteal)
                 Inputs.ForEachWithState(OnInteractEnd, BasisInteractInputState.Interacting);
@@ -390,6 +470,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <param name="input">The input source ending interaction.</param>
         public override void OnInteractEnd(BasisInput input)
         {
+
+            if(enableAdvanced)
+            {
+                AnUtils.ClearColor(rend, mpb, name);
+
+                if(enableAutoReHome)
+                StartCoroutine(MoveAfterDelayCoroutine());
+            }
+
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 if (wrapper.GetState() == BasisInteractInputState.Interacting)
@@ -503,6 +592,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public override void InputUpdate()
         {
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
+            GetOppositeInteracting(out BasisInputWrapper opposingInput);
+
+            if(enableAdvanced){
+                StopCoroutine(MoveAfterDelayCoroutine());
+            }
 
             Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
@@ -510,6 +604,37 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (BasisDeviceManagement.IsUserInDesktop())
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
+            }else{
+                if(opposingInput.Source.CurrentInputState.Trigger == 1){
+                    float currentDistance =  (Inputs.leftHand.Source.transform.position - Inputs.rightHand.Source.transform.position).sqrMagnitude;
+
+                    if(previousDistance == -1){
+                        previousDistance = currentDistance;
+                    }
+                    else
+                    {
+                        if (previousDistance < currentDistance)
+                        {
+                            // Embiggening
+                            Debug.Log("Embiggen: " + currentDistance);
+                            AnUtils.OnHand(transform, 1, minScale, maxScale,rend, mpb, Color.chartreuse, name);
+
+                        }
+                        else if (previousDistance > currentDistance)
+                        {
+                            // Ensmallening
+                            Debug.Log("Ensmallen: " + currentDistance);
+                            AnUtils.OnHand(transform, -1, minScale, maxScale,rend, mpb, Color.red, name);
+
+                        }
+                        previousDistance = currentDistance;
+                    }
+
+                }
+                else
+                {
+                    previousDistance = -1;
+                }
             }
 
             // Trigger state machine for OnPickupUse
@@ -538,6 +663,78 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
+                string axis = (constrainToAxis ?? "None").Trim().ToLowerInvariant();
+                Vector3 currentPosition = transform.position;
+
+                switch (axis)
+                {
+                    case "x":
+                        {
+                            if (constraintLimit > 0)
+                            {
+                                if (Math.Abs(pos.x - _positionAtStart.x) <= constraintLimit)
+                                {
+                                    pos = new Vector3(pos.x, currentPosition.y, currentPosition.z);
+                                }
+                                else
+                                {
+                                    pos = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z);
+                                }
+                            }
+                            else
+                            {
+                                pos = new Vector3(pos.x, currentPosition.y, currentPosition.z);
+                            }
+                            rot = transform.rotation;
+                        }
+                        break;
+                    case "y":
+                        {
+
+                            if (constraintLimit > 0)
+                            {
+                                if (Math.Abs(pos.y - _positionAtStart.y) <= constraintLimit)
+                                {
+                                    pos = new Vector3(currentPosition.x, pos.y, currentPosition.z);
+                                }
+                                else
+                                {
+                                    pos = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z);
+                                }
+                            }
+                            else
+                            {
+                                pos = new Vector3(currentPosition.x, pos.y, currentPosition.z);
+                            }
+                            rot = transform.rotation;
+                        }
+                        break;
+                    case "z":
+                        {
+
+                            if (constraintLimit > 0)
+                            {
+                                if (Math.Abs(pos.z - _positionAtStart.z) <= constraintLimit)
+                                {
+                                    pos = new Vector3(currentPosition.x,currentPosition.y, pos.z);
+                                }
+                                else
+                                {
+                                    pos = new Vector3(currentPosition.x, currentPosition.y, currentPosition.z);
+                                }
+                            }
+                            else
+                            {
+                                pos = new Vector3(currentPosition.x,currentPosition.y, pos.z);
+                            }
+                            rot = transform.rotation;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+
+
                 // Prefer Rigidbody movement when present to preserve physics consistency.
                 if (RigidRef != null && !RigidRef.isKinematic)
                 {
@@ -649,6 +846,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <returns><see langword="true"/> if an input is actively interacting; otherwise <see langword="false"/>.</returns>
         private bool GetActiveInteracting(out BasisInputWrapper BasisInputWrapper)
         {
+
             switch (Inputs.desktopCenterEye.GetState())
             {
                 case BasisInteractInputState.Interacting:
@@ -663,6 +861,33 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
                     {
                         BasisInputWrapper = Inputs.rightHand;
+                        return true;
+                    }
+                    else
+                    {
+                        BasisInputWrapper = new BasisInputWrapper();
+                        return false;
+                    }
+            }
+        }
+
+        private bool GetOppositeInteracting(out BasisInputWrapper BasisInputWrapper)
+        {
+
+            switch (Inputs.desktopCenterEye.GetState())
+            {
+                case BasisInteractInputState.Interacting:
+                    BasisInputWrapper = Inputs.desktopCenterEye;
+                    return true;
+                default:
+                    if (Inputs.leftHand.GetState() == BasisInteractInputState.Interacting)
+                    {
+                        BasisInputWrapper = Inputs.rightHand;
+                        return true;
+                    }
+                    else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
+                    {
+                        BasisInputWrapper = Inputs.leftHand;
                         return true;
                     }
                     else
@@ -722,6 +947,76 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 input.CurrentInputState.SecondaryTrigger == 1; ;
         }
 
+        ///////// Auto Re-Home Logic /////////
+        IEnumerator MoveAfterDelayCoroutine()
+        {
+            yield return new WaitForSeconds(delay);
+
+            if (duration <= 0f)
+            {
+                transform.localPosition = _positionAtStart;
+                transform.localRotation = _rotationAtStart;
+                transform.localScale = _scaleAtStart;
+                yield break;
+            }
+
+            float elapsed = 0f;
+            Vector3 startPos = transform.localPosition;
+            Vector3 scalePos = transform.localScale;
+            Quaternion rotPos = transform.localRotation;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                // Apply easing (or custom curve)
+                float easedT = useCustomCurve ? customCurve.Evaluate(t) : ApplyEasing(t, easing);
+
+                Vector3 pos = Vector3.Lerp(startPos, _positionAtStart, easedT);
+                transform.localPosition = pos;
+
+                Vector3 scale = Vector3.Lerp(scalePos, _scaleAtStart, easedT);
+                transform.localScale = scale;
+
+                Quaternion rot = Quaternion.Lerp(rotPos, _rotationAtStart, easedT);
+                transform.localRotation = rot;
+
+                yield return null;
+            }
+
+            // Ensure final position exactly
+           transform.localPosition = _positionAtStart;
+
+        }
+
+
+        static float ApplyEasing(float t, EasingType e)
+        {
+            switch (e)
+            {
+                case EasingType.SmoothStep:
+                    return Mathf.SmoothStep(0f, 1f, t);
+                case EasingType.EaseInQuad:
+                    return t * t;
+                case EasingType.EaseOutQuad:
+                    return t * (2f - t);
+                case EasingType.EaseInOutQuad:
+                    return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+                case EasingType.EaseInCubic:
+                    return t * t * t;
+                case EasingType.EaseOutCubic:
+                    return 1f - Mathf.Pow(1f - t, 3f);
+                case EasingType.EaseInOutCubic:
+                    return t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
+                case EasingType.Linear:
+                default:
+                    return t;
+            }
+        }
+
+        /////////
+
+
 #if UNITY_EDITOR
         /// <summary>
         /// Editor-only validation to ensure required references are present and to initialize the constraint if missing.
@@ -746,28 +1041,4 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public void Drop() => ClearAllInfluencing();
     }
 
-    /// <summary>
-    /// Helper extension for evaluating a list of boolean predicates against a single argument.
-    /// </summary>
-    internal static class PickupListExt
-    {
-        /// <summary>
-        /// Returns <see langword="true"/> only if every predicate in <paramref name="list"/> returns
-        /// <see langword="true"/> when invoked with <paramref name="arg"/>.
-        /// </summary>
-        /// <typeparam name="T">Argument type.</typeparam>
-        /// <param name="list">List of predicates.</param>
-        /// <param name="arg">Argument to pass to each predicate.</param>
-        /// <returns>Whether all predicates returned true.</returns>
-        internal static bool AllTrue<T>(this IList<Func<T, bool>> list, T arg)
-        {
-            int count = list.Count;
-            for (int i = 0; i < count; i++)
-            {
-                if (!list[i].Invoke(arg))
-                    return false;
-            }
-            return true;
-        }
-    }
 }
