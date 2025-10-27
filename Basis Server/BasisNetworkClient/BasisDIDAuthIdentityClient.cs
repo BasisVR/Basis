@@ -4,8 +4,7 @@ using System.Text;
 using Basis.Contrib.Auth.DecentralizedIds;
 using Basis.Contrib.Auth.DecentralizedIds.Newtypes;
 using Basis.Contrib.Crypto;
-using LiteNetLib;
-using LiteNetLib.Utils;
+using Basis.Network.Core;
 #if UNITY_2017_1_OR_NEWER
 using UnityEngine;
 #endif

@@ -7,7 +7,6 @@ using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
-using LiteNetLib;
 using System;
 using System.Text;
 using System.Threading;

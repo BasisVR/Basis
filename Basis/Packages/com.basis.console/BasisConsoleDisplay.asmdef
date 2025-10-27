@@ -21,8 +21,7 @@
     "precompiledReferences": [
         "DarkRift.Client.dll",
         "DarkRift.dll",
-        "DarkRift.Server.dll",
-        "LiteNetLibListenerPlugin.dll"
+        "DarkRift.Server.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

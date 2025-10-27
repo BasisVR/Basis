@@ -1,7 +1,5 @@
 using Basis.Network.Core;
 using BasisNetworkCore;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -35,7 +33,7 @@ public static class BasisNetworkResourceManagement
                     writer,
                     BasisNetworkCommons.LoadResourceChannel,
                     peers,
-                    LiteNetLib.DeliveryMethod.ReliableSequenced
+                    DeliveryMethod.ReliableSequenced
                 );
 
                 // Remove the non-persistent resource from the database
@@ -43,7 +41,7 @@ public static class BasisNetworkResourceManagement
             }
         }
     }
-    public static void SendOutAllResources(LiteNetLib.NetPeer NewConnection)
+    public static void SendOutAllResources(NetPeer NewConnection)
     {
         LocalLoadResource[] Resource = UshortNetworkDatabase.Values.ToArray();
         if (Resource != null)
@@ -54,7 +52,7 @@ public static class BasisNetworkResourceManagement
                 LocalLoadResource LLR = Resource[Index];
                 NetDataWriter Writer = new NetDataWriter(true);
                 LLR.Serialize(Writer);
-                NetworkServer.TrySend(NewConnection, Writer, BasisNetworkCommons.LoadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.TrySend(NewConnection, Writer, BasisNetworkCommons.LoadResourceChannel, DeliveryMethod.ReliableOrdered);
             }
         }
     }
@@ -68,7 +66,7 @@ public static class BasisNetworkResourceManagement
             {
                 BNL.Log("Adding Object " + LocalLoadResource.LoadedNetID);
                 NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, peers, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, peers, DeliveryMethod.ReliableOrdered);
             }
             else
             {
@@ -88,7 +86,7 @@ public static class BasisNetworkResourceManagement
             UnLoadResource.Serialize(Writer);
             BNL.Log("Removing Object " + UnLoadResource.LoadedNetID);
             NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceChannel, peers, LiteNetLib.DeliveryMethod.ReliableOrdered);
+            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceChannel, peers, DeliveryMethod.ReliableOrdered);
         }
         else
         {

@@ -12,6 +12,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.cilbox": {
+      "version": "file:com.basis.cilbox",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.common": {
       "version": "file:com.basis.common",
       "depth": 0,
@@ -150,12 +156,6 @@
     },
     "com.llealloo.audiolink": {
       "version": "file:AudioLink",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.meta.xr.sdk.core": {
-      "version": "file:com.meta.xr.sdk.core",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

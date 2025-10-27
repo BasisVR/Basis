@@ -1,4 +1,5 @@
-using LiteNetLib.Utils;
+using Basis.Network.Core;
+
 using System;
 using System.Collections.Concurrent;
 

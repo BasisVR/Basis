@@ -2,7 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Burst;

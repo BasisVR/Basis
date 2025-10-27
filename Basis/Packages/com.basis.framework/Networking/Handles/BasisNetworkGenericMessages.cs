@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -122,7 +120,7 @@ public static class BasisNetworkGenericMessages
         }
     }
     // Handler for server avatar data messages
-    public static void HandleServerAvatarDataMessage(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
+    public static void HandleServerAvatarDataMessage(NetPacketReader reader, DeliveryMethod Method)
     {
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAvatarData, reader.AvailableBytes);
         ServerAvatarDataMessage SADM = new ServerAvatarDataMessage();
@@ -218,13 +216,13 @@ public static class BasisNetworkGenericMessages
 
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SceneData, netDataWriter.Length);
     }
-    public static void NetIDAssign(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
+    public static void NetIDAssign(NetPacketReader reader, DeliveryMethod Method)
     {
         ServerNetIDMessage ServerNetIDMessage = new ServerNetIDMessage();
         ServerNetIDMessage.Deserialize(reader);
         BasisNetworkIdResolver.CompleteMessageDelegation(ServerNetIDMessage);
     }
-    public static void MassNetIDAssign(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
+    public static void MassNetIDAssign(NetPacketReader reader, DeliveryMethod Method)
     {
         ServerUniqueIDMessages ServerNetIDMessage = new ServerUniqueIDMessages();
         ServerNetIDMessage.Deserialize(reader);
@@ -233,7 +231,7 @@ public static class BasisNetworkGenericMessages
             BasisNetworkIdResolver.CompleteMessageDelegation(message);
         }
     }
-    public static async Task LoadResourceMessage(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
+    public static async Task LoadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
     {
         LocalLoadResource LocalLoadResource = new LocalLoadResource();
         LocalLoadResource.Deserialize(reader);
@@ -250,7 +248,7 @@ public static class BasisNetworkGenericMessages
                 break;
         }
     }
-    public static void UnloadResourceMessage(LiteNetLib.NetPacketReader reader, LiteNetLib.DeliveryMethod Method)
+    public static void UnloadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
     {
         UnLoadResource UnLoadResource = new UnLoadResource();
         UnLoadResource.Deserialize(reader);

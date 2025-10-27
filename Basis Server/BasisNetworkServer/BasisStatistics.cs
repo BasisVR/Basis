@@ -1,4 +1,4 @@
-using LiteNetLib;
+using Basis.Network.Core;
 using System;
 using System.Threading;
 

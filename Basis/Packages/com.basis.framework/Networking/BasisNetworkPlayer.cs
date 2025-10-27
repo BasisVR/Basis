@@ -8,8 +8,6 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Profiler;
 using Basis.Scripts.TransformBinders.BoneControl;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -69,7 +67,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public struct ServerAvatarDataMessageQueue
         {
             public ServerAvatarDataMessage ServerAvatarDataMessage;
-            public LiteNetLib.DeliveryMethod Method;
+            public DeliveryMethod Method;
         }
         public abstract void Initialize();
         public abstract void DeInitialize();

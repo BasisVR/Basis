@@ -5,7 +5,7 @@ using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using BasisSerializer.OdinSerializer;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {

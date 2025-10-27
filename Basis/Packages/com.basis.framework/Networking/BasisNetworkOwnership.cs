@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;

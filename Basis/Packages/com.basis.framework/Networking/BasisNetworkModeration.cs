@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using UnityEngine;
 using static BasisNetworkCore.Serializable.SerializableBasis;

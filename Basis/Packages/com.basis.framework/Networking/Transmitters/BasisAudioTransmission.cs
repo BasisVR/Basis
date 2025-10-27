@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using OpusSharp.Core;
 using static SerializableBasis;
 

@@ -1,6 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine.InputSystem;
 public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
 {

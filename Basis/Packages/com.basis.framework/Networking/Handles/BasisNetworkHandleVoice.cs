@@ -1,3 +1,4 @@
+using Basis.Network.Core;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
 using System.Threading;
@@ -50,7 +51,7 @@ public static class BasisNetworkHandleVoice
     ///   <see cref="TimeoutMilliseconds"/>, processing is effectively skipped.<br/>
     /// - Uses a bounded queue as a lightweight object pool to reduce GC pressure.
     /// </remarks>
-    public static async Task HandleAudioUpdate(LiteNetLib.NetPacketReader Reader)
+    public static async Task HandleAudioUpdate(NetPacketReader Reader)
     {
         // Cancel any ongoing task so we prefer the newest audio data.
         cancellationTokenSource.Cancel();

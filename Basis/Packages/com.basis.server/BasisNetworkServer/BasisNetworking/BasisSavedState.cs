@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using LiteNetLib;
+using Basis.Network.Core;
 using static SerializableBasis;
 
 namespace Basis.Network.Server.Generic

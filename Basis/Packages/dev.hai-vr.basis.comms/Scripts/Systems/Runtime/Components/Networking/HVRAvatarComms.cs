@@ -3,7 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Basis.Scripts.Behaviour;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 
 namespace HVR.Basis.Comms

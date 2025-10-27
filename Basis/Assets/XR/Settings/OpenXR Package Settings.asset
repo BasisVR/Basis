@@ -146,6 +146,7 @@ MonoBehaviour:
   m_Name: MetaXRFoveationFeature Android
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Foveation
   version: 1.0.0
   featureIdInternal: com.meta.openxr.feature.foveation
@@ -613,6 +614,7 @@ MonoBehaviour:
   m_Name: MetaXREyeTrackedFoveationFeature Standalone
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Eye Tracked Foveation
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.eyetrackedfoveation
@@ -918,6 +920,7 @@ MonoBehaviour:
   m_Name: MetaXRFeature Standalone
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Feature
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.metaxr
@@ -967,6 +970,7 @@ MonoBehaviour:
   m_Name: MetaXREyeTrackedFoveationFeature Android
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Eye Tracked Foveation
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.eyetrackedfoveation
@@ -1002,11 +1006,6 @@ MonoBehaviour:
   - {fileID: -1031364519393536986}
   - {fileID: 8247108881022424648}
   - {fileID: 7549438712315481577}
-  - {fileID: -132615106511523294}
-  - {fileID: 3543322306967605854}
-  - {fileID: -6952427826145265605}
-  - {fileID: 6522149064804021685}
-  - {fileID: 3638064989573135324}
   - {fileID: 8344287191087355463}
   - {fileID: -1167320193527511358}
   - {fileID: 433421105397183717}
@@ -1436,6 +1435,7 @@ MonoBehaviour:
   m_Name: MetaXRFeature Android
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Feature
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.metaxr
@@ -1485,6 +1485,7 @@ MonoBehaviour:
   m_Name: MetaXRSubsampledLayout Android
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Subsampled Layout
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.subsampledLayout
@@ -1529,6 +1530,7 @@ MonoBehaviour:
   m_Name: MetaXRFoveationFeature Standalone
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Foveation
   version: 1.0.0
   featureIdInternal: com.meta.openxr.feature.foveation
@@ -1581,15 +1583,10 @@ MonoBehaviour:
   - {fileID: -537972378157693835}
   - {fileID: 8439728548421286831}
   - {fileID: -7329309301638610648}
-  - {fileID: -1591660320658234261}
   - {fileID: -5895914430912560921}
   - {fileID: 3999078036332178412}
   - {fileID: -1833818701715182339}
   - {fileID: 7749681440542470025}
-  - {fileID: -2348015020651987278}
-  - {fileID: -180047907785125432}
-  - {fileID: 4031459642842490951}
-  - {fileID: 5011424736917038693}
   - {fileID: -3295216353970072799}
   - {fileID: -8419463971566137}
   - {fileID: 2146913422818440268}
@@ -1722,6 +1719,7 @@ MonoBehaviour:
   m_Name: MetaXRSubsampledLayout Standalone
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Subsampled Layout
   version: 0.0.1
   featureIdInternal: com.meta.openxr.feature.subsampledLayout
@@ -1904,6 +1902,7 @@ MonoBehaviour:
   m_Name: MetaXRSpaceWarp Android
   m_EditorClassIdentifier: 
   m_enabled: 1
+  <failedInitialization>k__BackingField: 0
   nameUi: Meta XR Space Warp
   version: 1.0.0
   featureIdInternal: com.meta.openxr.feature.spacewarp

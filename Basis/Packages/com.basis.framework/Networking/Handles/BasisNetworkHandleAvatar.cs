@@ -1,6 +1,6 @@
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
-using LiteNetLib;
+using Basis.Network.Core;
 using static SerializableBasis;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using System.Collections.Concurrent;

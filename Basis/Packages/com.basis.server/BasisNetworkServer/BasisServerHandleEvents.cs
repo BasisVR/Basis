@@ -6,8 +6,6 @@ using BasisNetworkCore.Pooling;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,9 +45,9 @@ namespace BasisServerHandle
 
         #region Network Event Handlers
 
-        public static void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
+        public static void OnNetworkError(DisconnectInfo reason)
         {
-            BNL.LogError($"Endpoint {endPoint.ToString()} was reported with error {socketError}");
+            BNL.LogError($"Endpoint {reason.Reason}");
         }
         #endregion
 
@@ -221,7 +219,7 @@ namespace BasisServerHandle
 
                 NetDataWriter Writer = new NetDataWriter(true, 4);
                 ServerMetaDataMessage.Serialize(Writer);
-                NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.metaDataChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.metaDataChannel, DeliveryMethod.ReliableOrdered);
 
                 if (BasisNetworkIDDatabase.GetAllNetworkID(out List<ServerNetIDMessage> ServerNetIDMessages))
                 {
@@ -233,7 +231,7 @@ namespace BasisServerHandle
                     Writer.Reset();
                     ServerUniqueIDMessageArray.Serialize(Writer);
                     //BNL.Log($"Sending out Network Id Count " + ServerUniqueIDMessageArray.Messages.Length);
-                    NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.NetIDAssignsChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                    NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.NetIDAssignsChannel, DeliveryMethod.ReliableOrdered);
                 }
                 else
                 {
@@ -426,7 +424,7 @@ namespace BasisServerHandle
                     {
                         Message.Serialize(writer);
                         //  BNL.Log($"Writing Data with size {writer.Length}");
-                        NetworkServer.TrySend(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                        NetworkServer.TrySend(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
                     }
                 }
             }
