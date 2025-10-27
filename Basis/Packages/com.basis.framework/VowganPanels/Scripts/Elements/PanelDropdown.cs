@@ -1,4 +1,3 @@
-using System;
 using TMPro;
 using UnityEngine;
 
@@ -6,17 +5,19 @@ namespace Basis.VowganUI
 {
     public class PanelDropdown : PanelElement
     {
-        public static class Styles
+        public static class DropdownStyles
         {
             public static string Default => "VowganUI/Elements/Dropdown";
         }
 
         public TMP_Dropdown DropdownComponent;
 
+
         public static PanelDropdown CreateNew(Component parent)
-        {
-            PanelDropdown element = CreateNew<PanelDropdown>(Styles.Default, parent);
-            return element;
-        }
+            => CreateNew<PanelDropdown>(DropdownStyles.Default, parent);
+
+        public static PanelDropdown CreateNew(string style, Component parent)
+            => CreateNew<PanelDropdown>(style, parent);
+
     }
 }

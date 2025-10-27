@@ -18,7 +18,8 @@ namespace Basis.VowganUI
         }
 
         public override string Title => "Exit";
-        public override Sprite Icon => null;
+        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Exit);
+        public override bool IconIsAddressable => true;
         public override int Order => 10;
         public override PaletteStyle NormalStyle => PaletteStyle.DangerColor;
 

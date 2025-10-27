@@ -14,6 +14,7 @@ namespace Basis.VowganUI
 
         public override string Title => "Mirror";
         public override Sprite Icon => null;
+        public override bool IconIsAddressable => true;
         public override int Order => 4;
 
 
@@ -50,7 +51,6 @@ namespace Basis.VowganUI
                 {
                 }
             }
-            BasisUIManagement.CloseAllMenus();
         }
     }
 }

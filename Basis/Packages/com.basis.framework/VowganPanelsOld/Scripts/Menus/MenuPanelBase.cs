@@ -82,7 +82,8 @@ namespace Basis.VowganUIOld
         {
             foreach (MenuActionProvider action in ActionProviders)
             {
-                PanelButton button = PanelButton.CreateNew(container, action.Title);
+                PanelButton button = PanelButton.CreateNew(container);
+                button.SetTitle(action.Title);
                 action.BindToButton(button);
             }
         }

@@ -36,10 +36,9 @@ namespace Basis.VowganUI
         /// </summary>
         public static TInstance CreateNew<TInstance>(string referencePath) where TInstance: AddressableUIInstanceBase
         {
-            //TODO: if the string is an invalid path, this will error. Create better handling for this.
             GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
             TInstance instance = obj.GetComponent<TInstance>();
-            instance.OnCreateEvent();
+            if (!instance.HasRunCreateEvent) instance.OnCreateEvent();
             return instance;
         }
 
@@ -52,16 +51,16 @@ namespace Basis.VowganUI
             GameObject obj = Addressables.InstantiateAsync(referencePath,
                 new InstantiationParameters(parent.transform, false)).WaitForCompletion();
             TElement element = obj.GetComponent<TElement>();
-            element.OnCreateEvent();
+            if (!element.HasRunCreateEvent) element.OnCreateEvent();
             return element;
         }
 
-        public Action OnReleased
+        public Action OnInstanceReleased
         {
-            get => _onReleased;
-            set => _onReleased = value;
+            get => onInstanceReleased;
+            set => onInstanceReleased = value;
         }
-        protected Action _onReleased;
+        protected Action onInstanceReleased;
 
         public bool IsReleased => _isReleased;
         protected bool _isReleased;
@@ -90,7 +89,7 @@ namespace Basis.VowganUI
         {
             _isReleased = true;
             OnReleaseEvent();
-            OnReleased?.Invoke();
+            OnInstanceReleased?.Invoke();
             Addressables.ReleaseInstance(gameObject);
         }
 

@@ -256,7 +256,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
-                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system 
+                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system
                 found.GetState() == BasisInteractInputState.Ignored &&      // in the correct state for hover
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
                 CanHoverInjected.AllTrue(input);                            // injected
@@ -272,7 +272,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
-                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system 
+                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system
                 found.GetState() == BasisInteractInputState.Hovering &&     // only current hover can interact
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
                 CanInteractInjected.AllTrue(input);                         // injected

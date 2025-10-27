@@ -32,26 +32,26 @@ namespace Basis.VowganUIOld
                 },
                 Panel.Styles.Page);
 
-            panel.OnReleased += DisableAction;
+            panel.OnInstanceReleased += DisableAction;
 
             PanelScrollView view = PanelScrollView.CreateNew(panel.ContentParent, LayoutDirection.Vertical);
 
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
-            PanelButton.CreateNew(view.LayoutContainer, "Woah");
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
+            PanelButton.CreateNew(view.LayoutContainer);
 
         }
 

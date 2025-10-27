@@ -3,92 +3,31 @@ using UnityEngine;
 
 namespace Basis.VowganUI
 {
-    public abstract class PanelBindableElement : PanelElement
+    public abstract class PanelBindableElement<T> : PanelElement
     {
-
-        public enum PanelBindingType
-        {
-            Int,
-            Float,
-            Bool,
-        }
 
         public string BindingKey => _bindingKey;
         private string _bindingKey;
 
-        public abstract PanelBindingType BindingType { get; }
+        public T RawValue;
+        public BasisPlatformDefault<T> DefaultValue;
 
-        public int IntValue => _intValue;
-        private int _intValue;
-        public float FloatValue => _floatValue;
-        private float _floatValue;
-        public bool BoolValue => _boolValue;
-        private bool _boolValue;
-
-        public Action OnChanged;
-        public Action<int> OnIntChanged;
-        public Action<float> OnFloatChanged;
-        public Action<bool> OnBoolChanged;
+        public Action<T> OnChanged;
 
         public bool HasBinding => _hasBinding;
         private bool _hasBinding;
 
-
-        public void SetIntValue(int value)
+        public void SetValue(T value)
         {
-            if (!CheckType(PanelBindingType.Int)) return;
-
-            _intValue = value;
-            OnChanged?.Invoke();
-            OnIntChanged?.Invoke(value);
-
+            RawValue = value;
+            OnChanged?.Invoke(value);
             OnValueChanged();
             if (_hasBinding) WriteBindingValue();
         }
 
-        public void SetFloatValue(float value)
+        public virtual void SetValueWithoutNotify(T value)
         {
-            if (!CheckType(PanelBindingType.Float)) return;
-
-            _floatValue = value;
-            OnChanged?.Invoke();
-            OnFloatChanged?.Invoke(value);
-
-            OnValueChanged();
-            if (_hasBinding) WriteBindingValue();
-        }
-
-        public void SetBoolValue(bool value)
-        {
-            if (!CheckType(PanelBindingType.Bool)) return;
-
-            _boolValue = value;
-            OnChanged?.Invoke();
-            OnBoolChanged?.Invoke(value);
-
-            OnValueChanged();
-            if (_hasBinding) WriteBindingValue();
-        }
-
-        public virtual void SetIntValueWithoutNotify(int value)
-        {
-            if (!CheckType(PanelBindingType.Int)) return;
-
-            _intValue = value;
-        }
-
-        public virtual void SetFloatValueWithoutNotify(float value)
-        {
-            if (!CheckType(PanelBindingType.Float)) return;
-
-            _floatValue = value;
-        }
-
-        public virtual void SetBoolValueWithoutNotify(bool value)
-        {
-            if (!CheckType(PanelBindingType.Bool)) return;
-
-            _boolValue = value;
+            RawValue = value;
         }
 
         public virtual void OnValueChanged()
@@ -97,19 +36,25 @@ namespace Basis.VowganUI
 
         protected virtual void WriteBindingValue()
         {
-            switch (BindingType)
+            switch (RawValue)
             {
-                case PanelBindingType.Int:
-                    BasisSettingsSystem.SetIntAsync(BindingKey, _intValue);
+                case int intValue:
+                    BasisSettingsSystem.SetInt(BindingKey, intValue);
                     break;
-                case PanelBindingType.Float:
-                    BasisSettingsSystem.SetFloatAsync(BindingKey, _floatValue);
+                case Enum enumValue:
+                    BasisSettingsSystem.SetInt(BindingKey, Convert.ToInt32(enumValue));
                     break;
-                case PanelBindingType.Bool:
-                    BasisSettingsSystem.SetBoolAsync(BindingKey, _boolValue);
+                case float floatValue:
+                    BasisSettingsSystem.SetFloat(BindingKey, floatValue);
+                    break;
+                case bool boolValue:
+                    BasisSettingsSystem.SetBool(BindingKey, boolValue);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    Debug.LogError(
+                        $"[PanelBinding] Variable type {typeof(T)} not currently supported by BasisSettingsSystem value storage. No value will be stored.",
+                        this);
+                    break;
             }
         }
 
@@ -120,29 +65,43 @@ namespace Basis.VowganUI
             ReadBindingValue();
         }
 
-        protected virtual void ReadBindingValue()
+        public void BindValue(string bindingPath, BasisPlatformDefault<T> defaultValue)
         {
-            switch (BindingType)
-            {
-                case PanelBindingType.Int:
-                    SetIntValueWithoutNotify(BasisSettingsSystem.LoadInt(BindingKey));
-                    break;
-                case PanelBindingType.Float:
-                    SetFloatValueWithoutNotify(BasisSettingsSystem.LoadFloat(BindingKey));
-                    break;
-                case PanelBindingType.Bool:
-                    SetBoolValueWithoutNotify(BasisSettingsSystem.LoadBool(BindingKey));
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            _hasBinding = true;
+            _bindingKey = bindingPath;
+            DefaultValue = defaultValue;
+            ReadBindingValue();
         }
 
-        private bool CheckType(PanelBindingType type)
+        protected virtual void ReadBindingValue()
         {
-            if (BindingType == type) return true;
-            Debug.LogWarning($"Attempted to write an {type} value to a {BindingType} element.", this);
-            return false;
+            switch (RawValue)
+            {
+                case int _:
+                    SetValueWithoutNotify((T)(object)BasisSettingsSystem.LoadInt(BindingKey));
+                    break;
+                case Enum _:
+                    SetValueWithoutNotify((T)(object)BasisSettingsSystem.LoadInt(BindingKey));
+                    break;
+                case float _:
+                    SetValueWithoutNotify((T)(object)BasisSettingsSystem.LoadFloat(BindingKey));
+                    break;
+                case bool _:
+                    SetValueWithoutNotify((T)(object)BasisSettingsSystem.LoadBool(BindingKey));
+                    break;
+                default:
+                    Debug.LogError(
+                        $"[PanelBinding] Variable type {typeof(T)} not currently supported by BasisSettingsSystem value storage. No value will be loaded.",
+                        this);
+                    break;
+            }
+
+            OnBoundValueLoaded();
         }
+
+        protected virtual void OnBoundValueLoaded()
+        {
+        }
+
     }
 }

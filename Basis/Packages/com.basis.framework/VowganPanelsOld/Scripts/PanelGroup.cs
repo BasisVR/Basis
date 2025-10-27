@@ -69,7 +69,7 @@ namespace Basis.VowganUIOld
             string style)
         {
             Panel panel = Panel.CreateNew(data, MovementRoot, style);
-            panel.OnReleased += () => OnMovementPanelReleased(panel);
+            panel.OnInstanceReleased += () => OnMovementPanelReleased(panel);
 
             if (FocusedPanel)
             {
@@ -90,7 +90,7 @@ namespace Basis.VowganUIOld
             string style)
         {
             Panel panel = Panel.CreateNew(data, MovementRoot, style);
-            panel.OnReleased += () => OnMovementPanelReleased(panel);
+            panel.OnInstanceReleased += () => OnMovementPanelReleased(panel);
 
             RemoveAllMovementPanels();
 
@@ -119,7 +119,7 @@ namespace Basis.VowganUIOld
             string style)
         {
             Panel panel = Panel.CreateNew(data, StaticRoot, style);
-            panel.OnReleased += () => OnStaticPanelDestroyed(panel);
+            panel.OnInstanceReleased += () => OnStaticPanelDestroyed(panel);
 
             panel.PlaceRelativeToParent(StaticRoot, offset);
 

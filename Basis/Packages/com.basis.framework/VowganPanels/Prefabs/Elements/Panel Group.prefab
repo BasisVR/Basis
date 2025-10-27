@@ -88,7 +88,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  Style: 5
+  UseActiveStyle: 0
+  NormalStyle: 6
+  ActiveStyle: 6
 --- !u!1001 &3530907189613731438
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -246,7 +248,7 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 1722044340777725897, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 222081634406512418}
+      addedObject: {fileID: 8085781509158879729}
   m_SourcePrefab: {fileID: 100100000, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
 --- !u!114 &520397624830780072 stripped
 MonoBehaviour:
@@ -264,7 +266,7 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 1722044340777725897, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
   m_PrefabInstance: {fileID: 3530907189613731438}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &222081634406512418
+--- !u!114 &8085781509158879729
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -273,9 +275,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2802825932338606503}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 978a6219645efdb4fab14bfbaa7c910e, type: 3}
+  m_Script: {fileID: 11500000, guid: 7fb6f50fb0d412940b9279308b4352a5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.PanelElement
+  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.PanelTabPageGroup
   TitleLabel: {fileID: 520397624830780072}
   ContentParent: {fileID: 5859805971579726141}
 --- !u!224 &5859805971579726141 stripped

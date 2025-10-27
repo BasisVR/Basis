@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 3031206517093325293}
   - component: {fileID: 7582214117960706418}
   - component: {fileID: 6457183878072968987}
+  - component: {fileID: 7736647246930326885}
   m_Layer: 5
   m_Name: Panel Element Base
   m_TagString: Untagged
@@ -63,7 +64,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.25169095, g: 0.26415092, b: 0.26415092, a: 1}
+  m_Color: {r: 0.27, g: 0.277, b: 0.3, a: 0.5019608}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -92,7 +93,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  Style: 6
+  UseActiveStyle: 0
+  NormalStyle: 2
+  ActiveStyle: 2
 --- !u!114 &7582214117960706418
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -133,6 +136,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
   m_HorizontalFit: 0
   m_VerticalFit: 2
+--- !u!114 &7736647246930326885
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1722044340777725897}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: -1
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &5125034987649185907
 GameObject:
   m_ObjectHideFlags: 0
@@ -234,10 +257,12 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: New Text
+  m_text: 'Label
+
+'
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: d5e3db51eb660a74bacffd52668552f1, type: 2}
+  m_sharedMaterial: {fileID: 5446976611118035860, guid: d5e3db51eb660a74bacffd52668552f1, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -317,7 +342,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  Style: 4
+  UseActiveStyle: 0
+  NormalStyle: 5
+  ActiveStyle: 5
 --- !u!1 &8817202915772525060
 GameObject:
   m_ObjectHideFlags: 0

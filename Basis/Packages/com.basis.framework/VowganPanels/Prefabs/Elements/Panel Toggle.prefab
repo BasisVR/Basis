@@ -60,7 +60,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.31, g: 0.32, b: 0.32, a: 1}
+  m_Color: {r: 0.25169095, g: 0.26415092, b: 0.26415092, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -178,7 +178,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  Style: 4
+  Style: 5
 --- !u!1 &7275907572805581644
 GameObject:
   m_ObjectHideFlags: 0
@@ -382,7 +382,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9147120774322446489, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -148
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9147120774322446489, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

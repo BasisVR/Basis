@@ -12,11 +12,8 @@ namespace Basis.VowganUI
         Meters
     }
 
-    public class PanelSlider : PanelBindableElement
+    public class PanelSlider : PanelBindableElement<float>
     {
-
-        public override PanelBindingType BindingType => PanelBindingType.Float;
-
 
         [Serializable]
         public struct SliderSettings
@@ -30,6 +27,7 @@ namespace Basis.VowganUI
         }
 
         public TextMeshProUGUI CurrentValueLabel;
+        public OnEndDragListener OnEndDragListener;
         public SliderSettings Settings => _settings;
         protected SliderSettings _settings;
 
@@ -40,22 +38,32 @@ namespace Basis.VowganUI
         }
 
         public Slider SliderComponent;
+
+
         public static PanelSlider CreateNew(Component parent)
-        {
-            PanelSlider element = CreateNew<PanelSlider>(SliderStyles.Default, parent);
-            return element;
-        }
+            => CreateNew<PanelSlider>(SliderStyles.Default, parent);
+
+        public static PanelSlider CreateNew(string style, Component parent)
+            => CreateNew<PanelSlider>(style, parent);
+
 
         public override void OnCreateEvent()
         {
             base.OnCreateEvent();
             ApplySliderSettings();
-            SliderComponent.onValueChanged.AddListener(OnSliderValueChanged);
+            OnEndDragListener.OnDragComplete += OnSliderDragComplete;
+            // SliderComponent.onValueChanged.AddListener(OnSliderValueChanged);
+        }
+
+        private void OnSliderDragComplete()
+        {
+            SetValue(SliderComponent.value);
+            ApplyVisual();
         }
 
         private void OnSliderValueChanged(float value)
         {
-            SetFloatValue(value);
+            SetValue(value);
             ApplyVisual();
         }
 
@@ -72,9 +80,9 @@ namespace Basis.VowganUI
             SliderComponent.wholeNumbers = Settings.UseWholeNumbers;
         }
 
-        public override void SetFloatValueWithoutNotify(float value)
+        public override void SetValueWithoutNotify(float value)
         {
-            base.SetFloatValueWithoutNotify(value);
+            base.SetValueWithoutNotify(value);
             SliderComponent.SetValueWithoutNotify(value);
             ApplyVisual();
         }
@@ -82,9 +90,9 @@ namespace Basis.VowganUI
         public override void OnValueChanged()
         {
             base.OnValueChanged();
-            if (!Mathf.Approximately(SliderComponent.value, FloatValue))
+            if (!Mathf.Approximately(SliderComponent.value, RawValue))
             {
-                SliderComponent.SetValueWithoutNotify(FloatValue);
+                SliderComponent.SetValueWithoutNotify(RawValue);
                 ApplyVisual();
             }
         }
@@ -93,24 +101,22 @@ namespace Basis.VowganUI
         {
             TitleLabel.text = Settings.Title;
 
-
             switch (Settings.DisplayMode)
             {
                 case ValueDisplayMode.Percentage:
                     float range = SliderComponent.maxValue - SliderComponent.minValue;
-                    float normalized = (range > 0f) ? (FloatValue - SliderComponent.minValue) / range : 0f;
+                    float normalized = (range > 0f) ? (RawValue - SliderComponent.minValue) / range : 0f;
                     CurrentValueLabel.text = $"{Mathf.RoundToInt(normalized * 100f)}%";
                     break;
 
                 case ValueDisplayMode.Raw:
-                    CurrentValueLabel.text = FloatValue.ToString("0." + new string('#', Settings.DecimalPlaces));
+                    CurrentValueLabel.text = RawValue.ToString("0." + new string('#', Settings.DecimalPlaces));
                     break;
 
                 case ValueDisplayMode.Meters:
-                    CurrentValueLabel.text = FloatValue.ToString("0." + new string('#', Settings.DecimalPlaces)) + " m";
+                    CurrentValueLabel.text = RawValue.ToString("0." + new string('#', Settings.DecimalPlaces)) + " m";
                     break;
             }
         }
-
     }
 }

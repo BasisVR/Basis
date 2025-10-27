@@ -1,6 +1,5 @@
 using System;
 using Basis.Scripts.UI;
-using TMPro;
 using UnityEngine;
 
 namespace Basis.VowganUI
@@ -24,7 +23,7 @@ namespace Basis.VowganUI
                 PanelPosition = default,
             };
 
-            public static PanelData Hotbar(string title) => new()
+            public static PanelData Toolbar(string title) => new()
             {
                 Title = title,
                 PanelSize = new Vector2(1000, 150),
@@ -36,6 +35,7 @@ namespace Basis.VowganUI
         {
             public static string Default => "VowganUI/Panel";
             public static string Page => "VowganUI/Panel-Page";
+            public static string TabPage => "Packages/com.basis.framework/VowganPanels/Prefabs/Menu Panel - Tab Page.prefab";
         }
 
         [Header("Readout")]
@@ -45,6 +45,17 @@ namespace Basis.VowganUI
         /// Instantiate a new Panel and load in the corresponding panel data.
         /// </summary>
         public static BasisMenuPanel CreateNew(PanelData data, Component parent) => CreateNew(data, parent, Styles.Default);
+
+
+        /// <summary>
+        /// Instantiate a new Panel and load in the corresponding panel data.
+        /// </summary>
+        public static BasisMenuPanel CreateNewTabPage(PanelData data, Component parent, out PanelTabGroup tabGroup)
+        {
+            BasisMenuPanel page = CreateNew(data, parent, Styles.TabPage);
+            tabGroup = page.GetComponentInChildren<PanelTabGroup>();
+            return page;
+        }
 
         /// <summary>
         /// Instantiate a new Panel and load in the corresponding panel data.

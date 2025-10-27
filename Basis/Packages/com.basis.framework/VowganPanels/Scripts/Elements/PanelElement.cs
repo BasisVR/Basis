@@ -1,28 +1,33 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Basis.VowganUI
 {
+    [RequireComponent(typeof(LayoutElement))]
     public class PanelElement : AddressableUIInstanceBase
     {
         public TextMeshProUGUI TitleLabel;
         public RectTransform ContentParent;
 
-        public static class ElementStyles
+        public LayoutElement Layout
         {
-            public static string Group => "VowganUI/Elements/Group";
+            get
+            {
+                if (!_layout) _layout = GetComponent<LayoutElement>();
+                return _layout;
+            }
         }
-
-        public static PanelElement CreateGroup(Component parent)
-        {
-            PanelElement group = CreateNew<PanelElement>(ElementStyles.Group, parent);
-            return group;
-        }
+        private LayoutElement _layout;
 
         public void SetTitle(string title)
         {
             TitleLabel.text = title;
         }
 
+        public void SetActive(bool value)
+        {
+            gameObject.SetActive(value);
+        }
     }
 }

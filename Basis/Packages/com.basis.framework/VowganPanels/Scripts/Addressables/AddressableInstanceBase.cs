@@ -12,7 +12,7 @@ namespace Basis.VowganUI
     public abstract class AddressableInstanceBase : MonoBehaviour, IAddressableInstance
     {
 
-        public Action OnReleased
+        public Action OnInstanceReleased
         {
             get => _onReleased;
             set => _onReleased = value;
@@ -32,6 +32,8 @@ namespace Basis.VowganUI
         /// </summary>
         public virtual void OnReleaseEvent(){}
 
+        public bool HasRunCreateEvent => _hasRunCreateEvent;
+        protected bool _hasRunCreateEvent;
 
         /// <summary>
         /// Create a new Addressable UI Instance from a given path.
@@ -41,7 +43,7 @@ namespace Basis.VowganUI
             //TODO: if the string is an invalid path, this will error. Create better handling for this.
             GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
             TInstance instance = obj.GetComponent<TInstance>();
-            instance.OnCreateEvent();
+            if (!instance.HasRunCreateEvent) instance.OnCreateEvent();
             return instance;
         }
 
@@ -54,7 +56,7 @@ namespace Basis.VowganUI
             GameObject obj = Addressables.InstantiateAsync(referencePath,
                 new InstantiationParameters(parent.transform, false)).WaitForCompletion();
             TElement element = obj.GetComponent<TElement>();
-            element.OnCreateEvent();
+            if (!element.HasRunCreateEvent) element.OnCreateEvent();
             return element;
         }
 
@@ -66,7 +68,7 @@ namespace Basis.VowganUI
         {
             _isReleased = true;
             OnReleaseEvent();
-            OnReleased?.Invoke();
+            OnInstanceReleased?.Invoke();
             Addressables.ReleaseInstance(gameObject);
         }
 

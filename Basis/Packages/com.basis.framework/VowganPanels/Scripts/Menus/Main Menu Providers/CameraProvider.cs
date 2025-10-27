@@ -14,7 +14,8 @@ namespace Basis.VowganUI
 
 
         public override string Title => "Camera";
-        public override Sprite Icon => null;
+        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Camera);
+        public override bool IconIsAddressable => true;
         public override int Order => 4;
 
         public static GameObject ActiveCameraInstance;

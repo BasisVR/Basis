@@ -25,7 +25,7 @@ namespace Basis.VowganUIOld
                 PanelOffset,
                 Panel.Styles.Page);
 
-            Panel.OnReleased += () => Group.ReleaseInstance();
+            Panel.OnInstanceReleased += () => Group.ReleaseInstance();
 
             return Panel;
         }

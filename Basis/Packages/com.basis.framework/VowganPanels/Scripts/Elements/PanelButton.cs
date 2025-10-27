@@ -1,5 +1,4 @@
 using Basis.VowganUI.Styling;
-using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -11,59 +10,50 @@ namespace Basis.VowganUI
         public static class ButtonStyles
         {
             public static string Default => "VowganUI/Elements/Button";
+            public static string Tab => "Packages/com.basis.framework/VowganPanels/Prefabs/Elements/Panel Button - Tab Variant.prefab";
+            public static string Hotbar => "Packages/com.basis.framework/VowganPanels/Prefabs/Elements/Panel Button - Hotbar Variant.prefab";
         }
 
         public Button ButtonComponent;
         public Image Icon;
-        public PaletteImage Styling;
-        public UnityEvent OnClicked;
+        public StyleImage BackgroundStyling;
+        public StyleImage IconStyling;
+        public StyleLabel LabelStyling;
+        public UnityEvent OnClicked => ButtonComponent.onClick;
 
-        public PaletteStyle NormalStyle = PaletteStyle.ButtonColor;
-        public PaletteStyle ActiveStyle = PaletteStyle.SuccessColor;
+        protected bool _iconIsAddressable;
+
+
+        public static PanelButton CreateNew(Component parent)
+            => CreateNew<PanelButton>(ButtonStyles.Default, parent);
+
+        public static PanelButton CreateNew(string style, Component parent)
+            => CreateNew<PanelButton>(style, parent);
+
 
         public void UseActiveStyle(bool value)
         {
-            Styling?.SetStyling(value ? ActiveStyle : NormalStyle);
+            BackgroundStyling.SetActiveState(value);
+            IconStyling.SetActiveState(value);
+            LabelStyling.SetActiveState(value);
         }
 
-        public static PanelButton CreateNew(Component parent)
+        public void SetIcon(Sprite icon, bool isAddressable)
         {
-            PanelButton button = CreateNew<PanelButton>(ButtonStyles.Default, parent);
-            return button;
-        }
-
-        public static PanelButton CreateNew(Component parent, string label)
-        {
-            PanelButton button = CreateNew(parent);
-            button.TitleLabel.text = label;
-            return button;
-        }
-
-        public static PanelButton CreateNew(Component parent, string label, Sprite icon)
-        {
-            PanelButton button = CreateNew(parent);
-            button.TitleLabel.text = label;
-            button.Icon.sprite = icon;
-            return button;
-        }
-
-        public static PanelButton CreateNew(Component parent, Sprite icon)
-        {
-            PanelButton button = CreateNew(parent);
-            button.Icon.sprite = icon;
-            return button;
+            Icon.sprite = icon;
+            _iconIsAddressable = isAddressable;
         }
 
         public override void OnCreateEvent()
         {
             base.OnCreateEvent();
-            ButtonComponent.onClick.AddListener(OnClick);
+            OnClicked.AddListener(OnClick);
             UseActiveStyle(false);
         }
 
         public virtual void OnClick()
         {
-            OnClicked?.Invoke();
+            // Debug.Log($"OnClick pressed for {gameObject}", gameObject);
         }
 
         /// <summary>
@@ -73,10 +63,16 @@ namespace Basis.VowganUI
             IAddressableInstance instance)
         {
             UseActiveStyle(true);
-            instance.OnReleased += () =>
+            instance.OnInstanceReleased += () =>
             {
                 UseActiveStyle(false);
             };
+        }
+
+        public override void OnReleaseEvent()
+        {
+            base.OnReleaseEvent();
+            if (Icon.sprite && _iconIsAddressable) AddressableAssets.Release(Icon.sprite);
         }
     }
 }

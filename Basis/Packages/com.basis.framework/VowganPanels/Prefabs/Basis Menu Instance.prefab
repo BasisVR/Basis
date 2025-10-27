@@ -47,7 +47,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUIOld.BasisMenuInstance
   PanelRoot: {fileID: 2105398421684032071}
-  Mover: {fileID: 6622478774740261033}
 --- !u!114 &6622478774740261033
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -63,6 +62,7 @@ MonoBehaviour:
   GroupOffset: {fileID: 2105398421684032071}
   RootMode: 2
   DesktopRootMode: 1
+  RootScale: 0.0005
   WorldOffset:
     Position: {x: 0, y: 0, z: 0}
     EulerRotation: {x: 0, y: 0, z: 0}
@@ -72,7 +72,7 @@ MonoBehaviour:
     EulerRotation: {x: 0, y: 0, z: 0}
     Scale: 1
   HeadOffset:
-    Position: {x: 0, y: 0.05, z: 0.35}
+    Position: {x: 0, y: 0.05, z: 0.3}
     EulerRotation: {x: 0, y: 0, z: 0}
     Scale: 1
   LeftHandOffset:

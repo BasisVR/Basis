@@ -16,6 +16,7 @@ using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
+[CanEditMultipleObjects]
 [CustomEditor(typeof(MonoBehaviour), true, isFallback = true)]
 public class BasisDocInspector_UI : Editor
 {
@@ -91,19 +92,22 @@ public class BasisDocInspector_UI : Editor
 
         if (!_useApiPanel)
         {
-            return new IMGUIContainer(() => base.OnInspectorGUI());
+            return base.CreateInspectorGUI();
+            // return new IMGUIContainer(() => base.OnInspectorGUI());
         }
 
         var root = new VisualElement
         {
-            style =
+            /*style =
             {
                 marginLeft = 6, marginRight = 6, marginTop = 6, marginBottom = 6
-            }
+            }*/
         };
 
-        var defaultIMGUI = new IMGUIContainer(() => base.OnInspectorGUI());
-        root.Add(defaultIMGUI);
+        InspectorElement.FillDefaultInspector(root, serializedObject, this);
+
+        // var defaultIMGUI = new IMGUIContainer(() => base.OnInspectorGUI());
+        // root.Add(defaultIMGUI);
 
         // Spacing + divider
         root.Add(Spacer(10));
@@ -178,7 +182,7 @@ public class BasisDocInspector_UI : Editor
     private VisualElement BuildApiSplitView()
     {
         // OUTER: [ Left(Filters) | Right(InnerSplit) ]
-        var outer = new TwoPaneSplitView(0, 220, TwoPaneSplitViewOrientation.Horizontal)
+        var outer = new TwoPaneSplitView(0, 90, TwoPaneSplitViewOrientation.Horizontal)
         {
             style = { minHeight = 420, height = 460 }
         };
@@ -201,6 +205,7 @@ public class BasisDocInspector_UI : Editor
 
         // Filter chips
         var chips = new Toolbar();
+        chips.style.flexDirection = FlexDirection.Column;
         chips.style.position = Position.Relative;
         _fltFields = Chip("Fields", true);
         _fltProps = Chip("Properties", true);
@@ -306,8 +311,9 @@ public class BasisDocInspector_UI : Editor
     private ToolbarToggle Chip(string text, bool value)
     {
         var t = new ToolbarToggle { text = text, value = value };
+        t.style.height = 20;
         t.RegisterValueChangedCallback(_ => ApplyFilter());
-        t.style.unityTextAlign = TextAnchor.MiddleCenter;
+        t.style.unityTextAlign = TextAnchor.MiddleLeft;
         t.style.backgroundColor = value ? ColChipOn : ColChipBg;
         t.RegisterCallback<ChangeEvent<bool>>(e => { t.style.backgroundColor = e.newValue ? ColChipOn : ColChipBg; });
         return t;

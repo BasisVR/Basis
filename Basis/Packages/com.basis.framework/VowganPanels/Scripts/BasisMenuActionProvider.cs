@@ -17,12 +17,13 @@ namespace Basis.VowganUI
 
         public abstract string Title { get; }
         public abstract Sprite Icon { get; }
+        public abstract bool IconIsAddressable { get; }
         public abstract int Order { get; }
         public abstract void RunAction();
 
 
-        public virtual PaletteStyle NormalStyle => PaletteStyle.ButtonColor;
-        public virtual PaletteStyle ActiveStyle => PaletteStyle.SuccessColor;
+        public virtual PaletteStyle NormalStyle => PaletteStyle.FontColor1;
+        public virtual PaletteStyle ActiveStyle => PaletteStyle.WhiteColor;
 
 
         public BasisMenuBase<TMenu> BoundMenu;
@@ -33,8 +34,10 @@ namespace Basis.VowganUI
             BoundMenu = menu;
             BoundButton = button;
 
-            BoundButton.NormalStyle = NormalStyle;
-            BoundButton.ActiveStyle = ActiveStyle;
+            BoundButton.IconStyling.NormalStyle = NormalStyle;
+            BoundButton.LabelStyling.NormalStyle = NormalStyle;
+            BoundButton.IconStyling.ActiveStyle = ActiveStyle;
+            BoundButton.LabelStyling.ActiveStyle = ActiveStyle;
             BoundButton.UseActiveStyle(false);
 
             BoundButton.OnClicked.AddListener(() =>

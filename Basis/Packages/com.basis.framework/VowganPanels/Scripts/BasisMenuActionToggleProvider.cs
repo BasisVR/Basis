@@ -1,6 +1,3 @@
-using System;
-using UnityEngine;
-
 namespace Basis.VowganUI
 {
     public abstract class BasisToggleMenuActionProvider<TMenu> :

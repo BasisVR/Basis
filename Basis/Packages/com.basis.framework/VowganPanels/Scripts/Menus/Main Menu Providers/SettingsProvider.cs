@@ -12,16 +12,17 @@ namespace Basis.VowganUI
         }
 
         public override string Title => "Settings";
-        public override Sprite Icon => null;
+        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Settings);
+        public override bool IconIsAddressable => true;
         public override int Order => 0;
 
         public override void RunAction()
         {
-            if (BasisMainMenu.ActiveMenuName == Title) return;
+            if (BasisMainMenu.ActiveMenuTitle == Title) return;
 
-            BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
+            BasisMenuPanel panel = BasisMainMenu.CreateActiveTabMenu(
                 BasisMenuPanel.PanelData.Standard(Title),
-                BasisMenuPanel.Styles.Page);
+                BasisMenuPanel.Styles.Page, out PanelTabGroup tabGroup);
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
 
             PanelLayoutContainer layout = PanelLayoutContainer.CreateNew(panel.ContentParent, LayoutDirection.Vertical);
@@ -37,13 +38,53 @@ namespace Basis.VowganUI
             layout.ApplyLayoutOptions();
 
             layout.LayoutGroup.padding = new RectOffset(
-                40,
-                40,
+                20,
+                20,
                 10,
                 10);
             layout.LayoutGroup.spacing = 10;
 
-            PanelElement group = PanelElement.CreateGroup(layout.ContentParent);
+            tabGroup.AddTab("General", null, false, GeneralTab(layout.ContentParent));
+            tabGroup.AddTab("Audio", null, false, AudioTab(layout.ContentParent));
+            tabGroup.AddTab("Graphics", null, false, GraphicsTab(layout.ContentParent));
+            tabGroup.AddTab("Settings", null, false, SettingsTab(layout.ContentParent));
+
+
+            /*
+            PanelSlider.CreateNew(layout.ContentParent);
+            PanelToggle.CreateNew(layout.ContentParent);
+            PanelDropdown.CreateNew(layout.ContentParent);
+            */
+
+            tabGroup.BindValue("BasisVR/SettingsTabs");
+        }
+
+        public static PanelLayoutContainer GeneralTab(Component parent)
+        {
+            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+
+            PanelSlider.CreateNew(tab.ContentParent);
+            PanelSlider.CreateNew(tab.ContentParent);
+
+            return tab;
+        }
+
+        public static PanelLayoutContainer AudioTab(Component parent)
+        {
+            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+            tab.ChildLayoutOptions = new LayoutContainerOptions
+            {
+                Alignment = TextAnchor.UpperLeft,
+                Constrained = false,
+                StretchItemWidth = true,
+                StretchItemHeight = false,
+                SpreadItemWidth = false,
+                SpreadItemHeight = false
+            };
+            tab.ApplyLayoutOptions();
+
+
+            PanelElement group = PanelTabPageGroup.CreateNew(tab.ContentParent);
             group.SetTitle("Volume Mixer");
 
             PanelSlider sliderMainVolume = PanelSlider.CreateNew(group.ContentParent);
@@ -70,12 +111,29 @@ namespace Basis.VowganUI
             });
             sliderMenuVolume.BindValue("menu volume");
 
-            /*
-            PanelSlider.CreateNew(layout.ContentParent);
-            PanelToggle.CreateNew(layout.ContentParent);
-            PanelDropdown.CreateNew(layout.ContentParent);
-            */
 
+            return tab;
         }
+
+        public static PanelLayoutContainer GraphicsTab(Component parent)
+        {
+            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+
+            PanelSlider.CreateNew(tab.ContentParent);
+            PanelSlider.CreateNew(tab.ContentParent);
+
+            return tab;
+        }
+
+        public static PanelLayoutContainer SettingsTab(Component parent)
+        {
+            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+
+            PanelSlider.CreateNew(tab.ContentParent);
+            PanelSlider.CreateNew(tab.ContentParent);
+
+            return tab;
+        }
+
     }
 }

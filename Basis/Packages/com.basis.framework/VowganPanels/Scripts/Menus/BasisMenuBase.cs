@@ -55,7 +55,9 @@ namespace Basis.VowganUI
 
             foreach (BasisMenuActionProvider<TMenu> provider in Providers)
             {
-                PanelButton button = PanelButton.CreateNew(ProviderButtonParent, provider.Title);
+                PanelButton button = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, ProviderButtonParent);
+                button.SetTitle(provider.Title);
+                if (provider.Icon) button.SetIcon(provider.Icon, provider.IconIsAddressable);
                 provider.BindToButton(this, button);
                 ProviderButtons.Add(button);
             }

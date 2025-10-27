@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7698884056587150131}
   - component: {fileID: 7962664633762634462}
   - component: {fileID: 1526951993343839177}
+  - component: {fileID: 1854924377176811306}
   - component: {fileID: 6116105535680155345}
   m_Layer: 5
   m_Name: Layout Container Horizontal
@@ -78,6 +79,26 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
   m_HorizontalFit: 0
   m_VerticalFit: 0
+--- !u!114 &1854924377176811306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2963032075086741665}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: -1
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!114 &6116105535680155345
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -90,11 +111,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc58095392b6e2444879173630a4c5f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.LayoutContainer
-  IsReleased: 0
+  TitleLabel: {fileID: 0}
   ContentParent: {fileID: 7698884056587150131}
   LayoutGroup: {fileID: 7962664633762634462}
   ContentFitter: {fileID: 1526951993343839177}
-  ChildLayout:
+  ChildLayoutOptions:
     Alignment: 0
     Constrained: 0
     StretchItemWidth: 0

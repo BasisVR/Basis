@@ -10,7 +10,7 @@ namespace Basis.VowganUI
 {
     public class PanelLayoutContainer : PanelElement
     {
-        public static class Styles
+        public static class LayoutStyles
         {
             public static string Vertical => "VowganUI/Elements/LayoutContainerVertical";
             public static string Horizontal => "VowganUI/Elements/LayoutContainerHorizontal";
@@ -36,12 +36,12 @@ namespace Basis.VowganUI
             switch (direction)
             {
                 case LayoutDirection.Vertical:
-                    element = CreateNew<PanelLayoutContainer>(Styles.Vertical, parent);
+                    element = CreateNew<PanelLayoutContainer>(LayoutStyles.Vertical, parent);
                     element._direction = LayoutDirection.Vertical;
                     return element;
 
                 case LayoutDirection.Horizontal:
-                    element = CreateNew<PanelLayoutContainer>(Styles.Horizontal, parent);
+                    element = CreateNew<PanelLayoutContainer>(LayoutStyles.Horizontal, parent);
                     element._direction = LayoutDirection.Horizontal;
                     return element;
 

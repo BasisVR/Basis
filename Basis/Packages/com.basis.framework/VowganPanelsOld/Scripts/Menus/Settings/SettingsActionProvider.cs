@@ -24,7 +24,7 @@ namespace Basis.VowganUIOld
         public void CreateMenu()
         {
             SettingsMenu.CreateMenu(HomeRowMenu.Instance.Group);
-            SettingsMenu.Instance.Panel.OnReleased += DisableAction;
+            SettingsMenu.Instance.Panel.OnInstanceReleased += DisableAction;
         }
 
     }

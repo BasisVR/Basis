@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.VowganUI
@@ -7,7 +5,9 @@ namespace Basis.VowganUI
     public class BasisMainMenu : BasisMenuBase<BasisMainMenu>
     {
 
-        public static string ActiveMenuName
+        public static string MenuTitle => "Main";
+
+        public static string ActiveMenuTitle
         {
             get
             {
@@ -24,7 +24,7 @@ namespace Basis.VowganUI
         public BasisMainMenu()
         {
             TabMenu = BasisMenuPanel.CreateNew(
-                BasisMenuPanel.PanelData.Hotbar("Main Menu"),
+                BasisMenuPanel.PanelData.Toolbar(MenuTitle),
                 MenuObjectInstance.PanelRoot);
 
             TabContainer = PanelLayoutContainer.CreateNew(TabMenu.ContentParent, LayoutDirection.Horizontal);
@@ -33,13 +33,13 @@ namespace Basis.VowganUI
             {
                 Alignment = TextAnchor.MiddleCenter,
                 Constrained = false,
-                StretchItemWidth = false,
-                StretchItemHeight = false,
+                StretchItemWidth = true,
+                StretchItemHeight = true,
                 SpreadItemWidth = true,
                 SpreadItemHeight = true
             });
 
-            TabContainer.LayoutGroup.padding = new RectOffset(100, 100, 0, 0);
+            // TabContainer.LayoutGroup.padding = new RectOffset(100, 100, 0, 0);
 
             BindProvidersToButtons();
         }
@@ -83,6 +83,33 @@ namespace Basis.VowganUI
                 data,
                 Instance.MenuObjectInstance.PanelRoot,
                 style);
+            return Instance.ActiveMenu;
+        }
+
+        public static BasisMenuPanel CreateActiveTabMenu(BasisMenuPanel.PanelData data, string style, out PanelTabGroup tabGroup)
+        {
+            tabGroup = null;
+
+            if (Instance.Dialogue)
+            {
+                Instance.Dialogue.ReleaseInstance();
+            }
+            if (Instance.ActiveMenu)
+            {
+                if (Instance.ActiveMenu.Data.Title == data.Title)
+                {
+                    tabGroup = null;
+                    return Instance.ActiveMenu;
+                }
+                else
+                    Instance.ActiveMenu.ReleaseInstance();
+            }
+
+            Instance.ActiveMenu = BasisMenuPanel.CreateNewTabPage(
+                data,
+                Instance.MenuObjectInstance.PanelRoot,
+                out tabGroup);
+
             return Instance.ActiveMenu;
         }
 
