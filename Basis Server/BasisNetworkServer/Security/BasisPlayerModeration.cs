@@ -105,8 +105,7 @@ namespace BasisNetworkServer.Security
             }
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
 
-
-            NetworkServer.Server.DisconnectPeer(peers, Encoding.UTF8.GetBytes(reason));
+            peers.Disconnect(Encoding.UTF8.GetBytes(reason));
 
             if (BannedUUIDs.Contains(UUID))
             {
@@ -141,7 +140,7 @@ namespace BasisNetworkServer.Security
 
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
 
-            NetworkServer.Server.DisconnectPeer(peers, Encoding.UTF8.GetBytes(reason));
+            peers.Disconnect(Encoding.UTF8.GetBytes(reason));
             string ip = peers.Address.ToString();
 
             if (BannedUUIDs.Contains(UUID))
@@ -175,7 +174,7 @@ namespace BasisNetworkServer.Security
 
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
 
-            NetworkServer.Server.DisconnectPeer(peers, Encoding.UTF8.GetBytes(reason));
+            peers.Disconnect(Encoding.UTF8.GetBytes(reason));
             return $"Player {UUID} kicked successfully.";
         }
 

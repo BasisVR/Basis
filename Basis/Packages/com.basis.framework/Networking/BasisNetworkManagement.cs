@@ -314,7 +314,7 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Network statistics snapshot from the peer.
         /// </summary>
-        public static NetStatistics Statistics() => LocalPlayerPeer?.Statistics;
+        // public static NetStatistics Statistics() => LocalPlayerPeer?.Statistics;
 
         /// <summary>
         /// Converts a DateTime to a relative number of seconds from now.

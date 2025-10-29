@@ -9,6 +9,7 @@ using BasisServerHandle;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
 
 public static class NetworkServer
 {
@@ -65,31 +66,33 @@ public static class NetworkServer
     {
         Listener = new EventBasedNetListener();
 
-        Server = new NetManager(Listener)
-        {
-            AutoRecycle = false,
-            UnconnectedMessagesEnabled = false,
-            NatPunchEnabled = configuration.NatPunchEnabled,
-            AllowPeerAddressChange = configuration.AllowPeerAddressChange,
-            BroadcastReceiveEnabled = false,
-            UseNativeSockets = configuration.UseNativeSockets,
-            ChannelsCount = BasisNetworkCommons.TotalChannels,
-            EnableStatistics = configuration.EnableStatistics,
-            IPv6Enabled = configuration.IPv6Enabled,
-            UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
-            PingInterval = configuration.PingInterval,
-            DisconnectTimeout = configuration.DisconnectTimeout,
-            UnsyncedEvents = true,
-            ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
-            PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
-            SimulateLatency = configuration.SimulateLatency,
-            SimulatePacketLoss = configuration.SimulatePacketLoss,
-            SimulationMaxLatency = configuration.SimulationMaxLatency,
-            SimulationMinLatency = configuration.SimulationMinLatency,
-            SimulationPacketLossChance = configuration.SimulationPacketLossChance,
-            MtuDiscovery = configuration.MtuDiscovery,
-            MtuOverride = configuration.MtuOverride
-        };
+        // Server = new NetManager(Listener)
+        // {
+        //     AutoRecycle = false,
+        //     UnconnectedMessagesEnabled = false,
+        //     NatPunchEnabled = configuration.NatPunchEnabled,
+        //     AllowPeerAddressChange = configuration.AllowPeerAddressChange,
+        //     BroadcastReceiveEnabled = false,
+        //     UseNativeSockets = configuration.UseNativeSockets,
+        //     ChannelsCount = BasisNetworkCommons.TotalChannels,
+        //     EnableStatistics = configuration.EnableStatistics,
+        //     IPv6Enabled = configuration.IPv6Enabled,
+        //     UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
+        //     PingInterval = configuration.PingInterval,
+        //     DisconnectTimeout = configuration.DisconnectTimeout,
+        //     UnsyncedEvents = true,
+        //     ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
+        //     PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
+        //     SimulateLatency = configuration.SimulateLatency,
+        //     SimulatePacketLoss = configuration.SimulatePacketLoss,
+        //     SimulationMaxLatency = configuration.SimulationMaxLatency,
+        //     SimulationMinLatency = configuration.SimulationMinLatency,
+        //     SimulationPacketLossChance = configuration.SimulationPacketLossChance,
+        //     MtuDiscovery = configuration.MtuDiscovery,
+        //     MtuOverride = configuration.MtuOverride
+        // };
+
+        Server = new LNLNetManager(Listener, configuration.UseNativeSockets);
 
         NetDebug.Logger = new BasisServerLogger();
         StartListening(configuration);
@@ -100,7 +103,7 @@ public static class NetworkServer
         if (configuration.OverrideAutoDiscoveryOfIpv)
         {
             BNL.Log($"Server Wiring up SetPort {Configuration.SetPort} IPv6Address {Configuration.IPv6Address}");
-            Server.Start(Configuration.IPv4Address, Configuration.IPv6Address, Configuration.SetPort);
+            Server.Start(IPAddress.Parse(Configuration.IPv4Address), IPAddress.Parse(Configuration.IPv6Address), Configuration.SetPort);
         }
         else
         {

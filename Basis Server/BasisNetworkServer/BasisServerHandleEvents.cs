@@ -45,9 +45,9 @@ namespace BasisServerHandle
 
         #region Network Event Handlers
 
-        public static void OnNetworkError(DisconnectInfo reason)
+        public static void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
         {
-            BNL.LogError($"Endpoint {reason.Reason}");
+            BNL.LogError($"Endpoint {endPoint.ToString()} was reported with error {socketError}");
         }
         #endregion
 

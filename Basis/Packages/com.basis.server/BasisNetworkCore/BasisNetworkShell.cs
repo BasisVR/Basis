@@ -1,6 +1,7 @@
-using UnityEngine;
 using System;
 using System.Net;
+using LiteNetLib;
+using System.Net.Sockets;
 
 namespace Basis.Network.Core
 {
@@ -22,16 +23,26 @@ namespace Basis.Network.Core
 
 	public struct DisconnectInfo
 	{
-        public DisconnectReason Reason;
-        public System.Net.Sockets.SocketError SocketErrorCode;
-        public NetPacketReader AdditionalData;
+		public DisconnectReason Reason;
+		public System.Net.Sockets.SocketError SocketErrorCode;
+		public NetPacketReader AdditionalData;
+
+		public static explicit operator DisconnectInfo(LiteNetLib.DisconnectInfo info) {
+			return new DisconnectInfo
+			{
+				// TODO: better enum conversion?
+				Reason = (DisconnectReason)(int)info.Reason,
+				SocketErrorCode = info.SocketErrorCode,
+				AdditionalData = null, // TODO: convert to common netpacketreader
+			};
+		}
 	}
 
 
-	public class EventBasedNetListener
+	public class EventBasedNetListener: LiteNetLib.INetEventListener
 	{
 		public delegate void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo);
-		public delegate void OnNetworkError(DisconnectInfo reason);
+		public delegate void OnNetworkError(IPEndPoint endPoint, SocketError socketError);
 		public delegate void OnNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod);
 		public delegate void OnConnectionRequest(ConnectionRequest request);
 		public delegate void OnPeerConnected(NetPeer peer);
@@ -41,92 +52,88 @@ namespace Basis.Network.Core
 		public event OnNetworkReceive NetworkReceiveEvent;
 		public event OnNetworkError NetworkErrorEvent;
 		public event OnPeerConnected PeerConnectedEvent;
-	}
 
-	public class ConnectionRequest
-	{
-		public void Reject( NetDataWriter w ) { }
-		public NetPeer Accept() { return null; }
-		public NetDataReader Data;
-		public readonly IPEndPoint RemoteEndPoint;
-	}
-
-	public class NetPeer : IPEndPoint
-	{
-		public NetPeer(NetManager netManager, IPEndPoint remoteEndPoint, int id) : base(remoteEndPoint.Address, remoteEndPoint.Port)
+		void INetEventListener.OnConnectionRequest(LiteNetLib.ConnectionRequest request)
 		{
+			ConnectionRequestEvent?.Invoke(new LNLConnectionRequest(request));
 		}
 
-		public void Disconnect() { }
-		public void Send(byte[] data, byte channelNumber, DeliveryMethod deliveryMethod ) { }
-		public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod ) { }
-		public void DisconnectPeerForce(NetPeer peer) { }
-		public int GetPacketsCountInQueue( int channel, DeliveryMethod deliveryMethod ) { return 0; }
-		public int Id;
-		public string Address;
-		public int RemoteId;
-		private int _avgRtt;
-		public int RoundTripTime => _avgRtt;
-		public int Ping => _avgRtt / 2;
-		private volatile float _timeSinceLastPacket;
-		private long _remoteDelta;
-		public float TimeSinceLastPacket => _timeSinceLastPacket;
-		public long RemoteTimeDelta => _remoteDelta;
-		public DateTime RemoteUtcTime => new DateTime(DateTime.UtcNow.Ticks + _remoteDelta);
+		void INetEventListener.OnPeerDisconnected(LiteNetLib.NetPeer peer, LiteNetLib.DisconnectInfo disconnectInfo)
+		{
+			PeerDisconnectedEvent?.Invoke(new LNLNetPeer(peer), (DisconnectInfo)disconnectInfo);
+		}
 
-		public readonly NetStatistics Statistics;
+		void INetEventListener.OnPeerConnected(LiteNetLib.NetPeer peer)
+		{
+			PeerConnectedEvent?.Invoke(new LNLNetPeer(peer));
+		}
+
+		void INetEventListener.OnNetworkError(IPEndPoint endPoint, SocketError socketError)
+		{
+			NetworkErrorEvent?.Invoke(endPoint, socketError);
+		}
+
+		void INetEventListener.OnNetworkReceive(LiteNetLib.NetPeer peer, LiteNetLib.NetPacketReader reader, byte channelNumber, LiteNetLib.DeliveryMethod deliveryMethod)
+		{
+			// TODO: convert netpacketreader to common
+			NetworkReceiveEvent?.Invoke(new LNLNetPeer(peer), null, channelNumber, (DeliveryMethod)(byte)deliveryMethod);
+		}
+
+		void INetEventListener.OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, LiteNetLib.NetPacketReader reader, UnconnectedMessageType messageType)
+		{
+			// unused
+		}
+
+		void INetEventListener.OnNetworkLatencyUpdate(LiteNetLib.NetPeer peer, int latency)
+		{
+			// unused
+		}
 	}
 
-	public class NetManager
+	public interface ConnectionRequest
 	{
-		public NetManager(EventBasedNetListener e) { }
-		public void Start() { }
-		public void Start( string IPv4Address, string IPv6Address, int SetPort) { }
-		public void Start( int SetPort ) { }
-		public void Stop() { }
-		public Basis.Network.Core.NetPeer Connect( string sIP, int port, NetDataWriter Writer) { return null; }
-		public void Disconnect() { }
-		public void DisconnectPeer( NetPeer p, byte[] b ) { return; }
+		public void Reject(NetDataWriter w);
+		public NetPeer Accept();
+		public NetDataReader Data { get; }
+		public IPEndPoint RemoteEndPoint { get; }
+	}
 
-		public readonly NetStatistics Statistics;
+	public interface NetPeer
+	{
+		public void Disconnect();
+		public void Disconnect(byte[] b);
+		public void DisconnectForce();
+		public void Send(byte[] data, byte channelNumber, DeliveryMethod deliveryMethod);
+		public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod);
+		public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod);
+		public int Id { get; }
+		public IPAddress Address { get; }
+		public int RemoteId { get; }
+		public int RoundTripTime { get; }
+		public int Ping => RoundTripTime / 2;
+		public float TimeSinceLastPacket { get; }
+		public long RemoteTimeDelta { get; }
+		public DateTime RemoteUtcTime => new DateTime(DateTime.UtcNow.Ticks + RemoteTimeDelta);
 
-		// Need to update these (These are required)
-		public int ConnectedPeersCount = 0;
-		public int ChannelsCount = 0;
+		// public readonly NetStatistics Statistics;
+	}
 
-		public int ReceivePollingTime = 0;
-		public int PacketPoolSize = 0;
-		public bool AllowPeerAddressChange = false;
-		public bool UnconnectedMessagesEnabled = false;
-		public bool NatPunchEnabled = false;
-		public int UpdateTime = 15;
-		public int PingInterval = 1000;
-		public int DisconnectTimeout = 5000;
-		public bool SimulatePacketLoss = false;
-		public bool SimulateLatency = false;
-		public int SimulationPacketLossChance = 10;
-		public int SimulationMinLatency = 30;
-		public int SimulationMaxLatency = 100;
-		public bool UnsyncedEvents = false;
-		public bool UnsyncedReceiveEvent = false;
-		public bool UnsyncedDeliveryEvent = false;
-		public bool BroadcastReceiveEnabled = false;
-		public int ReconnectDelay = 500;
-		public int MaxConnectAttempts = 10;
-		public bool ReuseAddress = false;
-		public bool DontRoute = false;
-		//public readonly NetStatistics Statistics = new NetStatistics();
-		public bool EnableStatistics = false;
-		//public readonly NatPunchModule NatPunchModule;
-		public bool IsRunning = false;
-		//public int LocalPort { get; private set; }
-		public bool AutoRecycle = true;
-		public bool IPv6Enabled = true;
-		public int MtuOverride = 0;
-		public bool MtuDiscovery = false;
-		//public NetPeer FirstPeer => _headPeer;
-		public bool UseNativeSockets = false;
-		public bool DisconnectOnUnreachable = false;
+	// TODO: consider interface instead of abstract class
+	public interface NetManager
+	{
+		public void Start() {
+			Start(0);
+		}
+		public void Start( int SetPort ) {
+			Start(IPAddress.Any, IPAddress.IPv6Any, SetPort);
+		}
+		public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort);
+		public void Stop();
+		public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer);
+
+		public NetStatistics Statistics { get; }
+
+		public int ConnectedPeersCount { get; }
 	}
 
 	public sealed class NetStatistics
@@ -136,6 +143,17 @@ namespace Basis.Network.Core
 		public long BytesSent;
 		public long BytesReceived;
 		public long PacketLoss;
+
+		public static explicit operator NetStatistics(LiteNetLib.NetStatistics stats) {
+			return new NetStatistics()
+			{
+				PacketsSent = stats.PacketsSent,
+				PacketsReceived = stats.PacketsReceived,
+				BytesSent = stats.BytesSent,
+				BytesReceived = stats.BytesReceived,
+				PacketLoss = stats.PacketLoss,
+			};
+		}
 	}
 
 	public class NetPacketReader : NetDataReader
@@ -170,7 +188,7 @@ namespace Basis.Network.Core
 		public byte[] GetRemainingBytes() { return new byte[0]; }
 		public bool TryGetString(out string result) { result = null; return false; }
 		public bool TryGetBytesWithLength(out byte[] result){ result = null; return false; }
-        public ArraySegment<byte> GetRemainingBytesSegment() { return null; }
+		public ArraySegment<byte> GetRemainingBytesSegment() { return null; }
 
 		public bool EndOfData;
 		public int AvailableBytes;
