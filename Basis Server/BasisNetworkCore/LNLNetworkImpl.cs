@@ -9,9 +9,7 @@ namespace Basis.Network.Core {
             this.request = request;
         }
 
-        //public NetDataReader Data => request.Data; // TODO: convert to common NetDataReader
-        public NetDataReader Data => 
-            throw new System.NotImplementedException();
+        public NetDataReader Data => new NetDataReader(request.Data);
 
         public IPEndPoint RemoteEndPoint => request.RemoteEndPoint;
 
@@ -22,10 +20,7 @@ namespace Basis.Network.Core {
 
         void ConnectionRequest.Reject(NetDataWriter w)
         {
-            // request.Reject(w);
-            // request.Reject(w.Data, 0, w.Length, false);
-            // TODO: convert writer or use array overload.
-            request.Reject();
+            request.Reject(w.Data, 0, w.Length, false);
         }
     }
 
@@ -76,8 +71,7 @@ namespace Basis.Network.Core {
 
         void NetPeer.Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod)
         {
-            LiteNetLib.Utils.NetDataWriter writer = null; // TODO: writer conversion, or use array/span overloads
-            peer.Send(writer, channelNumber, (LiteNetLib.DeliveryMethod)(byte)deliveryMethod);
+            peer.Send(data.Data, 0, data.Length, channelNumber, (LiteNetLib.DeliveryMethod)(byte)deliveryMethod);
         }
     }
 
@@ -112,13 +106,13 @@ namespace Basis.Network.Core {
         }
 
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer) {
-            LiteNetLib.Utils.NetDataWriter writer = null; // TODO: from common NetDataWriter or grab a span.
-            LiteNetLib.NetPeer peer = manager.Connect(sIP, port, writer);
+            
+            LiteNetLib.NetPeer peer = manager.Connect(LiteNetLib.NetUtils.MakeEndPoint(sIP, port), Writer.AsReadOnlySpan());
             return new LNLNetPeer(peer);
         }
 
         public int ConnectedPeersCount => manager.ConnectedPeersCount;
 
-        public NetStatistics Statistics => (NetStatistics)manager.Statistics;
+        public NetStatistics Statistics => new NetStatistics(manager.Statistics);
     }
 }
