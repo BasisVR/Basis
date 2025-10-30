@@ -2,6 +2,72 @@ using System.Net;
 using System.Net.Sockets;
 
 namespace Basis.Network.Core {
+
+    public partial class EventBasedNetListener: LiteNetLib.INetEventListener {
+        void LiteNetLib.INetEventListener.OnConnectionRequest(LiteNetLib.ConnectionRequest request)
+        {
+            ConnectionRequestEvent?.Invoke(new LNLConnectionRequest(request));
+        }
+
+        void LiteNetLib.INetEventListener.OnPeerDisconnected(LiteNetLib.NetPeer peer, LiteNetLib.DisconnectInfo disconnectInfo)
+        {
+            PeerDisconnectedEvent?.Invoke(new LNLNetPeer(peer), new DisconnectInfo(disconnectInfo));
+        }
+
+        void LiteNetLib.INetEventListener.OnPeerConnected(LiteNetLib.NetPeer peer)
+        {
+            PeerConnectedEvent?.Invoke(new LNLNetPeer(peer));
+        }
+
+        void LiteNetLib.INetEventListener.OnNetworkError(IPEndPoint endPoint, SocketError socketError)
+        {
+            NetworkErrorEvent?.Invoke(endPoint, socketError);
+        }
+
+        void LiteNetLib.INetEventListener.OnNetworkReceive(LiteNetLib.NetPeer peer, LiteNetLib.NetPacketReader reader, byte channelNumber, LiteNetLib.DeliveryMethod deliveryMethod)
+        {
+            NetPacketReader read = new NetPacketReader(reader);
+            NetworkReceiveEvent?.Invoke(new LNLNetPeer(peer), read, channelNumber, (DeliveryMethod)(byte)deliveryMethod);
+        }
+
+        void LiteNetLib.INetEventListener.OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, LiteNetLib.NetPacketReader reader, LiteNetLib.UnconnectedMessageType messageType)
+        {
+            // unused
+        }
+
+        void LiteNetLib.INetEventListener.OnNetworkLatencyUpdate(LiteNetLib.NetPeer peer, int latency)
+        {
+            // unused
+        }
+    }
+
+    public partial struct DisconnectInfo {
+        internal DisconnectInfo(LiteNetLib.DisconnectInfo info) {
+            NetPacketReader reader = new NetPacketReader(info.AdditionalData);
+
+            // TODO: better enum conversion?
+            Reason = (DisconnectReason)(int)info.Reason;
+            SocketErrorCode = info.SocketErrorCode;
+            AdditionalData = reader;
+        }
+    }
+
+    public sealed partial class NetStatistics {
+        internal NetStatistics(LiteNetLib.NetStatistics stats) {
+            PacketsSent = stats.PacketsSent;
+            PacketsReceived = stats.PacketsReceived;
+            BytesSent = stats.BytesSent;
+            BytesReceived = stats.BytesReceived;
+            PacketLoss = stats.PacketLoss;
+        }
+    }
+
+    public partial class NetPacketReader {
+        internal NetPacketReader(LiteNetLib.NetPacketReader reader): base((LiteNetLib.Utils.NetDataReader)reader) {
+			RecycleInternal = () => reader.Recycle();
+		}
+    }
+
     public class LNLConnectionRequest: ConnectionRequest {
         LiteNetLib.ConnectionRequest request;
 

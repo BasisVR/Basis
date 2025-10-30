@@ -1,6 +1,5 @@
 using System;
 using System.Net;
-using LiteNetLib;
 using System.Net.Sockets;
 
 namespace Basis.Network.Core
@@ -21,24 +20,15 @@ namespace Basis.Network.Core
 		PeerNotFound
 	}
 
-	public struct DisconnectInfo
+	public partial struct DisconnectInfo
 	{
 		public DisconnectReason Reason;
 		public System.Net.Sockets.SocketError SocketErrorCode;
 		public NetPacketReader AdditionalData;
-
-		internal DisconnectInfo(LiteNetLib.DisconnectInfo info) {
-			NetPacketReader reader = new NetPacketReader(info.AdditionalData);
-
-            // TODO: better enum conversion?
-            Reason = (DisconnectReason)(int)info.Reason;
-            SocketErrorCode = info.SocketErrorCode;
-            AdditionalData = reader;
-        }
 	}
 
 
-	public class EventBasedNetListener: LiteNetLib.INetEventListener
+	public partial class EventBasedNetListener
 	{
 		public delegate void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo);
 		public delegate void OnNetworkError(IPEndPoint endPoint, SocketError socketError);
@@ -51,42 +41,6 @@ namespace Basis.Network.Core
 		public event OnNetworkReceive NetworkReceiveEvent;
 		public event OnNetworkError NetworkErrorEvent;
 		public event OnPeerConnected PeerConnectedEvent;
-
-		void INetEventListener.OnConnectionRequest(LiteNetLib.ConnectionRequest request)
-		{
-			ConnectionRequestEvent?.Invoke(new LNLConnectionRequest(request));
-		}
-
-		void INetEventListener.OnPeerDisconnected(LiteNetLib.NetPeer peer, LiteNetLib.DisconnectInfo disconnectInfo)
-		{
-			PeerDisconnectedEvent?.Invoke(new LNLNetPeer(peer), new DisconnectInfo(disconnectInfo));
-		}
-
-		void INetEventListener.OnPeerConnected(LiteNetLib.NetPeer peer)
-		{
-			PeerConnectedEvent?.Invoke(new LNLNetPeer(peer));
-		}
-
-		void INetEventListener.OnNetworkError(IPEndPoint endPoint, SocketError socketError)
-		{
-			NetworkErrorEvent?.Invoke(endPoint, socketError);
-		}
-
-		void INetEventListener.OnNetworkReceive(LiteNetLib.NetPeer peer, LiteNetLib.NetPacketReader reader, byte channelNumber, LiteNetLib.DeliveryMethod deliveryMethod)
-		{
-			NetPacketReader read = new NetPacketReader(reader);
-            NetworkReceiveEvent?.Invoke(new LNLNetPeer(peer), read, channelNumber, (DeliveryMethod)(byte)deliveryMethod);
-		}
-
-		void INetEventListener.OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, LiteNetLib.NetPacketReader reader, UnconnectedMessageType messageType)
-		{
-			// unused
-		}
-
-		void INetEventListener.OnNetworkLatencyUpdate(LiteNetLib.NetPeer peer, int latency)
-		{
-			// unused
-		}
 	}
 
 	public interface ConnectionRequest
@@ -134,30 +88,18 @@ namespace Basis.Network.Core
 		public int ConnectedPeersCount { get; }
 	}
 
-	public sealed class NetStatistics
+	public sealed partial class NetStatistics
 	{
 		public long PacketsSent;
 		public long PacketsReceived;
 		public long BytesSent;
 		public long BytesReceived;
 		public long PacketLoss;
-
-		internal NetStatistics(LiteNetLib.NetStatistics stats) {
-			PacketsSent = stats.PacketsSent;
-			PacketsReceived = stats.PacketsReceived;
-			BytesSent = stats.BytesSent;
-			BytesReceived = stats.BytesReceived;
-			PacketLoss = stats.PacketLoss;
-		}
 	}
 
-	public class NetPacketReader : NetDataReader
+	public partial class NetPacketReader : NetDataReader
 	{
 		Action RecycleInternal;
-
-		internal NetPacketReader(LiteNetLib.NetPacketReader reader): base((LiteNetLib.Utils.NetDataReader)reader) {
-			RecycleInternal = () => reader.Recycle();
-		}
 
 		public void Recycle() {
 			RecycleInternal?.Invoke();
