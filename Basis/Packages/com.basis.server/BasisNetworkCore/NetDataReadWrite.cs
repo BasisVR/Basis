@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2020 Ruslan Pyrch
+// This code has been copied from LiteNetLib:
+//  - <https://github.com/RevenantX/LiteNetLib/blob/6a9e5e39d15642a07482b1c883220cffe5823ce6/LiteNetLib/Utils/NetDataReader.cs>
+//  - <https://github.com/RevenantX/LiteNetLib/blob/2eb2cbe1c082d3f4c760a3f0c70b9f8e7eb0baa9/LiteNetLib/Utils/NetDataWriter.cs>
+
 using System;
 //using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
-
-// Lifted from LiteNetLib
 
 namespace Basis.Network.Core {
     public class NetDataReader
