@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Basis.Scripts.UI;
-using Basis.VowganUI;
+using Basis.BasisUI;
 using TMPro;
 using UnityEngine;
 

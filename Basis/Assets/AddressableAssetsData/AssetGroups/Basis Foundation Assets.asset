@@ -31,7 +31,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 21c40287b4492f144b9393d3c5be8d8a
-    m_Address: VowganUI/Elements/Toggle
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Toggle.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -46,7 +46,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 30ab3bcde2b3a7141b1e16d6add785f3
-    m_Address: VowganUI/Panel-Dialogue
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Dialogue Panel.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -106,7 +106,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 462ac13b40ee49446bb7898100a4bbc2
-    m_Address: VowganUI/Elements/Dropdown
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Dropdown.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -146,12 +146,12 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7186a8cd468113a4b9dcb76426dc0888
-    m_Address: VowganUI/Elements/Group
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Group.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 80400c0dd2aacdb4ead120b1c924f77d
-    m_Address: VowganUI/Menu
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Basis Menu Instance.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -206,7 +206,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a6b47dd7c08ca3945b50d42f2df29a22
-    m_Address: VowganUI/Elements/TabGroup
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Tab Group.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -216,8 +216,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: abc3dcbc2c0a4fb459d5d94a7961cc65
-    m_Address: Packages/com.basis.framework/VowganPanels/Prefabs/Menu Panel - Tab
-      Page.prefab
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Tab Page.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -227,7 +226,8 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b8b1d961850dbd14a8b4a06909149831
-    m_Address: VowganUI/Elements/LayoutContainerVertical
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Layout Container
+      Vertical.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -252,23 +252,24 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ce79cd386c49c7e45813375f1cf500c3
-    m_Address: VowganUI/Panel-Page
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Page.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d5bb9e1a8df9cc0459d242d0a3ced41d
-    m_Address: Packages/com.basis.framework/VowganPanels/Prefabs/Elements/Panel Button
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button
       - Tab Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d9849dc6948554a4a8f55614547f5449
-    m_Address: VowganUI/Panel
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: db69ae0e592fcd24ea338bfc58766dc6
-    m_Address: VowganUI/Elements/LayoutContainerHorizontal
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Layout Container
+      Horizontal.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -278,7 +279,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ddab2de083ef8d44991304a0cc35d9c6
-    m_Address: VowganUI/Elements/Button
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -288,7 +289,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ebe67ffd7090b9040bec60346c4cccd9
-    m_Address: Packages/com.basis.framework/VowganPanels/Prefabs/Elements/Panel Button
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button
       - Hotbar Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
@@ -304,7 +305,7 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: edbfaeb4eb1347d4fbc1d45582639b1e
-    m_Address: VowganUI/Elements/Slider
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Slider.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

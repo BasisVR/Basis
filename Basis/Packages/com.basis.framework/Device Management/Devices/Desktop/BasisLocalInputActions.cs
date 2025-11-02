@@ -4,7 +4,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.UI.UI_Panels;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Common;
-using Basis.VowganUI;
+using Basis.BasisUI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;

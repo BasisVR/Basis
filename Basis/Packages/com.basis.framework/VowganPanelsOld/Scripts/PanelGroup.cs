@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Basis.VowganUI;
+using Basis.BasisUI;
 using UnityEngine;
 
 namespace Basis.VowganUIOld

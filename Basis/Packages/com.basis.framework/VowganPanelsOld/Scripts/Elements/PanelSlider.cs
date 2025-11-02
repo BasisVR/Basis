@@ -1,5 +1,5 @@
 using System.Globalization;
-using Basis.VowganUI;
+using Basis.BasisUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;

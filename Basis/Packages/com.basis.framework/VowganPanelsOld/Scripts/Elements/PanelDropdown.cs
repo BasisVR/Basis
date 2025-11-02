@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Basis.VowganUI;
+using Basis.BasisUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
