@@ -202,7 +202,7 @@ jobs:
           dotnet-version: "9.0.x"
       - name: "Build server"
         timeout-minutes: 2
-        run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --runtime '${{ matrix.runtimes }} -o build -c Release"
+        run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --runtime '${{ matrix.runtimes }}' -o build -c Release"
       - name: "Upload server artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
