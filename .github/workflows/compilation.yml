@@ -207,7 +207,7 @@ jobs:
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
         with:
-          name: Basis-Server-${{ matrix.targetPlatform }}
+          name: Basis-Server-${{ matrix.runtimes }}
           path: "build"
       - name: Archive Release
         uses: thedoctor0/zip-release@0.7.6
