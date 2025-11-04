@@ -7,7 +7,6 @@ using OpusSharp.Core.Extensions;
 using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
-
 namespace Basis.Scripts.Networking.Receivers
 {
     /// <summary>
@@ -37,11 +36,6 @@ namespace Basis.Scripts.Networking.Receivers
         /// Ring buffer used to maintain correct ordering of decoded audio samples.
         /// </summary>
         public BasisVoiceRingBuffer InOrderRead = new BasisVoiceRingBuffer();
-
-        /// <summary>
-        /// True if playback is currently active.
-        /// </summary>
-        public bool IsPlaying = false;
 
         /// <summary>
         /// Decode destination buffer (mono) sized to one network frame.
@@ -93,6 +87,14 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 
+        private float[] _inputScratch;    // big enough for the largest chunk we pull
+        private int _cachedOutputRate = -1;
+        private float _resampleRatio = 1f;
+        private float[] _resampleScratch; // big enough for the largest frames we output
+        // Count local silence in 20 ms "units"
+        public volatile int _silentUnits20ms;   // thread-safe-ish; prefer Interlocked ops
+        public double _silentMsAccum;           // accumulate fractional callback durations
+
         /// <summary>
         /// Called when an encoded voice packet arrives. Decodes and enqueues PCM.
         /// </summary>
@@ -115,21 +117,22 @@ namespace Basis.Scripts.Networking.Receivers
         {
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
-                if (HasAudioSource)
+                if (!HasAudioSource)
                 {
-                    if (InOrderRead.HasRealAudio)
+                    return;
+                }
+                if (InOrderRead.HasRealAudio)
+                {
+                    if (audioSource.enabled == false)
                     {
-                        if (audioSource.enabled == false)
-                        {
-                            audioSource.enabled = true;
-                        }
+                        audioSource.enabled = true;
                     }
-                    else
+                }
+                else
+                {
+                    if (audioSource.enabled)
                     {
-                        if (audioSource.enabled)
-                        {
-                            audioSource.enabled = false;
-                        }
+                        audioSource.enabled = false;
                     }
                 }
             });
@@ -164,9 +167,8 @@ namespace Basis.Scripts.Networking.Receivers
                 audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.playerId);
                 audioSource.loop = true;
                 audioSource.Play();
-                HasAudioSource = true;
             }
-            IsPlaying = true;
+            HasAudioSource = true;
             AvatarChanged(networkedPlayer);
 
             var BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(networkedPlayer.Player.UUID);
@@ -193,8 +195,6 @@ namespace Basis.Scripts.Networking.Receivers
 
             AudioSourceTransform = null;
             BasisRemoteVisemeAudioDriver = null;
-
-            IsPlaying = false;
         }
 
         /// <summary>
@@ -237,26 +237,38 @@ namespace Basis.Scripts.Networking.Receivers
 #if UNITY_SERVER
             return;
 #endif
-            if (audioSource != null && networkedPlayer != null && networkedPlayer.Player != null)
+            if (audioSource == null)
             {
-               if(visemeDriver.TryInitialize(networkedPlayer.Player))
-                {
-
-                }
-               else
-                {
-                    BasisDebug.LogWarning("Cant Setup Viseme Audio Driver Does not meet Critera");
-
-                }
-
-                if (BasisRemoteVisemeAudioDriver == null)
-                {
-                    BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
-                }
-
-                BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
-                BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
+                BasisDebug.LogWarning("Avatar Changed no Audio Source", BasisDebug.LogTag.Voice);
+                return;
             }
+            if (networkedPlayer == null)
+            {
+                BasisDebug.LogError("networkedPlayer did not exist", BasisDebug.LogTag.Voice);
+                return;
+            }
+            if (networkedPlayer.Player == null)
+            {
+                BasisDebug.LogError("networkedPlayer.Player did not exist", BasisDebug.LogTag.Voice);
+                return;
+            }
+            if (visemeDriver.TryInitialize(networkedPlayer.Player))
+            {
+
+            }
+            else
+            {
+                BasisDebug.LogWarning("Cant Setup Viseme Audio Driver Does not meet Critera");
+
+            }
+
+            if (BasisRemoteVisemeAudioDriver == null)
+            {
+                BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
+            }
+
+            BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
+            BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
         }
 
         /// <summary>
@@ -276,8 +288,26 @@ namespace Basis.Scripts.Networking.Receivers
         public void StartAudio()
         {
             // Conservative initial sizes; will grow once and then reuse.
-            _inputScratch = new float[1024];
-            _resampleScratch = new float[1024];
+            const int BufferSize = 1024;
+
+            if (_inputScratch == null || _inputScratch.Length != BufferSize)
+            {
+                _inputScratch = new float[BufferSize];
+            }
+            else
+            {
+                _inputScratch.AsSpan().Clear();
+            }
+
+            if (_resampleScratch == null || _resampleScratch.Length != BufferSize)
+            {
+                _resampleScratch = new float[BufferSize];
+            }
+            else
+            {
+                _resampleScratch.AsSpan().Clear();
+            }
+
             _cachedOutputRate = outputSampleRate;
             _resampleRatio = (float)RemoteOpusSettings.NetworkSampleRate / _cachedOutputRate;
 #if UNITY_SERVER
@@ -313,10 +343,13 @@ namespace Basis.Scripts.Networking.Receivers
         {
             if (audioSource == null)
             {
+                if (decoder != null)
+                {
+                    OpusDecoderExtensions.SetGain(decoder, 1024);
+                }
                 Debug.LogError("AudioSource is null. Cannot apply volume settings.");
                 return;
             }
-
             audioSource.spatialize = spatialize;
             audioSource.spatializePostEffects = spatializePostEffects;
             audioSource.spatialBlend = Mathf.Clamp01(spatialBlend);
@@ -348,16 +381,6 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogWarning("Decoder is null. Cannot apply gain.");
             }
         }
-
-        // -------- Internal resampling / mixing helpers --------
-
-        private float[] _inputScratch;    // big enough for the largest chunk we pull
-        private int _cachedOutputRate = -1;
-        private float _resampleRatio = 1f;
-        private float[] _resampleScratch; // big enough for the largest frames we output
-        // Count local silence in 20 ms "units"
-        public volatile int _silentUnits20ms;   // thread-safe-ish; prefer Interlocked ops
-        public double _silentMsAccum;           // accumulate fractional callback durations
 
         /// <summary>
         /// Unity audio callback. Mixes buffered mono voice into the provided interleaved output buffer.
@@ -420,7 +443,11 @@ namespace Basis.Scripts.Networking.Receivers
             if (buf.Length < needed)
             {
                 int newSize = 1;
-                while (newSize < needed) newSize <<= 1;
+                while (newSize < needed)
+                {
+                    newSize <<= 1;
+                }
+
                 buf = new float[newSize];
             }
         }

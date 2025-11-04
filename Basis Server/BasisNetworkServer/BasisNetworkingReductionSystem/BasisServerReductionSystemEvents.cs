@@ -251,17 +251,6 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         {
             playersToRemove.Enqueue(id);
         }
-        public struct Player
-        {
-            public readonly int Id;
-            public ServerSideSyncPlayerMessage syncMsg;
-
-            public Player(int id, ServerSideSyncPlayerMessage syncMsg)
-            {
-                Id = id;
-                this.syncMsg = syncMsg;
-            }
-        }
         private static void ProcessMessage(QueuedMessage message)
         {
             int id = message.FromPeer.Id;
@@ -308,11 +297,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     {
                         continue;
                     }
-
-                    lock (other)
-                    {
-                        other.HasNewDataFrom?.Set(id, true);
-                    }
+                    other.HasNewDataFrom?.Set(id, true);
                 }
             }
 

@@ -280,10 +280,10 @@ namespace Basis.Scripts.BasisSdk.Players
                 RemoteNamePlate.DeInitalize();
                 AddressableResourceProcess.ReleaseGameobject(RemoteNamePlate.gameObject);
             }
-            if (RemoteAvatarDriver.hasDatainBoneDriver)
+            if (RemoteAvatarDriver.InBoneDriver)
             {
                 RemoteBoneJobSystem.RemoveRemotePlayer(NetworkReceiver.playerId);
-                RemoteAvatarDriver.hasDatainBoneDriver = false;
+                RemoteAvatarDriver.InBoneDriver = false;
             }
         }
 

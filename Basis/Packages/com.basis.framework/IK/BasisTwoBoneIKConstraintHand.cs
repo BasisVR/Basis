@@ -396,7 +396,7 @@ namespace UnityEngine.Animations.Rigging
                 hintPosition = Vector3Property.Bind(animator, component, data.HintpositionVector3Property),
                 hintRotation = Vector4Property.Bind(animator, component, data.HintrotationVector3Property),
 
-                targetOffset = AffineTransform.identity,
+                targetOffset = new AffineTransform(data.CalibratedOffset, data.CalibratedRotation),
 
                 chestStart = (data.chestCapsuleStart != null) ? ReadOnlyTransformHandle.Bind(animator, data.chestCapsuleStart) : default,
                 chestEnd = (data.chestCapsuleEnd != null) ? ReadOnlyTransformHandle.Bind(animator, data.chestCapsuleEnd) : default,
@@ -414,12 +414,9 @@ namespace UnityEngine.Animations.Rigging
                 useHandCapsule = BoolProperty.Bind(animator, component, data.UseHandCapsuleBoolProperty),
 
                 // Elbow
-                protectElbow = BoolProperty.Bind(animator, component, data.ProtectElbowBoolProperty)
+                protectElbow = BoolProperty.Bind(animator, component, data.ProtectElbowBoolProperty),
+                hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty),
             };
-
-            job.targetOffset.translation = data.CalibratedOffset;
-            job.targetOffset.rotation = data.CalibratedRotation;
-            job.hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty);
             return job;
         }
 

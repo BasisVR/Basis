@@ -513,19 +513,21 @@ namespace Basis.Scripts.Common
         }
         public BasisCalibratedCoords TposeHead = new BasisCalibratedCoords();
         public BasisCalibratedCoords TposeHips = new BasisCalibratedCoords();
-        public Quaternion AnimatorRotation; // rotation during calibration
+        public Quaternion RootRotation; // rotation during calibration
 
+        public BasisCalibratedCoords TposeLeftHand = new BasisCalibratedCoords();
+        public BasisCalibratedCoords TposeRightHand = new BasisCalibratedCoords();
         public void RecordPoses(Animator animator)
         {
             // Capture animator rotation in world space
-            AnimatorRotation = animator.transform.rotation;
+            RootRotation = animator.transform.rotation;
 
             if (GetTransform(HumanBodyBones.Head, out Transform headBoneTransform))
             {
                 headBoneTransform.GetPositionAndRotation(out var pos, out var rot);
 
                 // Local rotation relative to animator's rotation
-                Quaternion relativeRot = Quaternion.Inverse(AnimatorRotation) * rot;
+                Quaternion relativeRot = Quaternion.Inverse(RootRotation) * rot;
 
                 TposeHead.position = pos;
                 TposeHead.rotation = relativeRot;
@@ -541,7 +543,7 @@ namespace Basis.Scripts.Common
                 hipsBoneTransform.GetPositionAndRotation(out var pos, out var rot);
 
                 // Local rotation relative to animator's rotation
-                Quaternion relativeRot = Quaternion.Inverse(AnimatorRotation) * rot;
+                Quaternion relativeRot = Quaternion.Inverse(RootRotation) * rot;
 
                 TposeHips.position = pos;
                 TposeHips.rotation = relativeRot;
@@ -550,6 +552,37 @@ namespace Basis.Scripts.Common
             {
                 TposeHips.position = Vector3.zero;
                 TposeHips.rotation = Quaternion.identity;
+            }
+
+            if (GetTransform(HumanBodyBones.LeftHand, out Transform LeftHand))
+            {
+                LeftHand.GetPositionAndRotation(out var pos, out var rot);
+
+                // Local rotation relative to animator's rotation
+                Quaternion relativeRot = Quaternion.Inverse(RootRotation) * rot;
+
+                TposeLeftHand.position = pos;
+                TposeLeftHand.rotation = relativeRot;
+            }
+            else
+            {
+                TposeLeftHand.position = Vector3.zero;
+                TposeLeftHand.rotation = Quaternion.identity;
+            }
+            if (GetTransform(HumanBodyBones.RightHand, out Transform RightHand))
+            {
+                RightHand.GetPositionAndRotation(out var pos, out var rot);
+
+                // Local rotation relative to animator's rotation
+                Quaternion relativeRot = Quaternion.Inverse(RootRotation) * rot;
+
+                TposeRightHand.position = pos;
+                TposeRightHand.rotation = relativeRot;
+            }
+            else
+            {
+                TposeRightHand.position = Vector3.zero;
+                TposeRightHand.rotation = Quaternion.identity;
             }
         }
     }

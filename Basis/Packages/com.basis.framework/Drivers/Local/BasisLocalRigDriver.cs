@@ -6,10 +6,10 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.Playables;
-
 namespace Basis.Scripts.Drivers
 {
     /// <summary>
@@ -20,8 +20,6 @@ namespace Basis.Scripts.Drivers
     [Serializable]
     public class BasisLocalRigDriver
     {
-        // === PUBLIC FILTER SETTINGS (tweak in Inspector) ===
-
         /// <summary>
         /// Minimum cutoff for the One Euro filter. Lower = smoother; higher = more responsive.
         /// </summary>
@@ -43,21 +41,10 @@ namespace Basis.Scripts.Drivers
         [Tooltip("Cutoff for derivative smoothing.")]
         [Range(0.01f, 10f)]
         public float DerivativeCutoff = 3f;
-
-        // === IK Constraints ===
-
-        /// <summary>Spine IK constraint (hips/head targets).</summary>
-        public BasisHipsHeadIKConstraint SpineIK;
-        /// <summary>Left foot two-bone IK.</summary>
-        public BasisTwoBoneIKConstraint LeftFootTwoBoneIK;
-        /// <summary>Right foot two-bone IK.</summary>
-        public BasisTwoBoneIKConstraint RightFootTwoBoneIK;
         /// <summary>Left hand two-bone IK (hand variant).</summary>
         public BasisTwoBoneIKConstraintHand LeftHandTwoBoneIK;
         /// <summary>Right hand two-bone IK (hand variant).</summary>
         public BasisTwoBoneIKConstraintHand RightHandTwoBoneIK;
-        /// <summary>Upper chest two-bone IK (optional).</summary>
-        public BasisTwoBoneIKConstraint UpperChestTwoBoneIK;
 
         /// <summary>Left toe translation/rotation damper.</summary>
         public BasisApplyTranslation LeftToeConstraint;
@@ -68,23 +55,10 @@ namespace Basis.Scripts.Drivers
         public Rig LeftToeRig;
         /// <summary>Right toe rig.</summary>
         public Rig RightToeRig;
-
-        /// <summary>Head rig group.</summary>
-        public Rig HeadRig;
-        /// <summary>Spine rig group.</summary>
-        public Rig SpineRig;
         /// <summary>Left hand rig group.</summary>
         public Rig LeftHandRig;
         /// <summary>Right hand rig group.</summary>
         public Rig RightHandRig;
-        /// <summary>Left foot rig group.</summary>
-        public Rig LeftFootRig;
-        /// <summary>Right foot rig group.</summary>
-        public Rig RightFootRig;
-        /// <summary>Left shoulder rig group.</summary>
-        public Rig LeftShoulderRig;
-        /// <summary>Right shoulder rig group.</summary>
-        public Rig RightShoulderRig;
 
         /// <summary>Layer controlling left hand rig.</summary>
         public RigLayer LeftHandLayer;
@@ -98,20 +72,6 @@ namespace Basis.Scripts.Drivers
         public RigLayer LeftToeLayer;
         /// <summary>Layer controlling right toe rig.</summary>
         public RigLayer RightToeLayer;
-        /// <summary>Layer controlling spine rig.</summary>
-        public RigLayer RigSpineLayer;
-        /// <summary>Optional chain spine layer.</summary>
-        public RigLayer RigChainSpineLayer;
-        /// <summary>Layer controlling head rig.</summary>
-        public RigLayer HeadLayer;
-
-        /// <summary>Left shoulder layer.</summary>
-        public RigLayer LeftShoulderLayer;
-        /// <summary>Right shoulder layer.</summary>
-        public RigLayer RightShoulderLayer;
-
-        /// <summary>All created rig components for bookkeeping.</summary>
-        public List<Rig> Rigs = new List<Rig>();
         /// <summary>RigBuilder used to manage layers and build the playable graph.</summary>
         public RigBuilder Builder;
         /// <summary>Additional transforms to register with the rig (if needed).</summary>
@@ -123,19 +83,22 @@ namespace Basis.Scripts.Drivers
         private BasisLocalPlayer localPlayer;
         /// <summary>Bone reference mapping (hips, chest, hands, etc.).</summary>
         private BasisTransformMapping references;
-        /// <summary>Two-bone IK used for the head chain (chest/neck/head).</summary>
-        private BasisTwoBoneIKConstraint HeadTwoBoneIK;
-
-        // === Per-role smoothers ===
 
         /// <summary>Position filters per tracked role (One Euro).</summary>
         private readonly Dictionary<BasisBoneTrackedRole, OneEuroFilterVector3> posFilters = new();
-        /// <summary>Rotation filters per tracked role (One Euro).</summary>
-        private readonly Dictionary<BasisBoneTrackedRole, OneEuroFilterQuaternion> rotFilters = new();
 
         /// <summary>Monotonic time accumulator for filter evaluation.</summary>
         private float _timeAccumulator;
 
+        public HumanBodyBones[] HumanBones;
+        public bool[] isActive;
+        public Rig ConstraintsRig;
+        public RigLayer ConstraintsLayer;
+
+        // NEW: batched constraints and slot mapping
+        public BasisIK23Constraint[] Batches;
+
+        private BasisConstraintSlotIndex[] _boneToSlot; // size = (int)HumanBodyBones.LastBone
         /// <summary>
         /// Fetches or creates a One Euro position filter for a specific role
         /// and keeps its parameters in sync with the public fields.
@@ -181,22 +144,43 @@ namespace Basis.Scripts.Drivers
             var hipsCoords = BasisLocalBoneDriver.HipsControl.OutgoingWorldData;
 
             var hipsPos = GetPosFilter(BasisBoneTrackedRole.Hips).Filter(hipsCoords.position, _timeAccumulator);
-            // var hipsRot = GetRotFilter(BasisBoneTrackedRole.Hips).Filter(hipsCoords.rotation, _timeAccumulator);
 
-            ApplySpineIKTarget(
-                new BasisCalibratedCoords
-                {
-                    position = hipsPos,
-                    rotation = hipsCoords.rotation
-                }
-            );
+            BasisFullIKConstraint.data.TargetPositionHips = hipsPos;
+            BasisFullIKConstraint.data.TargetRotationEulerHips = hipsCoords.rotation;
 
-            // Head chain IK (two-bone)
-            FilterAndApplyTarget(HeadTwoBoneIK, BasisBoneTrackedRole.Head);
+            // Direction for knee/neck hints relative to hips orientation (unchanged)
+            Vector3 Direction = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation * Vector3.right;
+            BasisFullIKConstraint.data.m_HintDirection = Direction;
 
-            // Feet
-            FilterAndApplyTarget(LeftFootTwoBoneIK, BasisBoneTrackedRole.LeftFoot);
-            FilterAndApplyTarget(RightFootTwoBoneIK, BasisBoneTrackedRole.RightFoot);
+            var data = GetCoordsForRole(BasisBoneTrackedRole.Head);
+            BasisFullIKConstraint.data.TargetPositionHead = data.position;
+            BasisFullIKConstraint.data.TargetRotationHead = data.rotation;
+
+            data = GetCoordsForRole(BasisBoneTrackedRole.LeftFoot);
+            BasisFullIKConstraint.data.TargetPositionLeftLowerLeg = data.position;
+            BasisFullIKConstraint.data.TargetRotationLeftLowerLeg = data.rotation;
+
+            data = GetCoordsForRole(BasisBoneTrackedRole.RightFoot);
+            BasisFullIKConstraint.data.TargetPositionRightLowerLeg = data.position;
+            BasisFullIKConstraint.data.TargetRotationRightLowerLeg = data.rotation;
+
+            data = GetCoordsForRole(BasisBoneTrackedRole.Chest);
+            BasisFullIKConstraint.data.HintPositionHead = data.position;
+            BasisFullIKConstraint.data.HintRotationHead = data.rotation;
+
+            data = GetCoordsForRole(BasisBoneTrackedRole.LeftLowerLeg);
+            BasisFullIKConstraint.data.HintPositionLeftLowerLeg = data.position;
+            BasisFullIKConstraint.data.HintRotationLeftLowerLeg = data.rotation;
+
+            data = GetCoordsForRole(BasisBoneTrackedRole.RightLowerLeg);
+            BasisFullIKConstraint.data.HintPositionRightLowerLeg = data.position;
+            BasisFullIKConstraint.data.HintRotationRightLowerLeg = data.rotation;
+
+            FilterAndApplyHint(LeftHandTwoBoneIK, BasisBoneTrackedRole.LeftLowerArm);
+            FilterAndApplyHint(RightHandTwoBoneIK, BasisBoneTrackedRole.RightLowerArm);
+
+            BasisAnimationRiggingHelper.SetHandCollisionScale(LeftHandTwoBoneIK, localPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+            BasisAnimationRiggingHelper.SetHandCollisionScale(RightHandTwoBoneIK, localPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
 
             // Hands
             FilterAndApplyTarget(LeftHandTwoBoneIK, BasisBoneTrackedRole.LeftHand);
@@ -205,23 +189,6 @@ namespace Basis.Scripts.Drivers
             // Toes (apply translation constraint)
             FilterAndApplyTarget(LeftToeConstraint, BasisBoneTrackedRole.LeftToes);
             FilterAndApplyTarget(RightToeConstraint, BasisBoneTrackedRole.RightToes);
-
-            // Direction for knee/neck hints relative to hips orientation (unchanged)
-            Vector3 Direction = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation * Vector3.right;
-
-            // --- IK Hints ---
-            FilterAndApplyHint(HeadTwoBoneIK, BasisBoneTrackedRole.Chest, Direction);
-
-            FilterAndApplyHint(LeftFootTwoBoneIK, BasisBoneTrackedRole.LeftLowerLeg, Direction);
-            FilterAndApplyHint(RightFootTwoBoneIK, BasisBoneTrackedRole.RightLowerLeg, Direction);
-
-            FilterAndApplyHint(LeftHandTwoBoneIK, BasisBoneTrackedRole.LeftLowerArm);
-            FilterAndApplyHint(RightHandTwoBoneIK, BasisBoneTrackedRole.RightLowerArm);
-
-            BasisAnimationRiggingHelper.SetHandCollisionScale(LeftHandTwoBoneIK, localPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-            BasisAnimationRiggingHelper.SetHandCollisionScale(RightHandTwoBoneIK, localPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-
-           // BasisLocalPlayer.Instance.BasisLocalFootDriver.Update();
 
             if (Builder != null)
             {
@@ -232,24 +199,11 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Filters and applies a target to a standard two-bone IK constraint.
-        /// </summary>
-        private void FilterAndApplyTarget(BasisTwoBoneIKConstraint constraint, BasisBoneTrackedRole role)
-        {
-            var data = GetCoordsForRole(role);
-            // data.position = GetPosFilter(role).Filter(data.position, _timeAccumulator);
-            // data.rotation = GetRotFilter(role).Filter(data.rotation, _timeAccumulator);
-            ApplyBoneIKTarget(constraint, data.position, data.rotation);
-        }
-
-        /// <summary>
         /// Filters and applies a target to a hand two-bone IK constraint.
         /// </summary>
         private void FilterAndApplyTarget(BasisTwoBoneIKConstraintHand constraint, BasisBoneTrackedRole role)
         {
             var data = GetCoordsForRole(role);
-            // data.position = GetPosFilter(role).Filter(data.position, _timeAccumulator);
-            // data.rotation = GetRotFilter(role).Filter(data.rotation, _timeAccumulator);
             ApplyBoneIKTarget(constraint, data.position, data.rotation);
         }
 
@@ -259,18 +213,7 @@ namespace Basis.Scripts.Drivers
         private void FilterAndApplyTarget(BasisApplyTranslation constraint, BasisBoneTrackedRole role)
         {
             var data = GetCoordsForRole(role);
-            // data.position = GetPosFilter(role).Filter(data.position, _timeAccumulator);
-            // data.rotation = GetRotFilter(role).Filter(data.rotation, _timeAccumulator);
             ApplyBoneIKTarget(constraint, data.position, data.rotation);
-        }
-
-        /// <summary>
-        /// Filters and applies a hint to a two-bone IK constraint with a custom direction vector.
-        /// </summary>
-        private void FilterAndApplyHint(BasisTwoBoneIKConstraint constraint, BasisBoneTrackedRole role, Vector3 customDirection)
-        {
-            var data = GetCoordsForRole(role);
-            ApplyBoneIKHint(constraint, data.position, data.rotation, customDirection);
         }
 
         /// <summary>
@@ -279,8 +222,6 @@ namespace Basis.Scripts.Drivers
         private void FilterAndApplyHint(BasisTwoBoneIKConstraintHand constraint, BasisBoneTrackedRole role)
         {
             var data = GetCoordsForRole(role);
-            // data.position = GetPosFilter(role).Filter(data.position, _timeAccumulator);
-            // data.rotation = GetRotFilter(role).Filter(data.rotation, _timeAccumulator);
             ApplyHandBoneIKHint(constraint, data.position, data.rotation);
         }
 
@@ -317,26 +258,6 @@ namespace Basis.Scripts.Drivers
                     return new BasisCalibratedCoords { position = Vector3.zero, rotation = Quaternion.identity };
             }
         }
-
-        /// <summary>
-        /// Applies hips target for the spine IK constraint.
-        /// </summary>
-        public void ApplySpineIKTarget(BasisCalibratedCoords hip)
-        {
-            SpineIK.data.hipsTargetPosition = hip.position;
-            SpineIK.data.hipsTargetRotationEuler = hip.rotation;
-        }
-
-        /// <summary>
-        /// Applies a two-bone IK hint with a custom hint direction.
-        /// </summary>
-        public void ApplyBoneIKHint(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation, Vector3 Direction)
-        {
-            Constraint.data.HintPosition = Position;
-            Constraint.data.HintRotation = Rotation;
-            Constraint.data.m_HintDirection = Direction;
-        }
-
         /// <summary>
         /// Applies a two-bone hand IK hint (no custom direction).
         /// </summary>
@@ -346,14 +267,6 @@ namespace Basis.Scripts.Drivers
             Constraint.data.HintRotation = Rotation;
         }
 
-        /// <summary>
-        /// Applies target position/rotation to a two-bone IK constraint.
-        /// </summary>
-        public void ApplyBoneIKTarget(BasisTwoBoneIKConstraint Constraint, Vector3 Position, Quaternion Rotation)
-        {
-            Constraint.data.TargetPosition = Position;
-            Constraint.data.TargetRotation = Rotation;
-        }
 
         /// <summary>
         /// Applies target position/rotation to a translation/rotation damping constraint.
@@ -421,13 +334,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void CleanupBeforeContinue()
         {
-            if (HeadRig != null)
+            if (MainRig != null)
             {
-                GameObject.Destroy(HeadRig.gameObject);
-            }
-            if (SpineRig != null)
-            {
-                GameObject.Destroy(SpineRig.gameObject);
+                GameObject.Destroy(MainRig.gameObject);
             }
             if (LeftHandRig != null)
             {
@@ -437,23 +346,6 @@ namespace Basis.Scripts.Drivers
             {
                 GameObject.Destroy(RightHandRig.gameObject);
             }
-            if (LeftFootRig != null)
-            {
-                GameObject.Destroy(LeftFootRig.gameObject);
-            }
-            if (RightFootRig != null)
-            {
-                GameObject.Destroy(RightFootRig.gameObject);
-            }
-            if (LeftShoulderRig != null)
-            {
-                GameObject.Destroy(LeftShoulderRig.gameObject);
-            }
-            if (RightShoulderRig != null)
-            {
-                GameObject.Destroy(RightShoulderRig.gameObject);
-            }
-
             if (LeftToeRig != null)
             {
                 GameObject.Destroy(LeftToeRig.gameObject);
@@ -463,111 +355,310 @@ namespace Basis.Scripts.Drivers
                 GameObject.Destroy(RightToeRig.gameObject);
             }
         }
-
+        public Rig MainRig;
+        public RigLayer RigLayer;
+        public BasisFullIKConstraint BasisFullIKConstraint;
         /// <summary>
         /// Sets up core body rigs (spine, head, hands, feet, toes) and ensures a <see cref="RigTransform"/> exists on hips.
         /// </summary>
         public void SetBodySettings(BasisLocalBoneDriver driver)
         {
-            SetupSpine(driver);
-            SetupHeadRig(driver);
+            SetupManipulation(driver);
             LeftHand(driver);
             RightHand(driver);
-            LeftFoot(driver);
-            RightFoot(driver);
-
             LeftToe(driver);
             RightToe(driver);
+
+            SetupOverrides();
+
             if (references.Hips.gameObject.TryGetComponent<RigTransform>(out RigTransform RigTransform) == false)
             {
                 RigTransform Hips = references.Hips.gameObject.AddComponent<RigTransform>();
             }
             BasisLocalBoneControl.HasEvents = true;
         }
-
-        /// <summary>
-        /// Creates head/neck/chest rig and two-bone IK based on available references.
-        /// Registers rig-layer events for the relevant bone controls.
-        /// </summary>
-        private void SetupHeadRig(BasisLocalBoneDriver driver)
+        public void SetupManipulation(BasisLocalBoneDriver driver)
         {
-            GameObject GameobjectHeadRig = CreateOrGetRig("Chest, Neck, Head", true, out HeadRig, out HeadLayer);
+            GameObject GameobjectHeadRig = CreateOrGetRig("Main IK", true, out MainRig, out RigLayer);
+            Transform[] Root = new Transform[3];
+            Transform[] Middle = new Transform[3];
+            Transform[] Tip = new Transform[3];
+            BasisBoneTrackedRole[] Roles = new BasisBoneTrackedRole[3];
+            BasisBoneTrackedRole[] hintRoles = new BasisBoneTrackedRole[3];
             if (references.HasUpperchest)
             {
-                BasisAnimationRiggingHelper.CreateTwoBone(localPlayer, GameobjectHeadRig, references.Upperchest, references.neck, references.head, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Chest, true, out HeadTwoBoneIK);
+                Root[0] = references.Upperchest;
+                Middle[0] = references.neck;
+                Tip[0] = references.head;
+
+                Roles[0] = BasisBoneTrackedRole.Head;
+                hintRoles[0] = BasisBoneTrackedRole.Chest;
             }
             else
             {
                 if (references.Haschest)
                 {
-                    BasisAnimationRiggingHelper.CreateTwoBone(localPlayer, GameobjectHeadRig, references.chest, references.neck, references.head, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Chest, true, out HeadTwoBoneIK);
+                    Root[0] = references.chest;
+                    Middle[0] = references.neck;
+                    Tip[0] = references.head;
 
+                    Roles[0] = BasisBoneTrackedRole.Head;
+                    hintRoles[0] = BasisBoneTrackedRole.Chest;
                 }
                 else
                 {
-                    BasisAnimationRiggingHelper.CreateTwoBone(localPlayer, GameobjectHeadRig, null, references.neck, references.head, BasisBoneTrackedRole.Head, BasisBoneTrackedRole.Chest, true, out HeadTwoBoneIK);
+                    Root[0] = references.spine;
+                    Middle[0] = references.neck;
+                    Tip[0] = references.head;
 
+                    Roles[0] = BasisBoneTrackedRole.Head;
+                    hintRoles[0] = BasisBoneTrackedRole.Chest;
                 }
             }
+            Root[1] = references.LeftUpperLeg;
+            Middle[1] = references.LeftLowerLeg;
+            Tip[1] = references.leftFoot;
+
+            Roles[1] = BasisBoneTrackedRole.LeftFoot;
+            hintRoles[1] = BasisBoneTrackedRole.LeftLowerLeg;
+
+            Root[2] = references.RightUpperLeg;
+            Middle[2] = references.RightLowerLeg;
+            Tip[2] = references.rightFoot;
+
+            Roles[2] = BasisBoneTrackedRole.RightFoot;
+            hintRoles[2] = BasisBoneTrackedRole.RightLowerLeg;
+
+            BasisAnimationRiggingHelper.CreateMainIKRIG(localPlayer, GameobjectHeadRig, Root, Middle, Tip, Roles, hintRoles, out BasisFullIKConstraint, references.Hips, BasisBoneTrackedRole.Hips);
+
+            BasisFullIKConstraint.data.enabledHead = true;
+            BasisFullIKConstraint.data.enabledHips = true;
+
             List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
-            if (driver.FindBone(out BasisLocalBoneControl Head, BasisBoneTrackedRole.Head))
+
+            if (driver.FindBone(out BasisLocalBoneControl LeftFoot, BasisBoneTrackedRole.LeftFoot))
             {
-                controls.Add(Head);
+                LeftFoot.OnHasRigChanged += delegate
+                {
+                    BasisFullIKConstraint.data.EnableLeftLeg = LeftFoot.HasRigLayer == BasisHasRigLayer.HasRigLayer;
+                };
+                BasisFullIKConstraint.data.EnableLeftLeg = LeftFoot.HasRigLayer == BasisHasRigLayer.HasRigLayer;
             }
-            if (driver.FindBone(out BasisLocalBoneControl Chest, BasisBoneTrackedRole.Chest))
+
+            if (driver.FindBone(out BasisLocalBoneControl RightFoot, BasisBoneTrackedRole.RightFoot))
             {
-                controls.Add(Chest);
+                RightFoot.OnHasRigChanged += delegate
+                {
+                    BasisFullIKConstraint.data.EnableRightLeg = RightFoot.HasRigLayer == BasisHasRigLayer.HasRigLayer;
+                };
+                BasisFullIKConstraint.data.EnableRightLeg = RightFoot.HasRigLayer == BasisHasRigLayer.HasRigLayer;
             }
-            WriteUpEvents(controls, HeadLayer);
+
+            if (driver.FindBone(out BasisLocalBoneControl head, BasisBoneTrackedRole.Head))
+            {
+                head.OnHasRigChanged += delegate
+                {
+                    RigLayer.active = head.HasRigLayer == BasisHasRigLayer.HasRigLayer;
+                };
+                RigLayer.active = head.HasRigLayer == BasisHasRigLayer.HasRigLayer;
+            }
+        }
+        /// <summary>
+        /// Builds the “override constraints” rig and packs per-bone overrides into ⌈N/23⌉ BasisIK23Constraint batches.
+        /// Caches O(1) lookup so hot paths stay GC-free.
+        /// </summary>
+        public void SetupOverrides()
+        {
+            var isActiveList = new List<bool>(55);
+            var humanBodyBonesList = new List<HumanBodyBones>(55);
+
+            GameObject rigGO = CreateOrGetRig("Override Constraints", true, out ConstraintsRig, out ConstraintsLayer);
+
+            // Choose bones (skip eyes/fingers/LastBone) — matches old behavior
+            foreach (HumanBodyBones bone in (HumanBodyBones[])Enum.GetValues(typeof(HumanBodyBones)))
+            {
+                if (UseableBodyBone(bone))
+                {
+                    // only include if transform exists on current avatar
+                    if (ResolveHumanoidBoneTransform(bone) != null)
+                    {
+                        humanBodyBonesList.Add(bone);
+                        isActiveList.Add(false);
+                    }
+                }
+            }
+
+            HumanBones = humanBodyBonesList.ToArray();
+            isActive = isActiveList.ToArray();
+
+            // Build direct slot lookup table
+            _boneToSlot = new BasisConstraintSlotIndex[(int)HumanBodyBones.LastBone];
+            for (int i = 0; i < _boneToSlot.Length; i++) _boneToSlot[i].Batch = -1;
+
+            // Create batches
+            int count = HumanBones.Length;
+            int per = BasisIK23ConstraintData.Count;
+            int batchCount = (count + per - 1) / per;
+            Batches = new BasisIK23Constraint[batchCount];
+
+            BasisIK23ConstraintTargetBinder.InitReflectionCache();
+
+            int boneIdx = 0;
+            for (int b = 0; b < batchCount; b++)
+            {
+                var go = new GameObject($"IK23 Batch {b:00}");
+                go.transform.SetParent(rigGO.transform, false);
+
+                var comp = go.AddComponent<BasisIK23Constraint>();
+                var data = comp.data; // struct copy
+
+                for (int slot = 0; slot < per && boneIdx < count; slot++, boneIdx++)
+                {
+                    HumanBodyBones bone = HumanBones[boneIdx];
+
+                    Transform t = ResolveHumanoidBoneTransform(bone);
+                    // write private m_targetN quickly
+                    BasisIK23ConstraintTargetBinder.SetTargetTransform(ref data, slot, t);
+
+                    // default disabled
+                    data.SetWeight(slot, false);
+                    data.SetOffsetRotation(slot, t.rotation);
+                    data.SetTargetRotation(slot, t.rotation);
+                    // map bone -> slot
+                    _boneToSlot[(int)bone] = new BasisConstraintSlotIndex { Batch = (short)b, Slot = (short)slot };
+                }
+
+                comp.data = data; // push back for binder
+                Batches[b] = comp;
+            }
+
+            DisableOverrides(); // start inactive until any bone is enabled
+            BasisDebug.Log($"Built override batches: {batchCount}", BasisDebug.LogTag.Avatar);
         }
 
         /// <summary>
-        /// Creates the spine rig and hips/head IK, wiring events for head/hips controls.
+        /// we will automatically disable the overrides when you switch a avatar.
+        /// you will need to listen for a avatar change event and reanable.
         /// </summary>
-        private void SetupSpine(BasisLocalBoneDriver driver)
+        public void DisableOverrides()
         {
-            var spineRig = CreateOrGetRig("Rig Spine", true, out SpineRig, out RigSpineLayer);
-            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
-            if (driver.FindBone(out BasisLocalBoneControl Hip, BasisBoneTrackedRole.Hips))
-            {
-                controls.Add(Hip);
-            }
-            if (driver.FindBone(out BasisLocalBoneControl Head, BasisBoneTrackedRole.Head))
-            {
-                controls.Add(Head);
-            }
-            WriteUpEvents(controls, RigSpineLayer);
-            BasisAnimationRiggingHelper.CreateSpine(localPlayer, spineRig, references.Hips, references.head, BasisBoneTrackedRole.Hips, out SpineIK);
+            ConstraintsLayer.active = false;
+            BasisDebug.Log("Disabling Overrides of Avatar Constraints", BasisDebug.LogTag.Avatar);
         }
 
         /// <summary>
-        /// Creates right-shoulder damping rig and registers layer toggling events.
+        /// Returns whether a humanoid bone should have an override constraint generated for it.
         /// </summary>
-        private void SetupRightShoulderRig(BasisLocalBoneDriver driver)
+        public static bool UseableBodyBone(HumanBodyBones bone)
         {
-            GameObject RightShoulder = CreateOrGetRig("RightShoulder", false, out RightShoulderRig, out RightShoulderLayer);
-            BasisAnimationRiggingHelper.Damp(localPlayer, RightShoulder, references.RightShoulder, BasisBoneTrackedRole.RightShoulder);
-            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
-            if (driver.FindBone(out BasisLocalBoneControl RightShoulderRole, BasisBoneTrackedRole.RightShoulder))
+            switch (bone)
             {
-                controls.Add(RightShoulderRole);
+                case HumanBodyBones.LastBone:
+                case HumanBodyBones.LeftEye:
+                case HumanBodyBones.RightEye:
+                    return false;
+
+                // Left hand fingers
+                case HumanBodyBones.LeftThumbProximal:
+                case HumanBodyBones.LeftThumbIntermediate:
+                case HumanBodyBones.LeftThumbDistal:
+                case HumanBodyBones.LeftIndexProximal:
+                case HumanBodyBones.LeftIndexIntermediate:
+                case HumanBodyBones.LeftIndexDistal:
+                case HumanBodyBones.LeftMiddleProximal:
+                case HumanBodyBones.LeftMiddleIntermediate:
+                case HumanBodyBones.LeftMiddleDistal:
+                case HumanBodyBones.LeftRingProximal:
+                case HumanBodyBones.LeftRingIntermediate:
+                case HumanBodyBones.LeftRingDistal:
+                case HumanBodyBones.LeftLittleProximal:
+                case HumanBodyBones.LeftLittleIntermediate:
+                case HumanBodyBones.LeftLittleDistal:
+
+                // Right hand fingers
+                case HumanBodyBones.RightThumbProximal:
+                case HumanBodyBones.RightThumbIntermediate:
+                case HumanBodyBones.RightThumbDistal:
+                case HumanBodyBones.RightIndexProximal:
+                case HumanBodyBones.RightIndexIntermediate:
+                case HumanBodyBones.RightIndexDistal:
+                case HumanBodyBones.RightMiddleProximal:
+                case HumanBodyBones.RightMiddleIntermediate:
+                case HumanBodyBones.RightMiddleDistal:
+                case HumanBodyBones.RightRingProximal:
+                case HumanBodyBones.RightRingIntermediate:
+                case HumanBodyBones.RightRingDistal:
+                case HumanBodyBones.RightLittleProximal:
+                case HumanBodyBones.RightLittleIntermediate:
+                case HumanBodyBones.RightLittleDistal:
+                    return false;
+
+                default:
+                    return true;
             }
-            WriteUpEvents(controls, RightShoulderLayer);
         }
 
         /// <summary>
-        /// Creates left-shoulder damping rig and registers layer toggling events.
+        /// Enable/disable a bone override (per-slot weight 1/0).
         /// </summary>
-        private void SetupLeftShoulderRig(BasisLocalBoneDriver driver)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetOverrideUsage(HumanBodyBones bone, bool enabled)
         {
-            GameObject LeftShoulder = CreateOrGetRig("LeftShoulder", false, out LeftShoulderRig, out LeftShoulderLayer);
-            BasisAnimationRiggingHelper.Damp(localPlayer, LeftShoulder, references.leftShoulder, BasisBoneTrackedRole.LeftShoulder);
-            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
-            if (driver.FindBone(out BasisLocalBoneControl LeftShoulderRole, BasisBoneTrackedRole.LeftShoulder))
+            if (!TryGetSlot(bone, out int bi, out int si)) return;
+
+            int idx = Array.IndexOf(HumanBones, bone);
+            if (idx >= 0) isActive[idx] = enabled;
+
+            var comp = Batches[bi];
+            var d = comp.data;
+            d.SetWeight(si, enabled);
+            comp.data = d;
+
+            // activate layer only if any slot is active
+            ConstraintsLayer.active = isActive.Any(x => x);
+            if (!ConstraintsLayer.active) DisableOverrides();
+        }
+
+        /// <summary>
+        /// Writes world-space target for a bone’s override slot (position + rotation).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetOverrideData(HumanBodyBones bone, in Vector3 position, in Quaternion rotation)
+        {
+            if (!TryGetSlot(bone, out int bi, out int si)) return;
+
+            var comp = Batches[bi];
+            var d = comp.data;
+            d.SetTargetPosition(si, position);
+            d.SetTargetRotation(si, rotation);
+            comp.data = d;
+        }
+
+        // === Helpers used by the override system ===
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool TryGetSlot(HumanBodyBones bone, out int batch, out int slot)
+        {
+            int raw = (int)bone;
+            if (_boneToSlot == null || (uint)raw >= (uint)_boneToSlot.Length)
             {
-                controls.Add(LeftShoulderRole);
+                batch = slot = -1; return false;
             }
-            WriteUpEvents(controls, LeftShoulderLayer);
+            var s = _boneToSlot[raw];
+            if (s.Batch < 0) { batch = slot = -1; return false; }
+            batch = s.Batch; slot = s.Slot; return true;
+        }
+
+        private Transform ResolveHumanoidBoneTransform(HumanBodyBones bone)
+        {
+            // Prefer your references map if available
+            if (BasisLocalAvatarDriver.References != null &&
+                BasisLocalAvatarDriver.References.GetTransform(bone, out Transform refT))
+                return refT;
+
+            // Fallback to Animator
+            var animator = localPlayer?.BasisAvatar?.Animator;
+            return animator != null ? animator.GetBoneTransform(bone) : null;
         }
 
         /// <summary>
@@ -586,7 +677,7 @@ namespace Basis.Scripts.Drivers
                 controls.Add(LeftLowerArm);
             }
             WriteUpEvents(controls, LeftHandLayer);
-            BasisAnimationRiggingHelper.CreateTwoBoneHand(localPlayer, Hands, references.Hips, references.chest, references.leftUpperArm, references.leftLowerArm, references.leftHand, BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.LeftLowerArm, true, out LeftHandTwoBoneIK);
+            BasisAnimationRiggingHelper.CreateTwoBoneHand(localPlayer, Hands, references.Hips, references.chest, references.leftUpperArm, references.leftLowerArm, references.leftHand, references.TposeLeftHand.rotation, BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.LeftLowerArm, true, out LeftHandTwoBoneIK);
         }
 
         /// <summary>
@@ -605,51 +696,8 @@ namespace Basis.Scripts.Drivers
                 controls.Add(RightLowerArm);
             }
             WriteUpEvents(controls, RightHandLayer);
-            BasisAnimationRiggingHelper.CreateTwoBoneHand(localPlayer, Hands, references.Hips, references.chest, references.RightUpperArm, references.RightLowerArm, references.rightHand, BasisBoneTrackedRole.RightHand, BasisBoneTrackedRole.RightLowerArm, true, out RightHandTwoBoneIK);
+            BasisAnimationRiggingHelper.CreateTwoBoneHand(localPlayer, Hands, references.Hips, references.chest, references.RightUpperArm, references.RightLowerArm, references.rightHand, references.TposeRightHand.rotation, BasisBoneTrackedRole.RightHand, BasisBoneTrackedRole.RightLowerArm, true, out RightHandTwoBoneIK);
         }
-
-        /// <summary>
-        /// Sets up left foot two-bone IK and layer events for foot/lower leg controls.
-        /// </summary>
-        public void LeftFoot(BasisLocalBoneDriver driver)
-        {
-            GameObject feet = CreateOrGetRig("LeftUpperLeg, LeftLowerLeg, LeftFoot", false, out LeftFootRig, out LeftFootLayer);
-            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
-            if (driver.FindBone(out BasisLocalBoneControl LeftFoot, BasisBoneTrackedRole.LeftFoot))
-            {
-                controls.Add(LeftFoot);
-            }
-            if (driver.FindBone(out BasisLocalBoneControl LeftLowerLeg, BasisBoneTrackedRole.LeftLowerLeg))
-            {
-                controls.Add(LeftLowerLeg);
-            }
-
-            WriteUpEvents(controls, LeftFootLayer);
-
-            BasisAnimationRiggingHelper.CreateTwoBone(localPlayer, feet, references.LeftUpperLeg, references.LeftLowerLeg, references.leftFoot, BasisBoneTrackedRole.LeftFoot, BasisBoneTrackedRole.LeftLowerLeg, true, out LeftFootTwoBoneIK);
-        }
-
-        /// <summary>
-        /// Sets up right foot two-bone IK and layer events for foot/lower leg controls.
-        /// </summary>
-        public void RightFoot(BasisLocalBoneDriver driver)
-        {
-            GameObject feet = CreateOrGetRig("RightUpperLeg, RightLowerLeg, RightFoot", false, out RightFootRig, out RightFootLayer);
-            List<BasisLocalBoneControl> controls = new List<BasisLocalBoneControl>();
-            if (driver.FindBone(out BasisLocalBoneControl RightFoot, BasisBoneTrackedRole.RightFoot))
-            {
-                controls.Add(RightFoot);
-            }
-            if (driver.FindBone(out BasisLocalBoneControl RightLowerLeg, BasisBoneTrackedRole.RightLowerLeg))
-            {
-                controls.Add(RightLowerLeg);
-            }
-
-            WriteUpEvents(controls, RightFootLayer);
-
-            BasisAnimationRiggingHelper.CreateTwoBone(localPlayer, feet, references.RightUpperLeg, references.RightLowerLeg, references.rightFoot, BasisBoneTrackedRole.RightFoot, BasisBoneTrackedRole.RightLowerLeg, true, out RightFootTwoBoneIK);
-        }
-
         /// <summary>
         /// Sets up left toe damping rig and registers layer toggling for the left toe control.
         /// </summary>
@@ -698,8 +746,6 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Applies a hint weight to the appropriate constraint given a tracked role.
         /// </summary>
-        /// <param name="RoleWithHint">The role whose hint should be toggled.</param>
-        /// <param name="weight">True to enable the hint; false to disable.</param>
         public void ApplyHint(BasisBoneTrackedRole RoleWithHint, bool weight)
         {
             try
@@ -707,15 +753,15 @@ namespace Basis.Scripts.Drivers
                 switch (RoleWithHint)
                 {
                     case BasisBoneTrackedRole.Chest:
-                        HeadTwoBoneIK.data.hintWeight = weight;
+                        BasisFullIKConstraint.data.hintWeightHead = weight;
                         break;
 
                     case BasisBoneTrackedRole.RightLowerLeg:
-                        RightFootTwoBoneIK.data.hintWeight = weight;
+                        BasisFullIKConstraint.data.hintWeightLeftLowerLeg = weight;
                         break;
 
                     case BasisBoneTrackedRole.LeftLowerLeg:
-                        LeftFootTwoBoneIK.data.hintWeight = weight;
+                        BasisFullIKConstraint.data.hintWeightRightLowerLeg = weight;
                         break;
 
                     case BasisBoneTrackedRole.RightUpperArm:
@@ -766,11 +812,6 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Creates a new rig GameObject and layer (or retrieves an existing one) under the animator.
         /// </summary>
-        /// <param name="Role">Human-readable role label used in the rig name.</param>
-        /// <param name="Enabled">Initial active state of the layer.</param>
-        /// <param name="Rig">Out: the created or found <see cref="UnityEngine.Animations.Rigging.Rig"/>.</param>
-        /// <param name="RigLayer">Out: the created or found <see cref="UnityEngine.Animations.Rigging.RigLayer"/>.</param>
-        /// <returns>The rig GameObject.</returns>
         public GameObject CreateOrGetRig(string Role, bool Enabled, out Rig Rig, out RigLayer RigLayer)
         {
             foreach (RigLayer Layer in Builder.layers)
@@ -784,7 +825,6 @@ namespace Basis.Scripts.Drivers
             }
             GameObject RigGameobject = BasisAnimationRiggingHelper.CreateAndSetParent(localPlayer.BasisAvatar.Animator.transform, $"Rig {Role}");
             Rig = BasisHelpers.GetOrAddComponent<Rig>(RigGameobject);
-            Rigs.Add(Rig);
             RigLayer = new RigLayer(Rig, Enabled);
             Builder.layers.Add(RigLayer);
             return RigGameobject;

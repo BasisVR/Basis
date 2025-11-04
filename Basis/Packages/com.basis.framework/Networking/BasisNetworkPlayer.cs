@@ -39,8 +39,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public HumanPose HumanPose = new HumanPose()
         {
             muscles = new float[MuscleCount],
-             bodyPosition = Vector3.zero,
-              bodyRotation = Quaternion.identity,
+            bodyPosition = Vector3.zero,
+            bodyRotation = Quaternion.identity,
         };
         [SerializeField]
         public HumanPoseHandler PoseHandler;
@@ -195,20 +195,20 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public static BasisNetworkPlayer LocalPlayer => BasisNetworkManagement.Transmitter as BasisNetworkPlayer;
         public static bool GetPlayerById(ushort allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
-           return BasisNetworkPlayers.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);
+            return BasisNetworkPlayers.GetPlayerById(allowedPlayer, out BasisNetworkPlayer);
         }
         public static BasisNetworkPlayer GetPlayerById(ushort allowedPlayer)
         {
-           BasisNetworkPlayers.GetPlayerById(allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
+            BasisNetworkPlayers.GetPlayerById(allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
             return BasisNetworkPlayer;
         }
         public static bool GetPlayerById(int allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer)
         {
-         return  BasisNetworkPlayers.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer);
+            return BasisNetworkPlayers.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer);
         }
         public static BasisNetworkPlayer GetPlayerById(int allowedPlayer)
         {
-           BasisNetworkPlayers.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
+            BasisNetworkPlayers.GetPlayerById((ushort)allowedPlayer, out BasisNetworkPlayer BasisNetworkPlayer);
             return BasisNetworkPlayer;
         }
         /// <summary>
@@ -241,11 +241,16 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public static async Task<bool> IsOwnerLocal(string IOwnThis)
         {
-          return  await BasisNetworkPlayer.LocalPlayer.IsOwner(IOwnThis);
+            return await BasisNetworkPlayer.LocalPlayer.IsOwner(IOwnThis);
         }
 
         public static async Task<BasisOwnershipResult> SetOwnerAsync(BasisNetworkPlayer FutureOwner, string IOwnThis)
         {
+            if (FutureOwner == null)
+            {
+                BasisDebug.LogError("Missing Future Player!");
+                return new(false, 0);
+            }
             if (FutureOwner.hasID)
             {
                 return await BasisNetworkOwnership.TakeOwnershipAsync(IOwnThis, FutureOwner.playerId);
@@ -257,7 +262,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public static async Task<BasisOwnershipResult> GetOwnerPlayerIDAsync(string UniqueID)
         {
-           return await BasisNetworkOwnership.RequestCurrentOwnershipAsync(UniqueID);
+            return await BasisNetworkOwnership.RequestCurrentOwnershipAsync(UniqueID);
         }
         public static async Task<(bool, BasisNetworkPlayer)> GetOwnerPlayerAsync(string UniqueID)
         {
@@ -431,18 +436,18 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         public static BasisNetworkPlayer[] GetAllPlayers()
         {
-           return BasisNetworkPlayers.Players.Values.ToArray();
+            return BasisNetworkPlayers.Players.Values.ToArray();
         }
 
         public static int GetPlayerCount()
         {
             return BasisNetworkPlayers.Players.Count;
         }
-        public static bool PlayerToName(string name,out BasisNetworkPlayer NetworkPlayer)
+        public static bool PlayerToName(string name, out BasisNetworkPlayer NetworkPlayer)
         {
-            foreach(var player in BasisNetworkPlayers.Players.Values)
+            foreach (var player in BasisNetworkPlayers.Players.Values)
             {
-                if(player != null)
+                if (player != null)
                 {
                     if (player.displayName == name)
                     {
@@ -453,7 +458,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             }
             NetworkPlayer = null;
             return false;
-        } 
+        }
         /// <summary>
         /// this occurs after the localplayer has been approved by the network and setup
         /// </summary>
@@ -489,7 +494,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 {
                     return Player.DisplayName;
                 }
-                else { return string.Empty; }
+                else
+                {
+                    return string.Empty;
+                }
             }
         }
     }

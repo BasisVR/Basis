@@ -43,7 +43,6 @@ namespace Basis.Scripts.UI.NamePlate
             BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport += ProgressReport;
             BasisRemotePlayer.AudioReceived += OnAudioReceived;
             BasisRemotePlayer.OnAvatarSwitched += RebuildRenderCheck;
-            BasisRemotePlayer.OnAvatarSwitchedFallBack += RebuildRenderCheck;
             Self = this.transform;
             BasisRemoteNamePlateDriver.Instance.GenerateTextFactory(BasisRemotePlayer, this);
             LoadingText.enableVertexGradient = false;
@@ -63,7 +62,6 @@ namespace Basis.Scripts.UI.NamePlate
                 BasisRemotePlayer.ProgressReportAvatarLoad.OnProgressReport -= ProgressReport;
                 BasisRemotePlayer.AudioReceived -= OnAudioReceived;
                 BasisRemotePlayer.OnAvatarSwitched -= RebuildRenderCheck;
-                BasisRemotePlayer.OnAvatarSwitchedFallBack -= RebuildRenderCheck;
             }
 
             // Clean up rendering resources

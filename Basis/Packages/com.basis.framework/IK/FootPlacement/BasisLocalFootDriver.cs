@@ -165,22 +165,22 @@ public class BasisLocalFootDriver
         var Rig = BasisLocalPlayer.Instance.LocalRigDriver;
 
         // LEFT
-        PushToRigTargets(
-            left,
-            pos => Rig.LeftFootTwoBoneIK.data.TargetPosition = pos,
-            rot => Rig.LeftFootTwoBoneIK.data.TargetRotation = rot,
+       // PushToRigTargets(
+           // left,
+           // pos => Rig.LeftFootTwoBoneIK.data.TargetPosition = pos,
+           // rot => Rig.LeftFootTwoBoneIK.data.TargetRotation = rot,
             // comment the next line if your constraint doesn't use a hint:
-            hint => Rig.LeftFootTwoBoneIK.data.HintPosition = hint
-        );
+          //  hint => Rig.LeftFootTwoBoneIK.data.HintPosition = hint
+       // );
 
         // RIGHT
-        PushToRigTargets(
-            right,
-            pos => Rig.RightFootTwoBoneIK.data.TargetPosition = pos,
-            rot => Rig.RightFootTwoBoneIK.data.TargetRotation = rot,
+       // PushToRigTargets(
+         //   right,
+           // pos => Rig.RightFootTwoBoneIK.data.TargetPosition = pos,
+         //   rot => Rig.RightFootTwoBoneIK.data.TargetRotation = rot,
             // comment if not using hints:
-            hint => Rig.RightFootTwoBoneIK.data.HintPosition = hint
-        );
+           // hint => Rig.RightFootTwoBoneIK.data.HintPosition = hint
+       // );
     }
 
     // ----------- Core logic -------------

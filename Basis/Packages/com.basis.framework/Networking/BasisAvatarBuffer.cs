@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine; // only for optional Debug.LogWarning
 
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
@@ -17,13 +16,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public NativeArray<float> Muscles;
         public double SecondsInterval = 0.01;
 
-        private bool _disposed;
+        public bool IsDisposed = false;
 
         /// <summary>Ensure NativeArray is allocated correctly; does not clear existing values.</summary>
         public void EnsureAllocated()
         {
-            if (_disposed)
+            if (IsDisposed)
+            {
                 throw new ObjectDisposedException(nameof(BasisAvatarBuffer));
+            }
 
             if (!Muscles.IsCreated || Muscles.Length != MuscleCount)
             {
@@ -35,8 +36,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// <summary>Reset fields to defaults. Optionally zero the muscle array.</summary>
         public void Reset(bool clearMuscles = false)
         {
-            if (_disposed)
+            if (IsDisposed)
+            {
                 throw new ObjectDisposedException(nameof(BasisAvatarBuffer));
+            }
 
             EnsureAllocated();
 
@@ -54,9 +57,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         public void Dispose()
         {
-            if (_disposed) return;
+            if (IsDisposed) return;
             if (Muscles.IsCreated) Muscles.Dispose();
-            _disposed = true;
+            IsDisposed = true;
         }
     }
 
@@ -74,14 +77,22 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 while (_pool.Count > 0)
                 {
                     var item = _pool.Pop();
-                    if (item == null) continue;               // skip any stray nulls
-                    _inPool.Remove(item);                      // now “checked out”
-                    item.Reset(clearMuscles: false);           // re-init cheap stuff; skip clearing muscles unless you need to
+                    if (item == null)
+                    {
+                        BasisDebug.LogError("Null buffer popped from pool!");
+                        continue;
+                    }
+
+                    if (!_inPool.Remove(item))
+                    {
+                        BasisDebug.LogWarning("Buffer not tracked properly in _inPool.");
+                    }
+
+                    item.Reset(clearMuscles: false);
                     return item;
                 }
             }
 
-            // Nothing available; create fresh.
             var fresh = new BasisAvatarBuffer();
             fresh.Reset(clearMuscles: false);
             return fresh;
@@ -92,6 +103,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 BasisDebug.LogError("released Avatar Buffer was null");
                 return; // don’t push nulls
+            }
+            if (_inPool.Contains(item))
+            {
+                BasisDebug.LogError("Double release detected!");
+                return;
             }
             lock (_lock)
             {

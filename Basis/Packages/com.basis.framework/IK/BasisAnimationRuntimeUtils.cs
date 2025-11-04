@@ -444,7 +444,7 @@ public static class BasisAnimationRuntimeUtils
     /// <param name="hint">The transform handle for the hint transform.</param>
     /// <param name="HasHint">The weight for which hint transform has an effect on IK calculations. This is a value in between 0 and 1.</param>
     /// <param name="targetOffset">The offset applied to the target transform.</param>
-    public static void SolveTwoBoneIKLegsAndTorso(AnimationStream stream, ReadWriteTransformHandle root, ReadWriteTransformHandle mid, ReadWriteTransformHandle tip, AffineTransform target, AffineTransform hint, bool HasHint, AffineTransform targetOffset, Vector3 BendNormal)
+    public static void SolveTwoBone(AnimationStream stream, ReadWriteTransformHandle root, ReadWriteTransformHandle mid, ReadWriteTransformHandle tip, AffineTransform target, AffineTransform hint, bool HasHint, AffineTransform targetOffset, Vector3 BendNormal)
     {
         Vector3 aPosition = root.GetPosition(stream);
         Vector3 bPosition = mid.GetPosition(stream);

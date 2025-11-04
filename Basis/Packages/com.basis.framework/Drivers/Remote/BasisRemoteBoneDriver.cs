@@ -592,10 +592,12 @@ public static class RemoteBoneJobSystem
             sHips.RemoveAtSwapBack(idx);
 
             // Update the moved key's mapping
+            int movedKey = -1;
             foreach (var kv in sKeyToIndex)
             {
-                if (kv.Value == last) { sKeyToIndex[kv.Key] = idx; break; }
+                if (kv.Value == last) { movedKey = kv.Key; break; }
             }
+            if (movedKey != -1) sKeyToIndex[movedKey] = idx;
         }
         else
         {

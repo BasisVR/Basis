@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
+using System;
 using System.Threading;
 using UnityEngine;
 
@@ -28,10 +29,16 @@ public class BasisAvatarPedestal : BasisInteractableObject
     [HideInInspector]
     public string UniqueID;
 
+    public ShowAvatarOnPedestal ShowAvatarMode = ShowAvatarOnPedestal.uploadedImage;
     /// <summary>
     /// Determines if the avatar should be shown visibly on the pedestal.
     /// </summary>
-    public bool ShowAvatarOnPedestal = true;
+    public enum ShowAvatarOnPedestal
+    {
+        RealAvatar,
+        uploadedImage,
+        None
+    }
 
     /// <summary>
     /// Flag to prevent multiple press interactions being triggered in quick succession.
@@ -72,7 +79,22 @@ public class BasisAvatarPedestal : BasisInteractableObject
         BasisProgressReport = new BasisProgressReport();
         Initalize();
     }
-
+    /// <summary>
+    /// if we successfully load a image of the avatar it will be referencable here.
+    /// </summary>
+    public Texture2D LoadedImage;
+    /// <summary>
+    /// Fallback image if we fail to load a image
+    /// </summary>
+    public Texture2D FallBackImage;
+    /// <summary>
+    /// renderer being used to show loaded image
+    /// </summary>
+    public Renderer Renderer;
+    /// <summary>
+    /// material gets duplicated before adding image.
+    /// </summary>
+    public bool MaterialGetsCopied = true;
     /// <summary>
     /// Initializes the pedestal by loading or showing the avatar, 
     /// and creating its collider for interaction.
@@ -82,22 +104,77 @@ public class BasisAvatarPedestal : BasisInteractableObject
         switch (LoadMode)
         {
             case BasisLoadMode.ByGameobjectReference:
-                Avatar.gameObject.SetActive(ShowAvatarOnPedestal);
+                if (ShowAvatarMode == ShowAvatarOnPedestal.RealAvatar)
+                {
+                    Avatar.gameObject.SetActive(true);
+                }
+                else
+                {
+                    Avatar.gameObject.SetActive(false);
+                }
                 Avatar.Animator.runtimeAnimatorController = PedestalAnimatorController;
                 break;
             default:
                 {
-                    if (ShowAvatarOnPedestal)
+                    switch (ShowAvatarMode)
                     {
-                        transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
-                        GameObject CreatedCopy = await BasisLoadHandler.LoadGameObjectBundle(
-                            LoadableBundle, true, BasisProgressReport, cancellationToken,
-                            Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Prop, transform);
+                        case ShowAvatarOnPedestal.RealAvatar:
+                            {
+                                transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+                                GameObject CreatedCopy = await BasisLoadHandler.LoadGameObjectBundle(
+                                    LoadableBundle, true, BasisProgressReport, cancellationToken,
+                                    Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Prop, transform);
 
-                        if (CreatedCopy.TryGetComponent(out Avatar))
-                        {
-                            Avatar.Animator.runtimeAnimatorController = PedestalAnimatorController;
-                        }
+                                if (CreatedCopy.TryGetComponent(out Avatar))
+                                {
+                                    Avatar.Animator.runtimeAnimatorController = PedestalAnimatorController;
+                                }
+
+                                break;
+                            }
+
+                        case ShowAvatarOnPedestal.uploadedImage:
+                            BasisTrackedBundleWrapper wrapper = new BasisTrackedBundleWrapper
+                            {
+                                LoadableBundle = LoadableBundle
+                            };
+                            try
+                            {
+                                if (LoadableBundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
+                                {
+                                    LoadedImage = FallBackImage;
+                                }
+                                else
+                                {
+                                    await BasisBeeManagement.HandleMetaOnlyLoad(wrapper, BasisProgressReport, cancellationToken);
+                                    if (wrapper.LoadableBundle.BasisBundleConnector.ImageBytes != null)
+                                    {
+                                        LoadedImage = BasisTextureCompression.FromPngBytes(wrapper.LoadableBundle.BasisBundleConnector.ImageBytes);
+                                    }
+                                    else
+                                    {
+                                        LoadedImage = FallBackImage;
+                                    }
+                                }
+                                if (Renderer != null && Renderer.sharedMaterial != null)
+                                {
+                                    if (MaterialGetsCopied)
+                                    {
+                                        Renderer.material.mainTexture = LoadedImage;
+                                    }
+                                    else
+                                    {
+                                        Renderer.sharedMaterial.mainTexture = LoadedImage;
+                                    }
+                                }
+                            }
+                            catch (Exception E)
+                            {
+                                BasisDebug.LogError(E);
+                                BasisLoadHandler.RemoveDiscInfo(LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
+                                return;
+                            }
+                            break;
                     }
                     break;
                 }

@@ -109,7 +109,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         };
         public static void Compress(BasisNetworkTransmitter transmitter, Animator animator)
         {
-            EnsureTransmitterIsInitialized(transmitter, animator);
+            transmitter.PoseHandler ??= new HumanPoseHandler(animator.avatar, animator.transform);
+
             EnsureInitialized(); // our compressor init
 
             // Get current pose from Animator
@@ -134,7 +135,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             transmitter.ClearAdditional();
         }
 
-        public static void InitalAvatarData(Animator animator, out StoredAvatarData StoredAvatarData)
+        public static void InitalAvatarData(Animator animator, out BasisStoredAvatarData StoredAvatarData)
         {
             EnsureInitialized();
 
@@ -142,12 +143,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             var humanPose = new HumanPose();
             poseHandler.GetHumanPose(ref humanPose);
 
-            StoredAvatarData = new StoredAvatarData();
+            StoredAvatarData = new BasisStoredAvatarData();
             CompressAvatarData(StoredAvatarData, humanPose, animator);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
-        public static void CompressAvatarData(StoredAvatarData AvatarData, HumanPose pose, Animator animator)
+        public static void CompressAvatarData(BasisStoredAvatarData AvatarData, HumanPose pose, Animator animator)
         {
             EnsureInitialized();
 
@@ -231,12 +232,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             ushort compressed = (ushort)(normalized * BasisMuscleRange.UShortRangeDifference);
             BasisUnityBitPackerExtensionsUnsafe.WriteUShort(compressed, ref message.array, ref offset);
-        }
-
-        private static void EnsureTransmitterIsInitialized(BasisNetworkTransmitter transmitter, Animator animator)
-        {
-            if (transmitter.PoseHandler == null)
-                transmitter.PoseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
         }
 
         // ==============================
