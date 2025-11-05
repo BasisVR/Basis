@@ -192,11 +192,56 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         #endregion
 
+        #region Scale With Gesture
+        [Header("Scale With Gesture")]
+        public bool enableScaleWithGesture = false;
+        public float maxScale = 1f;
+        public float minScale = .01f;
+        #endregion
+
+
+        #region Lock to Axis
+        public enum AxisType
+        {
+            None,
+            X,
+            Y,
+            Z
+        }
+        [Header("Lock to Axis")]
+        public AxisType constrainToAxis = AxisType.None;
+        public float positiveTravelLimit = 0.2f;
+        public float negativeTravelLimit = 0.0f;
+        # endregion
+
+        Vector3 _positionAtStart;
+        private float previousDistance = 0;
+
+        public static void scaleObjectWithClamp(
+            Transform transform,
+            float scaleDirection,
+            float minScale,
+            float maxScale
+        )
+        {
+            Vector3 vector = Vector3.one;
+            vector *= scaleDirection / 200f;
+
+            Vector3 newScale = transform.localScale;
+            newScale += vector;
+            newScale.x = Mathf.Clamp(newScale.x, minScale, maxScale);
+            newScale.y = Mathf.Clamp(newScale.y, minScale, maxScale);
+            newScale.z = Mathf.Clamp(newScale.z, minScale, maxScale);
+
+            transform.localScale = newScale;
+        }
+
         /// <summary>
         /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
         /// </summary>
         public void Start()
         {
+            _positionAtStart = transform.position;
             if (RigidRef == null)
             {
                 TryGetComponent(out RigidRef);
@@ -503,13 +548,36 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public override void InputUpdate()
         {
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
+            GetOppositeInteracting(out BasisInputWrapper opposingInput);
 
             Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
 
-            if (BasisDeviceManagement.IsUserInDesktop())
-            {
+            if (BasisDeviceManagement.IsUserInDesktop()) {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
+            }else{
+                if(enableScaleWithGesture && opposingInput.Source.CurrentInputState.Trigger == 1){
+                    float currentDistance =  (Inputs.leftHand.Source.transform.position - Inputs.rightHand.Source.transform.position).sqrMagnitude;
+                    if(previousDistance == -1){
+                        previousDistance = currentDistance;
+                    }else{
+                        float delta = Mathf.Abs(previousDistance - currentDistance);
+                        Debug.Log(delta);
+                        if (previousDistance < currentDistance && delta > 0.001f)
+                        {
+                            // Embiggening
+                             scaleObjectWithClamp(transform, 1, minScale, maxScale);
+                        }
+                        else if (previousDistance > currentDistance && delta > 0.001f)
+                        {
+                            // Ensmallening
+                            scaleObjectWithClamp(transform, -1, minScale, maxScale);
+                        }
+                        previousDistance = currentDistance;
+                    }
+                }else{
+                    previousDistance = -1;
+                }
             }
 
             // Trigger state machine for OnPickupUse
@@ -538,6 +606,57 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
+                // Apply axis constraint
+                switch (constrainToAxis)
+                {
+                    case AxisType.X:
+                        {
+                            if ((pos.x < _positionAtStart.x && (Math.Abs(pos.x - _positionAtStart.x) <= negativeTravelLimit))||
+                                (pos.x > _positionAtStart.x && (Math.Abs(pos.x - _positionAtStart.x) <= positiveTravelLimit)))
+                            {
+                                pos = new Vector3(pos.x, transform.position.y, transform.position.z);
+                            }
+                            else
+                            {
+                                pos = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+                            }
+                            rot = transform.rotation;
+                        }
+                        break;
+                    case AxisType.Y:
+                        {
+                            if ((pos.y < _positionAtStart.y && (Math.Abs(pos.y - _positionAtStart.y) <= negativeTravelLimit))||
+                                (pos.y > _positionAtStart.y && (Math.Abs(pos.y - _positionAtStart.y) <= positiveTravelLimit)))
+                            {
+                                pos = new Vector3(transform.position.x, pos.y, transform.position.z);
+                            }
+                            else
+                            {
+                                pos = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+                            }
+                            rot = transform.rotation;
+                        }
+                        break;
+                    case AxisType.Z:
+                        {
+                            if ((pos.z < _positionAtStart.z && (Math.Abs(pos.z - _positionAtStart.z) <= negativeTravelLimit))||
+                                (pos.z > _positionAtStart.z && (Math.Abs(pos.z - _positionAtStart.z) <= positiveTravelLimit)))
+                            {
+                                pos = new Vector3(transform.position.x, transform.position.y, pos.z);
+                            }
+                            else
+                            {
+                                pos = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+                            }
+                            rot = transform.rotation;
+                        }
+                        break;
+                    case AxisType.None:
+                    default:
+                        // Do nothing
+                        break;
+                }
+
                 // Prefer Rigidbody movement when present to preserve physics consistency.
                 if (RigidRef != null && !RigidRef.isKinematic)
                 {
@@ -663,6 +782,33 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
                     {
                         BasisInputWrapper = Inputs.rightHand;
+                        return true;
+                    }
+                    else
+                    {
+                        BasisInputWrapper = new BasisInputWrapper();
+                        return false;
+                    }
+            }
+        }
+
+        private bool GetOppositeInteracting(out BasisInputWrapper BasisInputWrapper)
+        {
+
+            switch (Inputs.desktopCenterEye.GetState())
+            {
+                case BasisInteractInputState.Interacting:
+                    BasisInputWrapper = Inputs.desktopCenterEye;
+                    return true;
+                default:
+                    if (Inputs.leftHand.GetState() == BasisInteractInputState.Interacting)
+                    {
+                        BasisInputWrapper = Inputs.rightHand;
+                        return true;
+                    }
+                    else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
+                    {
+                        BasisInputWrapper = Inputs.leftHand;
                         return true;
                     }
                     else

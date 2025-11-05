@@ -324,7 +324,6 @@ GameObject:
   - component: {fileID: 22531835}
   - component: {fileID: 22531834}
   - component: {fileID: 22531833}
-  - component: {fileID: 22531832}
   m_Layer: 0
   m_Name: D
   m_TagString: Untagged
@@ -332,94 +331,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &22531832
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 22531831}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9ec5da8d613441b684d72f80346dc232, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractableAn
-  Inputs:
-    desktopCenterEye:
-      Source: {fileID: 0}
-      State: 0
-    leftHand:
-      Source: {fileID: 0}
-      State: 0
-    rightHand:
-      Source: {fileID: 0}
-      State: 0
-    extras: []
-  interactableEnabled: 1
-  AutoHold: 1
-  KinematicWhileInteracting: 1
-  CanSelfSteal: 0
-  DesktopRotateSpeed: 0.1
-  DesktopZoopSpeed: 0.2
-  DesktopZoopMinDistance: 0.2
-  DesktopZoopMaxDistance: 2
-  GenerateColliderMesh: 1
-  minLinearVelocity: 0.5
-  interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.5
-  interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 22531833}
-  RigidRef: {fileID: 0}
-  InputConstraint:
-    rid: 2910271479315955712
-  _previousKinematicValue: 1
-  InteractRange: 1
-  enableAdvanced: 1
-  color: {r: 1, g: 1, b: 1, a: 1}
-  maxScale: 5
-  minScale: 1
-  enableAutoReHome: 1
-  delay: 1
-  duration: 3
-  easing: 4
-  useCustomCurve: 0
-  customCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  constrainToAxis: y
-  constraintLimit: 0.2
-  references:
-    version: 2
-    RefIds:
-    - rid: 2910271479315955712
-      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
-      data:
-        Enabled: 1
-        GlobalWeight: 1
-        _restPosition: {x: 0, y: 0, z: 0}
-        _restRotation: {x: 0, y: 0, z: 0, w: 0}
-        sources: []
 --- !u!65 &22531833
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -466,7 +377,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: d2ec066be4e614b4eb13c26c4dea05e7, type: 3}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -691,7 +602,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d926560f9f4cfa240ae27300a8c77531, type: 2}
+  - {fileID: 2100000, guid: 6a1143ee683302f4aa628c052723efc1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -841,7 +752,7 @@ GameObject:
   - component: {fileID: 310392982}
   - component: {fileID: 310392981}
   - component: {fileID: 310392980}
-  - component: {fileID: 310392979}
+  - component: {fileID: 310392984}
   m_Layer: 0
   m_Name: A
   m_TagString: Untagged
@@ -849,94 +760,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &310392979
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 310392978}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9ec5da8d613441b684d72f80346dc232, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractableAn
-  Inputs:
-    desktopCenterEye:
-      Source: {fileID: 0}
-      State: 0
-    leftHand:
-      Source: {fileID: 0}
-      State: 0
-    rightHand:
-      Source: {fileID: 0}
-      State: 0
-    extras: []
-  interactableEnabled: 1
-  AutoHold: 1
-  KinematicWhileInteracting: 1
-  CanSelfSteal: 0
-  DesktopRotateSpeed: 0.1
-  DesktopZoopSpeed: 0.2
-  DesktopZoopMinDistance: 0.2
-  DesktopZoopMaxDistance: 2
-  GenerateColliderMesh: 1
-  minLinearVelocity: 0.5
-  interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.5
-  interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 310392980}
-  RigidRef: {fileID: 0}
-  InputConstraint:
-    rid: 2910271479315955712
-  _previousKinematicValue: 1
-  InteractRange: 1
-  enableAdvanced: 1
-  color: {r: 1, g: 1, b: 1, a: 1}
-  maxScale: 1
-  minScale: 0.1
-  enableAutoReHome: 0
-  delay: 1
-  duration: 3
-  easing: 4
-  useCustomCurve: 0
-  customCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  constrainToAxis: None
-  constraintLimit: 0
-  references:
-    version: 2
-    RefIds:
-    - rid: 2910271479315955712
-      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
-      data:
-        Enabled: 1
-        GlobalWeight: 1
-        _restPosition: {x: 0, y: 0, z: 0}
-        _restRotation: {x: 0, y: 0, z: 0, w: 0}
-        sources: []
 --- !u!65 &310392980
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -983,7 +806,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: d2ec066be4e614b4eb13c26c4dea05e7, type: 3}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1029,6 +852,59 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &310392984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 310392978}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  AutoHold: 1
+  KinematicWhileInteracting: 1
+  CanSelfSteal: 1
+  DesktopRotateSpeed: 0.1
+  DesktopZoopSpeed: 0.2
+  DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
+  interactEndLinearVelocityMultiplier: 1
+  minAngularVelocity: 0.5
+  interactEndAngularVelocityMultiplier: 1
+  ColliderRef: {fileID: 0}
+  RigidRef: {fileID: 0}
+  InputConstraint:
+    rid: 5755392626397282528
+  _previousKinematicValue: 1
+  InteractRange: 1
+  references:
+    version: 2
+    RefIds:
+    - rid: 5755392626397282528
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
+      data:
+        Enabled: 1
+        GlobalWeight: 1
+        _restPosition: {x: 0, y: 0, z: 0}
+        _restRotation: {x: 0, y: 0, z: 0, w: 0}
+        sources: []
 --- !u!1001 &391151166
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1953,7 +1829,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d926560f9f4cfa240ae27300a8c77531, type: 2}
+  - {fileID: 2100000, guid: 6a1143ee683302f4aa628c052723efc1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2127,7 +2003,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d926560f9f4cfa240ae27300a8c77531, type: 2}
+  - {fileID: 2100000, guid: 6a1143ee683302f4aa628c052723efc1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -2240,7 +2116,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d926560f9f4cfa240ae27300a8c77531, type: 2}
+  - {fileID: 2100000, guid: 6a1143ee683302f4aa628c052723efc1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3197,7 +3073,6 @@ GameObject:
   - component: {fileID: 1552705583}
   - component: {fileID: 1552705582}
   - component: {fileID: 1552705581}
-  - component: {fileID: 1552705580}
   m_Layer: 0
   m_Name: E
   m_TagString: Untagged
@@ -3205,94 +3080,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1552705580
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1552705579}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9ec5da8d613441b684d72f80346dc232, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractableAn
-  Inputs:
-    desktopCenterEye:
-      Source: {fileID: 0}
-      State: 0
-    leftHand:
-      Source: {fileID: 0}
-      State: 0
-    rightHand:
-      Source: {fileID: 0}
-      State: 0
-    extras: []
-  interactableEnabled: 1
-  AutoHold: 1
-  KinematicWhileInteracting: 1
-  CanSelfSteal: 0
-  DesktopRotateSpeed: 0.1
-  DesktopZoopSpeed: 0.2
-  DesktopZoopMinDistance: 0.2
-  DesktopZoopMaxDistance: 2
-  GenerateColliderMesh: 1
-  minLinearVelocity: 0.5
-  interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.5
-  interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 1552705581}
-  RigidRef: {fileID: 0}
-  InputConstraint:
-    rid: 2910271479315955712
-  _previousKinematicValue: 1
-  InteractRange: 1
-  enableAdvanced: 1
-  color: {r: 1, g: 1, b: 1, a: 1}
-  maxScale: 5
-  minScale: 1
-  enableAutoReHome: 1
-  delay: 0.5
-  duration: 0.5
-  easing: 4
-  useCustomCurve: 0
-  customCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  constrainToAxis: z
-  constraintLimit: 0.2
-  references:
-    version: 2
-    RefIds:
-    - rid: 2910271479315955712
-      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
-      data:
-        Enabled: 1
-        GlobalWeight: 1
-        _restPosition: {x: 0, y: 0, z: 0}
-        _restRotation: {x: 0, y: 0, z: 0, w: 0}
-        sources: []
 --- !u!65 &1552705581
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -3339,7 +3126,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: d2ec066be4e614b4eb13c26c4dea05e7, type: 3}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -3972,7 +3759,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d926560f9f4cfa240ae27300a8c77531, type: 2}
+  - {fileID: 2100000, guid: 6a1143ee683302f4aa628c052723efc1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4030,7 +3817,6 @@ GameObject:
   - component: {fileID: 1832261880}
   - component: {fileID: 1832261879}
   - component: {fileID: 1832261878}
-  - component: {fileID: 1832261877}
   m_Layer: 0
   m_Name: C
   m_TagString: Untagged
@@ -4038,94 +3824,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1832261877
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1832261876}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9ec5da8d613441b684d72f80346dc232, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractableAn
-  Inputs:
-    desktopCenterEye:
-      Source: {fileID: 0}
-      State: 0
-    leftHand:
-      Source: {fileID: 0}
-      State: 0
-    rightHand:
-      Source: {fileID: 0}
-      State: 0
-    extras: []
-  interactableEnabled: 1
-  AutoHold: 1
-  KinematicWhileInteracting: 1
-  CanSelfSteal: 0
-  DesktopRotateSpeed: 0.1
-  DesktopZoopSpeed: 0.2
-  DesktopZoopMinDistance: 0.2
-  DesktopZoopMaxDistance: 2
-  GenerateColliderMesh: 1
-  minLinearVelocity: 0.5
-  interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.5
-  interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 1832261878}
-  RigidRef: {fileID: 0}
-  InputConstraint:
-    rid: 2910271479315955712
-  _previousKinematicValue: 1
-  InteractRange: 1
-  enableAdvanced: 1
-  color: {r: 1, g: 1, b: 1, a: 1}
-  maxScale: 5
-  minScale: 1
-  enableAutoReHome: 0
-  delay: 1
-  duration: 3
-  easing: 4
-  useCustomCurve: 0
-  customCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  constrainToAxis: x
-  constraintLimit: 0.8
-  references:
-    version: 2
-    RefIds:
-    - rid: 2910271479315955712
-      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
-      data:
-        Enabled: 1
-        GlobalWeight: 1
-        _restPosition: {x: 0, y: 0, z: 0}
-        _restRotation: {x: 0, y: 0, z: 0, w: 0}
-        sources: []
 --- !u!65 &1832261878
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -4172,7 +3870,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: d2ec066be4e614b4eb13c26c4dea05e7, type: 3}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -4842,7 +4540,6 @@ GameObject:
   - component: {fileID: 2125700469}
   - component: {fileID: 2125700468}
   - component: {fileID: 2125700467}
-  - component: {fileID: 2125700466}
   m_Layer: 0
   m_Name: B
   m_TagString: Untagged
@@ -4850,94 +4547,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &2125700466
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2125700465}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9ec5da8d613441b684d72f80346dc232, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractableAn
-  Inputs:
-    desktopCenterEye:
-      Source: {fileID: 0}
-      State: 0
-    leftHand:
-      Source: {fileID: 0}
-      State: 0
-    rightHand:
-      Source: {fileID: 0}
-      State: 0
-    extras: []
-  interactableEnabled: 1
-  AutoHold: 1
-  KinematicWhileInteracting: 1
-  CanSelfSteal: 0
-  DesktopRotateSpeed: 0.1
-  DesktopZoopSpeed: 0.2
-  DesktopZoopMinDistance: 0.2
-  DesktopZoopMaxDistance: 2
-  GenerateColliderMesh: 1
-  minLinearVelocity: 0.5
-  interactEndLinearVelocityMultiplier: 1
-  minAngularVelocity: 0.5
-  interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 2125700467}
-  RigidRef: {fileID: 0}
-  InputConstraint:
-    rid: 2910271479315955712
-  _previousKinematicValue: 1
-  InteractRange: 1
-  enableAdvanced: 1
-  color: {r: 1, g: 1, b: 1, a: 1}
-  maxScale: 1
-  minScale: 0.1
-  enableAutoReHome: 1
-  delay: 1
-  duration: 3
-  easing: 4
-  useCustomCurve: 0
-  customCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0
-      inSlope: 0
-      outSlope: 1
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 1
-      inSlope: 1
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
-  constrainToAxis: None
-  constraintLimit: 0
-  references:
-    version: 2
-    RefIds:
-    - rid: 2910271479315955712
-      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
-      data:
-        Enabled: 1
-        GlobalWeight: 1
-        _restPosition: {x: 0, y: 0, z: 0}
-        _restRotation: {x: 0, y: 0, z: 0, w: 0}
-        sources: []
 --- !u!65 &2125700467
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -4984,7 +4593,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: -876546973899608171, guid: d2ec066be4e614b4eb13c26c4dea05e7, type: 3}
+  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
