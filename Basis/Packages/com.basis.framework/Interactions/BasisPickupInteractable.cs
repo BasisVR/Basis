@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using System.Collections;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
@@ -194,11 +195,19 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         #region Scale With Gesture
         [Header("Scale With Gesture")]
+        /// <summary>
+        /// When <see langword="true"/>, enables scaling the object by moving both hands apart/together while holding it.
+        /// </summary>
         public bool enableScaleWithGesture = false;
+        /// <summary>
+        /// Maximum scale the object can be embiggened to, in meters.
+        /// </summary>
         public float maxScale = 1f;
+        /// <summary>
+        /// Minimum scale the object can be ensmallened to, in meters.
+        /// </summary>
         public float minScale = .01f;
         #endregion
-
 
         #region Lock to Axis
         public enum AxisType
@@ -209,15 +218,77 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Z
         }
         [Header("Lock to Axis")]
+        /// <summary>
+        /// When set to an axis, constrains movement to that axis only. Ideal for sliders and buttons.
+        /// </summary>
         public AxisType constrainToAxis = AxisType.None;
+        /// <summary>
+        /// Maximum positive travel limit from the starting position along the constrained axis, in meters.
+        /// </summary>
         public float positiveTravelLimit = 0.2f;
+        /// <summary>
+        /// Maximum negative travel limit from the starting position along the constrained axis, in meters.
+        /// </summary>
         public float negativeTravelLimit = 0.0f;
         # endregion
 
+        # region Auto Return
+        public enum EasingType
+        {
+            Linear,
+            SmoothStep,
+            EaseInQuad,
+            EaseOutQuad,
+            EaseInOutQuad,
+            EaseInCubic,
+            EaseOutCubic,
+            EaseInOutCubic
+        }
+        [Header("Auto Return")]
+        [Tooltip("Target world position to move to.")]
+        /// <summary>
+        /// When <see langword="true"/>, object will return to its starting position, scale and rotation after being released for a duration of time
+        /// </summary>
+        public bool enableAutoReturn = false;
         Vector3 _positionAtStart;
-        private float previousDistance = 0;
+        Quaternion _rotationAtStart;
+        Vector3 _scaleAtStart;
 
-        public static void scaleObjectWithClamp(
+        /// <summary>
+        /// Amount of time between when an object is released and when it begins to transform back to original state, in seconds
+        /// </summary>
+        [Tooltip("Delay in seconds before moving.")]
+        public float delay = 3f;
+
+        /// <summary>
+        /// Amount of time an object will take to transition back to original state after it begins, in seconds
+        /// </summary>
+        [Tooltip("If > 0, the object will interpolate to the target over this duration; if 0, it will jump instantly.")]
+        public float duration = 0f;
+
+        /// <summary>
+        /// Type of easing to apply to the interpolation when moving back to original state
+        /// </summary>
+        [Tooltip("Easing preset to apply to the interpolation.")]
+        public EasingType easing = EasingType.Linear;
+
+        /// <summary>
+        /// Custom AnimationCurve to use for easing instead of the preset options
+        /// </summary>
+        [Tooltip("Use a custom AnimationCurve instead of the preset easing.")]
+        public bool useCustomCurve = false;
+
+        [Tooltip("Custom easing curve evaluated over 0..1 (time).")]
+        public AnimationCurve customCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+        private Coroutine _autoReturnCoroutine;
+        # endregion
+
+        private float _previousDistance = 0;
+
+        /// <summary>
+        /// Helper function, scales the object uniformly in all axes, clamped to min/max scale.
+        /// </summary>
+        private static void scaleObjectWithClamp(
             Transform transform,
             float scaleDirection,
             float minScale,
@@ -242,6 +313,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public void Start()
         {
             _positionAtStart = transform.position;
+            _rotationAtStart = transform.rotation;
+            _scaleAtStart = transform.localScale;
+
             if (RigidRef == null)
             {
                 TryGetComponent(out RigidRef);
@@ -435,6 +509,14 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <param name="input">The input source ending interaction.</param>
         public override void OnInteractEnd(BasisInput input)
         {
+            if (enableAutoReturn)
+            {
+                if (_autoReturnCoroutine != null)
+                {
+                    StopCoroutine(_autoReturnCoroutine);
+                }
+                _autoReturnCoroutine = StartCoroutine(MoveAfterDelayCoroutine());
+            }
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 if (wrapper.GetState() == BasisInteractInputState.Interacting)
@@ -550,6 +632,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
             GetOppositeInteracting(out BasisInputWrapper opposingInput);
 
+            if (enableAutoReturn && _autoReturnCoroutine != null)
+            {
+                StopCoroutine(_autoReturnCoroutine);
+                _autoReturnCoroutine = null;
+            }
+
             Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
 
@@ -558,25 +646,25 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }else{
                 if(enableScaleWithGesture && opposingInput.Source.CurrentInputState.Trigger == 1){
                     float currentDistance =  (Inputs.leftHand.Source.transform.position - Inputs.rightHand.Source.transform.position).sqrMagnitude;
-                    if(previousDistance == -1){
-                        previousDistance = currentDistance;
+                    if(_previousDistance == -1){
+                        _previousDistance = currentDistance;
                     }else{
-                        float delta = Mathf.Abs(previousDistance - currentDistance);
+                        float delta = Mathf.Abs(_previousDistance - currentDistance);
                         Debug.Log(delta);
-                        if (previousDistance < currentDistance && delta > 0.001f)
+                        if (_previousDistance < currentDistance && delta > 0.001f)
                         {
                             // Embiggening
                              scaleObjectWithClamp(transform, 1, minScale, maxScale);
                         }
-                        else if (previousDistance > currentDistance && delta > 0.001f)
+                        else if (_previousDistance > currentDistance && delta > 0.001f)
                         {
                             // Ensmallening
                             scaleObjectWithClamp(transform, -1, minScale, maxScale);
                         }
-                        previousDistance = currentDistance;
+                        _previousDistance = currentDistance;
                     }
                 }else{
-                    previousDistance = -1;
+                    _previousDistance = -1;
                 }
             }
 
@@ -792,9 +880,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 
+        /// <summary>
+        /// Retrieves the opposing active interacting input wrapper, if any. Intended for non-desktop inputs, should return the "opposite" hand from that holding the object
+        /// </summary>
+        /// <param name="BasisInputWrapper">Outputs the active wrapper when interaction is in progress.</param>
+        /// <returns><see langword="true"/> if an input is actively interacting; otherwise <see langword="false"/>.</returns>
         private bool GetOppositeInteracting(out BasisInputWrapper BasisInputWrapper)
         {
-
             switch (Inputs.desktopCenterEye.GetState())
             {
                 case BasisInteractInputState.Interacting:
@@ -867,6 +959,73 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 role == BasisBoneTrackedRole.CenterEye &&
                 input.CurrentInputState.SecondaryTrigger == 1; ;
         }
+
+
+    IEnumerator MoveAfterDelayCoroutine()
+        {
+            yield return new WaitForSeconds(delay);
+
+            if (duration <= 0f)
+            {
+                transform.localPosition = _positionAtStart;
+                transform.localRotation = _rotationAtStart;
+                transform.localScale = _scaleAtStart;
+                yield break;
+            }
+
+            float elapsed = 0f;
+            Vector3 startPos = transform.localPosition;
+            Vector3 scalePos = transform.localScale;
+            Quaternion rotPos = transform.localRotation;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+
+                // Apply easing (or custom curve)
+                float easedT = useCustomCurve ? customCurve.Evaluate(t) : ApplyEasing(t, easing);
+
+                Vector3 pos = Vector3.Lerp(startPos, _positionAtStart, easedT);
+                transform.localPosition = pos;
+
+                Vector3 scale = Vector3.Lerp(scalePos, _scaleAtStart, easedT);
+                transform.localScale = scale;
+
+                Quaternion rot = Quaternion.Lerp(rotPos, _rotationAtStart, easedT);
+                transform.localRotation = rot;
+
+                yield return null;
+            }
+
+            // Ensure final position exactly
+           transform.localPosition = _positionAtStart;
+
+        }
+
+    static float ApplyEasing(float t, EasingType e)
+        {
+            switch (e)
+            {
+                case EasingType.SmoothStep:
+                    return Mathf.SmoothStep(0f, 1f, t);
+                case EasingType.EaseInQuad:
+                    return t * t;
+                case EasingType.EaseOutQuad:
+                    return t * (2f - t);
+                case EasingType.EaseInOutQuad:
+                    return t < 0.5f ? 2f * t * t : 1f - Mathf.Pow(-2f * t + 2f, 2f) / 2f;
+                case EasingType.EaseInCubic:
+                    return t * t * t;
+                case EasingType.EaseOutCubic:
+                    return 1f - Mathf.Pow(1f - t, 3f);
+                case EasingType.EaseInOutCubic:
+                    return t < 0.5f ? 4f * t * t * t : 1f - Mathf.Pow(-2f * t + 2f, 3f) / 2f;
+                case EasingType.Linear:
+                default:
+                    return t;
+            }
+        }
+
 
 #if UNITY_EDITOR
         /// <summary>

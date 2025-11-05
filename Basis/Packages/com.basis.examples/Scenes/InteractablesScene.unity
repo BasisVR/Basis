@@ -182,6 +182,41 @@ MonoBehaviour:
     rid: 2910271479315955717
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -324,6 +359,7 @@ GameObject:
   - component: {fileID: 22531835}
   - component: {fileID: 22531834}
   - component: {fileID: 22531833}
+  - component: {fileID: 22531837}
   m_Layer: 0
   m_Name: D
   m_TagString: Untagged
@@ -423,6 +459,94 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &22531837
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 22531831}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  AutoHold: 1
+  KinematicWhileInteracting: 1
+  CanSelfSteal: 1
+  DesktopRotateSpeed: 0.1
+  DesktopZoopSpeed: 0.2
+  DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
+  interactEndLinearVelocityMultiplier: 1
+  minAngularVelocity: 0.5
+  interactEndAngularVelocityMultiplier: 1
+  ColliderRef: {fileID: 0}
+  RigidRef: {fileID: 0}
+  InputConstraint:
+    rid: 5755392629983674486
+  _previousKinematicValue: 1
+  InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 1
+  minScale: 0.01
+  constrainToAxis: 2
+  positiveTravelLimit: 0
+  negativeTravelLimit: 0.19
+  enableAutoReturn: 1
+  delay: 1
+  duration: 2
+  easing: 5
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  references:
+    version: 2
+    RefIds:
+    - rid: 5755392629983674486
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
+      data:
+        Enabled: 1
+        GlobalWeight: 1
+        _restPosition: {x: 0, y: 0, z: 0}
+        _restRotation: {x: 0, y: 0, z: 0, w: 0}
+        sources: []
 --- !u!1 &241820446
 GameObject:
   m_ObjectHideFlags: 0
@@ -878,7 +1002,7 @@ MonoBehaviour:
   interactableEnabled: 1
   AutoHold: 1
   KinematicWhileInteracting: 1
-  CanSelfSteal: 1
+  CanSelfSteal: 0
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
@@ -894,6 +1018,41 @@ MonoBehaviour:
     rid: 5755392626397282528
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 1
+  maxScale: 1
+  minScale: 0.01
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -1062,6 +1221,41 @@ MonoBehaviour:
     rid: 2910271479315955716
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -1255,6 +1449,41 @@ MonoBehaviour:
     rid: 2910271479315955715
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -1540,6 +1769,41 @@ MonoBehaviour:
     rid: 2910271479315955713
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -2231,6 +2495,41 @@ MonoBehaviour:
     rid: 2910271479315955714
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -2506,6 +2805,41 @@ MonoBehaviour:
     rid: 2910271479315955718
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -3050,6 +3384,41 @@ MonoBehaviour:
     rid: 2910271479315955722
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -3073,6 +3442,7 @@ GameObject:
   - component: {fileID: 1552705583}
   - component: {fileID: 1552705582}
   - component: {fileID: 1552705581}
+  - component: {fileID: 1552705585}
   m_Layer: 0
   m_Name: E
   m_TagString: Untagged
@@ -3172,6 +3542,94 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1552705585
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1552705579}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  AutoHold: 1
+  KinematicWhileInteracting: 1
+  CanSelfSteal: 1
+  DesktopRotateSpeed: 0.1
+  DesktopZoopSpeed: 0.2
+  DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
+  interactEndLinearVelocityMultiplier: 1
+  minAngularVelocity: 0.5
+  interactEndAngularVelocityMultiplier: 1
+  ColliderRef: {fileID: 0}
+  RigidRef: {fileID: 0}
+  InputConstraint:
+    rid: 5755392629983674487
+  _previousKinematicValue: 1
+  InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 1
+  minScale: 0.01
+  constrainToAxis: 3
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 1
+  duration: 1
+  easing: 6
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  references:
+    version: 2
+    RefIds:
+    - rid: 5755392629983674487
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
+      data:
+        Enabled: 1
+        GlobalWeight: 1
+        _restPosition: {x: 0, y: 0, z: 0}
+        _restRotation: {x: 0, y: 0, z: 0, w: 0}
+        sources: []
 --- !u!1 &1556212794
 GameObject:
   m_ObjectHideFlags: 0
@@ -3372,6 +3830,41 @@ MonoBehaviour:
     rid: 2910271479315955720
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -3817,6 +4310,7 @@ GameObject:
   - component: {fileID: 1832261880}
   - component: {fileID: 1832261879}
   - component: {fileID: 1832261878}
+  - component: {fileID: 1832261882}
   m_Layer: 0
   m_Name: C
   m_TagString: Untagged
@@ -3916,6 +4410,94 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1832261882
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1832261876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  AutoHold: 1
+  KinematicWhileInteracting: 1
+  CanSelfSteal: 0
+  DesktopRotateSpeed: 0.1
+  DesktopZoopSpeed: 0.2
+  DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
+  interactEndLinearVelocityMultiplier: 1
+  minAngularVelocity: 0.5
+  interactEndAngularVelocityMultiplier: 1
+  ColliderRef: {fileID: 0}
+  RigidRef: {fileID: 0}
+  InputConstraint:
+    rid: 5755392629983674485
+  _previousKinematicValue: 1
+  InteractRange: 1
+  enableScaleWithGesture: 1
+  maxScale: 1
+  minScale: 0.01
+  constrainToAxis: 1
+  positiveTravelLimit: 0.5
+  negativeTravelLimit: 0.5
+  enableAutoReturn: 1
+  delay: 1
+  duration: 2
+  easing: 5
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  references:
+    version: 2
+    RefIds:
+    - rid: 5755392629983674485
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
+      data:
+        Enabled: 1
+        GlobalWeight: 1
+        _restPosition: {x: 0, y: 0, z: 0}
+        _restRotation: {x: 0, y: 0, z: 0, w: 0}
+        sources: []
 --- !u!1 &1864408681
 GameObject:
   m_ObjectHideFlags: 0
@@ -4211,6 +4793,41 @@ MonoBehaviour:
     rid: 2910271479315955719
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -4406,6 +5023,41 @@ MonoBehaviour:
     rid: 2910271479315955721
   _previousKinematicValue: 1
   InteractRange: 1
+  enableScaleWithGesture: 0
+  maxScale: 5
+  minScale: 1
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 3
+  duration: 0
+  easing: 0
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   references:
     version: 2
     RefIds:
@@ -4540,6 +5192,7 @@ GameObject:
   - component: {fileID: 2125700469}
   - component: {fileID: 2125700468}
   - component: {fileID: 2125700467}
+  - component: {fileID: 2125700471}
   m_Layer: 0
   m_Name: B
   m_TagString: Untagged
@@ -4639,6 +5292,94 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2125700471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125700465}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  AutoHold: 1
+  KinematicWhileInteracting: 1
+  CanSelfSteal: 0
+  DesktopRotateSpeed: 0.1
+  DesktopZoopSpeed: 0.2
+  DesktopZoopMinDistance: 0.2
+  DesktopZoopMaxDistance: 2
+  GenerateColliderMesh: 1
+  minLinearVelocity: 0.5
+  interactEndLinearVelocityMultiplier: 1
+  minAngularVelocity: 0.5
+  interactEndAngularVelocityMultiplier: 1
+  ColliderRef: {fileID: 0}
+  RigidRef: {fileID: 0}
+  InputConstraint:
+    rid: 5755392629983674484
+  _previousKinematicValue: 1
+  InteractRange: 1
+  enableScaleWithGesture: 1
+  maxScale: 1
+  minScale: 0.01
+  constrainToAxis: 0
+  positiveTravelLimit: 0.2
+  negativeTravelLimit: 0
+  enableAutoReturn: 1
+  delay: 1
+  duration: 10
+  easing: 4
+  useCustomCurve: 0
+  customCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  references:
+    version: 2
+    RefIds:
+    - rid: 5755392629983674484
+      type: {class: BasisParentConstraint, ns: Basis.Scripts.BasisSdk.Interactions, asm: Basis Framework}
+      data:
+        Enabled: 1
+        GlobalWeight: 1
+        _restPosition: {x: 0, y: 0, z: 0}
+        _restRotation: {x: 0, y: 0, z: 0, w: 0}
+        sources: []
 --- !u!1 &2143560101
 GameObject:
   m_ObjectHideFlags: 0
