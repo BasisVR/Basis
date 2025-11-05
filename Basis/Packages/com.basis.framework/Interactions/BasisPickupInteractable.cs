@@ -11,6 +11,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections;
+using Unity.Mathematics;
 
 namespace Basis.Scripts.BasisSdk.Interactions
 {
@@ -212,10 +213,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #region Lock to Axis
         public enum AxisType
         {
-            None,
-            X,
-            Y,
-            Z
+            X = 0, 
+            Y = 1,
+            Z = 2,
+            None = 3,
         }
         [Header("Lock to Axis")]
         /// <summary>
@@ -351,6 +352,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         BasisDebug.LogWarning("Pickup Interactable could not find MeshRenderer component on mesh clone. Highlights will be broken");
                     }
                 }
+            }
+            OnInteractStartEvent += OnInteractionEventFired; 
+        }
+        internal void OnInteractionEventFired(BasisInput input)
+        {
+            if (enableAutoReturn && _autoReturnCoroutine != null)
+            {
+                StopCoroutine(_autoReturnCoroutine);
+                _autoReturnCoroutine = null;
             }
         }
 
@@ -632,29 +642,32 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
             GetOppositeInteracting(out BasisInputWrapper opposingInput);
 
-            if (enableAutoReturn && _autoReturnCoroutine != null)
-            {
-                StopCoroutine(_autoReturnCoroutine);
-                _autoReturnCoroutine = null;
-            }
-
             Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
 
-            if (BasisDeviceManagement.IsUserInDesktop()) {
+            if (BasisDeviceManagement.IsUserInDesktop())
+            {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
-            }else{
-                if(enableScaleWithGesture && opposingInput.Source.CurrentInputState.Trigger == 1){
-                    float currentDistance =  (Inputs.leftHand.Source.transform.position - Inputs.rightHand.Source.transform.position).sqrMagnitude;
-                    if(_previousDistance == -1){
+            }
+            else
+            {
+                if (enableScaleWithGesture && opposingInput.Source.CurrentInputState.Trigger >= 0.9f)
+                {
+                    var LeftHandCoord = Inputs.leftHand.Source.ScaledDeviceCoord.position;
+                    var RightHandCoord = Inputs.rightHand.Source.ScaledDeviceCoord.position;
+
+                    float currentDistance = (LeftHandCoord - RightHandCoord).sqrMagnitude;
+                    if (_previousDistance == -1)
+                    {
                         _previousDistance = currentDistance;
-                    }else{
+                    }
+                    else
+                    {
                         float delta = Mathf.Abs(_previousDistance - currentDistance);
-                        Debug.Log(delta);
                         if (_previousDistance < currentDistance && delta > 0.001f)
                         {
                             // Embiggening
-                             scaleObjectWithClamp(transform, 1, minScale, maxScale);
+                            scaleObjectWithClamp(transform, 1, minScale, maxScale);
                         }
                         else if (_previousDistance > currentDistance && delta > 0.001f)
                         {
@@ -663,7 +676,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         }
                         _previousDistance = currentDistance;
                     }
-                }else{
+                }
+                else
+                {
                     _previousDistance = -1;
                 }
             }
@@ -694,55 +709,60 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
-                // Apply axis constraint
-                switch (constrainToAxis)
+                if (constrainToAxis != AxisType.None)
                 {
-                    case AxisType.X:
-                        {
-                            if ((pos.x < _positionAtStart.x && (Math.Abs(pos.x - _positionAtStart.x) <= negativeTravelLimit))||
-                                (pos.x > _positionAtStart.x && (Math.Abs(pos.x - _positionAtStart.x) <= positiveTravelLimit)))
+                    //fix me Ån from dooly.
+                    transform.GetPositionAndRotation(out Vector3 TempPos, out Quaternion TempRot);
+
+                    // Apply axis constraint
+                    switch (constrainToAxis)
+                    {
+                        case AxisType.X:
                             {
-                                pos = new Vector3(pos.x, transform.position.y, transform.position.z);
+                                if ((pos.x < _positionAtStart.x && (Math.Abs(pos.x - _positionAtStart.x) <= negativeTravelLimit)) || (pos.x > _positionAtStart.x && (Math.Abs(pos.x - _positionAtStart.x) <= positiveTravelLimit)))
+                                {
+                                    pos = new Vector3(pos.x, transform.position.y, transform.position.z);
+                                    rot = transform.rotation;
+                                }
+                                else
+                                {
+                                    transform.GetPositionAndRotation(out pos, out rot);
+                                }
                             }
-                            else
+                            break;
+                        case AxisType.Y:
                             {
-                                pos = new Vector3(transform.position.x, transform.position.y, transform.position.z);
+                                if ((pos.y < _positionAtStart.y && (Math.Abs(pos.y - _positionAtStart.y) <= negativeTravelLimit)) ||
+                                    (pos.y > _positionAtStart.y && (math.abs(pos.y - _positionAtStart.y) <= positiveTravelLimit)))
+                                {
+                                    pos = new Vector3(transform.position.x, pos.y, transform.position.z);
+                                }
+                                else
+                                {
+                                    pos = transform.position;
+                                }
+                                rot = transform.rotation;
                             }
-                            rot = transform.rotation;
-                        }
-                        break;
-                    case AxisType.Y:
-                        {
-                            if ((pos.y < _positionAtStart.y && (Math.Abs(pos.y - _positionAtStart.y) <= negativeTravelLimit))||
-                                (pos.y > _positionAtStart.y && (Math.Abs(pos.y - _positionAtStart.y) <= positiveTravelLimit)))
+                            break;
+                        case AxisType.Z:
                             {
-                                pos = new Vector3(transform.position.x, pos.y, transform.position.z);
+                                if ((pos.z < _positionAtStart.z && (Math.Abs(pos.z - _positionAtStart.z) <= negativeTravelLimit)) ||
+                                    (pos.z > _positionAtStart.z && (Math.Abs(pos.z - _positionAtStart.z) <= positiveTravelLimit)))
+                                {
+                                    pos = new Vector3(transform.position.x, transform.position.y, pos.z);
+                                }
+                                else
+                                {
+                                    pos = transform.position;
+                                }
+                                rot = transform.rotation;
                             }
-                            else
-                            {
-                                pos = new Vector3(transform.position.x, transform.position.y, transform.position.z);
-                            }
-                            rot = transform.rotation;
-                        }
-                        break;
-                    case AxisType.Z:
-                        {
-                            if ((pos.z < _positionAtStart.z && (Math.Abs(pos.z - _positionAtStart.z) <= negativeTravelLimit))||
-                                (pos.z > _positionAtStart.z && (Math.Abs(pos.z - _positionAtStart.z) <= positiveTravelLimit)))
-                            {
-                                pos = new Vector3(transform.position.x, transform.position.y, pos.z);
-                            }
-                            else
-                            {
-                                pos = new Vector3(transform.position.x, transform.position.y, transform.position.z);
-                            }
-                            rot = transform.rotation;
-                        }
-                        break;
-                    case AxisType.None:
-                    default:
-                        // Do nothing
-                        break;
+                            break;
+                        case AxisType.None:
+                        default:
+                            // Do nothing
+                            break;
+                    }
                 }
 
                 // Prefer Rigidbody movement when present to preserve physics consistency.
@@ -916,6 +936,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public override void OnDestroy()
         {
+            OnInteractStartEvent -= OnInteractionEventFired;
+
             Destroy(HighlightClone);
             if (asyncOperationHighlightMat.IsValid())
             {
