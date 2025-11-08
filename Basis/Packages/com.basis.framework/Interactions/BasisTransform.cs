@@ -20,12 +20,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             Vector3 scaleVector = Vector3.one;
             scaleVector *= (scaleDirection == Direction.Embiggen ? 1 : -1) * stepSize;
-
-            BasisDebug.Log(scaleDirection == Direction.Embiggen ? "Embiggening" : "Ensmallening");
-            BasisDebug.Log("Min Scale: " + minScale + " | Max Scale: " + maxScale);
-            BasisDebug.Log(scaleVector.ToString());
+            
             Vector3 newScale = transform.localScale;
-
             newScale += scaleVector;
             newScale.x = Mathf.Clamp(newScale.x, minScale, maxScale);
             newScale.y = Mathf.Clamp(newScale.y, minScale, maxScale);
