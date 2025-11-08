@@ -201,13 +201,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public bool enableScaleWithGesture = false;
         /// <summary>
-        /// Maximum scale the object can be embiggened to, in meters.
+        /// Minimum percentage the object can be ensmallened to.
         /// </summary>
-        public float maxScale = 1f;
+        public float minScalePercent = 50f;
         /// <summary>
-        /// Minimum scale the object can be ensmallened to, in meters.
+        /// Maximum percentage the object can be embiggened to.
         /// </summary>
-        public float minScale = .01f;
+        public float maxScalePercent = 200f;
         #endregion
 
         #region Lock to Axis
@@ -608,35 +608,34 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
 
-            if (BasisDeviceManagement.IsUserInDesktop())
-            {
+            if (BasisDeviceManagement.IsUserInDesktop()) {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
-            }
-            else
-            {
+            }else{
+                // If trigger pulled on opposing input, scale object based on hand distance
                 if (enableScaleWithGesture && opposingInput.Source.CurrentInputState.Trigger >= 0.9f)
                 {
-                    var LeftHandCoord = Inputs.leftHand.Source.ScaledDeviceCoord.position;
-                    var RightHandCoord = Inputs.rightHand.Source.ScaledDeviceCoord.position;
-
-                    float currentDistance = (LeftHandCoord - RightHandCoord).sqrMagnitude;
-                    if (_previousDistance == -1)
-                    {
-                        _previousDistance = currentDistance;
-                    }
-                    else
-                    {
-                        float delta = math.abs(_previousDistance - currentDistance);
+                    float distanceBetweenHands = BasisPickupHelpers.GetNormalizedDistanceBetweenHands();
+                    if (_previousDistance == -1 ){
+                        _previousDistance = distanceBetweenHands;
+                    }else{
+                        float delta = math.abs(_previousDistance - distanceBetweenHands);
                         if (delta > 0.001f)
                         {
-                            int direction = _previousDistance < currentDistance ? 1 : -1;
-                            BasisTransform.scaleObjectWithClamp(transform, direction, minScale, maxScale);
+                            var scaleDirection =  distanceBetweenHands > _previousDistance  ? BasisTransform.Direction.Embiggen : BasisTransform.Direction.Ensmallen;
+                            float minScale = (minScalePercent / 100) * _scaleAtStart.x;
+                            float maxScale = (maxScalePercent / 100) * _scaleAtStart.x;
+                            float stepSize = math.abs(minScale-maxScale)/100f;
+                            BasisTransform.ScaleObjectBetween(
+                                transform,
+                                scaleDirection,
+                                stepSize,
+                                minScale,
+                                maxScale
+                                );
                         }
-                        _previousDistance = currentDistance;
+                        _previousDistance = distanceBetweenHands;
                     }
-                }
-                else
-                {
+                }else{
                     _previousDistance = -1;
                 }
             }
