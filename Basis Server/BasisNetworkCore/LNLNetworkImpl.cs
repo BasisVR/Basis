@@ -69,13 +69,15 @@ namespace Basis.Network.Core {
     }
 
     public class LNLConnectionRequest: ConnectionRequest {
-        LiteNetLib.ConnectionRequest request;
+        readonly LiteNetLib.ConnectionRequest request;
+        readonly NetDataReader data;
 
         internal LNLConnectionRequest(LiteNetLib.ConnectionRequest request) {
             this.request = request;
+            data = new NetDataReader(request.Data);
         }
 
-        public NetDataReader Data => new NetDataReader(request.Data);
+        public NetDataReader Data => data;
 
         public IPEndPoint RemoteEndPoint => request.RemoteEndPoint;
 
@@ -138,6 +140,23 @@ namespace Basis.Network.Core {
         void NetPeer.Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod)
         {
             peer.Send(data.Data, 0, data.Length, channelNumber, (LiteNetLib.DeliveryMethod)(byte)deliveryMethod);
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null || !(obj is LNLNetPeer))
+            {
+                return false;
+            }
+            else
+            {
+                return peer.Equals(((LNLNetPeer)obj).peer);
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return peer.GetHashCode();
         }
     }
 

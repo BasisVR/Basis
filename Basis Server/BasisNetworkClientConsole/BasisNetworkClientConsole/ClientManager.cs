@@ -1,4 +1,4 @@
-using LiteNetLib;
+using Basis.Network.Core;
 using Basis.Config;
 using Basis.Scripts.BasisSdk.Players;
 using System.Text;

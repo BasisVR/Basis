@@ -1,7 +1,5 @@
 using Basis.Network.Core;
 using BasisNetworkClient;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using static SerializableBasis;
 
 namespace Basis.Network

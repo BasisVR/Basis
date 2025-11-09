@@ -1,8 +1,6 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using BasisNetworkClientConsole;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
 
