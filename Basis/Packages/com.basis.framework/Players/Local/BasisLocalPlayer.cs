@@ -303,9 +303,10 @@ namespace Basis.Scripts.BasisSdk.Players
         public void Teleport(Vector3 position, Quaternion rotation)
         {
             BasisDebug.Log("Teleporting", BasisDebug.LogTag.Local);
+            bool wasCharacterEnabled = LocalCharacterDriver.IsEnabled;
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
-            LocalCharacterDriver.IsEnabled = true;
+            LocalCharacterDriver.IsEnabled = wasCharacterEnabled;
             LocalAnimatorDriver.HandleTeleport();
             OnSpawnedEvent?.Invoke();
         }
@@ -422,6 +423,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalCharacterDriver.SimulateMovement(DeltaTime);
 
             // moves all bones to where they belong
+            // This also drives head and camera movement.
             LocalBoneDriver.SimulateAndApply(this, DeltaTime);
 
             // moves Avatar Hip Transform to where it belongs in tpose.

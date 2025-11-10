@@ -47,7 +47,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public int LineDrawIndex;
 
         /// <summary>True if a valid <see cref="Target"/> has been assigned.</summary>
-        public bool HasTarget = false;
+        public bool HasTarget { get { return Target != null; } }
 
         /// <summary>Local-space offset applied relative to the target bone.</summary>
         public float3 Offset;
@@ -59,13 +59,13 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         public int GizmoReference = -1;
 
         /// <summary>True if a runtime gizmo exists for this bone.</summary>
-        public bool HasGizmo = false;
+        public bool HasGizmo { get { return GizmoReference != -1; } }
 
         /// <summary>Handle/index for T-pose gizmos.</summary>
         public int TposeGizmoReference = -1;
 
         /// <summary>True if a T-pose gizmo exists for this bone.</summary>
-        public bool TposeHasGizmo = false;
+        public bool TposeHasGizmo { get { return TposeGizmoReference != -1; } }
 
         /// <summary>True if a virtual override is driving this bone instead of tracking.</summary>
         public bool HasVirtualOverride;

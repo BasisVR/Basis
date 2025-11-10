@@ -247,7 +247,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 bool holdDropTriggered = interactInput.lastTarget.IsHoldDropTriggered(interactInput.input);
 
-                // Holding Logic: 
+                // Holding Logic:
                 // last target had input trigger
                 if (interactInput.lastTarget.IsInteractTriggered(interactInput.input))
                 {
@@ -414,7 +414,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             LineRenderer lineRenderer = interactOrigin.AddComponent<LineRenderer>();
 
             // deskies cant hover grab :)
-            // TODO: pass up max hits for config 
+            // TODO: pass up max hits for config
             BasisHoverSphere hoverSphere = new BasisHoverSphere(input.RaycastCoord.position, hoverRadius, 128, Mask, !IsDesktopCenterEye(input), OnlySortClosest);
 
             interactOrigin.transform.SetParent(BasisLocalPlayer.Instance.transform);
