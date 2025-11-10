@@ -112,6 +112,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
+        /// Interaction range in meters (distance from input source to collider/transform).
+        /// </summary>
+        public float InteractRange = 1f;
+
+        /// <summary>
         /// Called during object initialization.
         /// Sets up inputs when the local player is ready.
         /// </summary>
@@ -227,6 +232,17 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public virtual bool IsHoldDropTriggered(BasisInput input)
         {
             return true;
+        }
+
+        protected bool _checkUsabilityWithState(BasisInput input, BasisInteractInputState requiredState)
+        {
+            return InteractableEnabled &&
+                !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
+                Inputs.IsInputAdded(input) &&                               // input exists
+                input.TryGetRole(out TransformBinders.BoneControl.BasisBoneTrackedRole role) && // has role
+                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system
+                found.GetState() == requiredState &&                        // only this state can interact
+                IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange); // within range
         }
 
         /// <summary>
