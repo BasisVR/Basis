@@ -13,6 +13,11 @@ RUN dotnet publish -c Release --no-restore -o /app/publish
 
 # Stage 2: Create runtime image
 FROM mcr.microsoft.com/dotnet/runtime:9.0-bookworm-slim
+
+# Install Curl for healthcheck
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
     
 WORKDIR /app
 
