@@ -156,6 +156,8 @@ namespace Basis.Scripts.BasisSdk.Players
         [SerializeField]
         public BasisLocalCharacterDriver LocalCharacterDriver = new BasisLocalCharacterDriver();
 
+        public BasisLocalSeatDriver LocalSeatDriver = new BasisLocalSeatDriver();
+
         /// <summary>
         /// Animator controller that blends animation states and applies weights each frame.
         /// </summary>
@@ -211,6 +213,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.CreateInitialArrays(true);
             LocalBoneDriver.Initialize();
             LocalHandDriver.Initialize();
+            LocalSeatDriver.Initialize(this);
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);
             LocalCharacterDriver.Initialize(this);

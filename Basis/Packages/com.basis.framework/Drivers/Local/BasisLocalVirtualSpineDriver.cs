@@ -61,6 +61,13 @@ public class BasisLocalVirtualSpineDriver
     private float _lenTotal;
 
     /// <summary>
+    /// If true, the hips avatar-local transform will be set to the T-pose, overriding the computed hips position.
+    /// The actual hips world position is therefore fixed in place relative to the avatar's transform.
+    /// This is static and affects all instances, Dooly said to do this to control all spine drivers at once.
+    /// </summary>
+    public static bool HipsFreezeToTpose = false;
+
+    /// <summary>
     /// Enables the virtual overrides on all torso controls and hooks simulation callback.
     /// Safe to call multiple times.
     /// </summary>
@@ -148,11 +155,11 @@ public class BasisLocalVirtualSpineDriver
         Vector3 worldUp = parentMatrix.MultiplyVector(Vector3.up).normalized;
         if (worldUp.sqrMagnitude < 1e-6f) worldUp = Vector3.up;
 
-        // Preserve total length neck→hips
-        Vector3 idealHips = neckPosWorld - worldUp * _lenTotal;
+        // Preserve total length neck→hips, except when overridden.
+        Vector3 idealHips = HipsFreezeToTpose ? hips.TposeLocalScaled.position : neckPosWorld - worldUp * _lenTotal;
 
-        // Add small forward bias using head yaw
-        Quaternion headYaw = ExtractYawRotation(head.OutGoingData.rotation);
+        // Add small forward bias using head yaw, which also applies to the hips, except when overridden.
+        Quaternion headYaw = HipsFreezeToTpose ? Quaternion.identity : ExtractYawRotation(head.OutGoingData.rotation);
         idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
 
         // Blend XZ with tracked hips for authority retention
@@ -164,7 +171,7 @@ public class BasisLocalVirtualSpineDriver
             blendedHips.z = Mathf.Lerp(idealHips.z, trackedHips.z, HipsXZFollowBlend);
         }
 
-        // Hips rotation follows head yaw, damped
+        // Hips rotation follows head yaw, damped.
         Quaternion hipsYawTarget = headYaw;
         hips.OutGoingData.rotation = ExtractYawRotation(SmoothSlerp(hips.OutGoingData.rotation, hipsYawTarget, HipsRotationSpeed, dt));
         hips.OutGoingData.position = blendedHips;
