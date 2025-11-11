@@ -112,6 +112,7 @@
   <Project Path="Unity.ShaderGraph.Utilities.csproj" />
   <Project Path="Unity.Toolchain.Macos-arm64-Linux-x86_64.csproj" />
   <Project Path="BasisPoolTable.csproj" />
+  <Project Path="BasisSeatExamples.csproj" />
   <Project Path="AudioLink.Editor.csproj" />
   <Project Path="Unity.Profiling.Core.csproj" />
   <Project Path="Meta.XR.EnvironmentDepth.Editor.csproj" />

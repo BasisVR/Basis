@@ -1,0 +1,29 @@
+{
+    "name": "BasisSeatExamples",
+    "rootNamespace": "",
+    "references": [
+        "GUID:8c9aa0e006f5b5347af5c5470971dfae",
+        "GUID:9e24947de15b9834991c9d8411ea37cf",
+        "GUID:b4ae365a73764ee478adc74cb89832fe",
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:84651a3751eca9349aac36a66bba901b",
+        "GUID:75469ad4d38634e559750d17036d5f7c",
+        "GUID:15fc0a57446b3144c949da3e2b9737a9",
+        "GUID:a2bda89a3179a5324b88c0a9d3224e44",
+        "GUID:784bec3882b21ab4d8407cc870539fa9",
+        "GUID:45c7722710e2a37438daaacbf1cd4ad1",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:4fbaa9af51b2f9c408a9dff4518adb81",
+        "GUID:1e767a4f07fa50745a4fd591bbbbcddb"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
