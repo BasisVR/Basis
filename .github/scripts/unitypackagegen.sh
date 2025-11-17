@@ -9,7 +9,10 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
 SUBFOLDERS="Packages/com.basis.sdk:
         Packages/com.basis.odinserializer:
         Packages/com.basis.bundlemanagement:
+        Packages/com.gator-dragon-games.jigglephysics:
         Packages/com.basis.server"
+
+EXTRASUBFOLDER=""
 
 if [[ "$1" == "full" ]]; then
 
@@ -25,9 +28,9 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.console:
               Packages/com.basis.visualtrackers:
               Packages/com.basis.addressables:
+              Packages/com.basis.settings:
               Packages/com.steam.steamvr:
               Packages/com.steam.steamaudio:
-              Packages/com.naelstrof.jigglephysics:
               Packages/com.hecomi.ulipsync:
               Packages/com.xiph.rnnoise:
               Packages/com.basis.common:
@@ -36,7 +39,17 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.openxr:
               Packages/com.basis.bundlemanagement:
               Packages/com.basis.profilerintergration:
-              Packages/com.avionblock.opussharp"
+              Packages/com.gator-dragon-games.jigglephysics:
+              Packages/com.avionblock.opussharp:
+              Assets/Resource:
+              Assets/StreamingAssets:
+              Assets/Plugins:
+              Assets/AddressableAssetsData:
+              Assets/XR:
+              Assets/Basis"
+
+EXTRASUBFOLDERS="ProjectSettings"
+
 elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
   # All things are already included.
@@ -67,6 +80,29 @@ echo $SUBFOLDERS | tr : '\n' | while read ddv; do
         FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
         echo "${FONLY}"
         echo "${FONLY}" > generate_unitypackage/$GUID/pathname
+    done
+done
+
+# Tricky trick for exporting projectsettings
+echo $EXTRASUBFOLDERS | tr : '\n' | while read ddv; do
+    find $ddv -type f -name "*.asset" -print0 | while read -d $'\0' -r FV ; do
+        #printf 'File found: %s\n' "$FV"
+        ASSET=$FV
+        GUID=$(echo "$FV" | md5sum | cut -d' ' -f1 | cut -b-32 )
+        mkdir -p generate_unitypackage/$GUID
+        if [[ -f "$ASSET" ]]; then
+            #echo "$ASSET" TO generate_unitypackage/$GUID/asset
+            #echo ASSET COPY cp "$ASSET" generate_unitypackage/$GUID/asset
+            cp "$ASSET" generate_unitypackage/$GUID/asset
+        fi
+
+		echo "fileFormatVersion: 2" > generate_unitypackage/$GUID/asset.meta
+		echo "guid: ${GUID}" >> generate_unitypackage/$GUID/asset.meta
+
+        #GPNAME=$(echo ${ddv:0:${#ddv} - 4} | cut -d/ -f3-)
+        FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
+        echo "${ASSET}" "${GUID}"
+        echo "${ASSET}" > generate_unitypackage/$GUID/pathname
     done
 done
 
