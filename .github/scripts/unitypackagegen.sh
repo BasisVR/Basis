@@ -28,6 +28,7 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.console:
               Packages/com.basis.visualtrackers:
               Packages/com.basis.addressables:
+              Packages/com.basis.examples:
               Packages/com.basis.settings:
               Packages/com.steam.steamvr:
               Packages/com.steam.steamaudio:
