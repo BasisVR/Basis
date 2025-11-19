@@ -1,40 +1,43 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 
 namespace BasisPersistentKv
 {
-    // TODO : Merge bucket meta tables
+    /// <summary>
+    /// Implementers of a KV bucket must reasonably gaurentee values are persisted across restarts and buckets.
+    /// It is recommended that implementers enforce per-bucket quotas and rate limits.
+    /// </summary>
     public interface IKVBucket
     {
         /// <summary>
-        /// 
+        /// Set the value for key. 
         /// </summary>
-        /// <param name="key"></param>
-        /// <param name="value"></param>
-        /// <param name="create_only"></param>
+        /// <param name="key">key</param>
+        /// <param name="value">binary value to store</param>
+        /// <param name="create_only">store only if key does not already exist, otherwise error</param>
         /// <returns></returns>
         Task<KvResult<Unit>> Set(string key, Memory<byte> value, bool create_only = false);
         /// <summary>
-        /// 
+        /// Get the value for key.
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
+        /// <param name="key">key to retrieve</param>
+        /// <returns>value of the key or an error</returns>
         Task<KvResult<Memory<byte>>> Get(string key);
         /// <summary>
-        /// 
+        /// Delete the key and value pair.
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns>key was found and deleted</returns>
+        /// <param name="key">key</param>
+        /// <returns>bool: key was found and deleted, otherwise error</returns>
         Task<KvResult<bool>> Delete(string key);
         /// <summary>
-        /// 
+        /// Check if the key exists.
         /// </summary>
         /// <param name="key"></param>
-        /// <returns>key exists</returns>
+        /// <returns>bool: key exists, otherwise error</returns>
         Task<KvResult<bool>> Exists(string key);
         /// <summary>
         /// 
@@ -56,12 +59,12 @@ namespace BasisPersistentKv
         /// <returns></returns>
         Task<KvResult<QuotaInfo>> GetQuota();
     }
-    
+
     public interface IKVManager : IAsyncDisposable
     {
         // Bucket lifecycle
         Task<KvResult<Unit>> CreateBucket(string bucket_id);
-        Task<KvResult<bool>> DeleteBucket(string bucket_id, bool remove_keys = false);
+        Task<KvResult<bool>> DeleteBucket(string bucket_id, bool remove_keys = true);
         Task<KvResult<BucketInfo>> GetBucket(string bucket_id);
         Task<KvResult<BucketMeta>> GetBucketMeta(string bucket_id);
 
@@ -76,25 +79,25 @@ namespace BasisPersistentKv
         Task<KvResult<bool>> SetBucketQuotaMax(string bucket_id, QuotaKind kind, long maxValue);
     }
 
-    public struct BucketMeta
+    public readonly struct BucketMeta
     {
-        bool KeyLimitGaurd;
-        bool ByteLimitGaurd;
-        int CurrentKeys;
-        int MaxKeys;
-        long CurrentBytes;
-        long MaxBytes;
+        public readonly bool KeyLimitGaurd;
+        public readonly bool ByteLimitGaurd;
+        public readonly int CurrentKeys;
+        public readonly int MaxKeys;
+        public readonly long CurrentBytes;
+        public readonly long MaxBytes;
 
-        long TotalOps;
-        long TotalReads;
-        long TotalWrites;
-        long TotalDeletes;
-        long LastOpAt;
+        public readonly long TotalOps;
+        public readonly long TotalReads;
+        public readonly long TotalWrites;
+        public readonly long TotalDeletes;
+        public readonly long LastOpAt;
     }
 
     public struct BucketInfo
     {
-        public bool Exists ;
+        public bool Exists;
         public ulong CreationTime;
     }
 
@@ -104,54 +107,55 @@ namespace BasisPersistentKv
         Bytes,
     }
 
-    public class UserKVStore : IKVBucket
+    public class BucketKVStore : IKVBucket
     {
-        private readonly string _userId;
-        public UserKVStore(string userId)
+        private readonly string _bucketId;
+
+        public BucketKVStore(string bucketId)
         {
-            _userId = userId;
+            _bucketId = bucketId;
         }
 
         public Task<KvResult<Unit>> Set(string key, Memory<byte> value, bool create_only = false)
         {
             // ToArray kinda kills the point of Memory. hopefully a different backed will make use of it.
-            return BasisPersistientKVDatabase.SetKeyAsync(_userId, _userId, key, value.ToArray());
+            return BasisPersistientKVDatabase.SetKeyAsync(_bucketId, key, value.ToArray(), create_only);
         }
         public Task<KvResult<Memory<byte>>> Get(string key)
         {
-            return BasisPersistientKVDatabase.GetKeyAsync(_userId, _userId, key);
+            return BasisPersistientKVDatabase.GetKeyAsync(_bucketId, key);
         }
 
         public Task<KvResult<bool>> Delete(string key)
         {
-            return BasisPersistientKVDatabase.DeleteKeyAsync(_userId, _userId, key);
+            return BasisPersistientKVDatabase.DeleteKeyAsync(_bucketId, key);
         }
         public Task<KvResult<bool>> Exists(string key)
         {
-            return BasisPersistientKVDatabase.KeyExistsAsync(_userId, _userId, key);
+            return BasisPersistientKVDatabase.KeyExistsAsync(_bucketId, key);
         }
 
         public Task<KvResult<(string[] keys, bool more)>> ListKeys(uint offset = 0, uint limit = 10, string? prefix = null)
         {
-            return BasisPersistientKVDatabase.ListKeysAsync(_userId, _userId, offset, limit, prefix);
+            return BasisPersistientKVDatabase.ListKeysAsync(_bucketId, offset, limit, prefix);
         }
         public Task<KvResult<KvInfo>> KeyInfo(string key)
         {
-            throw new NotImplementedException();
+            return BasisPersistientKVDatabase.GetKeyInfoAsync(_bucketId, key);
         }
 
         public Task<KvResult<QuotaInfo>> GetQuota()
         {
-            return BasisPersistientKVDatabase.GetQuotaAsync(_userId, _userId);
+            return BasisPersistientKVDatabase.GetQuotaAsync(_bucketId);
         }
     }
 
     public struct QuotaInfo
     {
-        public int CurrentKeys { get; set; }
-        public int MaxKeys { get; set; }
-        public long CurrentBytes { get; set; }
-        public long MaxBytes { get; set; }
+        public int CurrentKeys;
+        public int MaxKeys;
+        public long CurrentBytes;
+        public long MaxBytes;
     }
 
     public struct KvInfo
@@ -175,6 +179,7 @@ namespace BasisPersistentKv
         BucketListLengthInvalid = 1101,
         BucketListOffsetInvalid = 1102,
         KeyNotFound = 1201,
+        KeyAlreadyExists = 1202,
 
         // Validation errors (2000-2999)
         ValidationKeySize = 2000,
@@ -212,7 +217,10 @@ namespace BasisPersistentKv
         private static string _connectionString;
         private static string[] _pragmas;
         private static readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
+        private static SqliteConnection? _sharedConnection;
+        private static readonly object _connectionUseLock = new();
         private static bool _initialized = false;
+        public static bool EnableStatsTracking { get; set; } = true;
 
         static BasisPersistientKVDatabase()
         {
@@ -230,35 +238,54 @@ namespace BasisPersistentKv
                 "PRAGMA journal_mode = WAL;",
                 "PRAGMA synchronous = normal;",
                 "PRAGMA temp_store = MEMORY;",
-                "PRAGMA foreign_keys = TRUE;"
+                "PRAGMA foreign_keys = TRUE;",
+                "PRAGMA case_sensitive_like = ON;"
             };
 
-            Init().Wait();
+            Init();
+        }
+
+        private static SqliteConnection GetConnection()
+        {
+            if (_sharedConnection == null)
+            {
+                throw new InvalidOperationException("Database connection not initialized.");
+            }
+
+            if (_sharedConnection.State != System.Data.ConnectionState.Open)
+            {
+                _sharedConnection.Open();
+            }
+
+            return _sharedConnection;
         }
 
 
-        private static async Task Init()
+        private static void Init()
         {
             if (_initialized) return;
 
-            await _initLock.WaitAsync();
+            _initLock.Wait();
             try
             {
                 if (_initialized) return;
 
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
-
-                foreach (var pragma in _pragmas)
+                SqliteConnection? connection = null;
+                try
                 {
-                    using var pragma_cmd = connection.CreateCommand();
-                    pragma_cmd.CommandText = pragma;
-                    await pragma_cmd.ExecuteNonQueryAsync();
-                }
+                    connection = new SqliteConnection(_connectionString);
+                    connection.Open();
 
-                using var cmd = connection.CreateCommand();
+                    foreach (var pragma in _pragmas)
+                    {
+                        using var pragma_cmd = connection.CreateCommand();
+                        pragma_cmd.CommandText = pragma;
+                        pragma_cmd.ExecuteNonQuery();
+                    }
 
-                cmd.CommandText = @"
+                    using var cmd = connection.CreateCommand();
+
+                    cmd.CommandText = @"
                     -- Main KV storage
                     CREATE TABLE IF NOT EXISTS bucket_kv (
                         -- UUID is always string which sucks
@@ -279,6 +306,9 @@ namespace BasisPersistentKv
                 
                     CREATE INDEX IF NOT EXISTS idx_bucket_kv_bucket_id
                         ON bucket_kv(bucket_id);
+                    
+                    CREATE INDEX IF NOT EXISTS idx_bucket_kv_bucket_updated
+                        ON bucket_kv(bucket_id, updated_at DESC);
 
                     -- Bucket registry (tracks buckets)
                     CREATE TABLE IF NOT EXISTS buckets (
@@ -344,27 +374,37 @@ namespace BasisPersistentKv
                     BEFORE INSERT ON bucket_kv
                     FOR EACH ROW
                     BEGIN
-                    
-                        -- Check key count limit
+
+                        -- Check key count limit (only for new keys, not updates)
                         SELECT CASE
                             WHEN (
-                                SELECT key_limit_guard = TRUE 
+                                SELECT key_limit_guard = TRUE
                                        AND current_keys >= max_keys
+                                       AND NOT EXISTS (
+                                           SELECT 1 FROM bucket_kv
+                                           WHERE bucket_id = NEW.bucket_id AND key = NEW.key
+                                       )
                                 FROM bucket_meta
                                 WHERE bucket_id = NEW.bucket_id
                             )
                             THEN RAISE(ABORT, 'Q_KEYS: Key quota exceeded')
                         END;
-                    
+
                         -- Check storage limit if guard is enabled (including key size!)
+                        -- For existing keys (updates), account for old size being removed
                         SELECT CASE
-                            WHEN (
-                                SELECT byte_limit_guard = TRUE 
-                                       AND current_bytes + 
-                                           length(CAST(NEW.key AS BLOB)) + 
-                                           length(CAST(NEW.value AS BLOB)) > max_bytes
-                                FROM bucket_meta
+                            WHEN EXISTS (
+                                SELECT 1 FROM bucket_meta
                                 WHERE bucket_id = NEW.bucket_id
+                                  AND byte_limit_guard = TRUE
+                                  AND (
+                                      -- Calculate projected bytes after this operation
+                                      current_bytes
+                                      - (SELECT COALESCE(SUM(length(CAST(key AS BLOB)) + length(CAST(value AS BLOB))), 0)
+                                         FROM bucket_kv
+                                         WHERE bucket_id = NEW.bucket_id AND key = NEW.key)
+                                      + length(CAST(NEW.key AS BLOB)) + length(CAST(NEW.value AS BLOB))
+                                  ) > max_bytes
                             )
                             THEN RAISE(ABORT, 'Q_BYTES: Storage quota exceeded')
                         END;
@@ -420,6 +460,13 @@ namespace BasisPersistentKv
                             )
                             THEN RAISE(ABORT, 'Q_BYTES: Storage quota exceeded')
                         END;
+
+                        UPDATE bucket_kv
+                        SET version = OLD.version + 1
+                        WHERE rowid = OLD.rowid;
+
+                        -- Auto-update timestamp
+                        SELECT NEW.updated_at = strftime('%s', 'now');
                     END;
                 
                     -- Update quota and stats AFTER update
@@ -452,8 +499,15 @@ namespace BasisPersistentKv
                     END;
                 ";
 
-                await cmd.ExecuteNonQueryAsync();
-                _initialized = true;
+                    cmd.ExecuteNonQuery();
+                    _sharedConnection = connection;
+                    connection = null;
+                    _initialized = true;
+                }
+                finally
+                {
+                    connection?.Dispose();
+                }
             }
             finally
             {
@@ -461,149 +515,210 @@ namespace BasisPersistentKv
             }
         }
 
-        public static async Task<KvResult<Unit>> SetKeyAsync(string callingUserId, string bucketId, string key, byte[] value)
+        public static Task<KvResult<Unit>> SetKeyAsync(string bucketId, string key, byte[] value, bool createOnly = false) =>
+            Task.FromResult(SetKeySync(bucketId, key, value, createOnly));
+
+        public static KvResult<Unit> SetKeySync(string bucketId, string key, byte[] value, bool createOnly)
         {
-            try
+            if (string.IsNullOrEmpty(key))
             {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
+                return KvResult<Unit>.Fail(KvError.ValidationKeySize, "Key must not be empty");
+            }
 
+            var keyByteCount = Encoding.UTF8.GetByteCount(key);
+            if (keyByteCount == 0 || keyByteCount > 256)
+            {
+                return KvResult<Unit>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+            }
 
+            if (value == null)
+            {
+                return KvResult<Unit>.Fail(KvError.ValidationValueNull, "Value must not be null");
+            }
 
-                using var transaction = connection.BeginTransaction();
+            if (value.Length > 8000)
+            {
+                return KvResult<Unit>.Fail(KvError.ValidationValueSize, "Value exceeds maximum size of 8000 bytes");
+            }
+
+            lock (_connectionUseLock)
+            {
                 try
                 {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction();
+
                     using var cmd = connection.CreateCommand();
                     cmd.Transaction = transaction;
 
-                    cmd.CommandText = @"
-                        INSERT INTO bucket_kv (bucket_id, key, value) 
-                        VALUES ($bucketId, $key, $value)
-                        ON CONFLICT (bucket_id, key) DO UPDATE
-                        SET value = excluded.value,
-                            updated_at = strftime('%s', 'now')
-                    ";
+                    if (createOnly)
+                    {
+                        cmd.CommandText = @"
+                                INSERT INTO bucket_kv (bucket_id, key, value)
+                                VALUES ($bucketId, $key, $value)
+                                ON CONFLICT (bucket_id, key) DO NOTHING
+                            ";
+                    }
+                    else
+                    {
+                        cmd.CommandText = @"
+                                INSERT INTO bucket_kv (bucket_id, key, value)
+                                VALUES ($bucketId, $key, $value)
+                                ON CONFLICT (bucket_id, key) DO UPDATE
+                                SET value = excluded.value,
+                                    updated_at = strftime('%s', 'now')
+                            ";
+                    }
 
                     cmd.Parameters.AddWithValue("$bucketId", bucketId);
                     cmd.Parameters.AddWithValue("$key", key);
                     cmd.Parameters.AddWithValue("$value", value);
 
-                    await cmd.ExecuteNonQueryAsync();
+                    var rowsAffected = cmd.ExecuteNonQuery();
+
+                    if (createOnly && rowsAffected == 0)
+                    {
+                        transaction.Rollback();
+                        return KvResult<Unit>.Fail(KvError.KeyAlreadyExists, "Key already exists");
+                    }
+
+                    if (EnableStatsTracking)
+                    {
+                        using var updateCmd = connection.CreateCommand();
+                        updateCmd.Transaction = transaction;
+                        updateCmd.CommandText = @"
+                                UPDATE bucket_meta
+                                SET total_operations = total_operations + 1,
+                                    total_writes      = total_writes    + 1,
+                                    last_operation_at = strftime('%s','now')
+                                WHERE bucket_id = $bucketId;
+                            ";
+                        updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                        updateCmd.ExecuteNonQuery();
+                    }
+
                     transaction.Commit();
                     return KvResult<Unit>.Ok(new Unit());
+
                 }
                 catch (SqliteException ex)
                 {
                     return KvResult<Unit>.FromSqlException(ex);
                 }
-                catch (Exception _e)
+                catch
                 {
-                    return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error" + _e.Message);
+                    return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
-            {
-                return KvResult<Unit>.FromSqlException(ex);
-            }
-            catch
-            {
-                return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
-            }
         }
-        public static async Task<KvResult<bool>> DeleteKeyAsync(string callingUserId, string bucketId, string key)
+        public static Task<KvResult<bool>> DeleteKeyAsync(string bucketId, string key) =>
+            Task.FromResult(DeleteKeySync(bucketId, key));
+
+        public static KvResult<bool> DeleteKeySync(string bucketId, string key)
         {
-            try
+            var keyByteCount = Encoding.UTF8.GetByteCount(key);
+            if (keyByteCount == 0 || keyByteCount > 256)
             {
+                return KvResult<bool>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+            }
 
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
-
-                using var transaction = connection.BeginTransaction();
+            lock (_connectionUseLock)
+            {
                 try
                 {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction();
+
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
+                        return KvResult<bool>.Fail(KvError.BucketNotFound, "Bucket does not exist");
+
                     bool deleted = false;
 
                     using var cmd = connection.CreateCommand();
                     cmd.Transaction = transaction;
 
                     cmd.CommandText = @"
-                        DELETE FROM bucket_kv 
-                        WHERE bucket_id = $bucketId AND key = $key
-                    ";
+                            DELETE FROM bucket_kv
+                            WHERE bucket_id = $bucketId AND key = $key
+                        ";
 
                     cmd.Parameters.AddWithValue("$bucketId", bucketId);
                     cmd.Parameters.AddWithValue("$key", key);
 
-                    int rowsAffected = await cmd.ExecuteNonQueryAsync();
+                    int rowsAffected = cmd.ExecuteNonQuery();
                     deleted = rowsAffected > 0;
 
-                    // Update read counters & usage stats
-                    using (var updateCmd = connection.CreateCommand())
+                    if (EnableStatsTracking)
                     {
-                        updateCmd.Transaction = transaction;
-                        updateCmd.CommandText = @"
-                            UPDATE bucket_meta
-                            SET total_operations = total_operations + 1,
-                                total_deletes    = total_deletes      + 1,
-                                last_operation_at = strftime('%s','now')
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        updateCmd.Parameters.AddWithValue("$bucketId", callingUserId);
-                        await updateCmd.ExecuteNonQueryAsync();
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.Transaction = transaction;
+                            updateCmd.CommandText = @"
+                                    UPDATE bucket_meta
+                                    SET total_operations = total_operations + 1,
+                                        total_deletes    = total_deletes    + 1,
+                                        last_operation_at = strftime('%s','now')
+                                    WHERE bucket_id = $bucketId;
+                                ";
+                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            updateCmd.ExecuteNonQuery();
+                        }
                     }
 
                     transaction.Commit();
                     return KvResult<bool>.Ok(deleted);
+
                 }
                 catch (SqliteException ex)
                 {
                     return KvResult<bool>.FromSqlException(ex);
                 }
-                catch (Exception _e)
+                catch
                 {
                     return KvResult<bool>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
-            {
-                return KvResult<bool>.FromSqlException(ex);
-            }
-            catch
-            {
-                return KvResult<bool>.Fail(KvError.Unknown, "Unknown Server Error");
-            }
         }
 
-        public static async Task<KvResult<Memory<byte>>> GetKeyAsync(string callingUserId, string bucketId, string key)
+        public static Task<KvResult<Memory<byte>>> GetKeyAsync(string bucketId, string key) =>
+            Task.FromResult(GetKeySync(bucketId, key));
+
+        public static KvResult<Memory<byte>> GetKeySync(string bucketId, string key)
         {
-            try
+            var keyByteCount = Encoding.UTF8.GetByteCount(key);
+            if (keyByteCount == 0 || keyByteCount > 256)
             {
+                return KvResult<Memory<byte>>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+            }
 
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
-
-                using var transaction = connection.BeginTransaction();
+            lock (_connectionUseLock)
+            {
                 try
                 {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction(deferred: true);
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
+                        return KvResult<Memory<byte>>.Fail(KvError.BucketNotFound, "Bucket does not exist");
+
                     byte[]? value = null;
 
-                    // Read value
                     using (var selectCmd = connection.CreateCommand())
                     {
                         selectCmd.Transaction = transaction;
                         selectCmd.CommandText = @"
-                            SELECT value
-                            FROM bucket_kv
-                            WHERE bucket_id = $bucketId AND key = $key
-                        ";
+                                SELECT value
+                                FROM bucket_kv
+                                WHERE bucket_id = $bucketId AND key = $key
+                            ";
                         selectCmd.Parameters.AddWithValue("$bucketId", bucketId);
                         selectCmd.Parameters.AddWithValue("$key", key);
 
-                        
-                        using var reader = await selectCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
-                        if (await reader.ReadAsync())
+                        using var reader = selectCmd.ExecuteReader(System.Data.CommandBehavior.SingleRow);
+                        if (reader.Read())
                         {
-                            // value is stored as BLOB -> byte[]
                             var rawValue = reader.GetValue(0);
                             if (rawValue != DBNull.Value)
                             {
@@ -612,97 +727,189 @@ namespace BasisPersistentKv
                         }
                     }
 
-                    // Update read counters & usage stats
-                    using (var updateCmd = connection.CreateCommand())
+                    if (EnableStatsTracking)
                     {
-                        updateCmd.Transaction = transaction;
-                        updateCmd.CommandText = @"
-                            UPDATE bucket_meta
-                            SET total_operations = total_operations + 1,
-                                total_reads      = total_reads      + 1,
-                                last_operation_at = strftime('%s','now')
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        updateCmd.Parameters.AddWithValue("$bucketId", callingUserId);
-                        await updateCmd.ExecuteNonQueryAsync();
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.Transaction = transaction;
+                            updateCmd.CommandText = @"
+                                    UPDATE bucket_meta
+                                    SET total_operations = total_operations + 1,
+                                        total_reads      = total_reads      + 1,
+                                        last_operation_at = strftime('%s','now')
+                                    WHERE bucket_id = $bucketId;
+                                ";
+                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            updateCmd.ExecuteNonQuery();
+                        }
                     }
 
-                    await transaction.CommitAsync();
+                    var result = value != null
+                        ? KvResult<Memory<byte>>.Ok(value)
+                        : KvResult<Memory<byte>>.Fail(KvError.KeyNotFound, "Key not found");
 
-                    if (value != null)
-                    {
-                        return KvResult<Memory<byte>>.Ok(value);
-                    }
-                    else
-                    {
-                        return KvResult<Memory<byte>>.Fail(KvError.KeyNotFound, "Key not found");
-                    }
+                    transaction.Commit();
+                    return result;
+
                 }
                 catch (SqliteException ex)
                 {
                     return KvResult<Memory<byte>>.FromSqlException(ex);
                 }
-                catch (Exception)
+                catch
                 {
                     return KvResult<Memory<byte>>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
+        }
+
+
+        public static Task<KvResult<KvInfo>> GetKeyInfoAsync(string bucketId, string key) =>
+            Task.FromResult(GetKeyInfoSync(bucketId, key));
+
+        public static KvResult<KvInfo> GetKeyInfoSync(string bucketId, string key)
+        {
+            var keyByteCount = Encoding.UTF8.GetByteCount(key);
+            if (keyByteCount == 0 || keyByteCount > 256)
             {
-                return KvResult<Memory<byte>>.FromSqlException(ex);
+                return KvResult<KvInfo>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
             }
-            catch
+
+            lock (_connectionUseLock)
             {
-                return KvResult<Memory<byte>>.Fail(KvError.Unknown, "Unknown Server Error");
+                try
+                {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction(deferred: true);
+
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
+                        return KvResult<KvInfo>.Fail(KvError.BucketNotFound, "Bucket does not exist");
+
+                    KvInfo? info = null;
+
+                    using (var selectCmd = connection.CreateCommand())
+                    {
+                        selectCmd.Transaction = transaction;
+                        selectCmd.CommandText = @"
+                                SELECT created_at, updated_at, version, length(value)
+                                FROM bucket_kv
+                                WHERE bucket_id = $bucketId AND key = $key
+                            ";
+                        selectCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                        selectCmd.Parameters.AddWithValue("$key", key);
+
+                        using var reader = selectCmd.ExecuteReader(System.Data.CommandBehavior.SingleRow);
+                        if (reader.Read())
+                        {
+                            info = new KvInfo
+                            {
+                                creation = (ulong)reader.GetInt64(0),
+                                lastUpdate = (ulong)reader.GetInt64(1),
+                                version = (ulong)reader.GetInt64(2),
+                                valueSize = (ulong)reader.GetInt64(3),
+                            };
+                        }
+                    }
+
+                    if (EnableStatsTracking)
+                    {
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.Transaction = transaction;
+                            updateCmd.CommandText = @"
+                                    UPDATE bucket_meta
+                                    SET total_operations = total_operations + 1,
+                                        total_reads      = total_reads      + 1,
+                                        last_operation_at = strftime('%s','now')
+                                    WHERE bucket_id = $bucketId;
+                                ";
+                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            updateCmd.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (info == null)
+                    {
+                        transaction.Commit();
+                        return KvResult<KvInfo>.Fail(KvError.KeyNotFound, "Key not found");
+                    }
+
+                    transaction.Commit();
+                    return KvResult<KvInfo>.Ok(info.Value);
+
+                }
+                catch (SqliteException ex)
+                {
+                    return KvResult<KvInfo>.FromSqlException(ex);
+                }
+                catch
+                {
+                    return KvResult<KvInfo>.Fail(KvError.Unknown, "Unknown Server Error");
+                }
             }
         }
 
 
-        public static async Task<KvResult<bool>> KeyExistsAsync(string callingUserId, string bucketId, string key)
-        {
-            try
-            {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
+        public static Task<KvResult<bool>> KeyExistsAsync(string bucketId, string key) =>
+            Task.FromResult(KeyExistsSync(bucketId, key));
 
-                using var transaction = connection.BeginTransaction();
+        public static KvResult<bool> KeyExistsSync(string bucketId, string key)
+        {
+            var keyByteCount = Encoding.UTF8.GetByteCount(key);
+            if (keyByteCount == 0 || keyByteCount > 256)
+            {
+                return KvResult<bool>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+            }
+
+            lock (_connectionUseLock)
+            {
                 try
                 {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction(deferred: true);
+
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
+                        return KvResult<bool>.Fail(KvError.BucketNotFound, "Bucket does not exist");
+
                     bool value = false;
 
-                    // Check value
                     using (var existCmd = connection.CreateCommand())
                     {
                         existCmd.Transaction = transaction;
                         existCmd.CommandText = @"
-                            SELECT EXISTS(
-                                SELECT 1 
-                                FROM bucket_kv
-                                WHERE bucket_id = $bucketId AND key = $key
-                            );
-                        ";
+                                SELECT EXISTS(
+                                    SELECT 1
+                                    FROM bucket_kv
+                                    WHERE bucket_id = $bucketId AND key = $key
+                                );
+                            ";
                         existCmd.Parameters.AddWithValue("$bucketId", bucketId);
                         existCmd.Parameters.AddWithValue("$key", key);
 
-                        value = (long)(existCmd.ExecuteScalar() ?? 0) == 1;                       
+                        var scalar = existCmd.ExecuteScalar();
+                        value = (long)(scalar ?? 0) == 1;
                     }
 
-                    // Update read counters & usage stats
-                    using (var updateCmd = connection.CreateCommand())
+                    if (EnableStatsTracking)
                     {
-                        updateCmd.Transaction = transaction;
-                        updateCmd.CommandText = @"
-                            UPDATE bucket_meta
-                            SET total_operations = total_operations + 1,
-                                total_reads      = total_reads      + 1,
-                                last_operation_at = strftime('%s','now')
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        updateCmd.Parameters.AddWithValue("$bucketId", callingUserId);
-                        await updateCmd.ExecuteNonQueryAsync();
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.Transaction = transaction;
+                            updateCmd.CommandText = @"
+                                    UPDATE bucket_meta
+                                    SET total_operations = total_operations + 1,
+                                        total_reads      = total_reads      + 1,
+                                        last_operation_at = strftime('%s','now')
+                                    WHERE bucket_id = $bucketId;
+                                ";
+                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            updateCmd.ExecuteNonQuery();
+                        }
                     }
 
-                    await transaction.CommitAsync();
+                    transaction.Commit();
 
                     return KvResult<bool>.Ok(value);
                 }
@@ -710,38 +917,36 @@ namespace BasisPersistentKv
                 {
                     return KvResult<bool>.FromSqlException(ex);
                 }
-                catch (Exception)
+                catch
                 {
                     return KvResult<bool>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
-            {
-                return KvResult<bool>.FromSqlException(ex);
-            }
-            catch
-            {
-                return KvResult<bool>.Fail(KvError.Unknown, "Unknown Server Error");
-            }
         }
 
 
-        public static async Task<KvResult<(string[] keys, bool more)>> ListKeysAsync(
-            string callingUserId,
+        public static Task<KvResult<(string[] keys, bool more)>> ListKeysAsync(
             string bucketId,
             uint offset = 0,
             uint limit = 10,
-            string? prefix = null)
-        {
-            try
-            {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
+            string? prefix = null) =>
+            Task.FromResult(ListKeysSync(bucketId, offset, limit, prefix));
 
-                using var transaction = connection.BeginTransaction();
+        public static KvResult<(string[] keys, bool more)> ListKeysSync(
+            string bucketId,
+            uint offset,
+            uint limit,
+            string? prefix)
+        {
+            lock (_connectionUseLock)
+            {
                 try
                 {
-                    if (!await UserExistsCmd(connection, transaction, bucketId))
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction(deferred: true);
+
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
                         return KvResult<(string[], bool)>.Fail(
                             KvError.BucketNotFound,
                             "Bucket does not exist");
@@ -751,71 +956,78 @@ namespace BasisPersistentKv
                     int pageSize = (int)limit;
                     int fetchSize = pageSize + 1;
 
+                    if (offset > int.MaxValue)
+                    {
+                        transaction.Commit();
+                        return KvResult<(string[], bool)>.Ok((Array.Empty<string>(), false));
+                    }
+
                     using (var cmd = connection.CreateCommand())
                     {
                         cmd.Transaction = transaction;
 
                         if (!string.IsNullOrEmpty(prefix))
                         {
+                            var likePattern = BuildLikePattern(prefix);
                             cmd.CommandText = @"
-                                SELECT key
-                                FROM bucket_kv
-                                WHERE bucket_id = $bucketId AND key LIKE $prefix || '%'
-                                ORDER BY key
-                                LIMIT $limitPlusOne OFFSET $offset;
-                            ";
-                            cmd.Parameters.AddWithValue("$prefix", prefix);
+                                    SELECT key
+                                    FROM bucket_kv
+                                    WHERE bucket_id = $bucketId
+                                      AND key COLLATE BINARY LIKE $prefixPattern ESCAPE '\'
+                                    ORDER BY key COLLATE BINARY
+                                    LIMIT $limitPlusOne OFFSET $offset;
+                                ";
+                            cmd.Parameters.AddWithValue("$prefixPattern", likePattern);
                         }
                         else
                         {
                             cmd.CommandText = @"
-                                SELECT key
-                                FROM bucket_kv
-                                WHERE bucket_id = $bucketId
-                                ORDER BY key
-                                LIMIT $limitPlusOne OFFSET $offset;
-                            ";
+                                    SELECT key
+                                    FROM bucket_kv
+                                    WHERE bucket_id = $bucketId
+                                    ORDER BY key COLLATE BINARY
+                                    LIMIT $limitPlusOne OFFSET $offset;
+                                ";
                         }
 
                         cmd.Parameters.AddWithValue("$bucketId", bucketId);
                         cmd.Parameters.AddWithValue("$limitPlusOne", fetchSize);
                         cmd.Parameters.AddWithValue("$offset", (int)offset);
 
-                        using var reader = await cmd.ExecuteReaderAsync();
-                        while (await reader.ReadAsync())
+                        using var reader = cmd.ExecuteReader();
+                        while (reader.Read())
                         {
                             keys.Add(reader.GetString(0));
                         }
                     }
 
-                    // Determine if there are more results
                     bool more = keys.Count > pageSize;
                     if (more)
                     {
-                        // Drop the extra row so we only return up to "limit" keys
                         keys.RemoveAt(keys.Count - 1);
                     }
 
-                    // Update read counters & usage stats
-                    using (var updateCmd = connection.CreateCommand())
+                    if (EnableStatsTracking)
                     {
-                        updateCmd.Transaction = transaction;
-                        updateCmd.CommandText = @"
-                            INSERT OR IGNORE INTO bucket_meta (bucket_id)
-                            VALUES ($bucketId);
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.Transaction = transaction;
+                            updateCmd.CommandText = @"
+                                    INSERT OR IGNORE INTO bucket_meta (bucket_id)
+                                    VALUES ($bucketId);
 
-                            UPDATE bucket_meta
-                            SET total_operations = total_operations + 1,
-                                total_reads      = total_reads      + 1,
-                                last_operation_at = strftime('%s','now')
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        // This should be the bucket ID, not callingUserId
-                        updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                        await updateCmd.ExecuteNonQueryAsync();
+                                    UPDATE bucket_meta
+                                    SET total_operations = total_operations + 1,
+                                        total_reads      = total_reads      + 1,
+                                        last_operation_at = strftime('%s','now')
+                                    WHERE bucket_id = $bucketId;
+                                ";
+                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            updateCmd.ExecuteNonQuery();
+                        }
                     }
 
-                    await transaction.CommitAsync();
+                    transaction.Commit();
 
                     return KvResult<(string[], bool)>.Ok((keys.ToArray(), more));
                 }
@@ -828,29 +1040,39 @@ namespace BasisPersistentKv
                     return KvResult<(string[], bool)>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
+        }
+
+        private static string BuildLikePattern(string prefix)
+        {
+            var builder = new StringBuilder(prefix.Length + 1);
+            foreach (var ch in prefix)
             {
-                return KvResult<(string[], bool)>.FromSqlException(ex);
+                if (ch is '%' or '_' or '\\')
+                {
+                    builder.Append('\\');
+                }
+                builder.Append(ch);
             }
-            catch
-            {
-                return KvResult<(string[], bool)>.Fail(KvError.Unknown, "Unknown Server Error");
-            }
+
+            builder.Append('%');
+            return builder.ToString();
         }
 
 
 
-        public static async Task<KvResult<QuotaInfo>> GetQuotaAsync(string callingUserId, string userId)
-        {
-            try
-            {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
+        public static Task<KvResult<QuotaInfo>> GetQuotaAsync(string bucketId) =>
+            Task.FromResult(GetQuotaSync(bucketId));
 
-                using var transaction = connection.BeginTransaction();
+        public static KvResult<QuotaInfo> GetQuotaSync(string bucketId)
+        {
+            lock (_connectionUseLock)
+            {
                 try
                 {
-                    if (!await UserExistsCmd(connection, transaction, userId))
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction(deferred: true);
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
                         return KvResult<QuotaInfo>.Fail(KvError.BucketNotFound, "Bucket does not exist");
                     QuotaInfo? quota = null;
 
@@ -859,14 +1081,14 @@ namespace BasisPersistentKv
                         cmd.Transaction = transaction;
 
                         cmd.CommandText = @"
-                            SELECT current_keys, max_keys, current_bytes, max_bytes
-                            FROM bucket_meta
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        cmd.Parameters.AddWithValue("$bucketId", userId);
+                                SELECT current_keys, max_keys, current_bytes, max_bytes
+                                FROM bucket_meta
+                                WHERE bucket_id = $bucketId;
+                            ";
+                        cmd.Parameters.AddWithValue("$bucketId", bucketId);
 
-                        using var reader = await cmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow);
-                        if (await reader.ReadAsync())
+                        using var reader = cmd.ExecuteReader(System.Data.CommandBehavior.SingleRow);
+                        if (reader.Read())
                         {
                             quota = new QuotaInfo
                             {
@@ -878,28 +1100,30 @@ namespace BasisPersistentKv
                         }
                     }
 
-                    // Update read counters & usage stats
-                    using (var updateCmd = connection.CreateCommand())
+                    if (EnableStatsTracking)
                     {
-                        updateCmd.Transaction = transaction;
-                        updateCmd.CommandText = @"
-                            INSERT OR IGNORE INTO bucket_meta (bucket_id)
-                            VALUES ($bucketId);
+                        using (var updateCmd = connection.CreateCommand())
+                        {
+                            updateCmd.Transaction = transaction;
+                            updateCmd.CommandText = @"
+                                    INSERT OR IGNORE INTO bucket_meta (bucket_id)
+                                    VALUES ($bucketId);
 
-                            UPDATE bucket_meta
-                            SET total_operations = total_operations + 1,
-                                total_reads      = total_reads      + 1,
-                                last_operation_at = strftime('%s','now')
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        updateCmd.Parameters.AddWithValue("$bucketId", callingUserId);
-                        await updateCmd.ExecuteNonQueryAsync();
+                                    UPDATE bucket_meta
+                                    SET total_operations = total_operations + 1,
+                                        total_reads      = total_reads      + 1,
+                                        last_operation_at = strftime('%s','now')
+                                        WHERE bucket_id = $bucketId;
+                                ";
+                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            updateCmd.ExecuteNonQuery();
+                        }
                     }
 
-                    await transaction.CommitAsync();
+                    transaction.Commit();
 
                     if (quota == null)
-                        return KvResult<QuotaInfo>.Fail(KvError.BucketNotFound, "User not found");
+                        return KvResult<QuotaInfo>.Fail(KvError.BucketNotFound, "Bucket not found");
 
                     return KvResult<QuotaInfo>.Ok((QuotaInfo)quota);
                 }
@@ -912,118 +1136,56 @@ namespace BasisPersistentKv
                     return KvResult<QuotaInfo>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
-            {
-                return KvResult<QuotaInfo>.FromSqlException(ex);
-            }
-            catch
-            {
-                return KvResult<QuotaInfo>.Fail(KvError.Unknown, "Unknown Server Error");
-            }
         }
 
         // --- Admin Only API ---
 
-        public static Task<KvResult<Unit>> SetKeyCountGuard(string userId, bool enable)
+        public static Task<KvResult<Unit>> SetKeyCountGuard(string bucketId, bool enable)
         {
-            return SetQuotaGuardInternal(userId, "key_limit_guard", enable);
+            return SetQuotaGuardInternal(bucketId, "key_limit_guard", enable);
         }
 
-        public static Task<KvResult<Unit>> SetByteSizeGaurd(string userId, bool enable)
+        public static Task<KvResult<Unit>> SetByteSizeGaurd(string bucketId, bool enable)
         {
-            return SetQuotaGuardInternal(userId, "byte_limit_guard", enable);
+            return SetQuotaGuardInternal(bucketId, "byte_limit_guard", enable);
         }
 
-        public static async Task<KvResult<Unit>> SetQuotaGuardInternal(string userId, string guardColumnName, bool enable)
+        public static Task<KvResult<Unit>> SetQuotaGuardInternal(string bucketId, string guardColumnName, bool enable) =>
+            Task.FromResult(SetQuotaGuardSyncInternal(bucketId, guardColumnName, enable));
+
+        private static KvResult<Unit> SetQuotaGuardSyncInternal(string bucketId, string guardColumnName, bool enable)
         {
-            try
+            lock (_connectionUseLock)
             {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
-
-                using var transaction = connection.BeginTransaction();
                 try
                 {
-                    bool value = false;
+                    var connection = GetConnection();
 
-                    // Check value
+                    using var transaction = connection.BeginTransaction();
+
+                    var guardColumn = guardColumnName switch
+                    {
+                        "key_limit_guard" => "key_limit_guard",
+                        "byte_limit_guard" => "byte_limit_guard",
+                        _ => throw new ArgumentOutOfRangeException(nameof(guardColumnName), "Invalid guard column name")
+                    };
+
                     using (var gaurdCmd = connection.CreateCommand())
                     {
                         gaurdCmd.Transaction = transaction;
-                        gaurdCmd.CommandText = @"
-                            UPDATE bucket_meta
-                            SET $guardColumn = $enable
-                            WHERE bucket_id = $bucketId;
-                        ";
-                        gaurdCmd.Parameters.AddWithValue("$guardColumn", guardColumnName);
-                        gaurdCmd.Parameters.AddWithValue("$bucketId", userId);
+                        gaurdCmd.CommandText = $@"
+                                UPDATE bucket_meta
+                                SET {guardColumn} = $enable
+                                WHERE bucket_id = $bucketId;
+                            ";
+                        gaurdCmd.Parameters.AddWithValue("$bucketId", bucketId);
                         gaurdCmd.Parameters.AddWithValue("$enable", enable);
 
-                        value = (long)(gaurdCmd.ExecuteScalar() ?? 0) == 1;
-                    }
-
-                    await transaction.CommitAsync();
-
-                    return KvResult<Unit>.Ok(new Unit());
-                }
-                catch (SqliteException ex)
-                {
-                    return KvResult<Unit>.FromSqlException(ex);
-                }
-                catch (Exception)
-                {
-                    return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
-                }
-            }
-            catch (SqliteException ex)
-            {
-                return KvResult<Unit>.FromSqlException(ex);
-            }
-            catch
-            {
-                return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
-            }
-        }
-
-        //TODO bucket deletion. this MUST remove all keys the bucket has, otherwise thats untracked storage.
-
-        // --- Internal API ---
-
-        public static async Task<KvResult<Unit>> AddUserAsync(string bucketId)
-        {
-            try
-            {
-                using var connection = new SqliteConnection(_connectionString);
-                await connection.OpenAsync();
-
-                using var transaction = connection.BeginTransaction();
-                try
-                {
-                    // Insert bucket
-                    using (var cmd = connection.CreateCommand())
-                    {
-                        cmd.Transaction = transaction;
-                        cmd.CommandText = @"
-                            INSERT OR IGNORE INTO buckets (bucket_id)
-                            VALUES ($bucketId);
-                        ";
-                        cmd.Parameters.AddWithValue("$bucketId", bucketId);
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-
-                    // Insert bucket meta
-                    using (var cmd = connection.CreateCommand())
-                    {
-                        cmd.Transaction = transaction;
-                        cmd.CommandText = @"
-                            INSERT OR IGNORE INTO bucket_meta (bucket_id)
-                            VALUES ($bucketId);
-                        ";
-                        cmd.Parameters.AddWithValue("$bucketId", bucketId);
-                        await cmd.ExecuteNonQueryAsync();
+                        gaurdCmd.ExecuteNonQuery();
                     }
 
                     transaction.Commit();
+
                     return KvResult<Unit>.Ok(new Unit());
                 }
                 catch (SqliteException ex)
@@ -1035,18 +1197,148 @@ namespace BasisPersistentKv
                     return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
             }
-            catch (SqliteException ex)
+        }
+
+        // --- Internal API ---
+
+        public static Task<KvResult<Unit>> AddBucketAsync(string bucketId) =>
+            Task.FromResult(AddBucketSync(bucketId));
+
+        public static KvResult<Unit> AddBucketSync(string bucketId)
+        {
+            lock (_connectionUseLock)
             {
-                return KvResult<Unit>.FromSqlException(ex);
-            }
-            catch
-            {
-                return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
+                try
+                {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction();
+                    try
+                    {
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.Transaction = transaction;
+                            cmd.CommandText = @"
+                                INSERT OR IGNORE INTO buckets (bucket_id)
+                                VALUES ($bucketId);
+                            ";
+                            cmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        using (var cmd = connection.CreateCommand())
+                        {
+                            cmd.Transaction = transaction;
+                            cmd.CommandText = @"
+                                INSERT OR IGNORE INTO bucket_meta (bucket_id)
+                                VALUES ($bucketId);
+                            ";
+                            cmd.Parameters.AddWithValue("$bucketId", bucketId);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+                        return KvResult<Unit>.Ok(new Unit());
+                    }
+                    catch (SqliteException ex)
+                    {
+                        return KvResult<Unit>.FromSqlException(ex);
+                    }
+                    catch
+                    {
+                        return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
+                    }
+                }
+                catch (SqliteException ex)
+                {
+                    return KvResult<Unit>.FromSqlException(ex);
+                }
+                catch
+                {
+                    return KvResult<Unit>.Fail(KvError.Unknown, "Unknown Server Error");
+                }
             }
         }
 
 
-        private static async Task<bool> UserExistsCmd(SqliteConnection conn, SqliteTransaction tx, string userId)
+        public static Task<KvResult<bool>> DeleteBucketAsync(string bucketId, bool removeKeys = true)
+            => Task.FromResult(DeleteBucketSync(bucketId, removeKeys));
+
+        public static KvResult<bool> DeleteBucketSync(string bucketId, bool removeKeys)
+        {
+            lock (_connectionUseLock)
+            {
+                try
+                {
+                    var connection = GetConnection();
+
+                    using var transaction = connection.BeginTransaction();
+
+                    if (!BucketExistsCmd(connection, transaction, bucketId))
+                    {
+                        transaction.Rollback();
+                        return KvResult<bool>.Fail(KvError.BucketNotFound, "Bucket does not exist");
+                    }
+
+                    if (removeKeys)
+                    {
+                        using var deleteKeys = connection.CreateCommand();
+                        deleteKeys.Transaction = transaction;
+                        deleteKeys.CommandText = @"
+                                DELETE FROM bucket_kv
+                                WHERE bucket_id = $bucketId;
+                            ";
+                        deleteKeys.Parameters.AddWithValue("$bucketId", bucketId);
+                        deleteKeys.ExecuteNonQuery();
+                    }
+                    else
+                    {
+                        using var countCmd = connection.CreateCommand();
+                        countCmd.Transaction = transaction;
+                        countCmd.CommandText = @"
+                                SELECT COUNT(1)
+                                FROM bucket_kv
+                                WHERE bucket_id = $bucketId;
+                            ";
+                        countCmd.Parameters.AddWithValue("$bucketId", bucketId);
+
+                        var existingKeys = (long)(countCmd.ExecuteScalar() ?? 0);
+                        if (existingKeys > 0)
+                        {
+                            transaction.Rollback();
+                            return KvResult<bool>.Fail(
+                                KvError.ServerInvalidParameter,
+                                "Bucket still contains keys; set removeKeys=true to delete bucket and keys.");
+                        }
+                    }
+
+                    using (var deleteBucket = connection.CreateCommand())
+                    {
+                        deleteBucket.Transaction = transaction;
+                        deleteBucket.CommandText = @"
+                                DELETE FROM buckets
+                                WHERE bucket_id = $bucketId;
+                            ";
+                        deleteBucket.Parameters.AddWithValue("$bucketId", bucketId);
+                        deleteBucket.ExecuteNonQuery();
+                    }
+
+                    transaction.Commit();
+                    return KvResult<bool>.Ok(true);
+                }
+                catch (SqliteException ex)
+                {
+                    return KvResult<bool>.FromSqlException(ex);
+                }
+                catch
+                {
+                    return KvResult<bool>.Fail(KvError.Unknown, "Unknown Server Error");
+                }
+            }
+        }
+
+
+        private static bool BucketExistsCmd(SqliteConnection conn, SqliteTransaction tx, string bucketId)
         {
             using var cmd = conn.CreateCommand();
             cmd.Transaction = tx;
@@ -1057,9 +1349,9 @@ namespace BasisPersistentKv
                 );
             ";
 
-            cmd.Parameters.AddWithValue("$bucketId", userId);
+            cmd.Parameters.AddWithValue("$bucketId", bucketId);
 
-            var result = (long)(await cmd.ExecuteScalarAsync() ?? 0);
+            var result = (long)(cmd.ExecuteScalar() ?? 0);
             return result == 1;
         }
     }
@@ -1086,7 +1378,7 @@ namespace BasisPersistentKv
         }
         public static KvResult<T> Fail(KvError code, string msg)
         {
-           return new(code, msg, default);
+            return new(code, msg, default);
         }
 
         public static KvResult<T> FromSqlException(SqliteException ex)
@@ -1116,20 +1408,20 @@ namespace BasisPersistentKv
 
         private static KvError FromSqlMessage(string message)
         {
-            return message switch
-            {
-                var s when s.StartsWith("U_NOT_FOUND") => KvError.BucketNotFound,
-                var s when s.StartsWith("U_IMMUTABLE") => KvError.BucketImmutable,
-                var s when s.StartsWith("Q_KEYS") => KvError.QuotaKeys,
-                var s when s.StartsWith("Q_BYTES") => KvError.QuotaBytes,
-                var s when s.StartsWith("Q_KEY_SIZE") => KvError.QuotaKeySize,
-                var s when s.StartsWith("Q_VAL_SIZE") => KvError.QuotaValueSize,
-                // constraint errors
-                var s when s.Contains("value_size") => KvError.ValidationValueSize,
-                var s when s.Contains("bucket_id_size") => KvError.BucketIdSize,
-                var s when s.Contains("key_size") => KvError.ValidationKeySize,
-                _ => KvError.Unknown,
-            };
+            // Check custom error codes first (these start with a prefix followed by :)
+            if (message.Contains("U_NOT_FOUND:")) return KvError.BucketNotFound;
+            if (message.Contains("U_IMMUTABLE:")) return KvError.BucketImmutable;
+            if (message.Contains("Q_KEYS:")) return KvError.QuotaKeys;
+            if (message.Contains("Q_BYTES:")) return KvError.QuotaBytes;
+            if (message.Contains("Q_KEY_SIZE:")) return KvError.QuotaKeySize;
+            if (message.Contains("Q_VAL_SIZE:")) return KvError.QuotaValueSize;
+
+            // Fallback to constraint name matching for constraint errors
+            if (message.Contains("value_size")) return KvError.ValidationValueSize;
+            if (message.Contains("bucket_id_size")) return KvError.BucketIdSize;
+            if (message.Contains("key_size")) return KvError.ValidationKeySize;
+
+            return KvError.Unknown;
         }
 
     }
