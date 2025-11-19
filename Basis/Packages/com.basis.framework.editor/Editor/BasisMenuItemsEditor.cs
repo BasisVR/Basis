@@ -259,7 +259,7 @@ public static class BasisMenuItemsEditor
         BasisAvatarEyeInput basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisAvatarEyeInput>();
         if (basisAvatarEyeInput != null)
         {
-            basisAvatarEyeInput.rotationX = UnityEngine.Random.Range(-360, 360);
+            basisAvatarEyeInput.rotationYaw = UnityEngine.Random.Range(-360, 360);
         }
         BasisLocalPlayer.Instance.StartCoroutine(WaitAndCreatePuck3Tracker());
     }

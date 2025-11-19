@@ -20,6 +20,7 @@
   <Project Path="SteamAudioUnity.csproj" />
   <Project Path="UnityEngine.TestRunner.csproj" />
   <Project Path="Oculus.VR.csproj" />
+  <Project Path="Unity.XR.OpenXR.csproj" />
   <Project Path="Unity.Burst.csproj" />
   <Project Path="Unity.Services.Core.Environments.Editor.csproj" />
   <Project Path="Oculus.VR.Editor.csproj" />
@@ -35,7 +36,6 @@
   <Project Path="PPv2URPConverters.csproj" />
   <Project Path="Meta.XR.ImmersiveDebugger.csproj" />
   <Project Path="SteamVR.csproj" />
-  <Project Path="Unity.XR.OpenXR.csproj" />
   <Project Path="com.gator-dragon-games.jigglephysics.editor.csproj" />
   <Project Path="Unity.XR.CoreUtils.csproj" />
   <Project Path="Unity.Searcher.Editor.csproj" />
@@ -112,6 +112,7 @@
   <Project Path="Unity.ShaderGraph.Utilities.csproj" />
   <Project Path="Unity.Toolchain.Macos-arm64-Linux-x86_64.csproj" />
   <Project Path="BasisPoolTable.csproj" />
+  <Project Path="Cilbox.csproj" />
   <Project Path="BasisSeatExamples.csproj" />
   <Project Path="AudioLink.Editor.csproj" />
   <Project Path="Unity.Profiling.Core.csproj" />
@@ -160,6 +161,7 @@
   <Project Path="BasisEventDriver.csproj" />
   <Project Path="Meta.XR.Editor.Guide.About.csproj" />
   <Project Path="BasisSDKMIrrorEditor.csproj" />
+  <Project Path="Unity.XR.OpenXR.TestTooling.csproj" />
   <Project Path="Unity.XR.OpenXR.Features.ConformanceAutomation.csproj" />
   <Project Path="Unity.XR.Hands.Analytics.Hooks.Editor.csproj" />
   <Project Path="Unity.ScriptableBuildPipeline.csproj" />

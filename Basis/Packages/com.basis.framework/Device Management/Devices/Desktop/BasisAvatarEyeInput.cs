@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
     /// <summary>
-    /// Provides simulated eye-tracking input for desktop mode.  
+    /// Provides simulated eye-tracking input for desktop mode.
     /// Handles look rotation via mouse input, device initialization, and integration with avatar drivers.
     /// </summary>
     public class BasisAvatarEyeInput : BasisInput
@@ -38,22 +38,22 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         /// <summary>
         /// Current pitch rotation (X axis).
         /// </summary>
-        public float rotationY;
+        public float rotationPitch;
 
         /// <summary>
         /// Current yaw rotation (Y axis).
         /// </summary>
-        public float rotationX;
+        public float rotationYaw;
 
         /// <summary>
         /// Minimum clamped pitch angle.
         /// </summary>
-        public float minimumY = -89f;
+        public float minimumPitch = -89f;
 
         /// <summary>
         /// Maximum clamped pitch angle.
         /// </summary>
-        public float maximumY = 80;
+        public float maximumPitch = 80;
 
         [Header("Mouse/Look")]
         /// <summary>
@@ -85,7 +85,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public float Z;
 
         /// <summary>
-        /// Initializes the eye input system for desktop usage.  
+        /// Initializes the eye input system for desktop usage.
         /// Sets device coordinates, hooks into player events, and prepares tracking roles.
         /// </summary>
         /// <param name="ID">Identifier for this input device (default "Desktop Eye").</param>
@@ -130,7 +130,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Handles updates when the cursor state changes (locked or free).  
+        /// Handles updates when the cursor state changes (locked or free).
         /// Adjusts <see cref="LookRotationLock"/> accordingly.
         /// </summary>
         private void OnCursorStateChange(CursorLockMode cursor, bool newCursorVisible)
@@ -162,7 +162,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Re-initializes player-specific references (camera, avatar driver, and input bindings).  
+        /// Re-initializes player-specific references (camera, avatar driver, and input bindings).
         /// Called on local avatar change.
         /// </summary>
         public void PlayerInitialized()
@@ -188,7 +188,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Updates the look rotation input vector.  
+        /// Updates the look rotation input vector.
         /// Called externally by input actions.
         /// </summary>
         /// <param name="delta">Mouse or input delta vector.</param>
@@ -198,7 +198,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Applies yaw/pitch rotation based on the given input vector.  
+        /// Applies yaw/pitch rotation based on the given input vector.
         /// Handles mouse-look simulation for the eye.
         /// </summary>
         /// <param name="lookVector">Delta vsector from input system.</param>
@@ -209,11 +209,11 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 return;
             }
 
-            rotationX += lookVector.x * rotationSpeed; // yaw
-            rotationY -= lookVector.y * rotationSpeed; // pitch (invert Y)
+            rotationYaw += lookVector.x * rotationSpeed; // yaw
+            rotationPitch -= lookVector.y * rotationSpeed; // pitch (invert Y)
         }
         /// <summary>
-        /// Main polling loop for updating eye input state.  
+        /// Main polling loop for updating eye input state.
         /// Calculates eye position/rotation based on avatar head, crouching, and inputs deltas.
         /// </summary>
         public override void DoPollData()
@@ -244,9 +244,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             Vector3 neutralEyeFromHead = tposeEyeWorld - tposeHeadWorld;
 
             // Apply yaw/pitch with clamping
-            rotationX = Mathf.Repeat(rotationX, 360f);
-            rotationY = Mathf.Clamp(rotationY, minimumY, maximumY);
-            Quaternion targetRot = Quaternion.Euler(rotationY, rotationX, 0);
+            rotationYaw = Mathf.Repeat(rotationYaw, 360f);
+            rotationPitch = Mathf.Clamp(rotationPitch, minimumPitch, maximumPitch);
+            Quaternion targetRot = Quaternion.Euler(rotationPitch, rotationYaw, 0);
 
             // Handle crouching adjustment
             if (!CrouchingLock)
@@ -276,7 +276,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Displays a visual tracker for the device if supported by the matched device definition.  
+        /// Displays a visual tracker for the device if supported by the matched device definition.
         /// Falls back to a generic model if needed.
         /// </summary>
         public override void ShowTrackedVisual()
@@ -299,7 +299,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Plays a haptic effect.  
+        /// Plays a haptic effect.
         /// Not implemented for desktop eye input.
         /// </summary>
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
@@ -307,7 +307,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Plays a sound effect for the input device.  
+        /// Plays a sound effect for the input device.
         /// Uses the default implementation.
         /// </summary>
         /// <param name="SoundEffectName">The sound effect key or name.</param>

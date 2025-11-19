@@ -1,6 +1,8 @@
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management.Devices.Desktop;
 using UnityEngine;
+
 namespace Basis.Scripts.Drivers
 {
     /// <summary>
@@ -15,7 +17,6 @@ namespace Basis.Scripts.Drivers
 
         private BasisSeat _seat;
         public bool IsSeated { get { return _seat != null; } }
-        public bool hasEvent = false;
         /// <summary>
         /// Initialize the driver with the owning local player.
         /// </summary>
@@ -25,6 +26,8 @@ namespace Basis.Scripts.Drivers
             // but passing it in directly makes this class more self-contained.
             LocalPlayer = localPlayer;
         }
+
+        // Player-specific pose values calculated when the player sits in a seat.
         private Vector3 leftLowerLegOffset;
         private Vector3 rightLowerLegOffset;
         private Vector3 leftUpperLegOffset;
@@ -40,6 +43,13 @@ namespace Basis.Scripts.Drivers
         private float lowerLegFootRadius;
         private float upperLegAngleVsSeatRadians;
         private float lowerLegAngleVsSeatRadians;
+
+        // Player-specific non-pose values to keep track of state during seating.
+        private Vector3 previousRelativePosition = Vector3.zero;
+        private float previousHeadPitchGlobal = 0.0f;
+        private float previousHeadYawVsSeat = 0.0f;
+        private bool hasEvent = false;
+
         private void GrabLatestTposeLocalScaleData()
         {
             leftLowerLegOffset = BasisLocalBoneDriver.LeftFootControl.TposeLocalScaled.position - BasisLocalBoneDriver.LeftLowerLegControl.TposeLocalScaled.position;
@@ -79,6 +89,9 @@ namespace Basis.Scripts.Drivers
                 Stand();
             }
             _seat = seat;
+            previousRelativePosition = _seat.transform.InverseTransformPoint(LocalPlayer.transform.position);
+            previousHeadPitchGlobal = BasisAvatarEyeInput.Instance.rotationPitch;
+            previousHeadYawVsSeat = BasisAvatarEyeInput.Instance.rotationYaw - (_seat.transform.rotation * _seat.SpineRotation).eulerAngles.y;
             // Disable character movement and add a movement lock so other systems respect being seated.
             BasisLocalVirtualSpineDriver.HipsFreezeToTpose = true;
             LocalPlayer.LocalCharacterDriver.IsEnabled = false;
@@ -86,6 +99,8 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.LocalCharacterDriver.CrouchingLock.Add(nameof(BasisLocalSeatDriver));
             LocalPlayer.LocalAnimatorDriver.StopAllVariables();
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = true;
+            // Set the player's relative yaw to zero to face forward on the seat, but don't do the same for pitch.
+            BasisAvatarEyeInput.Instance.rotationYaw = 0.0f;
             _setAllOverrideUsages(true);
             LocalPlayer.OnPreSimulateBones += OnSimulate;
             GrabLatestTposeLocalScaleData();
@@ -115,7 +130,9 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.LocalCharacterDriver.CrouchingLock.Remove(nameof(BasisLocalSeatDriver));
             LocalPlayer.LocalCharacterDriver.IsEnabled = true;
             _setAllOverrideUsages(false);
-            LocalPlayer.transform.rotation = Quaternion.identity;
+            BasisAvatarEyeInput.Instance.rotationPitch = previousHeadPitchGlobal;
+            BasisAvatarEyeInput.Instance.rotationYaw = previousHeadYawVsSeat + (_seat.transform.rotation * _seat.SpineRotation).eulerAngles.y;
+            LocalPlayer.transform.SetPositionAndRotation(_seat.transform.TransformPoint(previousRelativePosition), Quaternion.identity);
             LocalPlayer.AvatarTransform.rotation = Quaternion.identity;
             LocalPlayer.LocalAnimatorDriver.HandleTeleport();
             GrabLatestTposeLocalScaleData();
@@ -241,8 +258,9 @@ namespace Basis.Scripts.Drivers
                 desiredRightUpperLegRot,
                 desiredLeftLowerLegRot,
                 desiredRightLowerLegRot
-        );
+            );
         }
+
         private void _applyLocalLegPose(
             Vector3 pelvisPos,
             Quaternion leftUpperLegRot,
@@ -285,7 +303,6 @@ namespace Basis.Scripts.Drivers
                 BasisLocalBoneDriver.RightLowerLegControl.TposeLocalScaled.position,
                 hipsWorldRot * rightLowerLegRot);
         }
-
 
         private void _setAllOverrideUsages(bool enabled)
         {
