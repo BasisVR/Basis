@@ -228,10 +228,7 @@ namespace BasisPersistentKv
             {
                 DataSource = "basis_kv_data.db",
                 Mode = SqliteOpenMode.ReadWriteCreate,
-                Pooling = true,
-                Cache = SqliteCacheMode.Shared,
             }.ToString();
-
 
             _pragmas = new[]
             {
@@ -240,6 +237,7 @@ namespace BasisPersistentKv
                 "PRAGMA temp_store = MEMORY;",
                 "PRAGMA foreign_keys = TRUE;",
                 "PRAGMA case_sensitive_like = ON;"
+                // PRAGMA user_version = 1;
             };
 
             Init();
