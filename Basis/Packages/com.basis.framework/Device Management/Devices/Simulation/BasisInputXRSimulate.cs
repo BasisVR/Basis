@@ -60,7 +60,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
             ScaledDeviceCoord.position = VOut;
             Quaternion LocalRawRotation = QOut;
 
-            float SPTDS = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
+            float SPTDS = BasisLocalPlayer.Instance.Height.PlayerScaleVsFallback;
 
             // Normalize to player default scale and restore (keeps internal math consistent)
             ScaledDeviceCoord.position /= SPTDS;

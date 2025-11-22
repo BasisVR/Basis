@@ -771,7 +771,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 Vector3 newTargetOffset = targetOffset + sourceTransform.InverseTransformVector(movement);
 
                 // Enforce min/max distance along the source forward.
-                float maxDistance = DesktopZoopMaxDistance + BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
+                float maxDistance = DesktopZoopMaxDistance + BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters / 2;
 
                 if (mouseScroll != 0 && newTargetOffset.z > DesktopZoopMinDistance && newTargetOffset.z < maxDistance)
                 {
@@ -896,7 +896,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             float extraReach = 0;
             if (BasisDeviceManagement.IsUserInDesktop())
             {
-                extraReach = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
+                extraReach = BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters / 2;
             }
             Collider collider = GetCollider();
             if (collider != null)

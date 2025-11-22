@@ -10,7 +10,7 @@ public class BasisSliderAvatarScaleModifier : MonoBehaviour
     public float SelectedValue = 1.7f;
     public void Start()
     {
-        SelectedValue = BasisLocalPlayer.Instance.CurrentHeight.CustomPlayerEyeHeight;
+        SelectedValue = BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters;
         Slider.value = SelectedValue;
         Slider.onValueChanged.AddListener(SliderChangeEvent);
         ApplyOn.onClick.AddListener(Apply);
@@ -23,6 +23,6 @@ public class BasisSliderAvatarScaleModifier : MonoBehaviour
     }
     public void Apply()
     {
-        BasisHeightDriver.SetCustomPlayerHeight(SelectedValue);
+        BasisLocalPlayer.Instance.Height.SetPlayerSize(BasisHeightMeasurement.EyeHeightMeters, SelectedValue);
     }
 }

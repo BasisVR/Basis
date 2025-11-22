@@ -80,7 +80,6 @@ namespace Basis.Scripts.Drivers
         /// <param name="player">The local player instance.</param>
         public void InitialLocalCalibration(BasisLocalPlayer player)
         {
-            player.CurrentHeight.PickHeightMode(BasisSelectedHeightMode.EyeHeight);
             Instance = this;
             BasisDebug.Log("InitialLocalCalibration");
             if (HasTPoseEvent == false)
@@ -285,22 +284,6 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Returns the active avatar eye height; falls back to a constant when no avatar is available.
-        /// </summary>
-        /// <returns>Eye height value.</returns>
-        public float ActiveAvatarEyeHeight()
-        {
-            if (BasisLocalPlayer.Instance.BasisAvatar != null)
-            {
-                return BasisLocalPlayer.Instance.BasisAvatar.AvatarEyePosition.x;
-            }
-            else
-            {
-                return BasisLocalPlayer.FallbackSize;
-            }
-        }
-
-        /// <summary>
         /// Performs reference detection, layer setup, pose recording, face visibility wiring,
         /// and facial blink driver initialization during calibration.
         /// </summary>
@@ -465,7 +448,8 @@ namespace Basis.Scripts.Drivers
                     Rotation = RootRotation;
                     Position = anim.transform.position;
                     // Position = new Vector3(0, Position.y, 0);
-                    Position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(), heightPercentage);
+                    float eyeHeight = BasisLocalPlayer.Instance.Height.AvatarEyeHeightMeters;
+                    Position += CalculateFallbackOffset(bone, eyeHeight, heightPercentage);
                     //Position = new Vector3(0, Position.y, 0);
                     UsedFallback = true;
                 }
@@ -482,7 +466,8 @@ namespace Basis.Scripts.Drivers
                 Rotation = RootRotation;
                 Position = anim.transform.position;
                 Position = new Vector3(0, Position.y, 0);
-                Position += CalculateFallbackOffset(bone, ActiveAvatarEyeHeight(), heightPercentage);
+                float eyeHeight = BasisLocalPlayer.Instance.Height.AvatarEyeHeightMeters;
+                Position += CalculateFallbackOffset(bone, eyeHeight, heightPercentage);
                 Position = new Vector3(0, Position.y, 0);
                 UsedFallback = true;
             }

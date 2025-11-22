@@ -46,7 +46,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
             }
 
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= SetUILocation;
+            BasisLocalHeight.OnChangedNextFrame -= SetUILocation;
 
             if (hasLocalCreationEvent)
             {
@@ -60,7 +60,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += SetUILocation;
+            BasisLocalHeight.OnChangedNextFrame += SetUILocation;
             SetUILocation();
         }
         public void UpdateUIFollow()
@@ -93,7 +93,7 @@ namespace Basis.Scripts.UI.UI_Panels
             Vector3 eulerRotation = Rotation.eulerAngles;
             eulerRotation.z = 0f;
 
-            float Scale = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
+            float Scale = BasisLocalPlayer.Instance.Height.PlayerScaleVsFallback;
             Quaternion horizontalRotation = Quaternion.Euler(eulerRotation);
             Vector3 adjustedOffset = new Vector3(WorldOffset.x, 0, WorldOffset.z) * Scale;
             targetPosition = Position + (horizontalRotation * adjustedOffset);
@@ -101,7 +101,7 @@ namespace Basis.Scripts.UI.UI_Panels
             transform.SetPositionAndRotation(targetPosition, horizontalRotation);
             transform.localScale = InitalScale * Scale;
 
-            CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
+            CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * BasisLocalPlayer.Instance.Height.PlayerScaleVsFallback;
         }
     }
 }

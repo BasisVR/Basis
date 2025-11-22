@@ -91,13 +91,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
-                BasisDebug.Log($"Using Configured Height {BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, Z);
+                BasisDebug.Log($"Using Configured Height {BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters}", BasisDebug.LogTag.Input);
+                ScaledDeviceCoord.position = new Vector3(X, BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters, Z);
             }
             else
             {
-                BasisDebug.Log($"Using Fallback Height {BasisLocalPlayer.FallbackSize}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisLocalPlayer.FallbackSize, Z);
+                BasisDebug.Log($"Using Fallback Height {BasisLocalHeight.FallbackEyeHeightMeters}", BasisDebug.LogTag.Input);
+                ScaledDeviceCoord.position = new Vector3(X, BasisLocalHeight.FallbackEyeHeightMeters, Z);
             }
 
             ScaledDeviceCoord.rotation = Quaternion.identity;

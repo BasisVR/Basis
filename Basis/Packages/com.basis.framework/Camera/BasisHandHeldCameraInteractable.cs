@@ -161,11 +161,11 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         OnInteractStartEvent += OnInteractDesktopTweak;
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
 
-        BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
+        BasisLocalHeight.OnChangedNextFrame += OnHeightChanged;
 
         // scale camera to avatar size
-        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
-                               BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        float scale = cameraDefaultScale * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback;
+        transform.localScale = new Vector3(scale, scale, scale);
 
         // run after player movement
         BasisLocalPlayer.AfterFinalMove.AddAction(202, UpdateCamera);
@@ -195,8 +195,8 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     /// <summary>Rescales the camera when the local player’s avatar height changes.</summary>
     private void OnHeightChanged()
     {
-        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
-                               BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        float scale = cameraDefaultScale * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback;
+        transform.localScale = new Vector3(scale, scale, scale);
     }
 
     /// <summary>
@@ -623,7 +623,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     {
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         OnInteractStartEvent -= OnInteractDesktopTweak;
-        BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
+        BasisLocalHeight.OnChangedNextFrame -= OnHeightChanged;
 
         BasisLocalPlayer.AfterFinalMove.RemoveAction(202, UpdateCamera);
 

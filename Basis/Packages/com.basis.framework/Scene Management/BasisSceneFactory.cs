@@ -47,7 +47,7 @@ public static class BasisSceneFactory
         RespawnHeight = BasisScene.RespawnHeight;
         if (scene.MainCamera != null)
         {
-            LoadCameraPropertys(scene.MainCamera);
+            LoadCameraProperties(scene.MainCamera);
             GameObject.DestroyImmediate(scene.MainCamera.gameObject);
             BasisDebug.Log("Destroying Main Camera Attached To Scene");
         }
@@ -83,39 +83,39 @@ public static class BasisSceneFactory
             BasisLocalPlayer = GameObject.FindFirstObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
         }
     }
-    public static void LoadCameraPropertys(Camera Camera)
+    public static void LoadCameraProperties(Camera Camera)
     {
-        BNL.Log("Loading Camera Propertys From Camera "+ Camera.gameObject.name);  
+        BNL.Log("Loading Camera Propertys From Camera "+ Camera.gameObject.name);
+        // Configure the local player's camera mostly based on the scene's placeholder camera.
         Camera RealCamera = BasisLocalCameraDriver.Instance.Camera;
         RealCamera.useOcclusionCulling = Camera.useOcclusionCulling;
         RealCamera.backgroundColor = Camera.backgroundColor;
         RealCamera.barrelClipping = Camera.barrelClipping;
-        RealCamera.usePhysicalProperties = Camera.usePhysicalProperties;;
+        RealCamera.usePhysicalProperties = Camera.usePhysicalProperties;
+        RealCamera.farClipPlane = Camera.farClipPlane;
+        float desiredClipNear = Camera.nearClipPlane;
+        // Limit the near and far clip planes on mobile hardware due to their limited depth buffer precision.
         if (BasisDeviceManagement.IsMobilehardware())
         {
-            if (Camera.farClipPlane > 800)
+            if (RealCamera.farClipPlane > 800.0f)
             {
-                RealCamera.farClipPlane = 800;
+                RealCamera.farClipPlane = 800.0f;
             }
-            if (RealCamera.nearClipPlane < 0.05f)
+            if (desiredClipNear < 0.05f)
             {
-                RealCamera.nearClipPlane = 0.05f;
+                desiredClipNear = 0.05f;
             }
         }
-        else
-        {
-            RealCamera.farClipPlane = Camera.farClipPlane;
-            RealCamera.nearClipPlane = Camera.nearClipPlane;
-        }
-
+        BasisLocalCameraDriver.Instance.SetDesiredClipNear(desiredClipNear);
+        // Set more camera data from the UniversalAdditionalCameraData component if it exists.
         if (Camera.TryGetComponent(out UniversalAdditionalCameraData AdditionalCameraData))
         {
             UniversalAdditionalCameraData Data = BasisLocalCameraDriver.Instance.CameraData;
 
-           Data.stopNaN = AdditionalCameraData.stopNaN;
+            Data.stopNaN = AdditionalCameraData.stopNaN;
             Data.dithering = AdditionalCameraData.dithering;
 
-           Data.volumeTrigger = AdditionalCameraData.volumeTrigger;
+            Data.volumeTrigger = AdditionalCameraData.volumeTrigger;
         }
     }
     public static void AttachMixerToAllSceneAudioSources()

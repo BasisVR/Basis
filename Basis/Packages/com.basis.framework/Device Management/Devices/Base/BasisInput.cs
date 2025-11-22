@@ -628,7 +628,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// </summary>
         public void ConvertToScaledDeviceCoord()
         {
-            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback;
             ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
         }
 

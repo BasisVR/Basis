@@ -49,7 +49,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateDelayedSetUI;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateDelayedSetUI;
+            BasisLocalHeight.OnChangedNextFrame -= UpdateDelayedSetUI;
 
             BasisLocalPlayer.AfterFinalMove.RemoveAction(101, UpdateUI);
         }
@@ -59,7 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
         private void OnLocalPlayerGenerated()
         {
             BasisLocalPlayer.OnLocalAvatarChanged += UpdateDelayedSetUI;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateDelayedSetUI;
+            BasisLocalHeight.OnChangedNextFrame += UpdateDelayedSetUI;
             if (LocalPlayer.LocalBoneDriver.FindBone(out hand, BasisBoneTrackedRole.LeftHand))
             {
             }
@@ -109,7 +109,7 @@ namespace Basis.Scripts.UI.UI_Panels
                     Vector3 projectedPos = Vector3.ProjectOnPlane(newPos, LocalPlayer.transform.up).normalized;
 
                     // Calculate the base new position by considering the player's position, scale, and offset
-                    newPos = LocalPlayer.transform.position + (projectedPos * (0.5f * LocalPlayer.CurrentHeight.SelectedPlayerToDefaultScale));
+                    newPos = LocalPlayer.transform.position + (projectedPos * (0.5f * LocalPlayer.Height.PlayerScaleVsFallback));
 
                     // Transform the relative offsets by the rotation to apply them correctly in world space
                     Vector3 rotatedOffsets = rotation * menuPosOffset;
@@ -127,7 +127,7 @@ namespace Basis.Scripts.UI.UI_Panels
                         position = hand.OutgoingWorldData.position;
                         rotation = hand.OutgoingWorldData.rotation;
                         // Set new position and rotation
-                        transform.SetPositionAndRotation(position + (menuPosOffset * LocalPlayer.CurrentHeight.SelectedPlayerToDefaultScale), rotation * Quaternion.Euler(menuRotOffset));
+                        transform.SetPositionAndRotation(position + (menuPosOffset * LocalPlayer.Height.PlayerScaleVsFallback), rotation * Quaternion.Euler(menuRotOffset));
                     }
                     else
                     {

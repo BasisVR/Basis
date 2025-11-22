@@ -11,8 +11,8 @@ public class SMModuleSitStand : BasisSettingsBase
             case "Seated Mode":
                 if (IsSteatedMode == false)
                 {
-                    BasisHeightDriver.CapturePlayerHeight(BasisLocalPlayer.Instance);
-                    MissingHeightDelta = BasisLocalPlayer.DefaultPlayerEyeHeight - BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight;
+                    BasisLocalPlayer.Instance.Height.CaptureRealUserSizes();
+                    MissingHeightDelta = BasisLocalHeight.FallbackEyeHeightMeters - BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters;
                     IsSteatedMode = true;
                 }
                 break;

@@ -195,7 +195,7 @@ namespace Basis.Scripts.Drivers
             // Scale hand collision by avatar height
             BasisAnimationRiggingHelper.SetHandCollisionScale(
                 BasisFullIKConstraint,
-                localPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale
+                localPlayer.Height.AvatarScaleVsFallback
             );
 
             // Hands (targets)

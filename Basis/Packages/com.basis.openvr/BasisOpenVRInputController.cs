@@ -159,7 +159,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             // ------- Compute world-space wrist & root (for IK)
             // scale from the avatar currently selected to the avatar's "default" rig size
-            float avatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            float avatarScale = BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback;
 
             int idxWrist = SteamVR_Skeleton_JointIndexes.wrist;
           //  int idxIndex = SteamVR_Skeleton_JointIndexes.indexProximal;

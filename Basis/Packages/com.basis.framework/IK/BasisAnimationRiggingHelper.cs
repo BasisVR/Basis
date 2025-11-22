@@ -133,7 +133,7 @@ public static class BasisAnimationRiggingHelper
         // ----------------------------
         // Post-setup helpers
         // ----------------------------
-        SetHandCollisionScale(BasisFullIKConstraint, player.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+        SetHandCollisionScale(BasisFullIKConstraint, player.Height.AvatarScaleVsFallback);
 
         GeneratedRequiredTransforms(player, Mapping.head);
 

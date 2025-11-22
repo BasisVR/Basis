@@ -160,7 +160,7 @@ public class BasisLocalVirtualSpineDriver
 
         // Add small forward bias using head yaw, which also applies to the hips, except when overridden.
         Quaternion headYaw = HipsFreezeToTpose ? Quaternion.identity : ExtractYawRotation(head.OutGoingData.rotation);
-        idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+        idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback);
 
         // Blend XZ with tracked hips for authority retention
         Vector3 trackedHips = hips.Target.OutGoingData.position;

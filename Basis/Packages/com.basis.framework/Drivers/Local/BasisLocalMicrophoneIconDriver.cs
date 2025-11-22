@@ -108,7 +108,7 @@ namespace Basis.Scripts.Drivers
 
             // 4) Build the camera-local position at depth using clamped normalized coords
             // Center point at depth on camera forward
-            Vector3 centerAtDepth = cam.transform.InverseTransformPoint(Position + cam.transform.forward * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+            Vector3 centerAtDepth = cam.transform.InverseTransformPoint(Position + cam.transform.forward * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback);
 
             // Get camera-local right/up from corner vectors
             Vector3 rightLocal = (TR - TL).normalized;

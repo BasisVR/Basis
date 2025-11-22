@@ -239,5 +239,82 @@ namespace Basis.Scripts.Common
                 return UrlList;
             }
         }
+
+        /// <summary>
+        /// Saves an object (usually a <see cref="System.Collections.Generic.Dictionary{TKey, TValue}"/>)
+        /// directly as a JSON file. The output is properly formatted in a way that is ideal for cross-platform use:
+        /// pretty-printed, tab indentation, LF line endings, and has the POSIX-compliant newline at the end of the file.
+        /// </summary>
+        /// <param name="filePath">The full path to the file where the JSON will be saved.</param>
+        /// <param name="value">The object to serialize and save.</param>
+        public static void SaveJson(string filePath, object value)
+        {
+            try
+            {
+                // First ensure that the directory exists.
+                string dir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                // Then write the file. The using statements ensure that everything is disposed when the scope ends,
+                // avoiding garbage collection, and that everything is disposed properly, even when exceptions occur.
+                using (FileStream fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    System.Text.UTF8Encoding utf8NoBom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+                    using (StreamWriter sw = new StreamWriter(fs, utf8NoBom))
+                    {
+                        sw.NewLine = "\n";
+                        using (Newtonsoft.Json.JsonTextWriter jw = new Newtonsoft.Json.JsonTextWriter(sw))
+                        {
+                            jw.Formatting = Newtonsoft.Json.Formatting.Indented;
+                            jw.IndentChar = '\t';
+                            jw.Indentation = 1;
+                            Newtonsoft.Json.JsonSerializer serializer = new Newtonsoft.Json.JsonSerializer();
+                            serializer.Serialize(jw, value);
+                            jw.WriteRaw("\n"); // POSIX-compliant newline at end of file.
+                            jw.Close();
+                        }
+                        sw.Close();
+                    }
+                }
+                BasisDebug.Log("Json saved to " + filePath);
+            }
+            catch (System.Exception e)
+            {
+                BasisDebug.LogWarning("SaveJson failed: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Loads an object (usually a <see cref="System.Collections.Generic.Dictionary{TKey, TValue}"/>)
+        /// directly from a JSON file. If loading fails, the provided default value is returned.
+        /// </summary>
+        /// <typeparam name="T">The type of object to load from JSON.</typeparam>
+        /// <param name="filePath">The full path to the JSON file to load.</param>
+        /// <param name="defaultValue">The default value to return if loading fails.</param>
+        /// <returns>The loaded object, or the default value if loading fails.</returns>
+        public static T LoadJson<T>(string filePath, T defaultValue)
+        {
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    string json = File.ReadAllText(filePath);
+                    if (string.IsNullOrEmpty(json))
+                    {
+                        return defaultValue;
+                    }
+                    T value = Newtonsoft.Json.JsonConvert.DeserializeObject<T>(json);
+                    BasisDebug.Log("Json loaded from " + filePath);
+                    return value == null ? defaultValue : value;
+                }
+            }
+            catch (System.Exception e)
+            {
+                BasisDebug.LogWarning("LoadJson failed: " + e.Message);
+            }
+            return defaultValue;
+        }
     }
 }

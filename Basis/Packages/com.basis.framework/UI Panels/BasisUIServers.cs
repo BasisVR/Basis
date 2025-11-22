@@ -53,7 +53,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
             UseLocalhost.onClick.AddListener(UseLocalHost);
             ApplySize();
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
+            BasisLocalHeight.OnChangedNextFrame += ApplySize;
             if (BasisNetworkManagement.Instance != null)
             {
                 LoadCurrentSettings();
@@ -63,12 +63,12 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (BasisLocalPlayer.Instance != null)
             {
-                this.transform.localScale = InitalScale * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                this.transform.localScale = InitalScale * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback;
             }
         }
         public void OnDestroy()
         {
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySize;
+            BasisLocalHeight.OnChangedNextFrame -= ApplySize;
             UseLocalhost.onClick.RemoveListener(UseLocalHost);
         }
         public void UseHostMode(bool IsDown)

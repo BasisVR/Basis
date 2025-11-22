@@ -19,17 +19,19 @@ namespace Basis.Scripts.Drivers
         /// Final Scale is Set Scale * DuringCalibrationScale
         /// </summary>
         public Vector3 FinalScale = Vector3.one;
-        public void ReInitalize(Animator Animator)
+        public void ReInitalize(Animator animator)
         {
-            DuringCalibrationScale = Animator.transform.localScale;
+            DuringCalibrationScale = animator.transform.localScale;
             ApplyScale = 1;
             FinalScale = DuringCalibrationScale;
         }
-        public void SetAvatarheightOverride(float Scale)
+        /// <summary>
+        /// Use <see cref="BasisLocalHeight.SetPlayerSize"/> instead of calling this directly.
+        /// </summary>
+        public void SetAvatarScale(float scale)
         {
-            ApplyScale = Scale;
-            // Final scale = Default scale * Override scale (component-wise)
-            FinalScale = DuringCalibrationScale * Scale;
+            ApplyScale = scale;
+            FinalScale = DuringCalibrationScale * scale;
             if (BasisLocalPlayer.Instance.BasisAvatar != null)
             {
                 BasisLocalPlayer.Instance.BasisAvatar.transform.localScale = FinalScale;

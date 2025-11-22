@@ -301,7 +301,7 @@ namespace Basis.Scripts.BasisCharacterController
             }
             else
             {
-                eyeHeight = BasisLocalPlayer.FallbackSize;
+                eyeHeight = BasisLocalHeight.FallbackEyeHeightMeters;
             }
             float adjustedHeight = eyeHeight;
             if (MinimumColliderSize > adjustedHeight)

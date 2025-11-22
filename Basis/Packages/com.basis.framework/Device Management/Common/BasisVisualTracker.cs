@@ -34,11 +34,6 @@ namespace Basis.Scripts.Device_Management
         public bool HasEvents = false;
 
         /// <summary>
-        /// Base scale for the model before applying avatar height scaling.
-        /// </summary>
-        public Vector3 ScaleOfModel = Vector3.one;
-
-        /// <summary>
         /// Binds this visual to a <see cref="BasisInput"/>, adjusts size/offset,
         /// and subscribes to avatar/height change events.
         /// </summary>
@@ -54,7 +49,7 @@ namespace Basis.Scripts.Device_Management
                 if (HasEvents == false)
                 {
                     BasisLocalPlayer.OnLocalAvatarChanged += UpdateVisualSizeAndOffset;
-                    BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateVisualSizeAndOffset;
+                    BasisLocalHeight.OnChangedNextFrame += UpdateVisualSizeAndOffset;
                     HasEvents = true;
                 }
 
@@ -70,7 +65,7 @@ namespace Basis.Scripts.Device_Management
             if (HasEvents)
             {
                 BasisLocalPlayer.OnLocalAvatarChanged -= UpdateVisualSizeAndOffset;
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateVisualSizeAndOffset;
+                BasisLocalHeight.OnChangedNextFrame -= UpdateVisualSizeAndOffset;
                 HasEvents = false;
             }
         }
@@ -81,7 +76,7 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public void UpdateVisualSizeAndOffset()
         {
-            gameObject.transform.localScale = ScaleOfModel * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            gameObject.transform.localScale = Vector3.one * BasisLocalPlayer.Instance.Height.AvatarScaleVsFallback;
             gameObject.transform.SetLocalPositionAndRotation(Vector3.zero, ModelRotationOffset);
         }
     }

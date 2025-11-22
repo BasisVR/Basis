@@ -172,7 +172,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
         {
             BasisDebug.Log("Initializing Avatar Eye", BasisDebug.LogTag.Input);
 
-            float height = BasisLocalPlayer.Instance?.CurrentHeight.SelectedPlayerHeight ?? BasisLocalPlayer.FallbackSize;
+            float height = BasisLocalPlayer.Instance?.Height.PlayerEyeHeightMeters ?? BasisLocalHeight.FallbackEyeHeightMeters;
 
             ScaledDeviceCoord.position = new Vector3(0, height, 0);
             ScaledDeviceCoord.rotation = Quaternion.identity;
@@ -262,7 +262,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                 UnscaledDeviceCoord.rotation = currentRotation;
 
                 // maintain height with crouch compensation
-                float baseHeightLocked = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight;
+                float baseHeightLocked = BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters;
                 Vector3 posLocked = new Vector3(0, baseHeightLocked, 0);
 
                 if (!BasisLocks.GetContext(BasisLocks.Crouching))
@@ -363,7 +363,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
 
             // --- Head pose at eye height with crouch compensation ---
             UnscaledDeviceCoord.rotation = currentRotation;
-            float baseHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight;
+            float baseHeight = BasisLocalPlayer.Instance.Height.PlayerEyeHeightMeters;
             Vector3 pos = new Vector3(0, baseHeight, 0);
 
             if (!BasisLocks.GetContext(BasisLocks.Crouching))

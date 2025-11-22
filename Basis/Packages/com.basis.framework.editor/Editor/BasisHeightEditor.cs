@@ -6,7 +6,8 @@ using Basis.Scripts.Drivers;
 
 public class BasisHeightEditorWindow : EditorWindow
 {
-    private float customHeight = 1.7f; // Default custom height input
+    private float customEyeHeight = BasisLocalHeight.FallbackEyeHeightMeters; // Default custom height input
+    private float customPlayerScale = 1.0f; // Default custom scale input
 
     [MenuItem("Basis/Height/Height Editor Window")]
     public static void ShowWindow()
@@ -19,74 +20,52 @@ public class BasisHeightEditorWindow : EditorWindow
         GUILayout.Label("Basis Player Height Tools", EditorStyles.boldLabel);
         GUILayout.Space(10);
 
-        if (GUILayout.Button("Recalculate Player Eye Height"))
+        if (GUILayout.Button("Capture Real User Sizes"))
         {
-            RecalculatePlayerEyeHeight();
+            CaptureRealUserSizes();
         }
 
-        if (GUILayout.Button("Capture Player Height"))
+        if (GUILayout.Button("Reset To Defaults"))
         {
-            CapturePlayerHeight();
+            ResetToDefaults();
         }
 
-        if (GUILayout.Button("Get Default or Load Player Height"))
+        if (GUILayout.Button("Load Player Scale From Disk"))
         {
-            GetDefaultOrLoadPlayerHeight();
-        }
-
-        if (GUILayout.Button("Save Player Height"))
-        {
-            SavePlayerHeight();
+            LoadPlayerHeight();
         }
 
         GUILayout.Space(20);
         GUILayout.Label("Custom Height", EditorStyles.boldLabel);
 
-        customHeight = EditorGUILayout.FloatField("Custom Eye Height", customHeight);
-
-        if (GUILayout.Button("Set Custom Player Height"))
+        customEyeHeight = EditorGUILayout.FloatField("Eye Height Meters", customEyeHeight);
+        if (GUILayout.Button("Set Eye Height"))
         {
-            BasisHeightDriver.SetCustomPlayerHeight(customHeight);
+            BasisLocalPlayer.Instance.Height.SetPlayerSize(BasisHeightMeasurement.EyeHeightMeters, customEyeHeight);
+        }
+        customPlayerScale = EditorGUILayout.FloatField("Player Scale Vs Avatar", customPlayerScale);
+        if (GUILayout.Button("Set Player Scale"))
+        {
+            BasisLocalPlayer.Instance.Height.SetPlayerSize(BasisHeightMeasurement.ScaleMultiplier, customPlayerScale);
         }
     }
 
-    private static void RecalculatePlayerEyeHeight()
+    private static void CaptureRealUserSizes()
     {
-        BasisLocalPlayer basisPlayer = BasisLocalPlayer.Instance;
-
-        if (basisPlayer == null)
-        {
-            BasisDebug.LogError("No BasisLocalPlayer instance found.");
-            return;
-        }
-
-        BasisHeightDriver.ChangeEyeHeightMode(basisPlayer, BasisSelectedHeightMode.EyeHeight);
-        BasisDebug.Log("Player eye height recalculated successfully.");
-    }
-
-    private static void CapturePlayerHeight()
-    {
-        BasisHeightDriver.CapturePlayerHeight(BasisLocalPlayer.Instance);
+        BasisLocalPlayer.Instance.Height.CaptureRealUserSizes();
         BasisDebug.Log("Player height captured successfully.");
     }
 
-    private static void GetDefaultOrLoadPlayerHeight()
+    private void ResetToDefaults()
     {
-        float height = BasisHeightDriver.GetDefaultOrLoadPlayerHeight();
-        BasisDebug.Log($"Loaded or default player height: {height}");
+        customEyeHeight = BasisLocalHeight.FallbackEyeHeightMeters;
+        customPlayerScale = 1.0f;
+        BasisLocalPlayer.Instance.Height.SetPlayerSize(BasisHeightMeasurement.ScaleMultiplier, 1.0f);
     }
 
-    private static void SavePlayerHeight()
+    private static void LoadPlayerHeight()
     {
-        BasisLocalPlayer basisPlayer = BasisLocalPlayer.Instance;
-
-        if (basisPlayer == null)
-        {
-            BasisDebug.LogError("No BasisLocalPlayer instance found.");
-            return;
-        }
-
-        BasisHeightDriver.SaveHeight(basisPlayer.CurrentHeight.SelectedPlayerHeight);
-        BasisDebug.Log($"Player height saved: {basisPlayer.CurrentHeight.SelectedPlayerHeight}");
+        BasisLocalHeight.LoadSavedScales();
+        BasisLocalPlayer.Instance?.Height?.SetupForAvatar();
     }
 }
