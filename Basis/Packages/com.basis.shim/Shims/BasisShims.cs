@@ -18,9 +18,9 @@ namespace Basis
 
 	public class IBasisImageDownload
 	{
-		public IBasisImageDownload( UnityWebRequest www, DownloadHandlerTexture dht )
+		public IBasisImageDownload( UnityWebRequest www, DownloadHandlerTexture dht, String majorFailure )
 		{
-			if (www.result == UnityWebRequest.Result.Success)
+			if (www != null && www.result == UnityWebRequest.Result.Success)
 			{
 				Success = true;
 				Error = "";
@@ -30,7 +30,7 @@ namespace Basis
 			else
 			{
 				Success = false;
-				Error = dht.error;
+				Error = (dht != null) ? dht.error : majorFailure;
 				Result = null;
 			}
 		}
@@ -47,6 +47,12 @@ namespace Basis
 
 		public void DownloadImage( BasisUrl stringUrl, Action< IBasisImageDownload > callback )
 		{
+			if( stringUrl.url.Substring(0, 4) != "http" )
+			{
+				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
+				return;
+			}
+
 		    UnityWebRequest www = new UnityWebRequest( stringUrl.url );
 
 			/////////////////////////////////////////////////////////////////
@@ -65,7 +71,7 @@ namespace Basis
 				{
 					bCompleted = true;
 					InFlight.Remove( www );
-					callback( new IBasisImageDownload( www, dht ) );
+					callback( new IBasisImageDownload( www, dht, null ) );
 				}
 			}; 
 
