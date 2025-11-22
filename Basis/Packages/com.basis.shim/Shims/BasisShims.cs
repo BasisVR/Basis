@@ -47,7 +47,7 @@ namespace Basis
 
 		public void DownloadImage( BasisUrl stringUrl, Action< IBasisImageDownload > callback )
 		{
-			if( stringUrl.url.Substring(0, 4) != "http" )
+			if( stringUrl.url.Substring(0, 7) != "http://" && stringUrl.url.Substring(0, 8) != "https://" )
 			{
 				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
 				return;
