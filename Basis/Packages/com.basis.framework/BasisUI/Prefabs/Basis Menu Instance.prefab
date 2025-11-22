@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3189951289870719121}
   - component: {fileID: 281005126419238289}
   - component: {fileID: 6622478774740261033}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Basis Menu Instance
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -62,7 +62,7 @@ MonoBehaviour:
   GroupOffset: {fileID: 2105398421684032071}
   RootMode: 2
   DesktopRootMode: 1
-  RootScale: 0.0005
+  RootScale: 0.0004
   WorldOffset:
     Position: {x: 0, y: 0, z: 0}
     EulerRotation: {x: 0, y: 0, z: 0}
@@ -72,7 +72,7 @@ MonoBehaviour:
     EulerRotation: {x: 0, y: 0, z: 0}
     Scale: 1
   HeadOffset:
-    Position: {x: 0, y: 0.05, z: 0.3}
+    Position: {x: 0, y: 0.06, z: 0.35}
     EulerRotation: {x: 0, y: 0, z: 0}
     Scale: 1
   LeftHandOffset:
@@ -94,7 +94,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2105398421684032071}
-  m_Layer: 0
+  m_Layer: 5
   m_Name: Panel Root
   m_TagString: Untagged
   m_Icon: {fileID: 0}

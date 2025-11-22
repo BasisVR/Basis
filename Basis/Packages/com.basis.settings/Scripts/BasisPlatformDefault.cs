@@ -24,4 +24,17 @@ public class BasisPlatformDefault<T>
                 return other;
         }
     }
+
+    public BasisPlatformDefault()
+    {
+    }
+
+    public BasisPlatformDefault(T defaultAll)
+    {
+        windows = defaultAll;
+        android = defaultAll;
+        linux = defaultAll;
+        other = defaultAll;
+    }
+
 }

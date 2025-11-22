@@ -5,7 +5,7 @@ namespace Basis.BasisUI
     public class BasisMainMenu : BasisMenuBase<BasisMainMenu>
     {
 
-        public static string MenuTitle => "Main";
+        public static string MenuTitle => "Main Menu";
 
         public static string ActiveMenuTitle
         {
@@ -16,30 +16,19 @@ namespace Basis.BasisUI
             }
         }
 
-        public BasisMenuPanel TabMenu;
-        public PanelLayoutContainer TabContainer;
+        public BasisMenuPanel HotbarMenu;
+        public PanelElementDescriptor HorizontalLayout;
 
-        public override Component ProviderButtonParent => TabContainer;
+        public override Component ProviderButtonParent => HorizontalLayout.ContentParent;
 
         public BasisMainMenu()
         {
-            TabMenu = BasisMenuPanel.CreateNew(
+            HotbarMenu = BasisMenuPanel.CreateNew(
                 BasisMenuPanel.PanelData.Toolbar(MenuTitle),
                 MenuObjectInstance.PanelRoot);
 
-            TabContainer = PanelLayoutContainer.CreateNew(TabMenu.ContentParent, LayoutDirection.Horizontal);
-
-            TabContainer.CopyLayoutOptions(new LayoutContainerOptions
-            {
-                Alignment = TextAnchor.MiddleCenter,
-                Constrained = false,
-                StretchItemWidth = true,
-                StretchItemHeight = true,
-                SpreadItemWidth = true,
-                SpreadItemHeight = true
-            });
-
-            // TabContainer.LayoutGroup.padding = new RectOffset(100, 100, 0, 0);
+            HorizontalLayout = PanelElementDescriptor.CreateNew(
+                PanelElementDescriptor.ElementStyles.ScrollViewHorizontal, HotbarMenu.Descriptor.ContentParent);
 
             BindProvidersToButtons();
         }
@@ -85,33 +74,5 @@ namespace Basis.BasisUI
                 style);
             return Instance.ActiveMenu;
         }
-
-        public static BasisMenuPanel CreateActiveTabMenu(BasisMenuPanel.PanelData data, string style, out PanelTabGroup tabGroup)
-        {
-            tabGroup = null;
-
-            if (Instance.Dialogue)
-            {
-                Instance.Dialogue.ReleaseInstance();
-            }
-            if (Instance.ActiveMenu)
-            {
-                if (Instance.ActiveMenu.Data.Title == data.Title)
-                {
-                    tabGroup = null;
-                    return Instance.ActiveMenu;
-                }
-                else
-                    Instance.ActiveMenu.ReleaseInstance();
-            }
-
-            Instance.ActiveMenu = BasisMenuPanel.CreateNewTabPage(
-                data,
-                Instance.MenuObjectInstance.PanelRoot,
-                out tabGroup);
-
-            return Instance.ActiveMenu;
-        }
-
     }
 }

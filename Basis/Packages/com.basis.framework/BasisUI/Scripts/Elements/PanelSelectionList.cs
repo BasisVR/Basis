@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public class PanelSelectionList : PanelElement
+    public class PanelSelectionList : PanelElementDescriptor
     {
 
         [Serializable]

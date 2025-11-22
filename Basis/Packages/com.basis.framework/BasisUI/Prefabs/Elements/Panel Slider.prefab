@@ -47,7 +47,6 @@ GameObject:
   - component: {fileID: 7196194125568338772}
   - component: {fileID: 2174680535615132095}
   - component: {fileID: 5378779602038885319}
-  - component: {fileID: 683114296909486865}
   m_Layer: 5
   m_Name: Fill
   m_TagString: Untagged
@@ -95,7 +94,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.23110238, g: 0.23556224, b: 0.2578616, a: 0.54901963}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.039215688}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -112,21 +111,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &683114296909486865
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3108901089819321442}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 1
-  ActiveStyle: 1
 --- !u!1 &3145573871869201684
 GameObject:
   m_ObjectHideFlags: 0
@@ -138,7 +122,6 @@ GameObject:
   - component: {fileID: 7153812599876045288}
   - component: {fileID: 2626448492490114634}
   - component: {fileID: 6859305660442621984}
-  - component: {fileID: 5506387361488603248}
   m_Layer: 5
   m_Name: Value Label
   m_TagString: Untagged
@@ -202,8 +185,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4290426290
-  m_fontColor: {r: 0.7, g: 0.71, b: 0.73, a: 1}
+    rgba: 4293780703
+  m_fontColor: {r: 0.8752027, g: 0.89605826, b: 0.9308176, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -264,21 +247,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &5506387361488603248
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3145573871869201684}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  UseActiveStyle: 0
-  NormalStyle: 6
-  ActiveStyle: 6
 --- !u!1 &3193169258118304946
 GameObject:
   m_ObjectHideFlags: 0
@@ -290,7 +258,6 @@ GameObject:
   - component: {fileID: 56781869876635637}
   - component: {fileID: 6955432249318347553}
   - component: {fileID: 3618714668954716716}
-  - component: {fileID: 1571662750956162370}
   m_Layer: 5
   m_Name: Handle
   m_TagString: Untagged
@@ -355,21 +322,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &1571662750956162370
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3193169258118304946}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 7
-  ActiveStyle: 7
 --- !u!1 &3784337743086482948
 GameObject:
   m_ObjectHideFlags: 0
@@ -599,7 +551,6 @@ GameObject:
   - component: {fileID: 2406102610561761018}
   - component: {fileID: 1037402304522641670}
   - component: {fileID: 5392543214939788661}
-  - component: {fileID: 3709491626340528888}
   m_Layer: 5
   m_Name: Background
   m_TagString: Untagged
@@ -647,7 +598,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.27, g: 0.277, b: 0.3, a: 0.5019608}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.2}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -664,21 +615,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &3709491626340528888
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6749239790259521732}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 2
-  ActiveStyle: 2
 --- !u!1 &7241380548974076350
 GameObject:
   m_ObjectHideFlags: 0
@@ -896,8 +832,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4290426290
-  m_fontColor: {r: 0.7, g: 0.71, b: 0.73, a: 1}
+    rgba: 4293780703
+  m_fontColor: {r: 0.8752027, g: 0.89605826, b: 0.9308176, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1065,6 +1001,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Child Content
       objectReference: {fileID: 0}
+    - target: {fileID: 8236885395197916059, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
+      propertyPath: m_PreferredWidth
+      value: 9999
+      objectReference: {fileID: 0}
     - target: {fileID: 8993251623975273025, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_VerticalFit
       value: 2
@@ -1072,38 +1012,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4674857301024672041, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 4546880555700874041}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
 --- !u!224 &2326121705289593718 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
   m_PrefabInstance: {fileID: 2549394819579566541}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &7170057052850835684 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4674857301024672041, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
-  m_PrefabInstance: {fileID: 2549394819579566541}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &4546880555700874041
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7170057052850835684}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
-  m_IgnoreLayout: 0
-  m_MinWidth: -1
-  m_MinHeight: -1
-  m_PreferredWidth: 9999
-  m_PreferredHeight: -1
-  m_FlexibleWidth: -1
-  m_FlexibleHeight: -1
-  m_LayoutPriority: 1

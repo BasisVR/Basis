@@ -67,7 +67,7 @@ public class BasisTMP_SliderSetting : MonoBehaviour
 
     private void ApplySetting()
     {
-         BasisSettingsSystem.SetFloat(settingKey, pendingValue);
+         BasisSettingsSystem.SaveFloat(settingKey, pendingValue);
         // Debug.Log($"[Settings] Applied {settingKey} = {pendingValue}");
     }
 

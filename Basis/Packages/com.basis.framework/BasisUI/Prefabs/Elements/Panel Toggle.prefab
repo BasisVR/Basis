@@ -60,7 +60,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.17916667, g: 0.18333334, b: 0.2, a: 0.6}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -151,7 +151,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.17916667, g: 0.18333334, b: 0.2, a: 0.6}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -317,8 +317,12 @@ PrefabInstance:
       value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 6940745343159269203, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940745343159269203, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -70
+      value: -85
       objectReference: {fileID: 0}
     - target: {fileID: 9147120774322446489, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_Pivot.x

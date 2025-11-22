@@ -1,5 +1,4 @@
 using System;
-using Basis.BasisUI.Styling;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -21,29 +20,22 @@ namespace Basis.BasisUI
         public abstract int Order { get; }
         public abstract void RunAction();
 
-
-        public virtual PaletteStyle NormalStyle => PaletteStyle.FontColor1;
-        public virtual PaletteStyle ActiveStyle => PaletteStyle.WhiteColor;
-
-
-        public BasisMenuBase<TMenu> BoundMenu;
-        public PanelButton BoundButton;
+        public BasisMenuBase<TMenu> BoundMenu { get; private set; }
+        public PanelButton BoundButton { get; private set; }
 
         public virtual void BindToButton(BasisMenuBase<TMenu> menu, PanelButton button)
         {
             BoundMenu = menu;
             BoundButton = button;
 
-            BoundButton.IconStyling.NormalStyle = NormalStyle;
-            BoundButton.LabelStyling.NormalStyle = NormalStyle;
-            BoundButton.IconStyling.ActiveStyle = ActiveStyle;
-            BoundButton.LabelStyling.ActiveStyle = ActiveStyle;
-            BoundButton.UseActiveStyle(false);
-
-            BoundButton.OnClicked.AddListener(() =>
+            BoundButton.OnClicked += () =>
             {
                 if (!BoundMenu.Dialogue || !BoundMenu.Dialogue.BlocksOtherActions) RunAction();
-            });
+            };
+        }
+
+        public virtual void OnButtonCreated(PanelButton button)
+        {
         }
     }
 }

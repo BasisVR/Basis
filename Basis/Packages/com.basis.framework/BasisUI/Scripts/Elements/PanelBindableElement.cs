@@ -3,7 +3,8 @@ using UnityEngine;
 
 namespace Basis.BasisUI
 {
-    public abstract class PanelBindableElement<T> : PanelElement
+    [Obsolete("Use an instance of BasisSettingsBinding instead.")]
+    public abstract class PanelBindableElement<T> : PanelElementDescriptor
     {
 
         public string BindingKey => _bindingKey;
@@ -39,16 +40,16 @@ namespace Basis.BasisUI
             switch (RawValue)
             {
                 case int intValue:
-                    BasisSettingsSystem.SetInt(BindingKey, intValue);
+                    BasisSettingsSystem.SaveInt(BindingKey, intValue);
                     break;
                 case Enum enumValue:
-                    BasisSettingsSystem.SetInt(BindingKey, Convert.ToInt32(enumValue));
+                    BasisSettingsSystem.SaveInt(BindingKey, Convert.ToInt32(enumValue));
                     break;
                 case float floatValue:
-                    BasisSettingsSystem.SetFloat(BindingKey, floatValue);
+                    BasisSettingsSystem.SaveFloat(BindingKey, floatValue);
                     break;
                 case bool boolValue:
-                    BasisSettingsSystem.SetBool(BindingKey, boolValue);
+                    BasisSettingsSystem.SaveBool(BindingKey, boolValue);
                     break;
                 default:
                     Debug.LogError(

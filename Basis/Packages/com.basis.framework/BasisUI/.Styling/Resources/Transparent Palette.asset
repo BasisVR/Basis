@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 597c558ee4c709e4e9a5a70b2b7ed9f4, type: 3}
+  m_Name: Transparent Palette
+  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Style.StylePalette
+  BackgroundColor1: {r: 1, g: 1, b: 1, a: 1}
+  BackgroundColor2: {r: 1, g: 1, b: 1, a: 0.039215688}
+  BackgroundColor3: {r: 1, g: 1, b: 1, a: 0.2}
+  LayerColor: {r: 0.7832562, g: 0.7832562, b: 0.8113208, a: 0.2}
+  AccentColor: {r: 0.20754711, g: 0.23522004, b: 0.41509432, a: 1}
+  FontColor1: {r: 0.98427665, g: 0.9955076, b: 1, a: 1}
+  FontColor2: {r: 0.8752027, g: 0.89605826, b: 0.9308176, a: 1}
+  InputFieldColor: {r: 0.20562862, g: 0.21055147, b: 0.23270428, a: 1}
+  ButtonColor: {r: 1, g: 1, b: 1, a: 0.14901961}
+  WhiteColor: {r: 0.98, g: 1, b: 1, a: 1}
+  ClearColor: {r: 0, g: 0, b: 0, a: 0}
+  BlackColor: {r: 0.02, g: 0.02, b: 0.04, a: 1}
+  SuccessColor: {r: 0.09, g: 0.8, b: 0.47, a: 1}
+  CautionColor: {r: 1, g: 0.82, b: 0.34, a: 0.99}
+  DangerColor: {r: 0.97, g: 0.34, b: 0.34, a: 1}

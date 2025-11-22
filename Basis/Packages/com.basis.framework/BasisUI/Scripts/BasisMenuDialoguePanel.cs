@@ -1,8 +1,5 @@
 using System;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
-using Component = UnityEngine.Component;
 
 namespace Basis.BasisUI
 {
@@ -11,47 +8,44 @@ namespace Basis.BasisUI
 
         public static class DialogueStyles
         {
-            public static string Default => "VowganUI/Panel-Dialogue";
+            public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Dialogue Panel.prefab";
         }
 
         public static PanelData DialoguePanelData => new PanelData
         {
             Title = null,
-            PanelSize = new Vector2(400, 300),
+            PanelSize = new Vector2(700, 500),
             PanelPosition = new Vector3(0, -100, -50),
         };
 
         public static string AcceptDefault = "Accept";
-        public static string DenyDefault = "Deny";
+        public static string DeclineDefault = "Decline";
 
         public string Title;
         public string Description;
         public string Accept;
-        public string Deny;
+        public string Decline;
 
         public bool BlocksOtherActions;
 
-        public TextMeshProUGUI DescriptionLabel;
-        public Button AcceptButton;
-        public TextMeshProUGUI AcceptLabel;
-        public Button DenyButton;
-        public TextMeshProUGUI DenyLabel;
+        public PanelButton AcceptButton;
+        public PanelButton DeclineButton;
         public Action<bool> Callback;
 
 
         public override void OnCreateEvent()
         {
             base.OnCreateEvent();
-            AcceptButton.onClick.AddListener(() =>
+            AcceptButton.OnClicked +=() =>
             {
                 Callback?.Invoke(true);
                 ReleaseInstance();
-            });
-            DenyButton.onClick.AddListener(() =>
+            };
+            DeclineButton.OnClicked += () =>
             {
                 Callback?.Invoke(false);
                 ReleaseInstance();
-            });
+            };
         }
 
         /// <summary>
@@ -93,25 +87,26 @@ namespace Basis.BasisUI
             return panel;
         }
 
-        public void FillDialogue(string title, string description, string accept, string deny = null)
+        public void FillDialogue(string title, string description, string accept, string decline = null)
         {
             Title = title;
             Description = description;
             Accept = accept;
 
-            TitleLabel.text = Title;
-            DescriptionLabel.text = Description;
-            AcceptLabel.text = Accept;
+            Descriptor.SetTitle(title);
+            Descriptor.SetDescription(description);
 
-            if (!string.IsNullOrEmpty(deny))
+            AcceptButton.Descriptor.SetTitle(Accept);
+
+            if (!string.IsNullOrEmpty(decline))
             {
-                Deny = deny;
-                DenyLabel.text = Deny;
-                DenyButton.gameObject.SetActive(true);
+                Decline = decline;
+                DeclineButton.Descriptor.SetTitle(decline);
+                DeclineButton.gameObject.SetActive(true);
             }
             else
             {
-                DenyButton.gameObject.SetActive(false);
+                DeclineButton.gameObject.SetActive(false);
             }
         }
     }

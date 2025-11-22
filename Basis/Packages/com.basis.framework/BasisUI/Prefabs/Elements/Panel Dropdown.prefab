@@ -83,7 +83,6 @@ GameObject:
   - component: {fileID: 2482024847132888128}
   - component: {fileID: 7420454698527903854}
   - component: {fileID: 296440793905678619}
-  - component: {fileID: 8185274271019921578}
   m_Layer: 5
   m_Name: Item Label
   m_TagString: Untagged
@@ -148,7 +147,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4290426290
-  m_fontColor: {r: 0.7, g: 0.71, b: 0.73, a: 1}
+  m_fontColor: {r: 0.8752027, g: 0.89605826, b: 0.9308176, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -209,21 +208,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &8185274271019921578
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2213574366775149441}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  UseActiveStyle: 0
-  NormalStyle: 6
-  ActiveStyle: 6
 --- !u!1 &4255007798305465640
 GameObject:
   m_ObjectHideFlags: 0
@@ -325,7 +309,6 @@ GameObject:
   - component: {fileID: 2324239857188610082}
   - component: {fileID: 763292069235356631}
   - component: {fileID: 7822760411889709989}
-  - component: {fileID: 3390669018891149203}
   m_Layer: 5
   m_Name: Arrow
   m_TagString: Untagged
@@ -373,7 +356,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.17916667, g: 0.18333334, b: 0.2, a: 0.6}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -390,21 +373,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &3390669018891149203
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4379844341616393804}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 0
-  ActiveStyle: 0
 --- !u!1 &5182556563809745182
 GameObject:
   m_ObjectHideFlags: 0
@@ -416,7 +384,6 @@ GameObject:
   - component: {fileID: 9162972738587935323}
   - component: {fileID: 2614445580793207481}
   - component: {fileID: 7710314580604682467}
-  - component: {fileID: 1637599018090741666}
   m_Layer: 5
   m_Name: Item Background
   m_TagString: Untagged
@@ -481,21 +448,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &1637599018090741666
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5182556563809745182}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 7
-  ActiveStyle: 7
 --- !u!1 &5325376679108892708
 GameObject:
   m_ObjectHideFlags: 0
@@ -507,7 +459,6 @@ GameObject:
   - component: {fileID: 3952652862639977752}
   - component: {fileID: 6037894938308064593}
   - component: {fileID: 3415069974216940045}
-  - component: {fileID: 8700928421673490759}
   m_Layer: 5
   m_Name: Label
   m_TagString: Untagged
@@ -571,8 +522,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4290426290
-  m_fontColor: {r: 0.7, g: 0.71, b: 0.73, a: 1}
+    rgba: 4293780703
+  m_fontColor: {r: 0.8752027, g: 0.89605826, b: 0.9308176, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -633,21 +584,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &8700928421673490759
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5325376679108892708}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  UseActiveStyle: 0
-  NormalStyle: 6
-  ActiveStyle: 6
 --- !u!1 &6625577334883906009
 GameObject:
   m_ObjectHideFlags: 0
@@ -659,7 +595,6 @@ GameObject:
   - component: {fileID: 8845539465056878484}
   - component: {fileID: 5795334877472073008}
   - component: {fileID: 4741088781317990866}
-  - component: {fileID: 1625197316905054722}
   m_Layer: 5
   m_Name: Handle
   m_TagString: Untagged
@@ -707,7 +642,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.27, g: 0.277, b: 0.3, a: 0.5019608}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.2}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -724,21 +659,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &1625197316905054722
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6625577334883906009}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 2
-  ActiveStyle: 2
 --- !u!1 &7630559079085063551
 GameObject:
   m_ObjectHideFlags: 0
@@ -751,7 +671,6 @@ GameObject:
   - component: {fileID: 5814496046290466548}
   - component: {fileID: 7715916208077331063}
   - component: {fileID: 4765511778762430672}
-  - component: {fileID: 2851700244111457166}
   m_Layer: 5
   m_Name: Scrollbar
   m_TagString: Untagged
@@ -800,7 +719,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.17916667, g: 0.18333334, b: 0.2, a: 0.6}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -866,21 +785,6 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &2851700244111457166
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7630559079085063551}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 0
-  ActiveStyle: 0
 --- !u!1 &7633129299392808929
 GameObject:
   m_ObjectHideFlags: 0
@@ -893,7 +797,6 @@ GameObject:
   - component: {fileID: 1044786568239996344}
   - component: {fileID: 7959069637218739259}
   - component: {fileID: 8472623682869701582}
-  - component: {fileID: 6735130177910210672}
   m_Layer: 5
   m_Name: Dropdown
   m_TagString: Untagged
@@ -1025,21 +928,6 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_AlphaFadeSpeed: 0.15
---- !u!114 &6735130177910210672
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7633129299392808929}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 7
-  ActiveStyle: 7
 --- !u!1 &7863098019540482114
 GameObject:
   m_ObjectHideFlags: 0
@@ -1052,7 +940,6 @@ GameObject:
   - component: {fileID: 5162970969704244640}
   - component: {fileID: 510010787205598078}
   - component: {fileID: 2927759627945214031}
-  - component: {fileID: 1339725140530062110}
   m_Layer: 5
   m_Name: Template
   m_TagString: Untagged
@@ -1149,21 +1036,6 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls: []
---- !u!114 &1339725140530062110
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7863098019540482114}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 7
-  ActiveStyle: 7
 --- !u!1 &8383734047711501458
 GameObject:
   m_ObjectHideFlags: 0
@@ -1175,7 +1047,6 @@ GameObject:
   - component: {fileID: 7101268331365507910}
   - component: {fileID: 7326632416619870454}
   - component: {fileID: 7267176680487219966}
-  - component: {fileID: 4768355473901153730}
   m_Layer: 5
   m_Name: Item Checkmark
   m_TagString: Untagged
@@ -1223,7 +1094,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.9, g: 0.92, b: 0.93, a: 1}
+  m_Color: {r: 0.98427665, g: 0.9955076, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -1240,21 +1111,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
---- !u!114 &4768355473901153730
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8383734047711501458}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 5
-  ActiveStyle: 5
 --- !u!1 &9119218806286767323
 GameObject:
   m_ObjectHideFlags: 0
@@ -1391,8 +1247,12 @@ PrefabInstance:
       value: 500
       objectReference: {fileID: 0}
     - target: {fileID: 6940745343159269203, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6940745343159269203, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -70
+      value: -85
       objectReference: {fileID: 0}
     - target: {fileID: 9147120774322446489, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_Pivot.x

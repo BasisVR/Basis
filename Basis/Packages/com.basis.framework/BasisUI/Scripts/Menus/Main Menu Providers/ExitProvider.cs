@@ -3,7 +3,6 @@
 using UnityEditor;
 #endif
 
-using Basis.BasisUI.Styling;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -21,15 +20,21 @@ namespace Basis.BasisUI
         public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Exit);
         public override bool IconIsAddressable => true;
         public override int Order => 10;
-        public override PaletteStyle NormalStyle => PaletteStyle.DangerColor;
+
+        public override void OnButtonCreated(PanelButton button)
+        {
+            base.OnButtonCreated(button);
+            button.ButtonStyling.SetStyle("Hotbar Button Danger");
+        }
 
         public override void RunAction()
         {
             BasisMainMenu.Instance.OpenDialogue(
                 "Basis VR",
                 "Are you sure you want to close Basis?",
-                BasisMenuDialoguePanel.AcceptDefault,
-                BasisMenuDialoguePanel.DenyDefault, value =>
+                "Cancel",
+                "Exit Basis",
+                value =>
                 {
                     if (!value) return;
 #if UNITY_EDITOR

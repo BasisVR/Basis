@@ -215,11 +215,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: abc3dcbc2c0a4fb459d5d94a7961cc65
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Tab Page.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b6f3b6b3289267c46b6d4d469fd25e44
     m_Address: Interactable/InteractHighlightMat.mat
     m_ReadOnly: 0
@@ -248,11 +243,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c92fd7b20eb8eaf4eb4a6e236e4ac620
     m_Address: Virtual Keyboard
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ce79cd386c49c7e45813375f1cf500c3
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Page.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -304,11 +294,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: edbfaeb4eb1347d4fbc1d45582639b1e
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Slider.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: edec16241d972bb47bf0210f7678d6ba
     m_Address: Packages/com.basis.sdk/Prefabs/UI/PlayerSelectionPanel.prefab
     m_ReadOnly: 0
@@ -316,6 +301,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f84144c055f881f4797d59bd2802d4a4
     m_Address: Packages/com.basis.sdk/Prefabs/Boot/BasisOnSceneLoadCleanup.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fc368a9e602094c42b40e66f42e2d03e
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Slider
+      - Entry Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

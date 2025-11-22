@@ -5,9 +5,10 @@ using UnityEngine;
 namespace Basis.BasisUI
 {
     [DisallowMultipleComponent]
+    [RequireComponent(typeof(PanelElementDescriptor))]
     [RequireComponent(typeof(RectTransform))]
     [RequireComponent(typeof(BasisGraphicUIRayCaster))]
-    public class BasisMenuPanel : PanelElement
+    public class BasisMenuPanel : AddressableUIInstanceBase
     {
         [Serializable]
         public struct PanelData
@@ -19,15 +20,15 @@ namespace Basis.BasisUI
             public static PanelData Standard(string title) => new()
             {
                 Title = title,
-                PanelSize = new Vector2(1000, 600),
+                PanelSize = new Vector2(1500, 1000),
                 PanelPosition = default,
             };
 
             public static PanelData Toolbar(string title) => new()
             {
                 Title = title,
-                PanelSize = new Vector2(1000, 150),
-                PanelPosition = new Vector3(0, -450),
+                PanelSize = new Vector2(1500, 200),
+                PanelPosition = new Vector3(0, -680),
             };
         }
 
@@ -35,27 +36,23 @@ namespace Basis.BasisUI
         {
             public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel.prefab";
             public static string Page => "Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Page.prefab";
-            public static string TabPage => "Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Tab Page.prefab";
         }
 
-        [Header("Readout")]
         public PanelData Data;
+        public PanelElementDescriptor Descriptor { get; private set; }
+
+
+        protected override void Awake()
+        {
+            base.Awake();
+            Descriptor = GetComponent<PanelElementDescriptor>();
+        }
 
         /// <summary>
         /// Instantiate a new Panel and load in the corresponding panel data.
         /// </summary>
         public static BasisMenuPanel CreateNew(PanelData data, Component parent) => CreateNew(data, parent, PanelStyles.Default);
 
-
-        /// <summary>
-        /// Instantiate a new Panel and load in the corresponding panel data.
-        /// </summary>
-        public static BasisMenuPanel CreateNewTabPage(PanelData data, Component parent, out PanelTabGroup tabGroup)
-        {
-            BasisMenuPanel page = CreateNew(data, parent, PanelStyles.TabPage);
-            tabGroup = page.GetComponentInChildren<PanelTabGroup>();
-            return page;
-        }
 
         /// <summary>
         /// Instantiate a new Panel and load in the corresponding panel data.
@@ -78,7 +75,7 @@ namespace Basis.BasisUI
             rectTransform.sizeDelta = data.PanelSize;
             BasisGraphicUIRayCaster.SetBoxColliderToRectTransform(gameObject);
 
-            if (TitleLabel) TitleLabel.text = data.Title;
+            Descriptor.SetTitle(data.Title);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -16,127 +17,130 @@ namespace Basis.BasisUI
         public override bool IconIsAddressable => true;
         public override int Order => 0;
 
+
         public override void RunAction()
         {
             if (BasisMainMenu.ActiveMenuTitle == Title) return;
 
-            BasisMenuPanel panel = BasisMainMenu.CreateActiveTabMenu(
+            BasisMenuPanel panel = BasisMainMenu.CreateActiveMenu(
                 BasisMenuPanel.PanelData.Standard(Title),
-                BasisMenuPanel.PanelStyles.Page, out PanelTabGroup tabGroup);
+                BasisMenuPanel.PanelStyles.Page);
+
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
 
-            PanelLayoutContainer layout = PanelLayoutContainer.CreateNew(panel.ContentParent, LayoutDirection.Vertical);
-            layout.ChildLayoutOptions = new LayoutContainerOptions
-            {
-                Alignment = TextAnchor.UpperLeft,
-                Constrained = false,
-                StretchItemWidth = true,
-                StretchItemHeight = false,
-                SpreadItemWidth = true,
-                SpreadItemHeight = false,
-            };
-            layout.ApplyLayoutOptions();
+            PanelTabGroup tabGroup = PanelTabGroup.CreateNew(panel.Descriptor.ContentParent, LayoutDirection.Vertical);
 
-            layout.LayoutGroup.padding = new RectOffset(
-                20,
-                20,
-                0,
-                0);
-            layout.LayoutGroup.spacing = 10;
+            tabGroup.AddTab("General", null, GeneralTab(tabGroup));
+            tabGroup.AddTab("Audio", null, AudioTab(tabGroup));
+            tabGroup.AddTab("Graphics", null, GraphicsTab(tabGroup));
+            tabGroup.AddTab("Developer", null, SettingsTab(tabGroup));
 
-            tabGroup.AddTab("General", null, false, GeneralTab(layout.ContentParent));
-            tabGroup.AddTab("Audio", null, false, AudioTab(layout.ContentParent));
-            tabGroup.AddTab("Graphics", null, false, GraphicsTab(layout.ContentParent));
-            tabGroup.AddTab("Settings", null, false, SettingsTab(layout.ContentParent));
+            tabGroup.AssignBinding(new BasisSettingsBinding<int>("BasisVR/SettingsTabs"));
 
-
-            /*
-            PanelSlider.CreateNew(layout.ContentParent);
-            PanelToggle.CreateNew(layout.ContentParent);
-            PanelDropdown.CreateNew(layout.ContentParent);
-            */
-
-            tabGroup.BindValue("BasisVR/SettingsTabs");
-
-            panel.ForceRebuild();
+            panel.Descriptor.ForceRebuild();
         }
 
-        public static PanelLayoutContainer GeneralTab(Component parent)
+        public static PanelTabPage GeneralTab(PanelTabGroup tabGroup)
         {
-            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+            PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
+            PanelElementDescriptor descriptor = tab.Descriptor;
 
-            PanelSlider.CreateNew(tab.ContentParent);
-            PanelSlider.CreateNew(tab.ContentParent);
+            descriptor.SetTitle("General Settings");
+            RectTransform container = descriptor.ContentParent;
 
-            tab.ForceRebuild();
+            PanelElementDescriptor settingsGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            settingsGroup.SetTitle("Settings");
+            settingsGroup.SetDescription("General settings for testing purposes.");
+
+            PanelDropdown dropdownQualityLevel = PanelDropdown.CreateNewEntry(settingsGroup);
+            dropdownQualityLevel.Descriptor.SetTitle("Quality Level");
+            dropdownQualityLevel.AssignEntries(new List<string>(){"Very Low", "Low", "Medium", "High", "Ultra"});
+            dropdownQualityLevel.AssignBinding(BasisSettingsDefaults.QualityLevel);
+
+            PanelToggle toggleInvertMouse = PanelToggle.CreateNewEntry(settingsGroup);
+            toggleInvertMouse.Descriptor.SetTitle("Invert Mouse");
+            toggleInvertMouse.AssignBinding(BasisSettingsDefaults.InvertMouse);
+
+            PanelToggle toggleMicrophoneDenoiser = PanelToggle.CreateNewEntry(settingsGroup);
+            toggleMicrophoneDenoiser.Descriptor.SetTitle("Microphone Denoiser");
+            toggleMicrophoneDenoiser.AssignBinding(BasisSettingsDefaults.MicrophoneDenoiser);
+
+            PanelToggle toggleDebugVisuals = PanelToggle.CreateNewEntry(settingsGroup);
+            toggleDebugVisuals.Descriptor.SetTitle("Debug Visuals");
+            toggleDebugVisuals.AssignBinding(BasisSettingsDefaults.DebugVisuals);
+
+            PanelElementDescriptor sliderGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            sliderGroup.SetTitle("Slider Settings");
+            sliderGroup.SetDescription("Test category for settings with sliders in them.");
+
+            PanelSlider sliderAvatarRange = PanelSlider.CreateEntryAndBind(sliderGroup,
+                PanelSlider.SliderSettings.Distance("Avatar Visibility Range", 100),
+                BasisSettingsDefaults.AvatarRange);
+
+            PanelSlider sliderHearingRange = PanelSlider.CreateEntryAndBind(sliderGroup,
+                PanelSlider.SliderSettings.Distance("Hearing Range" , 25),
+                BasisSettingsDefaults.HearingRange);
+
+            descriptor.ForceRebuild();
             return tab;
         }
 
-        public static PanelLayoutContainer AudioTab(Component parent)
+        public static PanelTabPage AudioTab(PanelTabGroup tabGroup)
         {
-            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
-            tab.ChildLayoutOptions = new LayoutContainerOptions
-            {
-                Alignment = TextAnchor.UpperLeft,
-                Constrained = false,
-                StretchItemWidth = true,
-                StretchItemHeight = false,
-                SpreadItemWidth = false,
-                SpreadItemHeight = false
-            };
-            tab.ApplyLayoutOptions();
+            PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
+            PanelElementDescriptor descriptor = tab.Descriptor;
 
+            descriptor.SetTitle("Volume Mixer");
+            RectTransform container = descriptor.ContentParent;
 
-            PanelElement group = PanelTabPageGroup.CreateNew(tab.ContentParent);
-            group.SetTitle("Volume Mixer");
+            PanelElementDescriptor settingsGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            settingsGroup.SetTitle("Volume Mixer");
+            settingsGroup.SetDescription("Various volume options for purposes.");
 
-            PanelSlider sliderMainVolume = PanelSlider.CreateNew(group.ContentParent);
-            sliderMainVolume.SetSliderSettings(new PanelSlider.SliderSettings
-            {
-                Title = "Main Volume",
-                SliderMin = 0,
-                SliderMax = 100,
-                UseWholeNumbers = true,
-                DecimalPlaces = 0,
-                DisplayMode = ValueDisplayMode.Percentage,
-            });
-            sliderMainVolume.BindValue("main volume");
+            PanelSlider sliderMainVolume = PanelSlider.CreateEntryAndBind(settingsGroup,
+                PanelSlider.SliderSettings.Percentage("Main Volume"),
+                BasisSettingsDefaults.MainVolume);
 
-            PanelSlider sliderMenuVolume = PanelSlider.CreateNew(group.ContentParent);
-            sliderMenuVolume.SetSliderSettings(new PanelSlider.SliderSettings
-            {
-                Title = "Menu Volume",
-                SliderMin = 0,
-                SliderMax = 100,
-                UseWholeNumbers = true,
-                DecimalPlaces = 0,
-                DisplayMode = ValueDisplayMode.Percentage,
-            });
-            sliderMenuVolume.BindValue("menu volume");
+            PanelSlider sliderMenuVolume = PanelSlider.CreateEntryAndBind(settingsGroup,
+                PanelSlider.SliderSettings.Percentage("Menu Volume"),
+                BasisSettingsDefaults.MenuVolume);
 
-            tab.ForceRebuild();
+            PanelSlider sliderWorldVolume = PanelSlider.CreateEntryAndBind(settingsGroup,
+                PanelSlider.SliderSettings.Percentage("World Volume"),
+                BasisSettingsDefaults.WorldVolume);
+
+            PanelSlider sliderPlayerVolume = PanelSlider.CreateEntryAndBind(settingsGroup,
+                PanelSlider.SliderSettings.Percentage("Player Volume"),
+                BasisSettingsDefaults.PlayerVolume);
+
+            descriptor.ForceRebuild();
             return tab;
         }
 
-        public static PanelLayoutContainer GraphicsTab(Component parent)
+        public static PanelTabPage GraphicsTab(PanelTabGroup tabGroup)
         {
-            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+            PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
+            PanelElementDescriptor descriptor = tab.Descriptor;
 
-            PanelSlider.CreateNew(tab.ContentParent);
-            PanelSlider.CreateNew(tab.ContentParent);
+            PanelSlider.CreateNew(descriptor.ContentParent);
+            PanelSlider.CreateNew(descriptor.ContentParent);
 
-            tab.ForceRebuild();
+            descriptor.ForceRebuild();
             return tab;
         }
 
-        public static PanelLayoutContainer SettingsTab(Component parent)
+        public static PanelTabPage SettingsTab(PanelTabGroup tabGroup)
         {
-            PanelLayoutContainer tab = PanelLayoutContainer.CreateNew(parent, LayoutDirection.Vertical);
+            PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
+            PanelElementDescriptor descriptor = tab.Descriptor;
 
-            PanelSlider.CreateNew(tab.ContentParent);
-            PanelSlider.CreateNew(tab.ContentParent);
+            PanelSlider.CreateNew(descriptor.ContentParent);
+            PanelSlider.CreateNew(descriptor.ContentParent);
 
-            tab.ForceRebuild();
+            descriptor.ForceRebuild();
             return tab;
         }
 

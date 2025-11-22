@@ -262,11 +262,11 @@ public static class BasisSettingsSystem
 
     public static bool LoadBool(string key, bool defaultValue = false)
     {
-        string val = LoadString(key, defaultValue ? "1" : "0");
-        return val == "1" || string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
+        string val = LoadString(key, defaultValue ? "true" : "false");
+        return val == "true" || string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static void SetInt(string key, int value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
-    public static void SetFloat(string key, float value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
-    public static void SetBool(string key, bool value) => SaveString(key, value ? "1" : "0");
+    public static void SaveInt(string key, int value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
+    public static void SaveFloat(string key, float value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
+    public static void SaveBool(string key, bool value) => SaveString(key, value ? "true" : "false");
 }

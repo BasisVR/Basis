@@ -1,7 +1,9 @@
+using System;
 using UnityEngine;
 
 namespace Basis.BasisUI
 {
+    [Obsolete]
     [System.Serializable]
     public struct LayoutContainerOptions
     {

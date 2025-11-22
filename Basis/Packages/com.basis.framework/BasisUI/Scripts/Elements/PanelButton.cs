@@ -1,25 +1,24 @@
+using System;
 using Basis.BasisUI.Styling;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
-    public class PanelButton : PanelElement
+    public class PanelButton : PanelComponent
     {
         public static class ButtonStyles
         {
-            public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button.prefab";
-            public static string Tab => "Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button - Tab Variant.prefab";
-            public static string Hotbar => "Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button - Hotbar Variant.prefab";
+            public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button.prefab";
+            public static string Tab => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button - Tab Variant.prefab";
+            public static string Hotbar => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button - Hotbar Variant.prefab";
         }
 
+        private PanelButton() { }
+
         public Button ButtonComponent;
-        public Image Icon;
-        public StyleImage BackgroundStyling;
-        public StyleImage IconStyling;
-        public StyleLabel LabelStyling;
-        public UnityEvent OnClicked => ButtonComponent.onClick;
+        public UiStyleButton ButtonStyling;
+        public Action OnClicked;
 
         protected bool _iconIsAddressable;
 
@@ -31,48 +30,36 @@ namespace Basis.BasisUI
             => CreateNew<PanelButton>(style, parent);
 
 
-        public void UseActiveStyle(bool value)
-        {
-            BackgroundStyling.SetActiveState(value);
-            IconStyling.SetActiveState(value);
-            LabelStyling.SetActiveState(value);
-        }
-
         public void SetIcon(Sprite icon, bool isAddressable)
         {
-            Icon.sprite = icon;
+            Descriptor.SetIcon(icon);
             _iconIsAddressable = isAddressable;
         }
 
         public override void OnCreateEvent()
         {
             base.OnCreateEvent();
-            OnClicked.AddListener(OnClick);
-            UseActiveStyle(false);
+            ButtonComponent.onClick.AddListener(OnClick);
         }
 
         public virtual void OnClick()
         {
-            // Debug.Log($"OnClick pressed for {gameObject}", gameObject);
+            OnClicked?.Invoke();
         }
 
         /// <summary>
         /// Set this button active until the given element is released.
         /// </summary>
-        public void BindActiveStateToAddressablesInstance(
-            IAddressableInstance instance)
+        public void BindActiveStateToAddressablesInstance(IAddressableInstance instance)
         {
-            UseActiveStyle(true);
-            instance.OnInstanceReleased += () =>
-            {
-                UseActiveStyle(false);
-            };
+            ButtonStyling.ShowIndicator(true);
+            instance.OnInstanceReleased += () => ButtonStyling.ShowIndicator(false);
         }
 
         public override void OnReleaseEvent()
         {
             base.OnReleaseEvent();
-            if (Icon.sprite && _iconIsAddressable) AddressableAssets.Release(Icon.sprite);
+            if (Descriptor.IconImage.sprite && _iconIsAddressable) AddressableAssets.Release(Descriptor.IconImage.sprite);
         }
     }
 }

@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 9147120774322446489}
   - component: {fileID: 5744679979480425304}
   - component: {fileID: 4860098747528100816}
-  - component: {fileID: 3031206517093325293}
   - component: {fileID: 7582214117960706418}
   - component: {fileID: 6457183878072968987}
   - component: {fileID: 7736647246930326885}
@@ -64,14 +63,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.101960786}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.039215688}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: bd8237458fe92b443b30ee27046200ce, type: 3}
+  m_Sprite: {fileID: 21300000, guid: a336a8280e1dda94fbef1a59936ed578, type: 3}
   m_Type: 1
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -81,21 +80,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 2
---- !u!114 &3031206517093325293
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1722044340777725897}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 1
-  ActiveStyle: 2
 --- !u!114 &7582214117960706418
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -202,7 +186,6 @@ GameObject:
   - component: {fileID: 3221501178075863818}
   - component: {fileID: 2141372363505908865}
   - component: {fileID: 3907048050227576006}
-  - component: {fileID: 8274116881196209176}
   m_Layer: 5
   m_Name: Title Label
   m_TagString: Untagged
@@ -330,21 +313,6 @@ MonoBehaviour:
   m_hasFontAssetChanged: 0
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
---- !u!114 &8274116881196209176
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6143826526037353188}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 066f2e61c3a3c444da5858969dae66fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteTextMeshProUGUI
-  UseActiveStyle: 0
-  NormalStyle: 5
-  ActiveStyle: 5
 --- !u!1 &8817202915772525060
 GameObject:
   m_ObjectHideFlags: 0
@@ -477,7 +445,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -70
+      value: -85
       objectReference: {fileID: 0}
     - target: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -495,6 +463,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Child Content
       objectReference: {fileID: 0}
+    - target: {fileID: 8236885395197916059, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
+      propertyPath: m_PreferredWidth
+      value: 9999
+      objectReference: {fileID: 0}
     - target: {fileID: 8993251623975273025, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
       propertyPath: m_VerticalFit
       value: 2
@@ -502,36 +474,8 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 4674857301024672041, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2051537869518713588}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
---- !u!1 &2565741886280930497 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4674857301024672041, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}
-  m_PrefabInstance: {fileID: 7168381869840014824}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &2051537869518713588
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2565741886280930497}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
-  m_IgnoreLayout: 0
-  m_MinWidth: -1
-  m_MinHeight: -1
-  m_PreferredWidth: 9999
-  m_PreferredHeight: -1
-  m_FlexibleWidth: -1
-  m_FlexibleHeight: -1
-  m_LayoutPriority: 1
 --- !u!224 &6940745343159269203 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 227799332024117947, guid: b8b1d961850dbd14a8b4a06909149831, type: 3}

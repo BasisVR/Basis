@@ -16,7 +16,7 @@ public class BasisTMP_ToggleSetting : MonoBehaviour
 
         toggle.onValueChanged.AddListener( v =>
         {
-             BasisSettingsSystem.SetBool(settingKey, v);
+             BasisSettingsSystem.SaveBool(settingKey, v);
         });
 
         BasisSettingsSystem.OnSettingChanged += HandleSettingChanged;

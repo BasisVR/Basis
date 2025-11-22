@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 4020943238110465770}
   - component: {fileID: 334116197168793394}
   - component: {fileID: 6987136688372230950}
-  - component: {fileID: 8042986876198677989}
   m_Layer: 5
   m_Name: Separator
   m_TagString: Untagged
@@ -59,7 +58,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.7, g: 0.71, b: 0.73, a: 1}
+  m_Color: {r: 0.8752027, g: 0.89605826, b: 0.9308176, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -76,21 +75,6 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 25
---- !u!114 &8042986876198677989
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6808456337232368373}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ea5f0c0bf15cfd4d9245492ae9811d9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Basis Framework::Basis.VowganUI.Styling.PaletteImage
-  UseActiveStyle: 0
-  NormalStyle: 6
-  ActiveStyle: 6
 --- !u!1001 &3530907189613731438
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -111,6 +95,10 @@ PrefabInstance:
       propertyPath: m_ChildControlWidth
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 4860098747528100816, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: a336a8280e1dda94fbef1a59936ed578, type: 3}
     - target: {fileID: 6305180985480466952, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -157,7 +145,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6940745343159269203, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -70
+      value: -75
       objectReference: {fileID: 0}
     - target: {fileID: 9147120774322446489, guid: dd03ed7343259a443a032c6b68416cb7, type: 3}
       propertyPath: m_Pivot.x

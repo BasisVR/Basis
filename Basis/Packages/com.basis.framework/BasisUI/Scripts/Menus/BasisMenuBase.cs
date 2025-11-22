@@ -55,11 +55,15 @@ namespace Basis.BasisUI
 
             foreach (BasisMenuActionProvider<TMenu> provider in Providers)
             {
-                PanelButton button = PanelButton.CreateNew(PanelButton.ButtonStyles.Hotbar, ProviderButtonParent);
-                button.SetTitle(provider.Title);
+                PanelButton button = PanelButton.CreateNew(
+                    PanelButton.ButtonStyles.Hotbar,
+                    ProviderButtonParent);
+
+                button.Descriptor.SetTitle(provider.Title);
                 if (provider.Icon) button.SetIcon(provider.Icon, provider.IconIsAddressable);
                 provider.BindToButton(this, button);
                 ProviderButtons.Add(button);
+                provider.OnButtonCreated(button);
             }
         }
 
