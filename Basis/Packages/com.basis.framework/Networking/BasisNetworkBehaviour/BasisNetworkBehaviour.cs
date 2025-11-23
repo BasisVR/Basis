@@ -142,7 +142,7 @@ namespace Basis
         /// <param name="buffer"></param>
         /// <param name="DeliveryMethod"></param>
         /// <param name="Recipients">if null everyone but self, you can include yourself to make it loop back over the network</param>
-        public void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
+        public virtual void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
         {
             if (HasNetworkID)
             {
