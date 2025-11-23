@@ -1578,22 +1578,32 @@ spiperf.End();
 			perf.End(); perf = new ProfilerMarker( "Main Getting Types" ); perf.Begin();
 
 			// Make sure the cilbox script is in use in the scene.
-			HashSet<System.Type> TypesInUseInScene = new HashSet<System.Type>();
-			GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
-			foreach (GameObject root in rootObjects)
+			HashSet<System.Type> TypesInUseInScene = null;
+
+			UnityEngine.SceneManagement.Scene activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+
+			if( activeScene != null )
 			{
-				MonoBehaviour[] components = root.GetComponentsInChildren<MonoBehaviour>(true);
-				
-				foreach (MonoBehaviour component in components)
+				TypesInUseInScene = new HashSet<System.Type>();
+				GameObject[] rootObjects = activeScene.GetRootGameObjects();
+				foreach (GameObject root in rootObjects)
 				{
-					Type t = component.GetType();
-					if( !TypesInUseInScene.Contains( t ) )
+					MonoBehaviour[] components = root.GetComponentsInChildren<MonoBehaviour>(true);
+					
+					foreach (MonoBehaviour component in components)
 					{
-						TypesInUseInScene.Add( t);
+						Type t = component.GetType();
+						if( !TypesInUseInScene.Contains( t ) )
+						{
+							TypesInUseInScene.Add( t);
+						}
 					}
 				}
 			}
-
+			else
+			{
+				Debug.LogWarning( "No scene loaded. Converting ALL Cilboxable scripts." );
+			}
 
 			System.Reflection.Assembly [] assys = AppDomain.CurrentDomain.GetAssemblies();
 			foreach( System.Reflection.Assembly proxyAssembly in assys )
@@ -1603,8 +1613,8 @@ spiperf.End();
 					if( type.GetCustomAttributes(typeof(CilboxableAttribute), true).Length <= 0 )
 						continue;
 
-					// Cilbox is not in use.
-					if( !TypesInUseInScene.Contains( type ) ) continue;
+					// Cilbox is not in use... But do ALL cilboxes if no scene is loaded.
+					if( TypesInUseInScene != null && !TypesInUseInScene.Contains( type ) ) continue;
 
 					ProfilerMarker perfType = new ProfilerMarker(type.ToString()); perfType.Begin();
 
