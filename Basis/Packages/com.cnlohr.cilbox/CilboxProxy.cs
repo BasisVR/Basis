@@ -22,6 +22,9 @@ namespace Cilbox
 		public String className;
 		public String serializedObjectData;
 
+		public String buildTimeGuid;
+		public String initialLoadPath;
+
 		private bool proxyWasSetup = false;
 
 		public CilboxProxy() { }
@@ -72,6 +75,8 @@ namespace Cilbox
 
 			serializedObjectData = 
 				Convert.ToBase64String(new Serializee(lstObjects.ToArray()).DumpAsMemory().ToArray());
+
+			buildTimeGuid = Guid.NewGuid().ToString();
 
 			//Debug.Log( $"SERIALIZE --> {serializedObjectData}" );
 		}
@@ -385,6 +390,14 @@ namespace Cilbox
 #if UNITY_EDITOR
 			new ProfilerMarker( "Initialize " + className ).Auto();
 #endif
+			
+			GameObject obj = gameObject;
+			initialLoadPath = "/" + obj.name;
+			while (obj.transform.parent != null)
+			{
+				obj = obj.transform.parent.gameObject;
+				initialLoadPath = "/" + obj.name + initialLoadPath;
+			}
 
 			if( string.IsNullOrEmpty( className ) )
 			{

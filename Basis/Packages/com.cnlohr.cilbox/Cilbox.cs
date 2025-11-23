@@ -1577,6 +1577,24 @@ spiperf.End();
 
 			perf.End(); perf = new ProfilerMarker( "Main Getting Types" ); perf.Begin();
 
+			// Make sure the cilbox script is in use in the scene.
+			HashSet<System.Type> TypesInUseInScene = new HashSet<System.Type>();
+			GameObject[] rootObjects = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+			foreach (GameObject root in rootObjects)
+			{
+				MonoBehaviour[] components = root.GetComponentsInChildren<MonoBehaviour>(true);
+				
+				foreach (MonoBehaviour component in components)
+				{
+					Type t = component.GetType();
+					if( !TypesInUseInScene.Contains( t ) )
+					{
+						TypesInUseInScene.Add( t);
+					}
+				}
+			}
+
+
 			System.Reflection.Assembly [] assys = AppDomain.CurrentDomain.GetAssemblies();
 			foreach( System.Reflection.Assembly proxyAssembly in assys )
 			{
@@ -1584,6 +1602,9 @@ spiperf.End();
 				{
 					if( type.GetCustomAttributes(typeof(CilboxableAttribute), true).Length <= 0 )
 						continue;
+
+					// Cilbox is not in use.
+					if( !TypesInUseInScene.Contains( type ) ) continue;
 
 					ProfilerMarker perfType = new ProfilerMarker(type.ToString()); perfType.Begin();
 

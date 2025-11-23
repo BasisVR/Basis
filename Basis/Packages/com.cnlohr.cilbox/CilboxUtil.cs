@@ -212,16 +212,33 @@ namespace Cilbox
 				case StackType.Double:  return (double)e;
 				case StackType.Boolean: return e != 0;
 				default:
-					switch( type )
+					if( t.IsEnum )
 					{
-						case StackType.Sbyte: return Convert.ChangeType( (sbyte)i, t );
-						case StackType.Byte:  return Convert.ChangeType( (byte)u, t );
-						case StackType.Short: return Convert.ChangeType( (short)i, t );
-						case StackType.Ushort:return Convert.ChangeType( (ushort)u, t );
-						case StackType.Int:   return Convert.ChangeType( (int)i, t );
-						case StackType.Uint:  return Convert.ChangeType( (uint)u, t );
-						case StackType.Long:  return Convert.ChangeType( (long)e, t );
-						case StackType.Ulong: return Convert.ChangeType( (ulong)u, t );
+						switch( type )
+						{
+							case StackType.Sbyte: return Enum.ToObject( t, (sbyte)i );
+							case StackType.Byte:  return Enum.ToObject( t, (byte)u );
+							case StackType.Short: return Enum.ToObject( t, (short)i );
+							case StackType.Ushort:return Enum.ToObject( t, (ushort)u );
+							case StackType.Int:   return Enum.ToObject( t, (int)i );
+							case StackType.Uint:  return Enum.ToObject( t, (uint)u );
+							case StackType.Long:  return Enum.ToObject( t, (long)e );
+							case StackType.Ulong: return Enum.ToObject( t, (ulong)u );
+						}
+					}
+					else
+					{
+						switch( type )
+						{
+							case StackType.Sbyte: return Convert.ChangeType( (sbyte)i, t );
+							case StackType.Byte:  return Convert.ChangeType( (byte)u, t );
+							case StackType.Short: return Convert.ChangeType( (short)i, t );
+							case StackType.Ushort:return Convert.ChangeType( (ushort)u, t );
+							case StackType.Int:   return Convert.ChangeType( (int)i, t );
+							case StackType.Uint:  return Convert.ChangeType( (uint)u, t );
+							case StackType.Long:  return Convert.ChangeType( (long)e, t );
+							case StackType.Ulong: return Convert.ChangeType( (ulong)u, t );
+						}
 					}
 					break;
 				}

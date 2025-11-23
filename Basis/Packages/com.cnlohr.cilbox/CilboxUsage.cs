@@ -478,6 +478,18 @@ namespace Cilbox
 				throw new Exception( "InitializeArray requires identical array byte length " + initializer.Length );
 			Buffer.BlockCopy(initializer, 0, arr, 0, initializer.Length);
 		}
+
+		public static String GetProxyInitialPath( MonoBehaviour m )
+		{
+			CilboxProxy p = (CilboxProxy)m;
+			return p.initialLoadPath;
+		}
+
+		public static String GetProxyBuildTimeGuid( MonoBehaviour m )
+		{
+			CilboxProxy p = (CilboxProxy)m;
+			return p.buildTimeGuid;
+		}
 	}
 
 	// Be warned that this class is totally available to the inner box.
@@ -490,10 +502,30 @@ namespace Cilbox
 			CilboxPlatform.DelegateRepackage rp = new CilboxPlatform.DelegateRepackage();
 			rp.meth = method;
 			rp.o = proxy;
+
+			Type[] parameterTypes = typeof(T).GenericTypeArguments;
+			int parameterCount = parameterTypes.Length;
+
+			MethodInfo dMethod = typeof(T).GetMethod("Invoke");
+			if( dMethod != null )
+			{
+				// For some reason, in some contexts we get non-generic delegates.
+				// If that's the case, just use the parameters.
+				System.Reflection.ParameterInfo[] parameters = dMethod.GetParameters();
+				int methodParameters = parameters.Length;
+				if( methodParameters > parameterCount )
+				{
+					parameterCount = methodParameters;
+					parameterTypes = new Type[parameterCount];
+					for( int n = 0; n < parameterCount; n++ )
+						parameterTypes[n] = parameters[n].ParameterType;
+				}
+			}
+
 			MethodInfo mthis = typeof(CilboxPlatform.DelegateRepackage)
-				.GetMethod("ActionCallback"+(typeof(T).GenericTypeArguments.Length).ToString());
+				.GetMethod("ActionCallback"+parameterCount.ToString());
 			if( mthis.IsGenericMethod )
-				mthis = mthis.MakeGenericMethod( typeof(T).GenericTypeArguments );
+				mthis = mthis.MakeGenericMethod( parameterTypes );
 			return Delegate.CreateDelegate( typeof(T), rp, mthis );
 		}
 
