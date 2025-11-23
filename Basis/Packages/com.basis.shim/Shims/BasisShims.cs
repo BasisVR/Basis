@@ -26,9 +26,9 @@ namespace Basis
 			CilboxProxy p = (CilboxProxy)o;
 			GameObject go = p.gameObject;
 
-			BasisNetworkShim bi = go.GetComponent<BasisNetworkShim>();
+			BasisNetworkShim bi;
 
-			if( bi ) return bi;
+			if( go.TryGetComponent<BasisNetworkShim>( out bi ) ) return bi;
 
 			bi = go.AddComponent<BasisNetworkShim>();
 
@@ -44,9 +44,8 @@ namespace Basis
 			CilboxProxy p = (CilboxProxy)o;
 			GameObject go = p.gameObject;
 
-			BasisInteractableShim bi = go.GetComponent<BasisInteractableShim>();
-
-			if( bi ) return bi;
+			BasisInteractableShim bi;
+			if( go.TryGetComponent<BasisInteractableShim>( out bi ) ) return bi;
 
 			return go.AddComponent<BasisInteractableShim>();
 		}
