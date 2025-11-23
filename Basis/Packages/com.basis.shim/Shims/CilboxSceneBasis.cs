@@ -26,6 +26,17 @@ namespace Cilbox
 			"System.Delegate",
 
 			"UnityEngine.Texture2DArray",
+			"Basis.SafeUtil",
+			"Basis.BasisInteractableShim",
+			"Basis.BasisInteractableShim+ClickEvent",
+			"Basis.BasisNetworkShim",
+			"Basis.BasisNetworkShim+NetworkReadyEvent",
+			"Basis.BasisNetworkShim+ServerOwnershipDestroyedEvent",
+			"Basis.BasisNetworkShim+OwnershipTransferEvent",
+			"Basis.BasisNetworkShim+NetworkMessageEvent",
+			"Basis.BasisNetworkShim+PlayerJoinedEvent",
+			"Basis.BasisNetworkShim+PlayerLeftEvent",
+			"LiteNetLib.DeliveryMethod",
 
 
 			"Cilbox.CilboxPublicUtils",

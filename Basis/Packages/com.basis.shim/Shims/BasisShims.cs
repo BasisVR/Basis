@@ -2,6 +2,7 @@ using Basis;
 using System;
 using UnityEngine.Networking;
 using UnityEngine;
+using Cilbox;
 
 namespace Basis
 {
@@ -15,6 +16,42 @@ namespace Basis
 		//[SerializeField] private String strUrl;
 		[field:SerializeField] public String url { get; private set; }
 	};
+
+	public class SafeUtil
+	{
+
+		public static BasisNetworkShim MakeNetworkable( object o )
+		{
+			// Actually needs to be CilboxProxies.
+			CilboxProxy p = (CilboxProxy)o;
+			GameObject go = p.gameObject;
+
+			BasisNetworkShim bi = go.GetComponent<BasisNetworkShim>();
+
+			if( bi ) return bi;
+
+			bi = go.AddComponent<BasisNetworkShim>();
+
+			bi.AssignNetworkGUIDIdentifier(p.buildTimeGuid + p.initialLoadPath);
+			Debug.Log( $"ADDING ASSIGN: {bi} {p.buildTimeGuid + p.initialLoadPath}");
+
+			return bi;
+		}
+
+		public static BasisInteractableShim MakeInteractable( object o )
+		{
+			// Actually needs to be CilboxProxies.
+			CilboxProxy p = (CilboxProxy)o;
+			GameObject go = p.gameObject;
+
+			BasisInteractableShim bi = go.GetComponent<BasisInteractableShim>();
+
+			if( bi ) return bi;
+
+			return go.AddComponent<BasisInteractableShim>();
+		}
+	}
+
 
 	public class IBasisImageDownload
 	{
@@ -53,11 +90,11 @@ namespace Basis
 				return;
 			}
 
-		    UnityWebRequest www = new UnityWebRequest( stringUrl.url );
+			UnityWebRequest www = new UnityWebRequest( stringUrl.url );
 
 			/////////////////////////////////////////////////////////////////
-		    DownloadHandlerTexture dht = new DownloadHandlerTexture(true);
-		    www.downloadHandler = dht;
+			DownloadHandlerTexture dht = new DownloadHandlerTexture(true);
+			www.downloadHandler = dht;
 			/////////////////////////////////////////////////////////////////
 
 			bool bCompleted = false;
@@ -82,7 +119,7 @@ namespace Basis
 				eventcb( null );
 			}
 
-		    return;
+			return;
 		}
 
 		public void Dispose()
@@ -95,13 +132,15 @@ namespace Basis
 	}
 
 
+
+
 #if false
 // If we ever allow raw.
 	public class BasisImageDownloader
 	{
 		public void DownloadImage( BasisUrl stringUrl, Action callback, TextureInfo rgbInfo)
 		{
-	        UnityWebRequest www = UnityWebRequest.Get( stringUrl.Get() );
+			UnityWebRequest www = UnityWebRequest.Get( stringUrl.Get() );
 			UnityWebRequestAsyncOperation req = www.SendWebRequest();
 
 			bool bCompleted = false;

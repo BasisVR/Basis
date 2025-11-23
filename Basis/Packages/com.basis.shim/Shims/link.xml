@@ -64,10 +64,23 @@
 		<type fullname="UnityEngine.Vector4" preserve="all"/>
 		<type fullname="UnityEngine.Vector3" preserve="all"/>
 	</assembly>
-	<assembly fullname="BasisSDK">
+	<assembly fullname="BasisShims">
 		<type fullname="Basis.BasisUrl" preserve="all"/>
 		<type fullname="Basis.BasisImageDownloader" preserve="all"/>
 		<type fullname="Basis.IBasisImageDownload" preserve="all"/>
+		<type fullname="Basis.SafeUtil" preserve="all"/>
+		<type fullname="Basis.BasisInteractableShim" preserve="all"/>
+		<type fullname="Basis.BasisInteractableShim+ClickEvent" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim+NetworkReadyEvent" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim+ServerOwnershipDestroyedEvent" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim+OwnershipTransferEvent" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim+NetworkMessageEvent" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim+PlayerJoinedEvent" preserve="all"/>
+		<type fullname="Basis.BasisNetworkShim+PlayerLeftEvent" preserve="all"/>
+	</assembly>
+	<assembly fullname="LiteNetLib">
+		<type fullname="LiteNetLib.DeliveryMethod" preserve="all"/>
 	</assembly>
 	<assembly fullname="Cilbox">
 		<type fullname="Cilbox.CilboxPublicUtils" preserve="all"/>
