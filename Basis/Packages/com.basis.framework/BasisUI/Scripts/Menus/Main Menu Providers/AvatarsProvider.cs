@@ -11,8 +11,7 @@ namespace Basis.BasisUI
         }
 
         public override string Title => "Avatars";
-        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Avatars);
-        public override bool IconIsAddressable => true;
+        public override string IconAddress => AddressableAssets.Sprites.Avatars;
         public override int Order => 2;
 
         public override void RunAction()

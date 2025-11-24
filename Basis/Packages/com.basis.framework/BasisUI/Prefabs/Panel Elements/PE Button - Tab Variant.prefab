@@ -186,11 +186,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4488211196766906647, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: m_MinHeight
-      value: 100
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 4488211196766906647, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: m_PreferredHeight
-      value: 100
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 4621580370937373349, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: _syncMethod

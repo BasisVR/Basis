@@ -307,6 +307,14 @@ PrefabInstance:
       propertyPath: <DefaultDescription>k__BackingField
       value: 'Demo Text: Are you sure you want to accept this request?'
       objectReference: {fileID: 0}
+    - target: {fileID: 167806275690943815, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
+      propertyPath: m_Spacing
+      value: 26
+      objectReference: {fileID: 0}
+    - target: {fileID: 167806275690943815, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
+      propertyPath: m_ChildControlWidth
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 1542824299906678841, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 

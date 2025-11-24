@@ -28,7 +28,5 @@ namespace Basis.BasisUI.Styling
         {
             if (Selectable) Selectable.ApplyStyle(SelectableStyle);
         }
-
-
     }
 }

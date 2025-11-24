@@ -11,8 +11,7 @@ namespace Basis.BasisUI
         }
 
         public override string Title => "Servers";
-        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Servers);
-        public override bool IconIsAddressable => true;
+        public override string IconAddress => AddressableAssets.Sprites.Servers;
         public override int Order => 1;
 
         public override void RunAction()

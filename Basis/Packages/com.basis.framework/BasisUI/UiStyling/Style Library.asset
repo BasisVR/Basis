@@ -117,7 +117,7 @@ MonoBehaviour:
         Color: {r: 0, g: 0, b: 0, a: 0}
         PaletteStyle: 9
         Type: 0
-      Sprite: {fileID: 21300000, guid: d84f52beb9eb9244dafbc099d0f7c524, type: 3}
+      Sprite: {fileID: 21300000, guid: 917f9be5e3149ef4fa76604cfe665086, type: 3}
       PixelsPerUnitMultiplier: 6
     - Title: Icon Background
       Color:
@@ -284,6 +284,27 @@ MonoBehaviour:
         Color: {r: 0, g: 0, b: 0, a: 0}
         PaletteStyle: 10
         Type: 0
+    - Title: Highlight On Hover
+      NormalColor:
+        Color: {r: 1, g: 1, b: 1, a: 0.7490196}
+        PaletteStyle: 10
+        Type: 1
+      HighlightedColor:
+        Color: {r: 1, g: 1, b: 1, a: 1}
+        PaletteStyle: 10
+        Type: 1
+      PressedColor:
+        Color: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+        PaletteStyle: 10
+        Type: 1
+      SelectedColor:
+        Color: {r: 1, g: 1, b: 1, a: 1}
+        PaletteStyle: 10
+        Type: 1
+      DisabledColor:
+        Color: {r: 0, g: 0, b: 0, a: 0}
+        PaletteStyle: 11
+        Type: 0
     - Title: Visible On Hover
       NormalColor:
         Color: {r: 1, g: 1, b: 1, a: 0}
@@ -305,21 +326,21 @@ MonoBehaviour:
         Color: {r: 0, g: 0, b: 0, a: 0}
         PaletteStyle: 11
         Type: 0
-    - Title: Highlight On Hover
+    - Title: Visible On Hover - No Press
       NormalColor:
-        Color: {r: 1, g: 1, b: 1, a: 0.7490196}
+        Color: {r: 1, g: 1, b: 1, a: 0}
         PaletteStyle: 10
         Type: 1
       HighlightedColor:
-        Color: {r: 1, g: 1, b: 1, a: 1}
+        Color: {r: 1, g: 1, b: 1, a: 0.5019608}
         PaletteStyle: 10
         Type: 1
       PressedColor:
-        Color: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+        Color: {r: 1, g: 1, b: 1, a: 0.5019608}
         PaletteStyle: 10
         Type: 1
       SelectedColor:
-        Color: {r: 1, g: 1, b: 1, a: 1}
+        Color: {r: 1, g: 1, b: 1, a: 0.5019608}
         PaletteStyle: 10
         Type: 1
       DisabledColor:
@@ -352,12 +373,6 @@ MonoBehaviour:
       IconStyle: Icon Danger
       IndicatorStyle: Button
       LabelStyle: Subtitle Danger
-    - Title: Button
-      SelectionStyle: Highlight On Hover
-      BackgroundStyle: Button
-      IconStyle: Icon
-      IndicatorStyle: Icon
-      LabelStyle: Button Label
     - Title: Button Exit
       SelectionStyle: Highlight On Hover
       BackgroundStyle: Button Exit
@@ -379,6 +394,12 @@ MonoBehaviour:
     - Title: Button Danger
       SelectionStyle: Highlight On Hover
       BackgroundStyle: Button Danger
+      IconStyle: Icon
+      IndicatorStyle: Icon
+      LabelStyle: Button Label
+    - Title: Button
+      SelectionStyle: Highlight On Hover
+      BackgroundStyle: Button
       IconStyle: Icon
       IndicatorStyle: Icon
       LabelStyle: Button Label

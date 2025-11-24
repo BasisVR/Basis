@@ -13,8 +13,7 @@ namespace Basis.BasisUI
         }
 
         public override string Title => "Settings";
-        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Settings);
-        public override bool IconIsAddressable => true;
+        public override string IconAddress => AddressableAssets.Sprites.Settings;
         public override int Order => 0;
 
 
@@ -35,6 +34,10 @@ namespace Basis.BasisUI
             tabGroup.AddTab("Graphics", null, GraphicsTab(tabGroup));
             tabGroup.AddTab("Developer", null, SettingsTab(tabGroup));
 
+            tabGroup.AddExtraAction("Admin", null);
+            tabGroup.AddExtraAction("Console", null);
+            tabGroup.AddExtraAction("Bindings", null);
+
             tabGroup.AssignBinding(new BasisSettingsBinding<int>("BasisVR/SettingsTabs"));
 
             panel.Descriptor.ForceRebuild();
@@ -44,12 +47,14 @@ namespace Basis.BasisUI
         {
             PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
             PanelElementDescriptor descriptor = tab.Descriptor;
+            descriptor.SetIcon(AddressableAssets.Sprites.Settings);
 
             descriptor.SetTitle("General Settings");
             RectTransform container = descriptor.ContentParent;
 
             PanelElementDescriptor settingsGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            settingsGroup.SetIcon(AddressableAssets.Sprites.Settings);
             settingsGroup.SetTitle("Settings");
             settingsGroup.SetDescription("General settings for testing purposes.");
 
@@ -95,14 +100,14 @@ namespace Basis.BasisUI
             descriptor.SetTitle("Volume Mixer");
             RectTransform container = descriptor.ContentParent;
 
+            PanelSlider sliderMainVolume = PanelSlider.CreateAndBind(container,
+                PanelSlider.SliderSettings.Percentage("Main Volume"),
+                BasisSettingsDefaults.MainVolume);
+
             PanelElementDescriptor settingsGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             settingsGroup.SetTitle("Volume Mixer");
             settingsGroup.SetDescription("Various volume options for purposes.");
-
-            PanelSlider sliderMainVolume = PanelSlider.CreateEntryAndBind(settingsGroup,
-                PanelSlider.SliderSettings.Percentage("Main Volume"),
-                BasisSettingsDefaults.MainVolume);
 
             PanelSlider sliderMenuVolume = PanelSlider.CreateEntryAndBind(settingsGroup,
                 PanelSlider.SliderSettings.Percentage("Menu Volume"),
@@ -116,6 +121,12 @@ namespace Basis.BasisUI
                 PanelSlider.SliderSettings.Percentage("Player Volume"),
                 BasisSettingsDefaults.PlayerVolume);
 
+            PanelSlider.CreateAndBind(container,
+                PanelSlider.SliderSettings.Percentage("Main Volume"),
+                BasisSettingsDefaults.MainVolume);
+            PanelSlider.CreateAndBind(container,
+                PanelSlider.SliderSettings.Percentage("Main Volume"),
+                BasisSettingsDefaults.MainVolume);
             descriptor.ForceRebuild();
             return tab;
         }

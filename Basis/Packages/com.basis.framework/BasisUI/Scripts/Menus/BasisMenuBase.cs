@@ -60,7 +60,7 @@ namespace Basis.BasisUI
                     ProviderButtonParent);
 
                 button.Descriptor.SetTitle(provider.Title);
-                if (provider.Icon) button.SetIcon(provider.Icon, provider.IconIsAddressable);
+                button.SetIcon(provider.IconAddress);
                 provider.BindToButton(this, button);
                 ProviderButtons.Add(button);
                 provider.OnButtonCreated(button);

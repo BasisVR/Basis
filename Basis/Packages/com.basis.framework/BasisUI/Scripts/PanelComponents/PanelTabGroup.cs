@@ -8,7 +8,7 @@ namespace Basis.BasisUI
     {
 
         public List<PanelTabPage> Pages = new();
-
+        public RectTransform ExtrasContainer;
 
         public static class TabGroupStyles
         {
@@ -56,6 +56,14 @@ namespace Basis.BasisUI
 
             Pages.Add(page);
             ApplyValue();
+        }
+
+        public PanelButton AddExtraAction(string actionName, Action onClicked)
+        {
+            PanelButton actionButton = PanelButton.CreateNew(ExtrasContainer);
+            actionButton.Descriptor.SetTitle(actionName);
+            actionButton.OnClicked += onClicked;
+            return actionButton;
         }
     }
 }

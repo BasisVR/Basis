@@ -915,10 +915,6 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 21300000, guid: a336a8280e1dda94fbef1a59936ed578, type: 3}
     - target: {fileID: 6544617188754852751, guid: d9849dc6948554a4a8f55614547f5449, type: 3}
-      propertyPath: <DefaultTitle>k__BackingField
-      value: Page Title
-      objectReference: {fileID: 0}
-    - target: {fileID: 6544617188754852751, guid: d9849dc6948554a4a8f55614547f5449, type: 3}
       propertyPath: <IconBackground>k__BackingField
       value: 
       objectReference: {fileID: 4455012132392761387}
@@ -976,7 +972,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8175477522569772619, guid: d9849dc6948554a4a8f55614547f5449, type: 3}
       propertyPath: m_SizeDelta.y
-      value: -130
+      value: -100
       objectReference: {fileID: 0}
     - target: {fileID: 8175477522569772619, guid: d9849dc6948554a4a8f55614547f5449, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -984,7 +980,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8175477522569772619, guid: d9849dc6948554a4a8f55614547f5449, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -35
+      value: -50
       objectReference: {fileID: 0}
     - target: {fileID: 8331297721212350562, guid: d9849dc6948554a4a8f55614547f5449, type: 3}
       propertyPath: m_AnchorMax.y

@@ -58,6 +58,12 @@ namespace Basis.BasisUI
 
         [SerializeField] private RectTransform _contentParent;
 
+        protected Sprite _iconSprite;
+        protected string _title;
+        protected string _description;
+
+        protected bool _iconIsAddressable;
+
 
         public LayoutElement Layout
         {
@@ -78,7 +84,7 @@ namespace Basis.BasisUI
             if (IconImage && !IconBackground) IconBackground = IconImage.gameObject;
             if (_clearOnAwake)
             {
-                SetIcon(null);
+                SetIcon((Sprite)null);
                 SetTitle(string.Empty);
                 SetDescription(string.Empty);
             }
@@ -90,12 +96,27 @@ namespace Basis.BasisUI
             }
         }
 
+        public override void OnReleaseEvent()
+        {
+            base.OnReleaseEvent();
+            if (_iconIsAddressable) AddressableAssets.Release(_iconSprite);
+        }
+
         public void SetIcon(Sprite value)
         {
             if (!HasIcon) return;
             // Disable the object if the sprite is null.
+            _iconSprite = value;
             IconBackground.gameObject.SetActive(value);
             IconImage.sprite = value;
+        }
+
+        public void SetIcon(string spriteAddress)
+        {
+            if (!HasIcon) return;
+            if (string.IsNullOrEmpty(spriteAddress)) return;
+            _iconIsAddressable = true;
+            SetIcon(AddressableAssets.GetSprite(spriteAddress));
         }
 
         public void SetTitle(string value)
@@ -103,6 +124,7 @@ namespace Basis.BasisUI
             if (!HasTitle) return;
             bool titleIsValid = !string.IsNullOrEmpty(value);
             // Disable the object if the title is empty.
+            _title = value;
             TitleLabel.gameObject.SetActive(titleIsValid);
             TitleLabel.text = value;
         }
@@ -112,6 +134,7 @@ namespace Basis.BasisUI
             if (!HasDescription) return;
             bool descriptionIsValid = !string.IsNullOrEmpty(value);
             // Disable the object if the description is empty.
+            _description = value;
             DescriptionLabel.gameObject.SetActive(descriptionIsValid);
             DescriptionLabel.text = value;
         }

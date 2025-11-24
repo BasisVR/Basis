@@ -13,8 +13,7 @@ namespace Basis.BasisUI
         }
 
         public override string Title => "Mirror";
-        public override Sprite Icon => null;
-        public override bool IconIsAddressable => true;
+        public override string IconAddress => null;
         public override int Order => 4;
 
 

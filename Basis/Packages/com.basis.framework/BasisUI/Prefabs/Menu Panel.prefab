@@ -365,9 +365,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 978a6219645efdb4fab14bfbaa7c910e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelElement
-  _clearOnAwake: 0
+  _clearOnAwake: 1
   <DefaultIcon>k__BackingField: {fileID: 0}
-  <DefaultTitle>k__BackingField: 
+  <DefaultTitle>k__BackingField: Page Title
   <DefaultDescription>k__BackingField: 
   <IconImage>k__BackingField: {fileID: 0}
   <IconBackground>k__BackingField: {fileID: 0}

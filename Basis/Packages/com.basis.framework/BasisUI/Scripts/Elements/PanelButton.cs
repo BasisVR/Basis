@@ -36,6 +36,13 @@ namespace Basis.BasisUI
             _iconIsAddressable = isAddressable;
         }
 
+        public void SetIcon(string iconAddress)
+        {
+            if (string.IsNullOrEmpty(iconAddress)) return;
+            Descriptor.SetIcon(AddressableAssets.GetSprite(iconAddress));
+            _iconIsAddressable = true;
+        }
+
         public override void OnCreateEvent()
         {
             base.OnCreateEvent();

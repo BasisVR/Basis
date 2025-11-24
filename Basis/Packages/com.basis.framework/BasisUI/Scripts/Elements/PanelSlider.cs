@@ -49,7 +49,7 @@ namespace Basis.BasisUI
                     SliderMax = max,
                     UseWholeNumbers = true,
                     DecimalPlaces = 0,
-                    DisplayMode = ValueDisplayMode.Percentage,
+                    DisplayMode = ValueDisplayMode.Meters,
                 };
             }
 

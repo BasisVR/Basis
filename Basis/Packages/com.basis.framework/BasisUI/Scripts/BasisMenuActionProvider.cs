@@ -15,8 +15,7 @@ namespace Basis.BasisUI
         }
 
         public abstract string Title { get; }
-        public abstract Sprite Icon { get; }
-        public abstract bool IconIsAddressable { get; }
+        public abstract string IconAddress { get; }
         public abstract int Order { get; }
         public abstract void RunAction();
 

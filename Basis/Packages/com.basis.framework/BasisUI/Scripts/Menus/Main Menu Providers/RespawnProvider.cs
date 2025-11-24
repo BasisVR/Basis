@@ -12,8 +12,7 @@ namespace Basis.BasisUI
         }
 
         public override string Title => "Respawn";
-        public override Sprite Icon => AddressableAssets.GetSprite(AddressableAssets.Sprites.Respawn);
-        public override bool IconIsAddressable => true;
+        public override string IconAddress => AddressableAssets.Sprites.Respawn;
         public override int Order => 3;
 
         public override void RunAction()
