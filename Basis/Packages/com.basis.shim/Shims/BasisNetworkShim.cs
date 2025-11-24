@@ -2,7 +2,7 @@ using static BasisNetworkCommon;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using LiteNetLib;
+using Basis.Network.Core;
 using System;
 
 namespace Basis

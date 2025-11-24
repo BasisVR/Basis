@@ -5,7 +5,7 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 public class BasisSeatSync : BasisNetworkBehaviour
 {
