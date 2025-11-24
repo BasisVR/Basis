@@ -101,7 +101,7 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(reason))
                 return "[Error] Reason cannot be null or empty.";
 
-            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out ushort peer))
+            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
             {
                 return $"[Error] Unable to find player: {UUID}";
             }
@@ -138,7 +138,7 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(reason))
                 return "[Error] Reason cannot be null or empty.";
 
-            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out ushort peer))
+            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
                 return $"[Error] Unable to find player: {UUID}";
 
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
@@ -172,7 +172,7 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(reason))
                 return "[Error] Reason cannot be null or empty.";
 
-            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out ushort peer))
+            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
                 return $"[Error] Unable to find player: {UUID}";
 
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);

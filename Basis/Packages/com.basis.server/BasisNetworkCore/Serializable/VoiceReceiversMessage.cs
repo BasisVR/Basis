@@ -3,34 +3,31 @@ public static partial class SerializableBasis
 {
     public struct VoiceReceiversMessage
     {
-        public ushort[] users;
-        public void Deserialize(NetDataReader Writer)
-        {
-            // Calculate the number of ushorts based on the remaining bytes
-            int remainingBytes = Writer.AvailableBytes;
-            int ushortCount = remainingBytes / sizeof(ushort);
+        public ushort[] Users;
 
-            // Initialize the array with the calculated size
-            if (users == null || users.Length != ushortCount)
+        public void Deserialize(NetDataReader reader)
+        {
+            int remainingBytes = reader.AvailableBytes;
+
+            // Optional sanity check: ensure whole ushorts
+            if ((remainingBytes & (sizeof(ushort) - 1)) != 0)
             {
-                users = new ushort[ushortCount];
+                BNL.LogError($"VoiceReceiversMessage: remaining bytes ({remainingBytes}) " +
+                     "not a multiple of sizeof(ushort).");
             }
-            // Read each ushort value into the array
-            for (int index = 0; index < ushortCount; index++)
+            else
             {
-                users[index] = Writer.GetUShort();
+                Users = reader.GetUShortArray();
             }
         }
-        public void Serialize(NetDataWriter Writer)
+
+        public void Serialize(NetDataWriter writer)
         {
-            if (users != null)
+            if (Users == null || Users.Length == 0)
             {
-                int Count = users.Length;
-                for (int Index = 0; Index < Count; Index++)
-                {
-                    Writer.Put(users[Index]);
-                }
+                return;
             }
+            writer.PutArray(Users);
         }
     }
 }

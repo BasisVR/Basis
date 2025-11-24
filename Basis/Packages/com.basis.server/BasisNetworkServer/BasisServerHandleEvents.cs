@@ -1,4 +1,3 @@
-using Basis.Contrib.Auth.DecentralizedIds;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
@@ -64,7 +63,7 @@ namespace BasisServerHandle
                     BNL.LogError("Missing Peer this is a mistake!");
                     return;
                 }
-                ushort id = (ushort)peer.Id;
+                int id = peer.Id;
 
                 NetworkServer.AuthIdentity.RemoveConnection(id);
                 BasisNetworkOwnership.RemovePlayerOwnership(id);
@@ -304,13 +303,18 @@ namespace BasisServerHandle
 
         public static void SendVoiceMessageToClients(ServerAudioSegmentMessage audioSegment, byte channel, NetPeer sender, DeliveryMethod method)
         {
-            if (!BasisSavedState.GetLastVoiceReceivers(sender, out VoiceReceiversMessage receivers) || receivers.users == null || receivers.users.Length == 0)
+            if(BasisSavedState.GetLastVoiceReceivers(sender, out VoiceReceiversMessage receivers))
             {
                 BNL.Log($"[VoiceMessage] No receivers found for sender {sender.Id}.");
+            }
+
+            if (receivers.Users == null || receivers.Users.Length == 0)
+            {
+                BNL.Log($"[VoiceMessage] No users found for {sender.Id}.");
                 return;
             }
 
-            var targetPeers = GetTargetPeers(receivers.users);
+            var targetPeers = GetTargetPeers(receivers);
             if (targetPeers.Count == 0)
             {
                 BNL.Log($"[VoiceMessage] No valid peer matches found for sender {sender.Id}.");
@@ -329,12 +333,12 @@ namespace BasisServerHandle
             NetworkServer.BroadcastMessageToClients(writer, channel, ref targetPeers, method);
         }
 
-        private static List<NetPeer> GetTargetPeers(ushort[] userIds)
+        private static List<NetPeer> GetTargetPeers(VoiceReceiversMessage Message)
         {
-            var peers = new List<NetPeer>(userIds.Length);
-            foreach (var userId in userIds)
+            List<NetPeer> peers = new List<NetPeer>(Message.Users.Length);
+            foreach (ushort userId in Message.Users)
             {
-                if (NetworkServer.AuthenticatedPeers.TryGetValue(userId, out var found))
+                if (NetworkServer.AuthenticatedPeers.TryGetValue(userId, out NetPeer found))
                 {
                     peers.Add(found);
                 }

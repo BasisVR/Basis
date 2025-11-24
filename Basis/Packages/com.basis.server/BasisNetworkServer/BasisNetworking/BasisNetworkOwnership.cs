@@ -238,7 +238,7 @@ namespace Basis.Network.Server.Ownership
         /// <summary>
         /// Removes all ownership of a specific player and notifies all clients.
         /// </summary>
-        public static void RemovePlayerOwnership(ushort playerId)
+        public static void RemovePlayerOwnership(int playerId)
         {
             lock (LockObject)
             {

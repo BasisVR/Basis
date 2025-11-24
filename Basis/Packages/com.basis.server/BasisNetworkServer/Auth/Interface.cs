@@ -16,12 +16,12 @@ namespace Basis.Network.Server.Auth
         /// the UUID of a player will become this.
         public void ProcessConnection(Configuration Configuration, ConnectionRequest ConnectionRequest, NetPeer NetPeer);
         public void DeInitalize();
-        public void RemoveConnection(ushort NetPeer);
+        public void RemoveConnection(int NetPeer);
         public bool IsNetPeerAdmin(string UUID);
         public bool AddNetPeerAsAdmin(string UUID);
         public bool RemoveNetPeerAsAdmin(string UUID);
         public bool NetIDToUUID(NetPeer Peer, out string UUID);
-        public bool UUIDToNetID(string UUID, out ushort Peer);
+        public bool UUIDToNetID(string UUID, out int Peer);
 
         public static bool HasFileSupport = false;
     }

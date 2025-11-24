@@ -39,6 +39,7 @@ namespace Basis.Network.Server.Generic
         public static void AddLastData(NetPeer client, VoiceReceiversMessage voiceReceiversMessage)
         {
             voiceReceiversMessages[client.Id] = voiceReceiversMessage;
+
         }
 
         /// <summary>
@@ -54,7 +55,7 @@ namespace Basis.Network.Server.Generic
         /// </summary>
         public static bool GetLastAvatarChangeState(NetPeer client, out ClientAvatarChangeMessage message)
         {
-            return avatarChangeStates.TryGetValue(client.Id, out message) && !message.Equals(default);
+            return avatarChangeStates.TryGetValue(client.Id, out message);
         }
 
         /// <summary>
@@ -62,7 +63,7 @@ namespace Basis.Network.Server.Generic
         /// </summary>
         public static bool GetLastPlayerMetaData(NetPeer client, out ClientMetaDataMessage message)
         {
-            return playerMetaDataMessages.TryGetValue(client.Id, out message) && !message.Equals(default);
+            return playerMetaDataMessages.TryGetValue(client.Id, out message);
         }
 
         /// <summary>
@@ -70,7 +71,7 @@ namespace Basis.Network.Server.Generic
         /// </summary>
         public static bool GetLastVoiceReceivers(NetPeer client, out VoiceReceiversMessage message)
         {
-            return voiceReceiversMessages.TryGetValue(client.Id, out message) && !message.Equals(default);
+            return voiceReceiversMessages.TryGetValue(client.Id, out message);
         }
     }
 }

@@ -16,7 +16,7 @@ public static class NetworkServer
 {
     public static EventBasedNetListener Listener;
     public static NetManager Server;
-    public static ConcurrentDictionary<ushort, NetPeer> AuthenticatedPeers = new();
+    public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static Configuration Configuration;
     public static IAuth Auth;
     public static IAuthIdentity AuthIdentity;
