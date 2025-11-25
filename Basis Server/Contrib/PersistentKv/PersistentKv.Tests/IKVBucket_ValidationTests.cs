@@ -126,6 +126,28 @@ namespace PersistentKv.Tests
             Assert.Equal(KvError.ValidationKeySize, result.ErrorCode);
         }
 
+        [Fact]
+        public async Task KeyInfo_KeyTooLong_ReturnsValidationError()
+        {
+            var bucket = await CreateBucketAsync();
+            var longKey = new string('k', 257);
+
+            var result = await bucket.KeyInfo(longKey);
+
+            Output.WriteLine($"KeyInfo with long key => {result.ErrorCode}");
+            Assert.Equal(KvError.ValidationKeySize, result.ErrorCode);
+        }
+
+        [Fact]
+        public async Task KeyInfo_EmptyKey_ReturnsValidationError()
+        {
+            var bucket = await CreateBucketAsync();
+
+            var result = await bucket.KeyInfo("");
+
+            Assert.Equal(KvError.ValidationKeySize, result.ErrorCode);
+        }
+
         #endregion
 
         #region Value Validation Tests
@@ -514,15 +536,18 @@ namespace PersistentKv.Tests
             var getResult = await bucket.Get(longKey);
             var existsResult = await bucket.Exists(longKey);
             var deleteResult = await bucket.Delete(longKey);
+            var keyInfoResult = await bucket.KeyInfo(longKey);
 
             // All should return the same validation error
             Output.WriteLine($"Set: {setResult.ErrorCode}, Get: {getResult.ErrorCode}, " +
-                            $"Exists: {existsResult.ErrorCode}, Delete: {deleteResult.ErrorCode}");
+                            $"Exists: {existsResult.ErrorCode}, Delete: {deleteResult.ErrorCode}, " +
+                            $"KeyInfo: {keyInfoResult.ErrorCode}");
 
             Assert.Equal(KvError.ValidationKeySize, setResult.ErrorCode);
             Assert.Equal(KvError.ValidationKeySize, getResult.ErrorCode);
             Assert.Equal(KvError.ValidationKeySize, existsResult.ErrorCode);
             Assert.Equal(KvError.ValidationKeySize, deleteResult.ErrorCode);
+            Assert.Equal(KvError.ValidationKeySize, keyInfoResult.ErrorCode);
         }
 
         [Fact]

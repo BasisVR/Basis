@@ -425,6 +425,80 @@ namespace PersistentKv.Tests
 
         #endregion
 
+        #region Concurrent KeyInfo Tests
+
+        [Fact]
+        public async Task ConcurrentKeyInfo_SameKey_AllSucceed()
+        {
+            var bucket = await CreateBucketAsync();
+            var key = "info-key";
+            var value = Encoding.UTF8.GetBytes("test-data");
+
+            await bucket.Set(key, value);
+
+            var taskCount = 20;
+            var tasks = new List<Task<KvResult<KvInfo>>>();
+
+            for (int i = 0; i < taskCount; i++)
+            {
+                tasks.Add(Task.Run(async () => await bucket.KeyInfo(key)));
+            }
+
+            var results = await Task.WhenAll(tasks);
+
+            Output.WriteLine($"Completed {taskCount} concurrent KeyInfo calls");
+            Assert.All(results, r =>
+            {
+                Assert.Equal(KvError.Success, r.ErrorCode);
+                Assert.Equal((ulong)value.Length, r.Value.valueSize);
+            });
+        }
+
+        [Fact]
+        public async Task ConcurrentKeyInfo_DuringUpdates_RemainsConsistent()
+        {
+            var bucket = await CreateBucketAsync();
+            var key = "update-info-key";
+
+            await bucket.Set(key, Encoding.UTF8.GetBytes("initial"));
+
+            var writeTasks = new List<Task>();
+            var infoTasks = new List<Task<KvResult<KvInfo>>>();
+
+            // Writers updating the key
+            for (int i = 0; i < 10; i++)
+            {
+                var index = i;
+                writeTasks.Add(Task.Run(async () =>
+                {
+                    await bucket.Set(key, Encoding.UTF8.GetBytes($"value-{index}"));
+                }));
+            }
+
+            // Readers getting key info
+            for (int i = 0; i < 15; i++)
+            {
+                infoTasks.Add(Task.Run(async () => await bucket.KeyInfo(key)));
+            }
+
+            await Task.WhenAll(writeTasks.Concat<Task>(infoTasks));
+
+            var infoResults = await Task.WhenAll(infoTasks);
+
+            // All reads should succeed (might see different versions)
+            Assert.All(infoResults, r => Assert.Equal(KvError.Success, r.ErrorCode));
+
+            // Final state should be consistent
+            var finalInfo = await bucket.KeyInfo(key);
+            var finalGet = await bucket.Get(key);
+
+            Assert.Equal(KvError.Success, finalInfo.ErrorCode);
+            Assert.Equal(KvError.Success, finalGet.ErrorCode);
+            Assert.Equal((ulong)finalGet.Value.Length, finalInfo.Value.valueSize);
+        }
+
+        #endregion
+
         #region Concurrent Quota Tests
 
         [Fact]

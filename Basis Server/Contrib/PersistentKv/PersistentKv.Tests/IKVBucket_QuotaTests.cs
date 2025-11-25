@@ -396,6 +396,51 @@ namespace PersistentKv.Tests
             Assert.Equal(quota1.Value.CurrentBytes, quota3.Value.CurrentBytes);
         }
 
+        [Fact]
+        public async Task GetQuota_InvariantChecks_AllOperations()
+        {
+            var bucket = await CreateBucketAsync();
+
+            // Helper to verify invariants
+            async Task VerifyQuotaInvariants()
+            {
+                var quota = await bucket.GetQuota();
+                Assert.Equal(KvError.Success, quota.ErrorCode);
+
+                // Invariant: Current values never negative
+                Assert.True(quota.Value.CurrentKeys >= 0, "CurrentKeys must be non-negative");
+                Assert.True(quota.Value.CurrentBytes >= 0, "CurrentBytes must be non-negative");
+
+                // Invariant: Max values always positive
+                Assert.True(quota.Value.MaxKeys > 0, "MaxKeys must be positive");
+                Assert.True(quota.Value.MaxBytes > 0, "MaxBytes must be positive");
+
+                // Invariant: Current never exceeds max (with small tolerance for edge cases)
+                Assert.True(quota.Value.CurrentKeys <= quota.Value.MaxKeys * 1.1,
+                    $"CurrentKeys ({quota.Value.CurrentKeys}) should not greatly exceed MaxKeys ({quota.Value.MaxKeys})");
+                Assert.True(quota.Value.CurrentBytes <= quota.Value.MaxBytes * 1.1,
+                    $"CurrentBytes ({quota.Value.CurrentBytes}) should not greatly exceed MaxBytes ({quota.Value.MaxBytes})");
+            }
+
+            // Verify invariants at various stages
+            await VerifyQuotaInvariants(); // Empty bucket
+
+            await bucket.Set("key1", new byte[100]);
+            await VerifyQuotaInvariants(); // After set
+
+            await bucket.Set("key1", new byte[200]);
+            await VerifyQuotaInvariants(); // After overwrite
+
+            await bucket.Set("key2", new byte[50]);
+            await VerifyQuotaInvariants(); // After another set
+
+            await bucket.Delete("key1");
+            await VerifyQuotaInvariants(); // After delete
+
+            await bucket.Delete("key2");
+            await VerifyQuotaInvariants(); // After all deleted
+        }
+
         #endregion
 
         #region Complex Quota Scenarios

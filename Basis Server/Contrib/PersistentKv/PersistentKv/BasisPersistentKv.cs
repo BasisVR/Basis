@@ -91,7 +91,7 @@ namespace PersistentKv
                         bucket_id TEXT NOT NULL,
                         key TEXT NOT NULL,
                         value BLOB NOT NULL,
-                        version INTEGER DEFAULT 0,
+                        version INTEGER DEFAULT 1,
                         created_at INTEGER DEFAULT (strftime('%s', 'now')),
                         updated_at INTEGER DEFAULT (strftime('%s', 'now')),
                         PRIMARY KEY (bucket_id, key),

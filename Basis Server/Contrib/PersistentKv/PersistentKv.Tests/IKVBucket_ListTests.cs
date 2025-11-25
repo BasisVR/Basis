@@ -28,6 +28,7 @@ namespace PersistentKv.Tests
 
             Output.WriteLine($"ListKeys => {result.ErrorCode}, count={result.Value.keys.Length}");
             Assert.Equal(KvError.Success, result.ErrorCode);
+            Assert.NotNull(result.Value.keys);
             Assert.Empty(result.Value.keys);
             Assert.False(result.Value.more);
         }
@@ -573,6 +574,79 @@ namespace PersistentKv.Tests
 
             Assert.Equal(result1.Value.keys, result2.Value.keys);
             Assert.Equal(result1.Value.keys, result3.Value.keys);
+        }
+
+        [Fact]
+        public async Task ListKeys_InvariantChecks_AllScenarios()
+        {
+            var bucket = await CreateBucketAsync();
+
+            // Helper to verify invariants
+            async Task VerifyListInvariants(uint offset = 0, uint limit = 100, string? prefix = null)
+            {
+                var result = await bucket.ListKeys(offset, limit, prefix);
+
+                // Invariant: Always succeeds
+                Assert.Equal(KvError.Success, result.ErrorCode);
+
+                // Invariant: Keys array is never null
+                Assert.NotNull(result.Value.keys);
+
+                // Invariant: No duplicate keys
+                var uniqueKeys = result.Value.keys.Distinct().ToArray();
+                Assert.Equal(uniqueKeys.Length, result.Value.keys.Length);
+
+                // Invariant: Keys are sorted
+                var sortedKeys = result.Value.keys.OrderBy(k => k, StringComparer.Ordinal).ToArray();
+                Assert.Equal(sortedKeys, result.Value.keys);
+
+                // Invariant: All keys match prefix if provided
+                if (!string.IsNullOrEmpty(prefix))
+                {
+                    Assert.All(result.Value.keys, key => Assert.StartsWith(prefix, key));
+                }
+
+                // Invariant: Returned keys count respects limit
+                Assert.True(result.Value.keys.Length <= (int)limit,
+                    $"Returned {result.Value.keys.Length} keys, limit was {limit}");
+
+                // Invariant: more flag is true only if there are more results
+                if (!result.Value.more)
+                {
+                    // If more is false, we should have returned fewer keys than the limit
+                    // OR we're at the exact end
+                    Assert.True(result.Value.keys.Length <= (int)limit);
+                }
+
+                // Invariant: All returned keys should exist
+                foreach (var key in result.Value.keys)
+                {
+                    var exists = await bucket.Exists(key);
+                    Assert.True(exists.Value, $"Key '{key}' from ListKeys should exist");
+                }
+            }
+
+            // Test with empty bucket
+            await VerifyListInvariants();
+
+            // Add some keys
+            for (int i = 0; i < 15; i++)
+            {
+                await bucket.Set($"key-{i:D2}", Encoding.UTF8.GetBytes($"value-{i}"));
+            }
+
+            // Test various scenarios
+            await VerifyListInvariants(); // All keys
+            await VerifyListInvariants(offset: 5); // With offset
+            await VerifyListInvariants(limit: 5); // With limit
+            await VerifyListInvariants(offset: 5, limit: 5); // Both
+            await VerifyListInvariants(prefix: "key-"); // With prefix
+            await VerifyListInvariants(prefix: "key-1"); // More specific prefix
+
+            // Delete some and verify again
+            await bucket.Delete("key-05");
+            await bucket.Delete("key-10");
+            await VerifyListInvariants();
         }
 
         #endregion

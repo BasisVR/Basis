@@ -517,6 +517,52 @@ namespace PersistentKv.Tests
             Assert.Equal(totalBytes, quota.Value.CurrentBytes);
         }
 
+        [Fact]
+        public async Task StateConsistency_KeyInfoMatchesGetSize()
+        {
+            var bucket = await CreateBucketAsync();
+
+            for (int i = 0; i < 10; i++)
+            {
+                var key = $"size-check-{i}";
+                var value = new byte[50 * (i + 1)];
+
+                await bucket.Set(key, value);
+
+                var getResult = await bucket.Get(key);
+                var infoResult = await bucket.KeyInfo(key);
+
+                Assert.Equal(KvError.Success, getResult.ErrorCode);
+                Assert.Equal(KvError.Success, infoResult.ErrorCode);
+                Assert.Equal((ulong)getResult.Value.Length, infoResult.Value.valueSize);
+            }
+        }
+
+        [Fact]
+        public async Task StateConsistency_KeyInfoVersionTracksUpdates()
+        {
+            var bucket = await CreateBucketAsync();
+            var key = "version-tracking";
+
+            var previousVersion = 0UL;
+
+            for (int i = 0; i < 10; i++)
+            {
+                await bucket.Set(key, Encoding.UTF8.GetBytes($"value-{i}"));
+
+                var info = await bucket.KeyInfo(key);
+                Assert.Equal(KvError.Success, info.ErrorCode);
+
+                if (i > 0)
+                {
+                    Assert.True(info.Value.version > previousVersion,
+                        $"Version should increment: previous={previousVersion}, current={info.Value.version}");
+                }
+
+                previousVersion = info.Value.version;
+            }
+        }
+
         #endregion
 
         #region Complex Scenario Tests
