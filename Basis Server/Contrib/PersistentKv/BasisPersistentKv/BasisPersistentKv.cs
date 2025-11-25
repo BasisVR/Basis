@@ -24,60 +24,60 @@ namespace BasisPersistentKv
         /// <summary>
         /// Get the value for key.
         /// </summary>
-        /// <param name="key">key to retrieve</param>
+        /// <param name="key">key</param>
         /// <returns>value of the key or an error</returns>
         Task<KvResult<Memory<byte>>> Get(string key);
         /// <summary>
         /// Delete the key and value pair.
         /// </summary>
         /// <param name="key">key</param>
-        /// <returns>bool: key was found and deleted, otherwise error</returns>
+        /// <returns>bool: key successfully deleted, otherwise error</returns>
         Task<KvResult<bool>> Delete(string key);
         /// <summary>
         /// Check if the key exists.
         /// </summary>
-        /// <param name="key"></param>
+        /// <param name="key">key</param>
         /// <returns>bool: key exists, otherwise error</returns>
         Task<KvResult<bool>> Exists(string key);
         /// <summary>
-        /// 
+        /// Get the info for a key.
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
+        /// <param name="key">key</param>
+        /// <returns>information about the key, otherwise error</returns>
         Task<KvResult<KvInfo>> KeyInfo(string key);
         /// <summary>
-        /// 
+        /// List keys in the bucket.
         /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="limit"></param>
-        /// <param name="prefix"></param>
-        /// <returns>(keys, remaining)</returns>
+        /// <param name="offset">offset to start listing keys from</param>
+        /// <param name="limit">maximum number of keys to list</param>
+        /// <param name="prefix">prefix to filter keys</param>
+        /// <returns>(found keys, more keys to list), otherwise error</returns>
         Task<KvResult<(string[] keys, bool more)>> ListKeys(uint offset = 0, uint limit = 10, string? prefix = null);
         /// <summary>
-        /// 
+        /// Get quota (limits and usage) of this bucket.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>quota information, otherwise error</returns>
         Task<KvResult<QuotaInfo>> GetQuota();
     }
 
-    public interface IKVManager : IAsyncDisposable
-    {
-        // Bucket lifecycle
-        Task<KvResult<Unit>> CreateBucket(string bucket_id);
-        Task<KvResult<bool>> DeleteBucket(string bucket_id, bool remove_keys = true);
-        Task<KvResult<BucketInfo>> GetBucket(string bucket_id);
-        Task<KvResult<BucketMeta>> GetBucketMeta(string bucket_id);
+    // public interface IKVManager : IAsyncDisposable
+    // {
+    //     // Bucket lifecycle
+    //     Task<KvResult<Unit>> CreateBucket(string bucket_id);
+    //     Task<KvResult<bool>> DeleteBucket(string bucket_id, bool remove_keys = true);
+    //     Task<KvResult<BucketInfo>> GetBucket(string bucket_id);
+    //     Task<KvResult<BucketMeta>> GetBucketMeta(string bucket_id);
 
-        Task<KvResult<string[]>> ListBuckets(
-            uint offset = 0,
-            uint limit = 50,
-            string? prefix = null
-        );
+    //     Task<KvResult<string[]>> ListBuckets(
+    //         uint offset = 0,
+    //         uint limit = 50,
+    //         string? prefix = null
+    //     );
 
-        // Quotas
-        Task<KvResult<bool>> SetBucketQuotaUsage(string bucket_id, QuotaKind kind, long currentValue);
-        Task<KvResult<bool>> SetBucketQuotaMax(string bucket_id, QuotaKind kind, long maxValue);
-    }
+    //     // Quotas
+    //     Task<KvResult<bool>> SetBucketQuotaUsage(string bucket_id, QuotaKind kind, long currentValue);
+    //     Task<KvResult<bool>> SetBucketQuotaMax(string bucket_id, QuotaKind kind, long maxValue);
+    // }
 
     public readonly struct BucketMeta
     {
@@ -524,7 +524,7 @@ namespace BasisPersistentKv
             }
 
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
-            if (keyByteCount == 0 || keyByteCount > 256)
+            if (keyByteCount > 256)
             {
                 return KvResult<Unit>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
             }
@@ -618,7 +618,7 @@ namespace BasisPersistentKv
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
             {
-                return KvResult<bool>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+                return KvResult<bool>.Fail(KvError.ValidationKeySize, "Key is empty or exceeds maximum size of 256 bytes");
             }
 
             lock (_connectionUseLock)
@@ -688,7 +688,7 @@ namespace BasisPersistentKv
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
             {
-                return KvResult<Memory<byte>>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+                return KvResult<Memory<byte>>.Fail(KvError.ValidationKeySize, "Key is empty or exceeds maximum size of 256 bytes");
             }
 
             lock (_connectionUseLock)
@@ -770,7 +770,7 @@ namespace BasisPersistentKv
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
             {
-                return KvResult<KvInfo>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+                return KvResult<KvInfo>.Fail(KvError.ValidationKeySize, "Key is empty or exceeds maximum size of 256 bytes");
             }
 
             lock (_connectionUseLock)
@@ -857,7 +857,7 @@ namespace BasisPersistentKv
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
             {
-                return KvResult<bool>.Fail(KvError.ValidationKeySize, "Key exceeds maximum size of 256 bytes");
+                return KvResult<bool>.Fail(KvError.ValidationKeySize, "Key is empty or exceeds maximum size of 256 bytes");
             }
 
             lock (_connectionUseLock)
@@ -936,6 +936,12 @@ namespace BasisPersistentKv
             uint limit,
             string? prefix)
         {
+            var keyByteCount = Encoding.UTF8.GetByteCount(prefix ?? "");
+            if (keyByteCount > 256)
+            {
+                return KvResult<(string[] keys, bool more)>.Fail(KvError.ValidationKeySize, "Key prefix exceeds maximum key size of 256 bytes");
+            }
+
             lock (_connectionUseLock)
             {
                 try
@@ -1387,20 +1393,22 @@ namespace BasisPersistentKv
             var kvError = ex.SqliteErrorCode switch
             {
                 0 => KvError.Success,
-                19 => KvError.DatabaseUnknownConstraint, // temp error
+                19 => KvError.DatabaseUnknownConstraint, // temp constraint error
                 > 0 and < 26 => KvError.DatabaseGenericError, // flatten sqlite errors
                 _ => KvError.Unknown,
             };
 
-            // Refine constraint errors based on message content
+            // Convert to specific error based on error message
             if (kvError == KvError.DatabaseUnknownConstraint)
             {
                 return Fail(FromSqlMessage(message), ex.Message);
             }
+            // Dont know specific error, was from database, return generic error
             else if (kvError == KvError.DatabaseGenericError)
             {
                 return Fail(kvError, ex.Message);
             }
+            // Dont know what errored at all
             else return Fail(kvError, ex.Message);
         }
 

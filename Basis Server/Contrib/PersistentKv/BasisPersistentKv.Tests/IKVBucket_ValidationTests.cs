@@ -491,9 +491,8 @@ namespace BasisPersistentKv.Tests
             var longPrefix = new string('p', 300);
             var result = await bucket.ListKeys(prefix: longPrefix);
 
-            // Should return empty results, not error
-            Assert.Equal(KvError.Success, result.ErrorCode);
-            Assert.Empty(result.Value.keys);
+            // Should return validation error
+            Assert.Equal(KvError.ValidationKeySize, result.ErrorCode);
         }
 
         #endregion
