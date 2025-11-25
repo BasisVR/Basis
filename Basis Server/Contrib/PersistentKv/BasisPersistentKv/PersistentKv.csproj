@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-	<!--Language Settings-->
 	<PropertyGroup>
 		<TargetFrameworks>netstandard2.1;net9.0</TargetFrameworks>
 		<LangVersion>9.0</LangVersion>
@@ -7,14 +6,10 @@
 		<WarningsAsErrors>Nullable</WarningsAsErrors>
 	</PropertyGroup>
 
-	<!--Ignore Subproject dirs-->
 	<PropertyGroup>
 		<DefaultItemExcludes>$(DefaultItemExcludes);Tests\**</DefaultItemExcludes>
 	</PropertyGroup>
 
-	<!--Third-party dependencies-->
-	<ItemGroup>
-	</ItemGroup>
 	<ItemGroup>
 	  <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
 	</ItemGroup>
