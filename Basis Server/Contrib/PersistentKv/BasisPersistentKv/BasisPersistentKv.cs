@@ -79,33 +79,33 @@ namespace BasisPersistentKv
     //     Task<KvResult<bool>> SetBucketQuotaMax(string bucket_id, QuotaKind kind, long maxValue);
     // }
 
-    public readonly struct BucketMeta
-    {
-        public readonly bool KeyLimitGaurd;
-        public readonly bool ByteLimitGaurd;
-        public readonly int CurrentKeys;
-        public readonly int MaxKeys;
-        public readonly long CurrentBytes;
-        public readonly long MaxBytes;
+    // public readonly struct BucketMeta
+    // {
+    //     public readonly bool KeyLimitGaurd;
+    //     public readonly bool ByteLimitGaurd;
+    //     public readonly int CurrentKeys;
+    //     public readonly int MaxKeys;
+    //     public readonly long CurrentBytes;
+    //     public readonly long MaxBytes;
 
-        public readonly long TotalOps;
-        public readonly long TotalReads;
-        public readonly long TotalWrites;
-        public readonly long TotalDeletes;
-        public readonly long LastOpAt;
-    }
+    //     public readonly long TotalOps;
+    //     public readonly long TotalReads;
+    //     public readonly long TotalWrites;
+    //     public readonly long TotalDeletes;
+    //     public readonly long LastOpAt;
+    // }
 
-    public struct BucketInfo
-    {
-        public bool Exists;
-        public ulong CreationTime;
-    }
+    // public struct BucketInfo
+    // {
+    //     public bool Exists;
+    //     public ulong CreationTime;
+    // }
 
-    public enum QuotaKind
-    {
-        Keys,
-        Bytes,
-    }
+    // public enum QuotaKind
+    // {
+    //     Keys,
+    //     Bytes,
+    // }
 
     public class BucketKVStore : IKVBucket
     {
@@ -581,20 +581,7 @@ namespace BasisPersistentKv
                         return KvResult<Unit>.Fail(KvError.KeyAlreadyExists, "Key already exists");
                     }
 
-                    if (EnableStatsTracking)
-                    {
-                        using var updateCmd = connection.CreateCommand();
-                        updateCmd.Transaction = transaction;
-                        updateCmd.CommandText = @"
-                                UPDATE bucket_meta
-                                SET total_operations = total_operations + 1,
-                                    total_writes      = total_writes    + 1,
-                                    last_operation_at = strftime('%s','now')
-                                WHERE bucket_id = $bucketId;
-                            ";
-                        updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                        updateCmd.ExecuteNonQuery();
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Write);
 
                     transaction.Commit();
                     return KvResult<Unit>.Ok(new Unit());
@@ -648,22 +635,7 @@ namespace BasisPersistentKv
                     int rowsAffected = cmd.ExecuteNonQuery();
                     deleted = rowsAffected > 0;
 
-                    if (EnableStatsTracking)
-                    {
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.Transaction = transaction;
-                            updateCmd.CommandText = @"
-                                    UPDATE bucket_meta
-                                    SET total_operations = total_operations + 1,
-                                        total_deletes    = total_deletes    + 1,
-                                        last_operation_at = strftime('%s','now')
-                                    WHERE bucket_id = $bucketId;
-                                ";
-                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                            updateCmd.ExecuteNonQuery();
-                        }
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Delete);
 
                     transaction.Commit();
                     return KvResult<bool>.Ok(deleted);
@@ -725,22 +697,7 @@ namespace BasisPersistentKv
                         }
                     }
 
-                    if (EnableStatsTracking)
-                    {
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.Transaction = transaction;
-                            updateCmd.CommandText = @"
-                                    UPDATE bucket_meta
-                                    SET total_operations = total_operations + 1,
-                                        total_reads      = total_reads      + 1,
-                                        last_operation_at = strftime('%s','now')
-                                    WHERE bucket_id = $bucketId;
-                                ";
-                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                            updateCmd.ExecuteNonQuery();
-                        }
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Read);
 
                     var result = value != null
                         ? KvResult<Memory<byte>>.Ok(value)
@@ -810,22 +767,7 @@ namespace BasisPersistentKv
                         }
                     }
 
-                    if (EnableStatsTracking)
-                    {
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.Transaction = transaction;
-                            updateCmd.CommandText = @"
-                                    UPDATE bucket_meta
-                                    SET total_operations = total_operations + 1,
-                                        total_reads      = total_reads      + 1,
-                                        last_operation_at = strftime('%s','now')
-                                    WHERE bucket_id = $bucketId;
-                                ";
-                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                            updateCmd.ExecuteNonQuery();
-                        }
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Read);
 
                     if (info == null)
                     {
@@ -890,22 +832,7 @@ namespace BasisPersistentKv
                         value = (long)(scalar ?? 0) == 1;
                     }
 
-                    if (EnableStatsTracking)
-                    {
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.Transaction = transaction;
-                            updateCmd.CommandText = @"
-                                    UPDATE bucket_meta
-                                    SET total_operations = total_operations + 1,
-                                        total_reads      = total_reads      + 1,
-                                        last_operation_at = strftime('%s','now')
-                                    WHERE bucket_id = $bucketId;
-                                ";
-                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                            updateCmd.ExecuteNonQuery();
-                        }
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Read);
 
                     transaction.Commit();
 
@@ -1011,39 +938,87 @@ namespace BasisPersistentKv
                         keys.RemoveAt(keys.Count - 1);
                     }
 
-                    if (EnableStatsTracking)
-                    {
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.Transaction = transaction;
-                            updateCmd.CommandText = @"
-                                    INSERT OR IGNORE INTO bucket_meta (bucket_id)
-                                    VALUES ($bucketId);
-
-                                    UPDATE bucket_meta
-                                    SET total_operations = total_operations + 1,
-                                        total_reads      = total_reads      + 1,
-                                        last_operation_at = strftime('%s','now')
-                                    WHERE bucket_id = $bucketId;
-                                ";
-                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                            updateCmd.ExecuteNonQuery();
-                        }
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Read, ensureBucketMeta: true);
 
                     transaction.Commit();
 
                     return KvResult<(string[], bool)>.Ok((keys.ToArray(), more));
-                }
-                catch (SqliteException ex)
-                {
-                    return KvResult<(string[], bool)>.FromSqlException(ex);
-                }
+        }
+        catch (SqliteException ex)
+        {
+            return KvResult<(string[], bool)>.FromSqlException(ex);
+        }
                 catch
                 {
                     return KvResult<(string[], bool)>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
+        }
+    }
+
+        private static void TrackBucketStats(
+            SqliteConnection connection,
+            SqliteTransaction transaction,
+            string bucketId,
+            BucketStatType statType,
+            bool ensureBucketMeta = false)
+        {
+            if (!EnableStatsTracking)
+            {
+                return;
             }
+
+            using var updateCmd = connection.CreateCommand();
+            updateCmd.Transaction = transaction;
+
+            var updateSql = statType switch
+            {
+                BucketStatType.Read => ReadStatsUpdateSql,
+                BucketStatType.Write => WriteStatsUpdateSql,
+                BucketStatType.Delete => DeleteStatsUpdateSql,
+                _ => throw new ArgumentOutOfRangeException(nameof(statType)),
+            };
+
+            var prefix = ensureBucketMeta ? InsertBucketMetaSql : string.Empty;
+            updateCmd.CommandText = prefix + updateSql;
+            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
+            updateCmd.ExecuteNonQuery();
+        }
+
+        private const string InsertBucketMetaSql = @"
+                    INSERT OR IGNORE INTO bucket_meta (bucket_id)
+                    VALUES ($bucketId);
+
+                    ";
+
+        private const string ReadStatsUpdateSql = @"
+                    UPDATE bucket_meta
+                    SET total_operations = total_operations + 1,
+                        total_reads      = total_reads      + 1,
+                        last_operation_at = strftime('%s','now')
+                    WHERE bucket_id = $bucketId;
+                ";
+
+        private const string WriteStatsUpdateSql = @"
+                    UPDATE bucket_meta
+                    SET total_operations = total_operations + 1,
+                        total_writes      = total_writes    + 1,
+                        last_operation_at = strftime('%s','now')
+                    WHERE bucket_id = $bucketId;
+                ";
+
+        private const string DeleteStatsUpdateSql = @"
+                    UPDATE bucket_meta
+                    SET total_operations = total_operations + 1,
+                        total_deletes    = total_deletes    + 1,
+                        last_operation_at = strftime('%s','now')
+                    WHERE bucket_id = $bucketId;
+                ";
+
+        private enum BucketStatType
+        {
+            Read,
+            Write,
+            Delete,
         }
 
         private static string BuildLikePattern(string prefix)
@@ -1104,25 +1079,7 @@ namespace BasisPersistentKv
                         }
                     }
 
-                    if (EnableStatsTracking)
-                    {
-                        using (var updateCmd = connection.CreateCommand())
-                        {
-                            updateCmd.Transaction = transaction;
-                            updateCmd.CommandText = @"
-                                    INSERT OR IGNORE INTO bucket_meta (bucket_id)
-                                    VALUES ($bucketId);
-
-                                    UPDATE bucket_meta
-                                    SET total_operations = total_operations + 1,
-                                        total_reads      = total_reads      + 1,
-                                        last_operation_at = strftime('%s','now')
-                                        WHERE bucket_id = $bucketId;
-                                ";
-                            updateCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                            updateCmd.ExecuteNonQuery();
-                        }
-                    }
+                    TrackBucketStats(connection, transaction, bucketId, BucketStatType.Read, ensureBucketMeta: true);
 
                     transaction.Commit();
 
