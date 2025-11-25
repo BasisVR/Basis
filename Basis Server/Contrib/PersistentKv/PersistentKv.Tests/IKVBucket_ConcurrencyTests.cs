@@ -3,19 +3,17 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using BasisPersistentKv;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace BasisPersistentKv.Tests
+namespace PersistentKv.Tests
 {
     /// <summary>
     /// Tests for concurrent operations and edge cases on IKVBucket interface.
     /// Verifies thread safety, race conditions, and complex scenarios.
     /// </summary>
-    public class IKVBucket_ConcurrencyTests : KvBucketTestBase
+    public class IKVBucket_ConcurrencyTests : BasisKvBucketTestBase
     {
         public IKVBucket_ConcurrencyTests(ITestOutputHelper output) : base(output)
         {
@@ -549,6 +547,15 @@ namespace BasisPersistentKv.Tests
             foreach (var key in list.Value.keys)
             {
                 var exists = await bucket.Exists(key);
+                if (!exists.Value)
+                {
+                    Output.WriteLine($"Key '{key}' from ListKeys does not exist!");
+                    Output.WriteLine($"All keys from ListKeys: {string.Join(", ", list.Value.keys)}");
+
+                    // Check if the key actually exists by trying to get it
+                    var getResult = await bucket.Get(key);
+                    Output.WriteLine($"Get result for '{key}': ErrorCode={getResult.ErrorCode}");
+                }
                 Assert.True(exists.Value);
             }
         }

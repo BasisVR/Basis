@@ -1,17 +1,16 @@
 using System;
 using System.Text;
 using System.Threading.Tasks;
-using BasisPersistentKv;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace BasisPersistentKv.Tests
+namespace PersistentKv.Tests
 {
     /// <summary>
     /// Tests for quota tracking and enforcement on IKVBucket interface.
     /// Verifies that quotas are accurately tracked and enforced consistently.
     /// </summary>
-    public class IKVBucket_QuotaTests : KvBucketTestBase
+    public class IKVBucket_QuotaTests : BasisKvBucketTestBase
     {
         public IKVBucket_QuotaTests(ITestOutputHelper output) : base(output)
         {

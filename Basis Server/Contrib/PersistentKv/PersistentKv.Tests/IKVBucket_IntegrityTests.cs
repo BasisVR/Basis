@@ -3,17 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using BasisPersistentKv;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace BasisPersistentKv.Tests
+namespace PersistentKv.Tests
 {
     /// <summary>
     /// Tests for data integrity and correctness on IKVBucket interface.
     /// Verifies data is stored and retrieved correctly without corruption.
     /// </summary>
-    public class IKVBucket_IntegrityTests : KvBucketTestBase
+    public class IKVBucket_IntegrityTests : BasisKvBucketTestBase
     {
         public IKVBucket_IntegrityTests(ITestOutputHelper output) : base(output)
         {

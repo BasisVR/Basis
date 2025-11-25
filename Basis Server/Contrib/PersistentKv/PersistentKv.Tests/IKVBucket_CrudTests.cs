@@ -1,18 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
-using BasisPersistentKv;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace BasisPersistentKv.Tests
+namespace PersistentKv.Tests
 {
     /// <summary>
     /// Tests for basic CRUD (Create, Read, Update, Delete) operations on IKVBucket interface.
     /// Tests the contract that any IKVBucket implementation must satisfy.
     /// </summary>
-    public class IKVBucket_CrudTests : KvBucketTestBase
+    public class IKVBucket_CrudTests : BasisKvBucketTestBase
     {
         public IKVBucket_CrudTests(ITestOutputHelper output) : base(output)
         {

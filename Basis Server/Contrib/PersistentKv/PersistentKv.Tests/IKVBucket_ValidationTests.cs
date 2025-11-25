@@ -1,17 +1,16 @@
 using System;
 using System.Text;
 using System.Threading.Tasks;
-using BasisPersistentKv;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace BasisPersistentKv.Tests
+namespace PersistentKv.Tests
 {
     /// <summary>
     /// Tests for validation and error handling on IKVBucket interface.
     /// Tests parameter validation, size limits, and error conditions.
     /// </summary>
-    public class IKVBucket_ValidationTests : KvBucketTestBase
+    public class IKVBucket_ValidationTests : BasisKvBucketTestBase
     {
         public IKVBucket_ValidationTests(ITestOutputHelper output) : base(output)
         {
@@ -334,6 +333,11 @@ namespace BasisPersistentKv.Tests
         public async Task Set_ValueSize_BoundaryTesting()
         {
             var bucket = await CreateBucketAsync();
+
+            // Disable quota guards to test individual value size limits without hitting quota
+            var bucketStore = (BucketKVStore)bucket;
+            await BasisPersistentKv.SetByteSizeGaurd(bucketStore.BucketId, false);
+            await BasisPersistentKv.SetKeyCountGuard(bucketStore.BucketId, false);
 
             // Test various value sizes around the boundary
             var sizes = new[] { 0, 1, 100, 1000, 7998, 7999, 8000, 8001, 8002, 10000 };

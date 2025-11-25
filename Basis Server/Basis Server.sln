@@ -37,11 +37,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Common", "Contrib\Handles\C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BasisNetworkClientConsole", "BasisNetworkClientConsole\BasisNetworkClientConsole\BasisNetworkClientConsole.csproj", "{8A2A6D2C-250D-08A6-D899-F79F03468658}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersistentKv", "Contrib\PersistentKv\PersistentKv\PersistentKv.csproj", "{102E1760-EED6-1AC1-20BE-4878DC991C2E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersistentKv.Tests", "Contrib\PersistentKv\PersistentKv.Tests\PersistentKv.Tests.csproj", "{E487A791-718A-7A40-052A-F010BDF16740}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "PersistentKv", "PersistentKv", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersistentKv", "Contrib\PersistentKv\BasisPersistentKv\PersistentKv.csproj", "{102E1760-EED6-1AC1-20BE-4878DC991C2E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersistentKvTests", "Contrib\PersistentKv\BasisPersistentKv.Tests\PersistentKvTests.csproj", "{E487A791-718A-7A40-052A-F010BDF16740}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -130,9 +130,9 @@ Global
 		{2C19D6AB-5A44-43DF-958D-EA20B0051711} = {26746063-DA31-4124-BD82-035D248DD0EB}
 		{F3A336BB-330D-4C3B-9B75-C36802DC4162} = {2EC38097-9623-48A5-96C6-9778D04DDF5C}
 		{8A2A6D2C-250D-08A6-D899-F79F03468658} = {153BDCB8-6E62-4BB4-A8FD-DD4B6A8FB0AE}
-		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {2EC38097-9623-48A5-96C6-9778D04DDF5C}
 		{102E1760-EED6-1AC1-20BE-4878DC991C2E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{E487A791-718A-7A40-052A-F010BDF16740} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{02EA681E-C7D8-13C7-8484-4AC65E1B71E8} = {2EC38097-9623-48A5-96C6-9778D04DDF5C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {81BA222A-92A3-4089-907D-3CB8EF40BC2D}

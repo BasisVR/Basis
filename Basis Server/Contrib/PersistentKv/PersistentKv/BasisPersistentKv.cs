@@ -5,214 +5,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 
-namespace BasisPersistentKv
+namespace PersistentKv
 {
-    /// <summary>
-    /// Implementers of a KV bucket must reasonably gaurentee values are persisted across restarts and buckets.
-    /// It is recommended that implementers enforce per-bucket quotas and rate limits.
-    /// </summary>
-    public interface IKVBucket
-    {
-        /// <summary>
-        /// Set the value for key. 
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <param name="value">binary value to store</param>
-        /// <param name="create_only">store only if key does not already exist, otherwise error</param>
-        /// <returns></returns>
-        Task<KvResult<Unit>> Set(string key, Memory<byte> value, bool create_only = false);
-        /// <summary>
-        /// Get the value for key.
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <returns>value of the key or an error</returns>
-        Task<KvResult<Memory<byte>>> Get(string key);
-        /// <summary>
-        /// Delete the key and value pair.
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <returns>bool: key successfully deleted, otherwise error</returns>
-        Task<KvResult<bool>> Delete(string key);
-        /// <summary>
-        /// Check if the key exists.
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <returns>bool: key exists, otherwise error</returns>
-        Task<KvResult<bool>> Exists(string key);
-        /// <summary>
-        /// Get the info for a key.
-        /// </summary>
-        /// <param name="key">key</param>
-        /// <returns>information about the key, otherwise error</returns>
-        Task<KvResult<KvInfo>> KeyInfo(string key);
-        /// <summary>
-        /// List keys in the bucket.
-        /// </summary>
-        /// <param name="offset">offset to start listing keys from</param>
-        /// <param name="limit">maximum number of keys to list</param>
-        /// <param name="prefix">prefix to filter keys</param>
-        /// <returns>(found keys, more keys to list), otherwise error</returns>
-        Task<KvResult<(string[] keys, bool more)>> ListKeys(uint offset = 0, uint limit = 10, string? prefix = null);
-        /// <summary>
-        /// Get quota (limits and usage) of this bucket.
-        /// </summary>
-        /// <returns>quota information, otherwise error</returns>
-        Task<KvResult<QuotaInfo>> GetQuota();
-    }
-
-    // public interface IKVManager : IAsyncDisposable
-    // {
-    //     // Bucket lifecycle
-    //     Task<KvResult<Unit>> CreateBucket(string bucket_id);
-    //     Task<KvResult<bool>> DeleteBucket(string bucket_id, bool remove_keys = true);
-    //     Task<KvResult<BucketInfo>> GetBucket(string bucket_id);
-    //     Task<KvResult<BucketMeta>> GetBucketMeta(string bucket_id);
-
-    //     Task<KvResult<string[]>> ListBuckets(
-    //         uint offset = 0,
-    //         uint limit = 50,
-    //         string? prefix = null
-    //     );
-
-    //     // Quotas
-    //     Task<KvResult<bool>> SetBucketQuotaUsage(string bucket_id, QuotaKind kind, long currentValue);
-    //     Task<KvResult<bool>> SetBucketQuotaMax(string bucket_id, QuotaKind kind, long maxValue);
-    // }
-
-    // public readonly struct BucketMeta
-    // {
-    //     public readonly bool KeyLimitGaurd;
-    //     public readonly bool ByteLimitGaurd;
-    //     public readonly int CurrentKeys;
-    //     public readonly int MaxKeys;
-    //     public readonly long CurrentBytes;
-    //     public readonly long MaxBytes;
-
-    //     public readonly long TotalOps;
-    //     public readonly long TotalReads;
-    //     public readonly long TotalWrites;
-    //     public readonly long TotalDeletes;
-    //     public readonly long LastOpAt;
-    // }
-
-    // public struct BucketInfo
-    // {
-    //     public bool Exists;
-    //     public ulong CreationTime;
-    // }
-
-    // public enum QuotaKind
-    // {
-    //     Keys,
-    //     Bytes,
-    // }
-
-    public class BucketKVStore : IKVBucket
-    {
-        private readonly string _bucketId;
-
-        public BucketKVStore(string bucketId)
-        {
-            _bucketId = bucketId;
-        }
-
-        public Task<KvResult<Unit>> Set(string key, Memory<byte> value, bool create_only = false)
-        {
-            // ToArray kinda kills the point of Memory. hopefully a different backed will make use of it.
-            return BasisPersistientKVDatabase.SetKeyAsync(_bucketId, key, value.ToArray(), create_only);
-        }
-        public Task<KvResult<Memory<byte>>> Get(string key)
-        {
-            return BasisPersistientKVDatabase.GetKeyAsync(_bucketId, key);
-        }
-
-        public Task<KvResult<bool>> Delete(string key)
-        {
-            return BasisPersistientKVDatabase.DeleteKeyAsync(_bucketId, key);
-        }
-        public Task<KvResult<bool>> Exists(string key)
-        {
-            return BasisPersistientKVDatabase.KeyExistsAsync(_bucketId, key);
-        }
-
-        public Task<KvResult<(string[] keys, bool more)>> ListKeys(uint offset = 0, uint limit = 10, string? prefix = null)
-        {
-            return BasisPersistientKVDatabase.ListKeysAsync(_bucketId, offset, limit, prefix);
-        }
-        public Task<KvResult<KvInfo>> KeyInfo(string key)
-        {
-            return BasisPersistientKVDatabase.GetKeyInfoAsync(_bucketId, key);
-        }
-
-        public Task<KvResult<QuotaInfo>> GetQuota()
-        {
-            return BasisPersistientKVDatabase.GetQuotaAsync(_bucketId);
-        }
-    }
-
-    public struct QuotaInfo
-    {
-        public int CurrentKeys;
-        public int MaxKeys;
-        public long CurrentBytes;
-        public long MaxBytes;
-    }
-
-    public struct KvInfo
-    {
-        public ulong creation;
-        public ulong lastUpdate;
-        public ulong version;
-        public ulong valueSize;
-    }
-
-    public enum KvError : ushort
-    {
-        Success = 0,
-        // Unknown (fallback)
-        Unknown = 1,
-
-        // Bucket errors (1000-1999)
-        BucketNotFound = 1000,
-        BucketImmutable = 1002,
-        BucketIdSize = 1003,
-        BucketListLengthInvalid = 1101,
-        BucketListOffsetInvalid = 1102,
-        KeyNotFound = 1201,
-        KeyAlreadyExists = 1202,
-
-        // Validation errors (2000-2999)
-        ValidationKeySize = 2000,
-        ValidationValueNull = 2010,
-        ValidationValueSize = 2011,
-        ValidationBucketIdSize = 2020,
-        ValidationLimitInvalid = 2021,
-
-        // Quotas (3000-3999)
-        QuotaKeys = 3000,
-        QuotaBytes = 3001,
-        QuotaKeySize = 3002,
-        QuotaValueSize = 3003,
-
-        // Rate limits (4000-4999)
-        RateWriteMinute = 4000,
-        RateWriteHour = 4001,
-        RateReadMinute = 4002,
-        RateReadHour = 4003,
-
-        // Database Errors (6000 - 6999)
-        DatabaseGenericError = 6001,
-        DatabaseUnknownConstraint = 6002,
-
-        // Server Error
-        ServerInvalidParameter = 7001,
-    }
 
     /// <summary>
-    /// - No limits are enforced for now.
-    /// - kv pairs need to be manually removed, deleting a bucket will not delete kv.
+    /// - No limits are enforced for now (schema defaults guards to FALSE).
+    /// - kv pairs need to be manually removed, deleting a bucket will not delete entries.
+    /// - Management API needs an interface, therefore internal for now.
     /// </summary>
-    public static class BasisPersistientKVDatabase
+    public static class BasisPersistentKv
     {
         private static string _connectionString;
         private static string[] _pragmas;
@@ -222,7 +23,7 @@ namespace BasisPersistentKv
         private static bool _initialized = false;
         public static bool EnableStatsTracking { get; set; } = true;
 
-        static BasisPersistientKVDatabase()
+        static BasisPersistentKv()
         {
             _connectionString = new SqliteConnectionStringBuilder
             {
@@ -318,8 +119,8 @@ namespace BasisPersistentKv
                     -- Bucket meta. Quotas and usage stats.
                     CREATE TABLE IF NOT EXISTS bucket_meta (
                         bucket_id TEXT PRIMARY KEY,
-                        key_limit_guard INTEGER DEFAULT FALSE,
-                        byte_limit_guard INTEGER DEFAULT FALSE,
+                        key_limit_guard INTEGER DEFAULT TRUE,
+                        byte_limit_guard INTEGER DEFAULT TRUE,
                         current_keys INTEGER DEFAULT 0,
                         current_bytes INTEGER DEFAULT 0,
                         -- 1k keys 
@@ -398,9 +199,9 @@ namespace BasisPersistentKv
                                   AND (
                                       -- Calculate projected bytes after this operation
                                       current_bytes
-                                      - (SELECT COALESCE(SUM(length(CAST(key AS BLOB)) + length(CAST(value AS BLOB))), 0)
+                                      - COALESCE((SELECT SUM(length(CAST(key AS BLOB)) + length(CAST(value AS BLOB)))
                                          FROM bucket_kv
-                                         WHERE bucket_id = NEW.bucket_id AND key = NEW.key)
+                                         WHERE bucket_id = NEW.bucket_id AND key = NEW.key), 0)
                                       + length(CAST(NEW.key AS BLOB)) + length(CAST(NEW.value AS BLOB))
                                   ) > max_bytes
                             )
@@ -444,12 +245,12 @@ namespace BasisPersistentKv
                     BEFORE UPDATE ON bucket_kv
                     FOR EACH ROW
                     BEGIN
-                    
+
                         -- Check storage limit ONLY if guard is enabled (including key size!)
                         SELECT CASE
                             WHEN (
-                                SELECT byte_limit_guard = TRUE 
-                                       AND current_bytes 
+                                SELECT byte_limit_guard = TRUE
+                                       AND current_bytes
                                            - length(CAST(OLD.key AS BLOB)) - length(CAST(OLD.value AS BLOB))
                                            + length(CAST(NEW.key AS BLOB)) + length(CAST(NEW.value AS BLOB))
                                            > max_bytes
@@ -479,7 +280,7 @@ namespace BasisPersistentKv
                         WHERE bucket_id = NEW.bucket_id;
                     END;
                 
-                    -- !! Bucket deletion causes cascade deletes across database, be careful with delete triggers. !!
+                    -- !! Bucket deletion causes cascade deletes, be careful with delete triggers. !!
                     -- bucket_kv does NOT use cascade so its fine.
 
                     -- Update quota and stats AFTER delete.
@@ -513,10 +314,10 @@ namespace BasisPersistentKv
             }
         }
 
-        public static Task<KvResult<Unit>> SetKeyAsync(string bucketId, string key, byte[] value, bool createOnly = false) =>
+        internal static Task<KvResult<Unit>> SetKeyAsync(string bucketId, string key, byte[] value, bool createOnly = false) =>
             Task.FromResult(SetKeySync(bucketId, key, value, createOnly));
 
-        public static KvResult<Unit> SetKeySync(string bucketId, string key, byte[] value, bool createOnly)
+        internal static KvResult<Unit> SetKeySync(string bucketId, string key, byte[] value, bool createOnly)
         {
             if (string.IsNullOrEmpty(key))
             {
@@ -565,6 +366,7 @@ namespace BasisPersistentKv
                                 VALUES ($bucketId, $key, $value)
                                 ON CONFLICT (bucket_id, key) DO UPDATE
                                 SET value = excluded.value,
+                                    version = version + 1,
                                     updated_at = strftime('%s', 'now')
                             ";
                     }
@@ -597,10 +399,10 @@ namespace BasisPersistentKv
                 }
             }
         }
-        public static Task<KvResult<bool>> DeleteKeyAsync(string bucketId, string key) =>
+        internal static Task<KvResult<bool>> DeleteKeyAsync(string bucketId, string key) =>
             Task.FromResult(DeleteKeySync(bucketId, key));
 
-        public static KvResult<bool> DeleteKeySync(string bucketId, string key)
+        internal static KvResult<bool> DeleteKeySync(string bucketId, string key)
         {
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
@@ -652,10 +454,10 @@ namespace BasisPersistentKv
             }
         }
 
-        public static Task<KvResult<Memory<byte>>> GetKeyAsync(string bucketId, string key) =>
+        internal static Task<KvResult<Memory<byte>>> GetKeyAsync(string bucketId, string key) =>
             Task.FromResult(GetKeySync(bucketId, key));
 
-        public static KvResult<Memory<byte>> GetKeySync(string bucketId, string key)
+        internal static KvResult<Memory<byte>> GetKeySync(string bucketId, string key)
         {
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
@@ -719,10 +521,10 @@ namespace BasisPersistentKv
         }
 
 
-        public static Task<KvResult<KvInfo>> GetKeyInfoAsync(string bucketId, string key) =>
+        internal static Task<KvResult<KvInfo>> GetKeyInfoAsync(string bucketId, string key) =>
             Task.FromResult(GetKeyInfoSync(bucketId, key));
 
-        public static KvResult<KvInfo> GetKeyInfoSync(string bucketId, string key)
+        internal static KvResult<KvInfo> GetKeyInfoSync(string bucketId, string key)
         {
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
@@ -791,10 +593,10 @@ namespace BasisPersistentKv
         }
 
 
-        public static Task<KvResult<bool>> KeyExistsAsync(string bucketId, string key) =>
+        internal static Task<KvResult<bool>> KeyExistsAsync(string bucketId, string key) =>
             Task.FromResult(KeyExistsSync(bucketId, key));
 
-        public static KvResult<bool> KeyExistsSync(string bucketId, string key)
+        internal static KvResult<bool> KeyExistsSync(string bucketId, string key)
         {
             var keyByteCount = Encoding.UTF8.GetByteCount(key);
             if (keyByteCount == 0 || keyByteCount > 256)
@@ -829,7 +631,7 @@ namespace BasisPersistentKv
                         existCmd.Parameters.AddWithValue("$key", key);
 
                         var scalar = existCmd.ExecuteScalar();
-                        value = (long)(scalar ?? 0) == 1;
+                        value = (long)(scalar ?? 0L) == 1L;
                     }
 
                     TrackBucketStats(connection, transaction, bucketId, BucketStatType.Read);
@@ -850,14 +652,14 @@ namespace BasisPersistentKv
         }
 
 
-        public static Task<KvResult<(string[] keys, bool more)>> ListKeysAsync(
+        internal static Task<KvResult<(string[] keys, bool more)>> ListKeysAsync(
             string bucketId,
             uint offset = 0,
             uint limit = 10,
             string? prefix = null) =>
             Task.FromResult(ListKeysSync(bucketId, offset, limit, prefix));
 
-        public static KvResult<(string[] keys, bool more)> ListKeysSync(
+        internal static KvResult<(string[] keys, bool more)> ListKeysSync(
             string bucketId,
             uint offset,
             uint limit,
@@ -943,17 +745,17 @@ namespace BasisPersistentKv
                     transaction.Commit();
 
                     return KvResult<(string[], bool)>.Ok((keys.ToArray(), more));
-        }
-        catch (SqliteException ex)
-        {
-            return KvResult<(string[], bool)>.FromSqlException(ex);
-        }
+                }
+                catch (SqliteException ex)
+                {
+                    return KvResult<(string[], bool)>.FromSqlException(ex);
+                }
                 catch
                 {
                     return KvResult<(string[], bool)>.Fail(KvError.Unknown, "Unknown Server Error");
                 }
+            }
         }
-    }
 
         private static void TrackBucketStats(
             SqliteConnection connection,
@@ -1021,6 +823,11 @@ namespace BasisPersistentKv
             Delete,
         }
 
+        /// <summary>
+        /// Do a bit of sanitization and escaping to build a LIKE pattern for prefix matching.
+        /// </summary>
+        /// <param name="prefix"></param>
+        /// <returns></returns>
         private static string BuildLikePattern(string prefix)
         {
             var builder = new StringBuilder(prefix.Length + 1);
@@ -1039,10 +846,10 @@ namespace BasisPersistentKv
 
 
 
-        public static Task<KvResult<QuotaInfo>> GetQuotaAsync(string bucketId) =>
+        internal static Task<KvResult<QuotaInfo>> GetQuotaAsync(string bucketId) =>
             Task.FromResult(GetQuotaSync(bucketId));
 
-        public static KvResult<QuotaInfo> GetQuotaSync(string bucketId)
+        internal static KvResult<QuotaInfo> GetQuotaSync(string bucketId)
         {
             lock (_connectionUseLock)
             {
@@ -1101,17 +908,17 @@ namespace BasisPersistentKv
 
         // --- Admin Only API ---
 
-        public static Task<KvResult<Unit>> SetKeyCountGuard(string bucketId, bool enable)
+        internal static Task<KvResult<Unit>> SetKeyCountGuard(string bucketId, bool enable)
         {
             return SetQuotaGuardInternal(bucketId, "key_limit_guard", enable);
         }
 
-        public static Task<KvResult<Unit>> SetByteSizeGaurd(string bucketId, bool enable)
+        internal static Task<KvResult<Unit>> SetByteSizeGaurd(string bucketId, bool enable)
         {
             return SetQuotaGuardInternal(bucketId, "byte_limit_guard", enable);
         }
 
-        public static Task<KvResult<Unit>> SetQuotaGuardInternal(string bucketId, string guardColumnName, bool enable) =>
+        internal static Task<KvResult<Unit>> SetQuotaGuardInternal(string bucketId, string guardColumnName, bool enable) =>
             Task.FromResult(SetQuotaGuardSyncInternal(bucketId, guardColumnName, enable));
 
         private static KvResult<Unit> SetQuotaGuardSyncInternal(string bucketId, string guardColumnName, bool enable)
@@ -1140,7 +947,7 @@ namespace BasisPersistentKv
                                 WHERE bucket_id = $bucketId;
                             ";
                         gaurdCmd.Parameters.AddWithValue("$bucketId", bucketId);
-                        gaurdCmd.Parameters.AddWithValue("$enable", enable);
+                        gaurdCmd.Parameters.AddWithValue("$enable", enable ? 1 : 0);
 
                         gaurdCmd.ExecuteNonQuery();
                     }
@@ -1162,10 +969,10 @@ namespace BasisPersistentKv
 
         // --- Internal API ---
 
-        public static Task<KvResult<Unit>> AddBucketAsync(string bucketId) =>
+        internal static Task<KvResult<Unit>> AddBucketAsync(string bucketId) =>
             Task.FromResult(AddBucketSync(bucketId));
 
-        public static KvResult<Unit> AddBucketSync(string bucketId)
+        internal static KvResult<Unit> AddBucketSync(string bucketId)
         {
             lock (_connectionUseLock)
             {
@@ -1222,10 +1029,10 @@ namespace BasisPersistentKv
         }
 
 
-        public static Task<KvResult<bool>> DeleteBucketAsync(string bucketId, bool removeKeys = true)
+        internal static Task<KvResult<bool>> DeleteBucketAsync(string bucketId, bool removeKeys = true)
             => Task.FromResult(DeleteBucketSync(bucketId, removeKeys));
 
-        public static KvResult<bool> DeleteBucketSync(string bucketId, bool removeKeys)
+        internal static KvResult<bool> DeleteBucketSync(string bucketId, bool removeKeys)
         {
             lock (_connectionUseLock)
             {
@@ -1318,74 +1125,4 @@ namespace BasisPersistentKv
     }
 
 
-    public struct Unit { }
-
-    public struct KvResult<T>
-    {
-        public KvError ErrorCode;
-        public string Message;
-        public T? Value;
-
-        public KvResult(KvError code, string message, T? value)
-        {
-            ErrorCode = code;
-            Message = message;
-            Value = value;
-        }
-
-        public static KvResult<T> Ok(T value)
-        {
-            return new KvResult<T>(KvError.Success, "", value);
-        }
-        public static KvResult<T> Fail(KvError code, string msg)
-        {
-            return new(code, msg, default);
-        }
-
-        public static KvResult<T> FromSqlException(SqliteException ex)
-        {
-            var message = ex.Message;
-
-            // Map SQLite error codes
-            var kvError = ex.SqliteErrorCode switch
-            {
-                0 => KvError.Success,
-                19 => KvError.DatabaseUnknownConstraint, // temp constraint error
-                > 0 and < 26 => KvError.DatabaseGenericError, // flatten sqlite errors
-                _ => KvError.Unknown,
-            };
-
-            // Convert to specific error based on error message
-            if (kvError == KvError.DatabaseUnknownConstraint)
-            {
-                return Fail(FromSqlMessage(message), ex.Message);
-            }
-            // Dont know specific error, was from database, return generic error
-            else if (kvError == KvError.DatabaseGenericError)
-            {
-                return Fail(kvError, ex.Message);
-            }
-            // Dont know what errored at all
-            else return Fail(kvError, ex.Message);
-        }
-
-        private static KvError FromSqlMessage(string message)
-        {
-            // Check custom error codes first (these start with a prefix followed by :)
-            if (message.Contains("U_NOT_FOUND:")) return KvError.BucketNotFound;
-            if (message.Contains("U_IMMUTABLE:")) return KvError.BucketImmutable;
-            if (message.Contains("Q_KEYS:")) return KvError.QuotaKeys;
-            if (message.Contains("Q_BYTES:")) return KvError.QuotaBytes;
-            if (message.Contains("Q_KEY_SIZE:")) return KvError.QuotaKeySize;
-            if (message.Contains("Q_VAL_SIZE:")) return KvError.QuotaValueSize;
-
-            // Fallback to constraint name matching for constraint errors
-            if (message.Contains("value_size")) return KvError.ValidationValueSize;
-            if (message.Contains("bucket_id_size")) return KvError.BucketIdSize;
-            if (message.Contains("key_size")) return KvError.ValidationKeySize;
-
-            return KvError.Unknown;
-        }
-
-    }
 }
