@@ -927,7 +927,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (duration <= 0f)
             {
-                transform.SetPositionAndRotation(_positionAtStart, _rotationAtStart);
+                transform.SetLocalPositionAndRotation(_positionAtStart, _rotationAtStart);
                 transform.localScale = _scaleAtStart;
                 yield break;
             }
@@ -942,7 +942,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     ? customCurve.Evaluate(Mathf.Clamp01(elapsed / duration))
                     : BasisEasing.ApplyEasing(Mathf.Clamp01(elapsed / duration), easing);
 
-                transform.SetPositionAndRotation(
+                transform.SetLocalPositionAndRotation(
                     Vector3.Lerp(startPos, _positionAtStart, easedT),
                     Quaternion.Lerp(startRot, _rotationAtStart, easedT)
                 );
@@ -952,7 +952,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Ensure final position exactly
-            transform.SetPositionAndRotation(_positionAtStart, _rotationAtStart);
+            transform.SetLocalPositionAndRotation(_positionAtStart, _rotationAtStart);
             transform.localScale = _scaleAtStart;
     }
 
