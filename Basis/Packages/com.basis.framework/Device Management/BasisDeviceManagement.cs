@@ -651,7 +651,7 @@ namespace Basis.Scripts.Device_Management
         /// <summary>
         /// Indicates whether the current runtime is a mobile platform (Android).
         /// </summary>
-        public static bool IsMobilehardware() => Application.isMobilePlatform;
+        public static bool IsMobileHardware() => Application.isMobilePlatform;
 
         /// <summary>
         /// Returns <c>true</c> when the current static mode equals <see cref="BasisConstants.Desktop"/>.

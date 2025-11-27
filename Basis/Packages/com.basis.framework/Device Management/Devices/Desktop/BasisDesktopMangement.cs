@@ -10,14 +10,14 @@ using UnityEngine.InputSystem.EnhancedTouch;
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
     /// <summary>
-    /// Provides device management logic for desktop-based usage of the Basis SDK.  
+    /// Provides device management logic for desktop-based usage of the Basis SDK.
     /// Handles initialization and cleanup of eye input simulation when running without XR hardware.
     /// </summary>
     [Serializable]
     public class BasisDesktopManagement : BasisBaseTypeManagement
     {
         /// <summary>
-        /// Reference to the <see cref="BasisAvatarEyeInput"/> component 
+        /// Reference to the <see cref="BasisAvatarEyeInput"/> component
         /// created for simulating desktop eye tracking input.
         /// </summary>
         public BasisDesktopEye BasisAvatarEyeInput;
@@ -30,9 +30,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public bool AlwaysSpawnHeadsUpControls;
         public GameObject Controls;
         /// <summary>
-        /// Starts the Basis SDK for desktop mode.  
+        /// Starts the Basis SDK for desktop mode.
         /// If no <see cref="BasisAvatarEyeInput"/> exists, it creates one and attaches it
-        /// under the <see cref="BasisLocalPlayer"/> object (if present).  
+        /// under the <see cref="BasisLocalPlayer"/> object (if present).
         /// Also locks the cursor for desktop interaction.
         /// </summary>
         public override void StartSDK()
@@ -51,7 +51,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisAvatarEyeInput.Initialize(DesktopEye, nameof(BasisDesktopManagement));
                 BasisDeviceManagement.Instance.TryAdd(BasisAvatarEyeInput);
             }
-            if (BasisDeviceManagement.IsMobilehardware() || AlwaysSpawnHeadsUpControls)
+            if (BasisDeviceManagement.IsMobileHardware() || AlwaysSpawnHeadsUpControls)
             {
                 UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.InstantiateAsync(OnScreenControls, BasisLocalCameraDriver.Instance.transform, true);
                 Controls = op.WaitForCompletion();
@@ -138,7 +138,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         /// <summary>
-        /// Stops the Basis SDK for desktop mode.  
+        /// Stops the Basis SDK for desktop mode.
         /// Removes the desktop eye input device from <see cref="BasisDeviceManagement"/> and destroys its component.
         /// </summary>
         public override void StopSDK()

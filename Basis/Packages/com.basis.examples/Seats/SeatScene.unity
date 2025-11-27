@@ -170,13 +170,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 2.24, y: 0.33, z: 0}
   _foot: {x: -0.3, y: -0.25, z: 0}
   _knee: {x: -0.3, y: 0.33, z: 0}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!65 &366497805
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -365,13 +367,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: -0.16, y: 0.33, z: 0}
   _foot: {x: -0.3, y: -0.25, z: 0}
   _knee: {x: -0.3, y: 0.33, z: 0}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!65 &721748681
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -790,13 +794,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.33, z: 0.24}
   _foot: {x: 0, y: -0.2, z: -0.83}
   _knee: {x: 0, y: 0.33, z: -0.3}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1047396125
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -822,13 +828,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.33, z: 0.24}
   _foot: {x: 0, y: -0.2, z: -0.83}
   _knee: {x: 0, y: 0.33, z: -0.3}
   _spineAngleDegrees: 120
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1047396126
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -854,13 +862,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.33, z: 0.24}
   _foot: {x: 0, y: -0.25, z: -0.3}
   _knee: {x: 0, y: 0.33, z: -0.3}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1047396127
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -886,13 +896,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.33, z: -0.24}
   _foot: {x: 0, y: -0.25, z: 0.3}
   _knee: {x: 0, y: 0.33, z: 0.3}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1047396128
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -918,13 +930,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 2.07, z: -0.96}
   _foot: {x: 0, y: -0.25, z: 1.2}
   _knee: {x: 0, y: 2.07, z: 1.2}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1047396129
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1016,13 +1030,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: -0.105, z: -0.059}
   _foot: {x: 0, y: -0.25, z: 0.0755}
   _knee: {x: 0, y: -0.105, z: 0.0755}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1403212574
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1048,13 +1064,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0.3, y: 0.33, z: 0}
   _foot: {x: -0.3, y: -0.25, z: 0}
   _knee: {x: -0.3, y: 0.33, z: 0}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!1 &1511330576
 GameObject:
   m_ObjectHideFlags: 0
@@ -1133,13 +1151,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.33, z: 0.24}
   _foot: {x: 0, y: -0.25, z: -0.3}
   _knee: {x: 0, y: 0.33, z: -0.3}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!1 &1703945651 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5472706545657883201, guid: 8e9677a9f8cd4c947846603d5ca204e6, type: 3}
@@ -1170,13 +1190,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.32, z: -0.2}
   _foot: {x: 0, y: -0.75, z: -0.14}
   _knee: {x: 0, y: -0.25, z: -0.14}
   _spineAngleDegrees: 175
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!65 &1703945654
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1244,13 +1266,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.33, z: 0.24}
   _foot: {x: 0, y: -0.25, z: -0.3}
   _knee: {x: 0, y: 0.33, z: -0.3}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!114 &1846288222
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1436,13 +1460,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0.105, y: 0.365, z: 0.14}
   _foot: {x: -0.02, y: -0.34, z: -0.2}
   _knee: {x: 0.345, y: 0.1, z: -0.27}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!65 &2030883942
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1489,13 +1515,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0, y: 0.01, z: 2.5}
   _foot: {x: 0, y: -5, z: -0.01}
   _knee: {x: 0, y: 0.01, z: -0.01}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!65 &2061200783
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -1542,13 +1570,15 @@ MonoBehaviour:
     extras: []
   interactableEnabled: 1
   AutoHold: 1
+  InputKey: 0
   InteractRange: 1
   highlightMode: 3
   _back: {x: 0.33, y: 0.24, z: 0}
   _foot: {x: -0.25, y: -0.3, z: 0}
   _knee: {x: 0.33, y: -0.3, z: 0}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!1001 &1977322212309204955
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -13,9 +13,9 @@ using UnityEngine.InputSystem.Users;
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
     /// <summary>
-    /// Handles all local input actions for desktop devices.  
-    /// Provides movement, look, jump, crouch, run, UI, and device switching functionality 
-    /// by wiring up Unity Input System <see cref="InputAction"/> events to the <see cref="BasisLocalPlayer"/> 
+    /// Handles all local input actions for desktop devices.
+    /// Provides movement, look, jump, crouch, run, UI, and device switching functionality
+    /// by wiring up Unity Input System <see cref="InputAction"/> events to the <see cref="BasisLocalPlayer"/>
     /// and <see cref="BasisLocalCharacterDriver"/>.
     /// </summary>
     [DefaultExecutionOrder(15003)]
@@ -106,7 +106,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 }
             }
 
-            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobilehardware())
+            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
 
             }
@@ -121,7 +121,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         {
             BasisLocalCameraDriver.InstanceExists -= SetupCamera;
 
-            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobilehardware())
+            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
 
             }
