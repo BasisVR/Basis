@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.basis.pooltable": "https://github.com/BasisVR/MS-BASISSA-Billiards.git",
     "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#2.1.0",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.addressables": "2.7.4",

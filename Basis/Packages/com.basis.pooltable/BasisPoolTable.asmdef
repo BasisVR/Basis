@@ -1,0 +1,23 @@
+{
+    "name": "BasisPoolTable",
+    "rootNamespace": "",
+    "references": [
+        "GUID:6055be8ebefd69e48b49212b09b47b2f",
+        "GUID:8c9aa0e006f5b5347af5c5470971dfae",
+        "GUID:4fbaa9af51b2f9c408a9dff4518adb81",
+        "GUID:b4ae365a73764ee478adc74cb89832fe",
+        "GUID:75469ad4d38634e559750d17036d5f7c",
+        "GUID:784bec3882b21ab4d8407cc870539fa9",
+        "GUID:1e767a4f07fa50745a4fd591bbbbcddb",
+        "GUID:45c7722710e2a37438daaacbf1cd4ad1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

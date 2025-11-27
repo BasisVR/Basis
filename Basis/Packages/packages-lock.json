@@ -12,12 +12,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.basis.cilbox": {
-      "version": "file:com.basis.cilbox",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.basis.common": {
       "version": "file:com.basis.common",
       "depth": 0,
@@ -85,11 +79,10 @@
       "dependencies": {}
     },
     "com.basis.pooltable": {
-      "version": "https://github.com/BasisVR/MS-BASISSA-Billiards.git",
+      "version": "file:com.basis.pooltable",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "e9f7a3ea39260c04b56f7f06446ed13d700b6131"
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.basis.profilerintergration": {
       "version": "file:com.basis.profilerintergration",
@@ -156,6 +149,12 @@
     },
     "com.llealloo.audiolink": {
       "version": "file:AudioLink",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.meta.xr.sdk.core": {
+      "version": "file:com.meta.xr.sdk.core",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

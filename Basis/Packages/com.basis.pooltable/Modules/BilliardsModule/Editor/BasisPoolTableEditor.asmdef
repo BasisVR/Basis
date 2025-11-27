@@ -1,0 +1,18 @@
+{
+    "name": "BasisPoolTableEditor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:f909e1a792b432b4c8831df54107efd8"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
