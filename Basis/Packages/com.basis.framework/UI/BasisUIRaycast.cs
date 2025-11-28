@@ -70,7 +70,7 @@ namespace Basis.Scripts.UI
 
             HasLineRenderer = false;
             HasRedicalRenderer = false;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChanged;
+            BasisLocalHeight.OnHeightChangedNextFrame += OnPlayersHeightChanged;
             // Create the ray with the adjusted starting position and direction
             if (basisInput.DeviceMatchSettings.HasRayCastVisual)
             {
@@ -119,7 +119,7 @@ namespace Basis.Scripts.UI
         {
             if (HasOnPlayersHeightChanged)
             {
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
+                BasisLocalHeight.OnHeightChangedNextFrame -= OnPlayersHeightChanged;
             }
         }
 

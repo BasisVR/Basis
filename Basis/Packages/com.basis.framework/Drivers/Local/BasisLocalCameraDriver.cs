@@ -187,7 +187,7 @@ namespace Basis.Scripts.Drivers
                 RenderPipelineManager.endCameraRendering += EndCameraRendering;
 
                 BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateCameraScale;
+                BasisLocalHeight.OnHeightChangedNextFrame += UpdateCameraScale;
 
                 InstanceExists?.Invoke();
                 HasEvents = true;
@@ -216,7 +216,7 @@ namespace Basis.Scripts.Drivers
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             RenderPipelineManager.endCameraRendering -= EndCameraRendering;
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateCameraScale;
+            BasisLocalHeight.OnHeightChangedNextFrame -= UpdateCameraScale;
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
             HasEvents = false;
             HasInstance = false;

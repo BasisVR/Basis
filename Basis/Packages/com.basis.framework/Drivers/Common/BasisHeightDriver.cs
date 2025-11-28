@@ -28,7 +28,7 @@ public static class BasisHeightDriver
     /// <remarks>
     /// Establishes authoritative avatar metrics (eye height, arm span) first, then captures live player metrics.
     /// Ensures nonzero defaults, computes scale ratios safely, picks the active ratio set for <paramref name="selectedHeightMode"/>,
-    /// and invokes <see cref="BasisLocalPlayer.OnPlayersHeightChangedNextFrame"/> via <see cref="BasisLocalPlayer.ExecuteNextFrame(System.Action)"/>.
+    /// and invokes <see cref="BasisLocalHeight.OnHeightChangedNextFrame"/> via <see cref="BasisLocalPlayer.ExecuteNextFrame(System.Action)"/>.
     /// </remarks>
     public static void ChangeEyeHeightMode(BasisLocalPlayer localPlayer, BasisSelectedHeightMode selectedHeightMode)
     {
@@ -100,7 +100,7 @@ public static class BasisHeightDriver
         // notify next frame
         localPlayer.ExecuteNextFrame(() =>
         {
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame?.Invoke();
+            BasisLocalHeight.OnHeightChangedNextFrame?.Invoke();
         });
     }
 
@@ -254,7 +254,7 @@ public static class BasisHeightDriver
 
         player.ExecuteNextFrame(() =>
         {
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame?.Invoke();
+            BasisLocalHeight.OnHeightChangedNextFrame?.Invoke();
         });
     }
 }

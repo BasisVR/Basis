@@ -27,6 +27,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public string AvatarName;
 
         /// <summary>
+        /// Fired on the frame after a player height change is requested.
+        /// </summary>
+        public static System.Action OnHeightChangedNextFrame;
+
+        /// <summary>
         /// Fallback height (meters) used when no measurement is available.
         /// not the total height but the eye height
         /// </summary>

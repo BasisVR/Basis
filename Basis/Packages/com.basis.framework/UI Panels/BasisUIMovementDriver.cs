@@ -46,7 +46,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
             }
 
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= SetUILocation;
+            BasisLocalHeight.OnHeightChangedNextFrame -= SetUILocation;
 
             if (hasLocalCreationEvent)
             {
@@ -60,7 +60,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUIFollow);
             }
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += SetUILocation;
+            BasisLocalHeight.OnHeightChangedNextFrame += SetUILocation;
             SetUILocation();
         }
         public void UpdateUIFollow()

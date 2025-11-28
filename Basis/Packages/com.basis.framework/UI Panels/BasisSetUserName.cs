@@ -82,7 +82,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             ApplySize();
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
+            BasisLocalHeight.OnHeightChangedNextFrame += ApplySize;
             if (BasisNetworkManagement.Instance != null)
             {
                 LoadCurrentSettings();
@@ -110,7 +110,7 @@ namespace Basis.Scripts.UI.UI_Panels
                 AdvancedSettings.onClick.RemoveListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.RemoveListener(UseLocalHost);
             }
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySize;
+            BasisLocalHeight.OnHeightChangedNextFrame -= ApplySize;
         }
 
         /// <summary>

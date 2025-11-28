@@ -161,7 +161,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         OnInteractStartEvent += OnInteractDesktopTweak;
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
 
-        BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
+        BasisLocalHeight.OnHeightChangedNextFrame += OnHeightChanged;
 
         // scale camera to avatar size
         transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
@@ -640,7 +640,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     {
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         OnInteractStartEvent -= OnInteractDesktopTweak;
-        BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
+        BasisLocalHeight.OnHeightChangedNextFrame -= OnHeightChanged;
 
         BasisLocalPlayer.AfterFinalMove.RemoveAction(202, UpdateCamera);
 

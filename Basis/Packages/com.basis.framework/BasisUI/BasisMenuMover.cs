@@ -82,7 +82,7 @@ namespace Basis.BasisUI
         private void OnDestroy()
         {
             BasisLocalPlayer.Instance.OnAvatarSwitched -= OnAvatarHeightChange;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnAvatarHeightChange;
+            BasisLocalHeight.OnHeightChangedNextFrame -= OnAvatarHeightChange;
 
             if (_hasLocalCreationEvent)
             {
@@ -100,7 +100,7 @@ namespace Basis.BasisUI
         private void OnLocalPlayerCreated()
         {
             BasisLocalPlayer.Instance.OnAvatarSwitched += OnAvatarHeightChange;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnAvatarHeightChange;
+            BasisLocalHeight.OnHeightChangedNextFrame += OnAvatarHeightChange;
             SetRootMode(GetFindCurrentMode());
 
             BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _leftHandControl, BasisBoneTrackedRole.LeftHand);

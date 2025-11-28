@@ -49,7 +49,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
 
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateDelayedSetUI;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateDelayedSetUI;
+            BasisLocalHeight.OnHeightChangedNextFrame -= UpdateDelayedSetUI;
 
             BasisLocalPlayer.AfterFinalMove.RemoveAction(101, UpdateUI);
         }
@@ -59,7 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
         private void OnLocalPlayerGenerated()
         {
             BasisLocalPlayer.OnLocalAvatarChanged += UpdateDelayedSetUI;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateDelayedSetUI;
+            BasisLocalHeight.OnHeightChangedNextFrame += UpdateDelayedSetUI;
             if (LocalPlayer.LocalBoneDriver.FindBone(out hand, BasisBoneTrackedRole.LeftHand))
             {
             }

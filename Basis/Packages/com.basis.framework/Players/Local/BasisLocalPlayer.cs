@@ -78,11 +78,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public static Action OnSpawnedEvent;
 
         /// <summary>
-        /// Fired on the frame after a player height change is requested.
-        /// </summary>
-        public static Action OnPlayersHeightChangedNextFrame;
-
-        /// <summary>
         /// Ordered delegate queue invoked after all movement and simulation have completed for the frame.
         /// </summary>
         public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();

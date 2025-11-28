@@ -126,7 +126,7 @@ namespace Basis.Scripts.Drivers
             GrabLatestTposeLocalScaleData();
             if (hasEvent == false)
             {
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += GrabLatestTposeLocalScaleData;
+                BasisLocalHeight.OnHeightChangedNextFrame += GrabLatestTposeLocalScaleData;
                 hasEvent = true;
             }
             OnSimulate();
@@ -162,7 +162,7 @@ namespace Basis.Scripts.Drivers
             GrabLatestTposeLocalScaleData();
             if (hasEvent)
             {
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= GrabLatestTposeLocalScaleData;
+                BasisLocalHeight.OnHeightChangedNextFrame -= GrabLatestTposeLocalScaleData;
                 hasEvent = false;
             }
             _seat = null;

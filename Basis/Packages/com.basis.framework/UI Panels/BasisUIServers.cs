@@ -53,7 +53,7 @@ namespace Basis.Scripts.UI.UI_Panels
             }
             UseLocalhost.onClick.AddListener(UseLocalHost);
             ApplySize();
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
+            BasisLocalHeight.OnHeightChangedNextFrame += ApplySize;
             if (BasisNetworkManagement.Instance != null)
             {
                 LoadCurrentSettings();
@@ -68,7 +68,7 @@ namespace Basis.Scripts.UI.UI_Panels
         }
         public void OnDestroy()
         {
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySize;
+            BasisLocalHeight.OnHeightChangedNextFrame -= ApplySize;
             UseLocalhost.onClick.RemoveListener(UseLocalHost);
         }
         public void UseHostMode(bool IsDown)

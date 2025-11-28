@@ -284,7 +284,7 @@ namespace Basis.Scripts.Drivers
                 basisTransformMapping,
                 out BasisFullIKConstraint
             );
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChangedNextFrame;
+            BasisLocalHeight.OnHeightChangedNextFrame += OnPlayersHeightChangedNextFrame;
             OnPlayersHeightChangedNextFrame();
 
             var data = BasisFullIKConstraint.data;

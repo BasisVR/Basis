@@ -54,7 +54,7 @@ namespace Basis.Scripts.Device_Management
                 if (HasEvents == false)
                 {
                     BasisLocalPlayer.OnLocalAvatarChanged += UpdateVisualSizeAndOffset;
-                    BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateVisualSizeAndOffset;
+                    BasisLocalHeight.OnHeightChangedNextFrame += UpdateVisualSizeAndOffset;
                     HasEvents = true;
                 }
 
@@ -70,7 +70,7 @@ namespace Basis.Scripts.Device_Management
             if (HasEvents)
             {
                 BasisLocalPlayer.OnLocalAvatarChanged -= UpdateVisualSizeAndOffset;
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateVisualSizeAndOffset;
+                BasisLocalHeight.OnHeightChangedNextFrame -= UpdateVisualSizeAndOffset;
                 HasEvents = false;
             }
         }
