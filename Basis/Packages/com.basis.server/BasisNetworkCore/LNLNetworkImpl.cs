@@ -29,6 +29,12 @@ namespace Basis.Network.Core
         void LiteNetLib.INetEventListener.OnNetworkReceive(LiteNetLib.NetPeer peer, LiteNetLib.NetPacketReader reader, byte channelNumber, LiteNetLib.DeliveryMethod deliveryMethod)
         {
             NetPacketReader read = new NetPacketReader(reader);
+
+            #if UNITY_EDITOR || DEVELOPMENT_BUILD
+            read.channel = channelNumber;
+            read.method = (DeliveryMethod)(byte)deliveryMethod;
+            #endif
+
             NetworkReceiveEvent?.Invoke(new LNLNetPeer(peer), read, channelNumber, (DeliveryMethod)(byte)deliveryMethod);
         }
 
