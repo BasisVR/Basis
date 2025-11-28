@@ -75,8 +75,19 @@ public static class NetworkServer
     {
         if (configuration.OverrideAutoDiscoveryOfIpv)
         {
+            IPAddress? IPv4Address, IPv6Address;
+            if (!IPAddress.TryParse(Configuration.IPv4Address, out IPv4Address)) {
+                BNL.LogWarning("Failed to parse IPv4 bind address, falling back to 0.0.0.0");
+                IPv4Address = IPAddress.Parse("0.0.0.0");
+            }
+
+            if (!IPAddress.TryParse(Configuration.IPv6Address, out IPv6Address)) {
+                BNL.LogWarning("Failed to parse IPv6 bind address, falling back to ::1");
+                IPv6Address = IPAddress.Parse("::1");
+            }
+
             BNL.Log($"Server Wiring up SetPort {Configuration.SetPort} IPv6Address {Configuration.IPv6Address}");
-            Server.Start(IPAddress.Parse(Configuration.IPv4Address), IPAddress.Parse(Configuration.IPv6Address), Configuration.SetPort);
+            Server.Start(IPv4Address, IPv6Address, Configuration.SetPort);
         }
         else
         {
