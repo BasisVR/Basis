@@ -1195,10 +1195,6 @@ PrefabInstance:
       propertyPath: m_PreferredWidth
       value: 9999
       objectReference: {fileID: 0}
-    - target: {fileID: 7261457429283592316, guid: 00eaf66b466c4644eb2568c728a1dac8, type: 3}
-      propertyPath: m_PreferredHeight
-      value: 9999
-      objectReference: {fileID: 0}
     - target: {fileID: 7951298956566130567, guid: 00eaf66b466c4644eb2568c728a1dac8, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5

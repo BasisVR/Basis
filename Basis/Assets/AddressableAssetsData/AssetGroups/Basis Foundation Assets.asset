@@ -15,6 +15,12 @@ MonoBehaviour:
   m_GroupName: Basis Foundation Assets
   m_GUID: 37c75a6cf72db324eb01200602299fc8
   m_SerializeEntries:
+  - m_GUID: 0689018a4c3087846a651c89c02576c4
+    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button
+      - Grid Item Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 06b1965d0565c4444b4ce3ea5aa8e690
     m_Address: Packages/com.basis.tests/Mirror/BasisSDKMIrror.prefab
     m_ReadOnly: 0
@@ -27,11 +33,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1a876a9e9a22e4643b0d03f0eb3d0c30
     m_Address: Locomotion
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 21c40287b4492f144b9393d3c5be8d8a
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Toggle.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -105,11 +106,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 462ac13b40ee49446bb7898100a4bbc2
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Dropdown.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4b6d450b11ad8974e8c4ba0b1e0df50e
     m_Address: RemotePlayer
     m_ReadOnly: 0
@@ -142,11 +138,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 68c19bcf0d450994caac14b3bc546184
     m_Address: BasisUIServers
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 7186a8cd468113a4b9dcb76426dc0888
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Group.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -205,11 +196,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a6b47dd7c08ca3945b50d42f2df29a22
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Tab Group.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a6def01a1603e4447bdd668aab602f11
     m_Address: BasisUIAdminPanel
     m_ReadOnly: 0
@@ -217,12 +203,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b6f3b6b3289267c46b6d4d469fd25e44
     m_Address: Interactable/InteractHighlightMat.mat
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b8b1d961850dbd14a8b4a06909149831
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Layout Container
-      Vertical.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -246,20 +226,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: d5bb9e1a8df9cc0459d242d0a3ced41d
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button
-      - Tab Variant.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d9849dc6948554a4a8f55614547f5449
     m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: db69ae0e592fcd24ea338bfc58766dc6
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Layout Container
-      Horizontal.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -268,19 +236,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ddab2de083ef8d44991304a0cc35d9c6
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ea11d439c72d6a145a84a0b10f691e3c
     m_Address: Packages/com.basis.sdk/Prefabs/UI/BasisUINotification.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ebe67ffd7090b9040bec60346c4cccd9
-    m_Address: Packages/com.basis.framework/BasisUI/Prefabs/Elements/Panel Button
-      - Hotbar Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -12,6 +12,7 @@ namespace Basis.BasisUI
             public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button.prefab";
             public static string Tab => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button - Tab Variant.prefab";
             public static string Hotbar => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button - Hotbar Variant.prefab";
+            public static string GridItem => "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/PE Button - Grid Item Variant.prefab";
         }
 
         private PanelButton() { }

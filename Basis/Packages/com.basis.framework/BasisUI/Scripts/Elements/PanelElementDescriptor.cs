@@ -29,16 +29,19 @@ namespace Basis.BasisUI
         [Header("Visuals")]
         [SerializeField] private bool _clearOnAwake;
         [field:SerializeField] public Sprite DefaultIcon { get; private set; }
+        [field:SerializeField] public Texture2D DefaultTexture { get; private set; }
         [field:SerializeField] public string DefaultTitle { get; private set; }
         [field:SerializeField] public string DefaultDescription { get; private set; }
 
         [field:Header("References")]
         [field:SerializeField] public Image IconImage { get; private set; }
+        [field:SerializeField] public RawImage TextureImage { get; private set; }
         [field:SerializeField] public GameObject IconBackground { get; private set; }
         [field:SerializeField] public TextMeshProUGUI TitleLabel { get; private set; }
         [field:SerializeField] public TextMeshProUGUI DescriptionLabel { get; private set; }
 
         public bool HasIcon => IconImage;
+        public bool HasTexture => TextureImage;
         public bool HasTitle => TitleLabel;
         public bool HasDescription => DescriptionLabel;
 
@@ -59,6 +62,7 @@ namespace Basis.BasisUI
         [SerializeField] private RectTransform _contentParent;
 
         protected Sprite _iconSprite;
+        protected Texture2D _textureImage;
         protected string _title;
         protected string _description;
 
@@ -111,6 +115,15 @@ namespace Basis.BasisUI
             IconImage.sprite = value;
         }
 
+        public void SetTexture(Texture2D value)
+        {
+            if (!HasTexture) return;
+            // Disable the object if the texture is null.
+            _textureImage = value;
+            TextureImage.gameObject.SetActive(value);
+            TextureImage.texture = value;
+        }
+
         public void SetIcon(string spriteAddress)
         {
             if (!HasIcon) return;
@@ -144,6 +157,21 @@ namespace Basis.BasisUI
             gameObject.SetActive(value);
         }
 
+        public void SetAnchorPosition(Vector2 pos)
+        {
+            rectTransform.anchoredPosition = pos;
+        }
+
+        public void SetPivot(Vector2 pos)
+        {
+            rectTransform.pivot = pos;
+        }
+
+        public void SetSize(Vector2 pos)
+        {
+            rectTransform.sizeDelta = pos;
+        }
+
         public void ForceRebuild()
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
@@ -164,6 +192,12 @@ namespace Basis.BasisUI
             {
                 Undo.RecordObject(IconImage, $"Assigned default Icon to {IconImage.gameObject.name}: {DefaultIcon}");
                 IconImage.sprite = DefaultIcon;
+            }
+
+            if (HasTexture && TextureImage.texture != DefaultTexture)
+            {
+                Undo.RecordObject(TextureImage, $"Assigned default Texture to {TextureImage.gameObject.name}: {DefaultTexture}");
+                TextureImage.texture = DefaultTexture;
             }
 
             if (HasDescription && DescriptionLabel.text != DefaultDescription)

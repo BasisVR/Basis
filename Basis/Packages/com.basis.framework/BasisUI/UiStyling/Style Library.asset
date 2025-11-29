@@ -20,7 +20,7 @@ MonoBehaviour:
         PaletteStyle: 0
         Type: 0
       Sprite: {fileID: 0}
-      PixelsPerUnitMultiplier: 1
+      PixelsPerUnitMultiplier: 2
     - Title: PageList
       Color:
         Color: {r: 0, g: 0, b: 0, a: 0}
@@ -402,6 +402,12 @@ MonoBehaviour:
       BackgroundStyle: Button
       IconStyle: Icon
       IndicatorStyle: Icon
+      LabelStyle: Button Label
+    - Title: Grid Item
+      SelectionStyle: Highlight On Hover
+      BackgroundStyle: Button
+      IconStyle: Icon
+      IndicatorStyle: Button Success
       LabelStyle: Button Label
   ToggleStyles:
     Styles:

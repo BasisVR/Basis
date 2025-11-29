@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Basis.BasisUI
 {
     [Obsolete("Use an instance of BasisSettingsBinding instead.")]
-    public abstract class PanelBindableElement<T> : PanelElementDescriptor
+    public abstract class OLD_PanelBindableElement<T> : PanelElementDescriptor
     {
 
         public string BindingKey => _bindingKey;

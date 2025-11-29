@@ -8,13 +8,16 @@ namespace Basis.BasisUI
     public abstract class PanelComponent : AddressableUIInstanceBase
     {
 
-        public PanelElementDescriptor Descriptor { get; private set; }
-
-        protected override void Awake()
+        public PanelElementDescriptor Descriptor
         {
-            base.Awake();
-            Descriptor = GetComponent<PanelElementDescriptor>();
+            get
+            {
+                if (!_descriptor) _descriptor = GetComponent<PanelElementDescriptor>();
+                return _descriptor;
+            }
         }
+
+        private PanelElementDescriptor _descriptor;
 
         [UsedImplicitly]
         public virtual void OnComponentUsed()
