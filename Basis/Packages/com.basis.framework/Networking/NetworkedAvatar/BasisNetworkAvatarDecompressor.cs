@@ -127,9 +127,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             ReadCompressed(data, ref dataPos, 3, false, floatArray); // Chest Front-Back: Range 80
             ReadCompressed(data, ref dataPos, 4, false, floatArray); // Chest Left-Right: Range 80
             ReadCompressed(data, ref dataPos, 5, false, floatArray); // Chest Twist Left-Right: Range 80
-            ReadCompressed(data, ref dataPos, 6, true, floatArray); // UpperChest Front-Back: Range 40
-            ReadCompressed(data, ref dataPos, 7, true, floatArray); // UpperChest Left-Right: Range 40
-            ReadCompressed(data, ref dataPos, 8, true, floatArray); // UpperChest Twist Left-Right: Range 40
+            ReadCompressed(data, ref dataPos, 6, false, floatArray); // UpperChest Front-Back: Range 40
+            ReadCompressed(data, ref dataPos, 7, false, floatArray); // UpperChest Left-Right: Range 40
+            ReadCompressed(data, ref dataPos, 8, false, floatArray); // UpperChest Twist Left-Right: Range 40
             ReadCompressed(data, ref dataPos, 9, false, floatArray); // Neck Nod Down-Up: Range 80
             ReadCompressed(data, ref dataPos, 10, false, floatArray); // Neck Tilt Left-Right: Range 80
             ReadCompressed(data, ref dataPos, 11, false, floatArray); // Neck Turn Left-Right: Range 80

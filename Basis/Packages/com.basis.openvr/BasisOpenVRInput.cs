@@ -1,4 +1,3 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
@@ -33,7 +32,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     {
                         deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
 
-                        UnscaledDeviceCoord.position = deviceTransform.pos;
+                        ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, deviceTransform.pos);
                         UnscaledDeviceCoord.rotation = deviceTransform.rot;
 
                         ConvertToScaledDeviceCoord();
@@ -45,7 +44,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                             CurrentInputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
                             CurrentInputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
                         }
-                        UpdatePlayerControl();
+                        UpdateInputEvents();
+                        ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
                     }
                 }
                 else

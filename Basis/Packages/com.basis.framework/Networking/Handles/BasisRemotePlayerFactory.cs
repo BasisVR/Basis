@@ -1,3 +1,4 @@
+using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
@@ -9,7 +10,7 @@ namespace Basis.Scripts.Networking
 {
     public static class BasisRemotePlayerFactory
     {
-        public static void HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader, InstantiationParameters Parent)
+        public static void HandleCreateRemotePlayer(NetPacketReader reader, InstantiationParameters Parent)
         {
            // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
             ServerReadyMessage ServerReadyMessage = new ServerReadyMessage();

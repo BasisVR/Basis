@@ -1,5 +1,5 @@
 using Basis.Scripts.Networking.NetworkedAvatar;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 namespace Basis.Scripts.Behaviour
 {

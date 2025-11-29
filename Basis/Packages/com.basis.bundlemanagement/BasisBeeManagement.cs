@@ -40,23 +40,30 @@ public static class BasisBeeManagement
         IEnumerable<AssetBundle> AssetBundles = AssetBundle.GetAllLoadedAssetBundles();
         foreach (AssetBundle assetBundle in AssetBundles)
         {
-            string AssetToLoadName = output.Item1.AssetToLoadName;
-            if (assetBundle != null && assetBundle.Contains(AssetToLoadName))
+            if (output.Item1 == null || output.Item1.AssetToLoadName == null)
             {
-                wrapper.AssetBundle = assetBundle;
-                BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
-                if (IsMetaOnDisc == false)
+                new Exception($"Missing AssetToName! in obtained file! corrupted?");
+            }
+            else
+            {
+                string AssetToLoadName = output.Item1.AssetToLoadName;
+                if (assetBundle != null && assetBundle.Contains(AssetToLoadName))
                 {
-                    BasisBEEExtensionMeta newDiscInfo = new BasisBEEExtensionMeta
+                    wrapper.AssetBundle = assetBundle;
+                    BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
+                    if (IsMetaOnDisc == false)
                     {
-                        StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted,
-                        StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
-                        UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
-                    };
+                        BasisBEEExtensionMeta newDiscInfo = new BasisBEEExtensionMeta
+                        {
+                            StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted,
+                            StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
+                            UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
+                        };
 
-                    await BasisLoadHandler.AddDiscInfo(newDiscInfo);
+                        await BasisLoadHandler.AddDiscInfo(newDiscInfo);
+                    }
+                    return;
                 }
-                return;
             }
         }
         BasisDebug.Log("Calling Load Request", BasisDebug.LogTag.System);

@@ -10,7 +10,20 @@ namespace Basis.Scripts.Networking.Receivers
         public static void Initalize()
         {
             Loadable = Addressables.LoadAssetAsync<GameObject>(AudioSource);
+            if(Loadable.IsValid() == false)
+            {
+                BasisDebug.LogError("Cant Find Audio Source!");
+                return;
+            }
             LoadableAudioSource = Loadable.WaitForCompletion();
+            if(LoadableAudioSource.TryGetComponent<AudioSource>(out AudioSource v))
+            {
+                
+            }
+            else
+            {
+                BasisDebug.LogError("Loaded Audio Source does  not have a audio source!");
+            }
         }
         public static void DeInitalize()
         {

@@ -1,6 +1,7 @@
-using System;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
+using System;
+using System.Collections;
 using UnityEngine;
 
 namespace Basis.Scripts.BasisSdk.Interactions
@@ -44,7 +45,62 @@ namespace Basis.Scripts.BasisSdk.Interactions
             /// </summary>
             No
         }
+        public BasisInputKey InputKey = BasisInputKey.Trigger;
+        public enum BasisInputKey
+        {
+            Trigger =0,
+            SecondaryTrigger = 1,
+            Primary2DAxis = 2,
+            Secondary2DAxis = 3,
+            Primary2DAxisClick = 4,
+            Secondary2DAxisClick = 5,
+            SecondaryButtonGetState = 6,
+            PrimaryButtonGetState = 7,
+            SystemOrMenuButton = 8,
+            GripButton = 9,
+        }
+        public bool HasState(BasisInputState state)
+        {
+            switch (InputKey)
+            {
+                case BasisInputKey.Trigger:
+                    // Fire when main trigger is fully pressed
+                    return state.Trigger >= 0.9f;
 
+                case BasisInputKey.SecondaryTrigger:
+                    // Fire when secondary trigger is fully pressed
+                    return state.SecondaryTrigger >= 0.9f;
+
+                case BasisInputKey.Primary2DAxis:
+                    // Axis has state if it's non-zero (already deadzoned in BasisInputState)
+                    return state.Primary2DAxis.sqrMagnitude > 0f;
+
+                case BasisInputKey.Secondary2DAxis:
+                    return state.Secondary2DAxis.sqrMagnitude > 0f;
+
+                case BasisInputKey.Primary2DAxisClick:
+                    return state.Primary2DAxisClick;
+
+                case BasisInputKey.Secondary2DAxisClick:
+                    return state.Secondary2DAxisClick;
+
+                case BasisInputKey.SecondaryButtonGetState:
+                    return state.SecondaryButtonGetState;
+
+                case BasisInputKey.PrimaryButtonGetState:
+                    return state.PrimaryButtonGetState;
+
+                case BasisInputKey.SystemOrMenuButton:
+                    return state.SystemOrMenuButton;
+
+                case BasisInputKey.GripButton:
+                    return state.GripButton;
+
+                default:
+                    BasisDebug.LogError($"Unsupported BasisInputKey: {InputKey}");
+                    return false;
+            }
+        }
         /// <summary>
         /// Flag indicating whether this object requires an update loop
         /// while being influenced by inputs.
@@ -112,6 +168,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
+        /// Interaction range in meters (distance from input source to collider/transform).
+        /// </summary>
+        public float InteractRange = 1f;
+
+        /// <summary>
         /// Called during object initialization.
         /// Sets up inputs when the local player is ready.
         /// </summary>
@@ -153,10 +214,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         private void OnInputAdded(BasisInput input)
         {
-            if (!input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole r))
-                return;
+            // - disabled -dooly  if (!input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole r))
+            //     return;
 
-            if (!Inputs.SetInputByRole(input, BasisInteractInputState.Ignored))
+            if (Inputs.SetInputByRole(input, BasisInteractInputState.Ignored))
+            {
+            }
+            else
             {
                 BasisDebug.LogError("New input added not setup as expected, Input role was set to ignored!");
             }
@@ -169,8 +233,18 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private void OnInputRemoved(BasisInput input)
         {
             if (input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole role))
-                if (!Inputs.RemoveByRole(role))
-                    BasisDebug.LogError("Something went wrong while removing input");
+            {
+                if (Inputs.TryGetByRole(role, out var wrapper) && wrapper.Source != null)
+                {
+                    if (wrapper.Source.UniqueDeviceIdentifier == input.UniqueDeviceIdentifier)
+                    {
+                        if (!Inputs.RemoveByRole(role))
+                        {
+                            BasisDebug.LogError("Something went wrong while removing input");
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -226,6 +300,58 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <returns>True if hold drop is triggered, otherwise false.</returns>
         public virtual bool IsHoldDropTriggered(BasisInput input)
         {
+            return true;
+        }
+        protected bool CheckUsabilityWithState(BasisInput input, BasisInteractInputState requiredState)
+        {
+            if (InteractableEnabled == false)
+            {
+            //    BasisDebug.Log("Interactable was false", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Did we hit UI?
+            if (input.BasisUIRaycast.HadRaycastUITarget)
+            {
+            //    BasisDebug.Log("UI Raycast target was hit", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Input exists?
+            if (!Inputs.IsInputAdded(input))
+            {
+             //   BasisDebug.Log("Input was not added to Inputs", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Has a valid role?
+            if (!input.TryGetRole(out TransformBinders.BoneControl.BasisBoneTrackedRole role))
+            {
+               // BasisDebug.Log("Input did not have a valid bone role", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // PlayerInteract knows about this role/input?
+            if (!Inputs.TryGetByRole(role, out BasisInputWrapper found))
+            {
+              //  BasisDebug.Log($"No BasisInputWrapper found for role {role}", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // State must match
+            if (found.GetState() != requiredState)
+            {
+               // BasisDebug.Log($"Input state mismatch: Expected {requiredState}, got {found.GetState()}", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Range check
+            if (!IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange))
+            {
+             //   BasisDebug.Log("Input was out of interact range", BasisDebug.LogTag.System);
+                return false;
+            }
+
             return true;
         }
 
@@ -287,7 +413,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// Per-frame update loop for inputs targeting this interactable.
         /// Only runs when <see cref="RequiresUpdateLoop"/> is true.
         /// </summary>
-        public abstract void InputUpdate();
+        public virtual void InputUpdate()
+        {
+
+        }
 
         /// <summary>
         /// Clears state of all influencing inputs.
@@ -322,6 +451,26 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public virtual bool IsInfluencable(BasisInput input)
         {
             return InteractableEnabled && (CanHover(input) || CanInteract(input));
+        }
+
+        private bool _interactGateOpen = true;
+
+        private IEnumerator InteractCooldown()
+        {
+            _interactGateOpen = false;
+            yield return new WaitForSeconds(0.1f);
+            _interactGateOpen = true;
+        }
+        public bool InteractionTimerValidation()
+        {
+            if (!_interactGateOpen)
+            {
+                return false;
+            }
+
+            // start cooldown immediately
+            StartCoroutine(InteractCooldown());
+            return true;
         }
     }
 }

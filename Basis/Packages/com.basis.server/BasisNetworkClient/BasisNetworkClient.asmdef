@@ -2,10 +2,10 @@
     "name": "BasisNetworkClient",
     "rootNamespace": "",
     "references": [
-        "GUID:784bec3882b21ab4d8407cc870539fa9",
-        "GUID:4fbaa9af51b2f9c408a9dff4518adb81",
-        "GUID:82a32fed7d162254094f38893c921ef8",
-        "GUID:35842c4e425f4514d9214dae96875cef"
+        "LiteNetLib",
+        "BasisNetworkCore",
+        "Did",
+        "Crypto"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,8 +1,8 @@
+using Basis.Scripts.Device_Management;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
-using Basis.Scripts.Device_Management;
 
 public class SMDMicrophone : BasisSettingsBase
 {
@@ -36,6 +36,26 @@ public class SMDMicrophone : BasisSettingsBase
         {
             selectedVolumeMicrophone = Mathf.Clamp01(value);
             OnMicrophoneVolumeChanged?.Invoke(selectedVolumeMicrophone);
+        }
+    }
+
+    public enum BasisMicrophoneMode
+    {
+        OnActivation = 0,
+        PushToTalk = 1, 
+    }
+
+    public delegate void MicrophoneTalkmode(BasisMicrophoneMode BasisMicrophoneMode);
+    public static event MicrophoneTalkmode MicrophoneTalkmodeChanged;
+
+    private static BasisMicrophoneMode selectedTalkmode;
+    public static BasisMicrophoneMode SelectedTalkmode
+    {
+        get => selectedTalkmode;
+        set
+        {
+            selectedTalkmode = value;
+            MicrophoneTalkmodeChanged?.Invoke(selectedTalkmode);
         }
     }
 
@@ -169,7 +189,6 @@ public class SMDMicrophone : BasisSettingsBase
         }
     }
 
-    // -------- Per-mode caches (mirroring your existing pattern) --------
     public static Dictionary<string, bool> DenoiserSettings = new Dictionary<string, bool>();
     public static Dictionary<string, float> LimitThresholdSettings = new Dictionary<string, float>();
     public static Dictionary<string, float> LimitKneeSettings = new Dictionary<string, float>();
@@ -180,7 +199,7 @@ public class SMDMicrophone : BasisSettingsBase
     public static Dictionary<string, float> AgcReleaseSettings = new Dictionary<string, float>();
     public static Dictionary<string, float> DenoiseMakeupDbSettings = new Dictionary<string, float>();
     public static Dictionary<string, float> DenoiseWetSettings = new Dictionary<string, float>();
-
+    public static Dictionary<string, BasisMicrophoneMode> BasisMicrophoneModeSettings = new Dictionary<string, BasisMicrophoneMode>();
     // -------- Load / Save --------
 
     public static void LoadInMicrophoneData(string mode)
@@ -207,6 +226,9 @@ public class SMDMicrophone : BasisSettingsBase
         // Denoiser enable
         bool savedDenoiser = PlayerPrefs.GetInt($"{mode}_Denoiser", 0) == 1;
         DenoiserSettings[mode] = savedDenoiser;
+
+        int index = PlayerPrefs.GetInt($"{mode}_MicrophoneMode", 0);
+        BasisMicrophoneModeSettings[mode] = (BasisMicrophoneMode)index;
 
         // Limiter
         float savedLimitThreshold = PlayerPrefs.GetFloat($"{mode}_LimitThreshold", 0.95f);
@@ -249,8 +271,26 @@ public class SMDMicrophone : BasisSettingsBase
         SelectedAgcMaxGainDb = savedAgcMaxGainDb;
         SelectedAgcAttack = savedAgcAttack;
         SelectedAgcRelease = savedAgcRelease;
-    }
 
+        selectedTalkmode = (BasisMicrophoneMode)index;
+
+    }
+    public static void SaveMicrophoneModeSettings(string mode, BasisMicrophoneMode MicrophoneMode)
+    {
+        if (!string.IsNullOrEmpty(mode))
+        {
+            BasisMicrophoneModeSettings[mode] = MicrophoneMode;
+            PlayerPrefs.SetInt($"{mode}_MicrophoneMode", (int)MicrophoneMode);
+            PlayerPrefs.Save();
+
+            selectedTalkmode = MicrophoneMode;
+        }
+        else
+        {
+            BasisDebug.LogError("Missing Device Mode!");
+            return;
+        }
+    }
     public static void SaveMicrophoneData(string mode, string selectedMicrophone)
     {
         if (string.IsNullOrEmpty(mode))
@@ -386,6 +426,29 @@ public class SMDMicrophone : BasisSettingsBase
                         SaveLimiterSettings(mode, th, SelectedLimitKnee);
                     else BasisDebug.LogError($"Bad LimitThreshold: {optionValue}");
                     break;
+
+                case "microphonemode":
+                    if (Enum.TryParse<BasisMicrophoneMode>(optionValue.Replace(" ",""), out BasisMicrophoneMode value))
+                    {
+                        SaveMicrophoneModeSettings(mode, (BasisMicrophoneMode)value);
+                    }
+                    else
+                    {
+                        switch (optionValue)
+                        {
+                            case "On Activation":
+                                SaveMicrophoneModeSettings(mode, BasisMicrophoneMode.OnActivation);
+                                break;
+                            case "Push To Talk":
+                                SaveMicrophoneModeSettings(mode, BasisMicrophoneMode.PushToTalk);
+                                break;
+                            default:
+                                BasisDebug.LogError($"Bad Microphone Mode settings: {optionValue}");
+                                break;
+                        }
+                    }
+
+                        break;
 
                 case "limitknee":
                     if (float.TryParse(optionValue, st, ci, out float kn))

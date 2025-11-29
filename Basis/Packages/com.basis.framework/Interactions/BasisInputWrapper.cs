@@ -73,7 +73,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public readonly bool IsInput(BasisInput input)
         {
             if (input == null)
+            {
+                BasisDebug.LogError("Input Provided was null");
                 return false;
+            }
 
             return State != BasisInteractInputState.NotAdded && Source.UniqueDeviceIdentifier == input.UniqueDeviceIdentifier;
         }

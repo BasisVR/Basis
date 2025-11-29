@@ -109,11 +109,12 @@ public static class BasisRemoteNetworkDriver
     }
 
     /// <summary>Write inputs for a given index (0..FixedCapacity-1) for this frame.</summary>
-    public static void SetInputs( int index, float humanScale, float3 prevPos, float3 targetPos, float3 prevScale, float3 targetScale, quaternion prevRot, quaternion targetRot, float interpolationTime, NativeArray<float> prevMuscles, NativeArray<float> targetMuscles)
+    public static bool SetInputs( int index, float humanScale, float3 prevPos, float3 targetPos, float3 prevScale, float3 targetScale, quaternion prevRot, quaternion targetRot, float interpolationTime, NativeArray<float> prevMuscles, NativeArray<float> targetMuscles)
     {
         if ((uint)index >= FixedCapacity)
         {
-            throw new IndexOutOfRangeException($"index {index} is out of range [0,{FixedCapacity - 1}]");
+            BasisDebug.LogError($"index {index} is out of range [0,{FixedCapacity - 1}]", BasisDebug.LogTag.Remote);
+            return false;
         }
 
         _humanScales[index] = humanScale;
@@ -135,6 +136,7 @@ public static class BasisRemoteNetworkDriver
         {
             _activeCount = index + 1;
         }
+        return true;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -218,28 +220,8 @@ public static class BasisRemoteNetworkDriver
 
     /// <summary>Read back the computed outputs for an index after Apply().</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool GetOutputs_NoAlloc(int index,out float3 outPos,out float3 outScale,out quaternion outRot,out float3 BodyPosition,float[] outMuscles)
+    public static void GetOutputs_NoAlloc(int index,out float3 outPos,out float3 outScale,out quaternion outRot,out float3 BodyPosition,float[] outMuscles)
     {
-        // minimal guards; no allocations
-        if ((uint)index >= FixedCapacity)
-        {
-            outPos = Vector3.zero;
-            outScale = Vector3.one;
-            outRot = Quaternion.identity;
-            BodyPosition = Vector3.zero;
-            outMuscles = default;
-            return false;
-        }
-        if (outMuscles == null || outMuscles.Length != _muscleCount)
-        {
-            outPos = Vector3.zero;
-            outScale = Vector3.one;
-            outRot = Quaternion.identity;
-            BodyPosition = Vector3.zero;
-            outMuscles = default;
-            return false;
-        }
-
         outPos = _outPositions[index];
         outScale = _outScales[index];
         outRot = _outRotations[index];
@@ -258,7 +240,6 @@ public static class BasisRemoteNetworkDriver
             }
         }
         BodyPosition = _scaledBodyPositions[index];
-        return true;
     }
 
     static void AllocateAll(int capacity)
@@ -389,9 +370,9 @@ public static class BasisRemoteNetworkDriver
 
         private static float Alpha(float cutoff, float frequency)
         {
-            float te = 1.0f / frequency;
-            float tau = 1.0f / (2.0f * Mathf.PI * math.max(cutoff, 1e-4f));
-            return 1.0f / (1.0f + tau / te);
+            float te = 1f / frequency;
+            float tau = 1f / (2f * math.PI * math.max(cutoff, 1e-4f));
+            return 1f / (1f + tau / te);
         }
     }
 

@@ -1,0 +1,22 @@
+{
+    "name": "BasisShims",
+    "rootNamespace": "",
+    "references": [
+        "Unity.Mathematics",
+        "LiteNetLib",
+        "BasisNetworkCore",
+        "BasisDebug",
+        "Cilbox",
+        "BasisSDK",
+        "Basis Framework"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

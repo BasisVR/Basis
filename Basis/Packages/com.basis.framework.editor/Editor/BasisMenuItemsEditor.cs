@@ -172,8 +172,8 @@ public static class BasisMenuItemsEditor
             avatarDriver.leftShoulder, avatarDriver.RightShoulder,
             avatarDriver.leftLowerArm,avatarDriver.RightLowerArm,
             avatarDriver.LeftLowerLeg, avatarDriver.RightLowerLeg,
-            avatarDriver.leftFoot, avatarDriver.leftToes,
-            avatarDriver.rightFoot, avatarDriver.rightToes
+            avatarDriver.leftFoot, avatarDriver.leftToe,
+            avatarDriver.rightFoot, avatarDriver.rightToe
         };
         int bodyPartsCount = bodyParts.Length;
         // Create an array of the BasisInputXRSimulate instances
@@ -207,8 +207,8 @@ public static class BasisMenuItemsEditor
             avatarDriver.leftShoulder, avatarDriver.RightShoulder,
             avatarDriver.leftLowerArm,avatarDriver.RightLowerArm,
             avatarDriver.LeftLowerLeg, avatarDriver.RightLowerLeg,
-            avatarDriver.leftFoot, avatarDriver.leftToes,
-            avatarDriver.rightFoot, avatarDriver.rightToes
+            avatarDriver.leftFoot, avatarDriver.leftToe,
+            avatarDriver.rightFoot, avatarDriver.rightToe
         };
         int bodyPartsCount = bodyParts.Length;
         // Create an array of the BasisInputXRSimulate instances
@@ -256,10 +256,10 @@ public static class BasisMenuItemsEditor
         Vector3 OnlyY = new Vector3(0, RotationVector.y, 0);
         BasisLocalPlayer.Instance.transform.eulerAngles = OnlyY;
 
-        BasisAvatarEyeInput basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisAvatarEyeInput>();
+        BasisDesktopEye basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisDesktopEye>();
         if (basisAvatarEyeInput != null)
         {
-            basisAvatarEyeInput.rotationX = UnityEngine.Random.Range(-360, 360);
+            basisAvatarEyeInput.rotationYaw = UnityEngine.Random.Range(-360, 360);
         }
         BasisLocalPlayer.Instance.StartCoroutine(WaitAndCreatePuck3Tracker());
     }

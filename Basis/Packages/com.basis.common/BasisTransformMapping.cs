@@ -50,7 +50,7 @@ namespace Basis.Scripts.Common
         public bool HasLeftLowerLeg;
         public Transform leftFoot;
         public bool HasleftFoot;
-        public Transform leftToes;
+        public Transform leftToe;
         public bool HasleftToes;
 
         public Transform RightUpperLeg;
@@ -59,7 +59,7 @@ namespace Basis.Scripts.Common
         public bool HasRightLowerLeg;
         public Transform rightFoot;
         public bool HasrightFoot;
-        public Transform rightToes;
+        public Transform rightToe;
         public bool HasrightToes;
 
         // Finger bones
@@ -94,8 +94,8 @@ namespace Basis.Scripts.Common
         public bool[] HasRightLittle = new bool[3];
 
 
-        public  Vector3 Forwards;
-        public  Vector3 Upwards;
+        public Vector3 Forwards;
+        public Vector3 Upwards;
 
         public static bool AutoDetectReferences(Animator anim, Transform AnimatorRoot, ref BasisTransformMapping references)
         {
@@ -103,13 +103,17 @@ namespace Basis.Scripts.Common
             {
                 references = new BasisTransformMapping();
             }
-            if (!anim.isHuman)
+            if (anim.isHuman)
+            {
+
+            }
+            else
             {
                 BasisDebug.LogError("We need a Humanoid Animator");
                 return false;
             }
             references.Forwards = anim.transform.forward;
-            references.Upwards = anim.transform.forward;
+            references.Upwards = anim.transform.up;
 
             references.AnimatorRoot = AnimatorRoot;
             references.HasAnimatorRoot = BoolState(references.AnimatorRoot);
@@ -160,8 +164,8 @@ namespace Basis.Scripts.Common
             references.HasLeftLowerLeg = BoolState(references.LeftLowerLeg);
             references.leftFoot = anim.GetBoneTransform(HumanBodyBones.LeftFoot);
             references.HasleftFoot = BoolState(references.leftFoot);
-            references.leftToes = anim.GetBoneTransform(HumanBodyBones.LeftToes);
-            references.HasleftToes = BoolState(references.leftToes);
+            references.leftToe = anim.GetBoneTransform(HumanBodyBones.LeftToes);
+            references.HasleftToes = BoolState(references.leftToe);
 
             references.RightUpperLeg = anim.GetBoneTransform(HumanBodyBones.RightUpperLeg);
             references.HasRightUpperLeg = BoolState(references.RightUpperLeg);
@@ -169,8 +173,8 @@ namespace Basis.Scripts.Common
             references.HasRightLowerLeg = BoolState(references.RightLowerLeg);
             references.rightFoot = anim.GetBoneTransform(HumanBodyBones.RightFoot);
             references.HasrightFoot = BoolState(references.rightFoot);
-            references.rightToes = anim.GetBoneTransform(HumanBodyBones.RightToes);
-            references.HasrightToes = BoolState(references.rightToes);
+            references.rightToe = anim.GetBoneTransform(HumanBodyBones.RightToes);
+            references.HasrightToes = BoolState(references.rightToe);
 
             references.LeftThumb[0] = anim.GetBoneTransform(HumanBodyBones.LeftThumbProximal);
             references.HasLeftThumb[0] = BoolState(references.LeftThumb[0]);
@@ -316,7 +320,7 @@ namespace Basis.Scripts.Common
                     transform = leftFoot;
                     return HasleftFoot;
                 case HumanBodyBones.LeftToes:
-                    transform = leftToes;
+                    transform = leftToe;
                     return HasleftToes;
 
                 case HumanBodyBones.RightUpperLeg:
@@ -329,7 +333,7 @@ namespace Basis.Scripts.Common
                     transform = rightFoot;
                     return HasrightFoot;
                 case HumanBodyBones.RightToes:
-                    transform = rightToes;
+                    transform = rightToe;
                     return HasrightToes;
 
                 // Left Thumb bones
@@ -511,45 +515,47 @@ namespace Basis.Scripts.Common
             rotation = default;
             return false;
         }
-        public BasisCalibratedCoords TposeHead = new BasisCalibratedCoords();
-        public BasisCalibratedCoords TposeHips = new BasisCalibratedCoords();
-        public Quaternion AnimatorRotation; // rotation during calibration
 
+        // All captured bones (skip missing/null)
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> Tpose = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Quaternion RootRotation; // rotation during calibration
+        public Vector3 RootPosition;
         public void RecordPoses(Animator animator)
         {
-            // Capture animator rotation in world space
-            AnimatorRotation = animator.transform.rotation;
+            // Capture animator transform in world space
+            RootRotation = animator.transform.rotation;
+            RootPosition = animator.transform.position;
 
-            if (GetTransform(HumanBodyBones.Head, out Transform headBoneTransform))
+            Tpose.Clear();
+
+            // Iterate all humanoid enum values except the sentinel LastBone
+            for (int i = (int)HumanBodyBones.Hips; i < (int)HumanBodyBones.LastBone; i++)
             {
-                headBoneTransform.GetPositionAndRotation(out var pos, out var rot);
+                var bone = (HumanBodyBones)i;
+                var t = animator.GetBoneTransform(bone);
+                if (t == null)
+                {
+                    Tpose[bone] = new BasisCalibratedCoords
+                    {
+                        position = Vector3.zero,
+                        rotation = Quaternion.identity,
+                    };
+                    continue;
+                }
 
-                // Local rotation relative to animator's rotation
-                Quaternion relativeRot = Quaternion.Inverse(AnimatorRotation) * rot;
+                t.GetPositionAndRotation(out var wPos, out var wRot);
 
-                TposeHead.position = pos;
-                TposeHead.rotation = relativeRot;
-            }
-            else
-            {
-                TposeHead.position = Vector3.zero;
-                TposeHead.rotation = Quaternion.identity;
-            }
+                // Position in animator-local space (handles parent translation & scaling)
+                Vector3 localPos = animator.transform.InverseTransformPoint(wPos);
 
-            if (GetTransform(HumanBodyBones.Hips, out Transform hipsBoneTransform))
-            {
-                hipsBoneTransform.GetPositionAndRotation(out var pos, out var rot);
+                // Rotation relative to animator root rotation
+                Quaternion localRot = Quaternion.Inverse(RootRotation) * wRot;
 
-                // Local rotation relative to animator's rotation
-                Quaternion relativeRot = Quaternion.Inverse(AnimatorRotation) * rot;
-
-                TposeHips.position = pos;
-                TposeHips.rotation = relativeRot;
-            }
-            else
-            {
-                TposeHips.position = Vector3.zero;
-                TposeHips.rotation = Quaternion.identity;
+                Tpose[bone] = new BasisCalibratedCoords
+                {
+                    position = localPos,
+                    rotation = localRot
+                };
             }
         }
     }

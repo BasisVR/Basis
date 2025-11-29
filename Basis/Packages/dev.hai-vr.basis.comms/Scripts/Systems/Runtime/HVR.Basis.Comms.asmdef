@@ -4,7 +4,7 @@
     "references": [
         "BasisSDK",
         "Unity.Mathematics",
-        "LiteNetLib",
+        "BasisNetworkCore",
         "Basis Framework",
         "BasisDebug",
         "HVR.Basis.Comms.HVRUtility",

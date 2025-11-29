@@ -1,7 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using LiteNetLib;
+using Basis.Network.Core;
 using System;
 using System.Collections;
 using System.Threading.Tasks;
@@ -32,7 +32,7 @@ namespace Basis
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>
-        public void Start()
+        public virtual void Start()
         {
             BasisNetworkPlayer.OnLocalPlayerJoined += OnLocalPlayerJoined;
             BasisNetworkPlayer.OnPlayerJoined += OnPlayerJoined;
@@ -128,10 +128,11 @@ namespace Basis
                 }
                 else
                 {
-                    BasisDebug.LogError("No Owner for Id " + CurrentOwnerId);
+                    BasisUnInitalizedPlayer UnInitalizedPlayer = new BasisUnInitalizedPlayer(CurrentOwnerId);
+                    BasisDebug.LogError($"No Owner for Id {CurrentOwnerId} Creating Fake {nameof(BasisUnInitalizedPlayer)} this should only occur rarely");
+                    UnInitalizedPlayer.Initialize();
+                    OnOwnershipTransfer(UnInitalizedPlayer);
                 }
-               // BasisDebug.Log("Owner set to " + IsOwnedLocallyOnServer);
-                OnOwnershipTransfer(NetIdNewOwner);
             }
         }
         /// <summary>
@@ -255,10 +256,6 @@ namespace Basis
         /// back to no one owning it, (item no longer exists for example)
         /// </summary>
         public virtual void ServerOwnershipDestroyed()
-        {
-
-        }
-        public virtual void OnOwnershipTransfer(ushort NetIdNewOwner)
         {
 
         }

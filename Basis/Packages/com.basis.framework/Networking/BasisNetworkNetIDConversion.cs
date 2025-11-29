@@ -1,6 +1,5 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -44,7 +43,7 @@ public static class BasisNetworkIdResolver
             NetIDMessage requestMessage = new NetIDMessage { UniqueID = stringId };
             requestMessage.Serialize(writer);
 
-            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.netIDAssignChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
 
             return await AwaitWithTimeout(tcs.Task, stringId);
         }

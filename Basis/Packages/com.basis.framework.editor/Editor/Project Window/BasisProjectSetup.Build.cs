@@ -1,7 +1,8 @@
 #if UNITY_EDITOR
-using UnityEditor;
-using UnityEngine;
 using System;
+using UnityEditor;
+using UnityEditor.Build;
+using UnityEngine;
 
 public partial class BasisProjectSetup : EditorWindow
 {
@@ -101,7 +102,7 @@ public partial class BasisProjectSetup : EditorWindow
 
         SetQualitySafe(desiredQuality);
 
-        var backend = PlayerSettings.GetScriptingBackend(group);
+        var backend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group));
         EditorUtility.DisplayDialog(
             "Platform Applied",
             $"Switched to: {group}/{target}\n" +
@@ -232,19 +233,20 @@ public partial class BasisProjectSetup : EditorWindow
         if (group == BuildTargetGroup.Android)
             return new[] { ScriptingImplementation.Mono2x, ScriptingImplementation.IL2CPP };
 
-        return new[] { PlayerSettings.GetScriptingBackend(group) };
+        return new[] {PlayerSettings.GetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group))
+    };
     }
 
     private static void SetScriptingBackendSafe(BuildTargetGroup group, ScriptingImplementation impl)
     {
-        if (PlayerSettings.GetScriptingBackend(group) == impl) return;
+        if (PlayerSettings.GetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group)) == impl) return;
 
         var backends = GetAvailableScriptingBackendsSafe(group);
         bool supported = Array.Exists(backends, b => b == impl);
         if (!supported)
             throw new InvalidOperationException($"IL2CPP not supported for {group} on this Editor install.");
 
-        PlayerSettings.SetScriptingBackend(group, impl);
+        PlayerSettings.SetScriptingBackend(NamedBuildTarget.FromBuildTargetGroup(group), impl);
     }
 }
 #endif

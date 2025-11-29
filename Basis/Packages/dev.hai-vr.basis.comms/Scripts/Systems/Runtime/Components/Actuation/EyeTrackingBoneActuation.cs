@@ -6,7 +6,7 @@ using Basis.Scripts.Behaviour;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking.Receivers;
 using HVR.Basis.Comms.HVRUtility;
-using LiteNetLib;
+using Basis.Network.Core;
 using Unity.Mathematics;
 using UnityEngine;
 

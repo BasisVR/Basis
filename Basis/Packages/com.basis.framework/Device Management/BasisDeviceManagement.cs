@@ -651,13 +651,12 @@ namespace Basis.Scripts.Device_Management
         /// <summary>
         /// Indicates whether the current runtime is a mobile platform (Android).
         /// </summary>
-        public static bool IsMobilehardware() => Application.isMobilePlatform;
+        public static bool IsMobileHardware() => Application.isMobilePlatform;
 
         /// <summary>
         /// Returns <c>true</c> when the current static mode equals <see cref="BasisConstants.Desktop"/>.
         /// </summary>
         public static bool IsUserInDesktop() => string.Equals(StaticCurrentMode, BasisConstants.Desktop, StringComparison.Ordinal);
-
         /// <summary>
         /// Returns <c>true</c> when the current static mode indicates a VR/XR loader.
         /// </summary>

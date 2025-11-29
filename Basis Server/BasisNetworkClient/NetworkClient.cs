@@ -1,6 +1,5 @@
 using Basis.Network.Core;
-using LiteNetLib;
-using LiteNetLib.Utils;
+
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static SerializableBasis;
 public class NetworkClient
@@ -15,28 +14,12 @@ public class NetworkClient
     /// <param name="IP"></param>
     /// <param name="port"></param>
     /// <param name="ReadyMessage"></param>
-    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, bool UseNativeSockets = false)
+    public NetPeer StartClient(string IP, int port, ReadyMessage ReadyMessage, byte[] AuthenticationMessage, Configuration Configuration)
     {
         if (IsInUse == false)
         {
             listener = new EventBasedNetListener();
-            client = new NetManager(listener)
-            {
-                AutoRecycle = false,
-                UnconnectedMessagesEnabled = false,
-                NatPunchEnabled = true,
-                AllowPeerAddressChange = true,
-                BroadcastReceiveEnabled = false,
-                UseNativeSockets = UseNativeSockets,//unity does not work with this
-                ChannelsCount = BasisNetworkCommons.TotalChannels,
-                EnableStatistics = true,
-                UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
-                PingInterval = BasisNetworkCommons.PingInterval,
-                UnsyncedEvents = true,
-                ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
-                PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
-
-            };
+            client = new LNLNetManager(listener, Configuration);
             client.Start();
             NetDataWriter Writer = new NetDataWriter(true,12);
             //this is the only time we dont put key!

@@ -1,5 +1,5 @@
 using BasisNetworkCore.Pooling;
-using LiteNetLib.Utils;
+using Basis.Network.Core;
 using System;
 
 public static partial class SerializableBasis

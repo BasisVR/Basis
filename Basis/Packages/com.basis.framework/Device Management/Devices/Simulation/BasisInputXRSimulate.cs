@@ -64,7 +64,7 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
 
             // Normalize to player default scale and restore (keeps internal math consistent)
             ScaledDeviceCoord.position /= SPTDS;
-            ScaledDeviceCoord.position = ScaledDeviceCoord.position * SPTDS;
+            ScaledDeviceCoord.position = OffsetCoords.position + (ScaledDeviceCoord.position * SPTDS);
             ScaledDeviceCoord.rotation = LocalRawRotation;
 
             if (hasRoleAssigned)
@@ -74,10 +74,13 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
                     // Apply pose to incoming data for the bone control
                     Control.IncomingData.position = ScaledDeviceCoord.position;
                     Control.IncomingData.rotation = ScaledDeviceCoord.rotation;
+                    this.transform.name = Control.name;
+                    this.FollowMovement.name = $"{Control.name} Moveable transform";
                 }
             }
 
-            UpdatePlayerControl();
+            ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+            UpdateInputEvents();
         }
 
         /// <summary>

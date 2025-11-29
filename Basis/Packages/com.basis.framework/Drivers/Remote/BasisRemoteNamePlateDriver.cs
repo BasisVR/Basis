@@ -87,13 +87,30 @@ namespace Basis.Scripts.UI.NamePlate
         public Mesh RoundedCornersMesh;
 
         /// <summary>
+        /// Controls the curvature of the rounded corners (0–1 scale).
+        /// 0 = sharp rectangle, 1 = maximum rounding given width/height.
+        /// </summary>
+        [Range(0f, 1f)]
+        public float RoundEdges = 0.5f;
+
+        /// <summary>
+        /// Number of vertices used per rounded corner (must be greater than 2).
+        /// </summary>
+        public int CornerVertexCount = 8;
+
+        /// <summary>
+        /// Z-axis offset applied to the generated mesh.
+        /// </summary>
+        public float zOffset = 0.06f;
+
+        /// <summary>
         /// Unity lifecycle method. Initializes the singleton,
         /// assigns materials, caches colors, and generates the rounded mesh.
         /// </summary>
         public void Awake()
         {
             Instance = this;
-            if (BasisDeviceManagement.IsMobilehardware())
+            if (BasisDeviceManagement.IsMobileHardware())
             {
                 SelectedNamePlateMaterial = OpaqueNamePlateMaterial;
             }
@@ -170,27 +187,12 @@ namespace Basis.Scripts.UI.NamePlate
         }
 
         /// <summary>
-        /// Controls the curvature of the rounded corners (0–1 scale).
-        /// </summary>
-        public float RoundEdges = 0.85f;
-
-        /// <summary>
-        /// Number of vertices used per rounded corner (must be greater than 2).
-        /// </summary>
-        public int CornerVertexCount = 8;
-
-        /// <summary>
-        /// Z-axis offset applied to the generated mesh.
-        /// </summary>
-        public float zOffset = 0.06f;
-
-        /// <summary>
         /// Generates a rectangular mesh with rounded corners for the nameplate background.
         /// </summary>
         /// <returns>A mesh with rounded edges and UV mapping applied.</returns>
         public Mesh GenerateRoundedQuad()
         {
-            int cornerCount = CornerVertexCount;
+            int cornerCount = Mathf.Max(3, CornerVertexCount); // safety clamp
             int ringVertexCount = cornerCount * 4;
             int vertexCount = ringVertexCount + 1;
             int triangleCount = ringVertexCount;
@@ -200,13 +202,17 @@ namespace Basis.Scripts.UI.NamePlate
             Vector2[] m_UV = new Vector2[vertexCount];
             int[] m_Triangles = new int[triangleCount * 3];
 
-            float halfWidth = 25;
+            // Base dimensions of the quad
+            float halfWidth = 30f;
             float halfHeight = 4.5f;
-            float width = 50;
-            float height = 9;
+            float width = halfWidth * 2f;
+            float height = halfHeight * 2f;
 
-            float maxRadius = Mathf.Min(width, height) * 0.5f;
-            float radius = Mathf.Min(RoundEdges, maxRadius);
+            // Max possible radius before the rounded corners break the shape
+            float maxRadius = Mathf.Min(halfWidth, halfHeight);
+
+            // Interpret RoundEdges as a 0–1 slider
+            float radius = Mathf.Clamp01(RoundEdges) * maxRadius;
 
             float angleStep = Mathf.PI * 0.5f / (cornerCount - 1);
             Vector2 uvOffset = new Vector2(0.5f, 0.5f);
@@ -223,11 +229,26 @@ namespace Basis.Scripts.UI.NamePlate
                 float sin = Mathf.Sin(angle);
                 float cos = Mathf.Cos(angle);
 
-                // Calculate each rounded corner position
-                Vector2 tl = new Vector2(-halfWidth + (1f - cos) * radius, halfHeight - (1f - sin) * radius);
-                Vector2 tr = new Vector2(halfWidth - (1f - sin) * radius, halfHeight - (1f - cos) * radius);
-                Vector2 br = new Vector2(halfWidth - (1f - cos) * radius, -halfHeight + (1f - sin) * radius);
-                Vector2 bl = new Vector2(-halfWidth + (1f - sin) * radius, -halfHeight + (1f - cos) * radius);
+                // Calculate each rounded corner position using the radius
+                Vector2 tl = new Vector2(
+                    -halfWidth + (1f - cos) * radius,
+                    halfHeight - (1f - sin) * radius
+                );
+
+                Vector2 tr = new Vector2(
+                    halfWidth - (1f - sin) * radius,
+                    halfHeight - (1f - cos) * radius
+                );
+
+                Vector2 br = new Vector2(
+                    halfWidth - (1f - cos) * radius,
+                    -halfHeight + (1f - sin) * radius
+                );
+
+                Vector2 bl = new Vector2(
+                    -halfWidth + (1f - sin) * radius,
+                    -halfHeight + (1f - cos) * radius
+                );
 
                 int baseIndex = 1 + CornerIndex;
                 m_Vertices[baseIndex] = new Vector3(tl.x, tl.y, zOffset);

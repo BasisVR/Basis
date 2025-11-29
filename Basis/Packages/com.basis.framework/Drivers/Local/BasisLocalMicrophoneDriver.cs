@@ -5,11 +5,6 @@ using Basis.Scripts.Device_Management;
 using System.Threading;
 using Unity.Collections;
 using Unity.Jobs;
-using Basis.Scripts.BasisSdk.Players;
-
-//
-// BasisLocalMicrophoneDriver (revised)
-//
 public static class BasisLocalMicrophoneDriver
 {
     private static int head = 0;
@@ -110,7 +105,9 @@ public static class BasisLocalMicrophoneDriver
 
     // Temp buffers for denoiser wet/dry and chunking
     private static float[] _denoiseDry; // copy of pre-denoise frame
+    #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
     private static float[] _tmp480;     // 480-sample scratch (allocated on demand)
+#endif
     // ---------------------------------------------------------
 
     public static bool Initialize()
@@ -127,6 +124,7 @@ public static class BasisLocalMicrophoneDriver
                 SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.StaticCurrentMode);
                 ResetMicrophones(SMDMicrophone.SelectedMicrophone);
                 ConfigureDenoiser(SMDMicrophone.SelectedDenoiserMicrophone);
+
                 StartProcessingThread();
                 IsInitialize = true;
                 return true;
@@ -160,13 +158,13 @@ public static class BasisLocalMicrophoneDriver
 #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
             Denoiser?.Dispose();
             Denoiser = null;
+            _tmp480 = null;
 #endif
             clip = null;
             microphoneBufferArray = null;
             processBufferArray = null;
             rmsValues = null;
             _denoiseDry = null;
-            _tmp480 = null;
 
             IsInitialize = false;
             BasisDebug.Log("Microphone Driver Deinitialized.");

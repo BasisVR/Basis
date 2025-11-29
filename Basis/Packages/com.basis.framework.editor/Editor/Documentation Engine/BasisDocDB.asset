@@ -566,9 +566,9 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: BasisAvatarPedestal
+  - TypeFullName: BasisAvatarPedestal+ShowAvatarOnPedestal
     MemberName: ShowAvatarOnPedestal
-    Kind: Field
+    Kind: Enum
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
@@ -594,26 +594,6 @@ MonoBehaviour:
     ParamDocs: []
     Summary: Flag to prevent multiple press interactions being triggered in quick
       succession.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisAvatarPedestal
-    MemberName: InteractRange
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Maximum interaction range in world units for hovering or interacting.
     Remarks: 
     Returns: 
     Value: 
@@ -714,6 +694,87 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Unity Start callback. Initializes the progress report and begins setup.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: LoadedImage
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: if we successfully load a image of the avatar it will be referencable
+      here.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: FallBackImage
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Fallback image if we fail to load a image
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: Renderer
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: renderer being used to show loaded image
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: MaterialGetsCopied
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: material gets duplicated before adding image.
     Remarks: 
     Returns: 
     Value: 
@@ -5438,7 +5499,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Device_Management.
-    MemberName: IsMobile
+    MemberName: IsMobilehardware
     Kind: Method
     ParamCount: 0
     ParamNames: []
@@ -5501,7 +5562,53 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: SolveTwoBoneIKLegsAndTorso
+    MemberName: SolveTwoBoneSpine
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Two-bone IK specialized for a spine-like chain (root-mid-tip).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisAnimationRiggingHelper
+    MemberName: CreateBasisFullBodyRIG
+    Kind: Method
+    ParamCount: 4
+    ParamNames:
+    - player
+    - parent
+    - Mapping
+    - BasisFullIKConstraint
+    ParamDocs: []
+    Summary: "Build the combined Full IK constraint from arrays of joints and roles.\n
+      root/mid/tip must be length >= 3: [Head, LeftLowerLeg, RightLowerLeg]\n TargetRole/BendRole/UseBoneRole
+      correspond index-by-index to those same chains."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: SolveTwoBone
     Kind: Method
     ParamCount: 9
     ParamNames:
@@ -6402,6 +6509,50 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: UnityEngine.Animations.Rigging.BasisFullBodyData
+    MemberName: BasisFullBodyData
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: " <summary>\n Full-body pass: Head + Legs + Hips + Dual Driven TR +
+      Dual TwoBoneIK Hands (with chest/hand capsule & elbow protection).\n All driven
+      via a single job.\n </summary>"
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: UnityEngine.Animations.Rigging.BasisIKConstraintData
+    MemberName: BasisIKConstraintData
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Minimal constraint that ONLY drives the hips transform (position +
+      rotation).\n Added: calibration offset (position + quaternion) to bake T-pose
+      offsets."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: UnityEngine.Animations.Rigging.BasisTwoBoneIKConstraintData
     MemberName: BasisTwoBoneIKConstraintData
     Kind: Type
@@ -6806,6 +6957,26 @@ MonoBehaviour:
     ParamDocs: []
     Summary: "Whether this object can currently be interacted with.\n Changing this
       property invokes cleanup and influence events as needed."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: InteractRange
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Interaction range in meters (distance from input source to collider/transform).
     Remarks: 
     Returns: 
     Value: 
@@ -7683,34 +7854,13 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
-    MemberName: InteractRange
+    MemberName: OnPickupUse
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
     Summary: Lock context used to temporarily pause head/camera updates while rotating
       in desktop.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
-    MemberName: OnPickupUse
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Event-like callback invoked every frame a trigger state is detected
-      while interacting.
     Remarks: 
     Returns: 
     Value: 
@@ -7751,6 +7901,234 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Optional hook points that must all return  for interaction to be allowed.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: enableScaleWithGesture
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: When , enables scaling the object by moving both hands apart/together
+      while holding it.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: minScalePercent
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Minimum percentage the object can be ensmallened to.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: maxScalePercent
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Maximum percentage the object can be embiggened to.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: constrainToAxis
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: When set to an axis, constrains movement to that axis only. Ideal for
+      sliders and buttons.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: positiveTravelLimit
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Maximum positive travel limit from the starting position along the constrained
+      axis, in meters.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: negativeTravelLimit
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Maximum negative travel limit from the starting position along the constrained
+      axis, in meters.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: enableAutoReturn
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: When , object will return to its starting position, scale and rotation
+      after being released for a duration of time
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: delay
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Amount of time between when an object is released and when it begins
+      to transform back to original state, in seconds
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: duration
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Amount of time an object will take to transition back to original state
+      after it begins, in seconds
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: easing
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Type of easing to apply to the interpolation when moving back to original
+      state
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
+    MemberName: useCustomCurve
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Custom AnimationCurve to use for easing instead of the preset options
     Remarks: 
     Returns: 
     Value: 
@@ -8042,6 +8420,7 @@ MonoBehaviour:
     ParamDocs:
     - The desktop center-eye input wrapper.
     - Outputs the active wrapper when interaction is in progress.
+    - Outputs the active wrapper when interaction is in progress.
     Summary: "Handles desktop-only controls: mouse wheel zoom (\"zoop\") and drag
       rotation.\n Temporarily pauses head/look rotation while rotating."
     Remarks: 
@@ -8189,6 +8568,246 @@ MonoBehaviour:
     - T
     TypeParamDocs:
     - Argument type.
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisSeat
+    MemberName: Back
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "The seat position control point corresponding to the character's back
+      position in meters.\n Note that all points describe the seat itself in local
+      space, not the positions of the character's bones."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: Foot
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "The seat position control point corresponding to the character's foot
+      position in meters.\n Note that all points describe the seat itself in local
+      space, not the positions of the character's bones."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: Knee
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "The seat position control point corresponding to the character's knee
+      position in meters.\n Note that all points describe the seat itself in local
+      space, not the positions of the character's bones."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: SpineAngleDegrees
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "The seat angle between the spine and the back-knee line in degrees.
+      Recommended values are close to 90 degrees, and going over is better than going
+      under.\n This is specified with double precision to avoid precision errors
+      when serializing/deserializing to JSON for OMI_seat interchange."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: CalculateSeatPositionRotation
+    Kind: Method
+    ParamCount: 3
+    ParamNames:
+    - Player
+    - hipsWorldRot
+    - hipsWorldPos
+    ParamDocs: []
+    Summary: this is hacky atm needs calculation
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: ApplyRemoteLeg
+    Kind: Method
+    ParamCount: 7
+    ParamNames:
+    - Difference
+    - LeftLowerLegControlRotation
+    - LeftUpperLegControlRotation
+    - LeftFootControl
+    - LeftLowerLegControl
+    - LeftUpperLegControl
+    - LeftToeControl
+    ParamDocs:
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    - 
+    Summary: 
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: AlignAroundLocalX
+    Kind: Method
+    ParamCount: 3
+    ParamNames:
+    - quat
+    - localAlign
+    - targetNormalized
+    ParamDocs: []
+    Summary: "Aligns the local align direction (usually +Y) of the provided quaternion
+      to point as closely as possible\n to the provided target direction, by rotating
+      around the quaternion's local X axis.\n The returned rotation is parent-relative,
+      it should be applied on the left side of the original quaternion."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: OnHoverStart
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - input
+    ParamDocs:
+    - The input source beginning hover.
+    Summary: "Called when hovering begins for an input. Promotes the input to the
+      `Hovering` state,\n shows highlight, and invokes BasisInteractableObject.OnHoverStartEvent."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: OnHoverEnd
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - input
+    - willInteract
+    ParamDocs:
+    - The input source ending hover.
+    - Whether interaction is about to begin.
+    Summary: "Called when hover ends for an input. Optionally clears state if interaction
+      won't begin,\n hides highlight, and invokes BasisInteractableObject.OnHoverEndEvent."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: OnExitSeat
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: this one actually does the callback.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
     ExceptionCrefs: []
     ExceptionDocs: []
     SeeCrefs: []
@@ -9711,6 +10330,26 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: 
+    MemberName: foveatedRenderingLevel
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: 
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: Basis.Scripts.UI.BasisGraphicUIRayCaster
     MemberName: BasisGraphicUIRayCaster
     Kind: Type
@@ -10104,11 +10743,12 @@ MonoBehaviour:
   - TypeFullName: Basis.Scripts.UI.
     MemberName: UpdateRaycast
     Kind: Method
-    ParamCount: 0
-    ParamNames: []
+    ParamCount: 1
+    ParamNames:
+    - true
     ParamDocs: []
-    Summary: Run after Input control apply, before `AfterControlApply` alloc free,
-      uses camera raycasting when required of it.
+    Summary: "Run after Input control apply, before `AfterControlApply` alloc free,\n
+      uses camera raycasting when required of it."
     Remarks: 
     Returns: 
     Value: 
@@ -10132,7 +10772,8 @@ MonoBehaviour:
     ParamDocs:
     - 
     - 
-    Summary: Gets the closest raycast hit up to maxDistance
+    Summary: "Gets the closest raycast hit up to maxDistance,\n with OverlayUI layer
+      overriding if present."
     Remarks: 
     Returns: true on valid hit
     Value: 
@@ -14884,302 +15525,6 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: BasisObjectSyncDriver
-    MemberName: new
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Set of objects owned locally by this client; these will be transmitted
-      to remote peers.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisObjectSyncDriver
-    MemberName: new
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Set of objects owned by remote peers; these will be interpolated locally.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisObjectSyncDriver
-    MemberName: TargetMilliseconds
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Minimum interval between local transmit bursts. Units are the same as
-      _lastUpdateTime/`currentTime`.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisObjectSyncDriver
-    MemberName: Initalization
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Timestamp of the last local transmit burst.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: OnDestroy
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Disposes persistent containers and completes any pending remote job.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: TransmitOwnedPickups
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - currentTime
-    ParamDocs:
-    - Current time source used to throttle transmission.
-    Summary: Sends state for all locally owned objects at the configured cadence.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: ScheduleRemoteLerp
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - deltaTime
-    ParamDocs:
-    - Frame delta time used to scale per-object lerp multipliers.
-    Summary: Builds job data and schedules the Burst job that interpolates remote-owned
-      objects.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: CompleteScheduledRemoteLerp
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Completes the previously scheduled remote interpolation job.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: RemoteSyncJob
-    MemberName: RemoteSyncJob
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Burst job that lerps transforms toward target position/rotation with
-      per-instance multipliers.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: RemoteSyncJob
-    MemberName: Execute
-    Kind: Method
-    ParamCount: 2
-    ParamNames:
-    - index
-    - transform
-    ParamDocs:
-    - Transform index.
-    - Transform access wrapper.
-    Summary: Target local positions for each transform.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: AddLocalOwner
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - obj
-    ParamDocs: []
-    Summary: Registers an object as locally owned so it will be transmitted.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: RemoveLocalOwner
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - obj
-    ParamDocs: []
-    Summary: Unregisters an object from the locally owned set.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: AddRemoteOwner
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - obj
-    ParamDocs: []
-    Summary: Registers a remotely owned object so it will be interpolated locally.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: RemoveRemoteOwner
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - obj
-    ParamDocs: []
-    Summary: Unregisters a remotely owned object from local interpolation.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
   - TypeFullName: BasisTranslationUpdate
     MemberName: BasisTranslationUpdate
     Kind: Type
@@ -15187,86 +15532,6 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Network translation update payload used to feed the interpolation system.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisTranslationUpdate
-    MemberName: TargetPosition
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Desired target local position.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisTranslationUpdate
-    MemberName: TargetRotation
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Desired target local rotation.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisTranslationUpdate
-    MemberName: TargetScales
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Desired target local scale (not currently applied by the job above).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: BasisTranslationUpdate
-    MemberName: LerpMultipliers
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Lerp factor to apply (usually scaled by delta time each frame).
     Remarks: 
     Returns: 
     Value: 
@@ -16416,7 +16681,7 @@ MonoBehaviour:
     Kind: Method
     ParamCount: 7
     ParamNames:
-    - driver
+    - RootRotation
     - anim
     - bone
     - heightPercentage
@@ -16521,12 +16786,13 @@ MonoBehaviour:
   - TypeFullName: Basis.Scripts.Drivers.
     MemberName: SetInitialData
     Kind: Method
-    ParamCount: 4
+    ParamCount: 5
     ParamNames:
     - Transform
     - bone
     - Role
     - WorldTpose
+    - WorldTposeRotation
     ParamDocs:
     - Avatar root transform.
     - The bone control to initialize.
@@ -16871,6 +17137,46 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Cached control for the chest bone.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisLocalBoneDriver
+    MemberName: LeftUpperLegControl
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Cached control for the left upper leg (thigh).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisLocalBoneDriver
+    MemberName: RightUpperLegControl
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Cached control for the right upper leg (thigh).
     Remarks: 
     Returns: 
     Value: 
@@ -18349,8 +18655,8 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisCharacterController.BasisLocalCharacterDriver
-    MemberName: IsCrouching
-    Kind: Property
+    MemberName: CrouchBlendDelta
+    Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
@@ -18358,6 +18664,27 @@ MonoBehaviour:
       implicitly each simulation frame.\n This is generally used by event based input
       systems where a start and stop event are called, but per-frame updates are
       not."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisCharacterController.BasisLocalCharacterDriver
+    MemberName: IsCrouching
+    Kind: Property
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Indicates whether the character is considered crouching based on the
+      CrouchBlend value being less than the defined threshold.
     Remarks: 
     Returns: 
     Value: 
@@ -20137,7 +20464,8 @@ MonoBehaviour:
     - Source animator with humanoid avatar to sample.
     Summary: "Rebuilds pose atlas by sampling Unity HumanPose muscles on a hidden
       duplicate of the provided animator.\n Captures TPose finger muscle blocks,
-      bakes poses for every coordinate, and fills CoordToPose."
+      bakes poses for every coordinate, and fills CoordToPose.\n Resets all per-finger
+      caches to avoid stale data when swapping animators."
     Remarks: 
     Returns: 
     Value: 
@@ -20159,8 +20487,8 @@ MonoBehaviour:
     - DeltaTime
     ParamDocs:
     - Frame delta time (seconds).
-    Summary: "Updates finger targets from current input percentages, finds nearest
-      baked pose per finger via Burst,\n and blends transforms toward the new targets."
+    Summary: Resets all per-finger caches so the next UpdateFingers() forces fresh
+      lookups against the new atlas.
     Remarks: 
     Returns: 
     Value: 
@@ -20533,8 +20861,7 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Minimum cutoff for the One Euro filter. Lower = smoother; higher = more
-      responsive.
+    Summary: Lower = more smoothing; Higher = more responsive. (0.01f, 10f)
     Remarks: 
     Returns: 
     Value: 
@@ -20554,8 +20881,8 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: 'Beta term for the One Euro filter: raises cutoff during fast motion
-      to reduce lag.'
+    Summary: How much to raise cutoff when motion is fast (reduces lag during quick
+      moves). (0f, 10f)
     Remarks: 
     Returns: 
     Value: 
@@ -20575,7 +20902,7 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Cutoff for derivative smoothing in the One Euro filter.
+    Summary: Cutoff for derivative smoothing. (0.01f, 10f)
     Remarks: 
     Returns: 
     Value: 
@@ -20589,13 +20916,14 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: SpineIK
-    Kind: Field
+  - TypeFullName: Basis.Scripts.Drivers.BasisLocalSeatDriver
+    MemberName: BasisLocalSeatDriver
+    Kind: Type
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Spine IK constraint (hips/head targets).
+    Summary: "Driver class which takes control of the BasisLocalPlayer's\n hips and
+      legs in order to fit them onto a BasisSeat.\n See also BasisLocalVirtualSpineDriver.HipsFreezeToTpose."
     Remarks: 
     Returns: 
     Value: 
@@ -20609,657 +20937,14 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftFootTwoBoneIK
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left foot two-bone IK.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightFootTwoBoneIK
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right foot two-bone IK.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftHandTwoBoneIK
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left hand two-bone IK (hand variant).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightHandTwoBoneIK
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right hand two-bone IK (hand variant).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: UpperChestTwoBoneIK
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Upper chest two-bone IK (optional).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftToeConstraint
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left toe translation/rotation damper.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightToeConstraint
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right toe translation/rotation damper.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftToeRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left toe rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightToeRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right toe rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: HeadRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Head rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: SpineRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Spine rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftHandRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left hand rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightHandRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right hand rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftFootRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left foot rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightFootRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right foot rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftShoulderRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left shoulder rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightShoulderRig
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right shoulder rig group.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftHandLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling left hand rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightHandLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling right hand rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftFootLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling left foot rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightFootLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling right foot rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftToeLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling left toe rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightToeLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling right toe rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RigSpineLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling spine rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RigChainSpineLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Optional chain spine layer.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: HeadLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Layer controlling head rig.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: LeftShoulderLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Left shoulder layer.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: RightShoulderLayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Right shoulder layer.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: List<Rig>
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: All created rig components for bookkeeping.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: Builder
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: RigBuilder used to manage layers and build the playable graph.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: List<RigTransform>
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Additional transforms to register with the rig (if needed).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalRigDriver
-    MemberName: PlayableGraph
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: PlayableGraph used for manual rig evaluation.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
+  - TypeFullName: Basis.Scripts.Drivers.BasisLocalSeatDriver
     MemberName: Initialize
     Kind: Method
-    ParamCount: 2
+    ParamCount: 1
     ParamNames:
     - localPlayer
-    - references
-    ParamDocs:
-    - Local player providing animator and scale context.
-    - Captured bone references for rig construction.
-    Summary: Owning local player instance.
+    ParamDocs: []
+    Summary: Initialize the driver with the owning local player.
     Remarks: 
     Returns: 
     Value: 
@@ -21274,37 +20959,15 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: SimulateIKDestinations
+    MemberName: Sit
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - DeltaTime
-    ParamDocs:
-    - Simulation delta time.
-    Summary: "Updates IK targets and hints, applies One Euro filtering (hooks left
-      in place but commented),\n and manually evaluates the rig playable graph for
-      the given delta time."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplySpineIKTarget
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - hip
+    - seat
     ParamDocs: []
-    Summary: Filters and applies a target to a standard two-bone IK constraint.
+    Summary: "Sit the local player at the provided seat. This will snap the player
+      to the seat,\n including overriding the leg transforms to correctly bend around
+      the seat."
     Remarks: 
     Returns: 
     Value: 
@@ -21319,444 +20982,15 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplyBoneIKHint
-    Kind: Method
-    ParamCount: 4
-    ParamNames:
-    - Constraint
-    - Position
-    - Rotation
-    - Direction
-    ParamDocs: []
-    Summary: Applies a two-bone IK hint with a custom hint direction.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplyHandBoneIKHint
-    Kind: Method
-    ParamCount: 3
-    ParamNames:
-    - Constraint
-    - Position
-    - Rotation
-    ParamDocs: []
-    Summary: Applies a two-bone hand IK hint (no custom direction).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplyBoneIKTarget
-    Kind: Method
-    ParamCount: 3
-    ParamNames:
-    - Constraint
-    - Position
-    - Rotation
-    ParamDocs: []
-    Summary: Applies target position/rotation to a two-bone IK constraint.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplyBoneIKTarget
-    Kind: Method
-    ParamCount: 3
-    ParamNames:
-    - basisDamped
-    - Position
-    - Rotation
-    ParamDocs: []
-    Summary: Applies target position/rotation to a translation/rotation damping constraint.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplyBoneIKTarget
-    Kind: Method
-    ParamCount: 3
-    ParamNames:
-    - Constraint
-    - Position
-    - Rotation
-    ParamDocs: []
-    Summary: Applies target position/rotation to a hand two-bone IK constraint.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: BuildBuilder
+    MemberName: Stand
     Kind: Method
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Builds the rig's playable graph from the animator and switches the graph
-      to manual update mode.
+    Summary: Releases the player from the seat, re-enabling movement and disabling
+      leg overrides.
     Remarks: 
     Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: OnTPose
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: 'Overload convenience: toggles layers based on current TPose state.'
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: OnTPose
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - currentlyTposing
-    ParamDocs:
-    - Whether the avatar is currently in TPose.
-    Summary: Enables/disables rig layers during TPose and notifies bone controls
-      when exiting TPose.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: CleanupBeforeContinue
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Cleans up created rig GameObjects (head/spine/hands/feet/toes/shoulders)
-      before rebuilding.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: SetBodySettings
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: Sets up core body rigs (spine, head, hands, feet, toes) and ensures
-      a RigTransform exists on hips.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: LeftHand
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: "Creates head/neck/chest rig and two-bone IK based on available references.\n
-      Registers rig-layer events for the relevant bone controls."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: RightHand
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: Sets up right hand two-bone IK and layer events for hand/lower arm controls.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: LeftFoot
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: Sets up left foot two-bone IK and layer events for foot/lower leg controls.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: RightFoot
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: Sets up right foot two-bone IK and layer events for foot/lower leg controls.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: LeftToe
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: Sets up left toe damping rig and registers layer toggling for the left
-      toe control.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: RightToe
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - driver
-    ParamDocs: []
-    Summary: Sets up right toe damping rig and registers layer toggling for the right
-      toe control.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: CalibrateRoles
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Sets hint weights based on connected input devices and clears all hints
-      first.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: ApplyHint
-    Kind: Method
-    ParamCount: 2
-    ParamNames:
-    - RoleWithHint
-    - weight
-    ParamDocs:
-    - The role whose hint should be toggled.
-    - True to enable the hint; false to disable.
-    Summary: Applies a hint weight to the appropriate constraint given a tracked
-      role.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: WriteUpEvents
-    Kind: Method
-    ParamCount: 2
-    ParamNames:
-    - Controls
-    - Layer
-    ParamDocs: []
-    Summary: "Wires change events from controls to a rig layer so the layer auto-activates\n
-      when any control reports an active rig layer."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: CreateOrGetRig
-    Kind: Method
-    ParamCount: 4
-    ParamNames:
-    - Role
-    - Enabled
-    - Rig
-    - RigLayer
-    ParamDocs:
-    - Human-readable role label used in the rig name.
-    - Initial active state of the layer.
-    - 'Out: the created or found UnityEngine.Animations.Rigging.Rig.'
-    - 'Out: the created or found UnityEngine.Animations.Rigging.RigLayer.'
-    Summary: Updates a layer's active flag based on whether any control reports an
-      active rig layer.
-    Remarks: 
-    Returns: The rig GameObject.
     Value: 
     Examples: []
     TypeParamNames: []
@@ -21914,12 +21148,33 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: BasisLocalVirtualSpineDriver
+    MemberName: HipsFreezeToTpose
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Initialization guard.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisLocalVirtualSpineDriver
     MemberName: Initialize
     Kind: Method
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Initialization guard.
+    Summary: "Enables the virtual overrides on all torso controls and hooks simulation
+      callback.\n Safe to call multiple times."
     Remarks: 
     Returns: 
     Value: 
@@ -21996,53 +21251,12 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisRemoteAudioDriver
-    MemberName: BasisAudioAndVisemeDriver
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Viseme (lip-sync) analysis driver processing audio samples each frame.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisRemoteAudioDriver
-    MemberName: BasisAudioReceiver
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Remote audio receiver that decodes and mixes network voice.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisRemoteAudioDriver
     MemberName: AudioData
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: "Optional callback invoked after audio is processed:\n `float[] samples`
-      (interleaved per channel), `int channels`."
+    Summary: Viseme (lip-sync) analysis driver processing audio samples each frame.
     Remarks: 
     Returns: 
     Value: 
@@ -22264,7 +21478,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisRemoteAvatarDriver
-    MemberName: hasDatainBoneDriver
+    MemberName: InBoneDriver
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -22710,26 +21924,6 @@ MonoBehaviour:
     ParamDocs: []
     Summary: "Authoring-time TPose data and local offsets (unscaled) used by the
       bone solver.\n Values are in avatar-local space relative to `rootWorld`."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: TposeAndOffsetDataJob
-    MemberName: tposeLocal_unscaled_Head
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Unscaled TPose local position of the head.
     Remarks: 
     Returns: 
     Value: 
@@ -23366,7 +22560,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: RemoteFrameOutput
-    MemberName: diffHipToHeadMouthY
+    MemberName: HeightAvatarHipCoord
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -23606,7 +22800,7 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Precomputed vertical scale coefficient (1 + 1/1.25).
+    Summary: Camera world position used to bill-board the plate (yaw-only).
     Remarks: 
     Returns: 
     Value: 
@@ -24459,6 +23653,67 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.UI.NamePlate.BasisRemoteNamePlateDriver
+    MemberName: RoundEdges
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Controls the curvature of the rounded corners (0\u20131 scale).\n 0
+      = sharp rectangle, 1 = maximum rounding given width/height."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.UI.NamePlate.BasisRemoteNamePlateDriver
+    MemberName: CornerVertexCount
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Number of vertices used per rounded corner (must be greater than 2).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.UI.NamePlate.BasisRemoteNamePlateDriver
+    MemberName: zOffset
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Z-axis offset applied to the generated mesh.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.UI.NamePlate.BasisRemoteNamePlateDriver
     MemberName: Awake
     Kind: Method
     ParamCount: 0
@@ -24504,187 +23759,16 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.UI.NamePlate.
-    MemberName: RoundEdges
-    Kind: Field
+    MemberName: GenerateRoundedQuad
+    Kind: Method
     ParamCount: 0
-    ParamNames:
-    - namePlate
+    ParamNames: []
     ParamDocs:
     - The nameplate object to update with the combined mesh.
     Summary: "Combines the rounded corner mesh and the text mesh\n into a single
       final mesh for rendering on the nameplate."
     Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.UI.NamePlate.
-    MemberName: CornerVertexCount
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Number of vertices used per rounded corner (must be greater than 2).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.UI.NamePlate.
-    MemberName: zOffset
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Z-axis offset applied to the generated mesh.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.UI.NamePlate.
-    MemberName: GenerateRoundedQuad
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Generates a rectangular mesh with rounded corners for the nameplate
-      background.
-    Remarks: 
     Returns: A mesh with rounded edges and UV mapping applied.
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: UnityEngine.Animations.Rigging.BasisHipsHeadIKConstraintData
-    MemberName: BasisHipsHeadIKConstraintData
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Minimal constraint that ONLY drives the hips transform (position +
-      rotation).\n Added: calibration offset (position + quaternion) to bake T-pose
-      offsets."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: UnityEngine.Animations.Rigging.BasisSpineIKConstraintData
-    MemberName: BasisSpineIKConstraintData
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: The Spine IK constraint data based on PDO-IK distance optimization.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: UnityEngine.Animations.Rigging.BasisSpineIKConstraintJob
-    MemberName: BasisSpineIKConstraintJob
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Calibrates original distances INCLUDING the final segment from last
-      spine joint to head.\n Layout:\n - m_OriginalDistances[0] = Vector3.zero (root
-      padding)\n - For each segment k (hips->spine0, spine0->spine1, ..., spineN-1->spineN,
-      spineN->head):\n     m_OriginalDistances[k+1] = next.position - prev.position\n
-      Thus, m_OriginalDistances.Length == (hips + spineCount + head) = debugCount\n
-      and there are (debugCount - 1) segments total.\n m_OriginalRelativeRotations
-      mirrors the segments count (debugCount - 1)."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: DHParameters
-    MemberName: DHParameters
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: 'Algorithm 1: Forward Rollout - Propagative computation along kinematic
-      chain'
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: PDOIKController
-    MemberName: PDOIKController
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: MonoBehaviour wrapper for PDO-IK solver (IK only, no collision)
-    Remarks: 
-    Returns: 
     Value: 
     Examples: []
     TypeParamNames: []
@@ -25114,6 +24198,115 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: 
+    MemberName: IsLocallyEntered
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Returns true if the local player is currently the recorded occupant.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: HasUser
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - id
+    ParamDocs: []
+    Summary: Returns whether a user occupies the seat and outputs their ID (0 if
+      none).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: SetSeatState
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - state
+    - id
+    ParamDocs: []
+    Summary: 'Local interaction start: attempt to enter seat if free or already ours.'
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: OnNetworkMessage
+    Kind: Method
+    ParamCount: 3
+    ParamNames:
+    - occupantId
+    - buffer
+    - deliveryMethod
+    ParamDocs: []
+    Summary: Apply state received from the network. Packet occupantId is the senderid,
+      this is to lock it into coming from the right person.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: CreateSeatPacket
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - isInSeat
+    ParamDocs: []
+    Summary: 'Create a seat packet: [occupied(byte)].'
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: BasisAudioClipPool
     MemberName: Get
     Kind: Method
@@ -25219,32 +24412,12 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAudioReceiver
-    MemberName: BasisRemoteVisemeAudioDriver
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Remote viseme driver component attached to the active audio source.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAudioReceiver
     MemberName: audioSource
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: The active AudioSource used for playback.
+    Summary: Remote viseme driver component attached to the active audio source.
     Remarks: 
     Returns: 
     Value: 
@@ -25285,26 +24458,6 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Ring buffer used to maintain correct ordering of decoded audio samples.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisAudioReceiver
-    MemberName: IsPlaying
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: True if playback is currently active.
     Remarks: 
     Returns: 
     Value: 
@@ -25677,9 +24830,10 @@ MonoBehaviour:
   - TypeFullName: Basis.Scripts.Networking.Receivers.
     MemberName: AvatarChanged
     Kind: Method
-    ParamCount: 1
+    ParamCount: 2
     ParamNames:
     - networkedPlayer
+    - WasFromCalibration
     ParamDocs:
     - The player whose avatar changed.
     Summary: Called when the remote player's avatar changes; refreshes viseme setup.
@@ -25820,256 +24974,13 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: sizeof
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - float
-    ParamDocs: []
-    Summary: Starting muscle index for eyes/mouth overlay.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: sizeof
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - float
-    ParamDocs: []
-    Summary: Eyes/mouth block length in bytes.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
     MemberName: BufferCapacityBeforeCleanup
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: If the staging backlog exceeds this, older frames are dropped to reduce
+    Summary: If staging backlog exceeds this, older frames are dropped to reduce
       latency.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: RemotePlayer
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Module that receives/decodes/plays remote voice audio.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: HasEvents
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Holds the current interpolation window (First\u2192Last) for animation."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: HasAvatarQueue
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Whether this receiver should keep consuming avatar frames.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: LogFirstError
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Used to log only the first error of repeated errors.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: EyesAndMouth
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Eye (L/R up/down, L/R left/right) + mouth open/smile block, overlaid
-      on muscles.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: Muscles
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Working array for 95 human pose muscles.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: ApplyingRotation
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Computed rotation written by the driver.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: ApplyingPosition
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Computed position written by the driver.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: ApplyingScale
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Computed scale written by the driver.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.BasisNetworkReceiver
-    MemberName: HasBufferHolds
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Normalized time (0..1) across the current interpolation window.
     Remarks: 
     Returns: 
     Value: 
@@ -26089,8 +25000,7 @@ MonoBehaviour:
     ParamCount: 1
     ParamNames:
     - unscaledDeltaTime
-    ParamDocs:
-    - Unscaled delta time for interpolation.
+    ParamDocs: []
     Summary: "Main-thread simulation step. Pulls packets, maintains interpolation
       window,\n computes interpolationTime, and feeds inputs to the network driver."
     Remarks: 
@@ -26114,180 +25024,6 @@ MonoBehaviour:
     ParamDocs: []
     Summary: "Main-thread application step. Pulls posed outputs from the driver and
       applies\n body position/rotation/muscles to the avatar via PoseHandler."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: EnQueueAvatarBuffer
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - avatarBuffer
-    ParamDocs:
-    - The decoded network frame.
-    Summary: Copies 95 floats from `src` to `dst` using a fast memcpy.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: Initialize
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Initializes this receiver for its remote player and subscribes to events.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: OnCalibration
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Called when the remote avatar driver reports calibration is complete.\n
-      Flushes any queued messages that match the current avatar index and\n discards
-      stale ones from previous avatars."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: DeInitialize
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Returns true if `messageIndex` is \"older\" than `currentIndex`\n in
-      modular arithmetic (byte wrap-around safe)."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: ReceiveNetworkAudio
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - msg
-    ParamDocs:
-    - Decoded server audio segment message.
-    Summary: Handles a non-silent voice segment for this remote player.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: ReceiveSilentNetworkAudio
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - audioSilentSegment
-    ParamDocs:
-    - Server audio segment message with zero payload.
-    Summary: Handles a silent voice segment for this remote player.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: ReceiveAvatarChangeRequest
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - SACM
-    ParamDocs:
-    - Avatar change payload from the server.
-    Summary: Receives a request to switch the remote player's avatar and triggers
-      creation.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Receivers.
-    MemberName: BasisNetworkReceiver
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - PlayerID
-    ParamDocs:
-    - Unique player identifier.
-    Summary: Constructs a receiver with an assigned player ID.
     Remarks: 
     Returns: 
     Value: 
@@ -26839,26 +25575,6 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Players.
-    MemberName: Action
-    Kind: Event
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Raised when the player's avatar is switched to a fallback avatar.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.
     MemberName: BasisProgressReport
     Kind: Method
     ParamCount: 0
@@ -27170,26 +25886,6 @@ MonoBehaviour:
     ParamDocs:
     - True if the face is visible; otherwise false.
     Summary: Updates whether the face is considered visible.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.
-    MemberName: AvatarSwitchedFallBack
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Triggers the OnAvatarSwitchedFallBack event.
     Remarks: 
     Returns: 
     Value: 
@@ -27642,89 +26338,6 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: BasisPlayerSettingsManager
-    MemberName: BasisPlayerSettingsManager
-    Kind: Type
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Manages per-player settings with a two-tier storage strategy:\n an
-      in-memory LRU cache for hot entries and JSON files on disk for persistence."
-    Remarks: "Scope: Player-scoped settings keyed by UUID, stored under\n Application.persistentDataPath/`PlayerSettings`.\n\n\n\nConcurrency:\n
-      - Reads: lock-free for disk, guarded for cache access.\n - Writes: serialized
-      per UUID via SemaphoreSlim to avoid races and partial writes.\n\n\n\nDurability:\n
-      Writes use a best-effort atomic protocol (temp file + replace/move) to minimize
-      corruption on crashes."
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: RequestPlayerSettings
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - uuid
-    ParamDocs:
-    - Unique player identifier used as the key for lookup and persistence.
-    Summary: Directory path used to persist settings files (one JSON per UUID).
-    Remarks: "If the on-disk file is missing or corrupted, a default settings record
-      is created,\n persisted, cached, and returned."
-    Returns: "A defensive copy of BasisPlayerSettingsData for the given `uuid`.\n
-      The returned instance is detached from the cache to prevent unintended external
-      mutation."
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs:
-    - ArgumentException
-    ExceptionDocs:
-    - Thrown when `uuid` is null, empty, or whitespace.
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: SetPlayerSettings
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - settings
-    ParamDocs:
-    - Settings object to persist. Must include a non-empty BasisPlayerSettingsData.UUID.
-    Summary: "Persists the provided settings to disk and updates the in-memory cache\n
-      with the exact version that was successfully written."
-    Remarks: "Volume is clamped to `[0, 5]` as a safety bound. Writes use a unique
-      temporary file\n and attempt File.Replace(string, string, string) for atomicity
-      on Windows,\n falling back to delete+move elsewhere.\n \n\n\n\n\n Multiple
-      concurrent writes to the same UUID are serialized via a per-UUID semaphore
-      to prevent\n partial/overlapping writes and inconsistent cache entries."
-    Returns: A task that completes when the write and cache update have finished.
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs:
-    - ArgumentNullException
-    - ArgumentException
-    ExceptionDocs:
-    - Thrown when `settings` is null.
-    - Thrown when `settings`.BasisPlayerSettingsData.UUID is null, empty, or whitespace.
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisSelectedHeightMode
     MemberName: BasisSelectedHeightMode
     Kind: Enum
@@ -28031,7 +26644,8 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Fallback height (meters) used when no measurement is available.
+    Summary: "Fallback height (meters) used when no measurement is available.\n not
+      the total height but the eye height"
     Remarks: 
     Returns: 
     Value: 
@@ -28414,6 +27028,26 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Places a foot Down. not done yet, i give up - dooly
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
+    MemberName: BasisLocalSeatDriver
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Local Seat Driver deals with sitting and using seats.
     Remarks: 
     Returns: 
     Value: 
@@ -29289,7 +27923,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.UI.NamePlate.BasisRemoteNamePlate
+  - TypeFullName: Basis.Scripts.UI.NamePlate.
     MemberName: Initalize
     Kind: Method
     ParamCount: 1
@@ -29753,7 +28387,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.TransformBinders.BoneControl.BasisLocalBoneControl
-    MemberName: HasTarget
+    MemberName: null
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -29833,7 +28467,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.TransformBinders.BoneControl.BasisLocalBoneControl
-    MemberName: HasGizmo
+    MemberName: GizmoReference
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -29873,7 +28507,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.TransformBinders.BoneControl.BasisLocalBoneControl
-    MemberName: TposeHasGizmo
+    MemberName: TposeGizmoReference
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -30788,9 +29422,10 @@ MonoBehaviour:
   - TypeFullName: 
     MemberName: UnlockCursor
     Kind: Method
-    ParamCount: 1
+    ParamCount: 2
     ParamNames:
     - requestName
+    - true
     ParamDocs: []
     Summary: "Unlocks the cursor and makes it visible.\n Removes a request to lock
       the cursor."
@@ -30810,9 +29445,10 @@ MonoBehaviour:
   - TypeFullName: 
     MemberName: UnlockCursorBypassChecks
     Kind: Method
-    ParamCount: 1
+    ParamCount: 2
     ParamNames:
     - requestName
+    - true
     ParamDocs: []
     Summary: Unlocks the cursor and makes it visible. Bypasses checks that would
       have prevented it from being unlocked.
@@ -31336,15 +29972,37 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Device_Management.Devices.BasisInput
+    MemberName: HasRayCastOverrideSupport
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: this is used for example when we have multi touch support and need a
+      way to get a bunch of differnt fingers coming from the same "head role"
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.BasisInput
     MemberName: InitalizeTracking
     Kind: Method
-    ParamCount: 5
+    ParamCount: 6
     ParamNames:
     - uniqueID
     - unUniqueDeviceID
     - subSystems
     - ForceAssignTrackedRole
     - basisBoneTrackedRole
+    - false
     ParamDocs:
     - Unique device identifier for this instance.
     - Normalized device identifier for capability matching.
@@ -31353,6 +30011,30 @@ MonoBehaviour:
     - Desired tracked role for this device.
     Summary: Initialize the tracking lifecycle for this input device, register events,
       and (optionally) create raycast helpers.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.
+    MemberName: ComputeRaycastDirection
+    Kind: Method
+    ParamCount: 3
+    ParamNames:
+    - Position
+    - rotation
+    - ActiveRaycastOffset
+    ParamDocs: []
+    Summary: "Computes the raycast origin/direction using the hand\u2019s final transform
+      and active offset."
     Remarks: 
     Returns: 
     Value: 
@@ -31649,8 +30331,9 @@ MonoBehaviour:
   - TypeFullName: Basis.Scripts.Device_Management.Devices.
     MemberName: UpdatePlayerControl
     Kind: Method
-    ParamCount: 0
-    ParamNames: []
+    ParamCount: 1
+    ParamNames:
+    - true
     ParamDocs: []
     Summary: "Pushes current input state to the action driver and updates raycasting/UI
       systems.\n Invokes AfterControlApply afterwards."
@@ -32146,28 +30829,6 @@ MonoBehaviour:
     ParamDocs: []
     Summary: "Forces the control system to only use this device\u2019s hand data
       (ignores other inputs)."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: ComputeRaycastDirection
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - Position
-    ParamDocs: []
-    Summary: "Computes the raycast origin/direction using the hand\u2019s final transform
-      and active offset."
     Remarks: 
     Returns: 
     Value: 
@@ -33491,7 +32152,7 @@ MonoBehaviour:
     ParamNames:
     - lookVector
     ParamDocs:
-    - Delta vector from input system.
+    - Delta vsector from input system.
     Summary: "Applies yaw/pitch rotation based on the given input vector.\n Handles
       mouse-look simulation for the eye."
     Remarks: 
@@ -33514,7 +32175,7 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: "Main polling loop for updating eye input state.\n Calculates eye position/rotation
-      based on avatar head, crouching, and input deltas."
+      based on avatar head, crouching, and inputs deltas."
     Remarks: 
     Returns: 
     Value: 
@@ -33755,6 +32416,26 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Singleton reference for global access.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisLocalInputActions
+    MemberName: IsJumpHeld
+    Kind: Property
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Whether crouch is currently held down.
     Remarks: 
     Returns: 
     Value: 
@@ -34663,7 +33344,7 @@ MonoBehaviour:
     - projection
     - clipPlane
     ParamDocs: []
-    Summary: Calculates an oblique projection matrix
+    Summary: Calculates an oblique projection matrix.
     Remarks: 
     Returns: 
     Value: 
@@ -36627,6 +35308,29 @@ MonoBehaviour:
     - 
     Summary: "loads a system based gameobject,\n use this to get around loading things
       with required checks."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Common.BasisCalibratedCoords
+    MemberName: BasisCalibratedCoords
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Lightweight struct for storing a rigid transform used for calibrated
+      coordinate offsets.\n It is made up of a position Vector3 and a rotation Quaternion.\n
+      Be sure to call the constructor instead of using the default struct initializer\n
+      to avoid the Quaternion being set to all zeroes (which is invalid)."
     Remarks: 
     Returns: 
     Value: 
@@ -41620,26 +40324,6 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: SerializableBasis+LocalAvatarSyncMessage
-    MemberName: AvatarSyncSize
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "true = 25 bytes\n false = 64 ushorts (*2)"
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
   - TypeFullName: SerializableBasis+PlayerIdMessage
     MemberName: playerID//
     Kind: Method
@@ -42557,6 +41241,177 @@ MonoBehaviour:
     ParamDocs: []
     Summary: Calculates the offset byte and the actual interval from the squared
       distance.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.BasisServerReductionSystemEvents+FastBitSet
+    MemberName: FastBitSet
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Lock-free (for normal ops) bitset backed by 32-bit words.\n - Per-bit
+      Set/Clear uses CAS on int words.\n - Reads use Volatile.Read.\n - Resizes are
+      protected by a lock (rare).\n Length is the number of addressable bits (>=
+      highest set index + 1 after EnsureCapacity)."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.BasisServerReductionSystemEvents+FastBitSet
+    MemberName: Length
+    Kind: Property
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Number of bits that can be addressed without resize.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.
+    MemberName: Set
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - index
+    - value
+    ParamDocs: []
+    Summary: "Ensures the bit at `index` can be addressed.\n Resizes the underlying
+      array if needed (synchronized)."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.
+    MemberName: TestAndClear
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - index
+    ParamDocs: []
+    Summary: "Atomically tests the bit and clears it if it was set.\n Returns true
+      iff the bit was previously set."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.
+    MemberName: Get
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - index
+    ParamDocs: []
+    Summary: Returns true if the bit at `index` is set.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.
+    MemberName: SetAll
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - value
+    ParamDocs: []
+    Summary: "Sets all addressable bits to the given value.\n Bulk write under resize
+      lock (simple and safe)."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.
+    MemberName: Clear
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Clears all bits.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisNetworkServer.BasisNetworkingReductionSystem.
+    MemberName: AnyTrue
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Returns true if any bit is set.
     Remarks: 
     Returns: 
     Value: 

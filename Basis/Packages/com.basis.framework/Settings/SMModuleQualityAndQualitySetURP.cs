@@ -17,28 +17,31 @@ namespace BattlePhaze.SettingsManager.Intergrations
                         Camera = Camera.main;
                         Data = Camera.GetComponent<UniversalAdditionalCameraData>();
                     }
-                    switch (optionValue.ToLower())
+                    if (Data != null)
                     {
-                        case "very low":
-                            ApplyQualitySettings(AnisotropicFiltering.Enable, 256, false, false);
-                            Data.renderPostProcessing = false;
-                            break;
-                        case "low":
-                            ApplyQualitySettings(AnisotropicFiltering.Enable, 512, true, true);
-                            Data.renderPostProcessing = true;
-                            break;
-                        case "medium":
-                            ApplyQualitySettings(AnisotropicFiltering.Enable, 1024, true, true);
-                            Data.renderPostProcessing = true;
-                            break;
-                        case "high":
-                            ApplyQualitySettings(AnisotropicFiltering.Enable, 2048, true, true);
-                            Data.renderPostProcessing = true;
-                            break;
-                        case "ultra":
-                            ApplyQualitySettings(AnisotropicFiltering.Enable, 4096, true, true);
-                            Data.renderPostProcessing = true;
-                            break;
+                        switch (optionValue.ToLower())
+                        {
+                            case "very low":
+                                ApplyQualitySettings(AnisotropicFiltering.Enable, 256, false, false);
+                                Data.renderPostProcessing = false;
+                                break;
+                            case "low":
+                                ApplyQualitySettings(AnisotropicFiltering.Enable, 512, true, true);
+                                Data.renderPostProcessing = true;
+                                break;
+                            case "medium":
+                                ApplyQualitySettings(AnisotropicFiltering.Enable, 1024, true, true);
+                                Data.renderPostProcessing = true;
+                                break;
+                            case "high":
+                                ApplyQualitySettings(AnisotropicFiltering.Enable, 2048, true, true);
+                                Data.renderPostProcessing = true;
+                                break;
+                            case "ultra":
+                                ApplyQualitySettings(AnisotropicFiltering.Enable, 4096, true, true);
+                                Data.renderPostProcessing = true;
+                                break;
+                        }
                     }
                     break;
             }

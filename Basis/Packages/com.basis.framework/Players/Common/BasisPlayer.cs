@@ -75,11 +75,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public event Action OnAvatarSwitched;
 
         /// <summary>
-        /// Raised when the player's avatar is switched to a fallback avatar.
-        /// </summary>
-        public event Action OnAvatarSwitchedFallBack;
-
-        /// <summary>
         /// Progress reporter for the current avatar load operation (high-level).
         /// </summary>
         public BasisProgressReport ProgressReportAvatarLoad = new BasisProgressReport();
@@ -117,7 +112,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Callback invoked when audio data is received for this player.
         /// </summary>
-        public Action<bool> AudioReceived;
+        public Action AudioReceived;
 
         /// <summary>
         /// Delegate signature for simulation hooks (e.g., pre-bone simulation).
@@ -168,14 +163,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public void UpdateFaceVisibility(bool State)
         {
             FaceIsVisible = State;
-        }
-
-        /// <summary>
-        /// Triggers the <see cref="OnAvatarSwitchedFallBack"/> event.
-        /// </summary>
-        public void AvatarSwitchedFallBack()
-        {
-            OnAvatarSwitchedFallBack?.Invoke();
         }
 
         /// <summary>

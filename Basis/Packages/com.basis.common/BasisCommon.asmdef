@@ -2,8 +2,8 @@
     "name": "BasisCommon",
     "rootNamespace": "",
     "references": [
-        "GUID:d8b63aba1907145bea998dd612889d6b",
-        "GUID:45c7722710e2a37438daaacbf1cd4ad1"
+        "Unity.Mathematics",
+        "BasisDebug"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

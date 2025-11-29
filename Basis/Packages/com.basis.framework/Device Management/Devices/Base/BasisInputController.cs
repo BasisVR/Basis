@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
@@ -86,17 +87,16 @@ public abstract class BasisInputController : BasisInput
             Control.IncomingData.rotation = Rotation;
         }
     }
-
-    /// <summary>
-    /// Computes the raycast origin/direction using the hand’s final transform and active offset.
-    /// </summary>
-    public void ComputeRaycastDirection(Vector3 Position)
+    public Vector3 ChangeHandYHeight(Vector3 position)
     {
-        var parent = BasisLocalPlayer.Instance.transform;
-        Matrix4x4 parentMatrix = parent.localToWorldMatrix;
-        Quaternion OutGoingRotation = HandFinal.rotation * ActiveRaycastOffset;
-
-        RaycastCoord.position = parentMatrix.MultiplyPoint3x4(Position);
-        RaycastCoord.rotation = parentMatrix.rotation * OutGoingRotation;
+        if (SMModuleSitStand.IsSteatedMode && BasisDeviceManagement.IsCurrentModeVR())
+        {
+            position.y += SMModuleSitStand.MissingHeightDelta;
+            return position;
+        }
+        else
+        {
+            return position;
+        }
     }
 }

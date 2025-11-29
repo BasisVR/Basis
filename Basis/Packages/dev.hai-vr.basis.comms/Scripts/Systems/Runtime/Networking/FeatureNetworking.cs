@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 
 namespace HVR.Basis.Comms

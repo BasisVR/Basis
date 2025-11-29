@@ -1,4 +1,5 @@
-using LiteNetLib.Utils;
+using Basis.Network.Core;
+
 using static SerializableBasis;
 namespace DarkRift.Basis_Common.Serializable
 {

@@ -2,7 +2,7 @@ using Basis;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.Headless;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using LiteNetLib;
+using Basis.Network.Core;
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;

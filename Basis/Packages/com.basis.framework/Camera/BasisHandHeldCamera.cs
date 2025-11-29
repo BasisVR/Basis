@@ -171,8 +171,10 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         OnPickupUse -= OnPickupUseCapture;
 
         base.OnDestroy();
-
-        AddressableResourceProcess.ReleaseGameobject(this.gameObject);
+        if (this.gameObject != null)
+        {
+            AddressableResourceProcess.ReleaseGameobject(this.gameObject);
+        }
     }
 
     /// <summary>
@@ -258,7 +260,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         int uiLayer = LayerMask.NameToLayer("UI");
         if (uiLayer < 0)
         {
-            BasisDebug.LogWarning("UI Layer not found.");
+            BasisDebug.LogError("UI Layer not found.");
         }
         else
         {

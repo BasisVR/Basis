@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "NewBasisAssetBundleObject", menuName = "Basis/ScriptableObjects/BasisAssetBundleObject", order = 1)]
+[System.Serializable]
 public class BasisAssetBundleObject : ScriptableObject
 {
     public static string AssetBundleObject = "Packages/com.basis.sdk/Settings/AssetBundleBuildSettings.asset";
@@ -21,7 +22,8 @@ public class BasisAssetBundleObject : ScriptableObject
     public BuildTarget BuildTarget = BuildTarget.StandaloneWindows;
     public BuildAssetBundleOptions BuildAssetBundleOptions;
     public string AssetBundleDirectory = "./AssetBundles";
-    public List<BuildTarget> selectedTargets = new List<BuildTarget>(BasisSDKConstants.allowedTargets);
+    [SerializeField]
+    public List<BuildTarget> selectedTargets = new List<BuildTarget>();
 }
 [CustomEditor(typeof(BasisAssetBundleObject))]
 public class BasisAssetBundleObjectEditor : Editor

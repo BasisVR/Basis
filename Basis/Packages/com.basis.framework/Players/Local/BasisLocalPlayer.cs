@@ -38,31 +38,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public static bool PlayerReady = false;
 
         /// <summary>
-        /// Fallback height (meters) used when no measurement is available.
-        /// </summary>
-        public const float FallbackSize = 1.7f;
-
-        /// <summary>
-        /// Default measured eye height for the player (meters).
-        /// </summary>
-        public static float DefaultPlayerEyeHeight = FallbackSize;
-
-        /// <summary>
-        /// Default measured eye height for the avatar (meters).
-        /// </summary>
-        public static float DefaultAvatarEyeHeight = FallbackSize;
-
-        /// <summary>
-        /// Default measured arm span for the player (meters).
-        /// </summary>
-        public static float DefaultPlayerArmSpan = FallbackSize;
-
-        /// <summary>
-        /// Default measured arm span for the avatar (meters).
-        /// </summary>
-        public static float DefaultAvatarArmSpan = FallbackSize;
-
-        /// <summary>
         /// File name used to persist the last-used avatar reference.
         /// </summary>
         public static string LoadFileNameAndExtension = "LastUsedAvatar.BAS";
@@ -156,6 +131,13 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalCharacterDriver LocalCharacterDriver = new BasisLocalCharacterDriver();
 
         /// <summary>
+        /// Local Seat Driver deals with sitting and using seats.
+        /// </summary>
+        [Header("Character Driver")]
+        [SerializeField]
+        public BasisLocalSeatDriver LocalSeatDriver = new BasisLocalSeatDriver();
+
+        /// <summary>
         /// Animator controller that blends animation states and applies weights each frame.
         /// </summary>
         [Header("Animator Driver")]
@@ -189,7 +171,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// Stores the current height measurements and derived values for the local player.
         /// </summary>
         [Header("Height Information")]
-        public BasisLocalHeightInformation CurrentHeight = new BasisLocalHeightInformation();
+        public BasisLocalHeight CurrentHeight = new BasisLocalHeight();
 
         /// <summary>
         /// Bootstraps the local player by wiring up drivers, input, and events, and loading the initial avatar.
@@ -210,6 +192,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalBoneDriver.CreateInitialArrays(true);
             LocalBoneDriver.Initialize();
             LocalHandDriver.Initialize();
+            LocalSeatDriver.Initialize(this);
 
             BasisDeviceManagement.Instance.InputActions.Initialize(this);
             LocalCharacterDriver.Initialize(this);
@@ -302,9 +285,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public void Teleport(Vector3 position, Quaternion rotation)
         {
             BasisDebug.Log("Teleporting", BasisDebug.LogTag.Local);
+            LocalSeatDriver.Stand();
+            bool wasCharacterEnabled = LocalCharacterDriver.IsEnabled;
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
-            LocalCharacterDriver.IsEnabled = true;
+            LocalCharacterDriver.IsEnabled = wasCharacterEnabled;
             LocalAnimatorDriver.HandleTeleport();
             OnSpawnedEvent?.Invoke();
         }
@@ -367,6 +352,7 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (HasEvents)
             {
+               LocalCharacterDriver?.DeInitalize();
                 OnLocalAvatarChanged -= OnCalibration;
                 SceneManager.sceneLoaded -= OnSceneLoadedCallback;
                 HasEvents = false;
@@ -420,6 +406,7 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalCharacterDriver.SimulateMovement(DeltaTime);
 
             // moves all bones to where they belong
+            // This also drives head and camera movement.
             LocalBoneDriver.SimulateAndApply(this, DeltaTime);
 
             // moves Avatar Hip Transform to where it belongs in tpose.

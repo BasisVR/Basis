@@ -33,12 +33,12 @@ public static class BasisNetworkSpawnItem
             Persist = Persist,
         };
 
-        LiteNetLib.Utils.NetDataWriter writer = new LiteNetLib.Utils.NetDataWriter();
+        NetDataWriter writer = new NetDataWriter();
         localLoadResource.Serialize(writer);
 
         BasisDebug.Log($"Sending scene load request with NetID: {localLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
-        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceChannel, DeliveryMethod.ReliableOrdered);
         return true;
     }
 
@@ -73,12 +73,12 @@ public static class BasisNetworkSpawnItem
             ModifyScale = ModifysScale,
         };
 
-        LiteNetLib.Utils.NetDataWriter writer = new LiteNetLib.Utils.NetDataWriter();
+        NetDataWriter writer = new NetDataWriter();
         LocalLoadResource.Serialize(writer);
 
         BasisDebug.Log($"Sending GameObject load request with NetID: {LocalLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
-        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.LoadResourceChannel, DeliveryMethod.ReliableOrdered);
         return true;
     }
 
@@ -116,12 +116,12 @@ public static class BasisNetworkSpawnItem
             return;
         }
 
-        LiteNetLib.Utils.NetDataWriter writer = new LiteNetLib.Utils.NetDataWriter();
+        NetDataWriter writer = new NetDataWriter();
         UnLoadResource.Serialize(writer);
 
         BasisDebug.Log($"Sending unload request with NetID: {UnLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
-        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.UnloadResourceChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+        BasisNetworkConnection.LocalPlayerPeer?.Send(writer, BasisNetworkCommons.UnloadResourceChannel, DeliveryMethod.ReliableOrdered);
     }
 
     public static async Task<Scene> SpawnScene(LocalLoadResource localLoadResource)

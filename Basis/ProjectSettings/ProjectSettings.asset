@@ -70,6 +70,7 @@ PlayerSettings:
   androidStartInFullscreen: 1
   androidRenderOutsideSafeArea: 1
   androidUseSwappy: 1
+  androidDisplayOptions: 1
   androidBlitType: 2
   androidResizeableActivity: 1
   androidDefaultWindowWidth: 1920
@@ -176,7 +177,7 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 86
+  AndroidBundleVersionCode: 136
   AndroidMinSdkVersion: 32
   AndroidTargetSdkVersion: 34
   AndroidPreferredInstallLocation: 0
@@ -813,14 +814,14 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Android: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;AUDIOLINK;AUDIOLINK_V1;BASIS_FRAMEWORK_EXISTS
+    Android: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;AUDIOLINK;AUDIOLINK_V1;BASIS_FRAMEWORK_EXISTS;LITENETLIB_SPANS
     EmbeddedLinux: 
     LinuxHeadlessSimulation: 
     Nintendo Switch: 
     PS4: 
     QNX: 
     Server: 
-    Standalone: STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;BASIS_OPENVR_SUPPORTED;AUDIOLINK;AUDIOLINK_V1;SETTINGS_MANAGER_UNIVERSAL;BASIS_FRAMEWORK_EXISTS
+    Standalone: STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;BASIS_OPENVR_SUPPORTED;AUDIOLINK;AUDIOLINK_V1;SETTINGS_MANAGER_UNIVERSAL;BASIS_FRAMEWORK_EXISTS;LITENETLIB_SPANS
     WebGL: STEAMAUDIO_ENABLED
     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS
     XboxOne: 

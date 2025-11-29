@@ -7,7 +7,6 @@ using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
-using LiteNetLib;
 using System;
 using System.Text;
 using System.Threading;
@@ -92,10 +91,20 @@ namespace Basis.Scripts.Networking
             {
                 try
                 {
+                    var serverConfig = new Configuration
+                    {
+                        IPv4Address = ipString,
+                        HasFileSupport = false,
+                        UseNativeSockets = false,
+                        UseAuthIdentity = true,
+                        UseAuth = true,
+                        Password = primitivePassword,
+                        EnableStatistics = false
+                    };
                     // Pass the token into anything that supports cancellation
                     LocalPlayerPeer = NetworkClient.StartClient(
                         ipString, port, readyMessage,
-                        Encoding.UTF8.GetBytes(primitivePassword), true);
+                        Encoding.UTF8.GetBytes(primitivePassword), serverConfig);
 
                     NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
                     NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkEvents.PeerDisconnectedEvent;
@@ -124,6 +133,10 @@ namespace Basis.Scripts.Networking
                 }
             });
         }
+        public static void OnDestroy()
+        {
+            BasisNetworkAvatarCompressor.Dispose();
+        }
         private static void PeerConnectedEvent(NetPeer peer)
         {
             BasisDebug.Log("Success! Now setting up Networked Local Player");
@@ -139,33 +152,34 @@ namespace Basis.Scripts.Networking
                     BasisNetworkManagement.Instance.transform.GetPositionAndRotation(out Vector3 _, out Quaternion _);
 
                     var transmitter = new BasisNetworkTransmitter(localPlayerID);
+                    BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out transmitter.TransmissionResults.MouthBone, BasisBoneTrackedRole.Mouth);
                     BasisNetworkManagement.Transmitter = transmitter;
                     BasisNetworkManagement.Instance.LocalAccessTransmitter = transmitter;
-                    BasisNetworkManagement.Instance.LocalAccessTransmitter.Player = BasisLocalPlayer.Instance;
+                    transmitter.Player = BasisLocalPlayer.Instance;
 
                     if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
                     {
                         if (BasisLocalAvatarDriver.HasEvents == false)
                         {
-                            BasisLocalAvatarDriver.CalibrationComplete += BasisNetworkManagement.Instance.LocalAccessTransmitter.OnAvatarCalibrationLocal;
+                            BasisLocalAvatarDriver.CalibrationComplete += transmitter.OnAvatarCalibrationLocal;
                             BasisLocalAvatarDriver.HasEvents = true;
                         }
-                        BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisNetworkManagement.Instance.LocalAccessTransmitter.MouthBone, BasisBoneTrackedRole.Mouth);
+                        transmitter.TransmissionResults.BasisNetworkTransmitter = transmitter;
                     }
                     else
                     {
                         BasisDebug.LogError("Missing CharacterIKCalibration");
                     }
 
-                    if (!BasisNetworkPlayers.AddPlayer(BasisNetworkManagement.Instance.LocalAccessTransmitter))
+                    if (!BasisNetworkPlayers.AddPlayer(transmitter))
                     {
                         BasisDebug.LogError($"Cannot add player {localPlayerID}");
                     }
 
-                    BasisNetworkManagement.Instance.LocalAccessTransmitter.Initialize();
+                    transmitter.Initialize();
 
-                    BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(BasisNetworkManagement.Instance.LocalAccessTransmitter, BasisLocalPlayer.Instance);
-                    BasisNetworkPlayer.OnPlayerJoined?.Invoke(BasisNetworkManagement.Instance.LocalAccessTransmitter);
+                    BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
+                    BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
 
                     LocalPlayerIsConnected = true;
                     if (BasisSetUserName.Instance != null)
@@ -187,6 +201,7 @@ namespace Basis.Scripts.Networking
         {
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
+                BasisNetworkAvatarCompressor.Dispose();
                 await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, true, peer, disconnectInfo);
             });
         }

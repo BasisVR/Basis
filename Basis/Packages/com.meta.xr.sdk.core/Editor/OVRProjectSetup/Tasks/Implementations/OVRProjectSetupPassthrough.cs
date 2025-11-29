@@ -18,7 +18,6 @@
  * limitations under the License.
  */
 
-using Meta.XR.BuildingBlocks;
 using Meta.XR.Editor.Rules;
 using UnityEditor;
 
@@ -50,14 +49,6 @@ internal static class OVRProjectSetupPassthrough
                 return ovrCameraRig != null &&
                        OVRPassthroughHelper.HasCentralCamera(ovrCameraRig) &&
                        OVRPassthroughHelper.IsBackgroundClear(ovrCameraRig);
-            },
-            conditionalValidity: _ =>
-            {
-                var ovrCameraRig = OVRProjectSetupUtils.FindComponentInScene<OVRCameraRig>();
-                return ovrCameraRig != null &&
-                       OVRPassthroughHelper.HasCentralCamera(ovrCameraRig) &&
-                       // Apply the rule only when there are no building blocks present in the scene
-                       !OVRProjectSetupUtils.FindComponentInScene<BuildingBlock>();
             },
             message: "When using Passthrough as an underlay it's required set the camera background to transparent",
             fix: _ =>

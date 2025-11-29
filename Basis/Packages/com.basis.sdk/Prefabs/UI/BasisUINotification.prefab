@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6812742587372938536}
   - component: {fileID: 3714840394239622661}
   - component: {fileID: 913684546115258520}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -147,7 +147,7 @@ GameObject:
   - component: {fileID: 381365380285420653}
   - component: {fileID: 3155246901559199369}
   - component: {fileID: 2882423264813477345}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -223,7 +223,7 @@ GameObject:
   - component: {fileID: 6778697077842088223}
   - component: {fileID: 1810143717786430708}
   - component: {fileID: 2585865363214562002}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Button
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -359,7 +359,7 @@ GameObject:
   - component: {fileID: 5856093933955651084}
   - component: {fileID: 854108928976222872}
   - component: {fileID: 6238232199919162506}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: BasisUINotification
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -433,7 +433,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 0
+  m_PresetInfoIsWorld: 1
 --- !u!114 &6077037468796798871
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -508,7 +508,7 @@ GameObject:
   - component: {fileID: 290564165697591188}
   - component: {fileID: 609189736981646979}
   - component: {fileID: 6269084224179822560}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -2,10 +2,10 @@
     "name": "BasisSDK",
     "rootNamespace": "",
     "references": [
-        "GUID:d8b63aba1907145bea998dd612889d6b",
-        "GUID:784bec3882b21ab4d8407cc870539fa9",
-        "GUID:4fbaa9af51b2f9c408a9dff4518adb81",
-        "GUID:45c7722710e2a37438daaacbf1cd4ad1"
+        "Unity.Mathematics",
+        "LiteNetLib",
+        "BasisNetworkCore",
+        "BasisDebug"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

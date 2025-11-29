@@ -1,4 +1,4 @@
-using LiteNetLib.Utils;
+using Basis.Network.Core;
 
 namespace BasisNetworkCore.Serializable
 {

@@ -212,14 +212,15 @@ namespace Basis.Scripts.Drivers
                 else if (isBlinking)
                 {
                     float CalCulatedTime = (float)((Time - blinkStartTime) / blinkDuration);
+                    CalCulatedTime = math.saturate(CalCulatedTime); // clamp to [0,1]
+
                     float blendWeight = math.lerp(0, 100, CalCulatedTime);
 
                     for (int Index = 0; Index < blendShapeCount; Index++)
                     {
                         int ConvertedIndex = blendShapeIndex[Index];
-                        if (MeshblendShapeCount >= ConvertedIndex)
+                        if (ConvertedIndex >= 0 && ConvertedIndex < MeshblendShapeCount)
                         {
-
                             meshRenderer.SetBlendShapeWeight(ConvertedIndex, blendWeight);
                         }
                     }
@@ -227,21 +228,23 @@ namespace Basis.Scripts.Drivers
                     if (CalCulatedTime >= 1f)
                     {
                         isBlinking = false;
-                        SetNextBlinkTime(Time); // Schedule the next blink after eyes are closed/opened
+                        SetNextBlinkTime(Time);
                     }
                 }
                 // Opening phase (eyes moving from closed -> open)
                 else if (isVisemeClosing)
                 {
                     float CalCulatedTime = (float)((Time - visemeStartTime) / visemeTransitionDuration);
+                    CalCulatedTime = Mathf.Clamp01(CalCulatedTime);
+
                     float blendWeight = Mathf.Lerp(100, 0, CalCulatedTime);
 
                     for (int Index = 0; Index < blendShapeCount; Index++)
                     {
                         int ConvertedIndex = blendShapeIndex[Index];
-                        if (MeshblendShapeCount >= ConvertedIndex)
+                        if (ConvertedIndex >= 0 && ConvertedIndex < MeshblendShapeCount)
                         {
-                            meshRenderer.SetBlendShapeWeight(blendShapeIndex[Index], blendWeight);
+                            meshRenderer.SetBlendShapeWeight(ConvertedIndex, blendWeight);
                         }
                     }
 

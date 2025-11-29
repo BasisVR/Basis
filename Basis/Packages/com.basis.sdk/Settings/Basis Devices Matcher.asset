@@ -294,3 +294,14 @@ MonoBehaviour:
     HasTrackedRole: 0
     TrackedRole: 0
     HasInteractVisual: 1
+  - DeviceID: Finger Input
+    VersionNumber: 1
+    matchableDeviceIds:
+    - Finger Input
+    HasRayCastSupport: 1
+    CanDisplayPhysicalTracker: 0
+    HasRayCastVisual: 0
+    HasRayCastRadical: 1
+    HasTrackedRole: 0
+    TrackedRole: 18
+    HasInteractVisual: 1

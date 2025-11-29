@@ -14,7 +14,6 @@ namespace Basis.Scripts.BasisCharacterController
     {
         public BasisLocalPlayer LocalPlayer;
         [System.NonSerialized] public BasisLocalAnimatorDriver LocalAnimatorDriver;
-
         public CharacterController characterController;
         public Vector3 bottomPointLocalSpace;
         public Vector3 LastBottomPoint;
@@ -44,11 +43,9 @@ namespace Basis.Scripts.BasisCharacterController
         private bool UseSnapTurn => SMModuleControllerSettings.SnapTurnAngle != -1;
         private float SnapTurnAngle => SMModuleControllerSettings.SnapTurnAngle;
         private bool isSnapTurning;
-
         public Vector3 CurrentPosition;
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
-
         public Vector2 MovementVector { get; private set; }
         /// <summary>
         /// A value between 0 and 1 representing the relative speed of player movement.
@@ -57,41 +54,59 @@ namespace Basis.Scripts.BasisCharacterController
         [field: SerializeField] public float MovementSpeedBoost { get; private set; }
         private float DefaultMovementSpeedMultiplier = 0.625f;
         private float MaximumMovementSpeedBoost = 1.6f;
-
         /// <summary>
         /// A value between 0 and 1 representing the character's crouch state, where 0 is fully crouched and 1 is fully standing.
         /// </summary>
         public float CrouchBlend = 1f;
-
         /// <summary>
         /// Value updated by <see cref="SetCrouchBlendDelta"/> which triggers <see cref="UpdateCrouchBlend"/> implicitly each simulation frame.
         /// This is generally used by event based input systems where a start and stop event are called, but per-frame updates are not.
         /// </summary>
-        private float CrouchBlendDelta = 0f;
-
+        public float CrouchBlendDelta = 0f;
         /// <summary>
         /// Indicates whether the character is considered crouching based on the CrouchBlend value being less than the defined threshold.
         /// </summary>
         public bool IsCrouching => CrouchBlend <= LocalAnimatorDriver.CrouchThreshold;
         public bool IsRunning => CurrentSpeed > DefaultMovementSpeed;
-        private bool UseMaxSpeed => BasisLocalInputActions.Instance.IsRunHeld;
+        public bool UseMaxSpeed => BasisLocalInputActions.Instance.IsRunHeld;
 
-        private BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
-        private BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
-        public Transform BasisLocalPlayerTransform;
-        public void OnDestroy()
+        public bool IsEnabled
         {
-            if (HasEvents) HasEvents = false;
+            get
+            {
+                return isEnabled;
+            }
+
+            set
+            {
+                isEnabled = value;
+                characterController.enabled = value;
+            }
         }
 
+        public BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
+        public BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+        public Transform BasisLocalPlayerTransform;
+        private bool isEnabled = true;
+        public float CurrentSpeed;
+        public void DeInitalize()
+        {
+            if (HasEvents)
+            {
+                HasEvents = false;
+            }
+        }
         public void Initialize(BasisLocalPlayer localPlayer)
         {
             LocalPlayer = localPlayer;
-            BasisLocalPlayerTransform = LocalPlayer.transform;
+            BasisLocalPlayerTransform = localPlayer.transform;
             LocalAnimatorDriver = localPlayer.LocalAnimatorDriver;
             characterController.minMoveDistance = 0;
             characterController.skinWidth = 0.01f;
-            if (!HasEvents) HasEvents = true;
+            if (!HasEvents)
+            {
+                HasEvents = true;
+            }
             MaximumMovementSpeedBoost = MaximumMovementSpeed / DefaultMovementSpeed;
             SetMovementSpeedMultiplier(GetMultiplierForMovementSpeed(DefaultMovementSpeed));
         }
@@ -112,11 +127,9 @@ namespace Basis.Scripts.BasisCharacterController
             // Apply the force to the object
             body.AddForce(pushDir * pushPower, ForceMode.Impulse);
         }
-
-        public bool IsEnabled = true;
         public void SimulateMovement(float DeltaTime)
         {
-            if(!IsEnabled)
+            if (!IsEnabled)
             {
                 return;
             }
@@ -173,8 +186,7 @@ namespace Basis.Scripts.BasisCharacterController
             float HeightOffset = (characterController.height / 2) - characterController.radius;
             bottomPointLocalSpace = FinalRotation + (characterController.center - new Vector3(0, HeightOffset, 0));
         }
-
-        public void HandleJump()
+        public void HandleJumpRequest()
         {
             if (groundedPlayer && !HasJumpAction)
             {
@@ -236,8 +248,6 @@ namespace Basis.Scripts.BasisCharacterController
         {
             MovementVector = movement;
         }
-
-        public float CurrentSpeed;
         public void HandleMovement(float DeltaTime)
         {
             // Cache current rotation and zero out x and z components
@@ -285,17 +295,31 @@ namespace Basis.Scripts.BasisCharacterController
         }
         public void CalculateCharacterSize()
         {
-            eyeHeight = BasisLocalBoneDriver.HasEye ? BasisLocalBoneDriver.EyeControl.OutGoingData.position.y : BasisLocalPlayer.FallbackSize;
+            if (BasisLocalBoneDriver.HasEye)
+            {
+                eyeHeight = BasisLocalBoneDriver.EyeControl.OutGoingData.position.y;
+            }
+            else
+            {
+                eyeHeight = BasisLocalHeight.FallbackSizeInMeters;
+            }
             float adjustedHeight = eyeHeight;
-            adjustedHeight = Mathf.Max(adjustedHeight, MinimumColliderSize);
-            SetCharacterHeight(adjustedHeight);
-        }
-        public void SetCharacterHeight(float height)
-        {
-            characterController.height = height;
-            float SkinModifiedHeight = height / 2;
+            if (MinimumColliderSize > adjustedHeight)
+            {
+                adjustedHeight = MinimumColliderSize;
+            }
+            characterController.height = adjustedHeight;
+            float SkinModifiedHeight = adjustedHeight / 2;
 
-            characterController.center = BasisLocalBoneDriver.HasEye ? new Vector3(BasisLocalBoneDriver.EyeControl.OutGoingData.position.x, SkinModifiedHeight, BasisLocalBoneDriver.EyeControl.OutGoingData.position.z) : new Vector3(0, SkinModifiedHeight, 0);
+            if (BasisLocalBoneDriver.HasEye)
+            {
+                var outgoing = BasisLocalBoneDriver.EyeControl.OutGoingData.position;
+                characterController.center = new Vector3(outgoing.x, SkinModifiedHeight, outgoing.z);
+            }
+            else
+            {
+                characterController.center = new Vector3(0, SkinModifiedHeight, 0);
+            }
         }
     }
 }

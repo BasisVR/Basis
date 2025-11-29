@@ -170,6 +170,7 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         public Quaternion smoothedRotation;
 
+        public bool PauseAnimator;
         /// <summary>
         /// Initializes the driver with a <see cref="BasisLocalPlayer"/>, configures the <see cref="Animator"/>,
         /// preloads animator hashes, subscribes to character and device events, and attempts to bind a hips tracker.
@@ -194,7 +195,13 @@ namespace Basis.Scripts.Animator_Driver
             }
             AssignHipsFBTracker();
         }
-
+        public void StopAllVariables()
+        {
+            if (basisAnimatorVariableApply.IsStopped == false)
+            {
+                basisAnimatorVariableApply.StopAll();
+            }
+        }
         /// <summary>
         /// Samples motion and state, applies smoothing, updates animator variables, and pushes values into the animator.
         /// </summary>
@@ -206,12 +213,9 @@ namespace Basis.Scripts.Animator_Driver
         /// </remarks>
         public void SimulateAnimator(float DeltaTime)
         {
-            if (BasisLocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers)
+            if (BasisLocalAvatarDriver.CurrentlyTposing || BasisAvatarIKStageCalibration.HasFBIKTrackers || PauseAnimator)
             {
-                if (basisAnimatorVariableApply.IsStopped == false)
-                {
-                    basisAnimatorVariableApply.StopAll();
-                }
+                StopAllVariables();
                 return;
             }
 

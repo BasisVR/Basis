@@ -3,7 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
-using LiteNetLib;
+using Basis.Network.Core;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;

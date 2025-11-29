@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using Basis.Scripts.Behaviour;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -18,6 +18,11 @@ namespace HVR.Basis.Comms
         public void Awake()
         {
             _comms = HVRCommsUtil.GetAvatar(this).GetComponentInChildren<HVRAvatarComms>(true);
+            if(_comms == null)
+            {
+                BasisDebug.LogError("missing Comms Component network transmission of data for HVR related systems");
+                _networkReady = false;
+            }
         }
 
         public override void OnNetworkMessageReceived(ushort remoteUser, byte[] buffer, DeliveryMethod deliveryMethod)

@@ -47,6 +47,8 @@ public static class BasisSDKCommonInspector
 
             foldout.Add(toggle);
         }
+        EditorUtility.SetDirty(assetBundleObject);
+        AssetDatabase.SaveAssets();
     }
     public static void CreateBuildTargetOptions(VisualElement parent)
     {
@@ -73,7 +75,10 @@ public static class BasisSDKCommonInspector
                     assetBundleObject.selectedTargets.Remove(target);
             });
 
+
             buildTargetFoldout.Add(toggle);
         }
+        EditorUtility.SetDirty(assetBundleObject);
+        AssetDatabase.SaveAssets();
     }
 }

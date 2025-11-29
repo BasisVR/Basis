@@ -445,13 +445,19 @@ public class BasisAvatarValidator
             Errors.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} does not have a mesh assigned to its SkinnedMeshRenderer!", null));
             return;
         }
-        if (skinnedMeshRenderer.sharedMesh.triangles.Length > MaxTrianglesBeforeWarning)
+        if (skinnedMeshRenderer.sharedMesh.triangles != null)
         {
-            Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has More then {MaxTrianglesBeforeWarning} Triangles. This will cause performance issues", null));
+            if (skinnedMeshRenderer.sharedMesh.triangles.Length / 3 > MaxTrianglesBeforeWarning)
+            {
+                Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has More then {MaxTrianglesBeforeWarning} Triangles. This will cause performance issues", null));
+            }
         }
-        if (skinnedMeshRenderer.sharedMesh.vertices.Length > MeshVertices)
+        if (skinnedMeshRenderer.sharedMesh.vertices != null)
         {
-            Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has more vertices then what can be properly renderer ({MeshVertices}). this will cause performance issues", null));
+            if (skinnedMeshRenderer.sharedMesh.vertices.Length > MeshVertices)
+            {
+                Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has more vertices then what can be properly renderer ({MeshVertices}). this will cause performance issues", null));
+            }
         }
         if (skinnedMeshRenderer.sharedMesh.blendShapeCount != 0)
         {

@@ -55,7 +55,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Tracks whether this avatar has been registered with the remote bone job system.
         /// </summary>
-        public bool hasDatainBoneDriver = false;
+        public bool InBoneDriver = false;
 
         /// <summary>
         /// Performs remote-avatar calibration and registers it with the job system.
@@ -93,6 +93,7 @@ namespace Basis.Scripts.Drivers
             var JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
             foreach (JiggleRig Rig in JiggleRigs)
             {
+                Rig.HasAnimatedParameters = false;
                 Rig.OnInitialize();
             }
 
@@ -127,10 +128,10 @@ namespace Basis.Scripts.Drivers
             player.BasisAvatar.Animator.logWarnings = false;
 
             // Ensure stale data is removed
-            if (hasDatainBoneDriver)
+            if (InBoneDriver)
             {
                 RemoteBoneJobSystem.RemoveRemotePlayer(player.NetworkReceiver.playerId);
-                hasDatainBoneDriver = false;
+                InBoneDriver = false;
             }
 
             // Register with the RemoteBoneJobSystem
@@ -139,8 +140,8 @@ namespace Basis.Scripts.Drivers
                 remotePlayerRoot: player.BasisAvatar.Animator.transform,
                 head: player.RemoteAvatarDriver.References.head,
                 hips: player.RemoteAvatarDriver.References.Hips,
-                tposeHead: player.RemoteAvatarDriver.References.TposeHead,
-                tposeHips: player.RemoteAvatarDriver.References.TposeHips,
+                tposeHead: player.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Head],
+                tposeHips: player.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Hips],
                 authoredCenterEyeWorld: BasisHelpers.ConvertFromLocalSpace(
                     BasisHelpers.AvatarPositionConversion(player.BasisAvatar.AvatarEyePosition),
                     player.BasisAvatar.Animator.transform.position
@@ -153,7 +154,7 @@ namespace Basis.Scripts.Drivers
                 AvatarScale: player.BasisAvatar.Animator.transform,
                 MouthTransform: player.MouthTransform
             );
-            hasDatainBoneDriver = true;
+            InBoneDriver = true;
 
             // player.RemoteBoneDriver.InitializeFromAvatar(player);
             player.BasisAvatar.Animator.enabled = false;

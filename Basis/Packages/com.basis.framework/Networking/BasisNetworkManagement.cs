@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -109,6 +107,7 @@ namespace Basis.Scripts.Networking
 
         private async void OnDisable()
         {
+            BasisNetworkConnection.OnDestroy();
             await BasisNetworkLifeCycle.Destroy(this);
         }
 
@@ -315,7 +314,7 @@ namespace Basis.Scripts.Networking
         /// <summary>
         /// Network statistics snapshot from the peer.
         /// </summary>
-        public static NetStatistics Statistics() => LocalPlayerPeer?.Statistics;
+        // public static NetStatistics Statistics() => LocalPlayerPeer?.Statistics;
 
         /// <summary>
         /// Converts a DateTime to a relative number of seconds from now.

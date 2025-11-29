@@ -16,30 +16,39 @@ namespace Basis.Scripts.UI
         public BasisDeviceManagement BasisDeviceManagement;
         public List<BasisInput> Inputs;
         public bool HasEvent = false;
+
         public void Initalize()
         {
             BasisDeviceManagement = BasisDeviceManagement.Instance;
-            if (HasEvent == false)
+            if (!HasEvent)
             {
                 BasisDeviceManagement.AllInputDevices.OnListChanged += AllInputDevices;
                 HasEvent = true;
             }
             AllInputDevices();
         }
+
         public void OnDeInitalize()
         {
-            if (HasEvent)
+            if (HasEvent && BasisDeviceManagement != null)
             {
                 BasisDeviceManagement.AllInputDevices.OnListChanged -= AllInputDevices;
                 HasEvent = false;
             }
         }
+
         public void AllInputDevices()
         {
             Inputs = BasisDeviceManagement.AllInputDevices.ToList();
         }
+
         public void Simulate()
         {
+            if (Inputs == null)
+            {
+                return;
+            }
+
             int DevicesCount = Inputs.Count;
             HasTarget = false;
             var EffectiveMouseAction = false;
@@ -47,22 +56,34 @@ namespace Basis.Scripts.UI
             for (int Index = 0; Index < DevicesCount; Index++)
             {
                 BasisInput input = Inputs[Index];
+                if (input == null)
+                {
+                    continue;
+                }
+
                 if (input.HasRaycaster && input.BasisUIRaycast.WasCorrectLayer)
                 {
-                    EffectiveMouseAction |= input.BasisUIRaycast.CurrentEventData.WasLastDown == false && input.CurrentInputState.Trigger == 1;
+                    var eventData = input.BasisUIRaycast.CurrentEventData;
+                    if (eventData == null)
+                    {
+                        continue;
+                    }
+
+                    EffectiveMouseAction |= !eventData.WasLastDown && input.CurrentInputState.Trigger == 1;
+
                     if (input.BasisUIRaycast.HadRaycastUITarget)
                     {
-                        List<RaycastUIHitData> hitData = input.BasisUIRaycast.SortedGraphics;
+                        List<BasisRaycastUIHitData> hitData = input.BasisUIRaycast.SortedGraphics;
                         List<RaycastResult> RaycastResults = input.BasisUIRaycast.SortedRays;
-                        // TODO: test things and make sure we dont need to re-sort using default sort algo since UI raycast uses a custom sort fn
-                        // hitData.Sort((g1, g2) => g2.graphic.depth.CompareTo(g1.graphic.depth));
-                        if (hitData.Count != 0 && RaycastResults.Count != 0)
+
+                        if (hitData != null && RaycastResults != null &&
+                            hitData.Count != 0 && RaycastResults.Count != 0)
                         {
                             RaycastResult hit = RaycastResults[0];
                             if (hitData[0].graphic != null && hitData[0].graphic.gameObject != null)
                             {
                                 hit.gameObject = hitData[0].graphic.gameObject;
-                                SimulateOnCanvas(hit, hitData[0], input.BasisUIRaycast.CurrentEventData, input);
+                                SimulateOnCanvas(hit, hitData[0], eventData, input);
                                 HasTarget = true;
                             }
                         }
@@ -71,66 +92,93 @@ namespace Basis.Scripts.UI
                             BasisDebug.LogWarning("[BasisUIRaycastProcess] Skipping raycast simulate — hit data or ray results missing.");
                         }
                     }
+                    else
+                    {
+                        // 🔥 NEW: we lost any UI hit, so force “no target” and process movement
+                        // so ProcessPointerMovement can send pointerExit events.
+                        if (eventData.pointerEnter != null || eventData.hovered.Count > 0)
+                        {
+                            // Make sure raycast says "no object"
+                            eventData.pointerCurrentRaycast = new RaycastResult();
+                            ProcessPointerMovement(eventData);
+                        }
+                    }
                 }
             }
+
             if (!HasTarget && EffectiveMouseAction)
             {
                 EventSystem.current.SetSelectedGameObject(null, null);
             }
+
             DevicesCount = Inputs.Count;
             for (int Index = 0; Index < DevicesCount; Index++)
             {
                 BasisInput input = Inputs[Index];
+                if (input == null)
+                    continue;
+
                 if (input.HasRaycaster && input.BasisUIRaycast.WasCorrectLayer)
                 {
-                    SendUpdateEventToSelectedObject(input.BasisUIRaycast.CurrentEventData); //needed if you want to use the keyboard
+                    var eventData = input.BasisUIRaycast.CurrentEventData;
+                    if (eventData != null)
+                    {
+                        SendUpdateEventToSelectedObject(eventData); //needed if you want to use the keyboard
+                    }
                 }
             }
         }
-      // UnityEngine.UI.Graphic LastHit;
-        public void SimulateOnCanvas(RaycastResult raycastResult, RaycastUIHitData hit, BasisPointerEventData currentEventData, BasisInput BaseInput)
+        public void SimulateOnCanvas(RaycastResult raycastResult, BasisRaycastUIHitData hit, BasisPointerEventData currentEventData, BasisInput BaseInput)
         {
-            if (hit.graphic != null)
+            if (hit.graphic == null || currentEventData == null)
             {
-                HasTarget = true;
-               // if (hit.graphic != LastHit && ExecuteEvents.GetEventHandler<IPointerClickHandler>(hit.graphic.gameObject) != null)
-                //{
-                 //   LastHit = hit.graphic;
-                 //   BaseInput.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume / 80);
-               // }
-                currentEventData.Reset();
-                currentEventData.delta = hit.screenPosition - currentEventData.position;
-                //  raycastResult.module = baseRayOverride;
-                currentEventData.position = hit.screenPosition;
-                currentEventData.pressPosition = hit.screenPosition;
-                currentEventData.pointerCurrentRaycast = raycastResult;
-                currentEventData.pointerPressRaycast = raycastResult;
-                bool IsDownThisFrame = BaseInput.CurrentInputState.Trigger == 1;
-                //BasisDebug.Log("running "  + raycastResult.gameObject);
-                if (IsDownThisFrame)
-                {
-                    if (currentEventData.WasLastDown == false)
-                    {
-                        CheckOrApplySelectedGameobject(hit, currentEventData);
-                        currentEventData.WasLastDown = true;
-                        EffectiveMouseDown(hit, currentEventData);
-                    }
-                }
-                else
-                {
-                    if (currentEventData.WasLastDown)
-                    {
-                        EffectiveMouseUp(hit, currentEventData, BaseInput);
-                        currentEventData.WasLastDown = false;
-                    }
-                }
-
-                ProcessScrollWheel(currentEventData);
-                ProcessPointerMovement(currentEventData);
-                ProcessPointerButtonDrag(currentEventData);
+                return;
             }
+
+            HasTarget = true;
+
+            // ---- POINTER POSITION / DELTA UPDATE (NO HARD RESET) ----
+            Vector2 previousPosition = currentEventData.position;
+            currentEventData.delta = hit.screenPosition - previousPosition;
+            currentEventData.position = hit.screenPosition;
+            currentEventData.scrollDelta = BaseInput.CurrentInputState.Secondary2DAxis;
+
+            // Always keep latest raycast, so movement / scroll / hover use up-to-date info
+            currentEventData.pointerCurrentRaycast = raycastResult;
+
+            bool IsDownThisFrame = BaseInput.CurrentInputState.Trigger == 1;
+
+            // ---- BUTTON DOWN ----
+            if (IsDownThisFrame)
+            {
+                if (!currentEventData.WasLastDown)
+                {
+                    // First frame of this press: set pressPosition & press raycast
+                    currentEventData.pressPosition = hit.screenPosition;
+                    currentEventData.pointerPressRaycast = raycastResult;
+
+                    CheckOrApplySelectedGameobject(hit, currentEventData);
+                    currentEventData.WasLastDown = true;
+                    EffectiveMouseDown(hit, currentEventData);
+                }
+            }
+            // ---- BUTTON UP ----
+            else
+            {
+                if (currentEventData.WasLastDown)
+                {
+                    EffectiveMouseUp(hit, currentEventData, BaseInput);
+                    currentEventData.WasLastDown = false;
+                }
+            }
+
+            // ---- OTHER POINTER EVENTS ----
+            ProcessScrollWheel(currentEventData);
+            ProcessPointerMovement(currentEventData);
+            ProcessPointerButtonDrag(currentEventData);
         }
-        public void CheckOrApplySelectedGameobject(RaycastUIHitData hit, BasisPointerEventData CurrentEventData)
+
+        public void CheckOrApplySelectedGameobject(BasisRaycastUIHitData hit, BasisPointerEventData CurrentEventData)
         {
             if (hit.graphic != null)
             {
@@ -144,7 +192,8 @@ namespace Basis.Scripts.UI
                 EventSystem.current.SetSelectedGameObject(null, CurrentEventData);
             }
         }
-        public void EffectiveMouseDown(RaycastUIHitData hit, BasisPointerEventData CurrentEventData)
+
+        public void EffectiveMouseDown(BasisRaycastUIHitData hit, BasisPointerEventData CurrentEventData)
         {
             CurrentEventData.eligibleForClick = true;
             CurrentEventData.delta = Vector2.zero;
@@ -160,11 +209,13 @@ namespace Basis.Scripts.UI
             {
                 EventSystem.current.SetSelectedGameObject(selectHandler, CurrentEventData);
             }
+
             GameObject newPressed = ExecuteEvents.ExecuteHierarchy(hit.graphic.gameObject, CurrentEventData, ExecuteEvents.pointerDownHandler);
             if (newPressed == null)
             {
                 newPressed = ExecuteEvents.GetEventHandler<IPointerClickHandler>(hit.graphic.gameObject);
             }
+
             float time = Time.unscaledTime;
             if (newPressed == CurrentEventData.lastPress && ((time - CurrentEventData.clickTime) < ClickSpeed))
             {
@@ -174,9 +225,11 @@ namespace Basis.Scripts.UI
             {
                 CurrentEventData.clickCount = 1;
             }
+
             CurrentEventData.clickTime = time;
             CurrentEventData.pointerPress = newPressed;
             CurrentEventData.rawPointerPress = hit.graphic.gameObject;
+
             // Save the drag handler for drag events during this mouse down.
             var dragObject = ExecuteEvents.GetEventHandler<IDragHandler>(hit.graphic.gameObject);
             CurrentEventData.pointerDrag = dragObject;
@@ -186,17 +239,23 @@ namespace Basis.Scripts.UI
                 ExecuteEvents.Execute(dragObject, CurrentEventData, ExecuteEvents.initializePotentialDrag);
             }
         }
-        public void EffectiveMouseUp(RaycastUIHitData hit, BasisPointerEventData CurrentEventData, BasisInput BaseInput)
+
+        public void EffectiveMouseUp(BasisRaycastUIHitData hit, BasisPointerEventData CurrentEventData, BasisInput BaseInput)
         {
             var target = CurrentEventData.pointerPress;
-            ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.pointerUpHandler);
 
-            var pointerUpHandler = ExecuteEvents.GetEventHandler<IPointerClickHandler>(hit.graphic.gameObject.gameObject);
+            if (target != null)
+            {
+                ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.pointerUpHandler);
+            }
+
+            var pointerUpHandler = ExecuteEvents.GetEventHandler<IPointerClickHandler>(hit.graphic.gameObject);
             var pointerDrag = CurrentEventData.pointerDrag;
-            if (target == pointerUpHandler && CurrentEventData.eligibleForClick)
+
+            if (target == pointerUpHandler && CurrentEventData.eligibleForClick && pointerUpHandler != null)
             {
                 BaseInput.PlayHaptic(0.1f, 1f, 0.5f);
-              //  BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
+                // BaseInput.PlaySoundEffect("press", SMModuleAudio.ActiveMenusVolume / 80);
                 ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.pointerClickHandler);
             }
             else if (CurrentEventData.dragging && pointerDrag != null)
@@ -216,6 +275,7 @@ namespace Basis.Scripts.UI
             CurrentEventData.dragging = false;
             CurrentEventData.pointerDrag = null;
         }
+
         public bool SendUpdateEventToSelectedObject(BasisPointerEventData CurrentEventData)
         {
             if (EventSystem.current.currentSelectedGameObject == null)
@@ -225,21 +285,35 @@ namespace Basis.Scripts.UI
             ExecuteEvents.Execute(EventSystem.current.currentSelectedGameObject, CurrentEventData, ExecuteEvents.updateSelectedHandler);
             return CurrentEventData.used;
         }
+
         public void ProcessScrollWheel(BasisPointerEventData eventData)
         {
             var scrollDelta = eventData.scrollDelta;
             if (!Mathf.Approximately(scrollDelta.sqrMagnitude, 0f))
             {
-                var scrollHandler = ExecuteEvents.GetEventHandler<IScrollHandler>(eventData.pointerEnter);
-                ExecuteEvents.ExecuteHierarchy(scrollHandler, eventData, ExecuteEvents.scrollHandler);
+                GameObject scrollTarget = eventData.pointerEnter;
+                if (scrollTarget == null)
+                {
+                    scrollTarget = eventData.pointerCurrentRaycast.gameObject;
+                }
+
+                if (scrollTarget != null)
+                {
+                    var scrollHandler = ExecuteEvents.GetEventHandler<IScrollHandler>(scrollTarget);
+                    if (scrollHandler != null)
+                    {
+                        ExecuteEvents.ExecuteHierarchy(scrollHandler, eventData, ExecuteEvents.scrollHandler);
+                    }
+                }
             }
         }
+
         public void ProcessPointerMovement(BasisPointerEventData eventData)
         {
             var currentPointerTarget = eventData.pointerCurrentRaycast.gameObject;
-            // If the pointer moved, send move events to all UI elements the pointer is
-            // currently over.
             var wasMoved = eventData.IsPointerMoving();
+
+            // If the pointer moved, send move events to everything currently hovered.
             if (wasMoved)
             {
                 for (var i = 0; i < eventData.hovered.Count; ++i)
@@ -249,8 +323,7 @@ namespace Basis.Scripts.UI
             }
 
             // If we have no target or pointerEnter has been deleted,
-            // we just send exit events to anything we are tracking
-            // and then exit.
+            // we just send exit events to anything we are tracking and then exit.
             if (currentPointerTarget == null || eventData.pointerEnter == null)
             {
                 foreach (var hovered in eventData.hovered)
@@ -272,8 +345,7 @@ namespace Basis.Scripts.UI
 
             var commonRoot = FindCommonRoot(eventData.pointerEnter, currentPointerTarget);
 
-            // We walk up the tree until a common root and the last entered and current entered object is found.
-            // Then send exit and enter events up to, but not including, the common root.
+            // Exit from old hierarchy up to common root
             if (eventData.pointerEnter != null)
             {
                 var target = eventData.pointerEnter.transform;
@@ -311,6 +383,7 @@ namespace Basis.Scripts.UI
                 }
             }
         }
+
         /// <summary>
         /// called Correctly
         /// </summary>
@@ -326,10 +399,10 @@ namespace Basis.Scripts.UI
             if (!CurrentEventData.dragging)
             {
                 var threshold = EventSystem.current.pixelDragThreshold * pixelDragThresholdMultiplier;
-                if (!CurrentEventData.useDragThreshold || (CurrentEventData.pressPosition - CurrentEventData.position).sqrMagnitude >= (threshold * threshold))
+                if (!CurrentEventData.useDragThreshold ||
+                    (CurrentEventData.pressPosition - CurrentEventData.position).sqrMagnitude >= (threshold * threshold))
                 {
                     var target = CurrentEventData.pointerDrag;
-                    //    BasisDebug.Log("Started Dragging " + (CurrentEventData.pressPosition - CurrentEventData.position).sqrMagnitude);
                     ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.beginDragHandler);
                     CurrentEventData.dragging = true;
                 }
@@ -339,18 +412,18 @@ namespace Basis.Scripts.UI
             {
                 // If we moved from our initial press object, process an up for that object.
                 var target = CurrentEventData.pointerPress;
-                if (target != CurrentEventData.pointerDrag)
+                if (target != null && target != CurrentEventData.pointerDrag)
                 {
                     ExecuteEvents.Execute(target, CurrentEventData, ExecuteEvents.pointerUpHandler);
-                    //  BasisDebug.Log("pointerUpHandler");
                     CurrentEventData.eligibleForClick = false;
                     CurrentEventData.pointerPress = null;
                     CurrentEventData.rawPointerPress = null;
                 }
-                //   BasisDebug.Log("dragHandler " + CurrentEventData.position);
+
                 ExecuteEvents.Execute(CurrentEventData.pointerDrag, CurrentEventData, ExecuteEvents.dragHandler);
             }
         }
+
         public static GameObject FindCommonRoot(GameObject g1, GameObject g2)
         {
             if (g1 == null || g2 == null)
@@ -372,11 +445,11 @@ namespace Basis.Scripts.UI
             }
             return null;
         }
+
         public void HandlePointerExitAndEnter(BasisPointerEventData currentPointerData, GameObject newEnterTarget)
         {
             // if we have no target / pointerEnter has been deleted
-            // just send exit events to anything we are tracking
-            // then exit
+            // just send exit events to anything we are tracking then exit
             if (newEnterTarget == null || currentPointerData.pointerEnter == null)
             {
                 var hoveredCount = currentPointerData.hovered.Count;
@@ -411,18 +484,15 @@ namespace Basis.Scripts.UI
             GameObject commonRoot = FindCommonRoot(currentPointerData.pointerEnter, newEnterTarget);
             GameObject pointerParent = ((Component)newEnterTarget.GetComponentInParent<IPointerExitHandler>())?.gameObject;
 
-            // and we already an entered object from last time
+            // and we already have an entered object from last time
             if (currentPointerData.pointerEnter != null)
             {
-                // send exit handler call to all elements in the chain
-                // until we reach the new target, or null!
-                // ** or when !m_SendPointerEnterToParent, stop when meeting a gameobject with an exit event handler
+                // send exit handler call to all elements in the chain until we reach the new target, or null
                 Transform t = currentPointerData.pointerEnter.transform;
 
                 while (t != null)
                 {
-                    // if we reach the common root break out!
-                    if (true && commonRoot != null && commonRoot.transform == t)
+                    if (commonRoot != null && commonRoot.transform == t)
                         break;
 
                     currentPointerData.fullyExited = t.gameObject != commonRoot && currentPointerData.pointerEnter != newEnterTarget;
@@ -432,7 +502,6 @@ namespace Basis.Scripts.UI
 
                     t = t.parent;
 
-                    // if we reach the common root break out!
                     if (commonRoot != null && commonRoot.transform == t)
                         break;
                 }
@@ -448,7 +517,6 @@ namespace Basis.Scripts.UI
                 while (t != null)
                 {
                     currentPointerData.reentered = t.gameObject == commonRoot && t.gameObject != oldPointerEnter;
-                    // if we are sending the event to parent, they are already in hover mode at that point. No need to bubble up the event.
                     if (currentPointerData.reentered)
                         break;
 
@@ -456,14 +524,10 @@ namespace Basis.Scripts.UI
                     ExecuteEvents.Execute(t.gameObject, currentPointerData, ExecuteEvents.pointerMoveHandler);
                     currentPointerData.hovered.Add(t.gameObject);
 
-                    // stop when encountering an object with the pointerEnterHandler
-
                     t = t.parent;
 
-                    // if we reach the common root break out!
                     if (commonRoot != null && commonRoot.transform == t)
                         break;
-
                 }
             }
         }

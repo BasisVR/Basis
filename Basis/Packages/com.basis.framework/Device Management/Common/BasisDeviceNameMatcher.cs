@@ -102,16 +102,25 @@ namespace Basis.Scripts.Device_Management
 
         private DeviceSupportInformation CreateAndRegisterFallback(string nameToMatch, BasisBoneTrackedRole fallbackRole, bool useFallbackRole)
         {
+            bool HasRayCastVisual = true;
+            bool HasRayCastRadical = true;
+            bool HasRayCastSupport = true;
+            if (fallbackRole == BasisBoneTrackedRole.CenterEye && useFallbackRole)
+            {
+                HasRayCastVisual = false;
+                HasRayCastRadical = false;
+                HasRayCastSupport = false;
+            }
             // Build a minimal, reasonable fallback entry
             var settings = new DeviceSupportInformation
             {
                 VersionNumber = 1,
                 DeviceID = nameToMatch,
                 matchableDeviceIds = new[] { nameToMatch },
-                HasRayCastVisual = true,
-                HasRayCastRadical = true,
+                HasRayCastVisual = HasRayCastVisual,
+                HasRayCastRadical = HasRayCastRadical,
                 CanDisplayPhysicalTracker = false,
-                HasRayCastSupport = true,
+                HasRayCastSupport = HasRayCastSupport,
                 HasTrackedRole = useFallbackRole,
                 TrackedRole = fallbackRole,
             };
@@ -122,7 +131,6 @@ namespace Basis.Scripts.Device_Management
             {
                 BasisDevice.Add(settings);
             }
-
             return settings;
         }
     }

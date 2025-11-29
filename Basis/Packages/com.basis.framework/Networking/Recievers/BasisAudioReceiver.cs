@@ -6,8 +6,8 @@ using OpusSharp.Core;
 using OpusSharp.Core.Extensions;
 using System;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using UnityEngine;
-
 namespace Basis.Scripts.Networking.Receivers
 {
     /// <summary>
@@ -21,7 +21,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// <summary>
         /// Remote viseme driver component attached to the active audio source.
         /// </summary>
-        public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
+        [SerializeReference] public BasisRemoteAudioDriver BasisRemoteVisemeAudioDriver = null;
 
         /// <summary>
         /// The active <see cref="AudioSource"/> used for playback.
@@ -37,11 +37,6 @@ namespace Basis.Scripts.Networking.Receivers
         /// Ring buffer used to maintain correct ordering of decoded audio samples.
         /// </summary>
         public BasisVoiceRingBuffer InOrderRead = new BasisVoiceRingBuffer();
-
-        /// <summary>
-        /// True if playback is currently active.
-        /// </summary>
-        public bool IsPlaying = false;
 
         /// <summary>
         /// Decode destination buffer (mono) sized to one network frame.
@@ -93,6 +88,14 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 
+        private float[] _inputScratch;    // big enough for the largest chunk we pull
+        private int _cachedOutputRate = -1;
+        private float _resampleRatio = 1f;
+        private float[] _resampleScratch; // big enough for the largest frames we output
+        // Count local silence in 20 ms "units"
+        public volatile int _silentUnits20ms;   // thread-safe-ish; prefer Interlocked ops
+        public double _silentMsAccum;           // accumulate fractional callback durations
+
         /// <summary>
         /// Called when an encoded voice packet arrives. Decodes and enqueues PCM.
         /// </summary>
@@ -115,21 +118,22 @@ namespace Basis.Scripts.Networking.Receivers
         {
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
-                if (HasAudioSource)
+                if (!HasAudioSource)
                 {
-                    if (InOrderRead.HasRealAudio)
+                    return;
+                }
+                if (InOrderRead.HasRealAudio)
+                {
+                    if (audioSource.enabled == false)
                     {
-                        if (audioSource.enabled == false)
-                        {
-                            audioSource.enabled = true;
-                        }
+                        audioSource.enabled = true;
                     }
-                    else
+                }
+                else
+                {
+                    if (audioSource.enabled)
                     {
-                        if (audioSource.enabled)
-                        {
-                            audioSource.enabled = false;
-                        }
+                        audioSource.enabled = false;
                     }
                 }
             });
@@ -153,24 +157,32 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         /// <param name="networkedPlayer">The networked player whose voice we render.</param>
         /// <param name="MouthParent">Transform to parent the audio source under (e.g., mouth).</param>
-        public async void LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent)
+        public async Task LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent)
         {
-            if (AudioSourceTransform == null)
+            if (AudioSourceTransform == null || audioSource == null)
             {
                 AudioSourceTransform = BasisAudioRemoteSource.RequestAudio(MouthParent).transform;
-                AudioSourceTransform.SetLocalPositionAndRotation(Vector3.zero,Quaternion.identity);
+                AudioSourceTransform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
                 AudioSourceTransform.name = $"[Audio] {BasisNetworkReceiver.Player.DisplayName}";
                 audioSource = BasisHelpers.GetOrAddComponent<AudioSource>(AudioSourceTransform.gameObject);
                 audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.playerId);
                 audioSource.loop = true;
                 audioSource.Play();
-                HasAudioSource = true;
             }
-            IsPlaying = true;
-            AvatarChanged(networkedPlayer);
+            HasAudioSource = true;
+            AvatarChanged(networkedPlayer,false);
 
-            var BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(networkedPlayer.Player.UUID);
-            ChangeRemotePlayersVolumeSettings(BasisPlayerSettingsData.VolumeLevel);
+            ChangeRemotePlayersVolumeSettings(1);
+
+            try
+            {
+                var BasisPlayerSettingsData = await BasisPlayerSettingsManager.RequestPlayerSettings(networkedPlayer.Player.UUID);
+                ChangeRemotePlayersVolumeSettings(BasisPlayerSettingsData.VolumeLevel);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"{ex}", BasisDebug.LogTag.Remote);
+            }
         }
 
         /// <summary>
@@ -193,8 +205,6 @@ namespace Basis.Scripts.Networking.Receivers
 
             AudioSourceTransform = null;
             BasisRemoteVisemeAudioDriver = null;
-
-            IsPlaying = false;
         }
 
         /// <summary>
@@ -232,31 +242,43 @@ namespace Basis.Scripts.Networking.Receivers
         /// Called when the remote player's avatar changes; refreshes viseme setup.
         /// </summary>
         /// <param name="networkedPlayer">The player whose avatar changed.</param>
-        public void AvatarChanged(BasisNetworkPlayer networkedPlayer)
+        public void AvatarChanged(BasisNetworkPlayer networkedPlayer,bool WasFromCalibration)
         {
 #if UNITY_SERVER
             return;
 #endif
-            if (audioSource != null && networkedPlayer != null && networkedPlayer.Player != null)
+            if (audioSource == null)
             {
-               if(visemeDriver.TryInitialize(networkedPlayer.Player))
-                {
-
-                }
-               else
-                {
-                    BasisDebug.LogWarning("Cant Setup Viseme Audio Driver Does not meet Critera");
-
-                }
-
-                if (BasisRemoteVisemeAudioDriver == null)
-                {
-                    BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
-                }
-
-                BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
-                BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
+                //BasisDebug.LogWarning($"Avatar Changed no Audio Source was from calibration? {WasFromCalibration}", BasisDebug.LogTag.Voice);
+                return;
             }
+            if (networkedPlayer == null)
+            {
+                BasisDebug.LogError("networkedPlayer did not exist", BasisDebug.LogTag.Voice);
+                return;
+            }
+            if (networkedPlayer.Player == null)
+            {
+                BasisDebug.LogError("networkedPlayer.Player did not exist", BasisDebug.LogTag.Voice);
+                return;
+            }
+            if (visemeDriver.TryInitialize(networkedPlayer.Player))
+            {
+
+            }
+            else
+            {
+                BasisDebug.LogWarning("Cant Setup Viseme Audio Driver Does not meet Critera");
+
+            }
+
+            if (BasisRemoteVisemeAudioDriver == null)
+            {
+                BasisRemoteVisemeAudioDriver = BasisHelpers.GetOrAddComponent<BasisRemoteAudioDriver>(audioSource.gameObject);
+            }
+
+            BasisRemoteVisemeAudioDriver.BasisAudioReceiver = this;
+            BasisRemoteVisemeAudioDriver.Initalize(visemeDriver);
         }
 
         /// <summary>
@@ -276,8 +298,26 @@ namespace Basis.Scripts.Networking.Receivers
         public void StartAudio()
         {
             // Conservative initial sizes; will grow once and then reuse.
-            _inputScratch = new float[1024];
-            _resampleScratch = new float[1024];
+            const int BufferSize = 1024;
+
+            if (_inputScratch == null || _inputScratch.Length != BufferSize)
+            {
+                _inputScratch = new float[BufferSize];
+            }
+            else
+            {
+                _inputScratch.AsSpan().Clear();
+            }
+
+            if (_resampleScratch == null || _resampleScratch.Length != BufferSize)
+            {
+                _resampleScratch = new float[BufferSize];
+            }
+            else
+            {
+                _resampleScratch.AsSpan().Clear();
+            }
+
             _cachedOutputRate = outputSampleRate;
             _resampleRatio = (float)RemoteOpusSettings.NetworkSampleRate / _cachedOutputRate;
 #if UNITY_SERVER
@@ -298,7 +338,11 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogError("Mouth Transform Does not exist in Audio Receiver!", BasisDebug.LogTag.Remote);
                 return;
             }
-            LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform);
+            LoadAudioSource();
+        }
+        public async void LoadAudioSource()
+        {
+            await LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform);
         }
 
         /// <summary>
@@ -313,10 +357,13 @@ namespace Basis.Scripts.Networking.Receivers
         {
             if (audioSource == null)
             {
-                Debug.LogError("AudioSource is null. Cannot apply volume settings.");
+                if (decoder != null)
+                {
+                    OpusDecoderExtensions.SetGain(decoder, 1024);
+                }
+                BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
                 return;
             }
-
             audioSource.spatialize = spatialize;
             audioSource.spatializePostEffects = spatializePostEffects;
             audioSource.spatialBlend = Mathf.Clamp01(spatialBlend);
@@ -348,16 +395,6 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogWarning("Decoder is null. Cannot apply gain.");
             }
         }
-
-        // -------- Internal resampling / mixing helpers --------
-
-        private float[] _inputScratch;    // big enough for the largest chunk we pull
-        private int _cachedOutputRate = -1;
-        private float _resampleRatio = 1f;
-        private float[] _resampleScratch; // big enough for the largest frames we output
-        // Count local silence in 20 ms "units"
-        public volatile int _silentUnits20ms;   // thread-safe-ish; prefer Interlocked ops
-        public double _silentMsAccum;           // accumulate fractional callback durations
 
         /// <summary>
         /// Unity audio callback. Mixes buffered mono voice into the provided interleaved output buffer.
@@ -420,7 +457,11 @@ namespace Basis.Scripts.Networking.Receivers
             if (buf.Length < needed)
             {
                 int newSize = 1;
-                while (newSize < needed) newSize <<= 1;
+                while (newSize < needed)
+                {
+                    newSize <<= 1;
+                }
+
                 buf = new float[newSize];
             }
         }

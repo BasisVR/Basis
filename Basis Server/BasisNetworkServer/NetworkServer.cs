@@ -6,17 +6,16 @@ using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net;
 
 public static class NetworkServer
 {
     public static EventBasedNetListener Listener;
     public static NetManager Server;
-    public static ConcurrentDictionary<ushort, NetPeer> AuthenticatedPeers = new();
+    public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static Configuration Configuration;
     public static IAuth Auth;
     public static IAuthIdentity AuthIdentity;
@@ -66,32 +65,7 @@ public static class NetworkServer
     public static void SetupServer(Configuration configuration)
     {
         Listener = new EventBasedNetListener();
-
-        Server = new NetManager(Listener)
-        {
-            AutoRecycle = false,
-            UnconnectedMessagesEnabled = false,
-            NatPunchEnabled = configuration.NatPunchEnabled,
-            AllowPeerAddressChange = configuration.AllowPeerAddressChange,
-            BroadcastReceiveEnabled = false,
-            UseNativeSockets = configuration.UseNativeSockets,
-            ChannelsCount = BasisNetworkCommons.TotalChannels,
-            EnableStatistics = configuration.EnableStatistics,
-            IPv6Enabled = configuration.IPv6Enabled,
-            UpdateTime = BasisNetworkCommons.NetworkIntervalPoll,
-            PingInterval = configuration.PingInterval,
-            DisconnectTimeout = configuration.DisconnectTimeout,
-            UnsyncedEvents = true,
-            ReceivePollingTime = BasisNetworkCommons.ReceivePollingTime,
-            PacketPoolSize = BasisNetworkCommons.PacketPoolSize,
-            SimulateLatency = configuration.SimulateLatency,
-            SimulatePacketLoss = configuration.SimulatePacketLoss,
-            SimulationMaxLatency = configuration.SimulationMaxLatency,
-            SimulationMinLatency = configuration.SimulationMinLatency,
-            SimulationPacketLossChance = configuration.SimulationPacketLossChance,
-            MtuDiscovery = configuration.MtuDiscovery,
-            MtuOverride = configuration.MtuOverride
-        };
+        Server = new LNLNetManager(Listener, configuration);
 
         NetDebug.Logger = new BasisServerLogger();
         StartListening(configuration);
@@ -101,8 +75,19 @@ public static class NetworkServer
     {
         if (configuration.OverrideAutoDiscoveryOfIpv)
         {
+            IPAddress? IPv4Address, IPv6Address;
+            if (!IPAddress.TryParse(Configuration.IPv4Address, out IPv4Address)) {
+                BNL.LogWarning("Failed to parse IPv4 bind address, falling back to 0.0.0.0");
+                IPv4Address = IPAddress.Parse("0.0.0.0");
+            }
+
+            if (!IPAddress.TryParse(Configuration.IPv6Address, out IPv6Address)) {
+                BNL.LogWarning("Failed to parse IPv6 bind address, falling back to ::1");
+                IPv6Address = IPAddress.Parse("::1");
+            }
+
             BNL.Log($"Server Wiring up SetPort {Configuration.SetPort} IPv6Address {Configuration.IPv6Address}");
-            Server.Start(Configuration.IPv4Address, Configuration.IPv6Address, Configuration.SetPort);
+            Server.Start(IPv4Address, IPv6Address, Configuration.SetPort);
         }
         else
         {

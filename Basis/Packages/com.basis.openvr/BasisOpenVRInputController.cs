@@ -43,7 +43,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             inputSource = SteamVR_Input_Sources;
             Device = device;
 
-            InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
+            InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole,true);
 
             if (DeviceposeAction != null && HasOnUpdate == false)
             {
@@ -99,7 +99,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                     }
             }
 
-            UpdatePlayerControl();
+            UpdateInputEvents();
         }
 
         private void UpdateHandPose(BasisFingerPose hand, SteamVR_Action_Skeleton skeletonAction, bool isLeft)
@@ -153,7 +153,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             BonePositions = skeletonAction.bonePositions;
             BoneRotations = skeletonAction.boneRotations;
 
-            UnscaledDeviceCoord.position = DeviceLocalSpace.pos;
+
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, DeviceLocalSpace.pos);
             UnscaledDeviceCoord.rotation = DeviceLocalSpace.rot;
 
             // ------- Compute world-space wrist & root (for IK)
@@ -199,6 +200,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 Vector3 posOffsetWorld = UnscaledDeviceCoord.rotation * (posOffsetLocal * avatarScale);
                 wristWorldPos += posOffsetWorld;
             }
+            wristWorldPos += OffsetCoords.position;
 
             // Push results
             ScaledDeviceCoord.position = wristWorldPos;
@@ -209,7 +211,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
 
             UpdateRaycastOffset();
-            ComputeRaycastDirection(wristWorldPos + (UnscaledDeviceCoord.rotation * (RaycastOffset * avatarScale)));
+            ComputeRaycastDirection(wristWorldPos + (UnscaledDeviceCoord.rotation * (RaycastOffset * avatarScale)),HandFinal.rotation,ActiveRaycastOffset);
         }
         public override void ShowTrackedVisual()
         {

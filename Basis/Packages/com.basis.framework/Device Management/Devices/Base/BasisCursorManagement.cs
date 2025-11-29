@@ -37,28 +37,31 @@ public static class BasisCursorManagement
     /// Unlocks the cursor and makes it visible.
     /// Removes a request to lock the cursor.
     /// </summary>
-    public static void UnlockCursor(string requestName)
+    public static void UnlockCursor(string requestName, bool FireCursorStateChange = true)
     {
         if (ShouldIgnoreCursorRequests()) return;
 
-        InternalUnlockCursor(requestName);
+        InternalUnlockCursor(requestName, FireCursorStateChange);
     }
 
     /// <summary>
     /// Unlocks the cursor and makes it visible. Bypasses checks that would have prevented it from being unlocked.
     /// </summary>
-    public static void UnlockCursorBypassChecks(string requestName)
+    public static void UnlockCursorBypassChecks(string requestName, bool FireCursorStateChange = true)
     {
-        InternalUnlockCursor(requestName);
+        InternalUnlockCursor(requestName, FireCursorStateChange);
     }
 
-    private static void InternalUnlockCursor(string requestName)
+    private static void InternalUnlockCursor(string requestName, bool FireCursorStateChange)
     {
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         //  BasisDebug.Log("Cursor Unlocked");
         cursorLockRequests.Remove(requestName);
-        OnCursorStateChange?.Invoke(CursorLockMode.None, true);
+        if (FireCursorStateChange)
+        {
+            OnCursorStateChange?.Invoke(CursorLockMode.None, true);
+        }
     }
 
     /// <summary>
@@ -74,18 +77,8 @@ public static class BasisCursorManagement
         //  BasisDebug.Log("Cursor Confined");
         OnCursorStateChange?.Invoke(CursorLockMode.Confined, true);
     }
-    public static bool ForceIgnoreCursorRequests = false;
     private static bool ShouldIgnoreCursorRequests()
     {
-        if(ForceIgnoreCursorRequests)
-        {
-            return true;
-        }
-        //ignore if we are for example android and not in vr.
-        if(BasisDeviceManagement.IsMobilehardware() && BasisDeviceManagement.IsCurrentModeVR() == false)
-        {
-            return true;
-        }
         var isUserInVR = !BasisDeviceManagement.IsUserInDesktop();
         // When in VR mode, all cursor lock requests are must be ignored,
         // so that cursor control is not taken away from other external desktop overlay applications.

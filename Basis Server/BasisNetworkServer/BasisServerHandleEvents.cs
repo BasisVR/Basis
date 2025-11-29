@@ -1,4 +1,3 @@
-using Basis.Contrib.Auth.DecentralizedIds;
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
@@ -7,8 +6,6 @@ using BasisNetworkCore.Pooling;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,7 +61,7 @@ namespace BasisServerHandle
                     BNL.LogError("Missing Peer this is a mistake!");
                     return;
                 }
-                ushort id = (ushort)peer.Id;
+                int id = peer.Id;
 
                 NetworkServer.AuthIdentity.RemoveConnection(id);
                 BasisNetworkOwnership.RemovePlayerOwnership(id);
@@ -87,13 +84,13 @@ namespace BasisServerHandle
                 }
 
                 NetDataWriter writer = new NetDataWriter(true, sizeof(ushort));
-                writer.Put(id);
+                writer.Put((ushort)id);
                 if (NetworkServer.CheckValidated(writer))
                 {
                     NetPeer[] Peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
                     foreach (var client in Peers)
                     {
-                       // if (client.Id != id)
+                        if (client.Id != id)
                         {
                             BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.DisconnectionChannel, writer.Length);
                             client.Send(writer, BasisNetworkCommons.DisconnectionChannel, DeliveryMethod.ReliableOrdered);
@@ -222,7 +219,7 @@ namespace BasisServerHandle
 
                 NetDataWriter Writer = new NetDataWriter(true, 4);
                 ServerMetaDataMessage.Serialize(Writer);
-                NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.metaDataChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.metaDataChannel, DeliveryMethod.ReliableOrdered);
 
                 if (BasisNetworkIDDatabase.GetAllNetworkID(out List<ServerNetIDMessage> ServerNetIDMessages))
                 {
@@ -234,7 +231,7 @@ namespace BasisServerHandle
                     Writer.Reset();
                     ServerUniqueIDMessageArray.Serialize(Writer);
                     //BNL.Log($"Sending out Network Id Count " + ServerUniqueIDMessageArray.Messages.Length);
-                    NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.NetIDAssignsChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                    NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.NetIDAssignsChannel, DeliveryMethod.ReliableOrdered);
                 }
                 else
                 {
@@ -304,13 +301,20 @@ namespace BasisServerHandle
 
         public static void SendVoiceMessageToClients(ServerAudioSegmentMessage audioSegment, byte channel, NetPeer sender, DeliveryMethod method)
         {
-            if (!BasisSavedState.GetLastVoiceReceivers(sender, out VoiceReceiversMessage receivers) || receivers.users == null || receivers.users.Length == 0)
+            if (BasisSavedState.GetLastVoiceReceivers(sender, out VoiceReceiversMessage receivers))
+            {
+            }
+            else
             {
                 BNL.Log($"[VoiceMessage] No receivers found for sender {sender.Id}.");
+            }
+            if (receivers.Users == null || receivers.Users.Length == 0)
+            {
+                BNL.Log($"[VoiceMessage] No users found for {sender.Id}.");
                 return;
             }
 
-            var targetPeers = GetTargetPeers(receivers.users);
+            var targetPeers = GetTargetPeers(receivers);
             if (targetPeers.Count == 0)
             {
                 BNL.Log($"[VoiceMessage] No valid peer matches found for sender {sender.Id}.");
@@ -326,23 +330,21 @@ namespace BasisServerHandle
             var writer = new NetDataWriter(true, 3);
             audioSegment.Serialize(writer);
 
-            NetworkServer.BroadcastMessageToClients(writer, channel, ref targetPeers, method);
+            NetworkServer.BroadcastMessageToClients(writer, channel, ref targetPeers, method,1024);
         }
 
-        private static List<NetPeer> GetTargetPeers(ushort[] userIds)
+        private static List<NetPeer> GetTargetPeers(VoiceReceiversMessage Message)
         {
-            NetPeer[] allPeers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-            var peers = new List<NetPeer>(userIds.Length);
-
-            foreach (var userId in userIds)
+            List<NetPeer> peers = new List<NetPeer>(Message.Users.Length);
+            foreach (ushort userId in Message.Users)
             {
-                for (int i = 0; i < allPeers.Length; i++)
+                if (NetworkServer.AuthenticatedPeers.TryGetValue(userId, out NetPeer found))
                 {
-                    if (allPeers[i].Id == userId)
-                    {
-                        peers.Add(allPeers[i]);
-                        break;
-                    }
+                    peers.Add(found);
+                }
+                else
+                {
+                    BNL.LogError($"[VoiceMessage] Could not find peer with ID: {userId}");
                 }
             }
 
@@ -424,7 +426,7 @@ namespace BasisServerHandle
                     {
                         Message.Serialize(writer);
                         //  BNL.Log($"Writing Data with size {writer.Length}");
-                        NetworkServer.TrySend(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, LiteNetLib.DeliveryMethod.ReliableOrdered);
+                        NetworkServer.TrySend(authClient, writer, BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel, DeliveryMethod.ReliableOrdered);
                     }
                 }
             }

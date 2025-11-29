@@ -14,12 +14,12 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Viseme (lip-sync) analysis driver processing audio samples each frame.
         /// </summary>
-        public BasisAudioAndVisemeDriver BasisAudioAndVisemeDriver = null;
+        [SerializeReference] public BasisAudioAndVisemeDriver BasisAudioAndVisemeDriver = null;
 
         /// <summary>
         /// Remote audio receiver that decodes and mixes network voice.
         /// </summary>
-        public BasisAudioReceiver BasisAudioReceiver = null;
+        [SerializeReference] public BasisAudioReceiver BasisAudioReceiver = null;
 
         /// <summary>
         /// Optional callback invoked after audio is processed:

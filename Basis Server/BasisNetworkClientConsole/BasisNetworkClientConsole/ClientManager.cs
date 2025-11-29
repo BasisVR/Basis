@@ -1,4 +1,4 @@
-using LiteNetLib;
+using Basis.Network.Core;
 using Basis.Config;
 using Basis.Scripts.BasisSdk.Players;
 using System.Text;
@@ -52,9 +52,8 @@ namespace Basis.Network
                         LinkedAvatarIndex = 0,
                     }
                 };
-
                 var netClient = new NetworkClient();
-                var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, passwordBytes, true);
+                var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, passwordBytes, CreateConfig());
 
                 if (peer != null)
                 {
@@ -118,7 +117,7 @@ namespace Basis.Network
 
             var netClient = new NetworkClient();
             var passwordBytes = Encoding.UTF8.GetBytes(ConfigManager.Password);
-            var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, passwordBytes, true);
+            var peer = netClient.StartClient(ConfigManager.Ip, ConfigManager.Port, readyMessage, passwordBytes, CreateConfig());
 
             if (peer != null)
             {
@@ -135,6 +134,15 @@ namespace Basis.Network
         {
             foreach (var client in clients) client?.Disconnect();
             return Task.CompletedTask;
+        }
+        public Configuration CreateConfig()
+        {
+            Configuration Configuration = new Configuration();
+            Configuration.UseNativeSockets = true;
+            ///we dont use auth identiy as we are fake client system
+            Configuration.UseAuthIdentity = false;
+
+            return Configuration;
         }
     }
 }

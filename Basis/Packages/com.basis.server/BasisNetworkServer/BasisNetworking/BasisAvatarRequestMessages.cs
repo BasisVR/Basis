@@ -1,4 +1,4 @@
-using LiteNetLib;
+using Basis.Network.Core;
 
 namespace BasisNetworkServer.BasisNetworking
 {

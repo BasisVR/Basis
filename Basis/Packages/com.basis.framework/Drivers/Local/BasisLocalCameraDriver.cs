@@ -60,8 +60,11 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public Vector3 DesktopMicrophoneViewportPosition = new(0.2f, 0.15f, 1f);
 
-        /// <summary>Near clip plane override.</summary>
-        public float NearClip = 0.001f;
+        public Vector3 MobileMicrophoneViewportPosition = new(0.5f, 0.1f, 1f);
+        /// <summary>The desired far clipping plane from scene settings before avatar overriding.</summary>
+        private float DesiredClipFar = 1000.0f;
+        /// <summary>The desired near clipping plane from scene settings before avatar overriding.</summary>
+        private float DesiredClipNear = 0.001f;
 
         /// <summary>World-space position of the left eye (XR). In desktop mode this equals camera position.</summary>
         public static Vector3 LeftEye;
@@ -168,12 +171,11 @@ namespace Basis.Scripts.Drivers
                 Instance = this;
                 HasInstance = true;
             }
-            Camera.nearClipPlane = NearClip;
-            Camera.farClipPlane = 1500;
+
             CameraInstanceID = Camera.GetInstanceID();
 
-            // Set initial scale from player height
-            OnHeightChanged();
+            // Set initial scale from player height and set the clip planes.
+            UpdateCameraScale();
 
             if (HasEvents == false)
             {
@@ -185,7 +187,7 @@ namespace Basis.Scripts.Drivers
                 RenderPipelineManager.endCameraRendering += EndCameraRendering;
 
                 BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateCameraScale;
 
                 InstanceExists?.Invoke();
                 HasEvents = true;
@@ -214,7 +216,7 @@ namespace Basis.Scripts.Drivers
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             RenderPipelineManager.endCameraRendering -= EndCameraRendering;
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateCameraScale;
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
             HasEvents = false;
             HasInstance = false;
@@ -250,7 +252,7 @@ namespace Basis.Scripts.Drivers
             {
                 Camera.fieldOfView = DefaultCameraFov;
             }
-            OnHeightChanged();
+            UpdateCameraScale();
         }
 
         /// <summary>
@@ -271,14 +273,34 @@ namespace Basis.Scripts.Drivers
             }
         }
 
+        public void SetDesiredClipPlanes(float clipFar, float clipNear)
+        {
+            DesiredClipFar = clipFar;
+            DesiredClipNear = clipNear;
+            UpdateCameraScale();
+        }
+
         /// <summary>
         /// Applies scale from the player's height so the camera’s local scale matches avatar scale.
         /// </summary>
-        public void OnHeightChanged()
+        public void UpdateCameraScale()
         {
-            BasisDebug.Log($"On Camera Scale Ratio Changed! {LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale}", BasisDebug.LogTag.Local);
             // the normal users scale is 1.6m; scale camera with selected avatar scale
             this.transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            // Ensure that the near clip plane is never far enough away that the avatar body clips through it.
+            // Critically we need to avoid small player heights causing the UI to become unusable due to clipping.
+            // At the same time, we need to pull in the far clip plane on mobile platforms to avoid depth buffer precision issues.
+            float eyeHeightMeters = Mathf.Max(LocalPlayer.CurrentHeight.SelectedPlayerHeight, 1e-4f);
+            if (BasisDeviceManagement.IsMobileHardware())
+            {
+                Camera.nearClipPlane = Mathf.Clamp(DesiredClipNear, eyeHeightMeters / 32.0f, eyeHeightMeters / 16.0f);
+                Camera.farClipPlane = Mathf.Clamp(DesiredClipFar, eyeHeightMeters * 64.0f, eyeHeightMeters * 512.0f);
+            }
+            else
+            {
+                Camera.nearClipPlane = Mathf.Clamp(DesiredClipNear, eyeHeightMeters / 128.0f, eyeHeightMeters / 32.0f);
+                Camera.farClipPlane = Mathf.Clamp(DesiredClipFar, eyeHeightMeters * 128.0f, eyeHeightMeters * 8192.0f);
+            }
         }
 
         /// <summary>
@@ -313,10 +335,20 @@ namespace Basis.Scripts.Drivers
                     }
                     else
                     {
-                        Vector3 worldPoint = Camera.ViewportToWorldPoint(DesktopMicrophoneViewportPosition);
-                        // assume this transform is the camera parent
-                        Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
-                        ParentOfUI.localPosition = localPos * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        if (BasisDeviceManagement.IsMobileHardware())
+                        {
+                            Vector3 worldPoint = Camera.ViewportToWorldPoint(MobileMicrophoneViewportPosition);
+                            // assume this transform is the camera parent
+                            Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
+                            ParentOfUI.localPosition = localPos * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        }
+                        else
+                        {
+                            Vector3 worldPoint = Camera.ViewportToWorldPoint(DesktopMicrophoneViewportPosition);
+                            // assume this transform is the camera parent
+                            Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
+                            ParentOfUI.localPosition = localPos * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        }
                     }
                 }
             }

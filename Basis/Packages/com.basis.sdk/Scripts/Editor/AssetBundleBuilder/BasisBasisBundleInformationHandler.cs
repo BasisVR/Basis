@@ -12,8 +12,8 @@ public static class BasisBasisBundleInformationHandler
         {
             File.Delete(filePath);
         }
-        string EcnyptedfilePath = await SaveBasisBundleConnector(BasisBundleConnector, filePath, BuildSettings, ConnectorPassword, DeleteUnEncrypted);
-        return new (BasisBundleConnector, EcnyptedfilePath);
+        string EncyptedfilePath = await SaveBasisBundleConnector(BasisBundleConnector, filePath, BuildSettings, ConnectorPassword, DeleteUnEncrypted);
+        return new (BasisBundleConnector, EncyptedfilePath);
     }
     private static async Task<string> SaveBasisBundleConnector(BasisBundleConnector BasisBundleConnector, string filePath, BasisAssetBundleObject BuildSettings, string password,bool DeleteUnEncrypted = true)
     {

@@ -20,7 +20,7 @@ public struct BasisDampedTransformData : IAnimationJobData, BasisIDampedTransfor
 
     public string TargetpositionVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetPosition));
 
-    public string TargetrotationVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetRotation));
+    public string TargetRotationProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetRotation));
 
     /// <inheritdoc />
     bool IAnimationJobData.IsValid() => !(m_ConstrainedObject == null);
@@ -112,7 +112,7 @@ namespace UnityEngine.Animations.Rigging
         /// <summary>The path to the override position property in the constraint component.</summary>
         string TargetpositionVector3Property { get; }
         /// <summary>The path to the override rotation property in the constraint component.</summary>
-        string TargetrotationVector3Property { get; }
+        string TargetRotationProperty { get; }
     }
 
     /// <summary>
@@ -134,7 +134,7 @@ namespace UnityEngine.Animations.Rigging
             var sourceTx = new AffineTransform(data.TargetPosition, data.TargetRotation);
 
             job.targetPosition = Vector3Property.Bind(animator, component, data.TargetpositionVector3Property);
-            job.targetRotation = Vector4Property.Bind(animator, component, data.TargetrotationVector3Property);
+            job.targetRotation = Vector4Property.Bind(animator, component, data.TargetRotationProperty);
 
             job.localBindTx = sourceTx.InverseMul(drivenTx);
 

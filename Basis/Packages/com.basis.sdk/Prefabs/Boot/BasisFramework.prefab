@@ -58,50 +58,6 @@ MonoBehaviour:
     NetworkBehaviourCount: 0
     NetworkBehaviours: []
     HasEvents: 0
-    MouthBone:
-      name: 
-      HasLineDraw: 0
-      LineDrawIndex: 0
-      HasTarget: 0
-      Offset:
-        x: 0
-        y: 0
-        z: 0
-      ScaledOffset:
-        x: 0
-        y: 0
-        z: 0
-      GizmoReference: -1
-      HasGizmo: 0
-      TposeGizmoReference: -1
-      TposeHasGizmo: 0
-      HasVirtualOverride: 0
-      UseInverseOffset: 0
-      Color: {r: 0, g: 0, b: 1, a: 1}
-      hasTrackerDriver: 1
-      DevicesWithRoles: []
-      hasRigLayer: 1
-      IncomingData:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
-      OutGoingData:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
-      OutgoingWorldData:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
-      LastRunData:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
-      InverseOffsetFromBone:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
-      TposeLocal:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
-      TposeLocalScaled:
-        rotation: {x: 0, y: 0, z: 0, w: 0}
-        position: {x: 0, y: 0, z: 0}
     AudioTransmission:
       Local: {fileID: 0}
       IsInitalized: 0
@@ -117,20 +73,31 @@ MonoBehaviour:
         TotalLength: 0
         LengthUsed: 0
       SilentForHowLong: 0
-    IndexLength: 0
-    MicrophoneRangeIndex: 
-    LastMicrophoneRangeIndex: 
-    HearingIndex: 
-    AvatarIndex: 
-    HearingIndexToId: 
-    CalculatedDistances: []
-    intervalSeconds: 0
-    timer: 0
-    SmallestDistanceToAnotherPlayer: 0
-    UnClampedInterval: 0
-    DefaultInterval: 0
-    TalkingPoints: 
-    requiresRebuild: 0
+    TransmissionResults:
+      MicrophoneRangeIndex: 
+      LastMicrophoneRangeIndex: 
+      HearingIndex: 
+      AvatarIndex: 
+      HearingIndexToId: 
+      LastHearingIndexToId: 
+      CalculatedDistances: []
+      IndexLength: -1
+      requiresRebuild: 0
+      TalkingPoints: 
+      intervalSeconds: 0.5
+      timer: 0
+      SmallestDistanceToAnotherPlayer: 0
+      UnClampedInterval: 0
+      DefaultInterval: 0
+      MouthBone:
+        rid: -2
+      BasisNetworkTransmitter:
+        rid: -2
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
 --- !u!114 &3490227392973501680
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -292,6 +259,7 @@ MonoBehaviour:
   - denoisemakeupdb
   - limitknee
   - limitthreshold
+  - microphonemode
 --- !u!114 &9218905915079737845
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -354,6 +322,7 @@ MonoBehaviour:
   SettingsNames:
   - joystickdeadzone
   - snapturnangle
+  - invertmouse
 --- !u!114 &8531479666972516414
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -385,6 +354,7 @@ MonoBehaviour:
   - Upscaling
   - Foveated Rendering
   RenderScale: 1
+  foveatedRenderingLevel: 0
 --- !u!114 &1359221182720975491
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -516,6 +486,7 @@ MonoBehaviour:
   RunButton: {fileID: 4166653571123788975, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   Escape: {fileID: -8104914591799447859, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   PrimaryButtonGetState: {fileID: 647096541409930546, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  PointerAction: {fileID: -5417877143265962151, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   DesktopSwitch: {fileID: -1278911692722073990, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   VRSwitch: {fileID: -3383292816080654074, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   XRSwitch: {fileID: 3096343990557684458, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
@@ -539,6 +510,7 @@ MonoBehaviour:
     secondaryTrigger: 0
     primary2DAxis: {x: 0, y: 0}
     secondary2DAxis: {x: 0, y: 0}
+  Pointer: {x: 0, y: 0}
 --- !u!114 &8830384322729445313
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -597,9 +569,9 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_ActionEvents: []
-  m_NeverAutoSwitchControlSchemes: 0
+  m_NeverAutoSwitchControlSchemes: 1
   m_DefaultControlScheme: All
-  m_DefaultActionMap: Player
+  m_DefaultActionMap: f00afc78-a030-47bb-ae9a-e2bab910633d
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
 --- !u!114 &1625421887690667428
@@ -942,6 +914,9 @@ MonoBehaviour:
   BasisAvatarEyeInput: {fileID: 0}
   AlwaysSpawnHeadsUpControls: 0
   Controls: {fileID: 0}
+  LeftInput: {fileID: 0}
+  RightInput: {fileID: 0}
+  Inputs: []
 --- !u!114 &-3061024371983229343
 MonoBehaviour:
   m_ObjectHideFlags: 0

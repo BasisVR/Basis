@@ -1,9 +1,6 @@
 using UnityEngine;
 using UnityEditor;
 using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.TransformBinders.BoneControl;
-using Basis.Scripts.Drivers;
-
 public class BasisHeightEditorWindow : EditorWindow
 {
     private float customHeight = 1.7f; // Default custom height input

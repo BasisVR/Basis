@@ -400,11 +400,36 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ToggleMicOnPrimaryReleaseIfNoHover(ref BasisInputState current, ref BasisInputState last)
     {
-        if (current.PrimaryButtonGetState == false && last.PrimaryButtonGetState)
+        if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
         {
-            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
+            switch (SMDMicrophone.SelectedTalkmode)
             {
-                BasisLocalMicrophoneDriver.ToggleIsPaused();
+                case SMDMicrophone.BasisMicrophoneMode.OnActivation:
+                    if (current.PrimaryButtonGetState == false && last.PrimaryButtonGetState)
+                    {
+                        // Simple toggle on release
+                        BasisLocalMicrophoneDriver.ToggleIsPaused();
+                    }
+                    break;
+
+                case SMDMicrophone.BasisMicrophoneMode.PushToTalk:
+                    // Button up edge
+                    if (current.PrimaryButtonGetState)
+                    {
+                        if (BasisLocalMicrophoneDriver.isPaused)
+                        {
+                            BasisLocalMicrophoneDriver.ToggleIsPaused();
+                        }
+                    }
+                    else
+                    {
+                        if (BasisLocalMicrophoneDriver.isPaused == false && current.PrimaryButtonGetState == false)
+                        {
+                            BasisLocalMicrophoneDriver.ToggleIsPaused();
+                        }
+                    }
+
+                    break;
             }
         }
     }
@@ -431,7 +456,7 @@ public static class BasisActionDriver
     {
         if (current.PrimaryButtonGetState)
         {
-            BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
+            BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJumpRequest();
         }
     }
 

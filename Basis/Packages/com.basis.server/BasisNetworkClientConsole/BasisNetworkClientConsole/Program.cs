@@ -2,7 +2,7 @@ using Basis.Logging;
 using Basis.Network;
 using Basis.Config;
 using Basis.Utils;
-using LiteNetLib;
+using Basis.Network.Core;
 
 namespace Basis
 {

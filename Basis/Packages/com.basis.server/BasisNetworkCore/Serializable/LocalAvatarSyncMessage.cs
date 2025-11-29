@@ -1,14 +1,11 @@
-using LiteNetLib.Utils;
+using Basis.Network.Core;
+
 public static partial class SerializableBasis
 {
     public struct LocalAvatarSyncMessage
     {
         public byte[] array;//position -> rotation -> muscle rotation -> scale
-        /// <summary>
-        /// true = 25 bytes
-        /// false = 64 ushorts (*2)
-        /// </summary>
-        public const int AvatarSyncSize = 173;//153 + 12 +14 + 2 171
+        public const int AvatarSyncSize = 176;
 
         public AdditionalAvatarData[] AdditionalAvatarDatas;
         public byte AdditionalAvatarDataSize;

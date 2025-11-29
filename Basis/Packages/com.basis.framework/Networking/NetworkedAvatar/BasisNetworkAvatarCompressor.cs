@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
-using System;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
@@ -12,7 +10,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using static Basis.Scripts.Networking.Transmitters.BasisNetworkTransmitter;
 using static SerializableBasis;
 
 namespace Basis.Scripts.Networking.NetworkedAvatar
@@ -79,7 +76,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         static readonly bool[] IS_BYTE = new bool[]
         {
             // Spine/Chest/Head (0..14) -> 6,7,8 true; rest false
-            false,false,false,false,false,false, true, true, true, false,false,false,false,false,false,
+            false,false,false,false,false,false, false, false, false, false,false,false,false,false,false,
 
             // Left Leg (15..22): only 27 true
             false,false,false,false,false,false, true, false,
@@ -109,7 +106,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         };
         public static void Compress(BasisNetworkTransmitter transmitter, Animator animator)
         {
-            EnsureTransmitterIsInitialized(transmitter, animator);
+            transmitter.PoseHandler ??= new HumanPoseHandler(animator.avatar, animator.transform);
+
             EnsureInitialized(); // our compressor init
 
             // Get current pose from Animator
@@ -134,7 +132,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             transmitter.ClearAdditional();
         }
 
-        public static void InitalAvatarData(Animator animator, out StoredAvatarData StoredAvatarData)
+        public static void InitalAvatarData(Animator animator, out BasisStoredAvatarData StoredAvatarData)
         {
             EnsureInitialized();
 
@@ -142,24 +140,22 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             var humanPose = new HumanPose();
             poseHandler.GetHumanPose(ref humanPose);
 
-            StoredAvatarData = new StoredAvatarData();
+            StoredAvatarData = new BasisStoredAvatarData();
             CompressAvatarData(StoredAvatarData, humanPose, animator);
         }
 
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
-        public static void CompressAvatarData(StoredAvatarData AvatarData, HumanPose pose, Animator animator)
+        public static void CompressAvatarData(BasisStoredAvatarData AvatarData, HumanPose pose, Animator animator)
         {
             EnsureInitialized();
 
             int offset = 0;
 
             // Position
-            BasisUnityBitPackerExtensionsUnsafe.WritePosition(
-                animator.bodyPosition, ref AvatarData.LASM.array, ref offset);
+            BasisUnityBitPackerExtensionsUnsafe.WritePosition(animator.bodyPosition, ref AvatarData.LASM.array, ref offset);
 
             // Rotation
-            BasisUnityBitPackerExtensionsUnsafe.WriteQuaternionToBytes(
-                animator.bodyRotation, ref AvatarData.LASM.array, ref offset, BasisNetworkPlayer.RotationCompression);
+            BasisUnityBitPackerExtensionsUnsafe.WriteQuaternionToBytes(animator.bodyRotation, ref AvatarData.LASM.array, ref offset, BasisNetworkPlayer.RotationCompression);
 
             // Muscles (parallel, zero-GC)
             CompressAvatarMuscles_Parallel(ref pose, ref AvatarData.LASM, ref offset);
@@ -167,6 +163,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             // Scale
             CompressScale(animator.transform.localScale.y, ref AvatarData.LASM, ref offset);
         }
+
         public static byte[] OutGoingBytes;
         // ==============================
         // new hot path: parallel compressor
@@ -231,12 +228,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             ushort compressed = (ushort)(normalized * BasisMuscleRange.UShortRangeDifference);
             BasisUnityBitPackerExtensionsUnsafe.WriteUShort(compressed, ref message.array, ref offset);
-        }
-
-        private static void EnsureTransmitterIsInitialized(BasisNetworkTransmitter transmitter, Animator animator)
-        {
-            if (transmitter.PoseHandler == null)
-                transmitter.PoseHandler = new HumanPoseHandler(animator.avatar, animator.transform);
         }
 
         // ==============================
@@ -315,7 +306,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (!sMusclesNative.IsCreated || sMusclesNative.Length != count)
             {
-                if (sMusclesNative.IsCreated) sMusclesNative.Dispose();
+                if (sMusclesNative.IsCreated)
+                {
+                    sMusclesNative.Dispose();
+                }
                 sMusclesNative = new NativeArray<float>(count, Allocator.Persistent);
             }
         }
@@ -328,8 +322,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         public static void Dispose()
         {
-            if (!sInitialized) return;
-
             if (sOrder.IsCreated) sOrder.Dispose();
             if (sIsByte.IsCreated) sIsByte.Dispose();
             if (sOffsets.IsCreated) sOffsets.Dispose();

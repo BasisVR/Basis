@@ -53,6 +53,12 @@ namespace Basis.Scripts.Drivers
         /// <summary>Cached control for the chest bone.</summary>
         public static BasisLocalBoneControl ChestControl;
 
+        /// <summary>Cached control for the left upper leg (thigh).</summary>
+        public static BasisLocalBoneControl LeftUpperLegControl;
+
+        /// <summary>Cached control for the right upper leg (thigh).</summary>
+        public static BasisLocalBoneControl RightUpperLegControl;
+
         /// <summary>Cached control for the left lower leg (shin).</summary>
         public static BasisLocalBoneControl LeftLowerLegControl;
 
@@ -110,6 +116,8 @@ namespace Basis.Scripts.Drivers
             FindBone(out LeftHandControl, BasisBoneTrackedRole.LeftHand);
             FindBone(out RightHandControl, BasisBoneTrackedRole.RightHand);
             FindBone(out ChestControl, BasisBoneTrackedRole.Chest);
+            FindBone(out LeftUpperLegControl, BasisBoneTrackedRole.LeftUpperLeg);
+            FindBone(out RightUpperLegControl, BasisBoneTrackedRole.RightUpperLeg);
             FindBone(out LeftLowerLegControl, BasisBoneTrackedRole.LeftLowerLeg);
             FindBone(out RightLowerLegControl, BasisBoneTrackedRole.RightLowerLeg);
             FindBone(out LeftLowerArmControl, BasisBoneTrackedRole.LeftLowerArm);
@@ -364,15 +372,12 @@ namespace Basis.Scripts.Drivers
                             Control.HasLineDraw = true;
                         }
                     }
-                    if (BasisGizmoManager.CreateSphereGizmo(trackedRoles[Index].ToString(), out Control.GizmoReference, BonePosition, DefaultGizmoSize * Size, Control.Color))
-                    {
-                        Control.HasGizmo = true;
-                    }
+                    BasisGizmoManager.CreateSphereGizmo(trackedRoles[Index].ToString(), out Control.GizmoReference, BonePosition, DefaultGizmoSize * Size, Control.Color);
                 }
                 else
                 {
-                    Control.HasGizmo = false;
-                    Control.TposeHasGizmo = false;
+                    Control.GizmoReference = -1;
+                    Control.TposeGizmoReference = -1;
                 }
             }
         }
@@ -418,8 +423,6 @@ namespace Basis.Scripts.Drivers
             addToBone.Target = target;
             addToBone.Offset = addToBone.TposeLocalScaled.position - target.TposeLocalScaled.position;
             addToBone.ScaledOffset = addToBone.Offset;
-            addToBone.Target = target;
-            addToBone.HasTarget = target != null;
         }
 
         /// <summary>
@@ -455,7 +458,7 @@ namespace Basis.Scripts.Drivers
                 {
                     if (BasisGizmoManager.UpdateSphereGizmo(Control.GizmoReference, BonePosition) == false)
                     {
-                        Control.HasGizmo = false;
+                        Control.GizmoReference = -1;
                     }
                 }
             }
@@ -469,15 +472,12 @@ namespace Basis.Scripts.Drivers
                         {
                             if (BasisGizmoManager.UpdateSphereGizmo(Control.TposeGizmoReference, BonePosition) == false)
                             {
-                                Control.TposeHasGizmo = false;
+                                Control.TposeGizmoReference = -1;
                             }
                         }
                         else
                         {
-                            if (BasisGizmoManager.CreateSphereGizmo(role.ToString(), out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(role) * Size, Control.Color))
-                            {
-                                Control.TposeHasGizmo = true;
-                            }
+                            BasisGizmoManager.CreateSphereGizmo(role.ToString(), out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(role) * Size, Control.Color);
                         }
                     }
                 }

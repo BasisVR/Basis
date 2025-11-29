@@ -172,7 +172,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
         {
             BasisDebug.Log("Initializing Avatar Eye", BasisDebug.LogTag.Input);
 
-            float height = BasisLocalPlayer.Instance?.CurrentHeight.SelectedPlayerHeight ?? BasisLocalPlayer.FallbackSize;
+            float height = BasisLocalPlayer.Instance?.CurrentHeight.SelectedPlayerHeight ?? BasisLocalHeight.FallbackSizeInMeters;
 
             ScaledDeviceCoord.position = new Vector3(0, height, 0);
             ScaledDeviceCoord.rotation = Quaternion.identity;
@@ -221,10 +221,9 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                 input.FindRole();
         }
 
-        public new void OnDisable()
+        public void OnDisable()
         {
             BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
-            base.OnDisable();
         }
         public bool ForceJump = false;
         public override void DoPollData()
@@ -234,7 +233,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             float dt = Time.unscaledDeltaTime;
             if(ForceJump)
             {
-                BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
+                BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJumpRequest();
             }
             // If movement is locked, override locomotion and inputs but keep pose updates
             if (movementLocked)
@@ -279,7 +278,8 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                 ScaledDeviceCoord.rotation = currentRotation;
 
                 ControlOnlyAsDevice();
-                UpdatePlayerControl();
+                ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+                UpdateInputEvents();
                 return; // skip normal AI behavior while locked
             }
 
@@ -313,7 +313,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             // --- Jump cooldown ---
             if (Time.unscaledTime >= nextJumpTime)
             {
-                BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
+                BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJumpRequest();
                 ScheduleNextJump();
             }
 
@@ -380,7 +380,8 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
 
             // Drive our CenterEye bone
             ControlOnlyAsDevice();
-            UpdatePlayerControl();
+            ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+            UpdateInputEvents();
         }
 
         // --- Target/update helpers --------------------------------------------

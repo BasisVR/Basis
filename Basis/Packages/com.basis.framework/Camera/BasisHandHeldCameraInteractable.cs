@@ -143,8 +143,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         if (inDesktop)
             LockPlayer(className);
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        BasisCursorManagement.UnlockCursor(nameof(BasisHandHeldCamera),false);
 
         if (HHC.captureCamera == null)
         {

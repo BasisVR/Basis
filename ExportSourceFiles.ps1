@@ -36,7 +36,9 @@ Get-ChildItem -Path $destination -Recurse -Include *.cs | Remove-Item -Force
 
 # Copy files from source to destination, excluding .dll, .asmdef, and obj folders
 Get-ChildItem -Path $source -Recurse | Where-Object { 
-    $_.Extension -notin @('.dll', '.asmdef') -and $_.FullName -notmatch '\\obj\\'
+    $_.Extension -notin @('.dll', '.asmdef') -and
+    $_.FullName -notmatch '\\obj\\' -and
+    $_.FullName -notlike '*\Contrib\PersistentKv*'
 } | ForEach-Object {
     # Compute relative path and determine destination path
     $relativePath = $_.FullName.Substring($source.Length)

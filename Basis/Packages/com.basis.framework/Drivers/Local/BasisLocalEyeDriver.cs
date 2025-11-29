@@ -393,16 +393,36 @@ namespace Basis.Scripts.Eye_Follow
         /// <param name="initialRotation">Reference rotation captured at initialization.</param>
         /// <param name="UP">Up vector used to resolve roll.</param>
         /// <returns>Quaternion rotation that points the eye toward the target.</returns>
-        private quaternion LookAtTarget(Vector3 observerPosition, Vector3 targetPosition, Quaternion initialRotation, Vector3 UP)
+        private Quaternion LookAtTarget(Vector3 observerPosition, Vector3 targetPosition, Quaternion initialRotation, Vector3 up)
         {
-            // Calculate direction to target
-            float3 direction = (targetPosition - observerPosition).normalized;
+            const float EPS = 1e-8f;
 
-            // Calculate look rotation
-            quaternion lookRotation = Quaternion.LookRotation(direction, UP);
+            // 1) Forward vector (guard zero)
+            Vector3 toTarget = targetPosition - observerPosition;
+            if (toTarget.sqrMagnitude < EPS)
+                return initialRotation; // nothing to look at; keep what you have
 
-            // Combine with initial rotation for maintained orientation
-            return initialRotation * math.inverse(initialRotation) * lookRotation;
+            Vector3 forward = toTarget.normalized;
+
+            // 2) Up vector (guard zero + colinearity with forward)
+            if (up.sqrMagnitude < EPS) up = Vector3.up;
+            if (Vector3.Cross(forward, up).sqrMagnitude < EPS)
+            {
+                // Choose a fallback up that's not colinear with forward
+                up = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) > 0.99f ? Vector3.right : Vector3.up;
+            }
+
+            Quaternion look = Quaternion.LookRotation(forward, up);
+
+            // 3) If you want to BLEND toward the new look (instead of snapping), add a blend factor:
+            // float blend = 0.2f; // 0=keep initialRotation, 1=full look
+            // return Quaternion.Slerp(initialRotation, look, blend);
+
+            // 4) If you intended to PRESERVE a captured local offset (e.g., eye bone rest pose),
+            // compute it once at init: offset = Quaternion.Inverse(referenceLook) * initialRotation;
+            // then use: return look * offset;
+
+            return look;
         }
     }
 }

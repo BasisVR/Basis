@@ -143,7 +143,7 @@ namespace Basis.Scripts.Avatar
             }
 
             BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
-            BasisLocalPlayer.Instance.LocalRigDriver.CalibrateRoles();//not needed but still doing just incase
+            BasisLocalPlayer.Instance.LocalRigDriver.RigLayer.active = true;
             BasisLocalPlayer.Instance.LocalAnimatorDriver.AssignHipsFBTracker();
         }
         /// <summary>
@@ -228,12 +228,12 @@ namespace Basis.Scripts.Avatar
         { BasisBoneTrackedRole.LeftUpperLeg,Mapping.LeftUpperLeg },
         { BasisBoneTrackedRole.LeftLowerLeg,Mapping. LeftLowerLeg },
         { BasisBoneTrackedRole.LeftFoot, Mapping.leftFoot },
-        { BasisBoneTrackedRole.LeftToes,Mapping. leftToes },
+        { BasisBoneTrackedRole.LeftToes,Mapping. leftToe },
 
         { BasisBoneTrackedRole.RightUpperLeg, Mapping.RightUpperLeg },
         { BasisBoneTrackedRole.RightLowerLeg,Mapping. RightLowerLeg },
         { BasisBoneTrackedRole.RightFoot, Mapping.rightFoot },
-        { BasisBoneTrackedRole.RightToes,Mapping. rightToes },
+        { BasisBoneTrackedRole.RightToes,Mapping. rightToe },
             };
 
             return transforms;

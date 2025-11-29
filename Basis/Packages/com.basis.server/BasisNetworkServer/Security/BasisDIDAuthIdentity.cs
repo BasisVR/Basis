@@ -5,8 +5,6 @@ using Basis.Network.Core;
 using Basis.Network.Server.Auth;
 using BasisNetworkServer.Security;
 using BasisServerHandle;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -26,7 +24,7 @@ namespace BasisDidLink
     public class BasisDIDAuthIdentity : IAuthIdentity
     {
         internal readonly DidAuthentication DidAuth;
-        public ConcurrentDictionary<ushort, OnAuth> AuthIdentity = new ConcurrentDictionary<ushort, OnAuth>();
+        public ConcurrentDictionary<int, OnAuth> AuthIdentity = new ConcurrentDictionary<int, OnAuth>();
         private readonly ConcurrentDictionary<NetPeer, CancellationTokenSource> _timeouts = new ConcurrentDictionary<NetPeer, CancellationTokenSource>();
         public List<string> Admins = new List<string>();
         public static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "admins.xml");
@@ -111,7 +109,7 @@ namespace BasisDidLink
                         ReadyMessage = readyMessage
                     };
 
-                    if (AuthIdentity.TryAdd((ushort)newPeer.Id, OnAuth))
+                    if (AuthIdentity.TryAdd(newPeer.Id, OnAuth))
                     {
                         readyMessage.playerMetaDataMessage.playerUUID = playerDid.V;
                         NetDataWriter Writer = new NetDataWriter();
@@ -150,7 +148,7 @@ namespace BasisDidLink
             {
                 await Task.Delay(NetworkServer.Configuration.AuthValidationTimeOutMiliseconds, cts.Token);
                 if (!_timeouts.ContainsKey(newPeer)) return;
-                AuthIdentity.TryRemove((ushort)newPeer.Id, out _);
+                AuthIdentity.TryRemove(newPeer.Id, out _);
                 _timeouts.TryRemove(newPeer, out _);
                 BNL.Log($"Authentication timeout for {UUID}.");
                 BasisServerHandleEvents.RejectWithReason(newPeer, "Authentication timeout");
@@ -183,7 +181,7 @@ namespace BasisDidLink
                 DidUrlFragment Fragment = new DidUrlFragment(FragmentAsString);
                 Response response = new Response(Sig, Fragment);
 
-                if (AuthIdentity.TryGetValue((ushort)newPeer.Id, out OnAuth authIdentity))
+                if (AuthIdentity.TryGetValue(newPeer.Id, out OnAuth authIdentity))
                 {
                     Challenge challenge = authIdentity.Challenge;
                     bool isAuthenticated = await RecvChallengeResponse(response, challenge);
@@ -221,7 +219,7 @@ namespace BasisDidLink
             return result.IsOk;
         }
 
-        public void RemoveConnection(ushort NetPeer)
+        public void RemoveConnection(int NetPeer)
         {
             AuthIdentity.TryRemove(NetPeer, out var authIdentity);
         }
@@ -312,7 +310,7 @@ namespace BasisDidLink
 
         public bool NetIDToUUID(NetPeer Peer, out string UUID)
         {
-            if (AuthIdentity.TryGetValue((ushort)Peer.Id, out OnAuth OnAuth))
+            if (AuthIdentity.TryGetValue(Peer.Id, out OnAuth OnAuth))
             {
                 UUID = OnAuth.Did.V;
                 return true;
@@ -321,9 +319,9 @@ namespace BasisDidLink
             return false;
         }
 
-        public bool UUIDToNetID(string UUID, out ushort Peer)
+        public bool UUIDToNetID(string UUID, out int Peer)
         {
-            foreach (KeyValuePair<ushort, OnAuth> Pair in AuthIdentity)
+            foreach (KeyValuePair<int, OnAuth> Pair in AuthIdentity)
             {
                 if (Pair.Value.Did.V == UUID)
                 {

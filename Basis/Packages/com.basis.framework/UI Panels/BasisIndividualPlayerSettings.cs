@@ -1,4 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.UI.UI_Panels;
 using System.Threading.Tasks;
 using TMPro;
@@ -22,7 +24,7 @@ public class BasisIndividualPlayerSettings : BasisUIBase
     public TextMeshProUGUI SliderVolumePercentage;
     public TextMeshProUGUI PlayerName;
     public TextMeshProUGUI PlayerUUID;
-
+    public TextMeshProUGUI PlayerDebug;
     [Header("Context")]
     public BasisRemotePlayer RemotePlayer;
     public BasisUIVolumeSampler BasisUIVolumeSampler;
@@ -31,22 +33,38 @@ public class BasisIndividualPlayerSettings : BasisUIBase
     public float step = 0.05f; // The interval between values
     public override void DestroyEvent()
     {
+        CheckThenUnAssign();
         BasisCursorManagement.LockCursor(CursorRequest);
+    }
+    public void OnDisable()
+    {
+        CheckThenUnAssign();
+    }
+    public void OnDestroy()
+    {
+        CheckThenUnAssign();
+    }
+    public void CheckThenUnAssign()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
     }
 
     public override void InitalizeEvent()
     {
         BasisCursorManagement.UnlockCursor(CursorRequest);
     }
-
+    public static BasisIndividualPlayerSettings Instance;
     public static async void OpenPlayerSettings(BasisRemotePlayer RemotePlayer)
     {
         BasisUIManagement.CloseAllMenus();
         BasisUIBase Base = OpenMenuNow(Path);
         var PlayerSettings = (BasisIndividualPlayerSettings)Base;
+        Instance = PlayerSettings;
         await PlayerSettings.Initalize(RemotePlayer);
     }
-
     public async Task Initalize(BasisRemotePlayer remotePlayer)
     {
         RemotePlayer = remotePlayer;
@@ -136,5 +154,101 @@ public class BasisIndividualPlayerSettings : BasisUIBase
         }
         bool over = volume > 1.0f;
         SliderVolumePercentage.color = over ? Color.red : Color.white;
+    }
+    public void Update()
+    {
+        DisplayData();
+    }
+    /// <summary>
+    /// lets add a debug for stats about audio playback
+    /// 
+    /// </summary>
+    public void DisplayData()
+    {
+        // Make sure we actually have a player selected
+        if (RemotePlayer == null)
+        {
+            PlayerDebug.text = "DisplayData: RemotePlayer is null.";
+            return;
+        }
+
+        // Make sure networking is available
+        var nm = BasisNetworkManagement.Instance;
+        if (nm == null || nm.LocalAccessTransmitter == null)
+        {
+            PlayerDebug.text = "DisplayData: No LocalAccessTransmitter.";
+            return;
+        }
+
+        var transmitter = nm.LocalAccessTransmitter;
+        var results = transmitter.TransmissionResults;
+
+        if (results == null)
+        {
+            PlayerDebug.text = "DisplayData: TransmissionResults is null.";
+            return;
+        }
+        /*
+
+        // Basic sanity on the managed mirrors
+        if (results.HearingIndexToId == null || results.cal == null || results.HearingThisFrame == null || results.IndexesThisFrame == null || results.CalculatedDistancesThisFrame == null)
+        {
+            PlayerDebug.text = "DisplayData: TransmissionResults arrays not initialized.";
+            return;
+        }
+
+        int length = results.LastIndexLength >= 0 ? results.LastIndexLength : results.HearingIndexToId.Length;
+        if (BasisNetworkPlayers.PlayerToNetworkedPlayer(RemotePlayer, out var networkedplayer))
+        {
+            ushort targetId = networkedplayer.playerId;
+
+            // Find this player’s index in the transmission arrays
+            int index = -1;
+            for (int i = 0; i < length && i < results.HearingIndexToId.Length; i++)
+            {
+                if (results.HearingIndexToId[i] == targetId)
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index < 0)
+            {
+                PlayerDebug.text = $"DisplayData: Could not find playerId {targetId} ({RemotePlayer.DisplayName}) in HearingIndexToId.";
+                return;
+            }
+
+            // Guard against any weird length mismatches
+            if (index >= results.MicrophoneRangeThisFrame.Length ||
+                index >= results.HearingThisFrame.Length ||
+                index >= results.IndexesThisFrame.Length ||
+                index >= results.CalculatedDistancesThisFrame.Length)
+            {
+                PlayerDebug.text = "DisplayData: Index out of range for TransmissionResults arrays.";
+                return;
+            }
+
+            bool inMicRange = results.MicrophoneRangeThisFrame[index];
+            bool inHearingRange = results.HearingThisFrame[index];
+            bool inAvatarRange = results.IndexesThisFrame[index];
+
+            // CalculatedDistances is squared distance (copied from Native distanceSq)
+            float d2 = results.CalculatedDistancesThisFrame[index];
+            float d = Mathf.Sqrt(Mathf.Max(0f, d2));
+
+            string log =
+                $"  Index: {targetId}, index: {index}\n" + $"  SQDis: {d2:F3}, dis: {d:F3} m\n" +
+                $"  inMicRange: {inMicRange}" + $"  inHearingRange: {inHearingRange}\n" +
+                $"  inAvatarRange: {inAvatarRange}" + $"  intervalSeconds: {results.intervalSeconds:F3}\n" +
+                $"  defaultInterval: {results.DefaultInterval:F3}" + $"  unClampedInterval: {results.UnClampedInterval:F3}";
+
+            // Optional: also show something in the UI if you have a text field for it
+            if (PlayerDebug != null)
+            {
+                PlayerDebug.text = log;
+            }
+        }
+        */
     }
 }

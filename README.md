@@ -15,20 +15,20 @@ The Social VR Framework</br>
 
 [Basis Philosophy](https://basisvr.org/philosophy) <- read our Philosophy here!
 
-We are a MIT-Licensed Open-Source project with a focus on open development and full access to any optional modification desired or required.
+We are an MIT-Licensed Open-Source project with a focus on open development and full access to any optional modification desired or required.
 
 Our goal is to help equip VR Creators, so we can accelerate the growth of VR.
 
 <img src="./Basis/Images/Banner.png" alt="Banner" width="550" height="155">
 
-We are actively working on Basis. If you like what you see, please consider contributing to the github in any way you can.
+We are actively working on Basis. If you like what you see, please consider contributing to the GitHub in any way you can.
 
  ## How you can Contribute
 
-After a year of development, we have only recently put Basis on github, which means while everything is operational, we still have to work on fixing plenty of bugs.
+After a year of development, we have only recently put Basis on GitHub, which means that while everything is operational, we still have to work on fixing plenty of bugs.
 
-Do you have a suggestion for improving Basis? Please Fork the repo and create a pull request! You can also open an issue with the tag “improvement”.
-Not sure how to contribute but still wanting to help out? Consider donating! We appreciate any help possible.
+Do you have a suggestion for improving Basis? Please fork the repo and create a pull request! You can also open an issue with the tag “improvement”.
+Not sure how to contribute, but still wanting to help out? Consider donating! We appreciate any help possible.
 
 <noscript><a href="https://liberapay.com/dooly/donate"><img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg"></a></noscript> [Github Sponsor](https://github.com/sponsors/dooly123)</br>[KoFi](https://ko-fi.com/dooly)</br>
 
@@ -45,10 +45,20 @@ Please help shape the future of Basis and leave your mark on its foundation.
 
  ## Installation
 
-This project is currently using Unity 6 (open the project through unity hub to see the version)
+This project is currently using Unity 6 (open the project through Unity Hub to see the version)
 Other Unity versions may work, but will require changes and adaptations.
 Currently, OPENXR and SteamVR are supported, as well as OPENXR Quest.
 
+As a note, command line args for basis are:
+
+to disable booting a VR mode.
+ --disable-OpenVRLoader
+ --disable-OpenXRLoader
+
+to force a VR mode from boot.
+ --force-OpenXRLoader
+ --force-OpenVRLoader
+ 
 1. Make sure you have the correct Unity version installed.
 2. Clone the repository
    ```sh
@@ -91,7 +101,7 @@ This would not be possible without the following:
 - [unity](https://unity.com/)
 - [ionic icons](https://github.com/ionic-team/ionicons?ref=svgrepo.com)
 - [LiteNetLib](https://github.com/RevenantX/LiteNetLib)
-
+- [cilbox](https://github.com/cnlohr/cilbox)
 
 ## Third-Party Code and Trademarks
 
@@ -113,10 +123,10 @@ For more details, see `Basis/Packages/com.steam.steamvr/LICENSE`.
 
 This project also includes third-party trademarks as described in `Basis/Packages/com.steam.steamaudio/TRADEMARK_RIGHTS.md`. For more details, see `Basis/Packages/com.steam.steamaudio/TRADEMARK_RIGHTS.md`.
 
-"Valve", "Steam", and the associated figurative images are trademarks and/or registered trademarks of Valve Corporation in the US and in various other jurisdictions. All rights reserved. Use of these trademarks must comply with the guidelines set forth in `Basis/Packages/com.steam.steamaudio/TRADEMARK_RIGHTS.md`.
+"Valve", "Steam", and the associated figurative images are trademarks and/or registered trademarks of Valve Corporation in the US and in various other jurisdictions. All rights reserved. Use of these trademarks must comply with the guidelines outlined in `Basis/Packages/com.steam.steamaudio/TRADEMARK_RIGHTS.md`.
 
 ## Basis Trademark Guidelines
 
 "Basis", "BasisVR", "Basis Framework", and the Basis logo are marks representing the
-Basis Project. Please see [TRADEMARK.md](./TRADEMARK.md) for our policies our policies
+Basis Project. Please see [TRADEMARK.md](./TRADEMARK.md) for our policies
 on their usage.

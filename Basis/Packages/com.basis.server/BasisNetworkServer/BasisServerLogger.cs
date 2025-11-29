@@ -1,4 +1,4 @@
-using LiteNetLib;
+using Basis.Network.Core;
 public class BasisServerLogger : INetLogger
 {
     public void WriteNet(NetLogLevel level, string str, params object[] args)
@@ -13,10 +13,10 @@ public class BasisServerLogger : INetLogger
                 break;
                 // case NetLogLevel.Trace:
                 //  BNL.Log(str);
-                break;
+                //break;
                 //  case NetLogLevel.Info:
                 //   BNL.Log(str);
-                break;
+                //break;
         }
     }
 }

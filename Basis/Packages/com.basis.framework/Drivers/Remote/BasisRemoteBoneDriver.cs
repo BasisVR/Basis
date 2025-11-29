@@ -38,8 +38,6 @@ public static class BoneIdx
 /// </summary>
 public struct TposeAndOffsetDataJob
 {
-    /// <summary>Unscaled TPose local position of the head.</summary>
-    public float3 tposeLocal_unscaled_Head;
     /// <summary>Unscaled TPose local position of the neck.</summary>
     public float3 tposeLocal_unscaled_Neck;
     /// <summary>Unscaled TPose local position of the chest.</summary>
@@ -115,13 +113,13 @@ public struct RemoteScaleCache
 public struct RemoteFrameOutput
 {
     /// <summary>World positions for the pose.</summary>
-    public float3 pos_Head, pos_Neck, pos_Chest, pos_Spine, pos_Hips, pos_CenterEye, pos_Mouth;
+    public float3 pos_Head, pos_Neck, pos_Spine, pos_Hips, pos_CenterEye, pos_Mouth;
     /// <summary>World rotations for the pose.</summary>
     public quaternion rot_Head, rot_Neck, rot_Chest, rot_Spine, rot_Hips, rot_CenterEye, rot_Mouth;
     /// <summary>
     /// Vertical delta between hips and mouth in scaled TPose space (used for UI placement).
     /// </summary>
-    public float diffHipToHeadMouthY;
+    public float HeightAvatarHipCoord;
 }
 
 /// <summary>
@@ -162,7 +160,7 @@ public struct BasisRemoteBoneJob : IJobParallelFor
         GeneratedScales[i] = sc;
 
         // Compose world rotations (TPose→current)
-        quaternion headR = math.mul(f.tposeHeadRot, f.headWRot);
+        quaternion headR = math.mul(f.headWRot, f.tposeHeadRot);
         quaternion hipsR = math.mul(f.tposeHipsRot, f.hipsWRot);
 
         // Convert to avatar-local positions relative to rootWorld
@@ -175,12 +173,10 @@ public struct BasisRemoteBoneJob : IJobParallelFor
         float3 spineP = chestP + math.mul(headR, sc.offsets_scaled_Spine);
         float3 eyeP = headP + math.mul(headR, sc.offsets_scaled_CenterEye);
         float3 mouthP = headP + math.mul(headR, sc.offsets_scaled_Mouth);
-
         Out[i] = new RemoteFrameOutput
         {
             pos_Head = headP,
             pos_Neck = neckP,
-            pos_Chest = chestP,
             pos_Spine = spineP,
             pos_Hips = hipsP,
             pos_CenterEye = eyeP,
@@ -193,9 +189,8 @@ public struct BasisRemoteBoneJob : IJobParallelFor
             rot_Hips = hipsR,
             rot_CenterEye = headR,
             rot_Mouth = headR,
-
             // Used for vertical offsetting of the nameplate UI
-            diffHipToHeadMouthY = sc.tposeLocal_scaled_Mouth.y - sc.tposeLocal_scaled_Hips.y
+            HeightAvatarHipCoord = sc.tposeLocal_scaled_Hips.y * 1.2f
         };
     }
 }
@@ -288,9 +283,6 @@ struct ApplyMouthJob : IJobParallelForTransform
 [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
 public struct MappedNameplateApplyJob : IJobParallelForTransform
 {
-    /// <summary>Precomputed vertical scale coefficient (1 + 1/1.25).</summary>
-    private const float kY = 1.8f;
-
     /// <summary>Camera world position used to bill-board the plate (yaw-only).</summary>
     public float3 CameraPosition;
 
@@ -304,7 +296,7 @@ public struct MappedNameplateApplyJob : IJobParallelForTransform
         float3 hips = data.pos_Hips;
 
         // y = hips.y + diff * 1.8
-        float3 nameplatePos = new float3(hips.x, hips.y + data.diffHipToHeadMouthY * kY, hips.z);
+        float3 nameplatePos = new float3(hips.x, hips.y + data.HeightAvatarHipCoord, hips.z);
 
         // Face the camera (yaw only) with zero-distance guard.
         float3 toCam = CameraPosition - nameplatePos;
@@ -524,7 +516,6 @@ public static class RemoteBoneJobSystem
 
         var a = new TposeAndOffsetDataJob
         {
-            tposeLocal_unscaled_Head = tHead,
             tposeLocal_unscaled_Neck = tNeck,
             tposeLocal_unscaled_Chest = tChest,
             tposeLocal_unscaled_Spine = tSpine,
@@ -595,10 +586,12 @@ public static class RemoteBoneJobSystem
             sHips.RemoveAtSwapBack(idx);
 
             // Update the moved key's mapping
+            int movedKey = -1;
             foreach (var kv in sKeyToIndex)
             {
-                if (kv.Value == last) { sKeyToIndex[kv.Key] = idx; break; }
+                if (kv.Value == last) { movedKey = kv.Key; break; }
             }
+            if (movedKey != -1) sKeyToIndex[movedKey] = idx;
         }
         else
         {
