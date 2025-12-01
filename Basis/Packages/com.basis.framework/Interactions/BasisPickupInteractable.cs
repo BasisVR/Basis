@@ -679,26 +679,32 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 if (constrainToAxis != BasisAxisType.None)
                 {
                     transform.GetLocalPositionAndRotation(out Vector3 currentPos, out Quaternion currentRot);
-                    // Apply axis constraint
+
+                    // Convert world space result to local space for constraint comparison
+                    Vector3 localPos = transform.parent != null
+                        ? transform.parent.InverseTransformPoint(pos)
+                        : pos;
+
+                    // Apply axis constraint in local space
                     switch (constrainToAxis)
                     {
                         case BasisAxisType.X:
-                            pos = IsWithinTravelLimit(pos.x, _positionAtStart.x, negativeTravelLimit, positiveTravelLimit)
-                                ? new Vector3(pos.x, currentPos.y, currentPos.z)
+                            localPos = IsWithinTravelLimit(localPos.x, _positionAtStart.x, negativeTravelLimit, positiveTravelLimit)
+                                ? new Vector3(localPos.x, currentPos.y, currentPos.z)
                                 : currentPos;
                             rot = currentRot; // Lock rotation when constrained
                             break;
 
                         case BasisAxisType.Y:
-                            pos = IsWithinTravelLimit(pos.y, _positionAtStart.y, negativeTravelLimit, positiveTravelLimit)
-                                ? new Vector3(currentPos.x, pos.y, currentPos.z)
+                            localPos = IsWithinTravelLimit(localPos.y, _positionAtStart.y, negativeTravelLimit, positiveTravelLimit)
+                                ? new Vector3(currentPos.x, localPos.y, currentPos.z)
                                 : currentPos;
                             rot = currentRot;
                             break;
 
                         case BasisAxisType.Z:
-                            pos = IsWithinTravelLimit(pos.z, _positionAtStart.z, negativeTravelLimit, positiveTravelLimit)
-                                ? new Vector3(currentPos.x, currentPos.y, pos.z)
+                            localPos = IsWithinTravelLimit(localPos.z, _positionAtStart.z, negativeTravelLimit, positiveTravelLimit)
+                                ? new Vector3(currentPos.x, currentPos.y, localPos.z)
                                 : currentPos;
                             rot = currentRot;
                             break;
@@ -707,6 +713,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         default:
                             break;
                     }
+
+                    // Convert back to world space for final application
+                    pos = transform.parent != null
+                        ? transform.parent.TransformPoint(localPos)
+                        : localPos;
 
                     // Helper method to check travel limits
                     bool IsWithinTravelLimit(float current, float start, float negativeLimit, float positiveLimit)
