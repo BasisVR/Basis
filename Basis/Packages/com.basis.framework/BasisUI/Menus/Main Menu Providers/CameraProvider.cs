@@ -15,7 +15,7 @@ namespace Basis.BasisUI
 
         public override string Title => "Camera";
         public override string IconAddress => AddressableAssets.Sprites.Camera;
-        public override int Order => 4;
+        public override int Order => 12;
 
         public static GameObject ActiveCameraInstance;
 

@@ -18,7 +18,7 @@ namespace Basis.BasisUI
 
         public override string Title => "Exit";
         public override string IconAddress => AddressableAssets.Sprites.Exit;
-        public override int Order => 10;
+        public override int Order => 100;
 
         public override void OnButtonCreated(PanelButton button)
         {

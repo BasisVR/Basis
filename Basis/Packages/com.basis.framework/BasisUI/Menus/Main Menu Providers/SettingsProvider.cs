@@ -315,6 +315,7 @@ namespace Basis.BasisUI
             descriptor.ForceRebuild();
             return tab;
         }
+
         // ------------------
         // GRAPHICS TAB
         // ------------------
@@ -416,8 +417,10 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.RenderResolution);
 
             // Resolution (logical / display resolution)
-            dropdownResolution = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
+            PanelDropdown dropdownResolution = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
             dropdownResolution.Descriptor.SetTitle("Resolution");
+            List<Vector2Int> uniqueResolutions = new List<Vector2Int>();
+            List<string> resolutionOptions = new List<string>();
 
             foreach (Resolution res in Screen.resolutions)
             {
@@ -430,23 +433,38 @@ namespace Basis.BasisUI
                     resolutionOptions.Add(size.x + " x " + size.y);
                 }
             }
-            dropdownResolution.DropdownComponent.onValueChanged.AddListener(OnResolutionChanged);
+
             // NOTE: in many systems this will be populated by platform code – tweak/remove entries as needed
             dropdownResolution.AssignEntries(resolutionOptions);
             dropdownResolution.AssignBinding(BasisSettingsDefaults.Resolution);
 
-            // ScreenMode
-            dropdownScreenMode = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
+            // Monitor
+            PanelDropdown dropdownMonitor = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
+
+            List<string> monitorOptions = new List<string>();
+
+            for (int Index = 0; Index < Display.displays.Length; Index++)
+            {
+                monitorOptions.Add("Monitor " + (Index + 1));
+            }
+
+            dropdownMonitor.Descriptor.SetTitle("Monitor");
+            dropdownMonitor.AssignEntries(monitorOptions);
+            dropdownMonitor.AssignBinding(BasisSettingsDefaults.Monitor);
+
+
+            // Monitor
+            PanelDropdown dropdownScreenMode = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
             List<string> screenModeOptions = new List<string>
             {
                 "Fullscreen",
+                "Borderless Window",
                 "Windowed"
             };
 
             dropdownScreenMode.Descriptor.SetTitle("ScreenMode");
             dropdownScreenMode.AssignEntries(screenModeOptions);
             dropdownScreenMode.AssignBinding(BasisSettingsDefaults.ScreenMode);
-            dropdownScreenMode.DropdownComponent.onValueChanged.AddListener(OnScreenModeChanged);
 
             // ADVANCED / FOVEATION GROUP
             PanelElementDescriptor advancedGroup =
@@ -481,41 +499,7 @@ namespace Basis.BasisUI
             descriptor.ForceRebuild();
             return tab;
         }
-        #region Dropdown Listeners
-        private static List<Vector2Int> uniqueResolutions = new List<Vector2Int>();
-        private static List<string> resolutionOptions = new List<string>();
-        public static PanelDropdown dropdownResolution;
-        public static PanelDropdown dropdownScreenMode;
-        private static void OnScreenModeChanged(int screenModeIndex)
-        {
-            FullScreenMode mode = GetScreenModeFromIndex(screenModeIndex);
-            Vector2Int currentResolution = uniqueResolutions[dropdownResolution.DropdownComponent.value];
 
-            Screen.SetResolution(currentResolution.x, currentResolution.y, mode);
-            BasisDebug.Log("Changed Screen Mode: " + mode);
-        }
-
-        private static void OnResolutionChanged(int resolutionIndex)
-        {
-            Vector2Int selectedResolution = uniqueResolutions[resolutionIndex];
-            FullScreenMode mode = GetScreenModeFromIndex(dropdownScreenMode.DropdownComponent.value);
-
-            Screen.SetResolution(selectedResolution.x, selectedResolution.y, mode);
-            BasisDebug.Log("Changed Resolution: " + selectedResolution.x + "x" + selectedResolution.y);
-        }
-        #endregion
-
-        #region Helpers
-        private static FullScreenMode GetScreenModeFromIndex(int index)
-        {
-            switch (index)
-            {
-                case 0: return FullScreenMode.FullScreenWindow;
-                case 1: return FullScreenMode.Windowed;
-                default: return FullScreenMode.Windowed;
-            }
-        }
-        #endregion
         // ------------------
         // DEVELOPER TAB
         // ------------------

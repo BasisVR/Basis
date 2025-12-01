@@ -14,7 +14,7 @@ namespace Basis.BasisUI
 
         public override string Title => "Mirror";
         public override string IconAddress => null;
-        public override int Order => 4;
+        public override int Order => 13;
 
 
         public static bool HasMirror;

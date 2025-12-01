@@ -14,6 +14,7 @@ namespace Basis.BasisUI
             public static string Settings = "Packages/com.basis.framework/BasisUI/Sprites/Icons/IonIcon Settings.png";
             public static string Servers = "Packages/com.basis.sdk/Textures/Runtime/server-outline.png";
             public static string Avatars = "Packages/com.basis.sdk/Textures/Runtime/avatarWhite.png";
+            public static string Calibrate = "Packages/com.basis.sdk/Textures/Runtime/calibrateWhite.png";
             public static string Respawn = "Packages/com.basis.sdk/Textures/Runtime/Teleport.png";
             public static string Camera = "Packages/com.basis.sdk/Textures/Runtime/camera-outline.png";
             public static string Exit = "Packages/com.basis.sdk/Textures/Runtime/exit-outline.png";

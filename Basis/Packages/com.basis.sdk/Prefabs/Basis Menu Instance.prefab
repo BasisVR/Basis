@@ -81,8 +81,8 @@ MonoBehaviour:
     EulerRotation: {x: 0, y: 0, z: 0}
     Scale: 0.2
   FloatingOffset:
-    Position: {x: 0, y: -0.1, z: 0.8}
-    EulerRotation: {x: 12, y: 0, z: 0}
+    Position: {x: 0, y: -0.06, z: 0.8}
+    EulerRotation: {x: 8, y: 0, z: 0}
     Scale: 1
   Position: {x: 0, y: 0, z: 0}
   Rotation: {x: 0, y: 0, z: 0, w: 0}

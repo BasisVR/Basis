@@ -13,7 +13,7 @@ namespace Basis.BasisUI
 
         public override string Title => "Respawn";
         public override string IconAddress => AddressableAssets.Sprites.Respawn;
-        public override int Order => 3;
+        public override int Order => 11;
 
         public override void RunAction()
         {

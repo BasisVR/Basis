@@ -11,6 +11,8 @@ namespace Basis.BasisUI
     public abstract class BasisMenuBase<TMenu> where TMenu: BasisMenuBase<TMenu>
     {
 
+        public static implicit operator bool(BasisMenuBase<TMenu> menu) => menu != null;
+
         #region Providers
 
         public static List<BasisMenuActionProvider<TMenu>> Providers = new();
@@ -71,8 +73,6 @@ namespace Basis.BasisUI
 
         public static BasisMenuBase<TMenu> Instance;
         public BasisMenuInstance MenuObjectInstance = BasisMenuInstance.CreateNew();
-
-        public static implicit operator bool(BasisMenuBase<TMenu> menu) => menu != null;
 
         public BasisMenuPanel ActiveMenu;
         public BasisMenuDialoguePanel Dialogue;
