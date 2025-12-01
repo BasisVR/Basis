@@ -5,6 +5,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using UnityEngine;
+
 namespace Basis.BasisUI
 {
     public class BasisMenuMover : MonoBehaviour
@@ -29,13 +30,13 @@ namespace Basis.BasisUI
             public float Scale;
             public Quaternion Rotation => Quaternion.Euler(EulerRotation);
         }
+
         [Header("References")]
         public RectTransform GroupOffset;
 
         [Header("Settings")]
         public PanelGroupRootMode VRMode = PanelGroupRootMode.Floating;
         public PanelGroupRootMode DesktopRootMode = PanelGroupRootMode.Eye;
-
         public PanelGroupRootMode InUse = PanelGroupRootMode.Eye;
         public float RootScale = 0.0005f;
 
@@ -67,9 +68,11 @@ namespace Basis.BasisUI
                 BasisLocalPlayer.OnLocalPlayerCreated += OnLocalPlayerCreated;
                 _hasLocalCreationEvent = true;
             }
+
             BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
             OnAvatarHeightChange();
         }
+
         private void OnDestroy()
         {
             BasisLocalPlayer.Instance.OnAvatarSwitched -= OnAvatarHeightChange;
@@ -84,6 +87,7 @@ namespace Basis.BasisUI
             {
                 BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
             }
+
             BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         }
 
@@ -96,15 +100,17 @@ namespace Basis.BasisUI
             BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _leftHandControl, BasisBoneTrackedRole.LeftHand);
             BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _rightHandControl, BasisBoneTrackedRole.RightHand);
         }
+
         private void OnBootModeChanged(string obj)
         {
             SetRootMode(GetFindCurrentMode());
         }
+
         public void OnAvatarHeightChange()
         {
-            Debug.Log("Avatar Height Changed");
             SetRootMode(GetFindCurrentMode());
         }
+
         public PanelGroupRootMode GetFindCurrentMode()
         {
             if (BasisDeviceManagement.IsUserInDesktop())
@@ -123,6 +129,7 @@ namespace Basis.BasisUI
                 }
             }
         }
+
         /// <summary>
         /// Apply the offset for the Current Root Mode.
         /// This also subscribes to the player's movement callback if needed.
@@ -138,7 +145,8 @@ namespace Basis.BasisUI
                     break;
                 case PanelGroupRootMode.Eye:
                     SetMovementCallback(true);
-                    SetRootOffset(HeadOffset);
+                    // SetRootOffset(HeadOffset);
+                    UpdateUILocation(PanelGroupRootMode.Eye);
                     break;
                 case PanelGroupRootMode.LeftHand:
                     SetMovementCallback(true);
@@ -157,6 +165,7 @@ namespace Basis.BasisUI
                     throw new ArgumentOutOfRangeException();
             }
         }
+
         private void SetMovementCallback(bool value)
         {
             if (value != _hasLocalMoveEvent)
@@ -181,19 +190,43 @@ namespace Basis.BasisUI
             GroupOffset.localScale = Vector3.one * (offset.Scale * RootScale);
             transform.localScale = Vector3.one * playerHeight;
         }
+
+        private void SetEyeOffset(float scaleFactor)
+        {
+            float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
+            Vector3 scaledOffset = Vector3.Scale(HeadOffset.Position, new Vector3(scaleFactor, scaleFactor, 1));
+            GroupOffset.SetLocalPositionAndRotation(scaledOffset, HeadOffset.Rotation);
+            GroupOffset.localScale = Vector3.one * (HeadOffset.Scale * RootScale * scaleFactor);
+            transform.localScale = Vector3.one * playerHeight;
+        }
+
         private void UpdateUILocation()
         {
             UpdateUILocation(InUse);
         }
-        private void UpdateUILocation(PanelGroupRootMode Mode)
+
+        private void UpdateUILocation(PanelGroupRootMode mode)
         {
-            switch (Mode)
+            switch (mode)
             {
                 case PanelGroupRootMode.World:
                     break;
                 case PanelGroupRootMode.Eye:
+                    // 11-30-2025: This value did not report the active value, as this setting was not applied to the application immediately.
+                    // float fieldOfView = BasisSettingsSystem.LoadFloat(BasisSettingsDefaults.FieldOfView.BindingKey);
+                    float fieldOfView = BasisLocalPlayer.Instance.LocalCameraDriver.Camera.fieldOfView;
+                    float tanFOV = Mathf.Tan((Mathf.Deg2Rad * fieldOfView) / 2);
+
+                    // 80 was the FOV the Menu was designed at.
+                    const float designerMenuScale = 80;
+                    float tanFOVBase = Mathf.Tan((Mathf.Deg2Rad * designerMenuScale) / 2);
+                    float scaleFactor = tanFOV / tanFOVBase;
+
                     BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
                     transform.SetPositionAndRotation(Position, Rotation);
+
+                    SetEyeOffset(scaleFactor);
+
                     break;
                 case PanelGroupRootMode.LeftHand:
                     BasisCalibratedCoords leftData = _leftHandControl.OutgoingWorldData;

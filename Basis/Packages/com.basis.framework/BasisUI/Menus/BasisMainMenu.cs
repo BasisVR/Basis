@@ -29,7 +29,8 @@ namespace Basis.BasisUI
                 MenuObjectInstance.PanelRoot);
 
             HorizontalLayout = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.ScrollViewHorizontal, HotbarMenu.Descriptor.ContentParent);
+                PanelElementDescriptor.ElementStyles.ScrollViewHorizontal, 
+                HotbarMenu.Descriptor.ContentParent);
 
             BindProvidersToButtons();
         }

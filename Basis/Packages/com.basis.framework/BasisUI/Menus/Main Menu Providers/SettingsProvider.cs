@@ -1,11 +1,9 @@
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.UI.UI_Panels;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
-using static UnityEngine.Rendering.DebugUI;
 
 namespace Basis.BasisUI
 {
@@ -201,16 +199,12 @@ namespace Basis.BasisUI
             descriptor.SetTitle("Audio Settings");
             RectTransform container = descriptor.ContentParent;
 
-            // MASTER GROUP
-            PanelElementDescriptor masterGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            masterGroup.SetTitle("Master Volume");
-            masterGroup.SetDescription("Overall game volume.");
-
-            PanelSlider sliderMainVolume = PanelSlider.CreateEntryAndBind(
-                masterGroup,
+            PanelSlider sliderMainVolume = PanelSlider.CreateAndBind(
+                container,
                 PanelSlider.SliderSettings.Percentage("Main Volume"),
                 BasisSettingsDefaults.MainVolume);
+            sliderMainVolume.Descriptor.SetTitle("Master Volume");
+            sliderMainVolume.Descriptor.SetDescription("Overall game volume.");
 
             // MIXER GROUP
             PanelElementDescriptor mixerGroup =
@@ -481,7 +475,7 @@ namespace Basis.BasisUI
             // Field Of View
             PanelSlider sliderFieldOfView = PanelSlider.CreateEntryAndBind(
                 advancedGroup.ContentParent,
-                PanelSlider.SliderSettings.Degrees("Field Of View", 50, 120, true, 0),
+                PanelSlider.SliderSettings.Degrees("Field Of View", BasisSettingsDefaults.FOV_MIN, BasisSettingsDefaults.FOV_MAX, true, 0),
                 BasisSettingsDefaults.FieldOfView);
 
             // Mesh LOD

@@ -28,7 +28,7 @@ namespace Basis.BasisUI
             {
                 Title = title,
                 PanelSize = new Vector2(1500, 200),
-                PanelPosition = new Vector3(0, -680),
+                PanelPosition = new Vector3(0, -630),
             };
         }
 
