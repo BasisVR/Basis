@@ -35,12 +35,17 @@ public class BasisAvatarPedestalEditor : Editor
         SerializedProperty loadModeProp = serializedObject.FindProperty("LoadMode");
         SerializedProperty avatarProp = serializedObject.FindProperty("Avatar");
         SerializedProperty uniqueIDProp = serializedObject.FindProperty("UniqueID");
-        SerializedProperty showAvatarProp = serializedObject.FindProperty("ShowAvatarOnPedestal");
+        SerializedProperty showAvatarProp = serializedObject.FindProperty("ShowAvatarMode");
         SerializedProperty wasJustPressedProp = serializedObject.FindProperty("WasJustPressed");
         SerializedProperty bundleProp = serializedObject.FindProperty("LoadableBundle");
         SerializedProperty progressReportProp = serializedObject.FindProperty("BasisProgressReport");
         SerializedProperty cancellationTokenProp = serializedObject.FindProperty("cancellationToken");
         SerializedProperty pedestalAnimatorProp = serializedObject.FindProperty("PedestalAnimatorController");
+
+        // SerializedProperty LoadedImage = serializedObject.FindProperty("LoadedImage");
+
+        SerializedProperty LoadedImage = serializedObject.FindProperty("Renderer");
+        SerializedProperty FallBackImage = serializedObject.FindProperty("FallBackImage");
 
         var loadModeField = new PropertyField(loadModeProp) { label = "Load Mode" };
         root.Add(loadModeField);
@@ -60,6 +65,11 @@ public class BasisAvatarPedestalEditor : Editor
         root.Add(new PropertyField(progressReportProp) { label = "Progress Report" });
         root.Add(new PropertyField(cancellationTokenProp) { label = "Cancellation Token" });
         root.Add(new PropertyField(pedestalAnimatorProp) { label = "Pedestal Animator Controller" });
+
+       // root.Add(new PropertyField(LoadedImage) { label = "Loaded Image" });
+        root.Add(new PropertyField(FallBackImage) { label = "FallBack Image" });
+        root.Add(new PropertyField(LoadedImage) { label = "Renderer For Obtained Image" });
+
         void UpdateVisibility()
         {
             var loadMode = (BasisLoadMode)loadModeProp.enumValueIndex;

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
  *
@@ -21,7 +21,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Meta.XR.BuildingBlocks.Editor;
 using Meta.XR.Editor.Id;
 using Meta.XR.Editor.Settings;
 using Meta.XR.Editor.StatusMenu;
@@ -276,9 +275,6 @@ namespace Meta.XR.Guides.Editor
                     BuildToolDescription("Hello World",
                         "Create your first Meta XR app for Unity with the Meta XR All-in-One SDK.",
                         "https://developers.meta.com/horizon/documentation/unity/unity-tutorial-hello-vr"),
-                    BuildToolDescription("Building Blocks",
-                        "Building Blocks are the easiest way to kickstart your ideas. Simply drag and drop Meta XR SDK features directly into your scene.",
-                        () => BuildingBlocksWindow.ShowWindow(Origins.GuidedSetup, this), BuildingBlocks.Editor.Utils.ToolDescriptor)),
                 BuildSection("Develop", GuideStyles.Contents.BuildingBlocks,
                     BuildToolDescription("Meta XR Tools",
                         "Discover Meta Quest developer tools within Unity to help you throughout the development. Check out the <b>Meta XR Tools</b> menu in your toolbar.",
@@ -302,7 +298,7 @@ namespace Meta.XR.Guides.Editor
                     BuildToolDescription("Meta Quest Developer Hub",
                         "Manage your devices, analyze app performance, and submit apps to Store. From MQDH, you can also access code samples, distribute your apps, and discover even more tools.",
                         "https://developers.meta.com/horizon/documentation/unity/ts-odh")),
-                new AddSpace(true)
+                new AddSpace(true))
             }, UIItemPlacementType.Vertical);
 
             return new GroupedItem(new List<IUserInterfaceItem> { group }, UIItemPlacementType.Vertical);

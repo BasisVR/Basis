@@ -6,14 +6,30 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 
+/// <summary>
+/// Utility for measuring, computing, persisting, and applying player/avatar height data.
+/// </summary>
+/// <remarks>
+/// This driver derives eye height and arm span from devices when present, falls back to avatar/default metrics,
+/// computes safe ratios for scaling, and persists a saved height. It also exposes helpers for custom-height overrides.
+/// </remarks>
 public static class BasisHeightDriver
 {
+    /// <summary>
+    /// File name (with extension) used to persist the player's eye height via <see cref="BasisDataStore"/>.
+    /// </summary>
     public static string FileNameAndExtension = "SavedHeight.BAS";
 
     /// <summary>
-    /// Adjusts the player's eye height after allowing all devices and systems to reset to their native size.
-    /// Waits one frame (via ExecuteNextFrame) before notifying listeners.
+    /// Adjusts the player's eye height after allowing devices and systems to reset to native size, then notifies listeners next frame.
     /// </summary>
+    /// <param name="localPlayer">The target <see cref="BasisLocalPlayer"/> whose height/ratios will be updated.</param>
+    /// <param name="selectedHeightMode">The height computation mode that determines which ratios to apply.</param>
+    /// <remarks>
+    /// Establishes authoritative avatar metrics (eye height, arm span) first, then captures live player metrics.
+    /// Ensures nonzero defaults, computes scale ratios safely, picks the active ratio set for <paramref name="selectedHeightMode"/>,
+    /// and invokes <see cref="BasisLocalPlayer.OnPlayersHeightChangedNextFrame"/> via <see cref="BasisLocalPlayer.ExecuteNextFrame(System.Action)"/>.
+    /// </remarks>
     public static void ChangeEyeHeightMode(BasisLocalPlayer localPlayer, BasisSelectedHeightMode selectedHeightMode)
     {
         if (localPlayer == null)
@@ -34,12 +50,12 @@ public static class BasisHeightDriver
         {
             float AvatarEyeHeight = avatarDriver.ActiveAvatarEyeHeight();
             //this is wrong
-            localPlayer.CurrentHeight.AvatarEyeHeight = AvatarEyeHeight > 0f ? AvatarEyeHeight : BasisLocalPlayer.DefaultAvatarEyeHeight;
+            localPlayer.CurrentHeight.AvatarEyeHeight = AvatarEyeHeight > 0f ? AvatarEyeHeight : BasisLocalHeight.DefaultAvatarEyeHeight;
         }
         else
         {
             BasisDebug.LogWarning("LocalAvatarDriver not available. Using default avatar eye height.", BasisDebug.LogTag.Avatar);
-            localPlayer.CurrentHeight.AvatarEyeHeight = BasisLocalPlayer.DefaultAvatarEyeHeight;
+            localPlayer.CurrentHeight.AvatarEyeHeight = BasisLocalHeight.DefaultAvatarEyeHeight;
         }
 
         // hands/arm span for the AVATAR (TPose, scaled)
@@ -53,7 +69,7 @@ public static class BasisHeightDriver
         else
         {
             BasisDebug.LogWarning("Could not resolve avatar hand bones; using default avatar arm span.", BasisDebug.LogTag.Avatar);
-            localPlayer.CurrentHeight.AvatarArmSpan = BasisLocalPlayer.DefaultAvatarArmSpan;
+            localPlayer.CurrentHeight.AvatarArmSpan = BasisLocalHeight.DefaultAvatarArmSpan;
         }
 
         // ---- now capture player/device metrics; uses avatar defaults if devices are missing ----
@@ -62,31 +78,24 @@ public static class BasisHeightDriver
         // ---- validate & normalize heights ----
         if (localPlayer.CurrentHeight.PlayerEyeHeight <= 0f)
         {
-            localPlayer.CurrentHeight.PlayerEyeHeight = BasisLocalPlayer.DefaultPlayerEyeHeight;
+            localPlayer.CurrentHeight.PlayerEyeHeight = BasisLocalHeight.DefaultPlayerEyeHeight;
             BasisDebug.LogWarning(
-                $"Player eye height was invalid. Set to default: {BasisLocalPlayer.DefaultPlayerEyeHeight}",
+                $"Player eye height was invalid. Set to default: {BasisLocalHeight.DefaultPlayerEyeHeight}",
                 BasisDebug.LogTag.Avatar);
         }
 
         if (localPlayer.CurrentHeight.AvatarEyeHeight <= 0f)
         {
-            localPlayer.CurrentHeight.AvatarEyeHeight = BasisLocalPlayer.DefaultAvatarEyeHeight;
-            BasisDebug.LogWarning( $"Avatar eye height was invalid. Set to default: {BasisLocalPlayer.DefaultAvatarEyeHeight}",BasisDebug.LogTag.Avatar);
+            localPlayer.CurrentHeight.AvatarEyeHeight = BasisLocalHeight.DefaultAvatarEyeHeight;
+            BasisDebug.LogWarning($"Avatar eye height was invalid. Set to default: {BasisLocalHeight.DefaultAvatarEyeHeight}", BasisDebug.LogTag.Avatar);
         }
+        BasisLocalHeight.ComputeRatios();
 
-        // ---- compute ratios safely ----
-        localPlayer.CurrentHeight.EyeRatioAvatarToAvatarDefaultScale = localPlayer.CurrentHeight.AvatarEyeHeight / Mathf.Max(0.0001f, BasisLocalPlayer.DefaultAvatarEyeHeight);
-
-        localPlayer.CurrentHeight.EyeRatioPlayerToDefaultScale = localPlayer.CurrentHeight.PlayerEyeHeight / Mathf.Max(0.0001f, BasisLocalPlayer.DefaultPlayerEyeHeight);
-
-        localPlayer.CurrentHeight.ArmRatioAvatarToAvatarDefaultScale = localPlayer.CurrentHeight.AvatarArmSpan / Mathf.Max(0.0001f, BasisLocalPlayer.DefaultAvatarArmSpan);
-
-        localPlayer.CurrentHeight.ArmRatioPlayerToDefaultScale = localPlayer.CurrentHeight.PlayerArmSpan / Mathf.Max(0.0001f, BasisLocalPlayer.DefaultPlayerArmSpan);
 
         // choose which ratios to apply for the selected mode
-        localPlayer.CurrentHeight.PickRatio(selectedHeightMode);
+        localPlayer.CurrentHeight.PickHeightMode(selectedHeightMode);
 
-        BasisDebug.Log($"Final Player Eye Height (raw): {localPlayer.CurrentHeight.PlayerEyeHeight}, Avatar Eye Height (raw): {localPlayer.CurrentHeight.AvatarEyeHeight}",BasisDebug.LogTag.Avatar);
+        BasisDebug.Log($"Final Player Eye Height (raw): {localPlayer.CurrentHeight.PlayerEyeHeight}, Avatar Eye Height (raw): {localPlayer.CurrentHeight.AvatarEyeHeight}", BasisDebug.LogTag.Avatar);
 
         // notify next frame
         localPlayer.ExecuteNextFrame(() =>
@@ -96,20 +105,23 @@ public static class BasisHeightDriver
     }
 
     /// <summary>
-    /// Captures player eye height and arm span from live devices.
-    /// Fallbacks to avatar/default metrics as needed.
+    /// Captures live player eye height and arm span from connected input devices, using avatar/default fallbacks when necessary.
     /// </summary>
+    /// <param name="localPlayer">The <see cref="BasisLocalPlayer"/> whose measurements will be populated.</param>
+    /// <remarks>
+    /// Eye height is read from <see cref="BasisLocalCameraDriver.Instance"/> lock-to-input if available, otherwise falls back to avatar eye height or default.
+    /// Arm span uses left/right hand devices; if either hand is missing, the default arm span is used.
+    /// </remarks>
     public static void CapturePlayerHeight(BasisLocalPlayer localPlayer)
     {
-        var lockToInput = BasisLocalCameraDriver.Instance?.BasisLockToInput;
-
         if (SMModuleSitStand.IsSteatedMode)
         {
             BasisDebug.Log("Was Seated Mode taking standard size of 1.7m", BasisDebug.LogTag.Avatar);
-            localPlayer.CurrentHeight.PlayerEyeHeight = BasisLocalPlayer.DefaultPlayerEyeHeight;
+            localPlayer.CurrentHeight.PlayerEyeHeight = BasisLocalHeight.DefaultPlayerEyeHeight;
         }
         else
         {
+            var lockToInput = BasisLocalCameraDriver.Instance?.BasisLockToInput;
             if (lockToInput?.BasisInput != null)
             {
                 lockToInput.BasisInput.PollData();
@@ -119,7 +131,7 @@ public static class BasisHeightDriver
             else
             {
                 // Prefer avatar eye height if it looks valid; otherwise fall back to default player height.
-                float fallback = localPlayer.CurrentHeight.AvatarEyeHeight > 0f ? localPlayer.CurrentHeight.AvatarEyeHeight : BasisLocalPlayer.DefaultPlayerEyeHeight;
+                float fallback = localPlayer.CurrentHeight.AvatarEyeHeight > 0f ? localPlayer.CurrentHeight.AvatarEyeHeight : BasisLocalHeight.DefaultPlayerEyeHeight;
 
                 localPlayer.CurrentHeight.PlayerEyeHeight = fallback;
 
@@ -139,15 +151,22 @@ public static class BasisHeightDriver
         else
         {
             BasisDebug.LogWarning("Both hands were not discovered. Using default player arm span.", BasisDebug.LogTag.Avatar);
-            localPlayer.CurrentHeight.PlayerArmSpan = BasisLocalPlayer.DefaultPlayerArmSpan;
+            localPlayer.CurrentHeight.PlayerArmSpan = BasisLocalHeight.DefaultPlayerArmSpan;
         }
     }
+
     /// <summary>
-    /// Load saved player eye height; on miss, save and return default.
+    /// Loads the persisted player eye height, or saves and returns the default if none is stored.
     /// </summary>
+    /// <returns>
+    /// The stored eye height if found; otherwise the default value from <see cref="BasisLocalPlayer.DefaultPlayerEyeHeight"/>.
+    /// </returns>
+    /// <remarks>
+    /// On a cache miss, persists the default height to <see cref="FileNameAndExtension"/> and returns it.
+    /// </remarks>
     public static float GetDefaultOrLoadPlayerHeight()
     {
-        float defaultHeight = BasisLocalPlayer.DefaultPlayerEyeHeight;
+        float defaultHeight = BasisLocalHeight.DefaultPlayerEyeHeight;
 
         if (BasisDataStore.LoadFloat(FileNameAndExtension, defaultHeight, out float foundHeight))
         {
@@ -160,23 +179,23 @@ public static class BasisHeightDriver
     }
 
     /// <summary>
-    /// Saves the current player's eye height if available; otherwise saves the default.
+    /// Persists a specific eye height value to <see cref="FileNameAndExtension"/>.
     /// </summary>
-    public static void SaveHeight()
-    {
-        float heightToSave = BasisLocalPlayer.Instance != null ? Mathf.Max(0f, BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight) : BasisLocalPlayer.DefaultPlayerEyeHeight;
-
-        SaveHeight(heightToSave);
-    }
-
+    /// <param name="eyeHeight">The eye height to save (meters).</param>
     public static void SaveHeight(float eyeHeight)
     {
         BasisDataStore.SaveFloat(eyeHeight, FileNameAndExtension);
     }
 
     /// <summary>
-    /// Manually set and save a custom player eye height, update avatar scale, and resync bones.
+    /// Applies a custom player eye height, persists it, recomputes ratios in <see cref="ChangeEyeHeightMode"/>,
+    /// updates avatar scale, rescales TPose bone data, and notifies listeners next frame.
     /// </summary>
+    /// <param name="customHeight">Desired eye height in meters. Must be greater than zero.</param>
+    /// <remarks>
+    /// Uses the recomputed unscaled avatar eye height as the baseline to compute the avatar height scale factor.
+    /// Updates <see cref="BasisLocalAvatarDriver.ScaleAvatarModification"/> and adjusts TPose-scaled transforms on each bone control.
+    /// </remarks>
     public static void SetCustomPlayerHeight(float customHeight)
     {
         if (customHeight <= 0f)

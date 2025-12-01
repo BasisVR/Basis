@@ -31,6 +31,9 @@ MonoBehaviour:
   disableBackups: 1
   enableNSCConfig: 1
   securityXmlPath: 
+  horizonOsSdkEnabled: 0
+  minHorizonOsSdkVersion: 68
+  targetHorizonOsSdkVersion: 78
   skipUnneededShaders: 0
   enableIL2CPPLTO: 0
   removeGradleManifest: 1

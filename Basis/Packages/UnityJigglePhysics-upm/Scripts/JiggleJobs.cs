@@ -11,71 +11,86 @@ namespace GatorDragonGames.JigglePhysics {
 public class JiggleJobs {
     private JiggleMemoryBus _memoryBus;
 
-    public JobHandle handlePersonalColliderRead;
-    public bool hasHandlePersonalColliderRead;
+    private JobHandle handlePersonalColliderRead;
+    private bool hasHandlePersonalColliderRead;
     
-    public JobHandle handleSceneColliderRead;
-    public bool hasHandleSceneColliderRead;
+    private JobHandle handleSceneColliderRead;
+    private bool hasHandleSceneColliderRead;
 
-    public JobHandle handleBulkRead;
-    public bool hasHandleBulkRead;
+    private JobHandle handleBulkRead;
+    private bool hasHandleBulkRead;
     
-    public JobHandle handleBulkReset;
-    public bool hasHandleBulkReset;
+    private JobHandle handleBulkReset;
+    private bool hasHandleBulkReset;
 
-    public JobHandle handleSimulate;
-    public bool hasHandleSimulate;
+    private JobHandle handleSimulate;
+    private bool hasHandleSimulate;
 
-    public JobHandle handleTransformWrite;
-    public bool hasHandleTransformWrite;
+    private JobHandle handleTransformWrite;
+    private bool hasHandleTransformWrite;
 
-    public JobHandle handleRootRead;
-    public bool hasHandleRootRead;
+    private JobHandle handleRootRead;
+    private bool hasHandleRootRead;
 
-    public JobHandle handleInterpolate;
-    public bool hasHandleInterpolate;
+    private JobHandle handleInterpolate;
+    private bool hasHandleInterpolate;
     
-    public JobHandle handleBroadPhaseClear;
-    public bool hasHandleBroadPhaseClear;
+    private JobHandle handleBroadPhaseClear;
+    private bool hasHandleBroadPhaseClear;
     
-    public JobHandle handleBroadPhase;
-    public bool hasHandleBroadPhase;
+    private JobHandle handleBroadPhase;
+    private bool hasHandleBroadPhase;
+    
+    private JobHandle handleInputInterpolate;
+    private bool hasHandleInputInterpolate;
 
-    public JiggleJobBulkColliderTransformRead jobBulkPersonalColliderTransformRead;
-    public JiggleJobBulkColliderTransformRead jobBulkSceneColliderTransformRead;
-    public JiggleJobBulkTransformRead jobBulkTransformRead;
-    public JiggleJobBulkTransformReset jobBulkTransformReset;
-    public JiggleJobSimulate jobSimulate;
-    public JiggleJobBulkReadRoots jobBulkReadRoots;
-    public JiggleJobInterpolation jobInterpolation;
-    public JiggleJobBroadPhaseClear jobBroadPhaseClear;
-    public JiggleJobBroadPhase jobBroadPhase;
+    private JiggleJobBulkColliderTransformRead jobBulkPersonalColliderTransformRead;
+    private JiggleJobBulkColliderTransformRead jobBulkSceneColliderTransformRead;
+    private JiggleJobBulkTransformRead jobBulkTransformRead;
+    private JiggleJobBulkTransformReset jobBulkTransformReset;
+    private JiggleJobSimulate jobSimulate;
+    private JiggleJobBulkReadRoots jobBulkReadRoots;
+    private JiggleJobInterpolation jobInterpolation;
+    private JiggleJobBroadPhaseClear jobBroadPhaseClear;
+    private JiggleJobBroadPhase jobBroadPhase;
+    private JiggleJobInputInterpolation jobInputInterpolation;
 
-    public JiggleJobTransformWrite jobTransformWrite;
+    private JiggleJobTransformWrite jobTransformWrite;
 
-    public List<IntPtr> freePointers;
+    private List<IntPtr> freePointers;
 
-    public delegate void JiggleFinishSimulateAction(JiggleJobs job, double currentTime, double simulatedTime);
+    public delegate void JiggleFinishSimulateAction(JiggleJobs job, double simulatedTime);
     public event JiggleFinishSimulateAction OnFinishSimulate;
 
-    public JiggleJobs(double timeAsDouble, float fixedDeltaTime) {
+    public JiggleJobs(double fixedTime, float fixedDeltaTime) {
         _memoryBus = new JiggleMemoryBus();
         jobSimulate = new JiggleJobSimulate(_memoryBus, fixedDeltaTime);
         jobBulkTransformRead = new JiggleJobBulkTransformRead(_memoryBus);
         jobBulkTransformReset = new JiggleJobBulkTransformReset(_memoryBus);
         jobBulkReadRoots = new JiggleJobBulkReadRoots(_memoryBus);
-        jobInterpolation = new JiggleJobInterpolation(_memoryBus, timeAsDouble, fixedDeltaTime);
+        jobInterpolation = new JiggleJobInterpolation(_memoryBus, fixedTime, fixedDeltaTime);
         jobBulkPersonalColliderTransformRead = new JiggleJobBulkColliderTransformRead(_memoryBus.personalColliders);
         jobBulkSceneColliderTransformRead = new JiggleJobBulkColliderTransformRead(_memoryBus.sceneColliders);
         jobTransformWrite = new JiggleJobTransformWrite(_memoryBus);
         jobBroadPhase = new JiggleJobBroadPhase(_memoryBus);
         jobBroadPhaseClear = new JiggleJobBroadPhaseClear(_memoryBus);
+        jobInputInterpolation = new JiggleJobInputInterpolation(_memoryBus, fixedTime, fixedDeltaTime);
         freePointers = new List<IntPtr>();
+    }
+
+    public bool TryGetRenderDependencies(out JobHandle handle) {
+        if (hasHandleSimulate && hasHandleInterpolate) {
+            handle = JobHandle.CombineDependencies(handleSimulate, handleInterpolate);
+            return true;
+        }
+        handle = default;
+        return false;
     }
     
     public void SetFixedDeltaTime(float fixedDeltaTime) {
         jobSimulate.SetFixedDeltaTime(fixedDeltaTime);
         jobInterpolation.SetFixedDeltaTime(fixedDeltaTime);
+        jobInputInterpolation.SetFixedDeltaTime(fixedDeltaTime);
     }
 
     public void Dispose() {
@@ -89,6 +104,7 @@ public class JiggleJobs {
         if (hasHandleSceneColliderRead) handleSceneColliderRead.Complete();
         if (hasHandleBroadPhase) handleBroadPhase.Complete();
         if (hasHandleBroadPhaseClear) handleBroadPhaseClear.Complete();
+        if (hasHandleInputInterpolate) handleInputInterpolate.Complete();
         Free();
         _memoryBus.Dispose();
     }
@@ -99,8 +115,8 @@ public class JiggleJobs {
         }
         jobBulkTransformReset.UpdateArrays(_memoryBus);
         // TODO: This technically only needs to happen for root bones, as their positions are used for posing. Instead just doing a full reset because I'm lazy.
-        if (hasHandleBulkReset) {
-            handleBulkReset = jobBulkTransformReset.Schedule(_memoryBus.GetTransformAccessArray(), handleBulkReset);
+        if (hasHandleBulkReset && hasHandleTransformWrite) {
+            handleBulkReset = jobBulkTransformReset.Schedule(_memoryBus.GetTransformAccessArray(), JobHandle.CombineDependencies(handleTransformWrite, handleBulkReset));
         } else {
             handleBulkReset = jobBulkTransformReset.Schedule(_memoryBus.GetTransformAccessArray());
         }
@@ -125,12 +141,7 @@ public class JiggleJobs {
         handleInterpolate = jobInterpolation.ScheduleParallel(_memoryBus.transformCount, 128, handleRootRead);
         hasHandleInterpolate = true;
 
-        if (hasHandleBulkReset) {
-            handleTransformWrite = jobTransformWrite.Schedule(_memoryBus.GetTransformAccessArray(),
-                JobHandle.CombineDependencies(handleInterpolate, handleBulkReset));
-        } else {
-            handleTransformWrite = jobTransformWrite.Schedule(_memoryBus.GetTransformAccessArray(), handleInterpolate);
-        }
+        handleTransformWrite = jobTransformWrite.Schedule(_memoryBus.GetTransformAccessArray(), handleInterpolate);
 
         hasHandleTransformWrite = true;
         return handleTransformWrite;
@@ -169,6 +180,7 @@ public class JiggleJobs {
             jobTransformWrite.UpdateArrays(_memoryBus);
             jobBroadPhase.UpdateArrays(_memoryBus);
             jobBroadPhaseClear.UpdateArrays(_memoryBus);
+            jobInputInterpolation.UpdateArrays(_memoryBus);
             return;
         }
 
@@ -177,13 +189,16 @@ public class JiggleJobs {
         if (hasHandleSimulate) {
             handleSimulate.Complete();
             Free();
-            OnFinishSimulate?.Invoke(this, realTime, simulateTime);
+            OnFinishSimulate?.Invoke(this, simulateTime);
         }
 
-        jobInterpolation.previousTimeStamp = jobInterpolation.timeStamp;
-        jobInterpolation.timeStamp = jobSimulate.timeStamp;
 
         _memoryBus.RotateBuffers();
+        jobInterpolation.previousTimeStamp = jobInterpolation.timeStamp;
+        jobInterpolation.timeStamp = jobSimulate.timeStamp;
+        jobInputInterpolation.previousTimeStamp = jobInputInterpolation.timeStamp;
+        jobInputInterpolation.timeStamp = realTime;
+        jobInputInterpolation.currentTime = simulateTime;
 
         _memoryBus.CommitTrees();
         _memoryBus.CommitColliders();
@@ -195,6 +210,7 @@ public class JiggleJobs {
         jobBulkSceneColliderTransformRead.UpdateArrays(_memoryBus.sceneColliders);
         jobBroadPhase.UpdateArrays(_memoryBus);
         jobBroadPhaseClear.UpdateArrays(_memoryBus);
+        jobInputInterpolation.UpdateArrays(_memoryBus);
 
         if (hasHandleSimulate) {
             handlePersonalColliderRead = jobBulkPersonalColliderTransformRead.ScheduleReadOnly( _memoryBus.GetPersonalColliderTransformAccessArray(), 128, handleSimulate);
@@ -220,9 +236,12 @@ public class JiggleJobs {
         handleBulkRead = jobBulkTransformRead.ScheduleReadOnly(_memoryBus.GetTransformAccessArray(), 128, handleBulkReset);
         hasHandleBulkRead = true;
 
+        handleInputInterpolate = jobInputInterpolation.ScheduleParallel(_memoryBus.transformCount, 128, handleBulkRead);
+        hasHandleInputInterpolate = true;
+
         jobSimulate.gravity = gravity;
         jobSimulate.timeStamp = simulateTime;
-        handleSimulate = jobSimulate.ScheduleParallel(_memoryBus.treeCount, 1, JobHandle.CombineDependencies(handleBroadPhase, handleBulkRead));
+        handleSimulate = jobSimulate.ScheduleParallel(_memoryBus.treeCount, 1, JobHandle.CombineDependencies(handleBroadPhase, handleInputInterpolate));
         hasHandleSimulate = true;
     }
 
@@ -321,9 +340,9 @@ public class JiggleJobs {
 
                     if (point.childrenCount != 0) {
                         for (int j = 0; j < point.childrenCount; j++) {
-                            var childPoint = tree.points[point.childrenIndices[j]];
+                            //var childPoint = tree.points[point.childrenIndices[j]];
                             var childPose = poses[point.childrenIndices[j] + tree.transformIndexOffset];
-                            if (!childPose.isVirtual) {
+                            if (!pose.isVirtual && !childPose.isVirtual) {
                                 Gizmos.color = Color.cyan;
                                 Gizmos.DrawLine(pose.position, childPose.position);
                             } else {

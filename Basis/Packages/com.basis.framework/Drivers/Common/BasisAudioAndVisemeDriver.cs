@@ -1,45 +1,119 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
-using uLipSync;
 using System.Collections.Generic;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
+using uLipSync;
+
 namespace Basis.Scripts.Drivers
 {
+    /// <summary>
+    /// Connects a <c>uLipSync</c> pipeline to an avatar's facial rig by mapping phonemes to
+    /// blendshapes and forwarding audio samples to the lip-sync engine.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Initialization validates avatar resources, builds a phoneme→blendshape table from the avatar's
+    /// <c>FaceVisemeMovement</c>, configures <see cref="uLipSyncBlendShape"/> with those mappings,
+    /// and wires visibility callbacks so processing pauses when the face is hidden.
+    /// </para>
+    /// <para>
+    /// Call <see cref="ProcessAudioSamples(float[], int, int)"/> each audio frame to drive lip sync.
+    /// Call <see cref="TryInitialize(BasisPlayer)"/> when the player/avatar becomes available and
+    /// <see cref="TryShutdown"/> on teardown.
+    /// </para>
+    /// </remarks>
     [System.Serializable]
     public partial class BasisAudioAndVisemeDriver
     {
+        /// <summary>
+        /// Smoothing amount used by uLipSync (implementation-specific).
+        /// </summary>
         public int smoothAmount = 70;
+
+        /// <summary>
+        /// Per-viseme availability flags derived from <c>Avatar.FaceVisemeMovement</c>.
+        /// </summary>
         public bool[] HasViseme;
+
+        /// <summary>
+        /// Number of viseme entries on the avatar (length of <c>FaceVisemeMovement</c>).
+        /// </summary>
         public int BlendShapeCount;
+
+        /// <summary>
+        /// Player whose avatar/renderer provide the viseme mesh and visibility state.
+        /// </summary>
         public BasisPlayer Player;
+
+        /// <summary>
+        /// Avatar containing the viseme mesh and movement indices.
+        /// </summary>
         public BasisAvatar Avatar;
+
+        /// <summary>
+        /// uLipSync core component that analyses incoming audio to phoneme weights.
+        /// </summary>
         public uLipSync.uLipSync uLipSync;
+
+        /// <summary>
+        /// uLipSync component that writes analysed phoneme weights into blendshapes.
+        /// </summary>
         public uLipSyncBlendShape uLipSyncBlendShape;
+
+        /// <summary>
+        /// Table mapping phoneme strings (e.g., "A", "E") to avatar blendshape indices.
+        /// </summary>
         public List<BasisPhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<BasisPhonemeBlendShapeInfo>();
+
+        /// <summary>
+        /// Indicates whether this was the first initialization for this instance.
+        /// </summary>
         public bool FirstTime = false;
+
+        /// <summary>
+        /// Tracks whether initialization completed successfully.
+        /// </summary>
         public bool WasSuccessful;
+
+        /// <summary>
+        /// Cached instance ID of the face renderer used to safely bind/unbind events.
+        /// </summary>
         public int HashInstanceID = -1;
+
+        /// <summary>
+        /// Attempts to configure uLipSync for the given <paramref name="BasisPlayer"/> and avatar.
+        /// </summary>
+        /// <param name="BasisPlayer">The player whose avatar provides viseme resources.</param>
+        /// <returns><c>true</c> if setup succeeded; otherwise <c>false</c>.</returns>
+        /// <remarks>
+        /// Validates the avatar and mesh, creates or reuses <see cref="uLipSync"/> and
+        /// <see cref="uLipSyncBlendShape"/> components, assigns the shared lip-sync profile,
+        /// constructs phoneme mappings from <c>Avatar.FaceVisemeMovement</c> indices, and wires face
+        /// visibility callbacks to pause processing when not visible.
+        /// </remarks>
         public bool TryInitialize(BasisPlayer BasisPlayer)
         {
             WasSuccessful = false;
             Avatar = BasisPlayer.BasisAvatar;
             Player = BasisPlayer;
+
             if (Avatar == null)
             {
-             //  BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
+                //  BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh == null)
             {
-              //  BasisDebug.Log("not setting up BasisVisemeDriver FaceVisemeMesh was null");
+                //  BasisDebug.Log("not setting up BasisVisemeDriver FaceVisemeMesh was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh.sharedMesh.blendShapeCount == 0)
             {
-              //  BasisDebug.Log("not setting up BasisVisemeDriver blendShapeCount was empty");
+                //  BasisDebug.Log("not setting up BasisVisemeDriver blendShapeCount was empty");
                 return false;
             }
+
             if (uLipSync == null)
             {
                 FirstTime = true;
@@ -48,91 +122,49 @@ namespace Basis.Scripts.Drivers
             {
                 uLipSync = BasisHelpers.GetOrAddComponent<uLipSync.uLipSync>(BasisPlayer.gameObject);
             }
+
             phonemeBlendShapeTable.Clear();
-            if (uLipSync.profile == null)
-            {
-                uLipSync.profile = BasisDeviceManagement.Instance.LipSyncProfile;
-            }
+            uLipSync.profile = BasisDeviceManagement.Instance.LipSyncProfile;
+
             if (uLipSyncBlendShape == null)
             {
                 uLipSyncBlendShape = BasisHelpers.GetOrAddComponent<uLipSyncBlendShape>(BasisPlayer.gameObject);
             }
-            uLipSyncBlendShape.usePhonemeBlend = true;
+
             uLipSyncBlendShape.skinnedMeshRenderer = Avatar.FaceVisemeMesh;
+
+            // Build viseme availability and phoneme mapping table
             BlendShapeCount = Avatar.FaceVisemeMovement.Length;
             HasViseme = new bool[BlendShapeCount];
+
             for (int Index = 0; Index < BlendShapeCount; Index++)
             {
                 if (Avatar.FaceVisemeMovement[Index] != -1)
                 {
                     int FaceVisemeIndex = Avatar.FaceVisemeMovement[Index];
                     HasViseme[Index] = true;
+
+                    // Map selected indices to uLipSync phoneme keys
                     switch (Index)
                     {
                         case 10:
-                            {
-                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
-                                {
-                                    phoneme = "A",
-                                    blendShape = FaceVisemeIndex
-                                };
-                                phonemeBlendShapeTable.Add(PhonemeBlendShapeInfo);
-                                break;
-                            }
-
+                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "A", blendShape = FaceVisemeIndex });
+                            break;
                         case 12:
-                            {
-                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
-                                {
-                                    phoneme = "I",
-                                    blendShape = FaceVisemeIndex
-                                };
-                                phonemeBlendShapeTable.Add(PhonemeBlendShapeInfo);
-                                break;
-                            }
-
+                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "I", blendShape = FaceVisemeIndex });
+                            break;
                         case 14:
-                            {
-                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
-                                {
-                                    phoneme = "U",
-                                    blendShape = FaceVisemeIndex
-                                };
-                                phonemeBlendShapeTable.Add(PhonemeBlendShapeInfo);
-                                break;
-                            }
-
+                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "U", blendShape = FaceVisemeIndex });
+                            break;
                         case 11:
-                            {
-                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
-                                {
-                                    phoneme = "E",
-                                    blendShape = FaceVisemeIndex
-                                };
-                                phonemeBlendShapeTable.Add(PhonemeBlendShapeInfo);
-                                break;
-                            }
+                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "E", blendShape = FaceVisemeIndex });
+                            break;
                         case 13:
-                            {
-                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
-                                {
-                                    phoneme = "O",
-                                    blendShape = FaceVisemeIndex
-                                };
-                                phonemeBlendShapeTable.Add(PhonemeBlendShapeInfo);
-                                break;
-                            }
+                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "O", blendShape = FaceVisemeIndex });
+                            break;
                         case 7:
-                            {
-                                BasisPhonemeBlendShapeInfo PhonemeBlendShapeInfo = new BasisPhonemeBlendShapeInfo
-                                {
-                                    phoneme = "S",
-                                    blendShape = FaceVisemeIndex
-                                };
-                                phonemeBlendShapeTable.Add(PhonemeBlendShapeInfo);
-                                break;
-                            }
-
+                            phonemeBlendShapeTable.Add(new BasisPhonemeBlendShapeInfo { phoneme = "S", blendShape = FaceVisemeIndex });
+                            break;
                     }
                 }
                 else
@@ -140,38 +172,62 @@ namespace Basis.Scripts.Drivers
                     HasViseme[Index] = false;
                 }
             }
+
+            // Push mappings into uLipSyncBlendShape
             uLipSyncBlendShape.CachedblendShapes.Clear();
-            for (int Index = 0; Index < phonemeBlendShapeTable.Count; Index++)
+            for (int i = 0; i < phonemeBlendShapeTable.Count; i++)
             {
-                BasisPhonemeBlendShapeInfo info = phonemeBlendShapeTable[Index];
+                var info = phonemeBlendShapeTable[i];
                 uLipSyncBlendShape.AddBlendShape(info.phoneme, info.blendShape);
             }
             uLipSyncBlendShape.BlendShapeInfos = uLipSyncBlendShape.CachedblendShapes.ToArray();
+
             if (FirstTime)
             {
                 uLipSync.uLipSyncBlendShape = uLipSyncBlendShape;
             }
+
             uLipSync.Initalize();
+
+            // Wire visibility and lifetime callbacks (only once per renderer instance)
             if (Player != null && Player.FaceRenderer != null && HashInstanceID != Player.FaceRenderer.GetInstanceID())
             {
-               // BasisDebug.Log("Wired up Renderer Check For Blinking");
+                // BasisDebug.Log("Wired up Renderer Check For Blinking");
                 Player.FaceRenderer.Check += UpdateFaceVisibility;
                 Player.FaceRenderer.DestroyCalled += TryShutdown;
             }
+
             UpdateFaceVisibility(Player.FaceIsVisible);
             WasSuccessful = true;
             return true;
         }
+
+        /// <summary>
+        /// Attempts to cleanly shut down the driver, disabling processing and unbinding callbacks.
+        /// </summary>
         public void TryShutdown()
         {
             WasSuccessful = false;
             OnDeInitalize();
         }
+
+        /// <summary>
+        /// Current enabled state of uLipSync processing based on face visibility.
+        /// </summary>
         public bool uLipSyncEnabledState = true;
+
+        /// <summary>
+        /// Callback that updates whether lip-sync is active based on face visibility.
+        /// </summary>
+        /// <param name="State">Whether the face is currently visible.</param>
         private void UpdateFaceVisibility(bool State)
         {
             uLipSyncEnabledState = State;
         }
+
+        /// <summary>
+        /// Unbinds face renderer callbacks if the same renderer instance is still present.
+        /// </summary>
         public void OnDeInitalize()
         {
             if (Player != null)
@@ -183,34 +239,40 @@ namespace Basis.Scripts.Drivers
                 }
             }
         }
-        public void ProcessAudioSamples(float[] data,int channels,int Length)
+
+        /// <summary>
+        /// Forwards raw audio samples to uLipSync when enabled and initialized.
+        /// </summary>
+        /// <param name="data">Interleaved PCM samples.</param>
+        /// <param name="channels">Number of audio channels in <paramref name="data"/>.</param>
+        /// <param name="Length">Number of samples provided.</param>
+        /// <remarks>
+        /// If the face is not visible or initialization failed, this method returns immediately.
+        /// </remarks>
+        public void ProcessAudioSamples(float[] data, int channels, int Length)
         {
-            if (uLipSyncEnabledState == false)
-            {
-                return;
-            }
-            if (WasSuccessful == false)
-            {
-                return;
-            }
+            if (uLipSyncEnabledState == false) return;
+            if (WasSuccessful == false) return;
+
             uLipSync.OnDataReceived(data, channels, Length);
         }
+
+        /// <summary>
+        /// External pause/resume hook for lip-sync playback.
+        /// </summary>
+        /// <param name="IsPaused"><c>true</c> to pause; <c>false</c> to resume.</param>
+        /// <remarks>
+        /// Reserved for future behavior changes (e.g., zeroing weights while paused).
+        /// </remarks>
         public void OnPausedEvent(bool IsPaused)
         {
-            if (IsPaused)
+            if (uLipSyncBlendShape != null)
             {
-                if (uLipSyncBlendShape != null)
+                if (IsPaused)
                 {
-                    uLipSyncBlendShape.maxVolume = 0;
-                    uLipSyncBlendShape.minVolume = 0;
                 }
-            }
-            else
-            {
-                if (uLipSyncBlendShape != null)
+                else
                 {
-                    uLipSyncBlendShape.maxVolume = -1.5f;
-                    uLipSyncBlendShape.minVolume = -2.5f;
                 }
             }
         }

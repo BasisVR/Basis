@@ -45,7 +45,7 @@ public class BasisFallBackBoneDataEditor : Editor
                     if (BasisAvatarDriver.TryConvertToBoneTrackingRole(bone, out BasisBoneTrackedRole role))
                     {
                         Transform boneTransform = Anim.GetBoneTransform(bone);
-                        BasisFallBone fallbackedBone = CreateFallbackBone(bone, role, bounds, boneTransform);
+                        BasisFallBackBone fallbackedBone = CreateFallbackBone(bone, role, bounds, boneTransform);
 
                         fallBackBoneData.FallBackPercentage.Add(fallbackedBone);
                         fallBackBoneData.BoneTrackedRoles.Add(role);
@@ -56,19 +56,19 @@ public class BasisFallBackBoneDataEditor : Editor
     }
     private void ComputeEyeBone(BasisFallBackBoneData fallBackBoneData)
     {
-        BasisFallBone EyeBone = new BasisFallBone
+        BasisFallBackBone EyeBone = new BasisFallBackBone
         {
             HumanBone =  HumanBodyBones.LeftEye,
             Role = BasisBoneTrackedRole.CenterEye
         };
         EyeBone.Position = new Vector3(0,1.6f,0);
-        EyeBone.PositionPercentage = CalculatePercentage(Vector3.zero,new Vector3(0, BasisLocalPlayer.FallbackSize, 0), EyeBone.Position);
+        EyeBone.PositionPercentage = CalculatePercentage(Vector3.zero,new Vector3(0, BasisLocalHeight.FallbackSizeInMeters, 0), EyeBone.Position);
         fallBackBoneData.BoneTrackedRoles.Add( BasisBoneTrackedRole.CenterEye);
         fallBackBoneData.FallBackPercentage.Add(EyeBone);
     }
-    private BasisFallBone CreateFallbackBone(HumanBodyBones bone, BasisBoneTrackedRole role, Bounds bounds, Transform boneTransform)
+    private BasisFallBackBone CreateFallbackBone(HumanBodyBones bone, BasisBoneTrackedRole role, Bounds bounds, Transform boneTransform)
     {
-        BasisFallBone fallbackedBone = new BasisFallBone
+        BasisFallBackBone fallbackedBone = new BasisFallBackBone
         {
             HumanBone = bone,
             Role = role
@@ -104,7 +104,7 @@ public class BasisFallBackBoneDataEditor : Editor
         Renderer[] renderers = Animatorparent.GetComponentsInChildren<Renderer>();
         if (renderers.Length == 0)
         {
-            return new Bounds(Vector3.zero, new Vector3(0.3f, BasisLocalPlayer.FallbackSize, 0.3f));
+            return new Bounds(Vector3.zero, new Vector3(0.3f, BasisLocalHeight.FallbackSizeInMeters, 0.3f));
         }
         Bounds bounds = renderers[0].bounds;
         for (int Index = 1; Index < renderers.Length; Index++)

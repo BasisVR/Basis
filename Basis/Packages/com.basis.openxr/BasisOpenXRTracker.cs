@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
@@ -30,12 +31,21 @@ public class BasisOpenXRTracker : BasisInput
     }
     public override void DoPollData()
     {
-        if (Position.action != null) UnscaledDeviceCoord.position = Position.action.ReadValue<Vector3>();
-        if (Rotation.action != null) UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
+        if (Position.action != null)
+        {
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, Position.action.ReadValue<Vector3>());
+        }
+
+        if (Rotation.action != null)
+        {
+            UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
+        }
 
         ConvertToScaledDeviceCoord();
         ControlOnlyAsDevice();
-        UpdatePlayerControl();
+
+        ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+        UpdateInputEvents();
     }
     public override void ShowTrackedVisual()
     {

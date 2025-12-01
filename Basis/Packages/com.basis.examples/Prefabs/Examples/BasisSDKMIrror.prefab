@@ -61,6 +61,8 @@ MeshRenderer:
   m_RayTracingAccelStructBuildFlagsOverride: 0
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -82,6 +84,7 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -132,61 +135,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Renderer: {fileID: 469738992476352011}
-  BasisMeshRendererCheck: {fileID: 0}
-  IsAbleToRender: 0
-  m_ClipPlaneOffset: 0.001
-  ThisPosition: {x: 0, y: 0, z: 0}
-  projectionMatrix:
-    e00: 0
-    e01: 0
-    e02: 0
-    e03: 0
-    e10: 0
-    e11: 0
-    e12: 0
-    e13: 0
-    e20: 0
-    e21: 0
-    e22: 0
-    e23: 0
-    e30: 0
-    e31: 0
-    e32: 0
-    e33: 0
-  normal: {x: 0, y: 0, z: 0}
-  reflectionPlane: {x: 0, y: 0, z: 0, w: 0}
-  projectionDirection: {x: -0, y: -0, z: -1}
-  reflectionMatrix:
-    e00: 0
-    e01: 0
-    e02: 0
-    e03: 0
-    e10: 0
-    e11: 0
-    e12: 0
-    e13: 0
-    e20: 0
-    e21: 0
-    e22: 0
-    e23: 0
-    e30: 0
-    e31: 0
-    e32: 0
-    e33: 0
+  MirrorsMaterial: {fileID: 2100000, guid: f0c27493c675a80478e2e11f37f822fd, type: 2}
+  ReflectingLayers:
+    serializedVersion: 2
+    m_Bits: 477
+  ClipPlaneOffset: 0.001
   nearClipLimit: 0.01
   FarClipPlane: 25
+  XSize: 2048
+  YSize: 2048
+  depth: 24
+  Antialiasing: 2
+  allowXRRendering: 1
+  RenderPostProcessing: 0
+  OcclusionCulling: 1
+  renderShadows: 1
+  IsActive: 0
+  IsAbleToRender: 0
   LeftCamera: {fileID: 0}
   RightCamera: {fileID: 0}
   PortalTextureLeft: {fileID: 0}
   PortalTextureRight: {fileID: 0}
-  XSize: 2048
-  YSize: 2048
-  Antialising: 4
-  MirrorsMaterial: {fileID: 2100000, guid: f0c27493c675a80478e2e11f37f822fd, type: 2}
-  IsActive: 0
-  depth: 24
-  allowXRRendering: 1
-  RenderPostProcessing: 0
-  ReflectingLayers:
-    serializedVersion: 2
-    m_Bits: 477

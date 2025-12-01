@@ -26,11 +26,11 @@
 #define REQUIRES_XR_SDK
 #endif
 
-#if !(UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || (UNITY_ANDROID && !UNITY_EDITOR))
+#if !(UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_OSX || (UNITY_ANDROID && !UNITY_EDITOR))
 #define OVRPLUGIN_UNSUPPORTED_PLATFORM
 #endif
 
-#if !(UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || (UNITY_ANDROID && !UNITY_EDITOR))
+#if !(UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_OSX || (UNITY_ANDROID && !UNITY_EDITOR))
 #define OVRPLUGIN_QPL_UNSUPPORTED_PLATFORM
 #endif
 
@@ -61,7 +61,7 @@ public static partial class OVRPlugin
 #endif
 
 #if OVRPLUGIN_UNSUPPORTED_PLATFORM && OVRPLUGIN_QPL_UNSUPPORTED_PLATFORM
-    public static readonly System.Version wrapperVersion = _versionZero;
+    public static readonly System.Version wrapperVersion = _versionZero; //new(0,0,0);
 #else
     public static readonly System.Version wrapperVersion = OVRP_1_110_0.version;
 #endif
@@ -13582,7 +13582,7 @@ public static partial class OVRPlugin
     {
         public static readonly System.Version version = new System.Version(1, 17, 0);
 
-#if UNITY_EDITOR_WIN || UNITY_EDITOR_OSX || UNITY_STANDALONE_WIN || OVRPLUGIN_EDITOR_MOCK_ENABLED
+#if UNITY_EDITOR_WIN || UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX || UNITY_STANDALONE_WIN || OVRPLUGIN_EDITOR_MOCK_ENABLED || (UNITY_ANDROID && !UNITY_EDITOR)
         [DllImport(pluginName, CallingConvention = CallingConvention.Cdecl)]
         public static extern Result ovrp_GetExternalCameraPose(CameraDevice camera, out Posef cameraPose);
 

@@ -3,8 +3,9 @@ using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Compression;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using BasisSerializer.OdinSerializer;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
@@ -30,10 +31,15 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisPickupInteractable.CanHoverInjected.Add(CanHover);
             BasisPickupInteractable.CanInteractInjected.Add(CanInteract);
+            BasisPickupInteractable.OnInteractStartEvent += OnInteractStartEvent;
         }
         if (BasisPickupInteractable.RigidRef != null)
         {
             BasisPickupInteractable.RigidRef.isKinematic = false;
+        }
+        if (buffer == null || buffer.Length < BasisPositionRotationScale.Size)
+        {
+            buffer = new byte[BasisPositionRotationScale.Size];
         }
     }
     public void OnDisable()
@@ -42,6 +48,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisPickupInteractable.CanHoverInjected.Remove(CanHover);
             BasisPickupInteractable.CanInteractInjected.Remove(CanInteract);
+            BasisPickupInteractable.OnInteractStartEvent -= OnInteractStartEvent;
         }
     }
     public override void OnDestroy()
@@ -52,13 +59,6 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
     }
     public override void OnNetworkReady()
     {
-        if (BasisPickupInteractable != null)
-        {
-            if (BasisPickupInteractable.RigidRef != null)
-            {
-                BasisPickupInteractable.RigidRef.isKinematic = false;
-            }
-        }
         ControlState();
     }
 
@@ -79,14 +79,17 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             return true;
         }
         // NOTE: this is called 2 times per frame on interact start, once to tell HoverEnd that it will be interacting, and again for the actual interact check
-        if (CanNetworkSteal && !IsOwnedLocallyOnClient && pendingStealRequest == null)
+        if (CanNetworkSteal && (pendingStealRequest == null || pendingStealRequest == input))
         {
             pendingStealRequest = input;
-            CanInteractAsync(); // ControlState handles the ownership transfer logic here
+            return true;
         }
         return false;
     }
-
+    private void OnInteractStartEvent(BasisInput input)
+    {
+        CanInteractAsync(); // ControlState handles the ownership transfer logic here
+    }
     private async void CanInteractAsync()
     {
         var result = await TakeOwnershipAsync(5000); // 5 second timeout 
@@ -95,8 +98,14 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             pendingStealRequest = null;
         }
     }
-
-    public override void OnOwnershipTransfer(ushort NetIdNewOwner)
+    public void SetIsKinematicOnPickup(bool state)
+    {
+        if (BasisPickupInteractable != null && BasisPickupInteractable.RigidRef != null)
+        {
+            BasisPickupInteractable.RigidRef.isKinematic = state;
+        }
+    }
+    public override void OnOwnershipTransfer(BasisNetworkPlayer NetIdNewOwner)
     {
         ControlState();
     }
@@ -114,6 +123,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
                 // still reset the request, we dont care if we actually picked up
                 pendingStealRequest = null;
             }
+            SetIsKinematicOnPickup(false);
         }
         else
         {
@@ -123,6 +133,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             {
                 BasisPickupInteractable.Drop();
             }
+            SetIsKinematicOnPickup(true);
         }
     }
     public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
@@ -133,12 +144,13 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
             BTU.TargetRotation = BasisCompression.QuaternionCompressor.DecompressQuaternion(LocalLastData.Rotation);
             BTU.LerpMultipliers = CatchupLerp;
             BTU.TargetPosition = LocalLastData.DeCompress();
+            BTU.TargetScales = LocalLastData.DecompressScale();
         }
     }
     public void SendNetworkSync()
     {
         transform.GetLocalPositionAndRotation(out UnityEngine.Vector3 Position, out UnityEngine.Quaternion Temp);
-        LocalLastData.Compress(Position, BasisCompression.QuaternionCompressor.CompressQuaternion(ref Temp));
+        LocalLastData.Compress(Position, BasisCompression.QuaternionCompressor.CompressQuaternion(ref Temp), transform.localScale);
         LocalLastData.ToBytes(buffer, 0);
         SendCustomNetworkEvent(buffer, DeliveryMethod.Sequenced);
     }

@@ -4,16 +4,30 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.UI.UI_Panels;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Common;
+using Basis.BasisUI;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
+using Basis.Scripts.UI;
+using UnityEngine.InputSystem.Users;
+
 namespace Basis.Scripts.Device_Management.Devices.Desktop
 {
+    /// <summary>
+    /// Handles all local input actions for desktop devices.
+    /// Provides movement, look, jump, crouch, run, UI, and device switching functionality
+    /// by wiring up Unity Input System <see cref="InputAction"/> events to the <see cref="BasisLocalPlayer"/>
+    /// and <see cref="BasisLocalCharacterDriver"/>.
+    /// </summary>
     [DefaultExecutionOrder(15003)]
     public class BasisLocalInputActions : MonoBehaviour
     {
+        /// <summary>Singleton reference for global access.</summary>
         public static BasisLocalInputActions Instance;
 
+        #region Input Actions
+
+        [Header("Core Actions")]
         public InputActionReference MoveAction;
         public InputActionReference LookAction;
         public InputActionReference JumpAction;
@@ -21,35 +35,56 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference RunButton;
         public InputActionReference Escape;
         public InputActionReference PrimaryButtonGetState;
+        public InputActionReference PointerAction;
 
+        [Header("Mode Switching")]
         public InputActionReference DesktopSwitch;
         public InputActionReference VRSwitch;
         public InputActionReference XRSwitch;
 
+        [Header("Mouse")]
         public InputActionReference LeftMousePressed;
         public InputActionReference RightMousePressed;
-
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
 
+        [Header("Extra Desktop Controls")]
         public InputActionReference DesktopLeftMove;
         public InputActionReference DesktopRightMove;
 
+        #endregion
+
+        [Header("Sensitivity Settings")]
         public float MouseSensitivity = 1f;
         public float JoystickSensitivity = 1f;
 
+        #region References
+
         [System.NonSerialized] public BasisLocalPlayer LocalPlayer;
         [System.NonSerialized] public BasisLocalCharacterDriver LocalCharacterDriver;
-        [System.NonSerialized] public BasisAvatarEyeInput AvatarEyeInput;
+        [System.NonSerialized] public BasisDesktopEye AvatarEyeInput;
 
         public PlayerInput Input;
 
         [SerializeField] public BasisInputState InputState = new BasisInputState();
 
-        private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+        #endregion
 
+        private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+        /// <summary>Whether crouch is currently held down.</summary>
+        public bool IsJumpHeld { get; private set; }
+
+        /// <summary>Whether crouch is currently held down.</summary>
         public bool IsCrouchHeld { get; private set; }
+
+        /// <summary>Whether run is currently held down.</summary>
         public bool IsRunHeld { get; private set; }
+
+        private Vector2 manualMoveVector = Vector2.zero;
+
+        private const float deltaCoefficient = 0.1f;
+
+        #region Unity Lifecycle
 
         public void OnEnable()
         {
@@ -57,12 +92,26 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             {
                 Instance = this;
             }
-
             InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
             InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
             BasisLocalCameraDriver.InstanceExists += SetupCamera;
+            // Create user (or you may already have one from PlayerInput, etc.)
+            var user = InputUser.CreateUserWithoutPairedDevices();
 
-            if (BasisDeviceManagement.IsMobile() == false)
+            foreach (var device in InputSystem.devices)
+            {
+                if (device is Keyboard || device is Mouse || device is Gamepad || device is Pointer)
+                {
+                    BasisDebug.Log($"Giving access to {device.displayName}", BasisDebug.LogTag.Input);
+                    InputUser.PerformPairingWithDevice(device, user);
+                }
+            }
+
+            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
+            {
+
+            }
+            else
             {
                 EnableActions();
                 AddCallbacks();
@@ -72,18 +121,34 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnDisable()
         {
             BasisLocalCameraDriver.InstanceExists -= SetupCamera;
-            if (BasisDeviceManagement.IsMobile() == false)
+
+            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
+            {
+
+            }
+            else
             {
                 RemoveCallbacks();
                 DisableActions();
             }
         }
 
+        #endregion
+
+        #region Initialization
+
+        /// <summary>
+        /// Sets up the input system camera reference when <see cref="BasisLocalCameraDriver"/> exists.
+        /// </summary>
         public void SetupCamera()
         {
             Input.camera = BasisLocalCameraDriver.Instance.Camera;
         }
 
+        /// <summary>
+        /// Initializes this input handler for the specified local player.
+        /// </summary>
+        /// <param name="localPlayer">The local player instance.</param>
         public void Initialize(BasisLocalPlayer localPlayer)
         {
             LocalPlayer = localPlayer;
@@ -91,8 +156,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             this.gameObject.SetActive(true);
         }
 
+        #endregion
+
+        #region Input Action Management
+
         private void EnableActions()
         {
+            PointerAction.action.Enable();
             DesktopSwitch.action.Enable();
             XRSwitch.action.Enable();
             VRSwitch.action.Enable();
@@ -107,12 +177,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Enable();
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
-
             DesktopLeftMove.action.Enable();
             DesktopRightMove.action.Enable();
         }
+
         private void DisableActions()
         {
+            PointerAction.action.Disable();
             DesktopSwitch.action.Disable();
             XRSwitch.action.Disable();
             VRSwitch.action.Disable();
@@ -127,152 +198,176 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Disable();
             MiddleMouseScroll.action.Disable();
             MiddleMouseScrollClick.action.Disable();
-
             DesktopLeftMove.action.Disable();
             DesktopRightMove.action.Disable();
         }
 
         private void AddCallbacks()
         {
+            // Register all performed/canceled handlers
+            PointerAction.action.performed += OnPointerPerformed;
+            PointerAction.action.canceled += OnPointerCancelled;
+
             CrouchAction.action.performed += OnCrouchPerformed;
-            DesktopSwitch.action.performed += OnSwitchDesktop;
-            Escape.action.performed += OnEscapePerformed;
-            JumpAction.action.performed += OnJumpActionPerformed;
-            LeftMousePressed.action.performed += OnLeftMouse;
-            MiddleMouseScroll.action.performed += OnMouseScroll;
-            MiddleMouseScrollClick.action.performed += OnMouseScrollClick;
-            MoveAction.action.performed += OnMoveActionPerformed;
-            PrimaryButtonGetState.action.performed += OnPrimaryGet;
-            RightMousePressed.action.performed += OnRightMouse;
-            RunButton.action.performed += OnRunStarted;
-            LookAction.action.performed += OnLookActionPerformed;
-            XRSwitch.action.performed += OnSwitchOpenXR;
-            VRSwitch.action.performed += OnSwitchOpenVR;
-
-            DesktopLeftMove.action.performed += StartGoingLeft;
-            DesktopRightMove.action.performed += StartGoingRight;
-
             CrouchAction.action.canceled += OnCrouchCancelled;
-            DesktopSwitch.action.canceled += OnSwitchDesktop;
-            Escape.action.canceled += OnEscapeCancelled;
-            JumpAction.action.canceled += OnJumpActionCancelled;
-            LeftMousePressed.action.canceled += OnLeftMouse;
-            MiddleMouseScroll.action.canceled += OnMouseScroll;
-            MiddleMouseScrollClick.action.canceled += OnMouseScrollClick;
+
+            MoveAction.action.performed += OnMoveActionPerformed;
             MoveAction.action.canceled += OnMoveActionCancelled;
-            PrimaryButtonGetState.action.canceled += OnCancelPrimaryGet;
-            RightMousePressed.action.canceled += OnRightMouse;
-            RunButton.action.canceled += OnRunCancelled;
+
+            LookAction.action.performed += OnLookActionPerformed;
             LookAction.action.canceled += OnLookActionCancelled;
 
+            JumpAction.action.performed += OnJumpActionPerformed;
+            JumpAction.action.canceled += OnJumpActionCancelled;
+
+            RunButton.action.performed += OnRunStarted;
+            RunButton.action.canceled += OnRunCancelled;
+
+            Escape.action.performed += OnEscapePerformed;
+            Escape.action.canceled += OnEscapeCancelled;
+
+            PrimaryButtonGetState.action.performed += OnPrimaryGet;
+            PrimaryButtonGetState.action.canceled += OnCancelPrimaryGet;
+
+            LeftMousePressed.action.performed += OnLeftMouse;
+            LeftMousePressed.action.canceled += OnLeftMouse;
+
+            RightMousePressed.action.performed += OnRightMouse;
+            RightMousePressed.action.canceled += OnRightMouse;
+
+            MiddleMouseScroll.action.performed += OnMouseScroll;
+            MiddleMouseScroll.action.canceled += OnMouseScroll;
+
+            MiddleMouseScrollClick.action.performed += OnMouseScrollClick;
+            MiddleMouseScrollClick.action.canceled += OnMouseScrollClick;
+
+            DesktopSwitch.action.performed += OnSwitchDesktop;
+            DesktopSwitch.action.canceled += OnSwitchDesktop;
+
+            VRSwitch.action.performed += OnSwitchOpenVR;
+            XRSwitch.action.performed += OnSwitchOpenXR;
+
+            DesktopLeftMove.action.performed += StartGoingLeft;
             DesktopLeftMove.action.canceled += StopGoingLeft;
+            DesktopRightMove.action.performed += StartGoingRight;
             DesktopRightMove.action.canceled += StopGoingRight;
         }
 
         private void RemoveCallbacks()
         {
+            // Unregister all callbacks
+            PointerAction.action.performed -= OnPointerPerformed;
+            PointerAction.action.canceled -= OnPointerCancelled;
+
             CrouchAction.action.performed -= OnCrouchPerformed;
-            DesktopSwitch.action.performed -= OnSwitchDesktop;
-            Escape.action.performed -= OnEscapePerformed;
-            JumpAction.action.performed -= OnJumpActionPerformed;
-            LeftMousePressed.action.performed -= OnLeftMouse;
-            MiddleMouseScroll.action.performed -= OnMouseScroll;
-            MiddleMouseScrollClick.action.performed -= OnMouseScrollClick;
-            MoveAction.action.performed -= OnMoveActionPerformed;
-            PrimaryButtonGetState.action.performed -= OnPrimaryGet;
-            RightMousePressed.action.performed -= OnRightMouse;
-            RunButton.action.performed -= OnRunStarted;
-            LookAction.action.performed -= OnLookActionPerformed;
-            XRSwitch.action.performed -= OnSwitchOpenXR;
-            VRSwitch.action.performed -= OnSwitchOpenVR;
-
-            DesktopLeftMove.action.performed += StartGoingLeft;
-            DesktopRightMove.action.performed += StartGoingRight;
-
             CrouchAction.action.canceled -= OnCrouchCancelled;
-            DesktopSwitch.action.canceled -= OnSwitchDesktop;
-            Escape.action.canceled -= OnEscapeCancelled;
-            JumpAction.action.canceled -= OnJumpActionCancelled;
-            LeftMousePressed.action.canceled -= OnLeftMouse;
-            MiddleMouseScroll.action.canceled -= OnMouseScroll;
-            MiddleMouseScrollClick.action.canceled -= OnMouseScrollClick;
+
+            MoveAction.action.performed -= OnMoveActionPerformed;
             MoveAction.action.canceled -= OnMoveActionCancelled;
-            PrimaryButtonGetState.action.canceled -= OnCancelPrimaryGet;
-            RightMousePressed.action.canceled -= OnRightMouse;
-            RunButton.action.canceled -= OnRunCancelled;
+
+            LookAction.action.performed -= OnLookActionPerformed;
             LookAction.action.canceled -= OnLookActionCancelled;
 
+            JumpAction.action.performed -= OnJumpActionPerformed;
+            JumpAction.action.canceled -= OnJumpActionCancelled;
+
+            RunButton.action.performed -= OnRunStarted;
+            RunButton.action.canceled -= OnRunCancelled;
+
+            Escape.action.performed -= OnEscapePerformed;
+            Escape.action.canceled -= OnEscapeCancelled;
+
+            PrimaryButtonGetState.action.performed -= OnPrimaryGet;
+            PrimaryButtonGetState.action.canceled -= OnCancelPrimaryGet;
+
+            LeftMousePressed.action.performed -= OnLeftMouse;
+            LeftMousePressed.action.canceled -= OnLeftMouse;
+
+            RightMousePressed.action.performed -= OnRightMouse;
+            RightMousePressed.action.canceled -= OnRightMouse;
+
+            MiddleMouseScroll.action.performed -= OnMouseScroll;
+            MiddleMouseScroll.action.canceled -= OnMouseScroll;
+
+            MiddleMouseScrollClick.action.performed -= OnMouseScrollClick;
+            MiddleMouseScrollClick.action.canceled -= OnMouseScrollClick;
+
+            DesktopSwitch.action.performed -= OnSwitchDesktop;
+            DesktopSwitch.action.canceled -= OnSwitchDesktop;
+
+            VRSwitch.action.performed -= OnSwitchOpenVR;
+            XRSwitch.action.performed -= OnSwitchOpenXR;
+
+            DesktopLeftMove.action.performed -= StartGoingLeft;
             DesktopLeftMove.action.canceled -= StopGoingLeft;
+            DesktopRightMove.action.performed -= StartGoingRight;
             DesktopRightMove.action.canceled -= StopGoingRight;
         }
 
-        public void StartGoingRight(InputAction.CallbackContext ctx)
-        {
-           StartGoingRight();
-        }
+        #endregion
 
-        public void StopGoingRight(InputAction.CallbackContext ctx)
-        {
-           StopGoingRight();
-        }
+        #region Movement Helpers
 
-        public void StartGoingLeft(InputAction.CallbackContext ctx)
-        {
-            StartGoingLeft();
-        }
-
-        public void StopGoingLeft(InputAction.CallbackContext ctx)
-        {
-            StopGoingLeft();
-        }
-        private Vector2 manualMoveVector = Vector2.zero;
+        public void StartGoingLeft(InputAction.CallbackContext ctx) => StartGoingLeft();
+        public void StopGoingLeft(InputAction.CallbackContext ctx) => StopGoingLeft();
+        public void StartGoingRight(InputAction.CallbackContext ctx) => StartGoingRight();
+        public void StopGoingRight(InputAction.CallbackContext ctx) => StopGoingRight();
 
         public void StartGoingLeft()
         {
-            manualMoveVector.x = -1;
-            ApplyManualMovement();
+            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
+            {
+                manualMoveVector.x = -1;
+                ApplyManualMovement();
+            }
         }
 
         public void StopGoingLeft()
         {
-            // Only zero if we're not still holding right
-            if (manualMoveVector.x < 0)
-            {
-                manualMoveVector.x = 0;
-            }
-
+            if (manualMoveVector.x < 0) manualMoveVector.x = 0;
             ApplyManualMovement();
         }
-
         public void StartGoingRight()
         {
-            manualMoveVector.x = 1;
-            ApplyManualMovement();
+            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
+            {
+                manualMoveVector.x = 1;
+                ApplyManualMovement();
+            }
         }
 
         public void StopGoingRight()
         {
-            // Only zero if we're not still holding left
-            if (manualMoveVector.x > 0)
-            {
-                manualMoveVector.x = 0;
-            }
-
+            if (manualMoveVector.x > 0) manualMoveVector.x = 0;
             ApplyManualMovement();
         }
+
         private void ApplyManualMovement()
         {
-
             var lookDelta = manualMoveVector;
+
             if (IsCrouchHeld)
             {
                 LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
                 lookDelta.y = 0;
             }
 
-            if (AvatarEyeInput) AvatarEyeInput.SetLookRotationVector(lookDelta);
+            AvatarEyeInput?.SetLookRotationVector(lookDelta);
         }
-        // Input action methods
+
+        #endregion
+
+        #region Input Action Handlers
+        public Vector2 Pointer;
+        private void OnPointerCancelled(InputAction.CallbackContext context)
+        {
+            Pointer = Vector2.zero;
+        }
+
+        private void OnPointerPerformed(InputAction.CallbackContext context)
+        {
+            Pointer = context.ReadValue<Vector2>();
+        }
         public void OnMoveActionPerformed(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetMovementVector(ctx.ReadValue<Vector2>());
@@ -289,45 +384,53 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             }
         }
 
-        private const float deltaCoefficient = 0.1f;
         public void OnLookActionPerformed(InputAction.CallbackContext ctx)
         {
             var sensitivity = IsMonoStableInput(ctx.control.device) ? JoystickSensitivity : MouseSensitivity;
-            var lookDelta = ctx.ReadValue<Vector2>() * (deltaCoefficient * sensitivity);
+            OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
+        }
+        public void OnLookAction(Vector2 Delta,float sensitivity)
+        {
+            var lookDelta = Delta * (deltaCoefficient * sensitivity);
+            if (SMModuleControllerSettings.HasInvertedMouse)
+            {
+                lookDelta.y *= -1f;
+            }
             if (IsCrouchHeld)
             {
                 LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
                 lookDelta.y = 0;
             }
 
-            if (AvatarEyeInput) AvatarEyeInput.SetLookRotationVector(lookDelta);
+            AvatarEyeInput?.SetLookRotationVector(lookDelta);
         }
 
         public void OnLookActionCancelled(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetCrouchBlendDelta(0f);
-            if (AvatarEyeInput) AvatarEyeInput.SetLookRotationVector(Vector2.zero);
+            AvatarEyeInput?.SetLookRotationVector(Vector2.zero);
         }
 
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)
         {
-            LocalCharacterDriver.HandleJump();
+            IsJumpHeld = true;
+            LocalCharacterDriver.HandleJumpRequest();
         }
 
         public void OnJumpActionCancelled(InputAction.CallbackContext ctx)
         {
-            // Logic for when jump is cancelled (if needed)
+            IsJumpHeld = false;
         }
 
         public void OnCrouchPerformed(InputAction.CallbackContext ctx)
         {
-            if (ctx.interaction is UnityEngine.InputSystem.Interactions.TapInteraction) LocalCharacterDriver.CrouchToggle();
-            if (ctx.interaction is UnityEngine.InputSystem.Interactions.HoldInteraction) CrouchStart();
+            if (ctx.interaction is TapInteraction) LocalCharacterDriver.CrouchToggle();
+            if (ctx.interaction is HoldInteraction) CrouchStart();
         }
 
         public void OnCrouchCancelled(InputAction.CallbackContext ctx)
         {
-            if (ctx.interaction is UnityEngine.InputSystem.Interactions.HoldInteraction) CrouchEnd();
+            if (ctx.interaction is HoldInteraction) CrouchEnd();
         }
 
         private void CrouchStart()
@@ -356,70 +459,50 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnEscapePerformed(InputAction.CallbackContext ctx)
         {
-            BasisHamburgerMenu.ToggleHamburgerMenu();
+            BasisMainMenu.Toggle();
+            // BasisHamburgerMenu.ToggleHamburgerMenu();
         }
 
-        public void OnEscapeCancelled(InputAction.CallbackContext ctx)
-        {
-            // Logic for escape action cancellation (if needed)
-        }
+        public void OnEscapeCancelled(InputAction.CallbackContext ctx) { }
 
-        public void OnPrimaryGet(InputAction.CallbackContext ctx)
-        {
-            InputState.PrimaryButtonGetState = true;
-        }
+        public void OnPrimaryGet(InputAction.CallbackContext ctx) => InputState.PrimaryButtonGetState = true;
+        public void OnCancelPrimaryGet(InputAction.CallbackContext ctx) => InputState.PrimaryButtonGetState = false;
 
-        public void OnCancelPrimaryGet(InputAction.CallbackContext ctx)
-        {
-            InputState.PrimaryButtonGetState = false;
-        }
         public async void OnSwitchDesktop(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
-            {
                 await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.Desktop);
-            }
         }
+
         public async void OnSwitchOpenXR(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
-            {
                 await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
-            }
         }
+
         public async void OnSwitchOpenVR(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
-            {
                 await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
-            }
-        }
-        public void OnLeftMouse(InputAction.CallbackContext ctx)
-        {
-            InputState.Trigger = ctx.ReadValue<float>();
         }
 
-        public void OnRightMouse(InputAction.CallbackContext ctx)
-        {
-            InputState.SecondaryTrigger = ctx.ReadValue<float>();
-        }
+        public void OnLeftMouse(InputAction.CallbackContext ctx) => InputState.Trigger = ctx.ReadValue<float>();
+        public void OnRightMouse(InputAction.CallbackContext ctx) => InputState.SecondaryTrigger = ctx.ReadValue<float>();
+        public void OnMouseScroll(InputAction.CallbackContext ctx) => InputState.Secondary2DAxis = ctx.ReadValue<Vector2>();
+        public void OnMouseScrollClick(InputAction.CallbackContext ctx) => InputState.Secondary2DAxisClick = ctx.ReadValue<float>() == 1;
 
-        public void OnMouseScroll(InputAction.CallbackContext ctx)
-        {
-            InputState.Secondary2DAxis = ctx.ReadValue<Vector2>();
-        }
+        #endregion
 
-        public void OnMouseScrollClick(InputAction.CallbackContext ctx)
-        {
-            InputState.Secondary2DAxisClick = ctx.ReadValue<float>() == 1;
-        }
+        #region Helpers
 
+        /// <summary>
+        /// Determines whether the given input device is "mono-stable" (gamepad/joystick).
+        /// </summary>
         private static bool IsMonoStableInput(InputDevice device)
         {
-            bool monoStable = false;
-            monoStable |= device is Gamepad;
-            monoStable |= device is Joystick;
-            return monoStable;
+            return device is Gamepad || device is Joystick;
         }
+
+        #endregion
     }
 }

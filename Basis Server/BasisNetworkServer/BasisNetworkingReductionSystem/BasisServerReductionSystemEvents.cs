@@ -1,7 +1,5 @@
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -35,7 +33,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         private static readonly int MaxConcurrentPlayers = 1024;
         private static readonly ParallelOptions parallelOptions = new()
         {
-            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount -1)
+            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 1)
         };
 
         public static ConcurrentDictionary<int, PlayerState> playerStates = new();
@@ -150,6 +148,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     BNL.LogError("Missing Player From Index this is scary! " + id);
                 }
+                BasisServerDeltaCompressor.ReleaseDeltaData(id);
             }
         }
         private static void UpdateCommunicationAndDistances(long nowTicks)
@@ -169,13 +168,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 var stateI = playerI.state;
                 var peer = stateI.Peer;
 
-                bool canSend = peer.GetPacketsCountInQueue(BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced) < 10;
-
+                bool canSend = peer.GetPacketsCountInQueue(BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced) < 1024;
                 var sentTimes = stateI.LastSentTimes;
 
                 for (int Index = 0; Index < PlayerCount; Index++)
                 {
-                    var playerJ = _threadLocalActivePlayers[Index];
+                    (int id, PlayerState state) playerJ = _threadLocalActivePlayers[Index];
                     if (playerI.id == playerJ.id)
                     {
                         continue;
@@ -183,7 +181,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                     var stateJ = playerJ.state;
                     float distSq = DistanceSquared(stateI.Position, stateJ.Position);
-                    CalculateIntervalFromDistanceSq(distSq,out byte StartAtZeroInterval,out int ActualInterval);
+                    CalculateIntervalFromDistanceSq(distSq, out byte StartAtZeroInterval, out int ActualInterval);
 
                     if (!sentTimes.ContainsKey(playerJ.id))
                     {
@@ -205,12 +203,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     if (canSend && hasNewData && elapsed >= required)
                     {
                         stateI.HasNewDataFrom.Set(playerJ.id, false);
-                        var tempMsg = stateJ.SyncMessage;
+                        ServerSideSyncPlayerMessage tempMsg = stateJ.SyncMessage;
                         tempMsg.interval = StartAtZeroInterval;
-                        NetDataWriter Writer = RentWriter();
-                        tempMsg.Serialize(Writer);
-                        peer.Send(Writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
-                        ReturnWriter(Writer);
+                        BasisServerDeltaCompressor.SendOut(Index, peer, tempMsg);
+
+
                         sentTimes[playerJ.id] = nowTicks;
                     }
                 }
@@ -249,17 +246,6 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         {
             playersToRemove.Enqueue(id);
         }
-        public struct Player
-        {
-            public readonly int Id;
-            public ServerSideSyncPlayerMessage syncMsg;
-
-            public Player(int id, ServerSideSyncPlayerMessage syncMsg)
-            {
-                Id = id;
-                this.syncMsg = syncMsg;
-            }
-        }
         private static void ProcessMessage(QueuedMessage message)
         {
             int id = message.FromPeer.Id;
@@ -292,7 +278,22 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
                 state.Position = BasisNetworkCompressionExtensions.ReadPosition(ref message.AvatarMessage.array);
                 state.SyncMessage.avatarSerialization = message.AvatarMessage;
-                state.HasNewDataFrom.SetAll(true);
+
+                // Mark all *other* players as having new data FROM this sender (id)
+                foreach (var kvp in playerStates)
+                {
+                    if (kvp.Key == id)
+                    {
+                        continue;
+                    }
+
+                    var other = kvp.Value;
+                    if (!other.IsActive)
+                    {
+                        continue;
+                    }
+                    other.HasNewDataFrom?.Set(id, true);
+                }
             }
 
             QueuedMessagePool.Return(message);

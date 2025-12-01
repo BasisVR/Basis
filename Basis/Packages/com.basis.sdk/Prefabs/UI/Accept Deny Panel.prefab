@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 6015705410362913940}
   - component: {fileID: 3235143362175164593}
   - component: {fileID: 6919696690246524154}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: no
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -132,7 +132,7 @@ GameObject:
   - component: {fileID: 7146391030640941247}
   - component: {fileID: 8817373620886136692}
   - component: {fileID: 8597880784556622000}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -268,7 +268,7 @@ GameObject:
   - component: {fileID: 472514677390252415}
   - component: {fileID: 4677333892955956096}
   - component: {fileID: 1322273080376197513}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Text (TMP)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -404,7 +404,7 @@ GameObject:
   - component: {fileID: 8976103050125908120}
   - component: {fileID: 3053268025464985619}
   - component: {fileID: 7905643994412376741}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -480,7 +480,7 @@ GameObject:
   - component: {fileID: 8114219879871536676}
   - component: {fileID: 4311160505347707785}
   - component: {fileID: 8160078037266160960}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: yes
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -600,7 +600,7 @@ GameObject:
   - component: {fileID: 1380244684936230942}
   - component: {fileID: 280627215956768126}
   - component: {fileID: 9117955418665403811}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Text
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -740,7 +740,7 @@ GameObject:
   - component: {fileID: 1911710201211214925}
   - component: {fileID: 6256670795069149945}
   - component: {fileID: 8942299492784150776}
-  m_Layer: 5
+  m_Layer: 9
   m_Name: Accept Deny Panel
   m_TagString: Untagged
   m_Icon: {fileID: 0}

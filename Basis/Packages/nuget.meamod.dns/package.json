@@ -1,0 +1,8 @@
+{
+    "name": "nuget.meamod.dns",
+    "displayName": "MeaMod.DNS",
+    "version": "1.0.71",
+    "description": "",
+    "author": "James Weston",
+    "licensesUrl": "https://github.com/meamod/MeaMod.DNS/blob/0579a168db101a253d0e009324557964696727f3/LICENSE"
+}

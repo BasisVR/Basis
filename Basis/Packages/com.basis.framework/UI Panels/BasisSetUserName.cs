@@ -7,15 +7,40 @@ using Basis.Scripts.Networking;
 using System.Threading.Tasks;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Device_Management;
+
 namespace Basis.Scripts.UI.UI_Panels
 {
+    /// <summary>
+    /// UI controller for setting the player's username and managing connection settings.
+    /// Provides advanced networking configuration and hooks into Basis networking lifecycle.
+    /// </summary>
     public class BasisSetUserName : MonoBehaviour
     {
+        /// <summary>
+        /// Input field for entering the player's display name.
+        /// </summary>
         public TMP_InputField UserNameTMP_InputField;
+
+        /// <summary>
+        /// Button that confirms the username and attempts to connect.
+        /// </summary>
         public Button Ready;
+
+        /// <summary>
+        /// File name used to cache the player's username locally.
+        /// </summary>
         public static string LoadFileName = "CachedUserName.BAS";
+
+        /// <summary>
+        /// Button to show/hide advanced network settings.
+        /// </summary>
         public Button AdvancedSettings;
+
+        /// <summary>
+        /// Panel containing advanced settings UI elements.
+        /// </summary>
         public GameObject AdvancedSettingsPanel;
+
         [Header("Advanced Settings")]
         public TMP_InputField IPaddress;
         public TMP_InputField Port;
@@ -23,8 +48,20 @@ namespace Basis.Scripts.UI.UI_Panels
         public Button UseLocalhost;
         public Toggle HostMode;
         public TextMeshProUGUI ConnectText;
+
+        /// <summary>
+        /// Initial scale of the UI element before height scaling is applied.
+        /// </summary>
         public Vector3 InitalScale;
+
+        /// <summary>
+        /// Singleton instance of this UI controller.
+        /// </summary>
         public static BasisSetUserName Instance;
+
+        /// <summary>
+        /// Unity Start hook. Initializes UI, registers callbacks, and loads cached settings.
+        /// </summary>
         public void Start()
         {
             Instance = this;
@@ -41,16 +78,20 @@ namespace Basis.Scripts.UI.UI_Panels
             BasisNetworkManagement.OnEnableInstanceCreate += LoadCurrentSettings;
             if (BasisDeviceManagement.Instance != null)
             {
-                this.transform.SetParent(BasisDeviceManagement.Instance.transform,true);
+                this.transform.SetParent(BasisDeviceManagement.Instance.transform, true);
             }
 
             ApplySize();
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
-            if(BasisNetworkManagement.Instance != null)
+            if (BasisNetworkManagement.Instance != null)
             {
                 LoadCurrentSettings();
             }
         }
+
+        /// <summary>
+        /// Rescales the UI panel based on the local player's avatar height.
+        /// </summary>
         public void ApplySize()
         {
             if (BasisLocalPlayer.Instance != null)
@@ -58,6 +99,10 @@ namespace Basis.Scripts.UI.UI_Panels
                 this.transform.localScale = InitalScale * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             }
         }
+
+        /// <summary>
+        /// Unity OnDestroy hook. Cleans up listeners.
+        /// </summary>
         public void OnDestroy()
         {
             if (AdvancedSettingsPanel != null)
@@ -67,9 +112,13 @@ namespace Basis.Scripts.UI.UI_Panels
             }
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySize;
         }
+
+        /// <summary>
+        /// Updates the connect text depending on whether host mode is enabled.
+        /// </summary>
         public void UseHostMode(bool IsDown)
         {
-            if(IsDown)
+            if (IsDown)
             {
                 ConnectText.text = "Host";
             }
@@ -78,11 +127,18 @@ namespace Basis.Scripts.UI.UI_Panels
                 ConnectText.text = "Connect";
             }
         }
+
+        /// <summary>
+        /// Sets the IP address input field to localhost.
+        /// </summary>
         public void UseLocalHost()
         {
             IPaddress.text = "localhost";
         }
 
+        /// <summary>
+        /// Loads the current networking settings from <see cref="BasisNetworkManagement.Instance"/>.
+        /// </summary>
         public void LoadCurrentSettings()
         {
             IPaddress.text = BasisNetworkManagement.Instance.Ip;
@@ -95,9 +151,13 @@ namespace Basis.Scripts.UI.UI_Panels
                 this.transform.SetParent(BasisDeviceManagement.Instance.transform);
             }
         }
+
+        /// <summary>
+        /// Triggered when the Ready button is clicked. Validates username, saves it,
+        /// creates an asset bundle if needed, and attempts to connect.
+        /// </summary>
         public async void HasUserName()
         {
-            // Set button to non-interactable immediately after clicking
             Ready.interactable = false;
 
             if (!string.IsNullOrEmpty(UserNameTMP_InputField.text))
@@ -120,15 +180,22 @@ namespace Basis.Scripts.UI.UI_Panels
             else
             {
                 BasisDebug.LogError("Name was empty, bailing");
-                // Re-enable button interaction if username is empty
                 Ready.interactable = true;
             }
         }
+
+        /// <summary>
+        /// Destroys this username panel and clears the static <see cref="Instance"/> reference.
+        /// </summary>
         public void DestroyUserNamePanel()
         {
             Destroy(this.gameObject);
             BasisSetUserName.Instance = null;
         }
+
+        /// <summary>
+        /// Toggles visibility of the advanced settings panel.
+        /// </summary>
         public void ToggleAdvancedSettings()
         {
             if (AdvancedSettingsPanel != null)
@@ -136,6 +203,10 @@ namespace Basis.Scripts.UI.UI_Panels
                 AdvancedSettingsPanel.SetActive(!AdvancedSettingsPanel.activeSelf);
             }
         }
+
+        /// <summary>
+        /// Creates or loads the default asset bundle or addressable scene, depending on configuration.
+        /// </summary>
         public async Task CreateAssetBundle()
         {
             if (BundledContentHolder.Instance.UseSceneProvidedHere)

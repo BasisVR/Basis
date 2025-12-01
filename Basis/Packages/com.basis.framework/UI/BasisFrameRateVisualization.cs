@@ -11,7 +11,7 @@ public class BasisFrameRateVisualization : MonoBehaviour
     private float timeBetweenUpdates = 0.1f;  // Time between updates (in seconds)
     private float timeAccumulator = 0.0f;  // Time accumulator to track updates
     private StringBuilder stringBuilder = new StringBuilder(); // Reusable StringBuilder
-
+    public string Title;
     void Update()
     {
         float Unscaled = Time.unscaledDeltaTime;
@@ -28,8 +28,7 @@ public class BasisFrameRateVisualization : MonoBehaviour
         {
             // Clear and construct the string using StringBuilder
             stringBuilder.Clear();
-            stringBuilder.Append("FPS: ");
-            stringBuilder.Append(fps.ToString("F2"));
+            stringBuilder.Append(Title);
 
             if (BasisNetworkConnection.LocalPlayerPeer != null)
             {
@@ -40,6 +39,8 @@ public class BasisFrameRateVisualization : MonoBehaviour
                 stringBuilder.Append(" CCU: ");
                 stringBuilder.Append(BasisNetworkPlayers.ReceiverCount +1);
             }
+            stringBuilder.Append(" FPS: ");
+            stringBuilder.Append(fps.ToString("F2"));
             // Update the TextMeshProUGUI text
             fpsText.text = stringBuilder.ToString();
 

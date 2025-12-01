@@ -77,10 +77,13 @@ jobs:
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: "Remove OpenXR when building for Linux"
         if: matrix.targetPlatform == 'StandaloneLinux64'
-        run: jq 'del(.dependencies ["com.meta.xr.sdk.core", "com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
+        run: jq 'del(.dependencies ["com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
+      - name: "Remove Meta XR Core when building for Linux"
+        if: matrix.targetPlatform == 'StandaloneLinux64'
+        run: rm -rf ${projectPath}/Packages/com.meta.xr.sdk.core
       - name: "Build Unity project"
         timeout-minutes: 100
-        uses: game-ci/unity-builder@v4
+        uses: kitlith/unity-builder@linux-extension
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -100,6 +103,7 @@ jobs:
           androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
           androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
           androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+          linux64RemoveExecutableExtension: false
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
         if: always() && github.ref_name == 'developer'
@@ -179,9 +183,12 @@ jobs:
       matrix:
         projectPath:
           - Basis Server
-        targetPlatform:
-          - linux
-          - win
+        runtimes:
+          - linux-x64
+          - linux-musl-x64
+          - linux-musl-arm64 
+          - linux-arm64
+          - win-x64
     steps:
       - name: "Checkout repository"
         timeout-minutes: 5
@@ -195,12 +202,12 @@ jobs:
           dotnet-version: "9.0.x"
       - name: "Build server"
         timeout-minutes: 2
-        run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --os ${{ matrix.targetPlatform }} -o build -c Release"
+        run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --runtime '${{ matrix.runtimes }}' -o build -c Release"
       - name: "Upload server artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
         with:
-          name: Basis-Server-${{ matrix.targetPlatform }}
+          name: Basis-Server-${{ matrix.runtimes }}
           path: "build"
       - name: Archive Release
         uses: thedoctor0/zip-release@0.7.6
@@ -208,13 +215,13 @@ jobs:
         with:
           type: "zip"
           directory: build
-          filename: "Basis Server ${{ matrix.targetPlatform }}.zip"
+          filename: "Basis Server ${{ matrix.runtimes }}.zip"
       - name: "Release server zip"
         if: github.ref_type == 'tag'
         timeout-minutes: 5
         uses: "softprops/action-gh-release@v2"
         with:
-          files: build/Basis Server ${{ matrix.targetPlatform }}.zip
+          files: build/Basis Server ${{ matrix.runtimes }}.zip
 
   compile-unitypackages:
     name: Build .unitypackage files

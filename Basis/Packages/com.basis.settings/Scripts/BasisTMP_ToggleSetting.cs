@@ -14,9 +14,9 @@ public class BasisTMP_ToggleSetting : MonoBehaviour
         bool defaultValue = platformDefault.GetDefault();
         toggle.isOn = BasisSettingsSystem.LoadBool(settingKey, defaultValue);
 
-        toggle.onValueChanged.AddListener(async v =>
+        toggle.onValueChanged.AddListener( v =>
         {
-            await BasisSettingsSystem.SetBoolAsync(settingKey, v);
+             BasisSettingsSystem.SaveBool(settingKey, v);
         });
 
         BasisSettingsSystem.OnSettingChanged += HandleSettingChanged;

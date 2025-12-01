@@ -1,15 +1,18 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
 using UnityEngine.XR.Hands;
 using UnityEngine.XR.Hands.Gestures;
 public class BasisOpenXRHandInput : BasisInputController
 {
     public Vector3 LeftHandPalmCorrection;
     public Vector3 RightHandPalmCorrection;
+
     public InputActionProperty DeviceActionPosition;
     public InputActionProperty DeviceActionRotation;
     public InputActionProperty Trigger;
@@ -19,21 +22,32 @@ public class BasisOpenXRHandInput : BasisInputController
     public InputActionProperty MenuButton;
     public InputActionProperty Primary2DAxis;
     public InputActionProperty Secondary2DAxis;
-    public UnityEngine.XR.InputDevice Device;
-    public const float TriggerDownAmount = 0.5f;
     public InputActionProperty PalmPoseActionPosition;
     public InputActionProperty PalmPoseActionRotation;
+    public InputActionProperty pointerPosition;
+    public InputActionProperty pointerRotation;
+
+    public UnityEngine.XR.InputDevice Device;
+    public const float TriggerDownAmount = 0.5f;
+
+    /// <summary>
+    /// Raw unmodified hand coordinates before final calibration.
+    /// </summary>
+    public BasisCalibratedCoords HandRaw = new BasisCalibratedCoords();
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
         HandBiasSplay = 0;
         leftHandToIKRotationOffset = new Vector3(0, 90, -30);
-        rightHandToIKRotationOffset = new Vector3(0, -90,30);
+        rightHandToIKRotationOffset = new Vector3(0, -90, 30);
 
         LeftHandPalmCorrection = new Vector3(-90, 90, -30);
 
-        RightHandPalmCorrection = new Vector3(-90,90,-150);
+        RightHandPalmCorrection = new Vector3(-90, 90, -150);
 
-        InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
+        leftHandToIKPositionOffset = new Vector3(0,0, -0.03f);
+        rightHandToIKPositionOffset = new Vector3(0,0, -0.03f);
+
+        InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole,true);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
         string devicePosePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<PalmPose>{LeftHand}" : "<PalmPose>{RightHand}";
 
@@ -49,15 +63,25 @@ public class BasisOpenXRHandInput : BasisInputController
         MenuButton = new InputActionProperty(new InputAction(devicePath + "/menuButton", InputActionType.Button, devicePath + "/menuButton", expectedControlType: "Button"));
         Primary2DAxis = new InputActionProperty(new InputAction(devicePath + "/primary2DAxis", InputActionType.Value, devicePath + "/primary2DAxis", expectedControlType: "Vector2"));
         Secondary2DAxis = new InputActionProperty(new InputAction(devicePath + "/secondary2DAxis", InputActionType.Value, devicePath + "/secondary2DAxis", expectedControlType: "Vector2"));
+
         DeviceActionPosition = new InputActionProperty(new InputAction($"{devicePath}/devicePosition", InputActionType.Value, $"{devicePath}/devicePosition", expectedControlType: "Vector3"));
         DeviceActionRotation = new InputActionProperty(new InputAction($"{devicePath}/deviceRotation", InputActionType.Value, $"{devicePath}/deviceRotation", expectedControlType: "Quaternion"));
 
         PalmPoseActionPosition = new InputActionProperty(new InputAction($"{devicePosePath}/PosePosition", InputActionType.Value, $"{devicePosePath}/palmPosition", expectedControlType: "Vector3"));
         PalmPoseActionRotation = new InputActionProperty(new InputAction($"{devicePosePath}/PoseRotation", InputActionType.Value, $"{devicePosePath}/palmRotation", expectedControlType: "Quaternion"));
+
+        pointerPosition = new InputActionProperty(new InputAction($"{devicePath}/pointerPosition", InputActionType.Value, $"{devicePath}/pointerPosition", expectedControlType: "Vector3"));
+        pointerRotation = new InputActionProperty(new InputAction($"{devicePath}/pointerRotation", InputActionType.Value, $"{devicePath}/pointerRotation", expectedControlType: "Quaternion"));
+
         PalmPoseActionPosition.action.Enable();
         PalmPoseActionRotation.action.Enable();
+
         DeviceActionPosition.action.Enable();
         DeviceActionRotation.action.Enable();
+
+        pointerPosition.action.Enable();
+        pointerRotation.action.Enable();
+
         EnableInputActions();
     }
     private void EnableInputActions()
@@ -100,15 +124,28 @@ public class BasisOpenXRHandInput : BasisInputController
         CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
 
-        UnscaledDeviceCoord.position = DeviceActionPosition.action.ReadValue<Vector3>();
-        UnscaledDeviceCoord.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+        if (DeviceActionPosition != null)
+        {
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, DeviceActionPosition.action.ReadValue<Vector3>());
+        }
+        if (DeviceActionRotation != null)
+        {
+            UnscaledDeviceCoord.rotation = DeviceActionRotation.action.ReadValue<Quaternion>();
+        }
+        if (pointerPosition != null)
+        {
+            ComputeUnscaledDeviceCoord(ref PointerPositionYScaled, pointerPosition.action.ReadValue<Vector3>());
+        }
 
         ConvertToScaledDeviceCoord();
-        ControlOnlyAsHand();
+        ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
         UpdateRaycastOffset();
-        UpdatePlayerControl();
-        ComputeRaycastDirection();
+        float avatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
+        ComputeRaycastDirection(OffsetCoords.position + (PointerPositionYScaled.position * avatarScale), HandFinal.rotation, ActiveRaycastOffset);
+        UpdateInputEvents();
     }
+    public BasisCalibratedCoords PointerPositionYScaled;
     /// <summary>
     /// meta/ unity need to pull something out of there ass here,
     /// currently on quest the below system swaps between controllers and hand tracking but you cant have controller & hand.
@@ -121,6 +158,7 @@ public class BasisOpenXRHandInput : BasisInputController
     {
         if (TryGetRole(out BasisBoneTrackedRole assignedRole))
         {
+            float avatarScale = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             switch (assignedRole)
             {
                 case BasisBoneTrackedRole.LeftHand:
@@ -128,15 +166,19 @@ public class BasisOpenXRHandInput : BasisInputController
                     {
                         UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
                         HandFinal.rotation = HandleHandFinalRotation(HandRaw.rotation);
-                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
                     }
                     else
                     {
                         HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
                         HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
                         HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
-                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
                         FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand);
+                        if (UseIKPositionOffset)
+                        {
+                            HandFinal.position += HandRaw.rotation * (leftHandToIKPositionOffset * avatarScale);
+                        }
                     }
                     break;
                 case BasisBoneTrackedRole.RightHand:
@@ -144,15 +186,19 @@ public class BasisOpenXRHandInput : BasisInputController
                     {
                         UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
                         HandFinal.rotation = HandleHandFinalRotation(HandRaw.rotation);
-                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
                     }
                     else
                     {
                         HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
                         HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
                         HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
-                        HandFinal.position = HandRaw.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
                         FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.RightHand);
+                        if (UseIKPositionOffset)
+                        {
+                            HandFinal.position += HandRaw.rotation * (rightHandToIKPositionOffset * avatarScale);
+                        }
                     }
                     break;
             }

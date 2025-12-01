@@ -65,9 +65,9 @@ public class BasisTMP_SliderSetting : MonoBehaviour
             applyButton.onClick.RemoveListener(ApplySetting);
     }
 
-    private async void ApplySetting()
+    private void ApplySetting()
     {
-        await BasisSettingsSystem.SetFloatAsync(settingKey, pendingValue);
+         BasisSettingsSystem.SaveFloat(settingKey, pendingValue);
         // Debug.Log($"[Settings] Applied {settingKey} = {pendingValue}");
     }
 

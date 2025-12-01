@@ -48,6 +48,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenXR
              //   OpenXRFrustumAdjust.Camera = BasisLocalCameraDriver.Instance.Camera;
             //    OpenXRFrustumAdjust.Update();
             }
+
         }
     }
 }

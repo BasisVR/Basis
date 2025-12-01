@@ -8,8 +8,15 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
         Packages/org.basisvr.bouncycastle-2.5.0.tgz"
 SUBFOLDERS="Packages/com.basis.sdk:
         Packages/com.basis.odinserializer:
+        Packages/UnityJigglePhysics-upm:
         Packages/com.basis.bundlemanagement:
         Packages/com.basis.server"
+
+EXTRASUBFOLDER=""
+
+EXTRASUBFOLDERS=""
+MOREFILES=""
+
 
 if [[ "$1" == "full" ]]; then
 
@@ -20,14 +27,15 @@ if [[ "$1" == "full" ]]; then
   # Need this for framework (But only framework)
   SUBFOLDERS+=":Packages/com.basis.framework:
               Packages/com.basis.framework.editor:
-              Packages/com.basis.settingsmanager:
               Packages/com.basis.gizmos:
               Packages/com.basis.console:
               Packages/com.basis.visualtrackers:
-              Packages/com.basis.addressables:
+              Packages/com.basis.examples:
+              Packages/com.basis.settings:
+              Packages/com.basis.shim:
+              Packages/com.cnlohr.cilbox:
               Packages/com.steam.steamvr:
               Packages/com.steam.steamaudio:
-              Packages/com.naelstrof.jigglephysics:
               Packages/com.hecomi.ulipsync:
               Packages/com.xiph.rnnoise:
               Packages/com.basis.common:
@@ -36,7 +44,18 @@ if [[ "$1" == "full" ]]; then
               Packages/com.basis.openxr:
               Packages/com.basis.bundlemanagement:
               Packages/com.basis.profilerintergration:
-              Packages/com.avionblock.opussharp"
+              Packages/com.avionblock.opussharp:
+              Assets/Resources:
+              Assets/StreamingAssets:
+              Assets/Plugins:
+              Assets/AddressableAssetsData:
+              Assets/XR:
+              Assets/Basis"
+
+  EXTRASUBFOLDERS+="ProjectSettings"
+
+  MOREFILES+="Packages/manifest.json:Packages/packages-lock.json"
+
 elif [[ "$1" == "sdk" ]]; then
   echo "Producing SDK package"
   # All things are already included.
@@ -44,6 +63,8 @@ else
   echo "Only full and sdk targets are specified."
   die
 fi
+
+set -e
 
 cd Basis
 
@@ -65,10 +86,56 @@ echo $SUBFOLDERS | tr : '\n' | while read ddv; do
         cp "$FV" generate_unitypackage/$GUID/asset.meta
         #GPNAME=$(echo ${ddv:0:${#ddv} - 4} | cut -d/ -f3-)
         FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
-        echo "${FONLY}"
+        echo "${FONLY}" "${GUID}"
         echo "${FONLY}" > generate_unitypackage/$GUID/pathname
     done
 done
+
+# Tricky trick for exporting projectsettings
+echo ${EXTRASUBFOLDERS} | tr : '\n' | while read ddv; do
+    find $ddv -type f -name "*.asset" -print0 | while read -d $'\0' -r FV ; do
+        #printf 'File found: %s\n' "$FV"
+        ASSET=$FV
+        GUID=$(echo "$FV" | md5sum | cut -d' ' -f1 | cut -b-32 )
+        mkdir -p generate_unitypackage/$GUID
+        if [[ -f "$ASSET" ]]; then
+            #echo "$ASSET" TO generate_unitypackage/$GUID/asset
+            #echo ASSET COPY cp "$ASSET" generate_unitypackage/$GUID/asset
+            cp "$ASSET" generate_unitypackage/$GUID/asset
+        fi
+
+		echo "fileFormatVersion: 2" > generate_unitypackage/$GUID/asset.meta
+		echo "guid: ${GUID}" >> generate_unitypackage/$GUID/asset.meta
+
+        #GPNAME=$(echo ${ddv:0:${#ddv} - 4} | cut -d/ -f3-)
+        FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
+        echo "${ASSET}" "${GUID}"
+        echo "${ASSET}" > generate_unitypackage/$GUID/pathname
+    done
+done
+
+echo "Adding extra files: " ${MOREFILES}
+
+echo ${MOREFILES} | tr : '\n' | while read FV ; do
+    #printf 'File found: %s\n' "$FV"
+    ASSET=$FV
+    GUID=$(echo "$FV" | md5sum | cut -d' ' -f1 | cut -b-32 )
+    mkdir -p generate_unitypackage/$GUID
+    if [[ -f "$ASSET" ]]; then
+        #echo "$ASSET" TO generate_unitypackage/$GUID/asset
+        #echo ASSET COPY cp "$ASSET" generate_unitypackage/$GUID/asset
+        cp "$ASSET" generate_unitypackage/$GUID/asset
+    fi
+
+	echo "fileFormatVersion: 2" > generate_unitypackage/$GUID/asset.meta
+	echo "guid: ${GUID}" >> generate_unitypackage/$GUID/asset.meta
+
+    #GPNAME=$(echo ${ddv:0:${#ddv} - 4} | cut -d/ -f3-)
+    FONLY=$(echo $FV | rev | cut -d. -f2- | rev)
+    echo "${ASSET}" "${GUID}"
+    echo "${ASSET}" > generate_unitypackage/$GUID/pathname
+done
+
 
 echo "Now, exporting .tgz's"
 

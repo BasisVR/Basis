@@ -1,55 +1,142 @@
+using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
-    [System.Serializable]
-    public class BasisAvatarBuffer
+    [Serializable]
+    public class BasisAvatarBuffer : IDisposable
     {
-        public quaternion rotation = new quaternion(0, 0, 0, 1);
+        public const int MuscleCount = 95;
+
+        public quaternion Rotation = quaternion.identity;
         public float3 Scale = new float3(1, 1, 1);
         public float3 Position = new float3(0, 0, 0);
-        public float[] Muscles = new float[95];
+        public NativeArray<float> Muscles;
         public double SecondsInterval = 0.01;
 
-        // Initialize method for pooling
-        public void Initialize()
+        public bool IsDisposed = false;
+
+        /// <summary>Ensure NativeArray is allocated correctly; does not clear existing values.</summary>
+        public void EnsureAllocated()
         {
-            if (Muscles == null || Muscles.Length != 95)
+            if (IsDisposed)
             {
-                Muscles = new float[95];
+                throw new ObjectDisposedException(nameof(BasisAvatarBuffer));
             }
-            rotation = quaternion.identity;
+
+            if (!Muscles.IsCreated || Muscles.Length != MuscleCount)
+            {
+                if (Muscles.IsCreated) Muscles.Dispose();
+                Muscles = new NativeArray<float>(MuscleCount, Allocator.Persistent); // values are zeroed by default
+            }
+        }
+
+        /// <summary>Reset fields to defaults. Optionally zero the muscle array.</summary>
+        public void Reset(bool clearMuscles = false)
+        {
+            if (IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(BasisAvatarBuffer));
+            }
+
+            EnsureAllocated();
+
+            Rotation = quaternion.identity;
             Scale = new float3(1f, 1f, 1f);
             Position = new float3(0f, 0f, 0f);
             SecondsInterval = 0.01;
+
+            if (clearMuscles)
+            {
+                // Simple safe clear; if you need speed, switch to UnsafeUtility.MemClear.
+                for (int i = 0; i < Muscles.Length; i++) Muscles[i] = 0f;
+            }
+        }
+
+        public void Dispose()
+        {
+            if (IsDisposed) return;
+            if (Muscles.IsCreated) Muscles.Dispose();
+            IsDisposed = true;
         }
     }
 
-    // Simple pool for BasisAvatarBuffer structs
+    /// <summary>Thread-safe pool for BasisAvatarBuffer (class). Guards null + double-release.</summary>
     public static class BasisAvatarBufferPool
     {
         private static readonly Stack<BasisAvatarBuffer> _pool = new Stack<BasisAvatarBuffer>();
+        private static readonly HashSet<BasisAvatarBuffer> _inPool = new HashSet<BasisAvatarBuffer>(); // detect double-release
+        private static readonly object _lock = new object();
 
         public static BasisAvatarBuffer Get()
         {
-            if (_pool.Count > 0)
+            lock (_lock)
             {
-                var item = _pool.Pop();
-                item.Initialize();
-                return item;
+                while (_pool.Count > 0)
+                {
+                    var item = _pool.Pop();
+                    if (item == null)
+                    {
+                        BasisDebug.LogError("Null buffer popped from pool!");
+                        continue;
+                    }
+
+                    if (!_inPool.Remove(item))
+                    {
+                        BasisDebug.LogWarning("Buffer not tracked properly in _inPool.");
+                    }
+
+                    item.Reset(clearMuscles: false);
+                    return item;
+                }
             }
 
-            var newItem = new BasisAvatarBuffer();
-            newItem.Initialize();
-            return newItem;
+            var fresh = new BasisAvatarBuffer();
+            fresh.Reset(clearMuscles: false);
+            return fresh;
+        }
+        public static void Release(BasisAvatarBuffer item)
+        {
+            if (item == null)
+            {
+                BasisDebug.LogError("released Avatar Buffer was null");
+                return; // don’t push nulls
+            }
+            if (_inPool.Contains(item))
+            {
+                BasisDebug.LogError("Double release detected!");
+                return;
+            }
+            lock (_lock)
+            {
+                if (_inPool.Contains(item))
+                {
+                    // Optional: log once to help catch double-release bugs.
+                    // Debug.LogWarning("BasisAvatarBuffer double-release detected.");
+                    return;
+                }
+
+                // Reset lightweight fields; keep the persistent Muscles allocation.
+                item.Reset(clearMuscles: false);
+
+                _pool.Push(item);
+                _inPool.Add(item);
+            }
         }
 
-        public static void Release(ref BasisAvatarBuffer item)
+        public static void Deinitialize()
         {
-            item.Initialize(); // reset before pooling
-            _pool.Push(item);
-            item = default; // optional: avoid accidental use after release
+            lock (_lock)
+            {
+                while (_pool.Count > 0)
+                {
+                    var item = _pool.Pop();
+                    if (item != null) item.Dispose();
+                }
+                _inPool.Clear();
+            }
         }
     }
 }

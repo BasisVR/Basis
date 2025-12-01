@@ -2,7 +2,7 @@
     "name": "BasisNetworkCore",
     "rootNamespace": "",
     "references": [
-        "GUID:784bec3882b21ab4d8407cc870539fa9"
+        "LiteNetLib"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

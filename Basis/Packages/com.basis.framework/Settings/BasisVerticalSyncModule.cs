@@ -12,6 +12,7 @@ public class BasisVerticalSyncModule : BasisSettingsBase
 #endif
         if (BasisDeviceManagement.StaticCurrentMode == BasisConstants.Desktop)
         {
+            BasisDebug.Log($"Vertical Sync Changed to {optionValue}", BasisDebug.LogTag.Local);
             switch (optionValue.ToLower())
             {
                 case "on":

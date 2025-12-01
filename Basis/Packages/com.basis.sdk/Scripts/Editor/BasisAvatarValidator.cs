@@ -328,7 +328,14 @@ public class BasisAvatarValidator
         {
             if (entry.Value > 1)
             {
-                errors.Add(new BasisValidationIssue($"Duplicate name found: {entry.Key} ({entry.Value} times)", null));
+                if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.doNotAutoRenameBones)
+                {
+                    errors.Add(new BasisValidationIssue($"Duplicate name found: {entry.Key} ({entry.Value} times)", null));
+                }
+                else
+                {
+                    warnings.Add(new BasisValidationIssue($"Duplicate name found, it will be renamed automatically: {entry.Key} ({entry.Value} times)", null));
+                }
             }
         }
         return errors.Count == 0;
@@ -438,13 +445,19 @@ public class BasisAvatarValidator
             Errors.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} does not have a mesh assigned to its SkinnedMeshRenderer!", null));
             return;
         }
-        if (skinnedMeshRenderer.sharedMesh.triangles.Length > MaxTrianglesBeforeWarning)
+        if (skinnedMeshRenderer.sharedMesh.triangles != null)
         {
-            Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has More then {MaxTrianglesBeforeWarning} Triangles. This will cause performance issues", null));
+            if (skinnedMeshRenderer.sharedMesh.triangles.Length / 3 > MaxTrianglesBeforeWarning)
+            {
+                Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has More then {MaxTrianglesBeforeWarning} Triangles. This will cause performance issues", null));
+            }
         }
-        if (skinnedMeshRenderer.sharedMesh.vertices.Length > MeshVertices)
+        if (skinnedMeshRenderer.sharedMesh.vertices != null)
         {
-            Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has more vertices then what can be properly renderer ({MeshVertices}). this will cause performance issues", null));
+            if (skinnedMeshRenderer.sharedMesh.vertices.Length > MeshVertices)
+            {
+                Warnings.Add(new BasisValidationIssue($"{skinnedMeshRenderer.gameObject.name} Has more vertices then what can be properly renderer ({MeshVertices}). this will cause performance issues", null));
+            }
         }
         if (skinnedMeshRenderer.sharedMesh.blendShapeCount != 0)
         {
@@ -514,7 +527,7 @@ public class BasisAvatarValidator
         int FixMeButtonsCount = FixMeButtons.Count;
         for (int Index = 0; Index < FixMeButtonsCount; Index++)
         {
-            rootElement.Remove(FixMeButtons[Index]);    
+            rootElement.Remove(FixMeButtons[Index]);
         }
         FixMeButtons.Clear();
     }

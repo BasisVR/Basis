@@ -7,24 +7,62 @@ namespace Basis.Scripts.Networking.Receivers
     [Serializable]
     public class BasisRemoteAvatarBufferHolder
     {
-        public bool HasFirst = false;
-        public bool HasLast = false;
+        public bool HasCurrentBuffer = false;
+        public bool HasNextBuffer = false;
 
-        [SerializeField] public BasisAvatarBuffer First;
-        [SerializeField] public BasisAvatarBuffer Last;
+        [NonSerialized] private BasisAvatarBuffer Current;
+        [NonSerialized] private BasisAvatarBuffer Next;
 
         public void ClearAndRelease()
         {
-            if (HasFirst)
+            ReleaseCurrent();
+            ReleaseNext();
+        }
+        public BasisAvatarBuffer RequestCurrent()
+        {
+            return Current;
+        }
+        public BasisAvatarBuffer RequestNext()
+        {
+            return Next;
+        }
+        public void SetNext(ref BasisAvatarBuffer NextTarget)
+        {
+            Next = NextTarget;
+        }
+        public void SetCurrent(ref BasisAvatarBuffer CurrentTarget)
+        {
+            Current = CurrentTarget;
+        }
+        public void ReleaseCurrent()
+        {
+            if (HasCurrentBuffer)
             {
-                BasisAvatarBufferPool.Release(ref First);
-                HasFirst = false;
+                BasisAvatarBufferPool.Release(Current);
+                Current = null;
+                HasCurrentBuffer = false;
             }
-            if (HasLast)
+        }
+        public void ReleaseNext()
+        {
+            if (HasNextBuffer)
             {
-                BasisAvatarBufferPool.Release(ref Last);
-                HasLast = false;
+                BasisAvatarBufferPool.Release(Next);
+                Next = null;
+                HasNextBuffer = false;
             }
+        }
+        public void NextBecomesCurrent()
+        {
+            if (HasCurrentBuffer)
+            {
+                ReleaseCurrent();
+            }
+
+            Current = Next;
+
+            HasCurrentBuffer = true;
+            HasNextBuffer = false;
         }
     }
 }

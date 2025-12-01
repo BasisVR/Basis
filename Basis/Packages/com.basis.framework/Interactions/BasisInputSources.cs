@@ -98,18 +98,53 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public readonly bool IsInputAdded(BasisInput input, bool skipExtras = true)
         {
             if (input == null)
+            {
+             //   BasisDebug.Log("IsInputAdded failed: input was null");
                 return false;
+            }
+
             string inUDI = input.UniqueDeviceIdentifier;
 
-            bool contains = leftHand.GetState() != BasisInteractInputState.NotAdded && leftHand.Source.UniqueDeviceIdentifier == inUDI ||
-                            rightHand.GetState() != BasisInteractInputState.NotAdded && rightHand.Source.UniqueDeviceIdentifier == inUDI ||
-                            desktopCenterEye.GetState() != BasisInteractInputState.NotAdded && desktopCenterEye.Source.UniqueDeviceIdentifier == inUDI;
+            // Left hand
+            if (leftHand.GetState() != BasisInteractInputState.NotAdded &&
+                leftHand.Source.UniqueDeviceIdentifier == inUDI)
+            {
+               // BasisDebug.Log("IsInputAdded: matched left hand");
+                return true;
+            }
 
+            // Right hand
+            if (rightHand.GetState() != BasisInteractInputState.NotAdded &&
+                rightHand.Source.UniqueDeviceIdentifier == inUDI)
+            {
+              //  BasisDebug.Log("IsInputAdded: matched right hand");
+                return true;
+            }
+
+            // Desktop center eye
+            if (desktopCenterEye.GetState() != BasisInteractInputState.NotAdded &&
+                desktopCenterEye.Source.UniqueDeviceIdentifier == inUDI)
+            {
+              //  BasisDebug.Log("IsInputAdded: matched desktop center eye");
+                return true;
+            }
+
+            // Extras
             if (!skipExtras)
             {
-                contains |= extras.Any(x => x.GetState() != BasisInteractInputState.NotAdded && x.Source.UniqueDeviceIdentifier == inUDI);
+                foreach (var x in extras)
+                {
+                    if (x.GetState() != BasisInteractInputState.NotAdded &&
+                        x.Source.UniqueDeviceIdentifier == inUDI)
+                    {
+                     //   BasisDebug.Log($"IsInputAdded: matched extra input '{x.Source.UniqueDeviceIdentifier}'");
+                        return true;
+                    }
+                }
             }
-            return contains;
+
+            BasisDebug.Log($"IsInputAdded failed: no match for UDI '{inUDI}'");
+            return false;
         }
 
         public readonly BasisInputWrapper[] ToArray()
@@ -127,7 +162,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             var created = BasisInputWrapper.TryNewTracking(input, state, out BasisInputWrapper wrapper);
             if (!created)
+            {
+                BasisDebug.LogError("Unable to Create [TryNewTracking]", BasisDebug.LogTag.Device);
                 return false;
+            }
 
             switch (wrapper.Role)
             {
@@ -141,6 +179,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     rightHand = wrapper;
                     return true;
                 default:
+                    BasisDebug.LogError("Unable to Create [TryNewTracking]", BasisDebug.LogTag.Device);
                     return false;
             }
         }
@@ -159,6 +198,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     input = rightHand;
                     return true;
                 default:
+                    BasisDebug.Log("Unable to Try Get Role, will attempt again on calibration", BasisDebug.LogTag.Device);
                     return false;
             }
         }

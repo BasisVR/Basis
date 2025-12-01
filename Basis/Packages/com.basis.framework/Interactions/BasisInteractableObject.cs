@@ -1,45 +1,157 @@
-using System;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
+using System;
+using System.Collections;
 using UnityEngine;
+
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-    // Needs Rigidbody for hover sphere `OnTriggerStay`
+    /// <summary>
+    /// Abstract base class for interactable objects in the Basis SDK.
+    /// Provides hover, interact, and influence event management for input devices.
+    /// Requires a <see cref="Rigidbody"/> if using trigger-based hover spheres.
+    /// </summary>
     [Serializable]
     public abstract class BasisInteractableObject : MonoBehaviour
     {
-
+        /// <summary>
+        /// Collection of input sources bound to this interactable.
+        /// </summary>
         public BasisInputSources Inputs = new(0);
 
         [Header("Interactable Settings")]
-
         [SerializeField]
         private bool interactableEnabled = true;
+
+        /// <summary>
+        /// Determines whether the interactable should automatically be held after interaction.
+        /// </summary>
         [SerializeField]
         public BasisAutoHold AutoHold = BasisAutoHold.No;
-        [System.Serializable]
+
+        /// <summary>
+        /// Enum for controlling automatic hold behavior after interaction.
+        /// </summary>
+        [Serializable]
         public enum BasisAutoHold
         {
-            Yes, No
-        }
+            /// <summary>
+            /// Object remains held after interaction until explicitly dropped.
+            /// </summary>
+            Yes,
 
+            /// <summary>
+            /// Object does not remain held after interaction ends.
+            /// </summary>
+            No
+        }
+        public BasisInputKey InputKey = BasisInputKey.Trigger;
+        public enum BasisInputKey
+        {
+            Trigger =0,
+            SecondaryTrigger = 1,
+            Primary2DAxis = 2,
+            Secondary2DAxis = 3,
+            Primary2DAxisClick = 4,
+            Secondary2DAxisClick = 5,
+            SecondaryButtonGetState = 6,
+            PrimaryButtonGetState = 7,
+            SystemOrMenuButton = 8,
+            GripButton = 9,
+        }
+        public bool HasState(BasisInputState state)
+        {
+            switch (InputKey)
+            {
+                case BasisInputKey.Trigger:
+                    // Fire when main trigger is fully pressed
+                    return state.Trigger >= 0.9f;
+
+                case BasisInputKey.SecondaryTrigger:
+                    // Fire when secondary trigger is fully pressed
+                    return state.SecondaryTrigger >= 0.9f;
+
+                case BasisInputKey.Primary2DAxis:
+                    // Axis has state if it's non-zero (already deadzoned in BasisInputState)
+                    return state.Primary2DAxis.sqrMagnitude > 0f;
+
+                case BasisInputKey.Secondary2DAxis:
+                    return state.Secondary2DAxis.sqrMagnitude > 0f;
+
+                case BasisInputKey.Primary2DAxisClick:
+                    return state.Primary2DAxisClick;
+
+                case BasisInputKey.Secondary2DAxisClick:
+                    return state.Secondary2DAxisClick;
+
+                case BasisInputKey.SecondaryButtonGetState:
+                    return state.SecondaryButtonGetState;
+
+                case BasisInputKey.PrimaryButtonGetState:
+                    return state.PrimaryButtonGetState;
+
+                case BasisInputKey.SystemOrMenuButton:
+                    return state.SystemOrMenuButton;
+
+                case BasisInputKey.GripButton:
+                    return state.GripButton;
+
+                default:
+                    BasisDebug.LogError($"Unsupported BasisInputKey: {InputKey}");
+                    return false;
+            }
+        }
+        /// <summary>
+        /// Flag indicating whether this object requires an update loop
+        /// while being influenced by inputs.
+        /// </summary>
         [NonSerialized]
         internal bool RequiresUpdateLoop = false;
 
-        // Delegates for interaction events
+        #region Interaction Events
+
+        /// <summary>
+        /// Event triggered when interaction starts with an input.
+        /// </summary>
         public Action<BasisInput> OnInteractStartEvent;
+
+        /// <summary>
+        /// Event triggered when interaction ends with an input.
+        /// </summary>
         public Action<BasisInput> OnInteractEndEvent;
+
+        /// <summary>
+        /// Event triggered when hover starts from an input.
+        /// </summary>
         public Action<BasisInput> OnHoverStartEvent;
+
+        /// <summary>
+        /// Event triggered when hover ends from an input.
+        /// Includes whether the input will immediately interact.
+        /// </summary>
         public Action<BasisInput, bool> OnHoverEndEvent;
+
+        /// <summary>
+        /// Event triggered when influence (enabled state) is activated.
+        /// </summary>
         public Action OnInfluenceEnable;
+
+        /// <summary>
+        /// Event triggered when influence (enabled state) is deactivated.
+        /// </summary>
         public Action OnInfluenceDisable;
-        // NOTE: unity editor will not use the set function so setting disabling Interact in play will not cleanup inputs
+
+        #endregion
+
+        /// <summary>
+        /// Whether this object can currently be interacted with.
+        /// Changing this property invokes cleanup and influence events as needed.
+        /// </summary>
         public bool InteractableEnabled
         {
             get => interactableEnabled;
             set
             {
-                // remove hover and interacting on disable
                 if (!value)
                 {
                     ClearAllInfluencing();
@@ -55,8 +167,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 
-        // Having Start/OnDestroy as virtuals is icky but I cant think of a more elegant way of doing this.
-        // We already recommend calling the base method for Interact/Hover Start/End, so hopefully it wont be too big an issue.
+        /// <summary>
+        /// Interaction range in meters (distance from input source to collider/transform).
+        /// </summary>
+        public float InteractRange = 1f;
+
+        /// <summary>
+        /// Called during object initialization.
+        /// Sets up inputs when the local player is ready.
+        /// </summary>
         public virtual void Awake()
         {
             if (BasisLocalPlayer.PlayerReady)
@@ -65,6 +184,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 BasisLocalPlayer.OnLocalPlayerCreatedAndReady += SetupInputs;
         }
 
+        /// <summary>
+        /// Registers input devices and subscribes to add/remove events.
+        /// </summary>
         private void SetupInputs()
         {
             var Devices = Basis.Scripts.Device_Management.BasisDeviceManagement.Instance.AllInputDevices;
@@ -76,6 +198,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 
+        /// <summary>
+        /// Cleans up device subscriptions when destroyed.
+        /// </summary>
         public virtual void OnDestroy()
         {
             var Devices = Basis.Scripts.Device_Management.BasisDeviceManagement.Instance.AllInputDevices;
@@ -83,34 +208,52 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Devices.OnListItemRemoved -= OnInputRemoved;
         }
 
+        /// <summary>
+        /// Called when a new input device is added.
+        /// Sets up role bindings for the input.
+        /// </summary>
         private void OnInputAdded(BasisInput input)
         {
-            // dont expect to add non-role inputs
-            // NOTE: when extra (non role) inputs are needed we are going to need to rewrite this
-            if (!input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole r))
-                return;
+            // - disabled -dooly  if (!input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole r))
+            //     return;
 
-
-            if (!Inputs.SetInputByRole(input, BasisInteractInputState.Ignored))
-                BasisDebug.LogError("New input added not setup as expected by InteractableObject");
+            if (Inputs.SetInputByRole(input, BasisInteractInputState.Ignored))
+            {
+            }
             else
             {
-                // BasisDebug.Log($"{gameObject.name}: Input added. {Inputs.TryGetByRole(r, out BasisInputWrapper w)}, {w.Source.gameObject.name}, {w.GetState()}", input.gameObject);
+                BasisDebug.LogError("New input added not setup as expected, Input role was set to ignored!");
             }
         }
 
+        /// <summary>
+        /// Called when an input device is removed.
+        /// Removes role binding if applicable.
+        /// </summary>
         private void OnInputRemoved(BasisInput input)
         {
             if (input.TryGetRole(out Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole role))
-                if (!Inputs.RemoveByRole(role))
-                    BasisDebug.LogError("Something went wrong while removing input");
+            {
+                if (Inputs.TryGetByRole(role, out var wrapper) && wrapper.Source != null)
+                {
+                    if (wrapper.Source.UniqueDeviceIdentifier == input.UniqueDeviceIdentifier)
+                    {
+                        if (!Inputs.RemoveByRole(role))
+                        {
+                            BasisDebug.LogError("Something went wrong while removing input");
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>
-        /// Check if object is within range based on its transform and Interact Range.
+        /// Determines whether the interactable is within range of a source point.
+        /// Uses collider if available, otherwise falls back to transform position.
         /// </summary>
-        /// <param name="source"></param>
-        /// <returns></returns>
+        /// <param name="source">The source position (e.g., controller).</param>
+        /// <param name="InteractRange">The maximum allowed range.</param>
+        /// <returns>True if within range, false otherwise.</returns>
         public virtual bool IsWithinRange(Vector3 source, float InteractRange)
         {
             Collider collider = GetCollider();
@@ -118,13 +261,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 return Vector3.Distance(collider.ClosestPoint(source), source) <= InteractRange;
             }
-            // Fall back to object transform distance
             return Vector3.Distance(transform.position, source) <= InteractRange;
         }
 
-
         /// <summary>
-        /// Gets collider on self, override with cached get whenever possible.
+        /// Gets the collider attached to this object if one exists.
+        /// Override with cached reference when possible.
         /// </summary>
         public virtual Collider GetCollider()
         {
@@ -136,64 +278,149 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
-        /// Be careful when using a value that changes OnInteract or OnHover when overriding, it may cause odd behavior.
+        /// Determines whether an input is currently triggering an interaction.
+        /// Default checks Grip button, and for desktop CenterEye role with Trigger == 1.
         /// </summary>
-        /// <param name="input"></param>
-        /// <returns>If the Interactable should change state from Hover to Interacting, e.g. when trigger is down</returns>
+        /// <param name="input">The input to check.</param>
+        /// <returns>True if interaction should start, false otherwise.</returns>
         public virtual bool IsInteractTriggered(BasisInput input)
         {
             return input.CurrentInputState.GripButton ||
-                // special case for desktop (left-click)
                 input.TryGetRole(out var role) &&
                 role == Basis.Scripts.TransformBinders.BoneControl.BasisBoneTrackedRole.CenterEye &&
                 input.CurrentInputState.Trigger == 1;
         }
 
         /// <summary>
-        /// Deskop check for triggering AutoHold drop. Base implementation will always return true, since not all interactables have a concept of holding.
+        /// Determines whether hold drop has been triggered.
+        /// Base implementation always returns true.
+        /// Override for objects that have specific hold behavior.
         /// </summary>
-        /// <param name="input"></param>
-        /// <returns></returns>
+        /// <param name="input">The input to check.</param>
+        /// <returns>True if hold drop is triggered, otherwise false.</returns>
         public virtual bool IsHoldDropTriggered(BasisInput input)
         {
             return true;
         }
+        protected bool CheckUsabilityWithState(BasisInput input, BasisInteractInputState requiredState)
+        {
+            if (InteractableEnabled == false)
+            {
+            //    BasisDebug.Log("Interactable was false", BasisDebug.LogTag.System);
+                return false;
+            }
 
+            // Did we hit UI?
+            if (input.BasisUIRaycast.HadRaycastUITarget)
+            {
+            //    BasisDebug.Log("UI Raycast target was hit", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Input exists?
+            if (!Inputs.IsInputAdded(input))
+            {
+             //   BasisDebug.Log("Input was not added to Inputs", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Has a valid role?
+            if (!input.TryGetRole(out TransformBinders.BoneControl.BasisBoneTrackedRole role))
+            {
+               // BasisDebug.Log("Input did not have a valid bone role", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // PlayerInteract knows about this role/input?
+            if (!Inputs.TryGetByRole(role, out BasisInputWrapper found))
+            {
+              //  BasisDebug.Log($"No BasisInputWrapper found for role {role}", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // State must match
+            if (found.GetState() != requiredState)
+            {
+               // BasisDebug.Log($"Input state mismatch: Expected {requiredState}, got {found.GetState()}", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            // Range check
+            if (!IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange))
+            {
+             //   BasisDebug.Log("Input was out of interact range", BasisDebug.LogTag.System);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Determines if the input is capable of hovering this object.
+        /// </summary>
         public abstract bool CanHover(BasisInput input);
+
+        /// <summary>
+        /// Checks if this object is currently hovered by the given input.
+        /// </summary>
         public abstract bool IsHoveredBy(BasisInput input);
 
+        /// <summary>
+        /// Determines if the input is capable of interacting with this object.
+        /// </summary>
         public abstract bool CanInteract(BasisInput input);
+
+        /// <summary>
+        /// Checks if this object is currently being interacted with by the given input.
+        /// </summary>
         public abstract bool IsInteractingWith(BasisInput input);
 
+        /// <summary>
+        /// Called when interaction starts. Invokes <see cref="OnInteractStartEvent"/>.
+        /// </summary>
         public virtual void OnInteractStart(BasisInput input)
         {
             OnInteractStartEvent?.Invoke(input);
         }
 
+        /// <summary>
+        /// Called when interaction ends. Invokes <see cref="OnInteractEndEvent"/>.
+        /// </summary>
         public virtual void OnInteractEnd(BasisInput input)
         {
             OnInteractEndEvent?.Invoke(input);
         }
 
+        /// <summary>
+        /// Called when hover starts. Invokes <see cref="OnHoverStartEvent"/>.
+        /// </summary>
         public virtual void OnHoverStart(BasisInput input)
         {
             OnHoverStartEvent?.Invoke(input);
         }
 
-        /// <param name="input"></param>
-        /// <param name="willInteract">Always CanInteract(input) or false</param>
+        /// <summary>
+        /// Called when hover ends. Invokes <see cref="OnHoverEndEvent"/>.
+        /// </summary>
+        /// <param name="input">The input ending hover.</param>
+        /// <param name="willInteract">Whether this hover will transition into interaction.</param>
         public virtual void OnHoverEnd(BasisInput input, bool willInteract)
         {
             OnHoverEndEvent?.Invoke(input, willInteract);
         }
 
         /// <summary>
-        /// Interactable event loop, called every frame on AfterFinalMove when an input has it as a target and RequiresUpdateLoop is true.
+        /// Per-frame update loop for inputs targeting this interactable.
+        /// Only runs when <see cref="RequiresUpdateLoop"/> is true.
         /// </summary>
-        public abstract void InputUpdate();
+        public virtual void InputUpdate()
+        {
+
+        }
 
         /// <summary>
-        /// Cleanly clear state of all inputs. This will call hover/interact end for each input with hovering/interacting state. 
+        /// Clears state of all influencing inputs.
+        /// Ensures proper hover and interaction end events are called.
         /// </summary>
         public virtual void ClearAllInfluencing()
         {
@@ -217,12 +444,33 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
-        /// If this object is able to be influenced from a source position
+        /// Checks whether this object can be influenced (hovered or interacted with) by the given input.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="input">The input to check.</param>
+        /// <returns>True if this object can be influenced, false otherwise.</returns>
         public virtual bool IsInfluencable(BasisInput input)
         {
             return InteractableEnabled && (CanHover(input) || CanInteract(input));
+        }
+
+        private bool _interactGateOpen = true;
+
+        private IEnumerator InteractCooldown()
+        {
+            _interactGateOpen = false;
+            yield return new WaitForSeconds(0.1f);
+            _interactGateOpen = true;
+        }
+        public bool InteractionTimerValidation()
+        {
+            if (!_interactGateOpen)
+            {
+                return false;
+            }
+
+            // start cooldown immediately
+            StartCoroutine(InteractCooldown());
+            return true;
         }
     }
 }

@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using UnityEngine;
 using static BasisNetworkCore.Serializable.SerializableBasis;
@@ -136,10 +134,13 @@ public static class BasisNetworkModeration
         }
     }
 
-    public static void TeleportAll(ushort destinationPlayerId)
+    public static void TeleportAll(ushort? destinationPlayerId)
     {
-        SendAdminRequest(AdminRequestMode.TeleportAll,
-            w => w.Put(destinationPlayerId));
+        if (destinationPlayerId.HasValue)
+        {
+            SendAdminRequest(AdminRequestMode.TeleportAll,
+                w => w.Put(destinationPlayerId.Value));
+        }
     }
 
     public static void TeleportHere(ushort uuid)

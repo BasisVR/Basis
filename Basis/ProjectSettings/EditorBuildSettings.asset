@@ -9,6 +9,7 @@ EditorBuildSettings:
     path: Packages/com.basis.sdk/Scenes/initialization.unity
     guid: dd1db054b177db7459cc81633b86e525
   m_configObjects:
+    BasisVR/Styling/ActivePalette: {fileID: 11400000, guid: 3f30a6ab7dbd22b4c93b22fee927fd9d, type: 2}
     Unity.XR.OpenVR.Settings: {fileID: 11400000, guid: eb72c1b2c1c33b14291190a772f5e3df, type: 2}
     com.unity.addressableassets: {fileID: 11400000, guid: 370ba0f3958a49a4cbfaa8f394fb30d8, type: 2}
     com.unity.input.settings: {fileID: 11400000, guid: cf469a9a31a25dc449c2537cb0b17ad6, type: 2}

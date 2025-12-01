@@ -2,8 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using OpusSharp.Core;
 using static SerializableBasis;
 
@@ -15,23 +13,18 @@ namespace Basis.Scripts.Networking.Transmitters
         public OpusEncoder encoder;
         public BasisNetworkPlayer NetworkedPlayer;
         public BasisLocalPlayer Local;
-        public bool IsInitalized = false;
         public bool HasEvents = false;
-        public AudioSegmentDataMessage AudioSegmentData = new AudioSegmentDataMessage();
-        public AudioSegmentDataMessage SilentSegmentData = new AudioSegmentDataMessage();
+        public AudioSegmentDataMessage Segment = new AudioSegmentDataMessage();
         public NetDataWriter writer = new NetDataWriter();
+        public int SilentForHowLong = 0;
         public void Initialize(BasisNetworkPlayer networkedPlayer)
         {
-            if (IsInitalized) return;
-
             NetworkedPlayer = networkedPlayer;
             Local = (BasisLocalPlayer)networkedPlayer.Player;
 
             InitializeEncoder();
             AttachMicrophoneEvents();
             InitializeBuffers();
-
-            IsInitalized = true;
         }
 
         public void DeInitialize()
@@ -60,7 +53,10 @@ namespace Basis.Scripts.Networking.Transmitters
 
         private void AttachMicrophoneEvents()
         {
-            if (HasEvents) return;
+            if (HasEvents)
+            {
+                return;
+            }
 
             BasisLocalMicrophoneDriver.OnHasAudio += OnAudioReady;
             BasisLocalMicrophoneDriver.OnHasSilence += SendSilenceOverNetwork;
@@ -80,57 +76,53 @@ namespace Basis.Scripts.Networking.Transmitters
         {
             int packetSize = BasisLocalMicrophoneDriver.PacketSize;
 
-            if (packetSize != AudioSegmentData.TotalLength)
+            if (packetSize != Segment.TotalLength)
             {
-                AudioSegmentData = new AudioSegmentDataMessage(new byte[packetSize]);
-            }
-
-            if (packetSize != SilentSegmentData.TotalLength)
-            {
-                SilentSegmentData = new AudioSegmentDataMessage(new byte[packetSize]);
+                Segment = new AudioSegmentDataMessage();
+                Segment.buffer = new byte[packetSize];
+                Segment.TotalLength = packetSize;
             }
         }
-
         public void OnAudioReady()
         {
-            if (!NetworkedPlayer.HasReasonToSendAudio) return;
+            if (!NetworkedPlayer.HasReasonToSendAudio)
+            {
+                return;
+            }
 
             InitializeBuffers();
 
             writer.Reset();
 
-            AudioSegmentData.LengthUsed = encoder.Encode(
-                BasisLocalMicrophoneDriver.processBufferArray,
-                BasisLocalMicrophoneDriver.SampleRate,
-                AudioSegmentData.buffer,
-                AudioSegmentData.TotalLength
-            );
-            AudioSegmentData.Serialize(writer);
+            Segment.LengthUsed = encoder.Encode(BasisLocalMicrophoneDriver.processBufferArray,BasisLocalMicrophoneDriver.SampleRate,Segment.buffer,Segment.TotalLength);
 
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, AudioSegmentData.LengthUsed);
-            SendOutVoice(writer, true);
+            if(SilentForHowLong > 256)
+            {
+                Segment.TotalPlayedInSilence = 0;
+            }
+            else
+            {
+                Segment.TotalPlayedInSilence = (byte)SilentForHowLong;
+            }
+            Segment.Serialize(writer);
+
+            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, Segment.LengthUsed);
+            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.VoiceChannel, DeliveryMethod.Sequenced);
+            if (BasisLocalPlayer.Instance != null)
+            {
+                BasisLocalPlayer.Instance.AudioReceived?.Invoke();
+            }
+            SilentForHowLong = 0;
         }
 
         private void SendSilenceOverNetwork()
         {
-            if (!NetworkedPlayer.HasReasonToSendAudio) return;
-
-            writer.Reset();
-
-            SilentSegmentData.LengthUsed = 0;
-            SilentSegmentData.Serialize(writer);
-
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, writer.Length);
-            SendOutVoice(writer, false);
-        }
-
-        public void SendOutVoice(NetDataWriter writer, bool State)
-        {
-            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.VoiceChannel, DeliveryMethod.Sequenced);
-            if (BasisLocalPlayer.Instance != null)
+            if (!NetworkedPlayer.HasReasonToSendAudio)
             {
-                BasisLocalPlayer.Instance.AudioReceived?.Invoke(State);
+                return;
             }
+
+            SilentForHowLong++; //how long in sample size this way on the remote side
         }
     }
 }

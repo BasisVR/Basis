@@ -1,7 +1,7 @@
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Receivers;
-using Basis.Scripts.Profiler;
 using System;
+using Unity.Collections;
 using Unity.Mathematics;
 using static SerializableBasis;
 namespace Basis.Scripts.Networking.NetworkedAvatar
@@ -26,7 +26,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 int offset = 0;
                 double Interval = (double)BasisNetworkManagement.ServerMetaDataMessage.SyncInterval;// Interval + syncMessage.interval
                 BasisAvatarBuffer avatarBuffer = CreateAvatarBuffer(data, ref offset, (double)(Interval + (double)syncMessage.interval) / 1000f);
-                EnqueueAndProcessAdditionalData(baseReceiver, avatarBuffer, syncMessage.avatarSerialization, length);
+                EnqueueAndProcessAdditionalData(baseReceiver, avatarBuffer, syncMessage.avatarSerialization);
             }
             else
             {
@@ -51,7 +51,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             {
                 int offset = 0;
                 BasisAvatarBuffer avatarBuffer = CreateAvatarBuffer(data, ref offset, 0.01f);
-                EnqueueAndProcessAdditionalData(baseReceiver, avatarBuffer, avatarSerialization, length);
+                EnqueueAndProcessAdditionalData(baseReceiver, avatarBuffer, avatarSerialization);
             }
             else
             {
@@ -68,7 +68,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // If position broke, keep last known good (0 if none)
                 Buffer.Position = new Unity.Mathematics.float3(0, 0, 0);
             }
-            Buffer.rotation = SanitizeRotation(BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset));
+            Buffer.Rotation = SanitizeRotation(BasisUnityBitPackerExtensionsUnsafe.ReadQuaternionFromBytes(ref data, BasisNetworkPlayer.RotationCompression, ref offset));
             DecompressAvatarMuscles_NoLoop(data, ref Buffer.Muscles, ref offset);
             Buffer.Scale = MuscleDecompress(BasisUnityBitPackerExtensionsUnsafe.ReadUShort(ref data, ref offset), MinimumValueSupported, MaximumValueSupported);
 
@@ -94,12 +94,13 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             return math.normalize(q);
         }
         private static bool IsFinite(Unity.Mathematics.float3 v) => math.isfinite(v.x) && math.isfinite(v.y) && math.isfinite(v.z);
-        public static void DecompressAvatarMuscles_NoLoop(byte[] data, ref float[] floatArray, ref int offset)
+        public static void DecompressAvatarMuscles_NoLoop(byte[] data, ref NativeArray<float> outputArray, ref int offset)
         {
             int dataPos = offset;
 
+            float[] floatArray = outputArray.ToArray();
             // Sections in the same order as the original method
-            DecompressSpineChestHead(data, ref dataPos, floatArray);
+            DecompressSpineChestHead(data, ref dataPos, ref floatArray);
 
             // no need to put this data on the network! 6 in total (saves between 6 and 16 bytes)
             //DecompressEyesJaw(data, ref dataPos, floatArray); // (intentionally skipped as in original)
@@ -112,12 +113,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             DecompressRightHandFingers(data, ref dataPos, floatArray);
 
             offset = dataPos;
+            outputArray.CopyFrom(floatArray);
         }
-
         // ----------------------
         // Section: Spine/Chest/Head
         // ----------------------
-        private static void DecompressSpineChestHead(byte[] data, ref int dataPos, float[] floatArray)
+        private static void DecompressSpineChestHead(byte[] data, ref int dataPos,ref float[] floatArray)
         {
             ReadCompressed(data, ref dataPos, 0, false, floatArray); // Spine Front-Back: Range 80
             ReadCompressed(data, ref dataPos, 1, false, floatArray); // Spine Left-Right: Range 80
@@ -125,9 +126,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             ReadCompressed(data, ref dataPos, 3, false, floatArray); // Chest Front-Back: Range 80
             ReadCompressed(data, ref dataPos, 4, false, floatArray); // Chest Left-Right: Range 80
             ReadCompressed(data, ref dataPos, 5, false, floatArray); // Chest Twist Left-Right: Range 80
-            ReadCompressed(data, ref dataPos, 6, true, floatArray); // UpperChest Front-Back: Range 40
-            ReadCompressed(data, ref dataPos, 7, true, floatArray); // UpperChest Left-Right: Range 40
-            ReadCompressed(data, ref dataPos, 8, true, floatArray); // UpperChest Twist Left-Right: Range 40
+            ReadCompressed(data, ref dataPos, 6, false, floatArray); // UpperChest Front-Back: Range 40
+            ReadCompressed(data, ref dataPos, 7, false, floatArray); // UpperChest Left-Right: Range 40
+            ReadCompressed(data, ref dataPos, 8, false, floatArray); // UpperChest Twist Left-Right: Range 40
             ReadCompressed(data, ref dataPos, 9, false, floatArray); // Neck Nod Down-Up: Range 80
             ReadCompressed(data, ref dataPos, 10, false, floatArray); // Neck Tilt Left-Right: Range 80
             ReadCompressed(data, ref dataPos, 11, false, floatArray); // Neck Turn Left-Right: Range 80
@@ -304,10 +305,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             float normalized = value / FloatRangeDifference;
             return normalized * (maxValue - minValue) + minValue;
         }
-        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage message, int dataLength)
+        private static void EnqueueAndProcessAdditionalData(BasisNetworkReceiver baseReceiver, BasisAvatarBuffer avatarBuffer, LocalAvatarSyncMessage message)
         {
-            // Add to profiler
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, dataLength);
 
             // Queue the avatar buffer
             baseReceiver.EnQueueAvatarBuffer(avatarBuffer);

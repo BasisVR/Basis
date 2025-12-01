@@ -1,6 +1,6 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.Behaviour;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine;
 public class BasisTestNetwork : BasisAvatarMonoBehaviour
 {

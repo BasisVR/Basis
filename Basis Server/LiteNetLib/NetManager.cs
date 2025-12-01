@@ -1,6 +1,8 @@
 #if UNITY_2018_3_OR_NEWER
 #define UNITY_SOCKET_FIX
 #endif
+using LiteNetLib.Layers;
+using LiteNetLib.Utils;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -9,8 +11,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
-using LiteNetLib.Layers;
-using LiteNetLib.Utils;
+using System.Threading.Tasks;
 
 namespace LiteNetLib
 {
@@ -561,7 +562,6 @@ namespace LiteNetLib
         //Update function
         private void UpdateLogic()
         {
-            var peersToRemove = new List<NetPeer>();
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
@@ -570,11 +570,31 @@ namespace LiteNetLib
                 try
                 {
                     ProcessDelayedPackets();
+
                     float elapsed = (float)(stopwatch.ElapsedTicks / (double)Stopwatch.Frequency * 1000.0);
                     elapsed = elapsed <= 0.0f ? 0.001f : elapsed;
                     stopwatch.Restart();
 
-                    for (var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)
+                    // 1. Snapshot peers under read lock
+                    List<NetPeer> peersSnapshot;
+                    _peersLock.EnterReadLock();
+                    try
+                    {
+                        peersSnapshot = new List<NetPeer>();
+                        for (var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)
+                        {
+                            peersSnapshot.Add(netPeer);
+                        }
+                    }
+                    finally
+                    {
+                        _peersLock.ExitReadLock();
+                    }
+
+                    // 2. Parallel processing
+                    var peersToRemove = new System.Collections.Concurrent.ConcurrentBag<NetPeer>();
+
+                    System.Threading.Tasks.Parallel.ForEach(peersSnapshot, netPeer =>
                     {
                         if (netPeer.ConnectionState == ConnectionState.Disconnected &&
                             netPeer.TimeSinceLastPacket > DisconnectTimeout)
@@ -585,15 +605,23 @@ namespace LiteNetLib
                         {
                             netPeer.Update(elapsed);
                         }
-                    }
+                    });
 
-                    if (peersToRemove.Count > 0)
+                    // 3. Remove peers under write lock
+                    if (!peersToRemove.IsEmpty)
                     {
                         _peersLock.EnterWriteLock();
-                        for (int i = 0; i < peersToRemove.Count; i++)
-                            RemovePeer(peersToRemove[i], false);
-                        _peersLock.ExitWriteLock();
-                        peersToRemove.Clear();
+                        try
+                        {
+                            foreach (var peer in peersToRemove)
+                            {
+                                RemovePeer(peer, false);
+                            }
+                        }
+                        finally
+                        {
+                            _peersLock.ExitWriteLock();
+                        }
                     }
 
                     ProcessNtpRequests(elapsed);
@@ -611,8 +639,10 @@ namespace LiteNetLib
                     NetDebug.WriteError("[NM] LogicThread error: " + e);
                 }
             }
+
             stopwatch.Stop();
         }
+
 
         [Conditional("DEBUG")]
         private void ProcessDelayedPackets()

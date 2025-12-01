@@ -1,4 +1,5 @@
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
@@ -7,72 +8,187 @@ using Basis.Scripts.UI;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
-using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
+
 namespace Basis.Scripts.Device_Management.Devices
 {
+    /// <summary>
+    /// Abstract base class for all input devices (hands, HMD, simulated devices, etc.).
+    /// Manages device identity, role assignment, calibration offsets, raycasting helpers,
+    /// and lifecycle hooks for polling and applying data to the local rig.
+    /// </summary>
     public abstract class BasisInput : MonoBehaviour
     {
+        /// <summary>
+        /// Whether event subscriptions have been registered for this input.
+        /// </summary>
         public bool HasEvents = false;
+
+        /// <summary>
+        /// Identifier for the device subsystem/provider (e.g., OpenXR, SimulateXR).
+        /// </summary>
         public string SubSystemIdentifier;
+
         [SerializeField]
         private BasisBoneTrackedRole trackedRole;
+
+        /// <summary>
+        /// True if a valid <see cref="BasisBoneTrackedRole"/> is assigned to this input.
+        /// </summary>
         [SerializeField]
         public bool hasRoleAssigned;
+
+        /// <summary>
+        /// The bone control this input drives (e.g., left hand, right foot).
+        /// </summary>
         public BasisLocalBoneControl Control = null;
+
+        /// <summary>
+        /// True if a valid <see cref="Control"/> reference exists.
+        /// </summary>
         public bool HasControl = false;
+
+        /// <summary>
+        /// Unique, stable identifier for this concrete device (e.g., serial).
+        /// </summary>
         public string UniqueDeviceIdentifier;
+
+        /// <summary>
+        /// Class/type name of the device (for logging or analytics).
+        /// </summary>
         public string ClassName;
+
         [Header("Raw Position Of Device")]
+        /// <summary>
+        /// Device pose before player scaling is applied.
+        /// </summary>
         public BasisCalibratedCoords UnscaledDeviceCoord = new BasisCalibratedCoords();
+
         [Header("Final Data normally just modified by EyeHeight/AvatarEyeHeight)")]
+        /// <summary>
+        /// Device pose after scaling/elevation adjustments.
+        /// </summary>
         public BasisCalibratedCoords ScaledDeviceCoord = new BasisCalibratedCoords();
+        /// <summary>
+        /// Common/normalized device identifier (used for matching visual models, capabilities).
+        /// </summary>
         public string CommonDeviceIdentifier;
+
+        /// <summary>
+        /// Optional visible device model attached to this input.
+        /// </summary>
         public BasisVisualTracker BasisVisualTracker;
-        public BasisPointRaycaster BasisPointRaycaster;//used to raycast against things like UI
+
+        /// <summary>
+        /// Raycaster for pointing at interactables (e.g., UI).
+        /// </summary>
+        public BasisPointRaycaster BasisPointRaycaster; //used to raycast against things like UI
+
+        /// <summary>
+        /// UI-specific raycasting/interaction helper.
+        /// </summary>
         public BasisUIRaycast BasisUIRaycast;
-        public event SimulationHandler AfterControlApply;
+
+        /// <summary>
+        /// Hover Supported Raycasting
+        /// </summary>
+        public BasisHoverSphere hoverSphere;
+
+        /// <summary>
+        /// line renderer associated with this input
+        /// </summary>
+        public LineRenderer InteractionLineRenderer;
+
+        /// <summary>
+        /// Capabilities and matching data for the concrete device.
+        /// </summary>
         public DeviceSupportInformation DeviceMatchSettings;
+
+        /// <summary>
+        /// Current frame input state (buttons, axes).
+        /// </summary>
         [SerializeField]
         public BasisInputState CurrentInputState = new BasisInputState();
+
+        /// <summary>
+        /// Last frame input state, used to detect edges/deltas.
+        /// </summary>
         [SerializeField]
         public BasisInputState LastInputState = new BasisInputState();
+
+        /// <summary>
+        /// Roles that may be duplicated (e.g., both left and right hands).
+        /// </summary>
         public static BasisBoneTrackedRole[] CanHaveMultipleRoles = new BasisBoneTrackedRole[] { BasisBoneTrackedRole.LeftHand, BasisBoneTrackedRole.RightHand };
+
+        /// <summary>
+        /// Addressables key for the default fallback visual.
+        /// </summary>
         public static string FallbackDeviceID = "FallbackSphere";
+
+        /// <summary>
+        /// GameObject hosting the <see cref="BasisPointRaycaster"/>.
+        /// </summary>
         public GameObject BasisPointRaycasterRef;
+
+        /// <summary>
+        /// True once raycast helpers have been initialized.
+        /// </summary>
         public bool HasRaycaster = false;
+
+        /// <summary>
+        /// Origin/rotation used for raycasts (computed per-frame).
+        /// </summary>
         public BasisCalibratedCoords RaycastCoord;
+
+        /// <summary>
+        /// Data used to compute inverse offsets from bone after calibration.
+        /// </summary>
         [SerializeField]
         public BasisInverseOffsetFromBoneData BasisInverseOffsetData = new BasisInverseOffsetFromBoneData();
-        public float HandBiasSplay = 0;
+
         /// <summary>
-        /// initalize the tracking of this input
+        /// Additive bias applied when converting a splay parameter (hand-specific tuning).
         /// </summary>
-        /// <param name="uniqueID"></param>
-        /// <param name="unUniqueDeviceID"></param>
-        /// <param name="subSystems"></param>
-        /// <param name="ForceAssignTrackedRole"></param>
-        /// <param name="basisBoneTrackedRole"></param>
-        public void InitalizeTracking(string uniqueID, string unUniqueDeviceID, string subSystems, bool ForceAssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
+        public float HandBiasSplay = 0;
+
+        /// <summary>
+        /// this is used for example when we have multi touch support and need a way to get a bunch of differnt fingers coming from the same "head role"
+        /// </summary>
+        public bool HasRayCastOverrideSupport;
+        /// <summary>
+        /// Initialize the tracking lifecycle for this input device, register events, and (optionally) create raycast helpers.
+        /// </summary>
+        /// <param name="uniqueID">Unique device identifier for this instance.</param>
+        /// <param name="unUniqueDeviceID">Normalized device identifier for capability matching.</param>
+        /// <param name="subSystems">Subsystem/provider ID (OpenXR, SimulateXR, etc.).</param>
+        /// <param name="ForceAssignTrackedRole">If true, forces the provided role even if a matcher suggests otherwise.</param>
+        /// <param name="basisBoneTrackedRole">Desired tracked role for this device.</param>
+        public void InitalizeTracking(string uniqueID, string unUniqueDeviceID, string subSystems, bool ForceAssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, bool hasRayCastOverrideSupport = false)
         {
             //unassign the old tracker
             UnAssignTracker();
             BasisDebug.Log("Finding ID " + unUniqueDeviceID, BasisDebug.LogTag.Input);
+
             //configure device identifier
             SubSystemIdentifier = subSystems;
             CommonDeviceIdentifier = unUniqueDeviceID;
             UniqueDeviceIdentifier = uniqueID;
-            // lets check to see if there is a override from a devices matcher
+            HasRayCastOverrideSupport = hasRayCastOverrideSupport;
+            // Resolve capabilities/overrides (role, visuals, raycast support...)
             DeviceMatchSettings = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier, basisBoneTrackedRole, ForceAssignTrackedRole);
             if (DeviceMatchSettings.HasTrackedRole)
             {
                 BasisDebug.Log("Overriding Tracker " + DeviceMatchSettings.DeviceID, BasisDebug.LogTag.Input);
                 AssignRoleAndTracker(DeviceMatchSettings.TrackedRole);
             }
-            //reset the offsets, its up to the higher level to set this now.
+
+            // Initialize raycasting helpers if supported
             if (HasRaycastSupport())
             {
                 CreateRayCaster(this);
             }
+
+            // Register simulation/apply loop hooks
             if (HasEvents == false)
             {
                 BasisLocalPlayer.Instance.OnPreSimulateBones += PollData;
@@ -84,6 +200,35 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisDebug.Log("has device events assigned already " + UniqueDeviceIdentifier, BasisDebug.LogTag.Input);
             }
         }
+        public void ComputeUnscaledDeviceCoord(ref BasisCalibratedCoords coords,Vector3 position)
+        {
+            if (SMModuleSitStand.IsSteatedMode && BasisDeviceManagement.IsCurrentModeVR())
+            {
+                position.y += SMModuleSitStand.MissingHeightDelta;
+                coords.position = position;
+            }
+            else
+            {
+                coords.position = position;
+            }
+        }
+        /// <summary>
+        /// Computes the raycast origin/direction using the hand’s final transform and active offset.
+        /// </summary>
+        public void ComputeRaycastDirection(Vector3 Position, Quaternion rotation, Quaternion ActiveRaycastOffset)
+        {
+            var parent = BasisLocalPlayer.Instance.transform;
+            Matrix4x4 parentMatrix = parent.localToWorldMatrix;
+            Quaternion OutGoingRotation = rotation * ActiveRaycastOffset;//HandFinal.rotation
+
+            RaycastCoord.position = parentMatrix.MultiplyPoint3x4(Position);
+            RaycastCoord.rotation = parentMatrix.rotation * OutGoingRotation;
+        }
+        /// <summary>
+        /// Get the currently assigned tracked role (if any).
+        /// </summary>
+        /// <param name="BasisBoneTrackedRole">Out: role value when assigned.</param>
+        /// <returns>True if a role is assigned; otherwise false.</returns>
         public bool TryGetRole(out BasisBoneTrackedRole BasisBoneTrackedRole)
         {
             if (hasRoleAssigned)
@@ -94,6 +239,12 @@ namespace Basis.Scripts.Device_Management.Devices
             BasisBoneTrackedRole = BasisBoneTrackedRole.CenterEye;
             return false;
         }
+
+        /// <summary>
+        /// Assigns this device to drive a specific bone role and binds its <see cref="Control"/>.
+        /// Also validates multiple-role constraints and sets tracker state on success.
+        /// </summary>
+        /// <param name="Role">The bone role to drive.</param>
         public void AssignRoleAndTracker(BasisBoneTrackedRole Role)
         {
             int InputsCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
@@ -126,13 +277,18 @@ namespace Basis.Scripts.Device_Management.Devices
                 {
                     CalculateOffset();
                 }
-                SetRealTrackers(BasisHasTracked.HasTracker, BasisHasRigLayer.HasRigLayer);
+                SetRealTrackers(BasisHasTracked.HasTracker, BasisHasRigLayer.HasRigLayer,UniqueDeviceIdentifier);
             }
             else
             {
                 BasisDebug.LogError("Attempted to find " + Role + " but it did not exist", BasisDebug.LogTag.Input);
             }
         }
+
+        /// <summary>
+        /// Computes and applies the inverse offset from the driven bone so that the tracker maintains
+        /// the spatial relationship determined during calibration.
+        /// </summary>
         public void CalculateOffset()
         {
             BasisInverseOffsetData = new BasisInverseOffsetFromBoneData();
@@ -147,38 +303,50 @@ namespace Basis.Scripts.Device_Management.Devices
             Control.InverseOffsetFromBone.rotation = BasisInverseOffsetData.InitialInverseTrackRotation * BasisInverseOffsetData.InitialControlRotation;
             Control.UseInverseOffset = true;
         }
+
+        /// <summary>
+        /// Clears role and control binding and resets tracker state, unless the role was forced by a device matcher.
+        /// </summary>
         public void UnAssignRoleAndTracker()
         {
             if (Control != null)
             {
                 Control.IncomingData.position = Vector3.zero;
                 Control.IncomingData.rotation = Quaternion.identity;
+                SetRealTrackers(BasisHasTracked.HasNoTracker, BasisHasRigLayer.HasNoRigLayer, UniqueDeviceIdentifier);
             }
             if (DeviceMatchSettings == null || DeviceMatchSettings.HasTrackedRole == false)
             {
-                //unassign last
-                if (hasRoleAssigned)
-                {
-                    SetRealTrackers(BasisHasTracked.HasNoTracker, BasisHasRigLayer.HasNoRigLayer);
-                }
                 hasRoleAssigned = false;
                 trackedRole = BasisBoneTrackedRole.CenterEye;
                 Control = null;
                 HasControl = false;
             }
         }
+
+        /// <summary>
+        /// Returns true if this device supports pointer/raycast interaction for the current role.
+        /// </summary>
         public bool HasRaycastSupport()
         {
-            if (DeviceMatchSettings == null)
+            if(HasRayCastOverrideSupport)
             {
-                return false;
+                return true;
             }
             return hasRoleAssigned && DeviceMatchSettings.HasRayCastSupport;
         }
+
+        /// <summary>
+        /// Applies the final device pose to this transform after simulation each frame.
+        /// </summary>
         public void ApplyFinalMovement()
         {
             this.transform.SetLocalPositionAndRotation(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation);
         }
+
+        /// <summary>
+        /// If this input controls a full-body (FB) tracker role, unassign it.
+        /// </summary>
         public void UnAssignFullBodyTrackers()
         {
             if (hasRoleAssigned && HasControl)
@@ -189,6 +357,10 @@ namespace Basis.Scripts.Device_Management.Devices
                 }
             }
         }
+
+        /// <summary>
+        /// Unassigns the tracker if the current role is a full-body tracker role.
+        /// </summary>
         public void UnAssignFBTracker()
         {
             if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(trackedRole))
@@ -196,9 +368,10 @@ namespace Basis.Scripts.Device_Management.Devices
                 UnAssignTracker();
             }
         }
+
         /// <summary>
-        /// this api makes it so after a calibration the inital offset is reset.
-        /// will only do its logic if has role assigned
+        /// Clears current calibration/offset and unassigns role if present.
+        /// Intended to be called when re-calibrating or removing a device.
         /// </summary>
         public void UnAssignTracker()
         {
@@ -206,7 +379,7 @@ namespace Basis.Scripts.Device_Management.Devices
             {
                 if (HasControl)
                 {
-                    BasisDebug.Log("UnAssigning Tracker " + Control.name, BasisDebug.LogTag.Input);
+                    BasisDebug.Log($"UnAssigning Tracker {Control.name}", BasisDebug.LogTag.Input);
                     Control.InverseOffsetFromBone.position = Vector3.zero;
                     Control.InverseOffsetFromBone.rotation = Quaternion.identity;
                     Control.UseInverseOffset = false;
@@ -214,12 +387,21 @@ namespace Basis.Scripts.Device_Management.Devices
                 UnAssignRoleAndTracker();
             }
         }
+
+        /// <summary>
+        /// Applies tracker calibration and assigns the provided role, replacing any previous assignment.
+        /// </summary>
+        /// <param name="Role">Role to assign to this device post-calibration.</param>
         public void ApplyTrackerCalibration(BasisBoneTrackedRole Role)
         {
             UnAssignTracker();
-            BasisDebug.Log("ApplyTrackerCalibration " + Role + " to tracker " + UniqueDeviceIdentifier, BasisDebug.LogTag.Input);
+            BasisDebug.Log($"ApplyTrackerCalibration {Role} to tracker {UniqueDeviceIdentifier}", BasisDebug.LogTag.Input);
             AssignRoleAndTracker(Role);
         }
+
+        /// <summary>
+        /// Stops this device from driving the rig and unregisters frame hooks.
+        /// </summary>
         public void StopTracking()
         {
             if (BasisLocalPlayer.Instance.LocalBoneDriver == null)
@@ -236,54 +418,88 @@ namespace Basis.Scripts.Device_Management.Devices
                 HasEvents = false;
             }
         }
-        public void SetRealTrackers(BasisHasTracked hasTracked, BasisHasRigLayer HasLayer)
+
+        /// <summary>
+        /// Sets the <see cref="BasisLocalBoneControl"/> tracker/rig-layer flags and toggles rig hints.
+        /// </summary>
+        /// <param name="hasTracked">Whether this control is actively tracked by hardware.</param>
+        /// <param name="HasLayer">Whether a rig layer is available for this control.</param>
+        public void SetRealTrackers(BasisHasTracked hasTracked, BasisHasRigLayer HasLayer,string DeviceID)
         {
             if (Control != null)
             {
-                Control.HasTracked = hasTracked;
-                Control.HasRigLayer = HasLayer;
-                if (Control.HasRigLayer == BasisHasRigLayer.HasNoRigLayer)
+                if (HasLayer == BasisHasRigLayer.HasNoRigLayer)
                 {
-                    hasRoleAssigned = false;
-                    if (TryGetRole(out BasisBoneTrackedRole Role))
+                    Control.DevicesWithRoles.Remove(DeviceID);
+                    if (Control.DevicesWithRoles.Count == 0)
                     {
-                        BasisLocalPlayer.Instance.LocalRigDriver.ApplyHint(Role, false);
+                        hasRoleAssigned = false;
+                        Control.HasTracked = hasTracked;
+                        Control.HasRigLayer = HasLayer;
+                    }
+                    else
+                    {
+                        BasisDebug.Log($"Skipping {Control.name}! device had multiple devices associated waiting on removal of {string.Join("", Control.DevicesWithRoles)}", BasisDebug.LogTag.Input);
                     }
                 }
                 else
                 {
-                    hasRoleAssigned = true;
-                    if (TryGetRole(out BasisBoneTrackedRole Role))
+                    if (Control.DevicesWithRoles.Contains(DeviceID) == false)
                     {
-                        BasisLocalPlayer.Instance.LocalRigDriver.ApplyHint(Role, true);
+                        Control.DevicesWithRoles.Add(DeviceID);
                     }
+                    hasRoleAssigned = true;
+                    Control.HasTracked = hasTracked;
+                    Control.HasRigLayer = HasLayer;
                 }
-                BasisDebug.Log("Set Tracker State for tracker " + UniqueDeviceIdentifier + " with bone " + Control.name + " as " + Control.HasTracked.ToString() + " | " + Control.HasRigLayer.ToString(), BasisDebug.LogTag.Input);
+
+                BasisDebug.Log($"Set Tracker State for tracker {UniqueDeviceIdentifier} with bone {Control.name} as {Control.HasTracked} | {Control.HasRigLayer}", BasisDebug.LogTag.Input);
             }
             else
             {
                 BasisDebug.LogError("Missing Controller Or Bone", BasisDebug.LogTag.Input);
             }
         }
+
+        /// <summary>
+        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll.
+        /// </summary>
         public void PollData()
         {
             LastUpdatePlayerControl();
             DoPollData();
         }
-        public void UpdatePlayerControl()
+
+        /// <summary>
+        /// Pushes current input state to the action driver and updates raycasting/UI systems.
+        /// Invokes <see cref="AfterControlApply"/> afterwards.
+        /// </summary>
+        public void UpdateInputEvents(bool HasPlayerControlSupport = true,bool hasPlayerRaycastSupport = true)
         {
-            BasisActionDriver.UpdatePlayerControl(trackedRole, ref CurrentInputState, ref LastInputState);
-            if (HasRaycaster)
+            if (HasPlayerControlSupport)
+            {
+                BasisActionDriver.UpdatePlayerControl(trackedRole, ref CurrentInputState, ref LastInputState);
+            }
+            if (hasPlayerRaycastSupport && HasRaycaster)
             {
                 BasisPointRaycaster.UpdateRaycast();
                 BasisUIRaycast.HandleUIRaycast();
             }
-            AfterControlApply?.Invoke();
         }
+
+        /// <summary>
+        /// Copies current input state to last-frame state.
+        /// </summary>
         public void LastUpdatePlayerControl()
         {
             CurrentInputState.CopyTo(LastInputState);
         }
+
+        /// <summary>
+        /// Plays a named UI sound using common Basis audio resources (default implementation).
+        /// </summary>
+        /// <param name="SoundEffectName">Name of the effect (e.g., "hover", "press").</param>
+        /// <param name="Volume">Playback volume.</param>
         public void PlaySoundEffectDefaultImplementation(string SoundEffectName, float Volume)
         {
             BasisDebug.Log("Volume was " + Volume);
@@ -297,6 +513,10 @@ namespace Basis.Scripts.Device_Management.Devices
                     break;
             }
         }
+
+        /// <summary>
+        /// Returns true if a fallback 3D model should be used for this device (e.g., for hands but not HMD).
+        /// </summary>
         public bool UseFallbackModel()
         {
             if (hasRoleAssigned == false)
@@ -315,6 +535,10 @@ namespace Basis.Scripts.Device_Management.Devices
                 return true;
             }
         }
+
+        /// <summary>
+        /// Destroys and hides any instantiated tracked visual.
+        /// </summary>
         public void HideTrackedVisual()
         {
             BasisDebug.Log("HideTrackedVisual", BasisDebug.LogTag.Input);
@@ -324,45 +548,98 @@ namespace Basis.Scripts.Device_Management.Devices
                 GameObject.Destroy(BasisVisualTracker.gameObject);
             }
         }
-        public void CreateRayCaster(BasisInput BaseInput)
+        /// <summary>
+        /// Creates and initializes raycasting helpers for this device (pointer + UI raycast).
+        /// </summary>
+        /// <param name="input">The owning input device component.</param>
+        public void CreateRayCaster(BasisInput input)
         {
-            BasisDebug.Log("Adding RayCaster " + BaseInput.UniqueDeviceIdentifier);
-
-            BasisPointRaycasterRef = new GameObject(nameof(BasisPointRaycaster));
-            BasisPointRaycasterRef.transform.parent = BasisLocalPlayer.Instance.transform;
-            BasisPointRaycasterRef.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-            BasisPointRaycaster = BasisHelpers.GetOrAddComponent<BasisPointRaycaster>(BasisPointRaycasterRef);
-            BasisPointRaycaster.Initialize(BaseInput);
-
+            BasisDebug.Log("Adding RayCaster " + input.UniqueDeviceIdentifier);
+            if (BasisPointRaycasterRef == null)
+            {
+                BasisPointRaycasterRef = new GameObject(nameof(BasisPointRaycaster));
+                BasisPointRaycasterRef.transform.parent = BasisLocalPlayer.Instance.transform;
+                BasisPointRaycasterRef.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            }
+            if (BasisPointRaycaster == null)
+            {
+                BasisPointRaycaster = BasisHelpers.GetOrAddComponent<BasisPointRaycaster>(BasisPointRaycasterRef);
+                BasisPointRaycaster.Initialize(input);
+            }
             BasisUIRaycast = new BasisUIRaycast();
-            BasisUIRaycast.Initialize(BaseInput, BasisPointRaycaster);
+            BasisUIRaycast.Initialize(input, BasisPointRaycaster);
+
+            if (InteractionLineRenderer == null)
+            {
+                GameObject LineRenderer = new GameObject($"{input.name} Line Renderer", new System.Type[] { typeof(LineRenderer) });
+                LineRenderer.TryGetComponent<LineRenderer>(out InteractionLineRenderer);
+                // deskies cant hover grab :)
+                hoverSphere = new BasisHoverSphere(input.RaycastCoord.position, BasisPlayerInteract.hoverRadius, BasisPlayerInteract.k_MaxPhysicHitCount, BasisPlayerInteract.Mask, !BasisPlayerInteract.IsDesktopCenterEye(input), BasisPlayerInteract.OnlySortClosest);
+                LineRenderer.transform.SetParent(BasisLocalPlayer.Instance.transform);
+                LineRenderer.layer = BasisPlayerInteract.IgnoreRaycasting;
+                LineRenderer.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                InteractionLineRenderer.enabled = false;
+                InteractionLineRenderer.material = BasisPlayerInteract.LineMaterial;
+                InteractionLineRenderer.startWidth = BasisPlayerInteract.interactLineWidth;
+                InteractionLineRenderer.endWidth = BasisPlayerInteract.interactLineWidth;
+                InteractionLineRenderer.useWorldSpace = true;
+                InteractionLineRenderer.textureMode = LineTextureMode.Tile;
+                InteractionLineRenderer.positionCount = 2;
+                InteractionLineRenderer.numCapVertices = 0;
+                InteractionLineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
             HasRaycaster = true;
         }
+
+        /// <summary>
+        /// Remaps a [0,1] input to the range [-1,1] with a specific center shift.
+        /// </summary>
         public float Remap01ToMinus1To1(float value)
         {
             return (0.75f - value) * 2f - 0.75f;
         }
+
+        /// <summary>
+        /// Converts a [0,1] splay value to [-1,1] and applies <see cref="HandBiasSplay"/>.
+        /// </summary>
         public float SplayConversion(float value)
         {
             return value * 2f - 1f + HandBiasSplay;
         }
+
+        /// <summary>
+        /// Loads and instantiates a visual model for this device via Addressables.
+        /// </summary>
+        /// <param name="key">Addressables key for the model prefab.</param>
         public void LoadModelWithKey(string key)
         {
             UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> op = Addressables.LoadAssetAsync<GameObject>(key);
             GameObject go = op.WaitForCompletion();
-            GameObject gameObject = GameObject.Instantiate(go);
+            GameObject gameObject = GameObject.Instantiate(go, this.transform);
             gameObject.name = CommonDeviceIdentifier;
-            gameObject.transform.parent = this.transform;
             if (gameObject.TryGetComponent(out BasisVisualTracker))
             {
                 BasisVisualTracker.Initialization(this);
             }
         }
-        public void ConvertToScaledDeviceCoord()
+        public static BasisCalibratedCoords OffsetCoords = new BasisCalibratedCoords();
+        /// <summary>
+        /// Applies player scale to <see cref="UnscaledDeviceCoord"/> to produce <see cref="ScaledDeviceCoord"/>.
+        /// </summary>
+        public void ConvertToScaledDeviceCoord(ref BasisCalibratedCoords UnscaledDeviceCoord,ref BasisCalibratedCoords ScaledDeviceCoord)
         {
-            ScaledDeviceCoord.position = UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            ScaledDeviceCoord.position = OffsetCoords.position + (UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
             ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
         }
+        public void ConvertToScaledDeviceCoord()
+        {
+            ScaledDeviceCoord.position = OffsetCoords.position + (UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+        }
+
+        /// <summary>
+        /// Writes the device’s scaled pose directly into the bound bone control.
+        /// </summary>
         public void ControlOnlyAsDevice()
         {
             if (hasRoleAssigned && Control.HasTracked != BasisHasTracked.HasNoTracker)
@@ -375,18 +652,13 @@ namespace Basis.Scripts.Device_Management.Devices
             }
 
         }
-        public void OnDisable()
-        {
-            StopTracking();
-        }
+
+        /// <summary>
+        /// Unity callback: final cleanup. Resets rig-layer tracker hints and destroys UI raycast artifacts.
+        /// </summary>
         public void OnDestroy()
         {
             StopTracking();
-            if (hasRoleAssigned && trackedRole != BasisBoneTrackedRole.CenterEye)
-            {
-                //this solves hands being removed and there tracker states
-                SetRealTrackers(BasisHasTracked.HasNoTracker, BasisHasRigLayer.HasNoRigLayer);
-            }
             if (BasisUIRaycast != null)
             {
                 BasisUIRaycast.OnDeInitialize();
@@ -394,14 +666,46 @@ namespace Basis.Scripts.Device_Management.Devices
                 {
                     GameObject.Destroy(BasisUIRaycast.highlightQuadInstance.gameObject);
                 }
+            }
+            if (BasisPointRaycaster != null)
+            {
                 GameObject.Destroy(BasisPointRaycaster.gameObject);
             }
+            if (InteractionLineRenderer != null)
+            {
+                GameObject.Destroy(InteractionLineRenderer.gameObject);
+            }
         }
+
+        /// <summary>
+        /// Device-specific poll implementation. Populate <see cref="UnscaledDeviceCoord"/> and/or
+        /// <see cref="ScaledDeviceCoord"/> and call <see cref="UpdateInputEvents"/> at the end.
+        /// </summary>
         public abstract void DoPollData();
+
+        /// <summary>
+        /// Implementor should show a tracked visual (controller model) if appropriate.
+        /// </summary>
         public abstract void ShowTrackedVisual();
+
+        /// <summary>
+        /// Implementor-specific haptics (if supported).
+        /// </summary>
+        /// <param name="duration">Duration in seconds.</param>
+        /// <param name="amplitude">Amplitude/intensity.</param>
+        /// <param name="frequency">Frequency (Hz or device-specific units).</param>
         public abstract void PlayHaptic(float duration = 0.25f, float amplitude = 0.5f, float frequency = 0.5f);
+
+        /// <summary>
+        /// Implementor-specific sound playback.
+        /// </summary>
+        /// <param name="SoundEffectName">Named effect identifier.</param>
+        /// <param name="Volume">Playback volume.</param>
         public abstract void PlaySoundEffect(string SoundEffectName, float Volume);
 
+        /// <summary>
+        /// Default helper to spawn a model using device matching or a fallback visual.
+        /// </summary>
         public void ShowTrackedVisualDefaultImplementation()
         {
             if (BasisVisualTracker == null)

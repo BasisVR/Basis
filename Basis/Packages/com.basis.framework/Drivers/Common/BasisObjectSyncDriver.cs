@@ -7,17 +7,23 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Jobs;
 
+/// <summary>
+/// Orchestrates object-sync networking for owned and remotely owned objects:
+/// sends local updates on a cadence and smoothly lerps remote transforms via a Burst job.
+/// </summary>
 public static class BasisObjectSyncDriver
 {
     public static readonly HashSet<BasisObjectSyncNetworking> OwnedObjectSyncs = new();
     public static readonly HashSet<BasisObjectSyncNetworking> RemoteOwnedObjectSyncs = new();
-    public static float TargetMilliseconds = 0.25f;
 
+    public static float TargetMilliseconds = 0.25f;
     private static double _lastUpdateTime;
 
+    // Remote interpolation buffers
     private static TransformAccessArray _remoteTransforms;
     private static NativeList<float3> _targetPositions;
     private static NativeList<quaternion> _targetRotations;
+    private static NativeList<float3> _targetScales;          // NEW: scales
     private static NativeList<float> _lerpMultipliers;
 
     private static Transform[] _cachedTransforms = Array.Empty<Transform>();
@@ -28,6 +34,7 @@ public static class BasisObjectSyncDriver
         _remoteTransforms = new TransformAccessArray(0);
         _targetPositions = new NativeList<float3>(128, Allocator.Persistent);
         _targetRotations = new NativeList<quaternion>(128, Allocator.Persistent);
+        _targetScales = new NativeList<float3>(128, Allocator.Persistent); // NEW
         _lerpMultipliers = new NativeList<float>(128, Allocator.Persistent);
     }
 
@@ -38,15 +45,13 @@ public static class BasisObjectSyncDriver
         if (_remoteTransforms.isCreated) _remoteTransforms.Dispose();
         if (_targetPositions.IsCreated) _targetPositions.Dispose();
         if (_targetRotations.IsCreated) _targetRotations.Dispose();
+        if (_targetScales.IsCreated) _targetScales.Dispose();              // NEW
         if (_lerpMultipliers.IsCreated) _lerpMultipliers.Dispose();
     }
 
     public static void TransmitOwnedPickups(double currentTime)
     {
-        if (currentTime - _lastUpdateTime < TargetMilliseconds)
-        {
-            return;
-        }
+        if (currentTime - _lastUpdateTime < TargetMilliseconds) return;
 
         _lastUpdateTime = currentTime;
 
@@ -58,35 +63,31 @@ public static class BasisObjectSyncDriver
             }
         }
     }
+
     public static void ScheduleRemoteLerp(float deltaTime)
     {
         _remoteJobHandle.Complete();
 
         int count = 0;
-
         foreach (var obj in RemoteOwnedObjectSyncs)
         {
             if (obj == null || obj.IsOwnedLocallyOnClient) continue;
             count++;
         }
-
         if (count == 0) return;
 
         if (_cachedTransforms.Length != count)
-        {
             _cachedTransforms = new Transform[count];
-        }
 
         int index = 0;
-        bool State = _targetPositions.Length <= count;
-
-        if (State)
+        bool needResize = _targetPositions.Length <= count;
+        if (needResize)
         {
             _targetPositions.ResizeUninitialized(count);
             _targetRotations.ResizeUninitialized(count);
+            _targetScales.ResizeUninitialized(count);         // NEW
             _lerpMultipliers.ResizeUninitialized(count);
         }
-
 
         foreach (BasisObjectSyncNetworking obj in RemoteOwnedObjectSyncs)
         {
@@ -96,10 +97,12 @@ public static class BasisObjectSyncDriver
 
             _targetPositions[index] = obj.BTU.TargetPosition;
             _targetRotations[index] = obj.BTU.TargetRotation;
+            _targetScales[index] = obj.BTU.TargetScales;  // NEW
             _lerpMultipliers[index] = obj.BTU.LerpMultipliers * deltaTime;
 
             index++;
         }
+
         if (_remoteTransforms.isCreated)
         {
             if (_remoteTransforms.length != _cachedTransforms.Length)
@@ -121,6 +124,7 @@ public static class BasisObjectSyncDriver
         {
             targetPositions = _targetPositions,
             targetRotations = _targetRotations,
+            targetScales = _targetScales,     // NEW
             lerpMultipliers = _lerpMultipliers
         };
 
@@ -137,6 +141,7 @@ public static class BasisObjectSyncDriver
     {
         [ReadOnly] public NativeList<float3> targetPositions;
         [ReadOnly] public NativeList<quaternion> targetRotations;
+        [ReadOnly] public NativeList<float3> targetScales;     // NEW
         [ReadOnly] public NativeList<float> lerpMultipliers;
 
         public void Execute(int index, TransformAccess transform)
@@ -147,48 +152,51 @@ public static class BasisObjectSyncDriver
             if (transform.isValid)
             {
                 transform.GetLocalPositionAndRotation(out Vector3 currentPos, out Quaternion currentRot);
+
                 float3 newPos = math.lerp(currentPos, targetPositions[index], lerp);
                 quaternion newRot = math.slerp(currentRot, targetRotations[index], lerp);
 
+                // Scale: lerp from current to target
+                Vector3 currentScale = transform.localScale;
+                float3 newScale = math.lerp(currentScale, targetScales[index], lerp);
+
                 transform.SetLocalPositionAndRotation(newPos, newRot);
+                transform.localScale = new Vector3(newScale.x, newScale.y, newScale.z);
             }
         }
     }
 
     #region Static API
-
     public static void AddLocalOwner(BasisObjectSyncNetworking obj)
     {
-        if (obj != null)
-            OwnedObjectSyncs.Add(obj);
+        if (obj != null) OwnedObjectSyncs.Add(obj);
     }
 
     public static void RemoveLocalOwner(BasisObjectSyncNetworking obj)
     {
-        if (obj != null)
-            OwnedObjectSyncs.Remove(obj);
+        if (obj != null) OwnedObjectSyncs.Remove(obj);
     }
 
     public static void AddRemoteOwner(BasisObjectSyncNetworking obj)
     {
-        if (obj != null)
-            RemoteOwnedObjectSyncs.Add(obj);
+        if (obj != null) RemoteOwnedObjectSyncs.Add(obj);
     }
 
     public static void RemoveRemoteOwner(BasisObjectSyncNetworking obj)
     {
-        if (obj != null)
-            RemoteOwnedObjectSyncs.Remove(obj);
+        if (obj != null) RemoteOwnedObjectSyncs.Remove(obj);
     }
-
     #endregion
 }
 
+/// <summary>
+/// Network translation update payload used to feed the interpolation system.
+/// </summary>
 [Serializable]
 public struct BasisTranslationUpdate
 {
     public float3 TargetPosition;
     public quaternion TargetRotation;
-    public float3 TargetScales;
+    public float3 TargetScales;    // already present; now applied by job
     public float LerpMultipliers;
 }

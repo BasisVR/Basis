@@ -14,10 +14,12 @@ using UnityEngine.UI;
 
 namespace Basis.Scripts.UI
 {
-    public partial class BasisUIRaycast
+    public class BasisUIRaycast
     {
         public BasisPointRaycaster BasisPointRaycaster;
-        public static LayerMask UILayer = LayerMask.NameToLayer("UI");
+        static LayerMask OverlayUI;
+        static LayerMask UILayer;
+        public static LayerMask UILayers;
         public Material lineMaterial;
         public float lineWidth = 0.01f;
         public LineRenderer LineRenderer;
@@ -30,7 +32,6 @@ namespace Basis.Scripts.UI
             On,
             Off,
             NA
-
         }
         public BasisInput BasisInput;
         private string DeviceName;
@@ -47,15 +48,20 @@ namespace Basis.Scripts.UI
         public bool WasCorrectLayer = false;
         static readonly Vector3[] s_Corners = new Vector3[4];
         [SerializeField]
-        public List<RaycastUIHitData> SortedGraphics = new List<RaycastUIHitData>();
+        public List<BasisRaycastUIHitData> SortedGraphics = new List<BasisRaycastUIHitData>();
         [SerializeField]
         public List<RaycastResult> SortedRays = new List<RaycastResult>();
         public List<Canvas> Results = new List<Canvas>();
         public bool IgnoreReversedGraphics = true;
         public Vector3 highlightQuadInitalSize;
         public bool HasOnPlayersHeightChanged = false;
+
         public void Initialize(BasisInput basisInput, BasisPointRaycaster pointRaycaster)
         {
+
+            OverlayUI = LayerMask.NameToLayer("OverlayUI");
+            UILayer = LayerMask.NameToLayer("UI");
+            UILayers = LayerMask.GetMask("UI", "OverlayUI");
             CurrentEventData = new BasisPointerEventData(EventSystem.current);
             BasisInput = basisInput;
             BasisPointRaycaster = pointRaycaster;
@@ -108,6 +114,7 @@ namespace Basis.Scripts.UI
 
             CachedLinerRenderState = HasLineRenderer;
         }
+
         public void OnDeInitialize()
         {
             if (HasOnPlayersHeightChanged)
@@ -115,6 +122,7 @@ namespace Basis.Scripts.UI
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
             }
         }
+
         public void OnPlayersHeightChanged()
         {
             if (LineRenderer != null)
@@ -128,6 +136,7 @@ namespace Basis.Scripts.UI
                 highlightQuadInstance.transform.localScale = highlightQuadInitalSize * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             }
         }
+
         public void ApplyStaticDataToRaycastResult()
         {
             RaycastResult.displayIndex = 0;
@@ -135,6 +144,7 @@ namespace Basis.Scripts.UI
             RaycastResult.depth = 0;
             RaycastResult.module = BasisPointRaycaster;
         }
+
         public void HandleUIRaycast()
         {
             SortedGraphics.Clear();
@@ -162,7 +172,7 @@ namespace Basis.Scripts.UI
             }
 
             HadRaycastUITarget = RaycastToUI();
-            
+
             if (HadRaycastUITarget)
             {
                 HandleDidHit();
@@ -172,30 +182,38 @@ namespace Basis.Scripts.UI
                 HandleNoHit();
             }
         }
+
         private void HandleNoHit()
         {
             ResetRenderers();
             RaycastResult = new RaycastResult();
             PhysicHit = new RaycastHit();
         }
+
+        bool ContainsLayer(LayerMask mask, int layer)
+        {
+            return (mask.value & (1 << layer)) != 0;
+        }
+
         private void HandleDidHit()
         {
-            WasCorrectLayer = PhysicHit.transform.gameObject.layer == UILayer;
+            WasCorrectLayer = ContainsLayer(UILayers, PhysicHit.transform.gameObject.layer);
             if (WasCorrectLayer)
             {
-                UpdateRayCastResult();//sets all RaycastResult data
-                UpdateLineRenderer();//updates the line denderer
-                UpdateRadicalRenderer();// moves the Redical renderer
+                UpdateRayCastResult();   // sets all RaycastResult data
+                UpdateLineRenderer();    // updates the line renderer
+                UpdateRadicalRenderer(); // moves the Redical renderer
             }
             else
             {
                 ResetRenderers();
             }
         }
-        
+
         private void UpdateRayCastResult()
         {
-            RaycastResult.gameObject = PhysicHit.transform.gameObject;
+            var physicshit = PhysicHit.transform.gameObject;
+            RaycastResult.gameObject = physicshit;
             RaycastResult.distance = PhysicHit.distance;
             if (BasisPointRaycaster.UseWorldPosition)
             {
@@ -206,7 +224,7 @@ namespace Basis.Scripts.UI
                 // we assign screenpoint manually example in BasisLocalCameraDriver
             }
             RaycastResult.screenPosition = BasisPointRaycaster.ScreenPoint;
-            FoundCanvas = PhysicHit.transform.gameObject.GetComponentInParent<Canvas>();
+            FoundCanvas = physicshit.GetComponentInParent<Canvas>();
             if (FoundCanvas != null)
             {
                 RaycastResult.sortingLayer = FoundCanvas.sortingLayerID;
@@ -215,6 +233,7 @@ namespace Basis.Scripts.UI
             RaycastResult.worldPosition = BasisPointRaycaster.ray.origin + BasisPointRaycaster.ray.direction * PhysicHit.distance;
             RaycastResult.worldNormal = PhysicHit.normal;
         }
+
         private void UpdateLineRenderer()
         {
             if (HasLineRenderer && !CachedLinerRenderState)
@@ -243,7 +262,7 @@ namespace Basis.Scripts.UI
                 {
                     if (BasisDeviceManagement.IsUserInDesktop() && BasisCursorManagement.ActiveLockState() != CursorLockMode.Locked)
                     {
-                        if (HighlightState !=  ActiveStateOfHightlight.Off)
+                        if (HighlightState != ActiveStateOfHightlight.Off)
                         {
                             highlightQuadInstance.SetActive(false);
                             HighlightState = ActiveStateOfHightlight.Off;
@@ -284,18 +303,45 @@ namespace Basis.Scripts.UI
                 HighlightState = ActiveStateOfHightlight.Off;
             }
         }
-        
-        
+
+        // NEW: priority helper so OverlayUI canvases always win
+        private int GetCanvasPriority(Canvas canvas)
+        {
+            if (canvas == null)
+                return 0;
+
+            // Any canvas on the OverlayUI layer gets a huge priority bump
+            if (canvas.gameObject.layer == OverlayUI)
+                return 1000;
+
+            // Normal canvases
+            return 0;
+        }
+
         public bool RaycastToUI()
         {
-            Results.Sort((c1, c2) => c2.sortingOrder.CompareTo(c1.sortingOrder));
+            // Sort canvases so OverlayUI always comes first,
+            // then fall back to sortingOrder (higher first).
+            Results.Sort((c1, c2) =>
+            {
+                int p1 = GetCanvasPriority(c1);
+                int p2 = GetCanvasPriority(c2);
+
+                int priorityCompare = p2.CompareTo(p1);
+                if (priorityCompare != 0)
+                    return priorityCompare;
+
+                // Same priority class: use sortingOrder like before
+                return c2.sortingOrder.CompareTo(c1.sortingOrder);
+            });
+
             int Count = Results.Count;
             for (int Index = 0; Index < Count; Index++)
             {
                 Canvas CurrentTopLevel = Results[Index];
                 if (CurrentTopLevel != null)
                 {
-                    if(CurrentTopLevel.worldCamera == null)
+                    if (CurrentTopLevel.worldCamera == null)
                     {
                         CurrentTopLevel.worldCamera = BasisLocalCameraDriver.Instance.Camera;
                     }
@@ -309,7 +355,8 @@ namespace Basis.Scripts.UI
             }
             return false;
         }
-        public bool ProcessSortedHitsResults(Canvas canvas, bool hitSomething, List<RaycastUIHitData> raycastHitDatums, List<RaycastResult> resultAppendList)
+
+        public bool ProcessSortedHitsResults(Canvas canvas, bool hitSomething, List<BasisRaycastUIHitData> raycastHitDatums, List<RaycastResult> resultAppendList)
         {
             // Now that we have a list of sorted hits, process any extra settings and filters.
             foreach (var hitData in raycastHitDatums)
@@ -356,7 +403,9 @@ namespace Basis.Scripts.UI
 
             return hitSomething;
         }
+
         public void Sort<T>(IList<T> hits, Comparison<T> comparer) where T : struct => Sort(hits, comparer, hits.Count);
+
         public static void Sort<T>(IList<T> hits, Comparison<T> comparer, int count) where T : struct
         {
             if (count <= 1)
@@ -377,7 +426,8 @@ namespace Basis.Scripts.UI
                 }
             } while (fullPass == false);
         }
-        public void SortedRaycastGraphics(Canvas canvas, Camera eventCamera, ref List<RaycastUIHitData> results)
+
+        public void SortedRaycastGraphics(Canvas canvas, Camera eventCamera, ref List<BasisRaycastUIHitData> results)
         {
             var graphics = GraphicRegistry.GetGraphicsForCanvas(canvas);
 
@@ -386,7 +436,7 @@ namespace Basis.Scripts.UI
             {
                 var graphic = graphics[i];
 
-                if (!ShouldTestGraphic(graphic,BasisPlayerInteract.Mask))
+                if (!ShouldTestGraphic(graphic, BasisPlayerInteract.Mask))
                     continue;
 
                 var raycastPadding = graphic.raycastPadding;
@@ -399,7 +449,7 @@ namespace Basis.Scripts.UI
                         // mask/image intersection - See Unity docs on eventAlphaThreshold for when this does anything
                         if (graphic.Raycast(screenPos, eventCamera))
                         {
-                            results.Add(new RaycastUIHitData(graphic, worldPos, screenPos, distance, eventCamera.targetDisplay));
+                            results.Add(new BasisRaycastUIHitData(graphic, worldPos, screenPos, distance, eventCamera.targetDisplay));
                         }
                     }
                 }
@@ -419,6 +469,7 @@ namespace Basis.Scripts.UI
 
             return true;
         }
+
         public bool SphereIntersectsRectTransform(RectTransform transform, Vector4 raycastPadding, Vector3 from, out Vector3 worldPosition, out float distance)
         {
             var plane = GetRectTransformPlane(transform, raycastPadding, s_Corners);
@@ -500,7 +551,9 @@ namespace Basis.Scripts.UI
             // Transform the local corners to world space, which is from RectTransform.GetWorldCorners.
             var localToWorldMatrix = transform.localToWorldMatrix;
             for (var index = 0; index < 4; ++index)
+            {
                 fourCornersArray[index] = localToWorldMatrix.MultiplyPoint(fourCornersArray[index]);
+            }
         }
     }
 }

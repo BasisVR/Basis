@@ -1,6 +1,6 @@
 using Basis;
 using Basis.Network.Server.Generic;
-using LiteNetLib;
+using Basis.Network.Core;
 using System.Reflection;
 namespace BasisNetworkConsole
 {

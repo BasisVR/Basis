@@ -9,64 +9,161 @@ using Basis.Scripts.UI.UI_Panels;
 
 public enum CameraOrientation { Landscape, Portrait }
 
-[System.Serializable]
-
+/// <summary>
+/// Handles the handheld camera UI: wiring buttons, toggles, sliders; loading/saving
+/// settings; and reflecting values into the capture camera and post-processing stack.
+/// </summary>
+[Serializable]
 public class BasisHandHeldCameraUI
 {
+    // ---------- Buttons / Toggles / Widgets ----------
+
+    /// <summary>Capture a photo from the handheld camera.</summary>
     public Button TakePhotoButton;
+
+    /// <summary>Reset all UI-controlled settings to defaults.</summary>
     public Button ResetButton;
+
+    /// <summary>Close the camera UI and destroy the handheld camera instance.</summary>
     public Button CloseButton;
+
+    /// <summary>Trigger a photo timer (countdown) capture.</summary>
     public Button Timer;
+
+    /// <summary>Toggle nameplate overlay visibility.</summary>
     public Button Nameplates;
+
+    /// <summary>Toggle desktop output override behavior.</summary>
     public Button OverrideDesktopOutput;
+
+    /// <summary>Toggle selfie (flip) orientation of the camera reference.</summary>
     public Button Selfie;
+
     [Space(10)]
+    /// <summary>Focus cursor GameObject displayed on the preview.</summary>
     public GameObject focusCursor;
+
+    /// <summary>Button to switch DoF to Auto mode.</summary>
     public Button DepthModeAutoButton;
+
+    /// <summary>Button to switch DoF to Manual mode.</summary>
     public Button DepthModeManualButton;
+
+    /// <summary>Depth of Field mode selector.</summary>
     public enum DepthMode { Auto, Manual }
+
+    /// <summary>Current DoF mode.</summary>
     public DepthMode currentDepthMode = DepthMode.Auto;
+
     [Space(10)]
+    /// <summary>Toggle between resolution presets (cycles indexed presets).</summary>
     public Toggle Resolution;
+
+    /// <summary>Resolution indicator sprites; one active at a time.</summary>
     public GameObject[] ResolutionSprites; // 4 resolution sprites
+
     private int currentResolutionIndex = 0;
+
+    /// <summary>Toggle capture format (PNG / EXR).</summary>
     public Toggle Format;
+
+    /// <summary>True if EXR is selected; otherwise PNG.</summary>
     public bool useEXR => Format != null && Format.isOn;
+
     private const int FORMAT_PNG = 0;
     private const int FORMAT_EXR = 1;
-    public GameObject PngSprite; // Sprite 1
-    public GameObject ExrSprite; // Sprite 2
+
+    /// <summary>UI sprite shown when PNG is active.</summary>
+    public GameObject PngSprite;
+
+    /// <summary>UI sprite shown when EXR is active.</summary>
+    public GameObject ExrSprite;
+
+    /// <summary>UI sprite indicating DoF Auto mode.</summary>
     public GameObject DoFAutoSprite;
+
+    /// <summary>UI sprite indicating DoF Manual mode.</summary>
     public GameObject DoFManualSprite;
+
     [Space(10)]
+    /// <summary>Discrete exposure control; mapped to <see cref="exposureStops"/>.</summary>
     public Slider ExposureSlider;
+
     private float[] exposureStops = new float[] { -3f, -2.5f, -2f, -1.5f, -1f, -0.5f, 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f };
+
     [Space(10)]
+    /// <summary>UI readout for DoF focus distance.</summary>
     public TextMeshProUGUI DOFFocusOutput;
+
+    /// <summary>UI readout for DoF aperture.</summary>
     public TextMeshProUGUI DepthApertureOutput;
+
+    /// <summary>UI readout for bloom intensity.</summary>
     public TextMeshProUGUI BloomIntensityOutput;
+
+    /// <summary>UI readout for bloom threshold.</summary>
     public TextMeshProUGUI BloomThreshholdOutput;
+
+    /// <summary>UI readout for contrast.</summary>
     public TextMeshProUGUI ContrastOutput;
+
+    /// <summary>UI readout for saturation.</summary>
     public TextMeshProUGUI SaturationOutput;
+
+    /// <summary>UI readout for field-of-view.</summary>
     public TextMeshProUGUI FOVOutput;
+
     [Space(10)]
+    /// <summary>Field-of-view slider.</summary>
     public Slider FOVSlider;
+
+    /// <summary>Manual DoF focus distance slider.</summary>
     public Slider DepthFocusDistanceSlider;
+
+    /// <summary>DoF aperture slider.</summary>
     public Slider DepthApertureSlider;
+
+    /// <summary>Bloom intensity slider.</summary>
     public Slider BloomIntensitySlider;
+
+    /// <summary>Bloom threshold slider.</summary>
     public Slider BloomThresholdSlider;
+
+    /// <summary>Color adjustments: contrast slider.</summary>
     public Slider ContrastSlider;
+
+    /// <summary>Color adjustments: saturation slider.</summary>
     public Slider SaturationSlider;
+
     [Space(10)]
+    /// <summary>UI element reoriented between portrait/landscape.</summary>
     public RectTransform uiOrientationElement;
+
+    /// <summary>Secondary UI element reoriented between portrait/landscape.</summary>
     public RectTransform uiOrientationElement2;
+
+    /// <summary>Tertiary UI element reoriented between portrait/landscape.</summary>
     public RectTransform uiOrientationElement3;
+
+    /// <summary>Quaternary UI element reoriented between portrait/landscape.</summary>
     public RectTransform uiOrientationElement4;
+
+    /// <summary>Quinary UI element reoriented between portrait/landscape.</summary>
     public RectTransform uiOrientationElement5;
+
     [Space(10)]
+    /// <summary>Reference object used for selfie flipping (rotates 180° yaw).</summary>
     public GameObject cameraReference;
+
     private bool selfie = false;
+
+    /// <summary>The owning handheld camera component.</summary>
     public BasisHandHeldCamera HHC;
+
+    /// <summary>
+    /// Initializes the UI against a handheld camera: caches PP references, loads settings,
+    /// binds events, configures ranges and format UI, and seeds slider values.
+    /// </summary>
     public async Task Initialize(BasisHandHeldCamera hhc)
     {
         HHC = hhc;
@@ -78,6 +175,9 @@ public class BasisHandHeldCameraUI
         SetInitialSliderValues();
     }
 
+    /// <summary>
+    /// Reads post-processing volumes/components used by the UI and ensures color adjustments are active.
+    /// </summary>
     private void CachePostProcessingReferences()
     {
         HHC.MetaData.Profile.TryGet(out HHC.MetaData.depthOfField);
@@ -87,6 +187,9 @@ public class BasisHandHeldCameraUI
             HHC.MetaData.colorAdjustments.active = true;
     }
 
+    /// <summary>
+    /// Wires all UI controls to the appropriate camera handlers.
+    /// </summary>
     private void BindUIEvents()
     {
         TakePhotoButton?.onClick.AddListener(HHC.CapturePhoto);
@@ -113,6 +216,9 @@ public class BasisHandHeldCameraUI
         DepthModeManualButton?.onClick.AddListener(() => SetDepthMode(DepthMode.Manual));
     }
 
+    /// <summary>
+    /// Defines min/max ranges for sliders and seeds FOV from the capture camera.
+    /// </summary>
     private void SetupSliderRanges()
     {
         DepthApertureSlider.minValue = 0;
@@ -132,15 +238,21 @@ public class BasisHandHeldCameraUI
         FOVSlider.value = HHC.captureCamera.fieldOfView;
     }
 
+    /// <summary>Initializes PNG/EXR toggle sprites based on current state.</summary>
     private void InitializeFormatUI()
     {
         OnFormatToggleChanged(Format.isOn);
     }
 
+    /// <summary>Seeds initial slider values (currently seeds FOV from camera).</summary>
     private void SetInitialSliderValues()
     {
         FOVSlider.value = HHC.captureCamera.fieldOfView;
     }
+
+    /// <summary>
+    /// Rotates/positions UI groups depending on device orientation.
+    /// </summary>
     public void SetUIOrientation(CameraOrientation orientation)
     {
         if (uiOrientationElement == null)
@@ -151,46 +263,32 @@ public class BasisHandHeldCameraUI
 
         bool isPortrait = orientation == CameraOrientation.Portrait;
 
-        uiOrientationElement.localRotation = isPortrait
-            ? Quaternion.Euler(0f, 0f, -90f)
-            : Quaternion.identity;
-        uiOrientationElement.localPosition = isPortrait
-            ? new Vector3(-525f, 0f, 0f)
-            : Vector3.zero;
+        uiOrientationElement.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.identity;
+        uiOrientationElement.localPosition = isPortrait ? new Vector3(-525f, 0f, 0f) : Vector3.zero;
 
-        uiOrientationElement2.localRotation = isPortrait
-            ? Quaternion.Euler(0f, 0f, -90f)
-            : Quaternion.identity;
-        uiOrientationElement2.localPosition = isPortrait
-            ? new Vector3(-500f, 0f, 0f)
-            : Vector3.zero;
+        uiOrientationElement2.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.identity;
+        uiOrientationElement2.localPosition = isPortrait ? new Vector3(-500f, 0f, 0f) : Vector3.zero;
 
-        uiOrientationElement3.localRotation = isPortrait
-            ? Quaternion.Euler(0f, 0f, -90f)
-            : Quaternion.identity;
-        uiOrientationElement3.localPosition = isPortrait
-            ? new Vector3(1050f, 0f, 0f)
-            : new Vector3(0f, 600f, 0f);
+        uiOrientationElement3.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.identity;
+        uiOrientationElement3.localPosition = isPortrait ? new Vector3(1050f, 0f, 0f) : new Vector3(0f, 600f, 0f);
 
-        uiOrientationElement4.localRotation = isPortrait
-            ? Quaternion.Euler(0f, 0f, 0f)
-            : Quaternion.Euler(0f, 0f, 90f);
-        uiOrientationElement4.localPosition = isPortrait
-            ? new Vector3(0f, -725f, 0f)
-            : new Vector3(1250f, 0f, 0f);
+        uiOrientationElement4.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, 0f) : Quaternion.Euler(0f, 0f, 90f);
+        uiOrientationElement4.localPosition = isPortrait ? new Vector3(0f, -725f, 0f) : new Vector3(1250f, 0f, 0f);
 
-        uiOrientationElement5.localRotation = isPortrait
-            ? Quaternion.Euler(0f, 0f, -90f)
-            : Quaternion.Euler(0f, 0f, 0f);
-        uiOrientationElement5.localPosition = isPortrait
-            ? new Vector3(0f, -525f, 0f)
-            : new Vector3(0f, 0f, 0f);
+        uiOrientationElement5.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.Euler(0f, 0f, 0f);
+        uiOrientationElement5.localPosition = isPortrait ? new Vector3(0f, -525f, 0f) : new Vector3(0f, 0f, 0f);
     }
+
+    /// <summary>Flips the camera reference by 180° yaw for a quick selfie toggle.</summary>
     private void SelfieToggle()
     {
         cameraReference.transform.rotation *= Quaternion.Euler(0, 180, 0);
         selfie = !selfie;
     }
+
+    /// <summary>
+    /// Switches Depth of Field mode between Auto and Manual, showing/hiding relevant controls.
+    /// </summary>
     public void SetDepthMode(DepthMode mode)
     {
         currentDepthMode = mode;
@@ -200,8 +298,9 @@ public class BasisHandHeldCameraUI
 
         focusCursor?.SetActive(dofIsActive);
 
-        DepthApertureSlider.gameObject.SetActive(dofIsActive); // Only show if DoF is active
-        DepthFocusDistanceSlider.gameObject.SetActive(dofIsActive && !useAuto); // Only in Manual mode
+        // Show if DoF is active; focus slider only in Manual
+        DepthApertureSlider.gameObject.SetActive(dofIsActive);
+        DepthFocusDistanceSlider.gameObject.SetActive(dofIsActive && !useAuto);
 
         if (DoFAutoSprite != null) DoFAutoSprite.SetActive(dofIsActive && useAuto);
         if (DoFManualSprite != null) DoFManualSprite.SetActive(dofIsActive && !useAuto);
@@ -209,17 +308,22 @@ public class BasisHandHeldCameraUI
         BasisDebug.Log($"[DepthMode] Switched to {(useAuto ? "Auto" : "Manual")}");
     }
 
+    /// <summary>
+    /// Maps a discrete index to exposure stops and applies post-exposure.
+    /// </summary>
     public void ChangeExposureCompensation(float index)
     {
         if (HHC.MetaData.colorAdjustments != null)
         {
             int i = Mathf.Clamp((int)index, 0, exposureStops.Length - 1);
             float exposureValue = exposureStops[i];
-
             HHC.MetaData.colorAdjustments.postExposure.value = exposureValue;
         }
     }
 
+    /// <summary>
+    /// Handles PNG/EXR toggle: sets capture format and updates UI sprites.
+    /// </summary>
     private void OnFormatToggleChanged(bool state)
     {
         BasisDebug.Log($"[Format] Changed to {(state ? "EXR" : "PNG")}");
@@ -227,6 +331,10 @@ public class BasisHandHeldCameraUI
         if (PngSprite != null) PngSprite.SetActive(!state);
         if (ExrSprite != null) ExrSprite.SetActive(state);
     }
+
+    /// <summary>
+    /// Cycles through resolution presets, updates camera and UI indicators.
+    /// </summary>
     private void OnResolutionToggleChanged(bool state)
     {
         currentResolutionIndex = (currentResolutionIndex + 1) % 4;
@@ -234,11 +342,14 @@ public class BasisHandHeldCameraUI
         UpdateResolutionSprites();
         BasisDebug.Log($"[Resolution] Changed to index {currentResolutionIndex}");
     }
+
+    /// <summary>
+    /// Activates only the sprite matching the current resolution index.
+    /// </summary>
     private void UpdateResolutionSprites()
     {
         int resolutionCount = ResolutionSprites.Length;
 
-        // Ensure index is in bounds before the loop
         if (currentResolutionIndex < 0 || currentResolutionIndex >= resolutionCount)
         {
             BasisDebug.LogWarning($"[UpdateResolutionSprites] Invalid currentResolutionIndex: {currentResolutionIndex}, ResolutionSprites.Length: {resolutionCount}");
@@ -251,16 +362,23 @@ public class BasisHandHeldCameraUI
                 ResolutionSprites[i].SetActive(i == currentResolutionIndex);
         }
     }
+
+    /// <summary>Returns the capture format index (PNG or EXR) for persistence.</summary>
     public int GetFormatIndex()
     {
         return Format != null && Format.isOn ? FORMAT_EXR : FORMAT_PNG;
     }
+
+    /// <summary>
+    /// Closes the handheld camera UI, releases player locks, and destroys the camera.
+    /// </summary>
     public void CloseUI()
     {
         if (BasisHamburgerMenu.activeCameraInstance == this.HHC.gameObject)
         {
             BasisHamburgerMenu.activeCameraInstance = null;
         }
+
         var cameraInteractable = HHC.GetComponent<BasisHandHeldCameraInteractable>();
         if (cameraInteractable != null)
             cameraInteractable.ReleasePlayerLocks();
@@ -269,7 +387,14 @@ public class BasisHandHeldCameraUI
         Cursor.visible = false;
     }
 
+    // ---------- Persistence ----------
+
+    /// <summary>Settings file name stored under <see cref="Application.persistentDataPath"/>.</summary>
     public const string CameraSettingsJson = "CameraSettings.json";
+
+    /// <summary>
+    /// Serializes and writes current camera settings to disk. Falls back to defaults on failure.
+    /// </summary>
     public async Task SaveSettings()
     {
         CameraSettings settingsToSave = CreateCurrentCameraSettings();
@@ -287,6 +412,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Builds a <see cref="CameraSettings"/> snapshot from current UI values.</summary>
     private CameraSettings CreateCurrentCameraSettings()
     {
         return new CameraSettings
@@ -304,6 +430,7 @@ public class BasisHandHeldCameraUI
         };
     }
 
+    /// <summary>Writes a default settings file when saving fails.</summary>
     private async Task SaveDefaultSettings()
     {
         try
@@ -320,6 +447,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Resets UI and camera to default values (non-persistent).</summary>
     public void ResetSettings()
     {
         try
@@ -332,6 +460,10 @@ public class BasisHandHeldCameraUI
             BasisDebug.LogError($"Error resetting settings: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Loads settings from disk; applies defaults if the file is missing or invalid.
+    /// </summary>
     public async Task LoadSettings()
     {
         string settingsFilePath = Path.Combine(Application.persistentDataPath, CameraSettingsJson);
@@ -356,21 +488,24 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>
+    /// Applies a settings snapshot to the camera, post-processing, and UI controls.
+    /// </summary>
     private void ApplySettings(CameraSettings settings)
     {
         HHC.BasisDOFInteractionHandler?.SetDoFState(settings.depthIsActive);
         try
         {
-            // Update resolution UI
+            // Resolution & indicator sprites
             currentResolutionIndex = settings.resolutionIndex;
             HHC.ChangeResolution(currentResolutionIndex);
             UpdateResolutionSprites();
 
-            // Optionally also force the Resolution toggle ON
+            // Optionally force Resolution toggle ON
             if (Resolution != null)
                 Resolution.isOn = true;
 
-            // Sync UI sliders (null safe)
+            // Sliders and toggles
             SetSliderValue(FOVSlider, settings.fov);
             SetSliderValue(BloomIntensitySlider, settings.bloomIntensity);
             SetSliderValue(BloomThresholdSlider, settings.bloomThreshold);
@@ -383,7 +518,7 @@ public class BasisHandHeldCameraUI
             if (Format != null)
                 Format.isOn = settings.formatIndex == FORMAT_EXR;
 
-            // Camera setup — safe index access
+            // Capture format guard
             if (settings.resolutionIndex >= 0 && settings.resolutionIndex < HHC.MetaData.formats.Length)
             {
                 HHC.captureFormat = HHC.MetaData.formats[settings.resolutionIndex];
@@ -394,6 +529,7 @@ public class BasisHandHeldCameraUI
                 HHC.captureFormat = HHC.MetaData.formats[0];
             }
 
+            // Camera intrinsics/exposure
             HHC.captureCamera.fieldOfView = settings.fov;
             HHC.captureCamera.focalLength = settings.focusDistance;
             HHC.captureCamera.sensorSize = new Vector2(settings.sensorSizeX, settings.sensorSizeY);
@@ -436,6 +572,7 @@ public class BasisHandHeldCameraUI
             ApplyPostProcessingSettings(settings);
             SetDepthMode(settings.useManualFocus ? DepthMode.Manual : DepthMode.Auto);
             focusCursor?.SetActive(settings.depthIsActive);
+
             BasisDebug.Log("[ApplySettings] Camera settings applied successfully.");
         }
         catch (Exception ex)
@@ -444,12 +581,16 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Sets a slider’s value without invoking change events (null-safe).</summary>
     private void SetSliderValue(Slider slider, float value)
     {
         if (slider != null)
             slider.SetValueWithoutNotify(value);
     }
 
+    /// <summary>
+    /// Applies post-processing values (exposure, color adjustments, DoF, bloom).
+    /// </summary>
     private void ApplyPostProcessingSettings(CameraSettings settings)
     {
         int clampedExposure = Mathf.Clamp(settings.exposureIndex, 0, exposureStops.Length - 1);
@@ -475,6 +616,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates DoF focus distance and readout.</summary>
     public void DepthChangeFocusDistance(float value)
     {
         if (HHC.MetaData.depthOfField != null)
@@ -484,6 +626,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates DoF aperture and readout.</summary>
     public void ChangeAperture(float value)
     {
         if (HHC.MetaData.depthOfField != null)
@@ -493,6 +636,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates bloom intensity and readout.</summary>
     public void ChangeBloomIntensity(float value)
     {
         if (HHC.MetaData.bloom != null)
@@ -502,6 +646,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates bloom threshold and readout.</summary>
     public void ChangeBloomThreshold(float value)
     {
         if (HHC.MetaData.bloom != null)
@@ -511,6 +656,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates contrast and readout.</summary>
     public void ChangeContrast(float value)
     {
         if (HHC.MetaData.colorAdjustments != null)
@@ -520,6 +666,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates saturation and readout.</summary>
     public void ChangeSaturation(float value)
     {
         if (HHC.MetaData.colorAdjustments != null)
@@ -529,6 +676,7 @@ public class BasisHandHeldCameraUI
         }
     }
 
+    /// <summary>Updates hue shift (no readout here).</summary>
     public void ChangeHueShift(float value)
     {
         if (HHC.MetaData.colorAdjustments != null)
@@ -536,33 +684,42 @@ public class BasisHandHeldCameraUI
             HHC.MetaData.colorAdjustments.hueShift.value = value;
         }
     }
-    //public void ChangeSensorSizeX(float value) { HHC.captureCamera.sensorSize = new Vector2(value, HHC.captureCamera.sensorSize.y); }
-    //public void ChangeSensorSizeY(float value) { HHC.captureCamera.sensorSize = new Vector2(HHC.captureCamera.sensorSize.x, value); }
+
+    /// <summary>Updates camera field-of-view and readout.</summary>
     public void ChangeFOV(float value)
     {
         HHC.captureCamera.fieldOfView = value;
         FOVOutput.text = value.ToString();
     }
+
+    /// <summary>Updates camera focal length (focus distance for physical camera model).</summary>
     public void ChangeFocusDistance(float value)
     {
         HHC.captureCamera.focalLength = value;
     }
+
+    /// <summary>Parses and applies aperture from metadata by index.</summary>
     public void ChangeAperture(int index)
     {
         HHC.captureCamera.aperture = float.Parse(HHC.MetaData.apertures[index].TrimStart('f', '/'));
     }
 
+    /// <summary>Parses and applies shutter speed from metadata by index (e.g. "1/125").</summary>
     public void ChangeShutterSpeed(int index)
     {
         HHC.captureCamera.shutterSpeed = 1 / float.Parse(HHC.MetaData.shutterSpeeds[index].Split('/')[1]);
     }
 
+    /// <summary>Parses and applies ISO from metadata by index.</summary>
     public void ChangeISO(int index)
     {
         HHC.captureCamera.iso = int.Parse(HHC.MetaData.isoValues[index]);
     }
 
-    [System.Serializable]
+    /// <summary>
+    /// Serializable snapshot of camera + UI state for persistence.
+    /// </summary>
+    [Serializable]
     public class CameraSettings
     {
         public CameraSettings()
@@ -584,24 +741,62 @@ public class BasisHandHeldCameraUI
             depthFocusDistance = 10;
             depthIsActive = false;
         }
+
+        /// <summary>Index into resolution presets.</summary>
         public int resolutionIndex = 0;
+
+        /// <summary>0 = PNG, 1 = EXR.</summary>
         public int formatIndex = 0;
+
+        /// <summary>Index into aperture presets (metadata).</summary>
         public int apertureIndex;
+
+        /// <summary>Index into shutter speed presets (metadata).</summary>
         public int shutterSpeedIndex;
+
+        /// <summary>Index into ISO presets (metadata).</summary>
         public int isoIndex;
+
+        /// <summary>Index into <see cref="BasisHandHeldCameraUI.exposureStops"/>.</summary>
         public int exposureIndex = 6;
+
+        /// <summary>Field of view in degrees.</summary>
         public float fov;
+
+        /// <summary>Focal length (used as focus distance in your camera model).</summary>
         public float focusDistance;
+
+        /// <summary>Camera sensor width (mm).</summary>
         public float sensorSizeX;
+
+        /// <summary>Camera sensor height (mm).</summary>
         public float sensorSizeY;
+
+        /// <summary>Bloom intensity value.</summary>
         public float bloomIntensity;
+
+        /// <summary>Bloom threshold value.</summary>
         public float bloomThreshold;
+
+        /// <summary>Color adjustments: contrast.</summary>
         public float contrast;
+
+        /// <summary>Color adjustments: saturation.</summary>
         public float saturation;
+
+        /// <summary>Color adjustments: hue shift (degrees).</summary>
         public float hueShift;
+
+        /// <summary>Depth of Field aperture (f-number).</summary>
         public float depthAperture;
+
+        /// <summary>Depth of Field focus distance.</summary>
         public float depthFocusDistance;
+
+        /// <summary>Whether Depth of Field is active.</summary>
         public bool depthIsActive;
-        public bool useManualFocus = true; // true = Manual, false = Auto
+
+        /// <summary>True = Manual focus mode; False = Auto focus mode.</summary>
+        public bool useManualFocus = true;
     }
 }

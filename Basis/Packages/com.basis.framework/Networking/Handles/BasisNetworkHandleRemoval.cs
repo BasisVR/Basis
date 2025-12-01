@@ -1,11 +1,13 @@
 using Basis.Scripts.Avatar;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Network.Core;
 using UnityEngine;
 
 public static class BasisNetworkHandleRemoval
 {
-    public static void HandleDisconnection(LiteNetLib.NetPacketReader reader)
+    public static void HandleDisconnection(NetPacketReader reader)
     {
         while (reader.AvailableBytes >= sizeof(ushort))
         {
@@ -28,10 +30,10 @@ public static class BasisNetworkHandleRemoval
         }
 
         // Queue removal on Unity's main thread
-        BasisNetworkManagement.MainThreadContext.Post(_ =>
+        BasisDeviceManagement.EnqueueOnMainThread(() =>
         {
             HandleDisconnectIdImmediate(disconnectedID);
-        }, null);
+        });
     }
 
     public static void HandleDisconnectIdImmediate(ushort disconnectedID)

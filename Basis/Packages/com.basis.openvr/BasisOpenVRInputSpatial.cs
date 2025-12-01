@@ -1,4 +1,3 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.OpenVR;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Unity.Mathematics;
@@ -34,8 +33,8 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
         {
             if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
             {
+                ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, resultPose.position);
                 UnscaledDeviceCoord.rotation = resultPose.rotation;
-                UnscaledDeviceCoord.position = (float3)resultPose.position;
 
                 ConvertToScaledDeviceCoord();
                 if (TryGetRole(out var CurrentRole) && CurrentRole == BasisBoneTrackedRole.CenterEye)
@@ -44,7 +43,8 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
                 }
             }
             ControlOnlyAsDevice();
-            UpdatePlayerControl();
+            ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+            UpdateInputEvents();
         }
         public override void ShowTrackedVisual()
         {

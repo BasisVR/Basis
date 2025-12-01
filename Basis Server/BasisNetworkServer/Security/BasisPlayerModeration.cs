@@ -1,7 +1,5 @@
 using Basis.Network.Core;
 using BasisNetworkCore;
-using LiteNetLib;
-using LiteNetLib.Utils;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -101,14 +99,13 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(reason))
                 return "[Error] Reason cannot be null or empty.";
 
-            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out ushort peer))
+            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
             {
                 return $"[Error] Unable to find player: {UUID}";
             }
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
 
-
-            NetworkServer.Server.DisconnectPeer(peers, Encoding.UTF8.GetBytes(reason));
+            peers.Disconnect(Encoding.UTF8.GetBytes(reason));
 
             if (BannedUUIDs.Contains(UUID))
             {
@@ -138,12 +135,12 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(reason))
                 return "[Error] Reason cannot be null or empty.";
 
-            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out ushort peer))
+            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
                 return $"[Error] Unable to find player: {UUID}";
 
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
 
-            NetworkServer.Server.DisconnectPeer(peers, Encoding.UTF8.GetBytes(reason));
+            peers.Disconnect(Encoding.UTF8.GetBytes(reason));
             string ip = peers.Address.ToString();
 
             if (BannedUUIDs.Contains(UUID))
@@ -172,12 +169,12 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(reason))
                 return "[Error] Reason cannot be null or empty.";
 
-            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out ushort peer))
+            if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
                 return $"[Error] Unable to find player: {UUID}";
 
             NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
 
-            NetworkServer.Server.DisconnectPeer(peers, Encoding.UTF8.GetBytes(reason));
+            peers.Disconnect(Encoding.UTF8.GetBytes(reason));
             return $"Player {UUID} kicked successfully.";
         }
 

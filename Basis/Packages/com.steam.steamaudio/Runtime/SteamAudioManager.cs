@@ -169,9 +169,6 @@ namespace SteamAudio
 
         public static SteamAudioListener GetSteamAudioListener()
         {
-            if (sSingleton.mListenerComponent == null)
-                return null;
-
             return sSingleton.mListenerComponent;
         }
 
@@ -1183,7 +1180,7 @@ namespace SteamAudio
         [MenuItem("Steam Audio/Install FMOD Studio Plugin Files", true)]
         public static bool ValidateInstallFMODStudioPluginFiles()
         {
-            return (SteamAudioSettings.Singleton.audioEngine == AudioEngineType.FMODStudio);
+            return (SteamAudioSettings.Singleton?.audioEngine == AudioEngineType.FMODStudio);
         }
 
         private static bool AssetExists(string assetPath)

@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk.Players;
 public class SMModuleSitStand : BasisSettingsBase
 {
     public static bool IsSteatedMode = false;
+    public static float MissingHeightDelta = 0;
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
         switch (optionValue)
@@ -10,16 +11,14 @@ public class SMModuleSitStand : BasisSettingsBase
             case "Seated Mode":
                 if (IsSteatedMode == false)
                 {
-                    BasisHeightDriver.ChangeEyeHeightMode(BasisLocalPlayer.Instance, BasisSelectedHeightMode.EyeHeight);
+                    BasisHeightDriver.CapturePlayerHeight(BasisLocalPlayer.Instance);
+                    MissingHeightDelta = BasisLocalHeight.DefaultPlayerEyeHeight - BasisLocalPlayer.Instance.CurrentHeight.PlayerEyeHeight;
                     IsSteatedMode = true;
                 }
                 break;
             case "Standing Mode":
-                if (IsSteatedMode == true)
-                {
-                    BasisHeightDriver.ChangeEyeHeightMode(BasisLocalPlayer.Instance, BasisSelectedHeightMode.EyeHeight);
-                    IsSteatedMode = false;
-                }
+                MissingHeightDelta = 0;
+                IsSteatedMode = false;
                 break;
         }
     }

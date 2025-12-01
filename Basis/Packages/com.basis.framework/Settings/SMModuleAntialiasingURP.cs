@@ -19,30 +19,31 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
         {
             return;
         }
-        switch (optionValue)
+        BasisDebug.Log($"Antialiasing Changed to {optionValue}", BasisDebug.LogTag.Local);
+        switch (optionValue.ToLower())
         {
-            case "MSAA off":
+            case "msaa off":
                 Asset.msaaSampleCount = 1;
                 Camera.allowMSAA = false;
                 Data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
                 Data.antialiasingQuality = AntialiasingQuality.Low;
                 Asset.upscalingFilter = UpscalingFilterSelection.Auto;
                 break;
-            case "MSAA 2X":
+            case "msaa 2x":
                 Asset.msaaSampleCount = LowmsaaSampleCount;
                 Camera.allowMSAA = true;
                 Data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
                 Data.antialiasingQuality = AntialiasingQuality.Low;
                 Asset.upscalingFilter = UpscalingFilterSelection.Auto;
                 break;
-            case "MSAA 4X":
+            case "msaa 4x":
                 Asset.msaaSampleCount = MediumLowmsaaSampleCount;
                 Camera.allowMSAA = true;
                 Data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
                 Data.antialiasingQuality = AntialiasingQuality.Medium;
                 Asset.upscalingFilter = UpscalingFilterSelection.Auto;
                 break;
-            case "MSAA 8X":
+            case "msaa 8x":
                 Asset.msaaSampleCount = HighmsaaSampleCount;
                 Camera.allowMSAA = true;
                 Data.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;

@@ -4,83 +4,275 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
-
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using System.Collections;
+using Unity.Mathematics;
+
 namespace Basis.Scripts.BasisSdk.Interactions
 {
-
+    /// <summary>
+    /// Interactable that supports being picked up, hovered, and manipulated by input sources
+    /// (hands or desktop center-eye). Handles highlight mesh creation, input-state transitions,
+    /// constraint-based following, desktop zoom/rotate ("zoop") behavior, and realistic drop velocities.
+    /// </summary>
     public class BasisPickupInteractable : BasisInteractableObject
     {
+        #region Inspector: Pickup Settings
+
+        /// <summary>
+        /// When <see langword="true"/>, sets the attached <see cref="Rigidbody"/> to <see cref="Rigidbody.isKinematic"/>
+        /// while interacting to avoid physics jitter. If <see langword="false"/>, gravity is disabled during interaction instead.
+        /// </summary>
         [Header("Pickup Settings")]
         public bool KinematicWhileInteracting = true;
+
+        /// <summary>
+        /// Allows the same player/input to steal interaction from itself, enabling quick re-grabs.
+        /// </summary>
         [Tooltip("Enables the ability to self-steal")]
         public bool CanSelfSteal = true;
+
+        /// <summary>
+        /// Desktop-only rotation speed multiplier when dragging to rotate the held object.
+        /// </summary>
         public float DesktopRotateSpeed = 0.1f;
 
+        /// <summary>
+        /// Desktop-only zoom step in Unity units per mouse wheel tick.
+        /// </summary>
         [Tooltip("Unity units per scroll step")]
         public float DesktopZoopSpeed = 0.2f;
+
+        /// <summary>
+        /// Minimum distance from the source during desktop zoom.
+        /// </summary>
         public float DesktopZoopMinDistance = 0.2f;
+
+        /// <summary>
+        /// Maximum distance from the source during desktop zoom (additional reach applied based on player height).
+        /// </summary>
         public float DesktopZoopMaxDistance = 2.0f;
 
+        /// <summary>
+        /// If <see langword="true"/>, builds a simple mesh at <see cref="Start"/> to visualize/highlight the collider.
+        /// </summary>
         [Tooltip("Generate a mesh on start to approximate the referenced collider")]
         public bool GenerateColliderMesh = true;
+
+        /// <summary>
+        /// Minimum linear velocity threshold used when applying release velocity on drop.
+        /// </summary>
         [Space(10)]
         public float minLinearVelocity = 0.5f;
+
+        /// <summary>
+        /// Multiplier applied to linear velocity when interaction ends.
+        /// </summary>
         public float interactEndLinearVelocityMultiplier = 1.0f;
+
+        /// <summary>
+        /// Minimum angular velocity threshold used when applying release velocity on drop.
+        /// </summary>
         [Space(5)]
         public float minAngularVelocity = 0.5f;
-        public float interactEndAngularVelocityMultiplier = 1.0f;
 
+        /// <summary>
+        /// Multiplier applied to angular velocity when interaction ends.
+        /// </summary>
+        public float interactEndAngularVelocityMultiplier = 1.0f;
+        #endregion
+
+        #region Inspector: References
+
+        /// <summary>
+        /// Collider reference used for range checks and optional highlight mesh generation.
+        /// </summary>
         [Header("References")]
         public Collider ColliderRef;
+
+        /// <summary>
+        /// Optional rigidbody reference for physics-based motion and release velocities.
+        /// </summary>
         public Rigidbody RigidRef;
 
+        /// <summary>
+        /// Parent constraint that drives the object to follow the active input source with offsets.
+        /// </summary>
         [SerializeReference]
         internal BasisParentConstraint InputConstraint;
 
-        // internal values
+        #endregion
+
+        #region Runtime/Internal State
+
+        /// <summary>
+        /// Highlight mesh instance cloned from <see cref="ColliderRef"/> (if enabled).
+        /// </summary>
         internal GameObject HighlightClone;
+
+        /// <summary>
+        /// Handle for the highlight material addressable operation.
+        /// </summary>
         internal AsyncOperationHandle<Material> asyncOperationHighlightMat;
+
+        /// <summary>
+        /// Loaded highlight material applied to <see cref="HighlightClone"/>.
+        /// </summary>
         internal Material ColliderHighlightMat;
+
+        /// <summary>
+        /// Stores the previous kinematic state when toggling during interaction.
+        /// </summary>
         public bool _previousKinematicValue = true;
+
+        /// <summary>
+        /// Stores the previous gravity state when toggling during interaction.
+        /// </summary>
         internal bool _previousGravityValue = true;
 
-        // constants
+        /// <summary>
+        /// Addressable key for the highlight material.
+        /// </summary>
         public const string k_LoadMaterialAddress = "Interactable/InteractHighlightMat.mat";
+
+        /// <summary>
+        /// Name assigned to the generated collider highlight clone.
+        /// </summary>
         public const string k_CloneName = "HighlightClone";
+
+        /// <summary>
+        /// Smoothing time for desktop zoom interpolation.
+        /// </summary>
         public const float k_DesktopZoopSmoothing = 0.2f;
+
+        /// <summary>
+        /// Maximum speed for desktop zoom interpolation.
+        /// </summary>
         public const float k_DesktopZoopMaxVelocity = 10f;
 
+        /// <summary>
+        /// Lock context used to temporarily pause head/camera updates while rotating in desktop.
+        /// </summary>
         private readonly BasisLocks.LockContext HeadLock = BasisLocks.GetContext(BasisLocks.LookRotation);
 
         private static string headPauseRequestName;
-        public float InteractRange = 1f;
 
         private bool pauseHead = false;
         private Vector3 targetOffset = Vector3.zero;
         private Vector3 currentZoopVelocity = Vector3.zero;
 
+        /// <summary>
+        /// Event-like callback invoked every frame a trigger state is detected while interacting.
+        /// </summary>
         public Action<BasisPickUpUseMode> OnPickupUse;
 
-        // TODO: execution order may be desired here.
+        /// <summary>
+        /// Optional hook points that must all return <see langword="true"/> for hover to be allowed.
+        /// </summary>
         public List<Func<BasisInput, bool>> CanHoverInjected = new();
+
+        /// <summary>
+        /// Optional hook points that must all return <see langword="true"/> for interaction to be allowed.
+        /// </summary>
         public List<Func<BasisInput, bool>> CanInteractInjected = new();
-
-
 
         private Vector3 linearVelocity;
         private Vector3 angularVelocity;
-
         private Vector3 _previousPosition;
         private Quaternion _previousRotation;
+
+        #endregion
+
+        #region Scale With Gesture
+        [Header("Scale With Gesture")]
+        /// <summary>
+        /// When <see langword="true"/>, enables scaling the object by moving both hands apart/together while holding it.
+        /// </summary>
+        public bool enableScaleWithGesture = false;
+        /// <summary>
+        /// Minimum percentage the object can be ensmallened to.
+        /// </summary>
+        public float minScalePercent = 50f;
+        /// <summary>
+        /// Maximum percentage the object can be embiggened to.
+        /// </summary>
+        public float maxScalePercent = 200f;
+        #endregion
+
+        #region Lock to Axis
+
+        [Header("Lock to Axis")]
+        /// <summary>
+        /// When set to an axis, constrains movement to that axis only. Ideal for sliders and buttons.
+        /// </summary>
+        public BasisAxisType constrainToAxis = BasisAxisType.None;
+        /// <summary>
+        /// Maximum positive travel limit from the starting position along the constrained axis, in meters.
+        /// </summary>
+        public float positiveTravelLimit = 0.2f;
+        /// <summary>
+        /// Maximum negative travel limit from the starting position along the constrained axis, in meters.
+        /// </summary>
+        public float negativeTravelLimit = 0.0f;
+
+        # endregion
+
+        # region Auto Return
+        [Header("Auto Return")]
+        [Tooltip("Target world position to move to.")]
+        /// <summary>
+        /// When <see langword="true"/>, object will return to its starting position, scale and rotation after being released for a duration of time
+        /// </summary>
+        public bool enableAutoReturn = false;
+        Vector3 _positionAtStart;
+        Quaternion _rotationAtStart;
+        Vector3 _scaleAtStart;
+
+        /// <summary>
+        /// Amount of time between when an object is released and when it begins to transform back to original state, in seconds
+        /// </summary>
+        [Tooltip("Delay in seconds before moving.")]
+        public float delay = 3f;
+
+        /// <summary>
+        /// Amount of time an object will take to transition back to original state after it begins, in seconds
+        /// </summary>
+        [Tooltip("If > 0, the object will interpolate to the target over this duration; if 0, it will jump instantly.")]
+        public float duration = 0f;
+
+        /// <summary>
+        /// Type of easing to apply to the interpolation when moving back to original state
+        /// </summary>
+        [Tooltip("Easing preset to apply to the interpolation.")]
+        public BasisEasing.EasingType easing = BasisEasing.EasingType.Linear;
+
+        /// <summary>
+        /// Custom AnimationCurve to use for easing instead of the preset options
+        /// </summary>
+        [Tooltip("Use a custom AnimationCurve instead of the preset easing.")]
+        public bool useCustomCurve = false;
+
+        [Tooltip("Custom easing curve evaluated over 0..1 (time).")]
+        public AnimationCurve customCurve = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+        private Coroutine _autoReturnCoroutine;
+        # endregion
+
+        private float _previousDistance = 0;
+
+
+        /// <summary>
+        /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
+        /// </summary>
         public void Start()
         {
+            transform.GetLocalPositionAndRotation(out _positionAtStart, out _rotationAtStart);
+            _scaleAtStart = transform.localScale;
+
             if (RigidRef == null)
             {
                 TryGetComponent(out RigidRef);
@@ -102,7 +294,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (GenerateColliderMesh)
             {
                 // NOTE: Collider mesh highlight position and size is only updated on Start().
-                //      If you wish to have the highlight update at runtime do that elsewhere or make a different InteractableObject Script
+                //       If runtime updates are required, handle them elsewhere or create a specialized interactable.
                 HighlightClone = BasisColliderClone.CloneColliderMesh(ColliderRef, gameObject.transform, k_CloneName);
 
                 if (HighlightClone != null)
@@ -117,8 +309,22 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
                 }
             }
-         //   BasisDebug.Log($"Pickup {string.Join(", ", Inputs.ToArray().Select(x => x.GetState()))}");
+            OnInteractStartEvent += OnInteractionEventFired;
         }
+
+        internal void OnInteractionEventFired(BasisInput input)
+        {
+            if (enableAutoReturn && _autoReturnCoroutine != null)
+            {
+                StopCoroutine(_autoReturnCoroutine);
+                _autoReturnCoroutine = null;
+            }
+        }
+
+        /// <summary>
+        /// Toggles the visibility of the highlight clone, if present.
+        /// </summary>
+        /// <param name="highlight">Whether to enable the highlight.</param>
         public void HighlightObject(bool highlight)
         {
             if (ColliderRef && HighlightClone)
@@ -126,41 +332,43 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 HighlightClone.SetActive(highlight);
             }
         }
+
+        /// <inheritdoc />
         public override bool CanHover(BasisInput input)
         {
-            // bool netPickup = (!IsPuppeted || ); 
-            // BasisDebug.Log($"CanHover {string.Join(", ", Inputs.ToArray().Select(x => x.GetState()))}");
-            // BasisDebug.Log($"CanHover {!DisableInteract}, {!Inputs.AnyInteracting()}, {input.TryGetRole(out BasisBoneTrackedRole r)}, {Inputs.TryGetByRole(r, out BasisInputWrapper f)}, {r}, {f.GetState()}");
-
             // NOTE: see CanInteract note
             return InteractableEnabled &&
                 (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
-                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system 
-                found.GetState() == BasisInteractInputState.Ignored &&           // in the correct state for hover
+                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system
+                found.GetState() == BasisInteractInputState.Ignored &&      // in the correct state for hover
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
                 CanHoverInjected.AllTrue(input);                            // injected
         }
+
+        /// <inheritdoc />
         public override bool CanInteract(BasisInput input)
         {
-            // BasisDebug.Log($"CanInteract {!DisableInteract}, {!Inputs.AnyInteracting()}, {input.TryGetRole(out BasisBoneTrackedRole r)}, {Inputs.TryGetByRole(r, out BasisInputWrapper f)}, {r}, {f.GetState()}");
-            // currently hovering can interact only, only one interacting at a time
-            
             // NOTE: Injected checks must be called at the end so that we can safely assume that at the time this was invoked, everything was valid.
-            //      This is especially important for network sync, since the pending steal request doesnt need to re-invoke this (with stale data) when ownership transfers.
+            //       Important for net sync: pending steal requests shouldn't re-invoke with stale data.
             return InteractableEnabled &&
                 (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
-                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system 
-                found.GetState() == BasisInteractInputState.Hovering &&          // in the correct state for hover
+                Inputs.TryGetByRole(role, out BasisInputWrapper found) &&   // input exists within PlayerInteract system
+                found.GetState() == BasisInteractInputState.Hovering &&     // only current hover can interact
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
                 CanInteractInjected.AllTrue(input);                         // injected
         }
 
+        /// <summary>
+        /// Called when hovering begins for an input. Promotes the input to the <c>Hovering</c> state,
+        /// shows highlight, and invokes <see cref="BasisInteractableObject.OnHoverStartEvent"/>.
+        /// </summary>
+        /// <param name="input">The input source beginning hover.</param>
         public override void OnHoverStart(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
@@ -173,6 +381,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
             OnHoverStartEvent?.Invoke(input);
             HighlightObject(true);
         }
+
+        /// <summary>
+        /// Called when hover ends for an input. Optionally clears state if interaction won't begin,
+        /// hides highlight, and invokes <see cref="BasisInteractableObject.OnHoverEndEvent"/>.
+        /// </summary>
+        /// <param name="input">The input source ending hover.</param>
+        /// <param name="willInteract">Whether interaction is about to begin.</param>
         public override void OnHoverEnd(BasisInput input, bool willInteract)
         {
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out _))
@@ -188,18 +403,26 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 HighlightObject(false);
             }
         }
+
+        /// <summary>
+        /// Begins interaction: handles self-steal, toggles physics/gravity, configures the parent constraint
+        /// offsets based on the current input pose, and enables evaluation.
+        /// </summary>
+        /// <param name="input">The input source starting interaction.</param>
         public override void OnInteractStart(BasisInput input)
         {
-            // TODO: request net ownership
+            if (InteractionTimerValidation() == false)
+            {
+                return;
+            }
 
-            // clean up interacting ourselves (system wont do this for us)
+            // Clean up interacting ourselves (system won't do this for us) when self-steal is allowed.
             if (CanSelfSteal)
                 Inputs.ForEachWithState(OnInteractEnd, BasisInteractInputState.Interacting);
 
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 BasisDebug.Log("InteractStart: " + wrapper.GetState(), BasisDebug.LogTag.Pickups);
-                // same input that was highlighting previously
                 if (wrapper.GetState() == BasisInteractInputState.Hovering)
                 {
                     Vector3 inPos = wrapper.BoneControl.OutgoingWorldData.position;
@@ -219,8 +442,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         }
                     }
 
-                    // Set ownership to the local player
-                    // syncNetworking.IsOwner = true;
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Interacting);
                     RequiresUpdateLoop = true;
 
@@ -234,7 +455,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
 
-                    // Debug.Log($"[OnInteractStart] Frame: {Time.frameCount}, Input Source Rot: {inRot.eulerAngles}, Object Rot: {transform.rotation.eulerAngles}, Calculated Offset: {offsetRot.eulerAngles}");
                     InputConstraint.Enabled = true;
 
                     OnInteractStartEvent?.Invoke(input);
@@ -248,12 +468,27 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 BasisDebug.LogWarning("Did not find role for input on Interact start", BasisDebug.LogTag.Pickups);
             }
-            // cleaup hovers if we arent supposed to be able to self-steal
+
+            // Clean up hovers if self-steal is disabled.
             if (!CanSelfSteal)
                 Inputs.ForEachWithState(i => OnHoverEnd(i, false), BasisInteractInputState.Hovering);
         }
+
+        /// <summary>
+        /// Ends interaction: restores physics/gravity, applies release velocities if appropriate,
+        /// disables the parent constraint, clears desktop manipulation state, and fires end events.
+        /// </summary>
+        /// <param name="input">The input source ending interaction.</param>
         public override void OnInteractEnd(BasisInput input)
         {
+            if (enableAutoReturn)
+            {
+                if (_autoReturnCoroutine != null)
+                {
+                    StopCoroutine(_autoReturnCoroutine);
+                }
+                _autoReturnCoroutine = StartCoroutine(MoveAfterDelayCoroutine());
+            }
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
             {
                 if (wrapper.GetState() == BasisInteractInputState.Interacting)
@@ -275,7 +510,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     if (RigidRef != null)
                     {
-
                         if (KinematicWhileInteracting)
                         {
                             RigidRef.isKinematic = _previousKinematicValue;
@@ -296,8 +530,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
         }
+
         /// <summary>
-        /// set linear/angular velocity to multiplier or 0 if below min velocity
+        /// Applies cached linear and angular velocities to the rigidbody on drop,
+        /// zeroing components that are below configured thresholds.
         /// </summary>
         private void OnDropVelocity()
         {
@@ -324,6 +560,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
             RigidRef.angularVelocity = angular;
         }
 
+        /// <summary>
+        /// Computes instantaneous linear and angular velocity based on current and previous pose.
+        /// </summary>
+        /// <param name="pos">Current world position.</param>
+        /// <param name="rot">Current world rotation.</param>
         private void CalculateVelocity(Vector3 pos, Quaternion rot)
         {
             // Instant linear velocity
@@ -341,6 +582,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
             _previousRotation = rot;
         }
 
+        /// <summary>
+        /// Normalizes an angle into the [0, 360) range.
+        /// </summary>
+        /// <param name="angle">Angle in degrees.</param>
+        /// <returns>Angle normalized to [0, 360).</returns>
         private float NormalizeAngle360(float angle)
         {
             angle %= 360f;
@@ -349,6 +595,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return angle;
         }
 
+        /// <summary>
+        /// Per-frame input update while interacting. Drives constraint evaluation, desktop controls,
+        /// and invokes <see cref="OnPickupUse"/> depending on trigger states.
+        /// </summary>
         public override void InputUpdate()
         {
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
@@ -361,11 +611,48 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
             }
+            else
+            {
+                // If trigger pulled on opposing input, scale object based on hand distance
+                if (enableScaleWithGesture && GetOppositeInteracting(out BasisInputWrapper opposingInput))
+                {
+                    if (HasState(opposingInput.Source.CurrentInputState))
+                    {
+                        float distanceBetweenHands = BasisPickupHelpers.GetNormalizedDistanceBetweenHands(Inputs);
+                        if (_previousDistance == -1)
+                        {
+                            _previousDistance = distanceBetweenHands;
+                        }
+                        else
+                        {
+                            float delta = math.abs(_previousDistance - distanceBetweenHands);
+                            if (delta > 0.001f)
+                            {
+                                var scaleDirection = distanceBetweenHands > _previousDistance ? BasisTransform.Direction.Embiggen : BasisTransform.Direction.Ensmallen;
+                                float minScale = (minScalePercent / 100) * _scaleAtStart.x;
+                                float maxScale = (maxScalePercent / 100) * _scaleAtStart.x;
+                                float stepSize = math.abs(minScale - maxScale) / 100f;
+                                BasisTransform.ScaleObjectBetween(
+                                    transform,
+                                    scaleDirection,
+                                    stepSize,
+                                    minScale,
+                                    maxScale
+                                    );
+                            }
+                            _previousDistance = distanceBetweenHands;
+                        }
+                    }
+                }
+                else
+                {
+                    _previousDistance = -1;
+                }
+            }
 
-            // TODO: for index primary button is the A button, trigger should be the right one?
-            // this needs to be verified as expected behavior with more controllers...
-            bool State = interactingInput.Source.CurrentInputState.Trigger == 1;
-            bool LastState = interactingInput.Source.LastInputState.Trigger == 1;
+            // Trigger state machine for OnPickupUse
+            bool State = HasState(interactingInput.Source.CurrentInputState);
+            bool LastState = HasState(interactingInput.Source.LastInputState);
             if (State && LastState == false)
             {
                 OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseDown);
@@ -389,12 +676,47 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
-                // TODO: fix jitter while still using rigidbody movement
-                //  Update 6/10/25: this seems to be a unity bug! - mriise
-                //  Update 7/14/25: the bug is in-editor only, builds do not have the bug - mriise
+                if (constrainToAxis != BasisAxisType.None)
+                {
+                    transform.GetLocalPositionAndRotation(out Vector3 currentPos, out Quaternion currentRot);
+                    // Apply axis constraint
+                    switch (constrainToAxis)
+                    {
+                        case BasisAxisType.X:
+                            pos = IsWithinTravelLimit(pos.x, _positionAtStart.x, negativeTravelLimit, positiveTravelLimit)
+                                ? new Vector3(pos.x, currentPos.y, currentPos.z)
+                                : currentPos;
+                            rot = currentRot; // Lock rotation when constrained
+                            break;
 
-                //pretty sure rigidbody is the real issue with the jitter here.
-                //as rigidbody occurs on physics timestamp? -LD
+                        case BasisAxisType.Y:
+                            pos = IsWithinTravelLimit(pos.y, _positionAtStart.y, negativeTravelLimit, positiveTravelLimit)
+                                ? new Vector3(currentPos.x, pos.y, currentPos.z)
+                                : currentPos;
+                            rot = currentRot;
+                            break;
+
+                        case BasisAxisType.Z:
+                            pos = IsWithinTravelLimit(pos.z, _positionAtStart.z, negativeTravelLimit, positiveTravelLimit)
+                                ? new Vector3(currentPos.x, currentPos.y, pos.z)
+                                : currentPos;
+                            rot = currentRot;
+                            break;
+
+                        case BasisAxisType.None:
+                        default:
+                            break;
+                    }
+
+                    // Helper method to check travel limits
+                    bool IsWithinTravelLimit(float current, float start, float negativeLimit, float positiveLimit)
+                    {
+                        float delta = math.abs(current - start);
+                        return (current < start && delta <= negativeLimit) || (current > start && delta <= positiveLimit);
+                    }
+                }
+
+                // Prefer Rigidbody movement when present to preserve physics consistency.
                 if (RigidRef != null && !RigidRef.isKinematic)
                 {
                     RigidRef.Move(pos, rot);
@@ -406,22 +728,41 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 CalculateVelocity(pos, rot);
             }
         }
+
+        /// <summary>
+        /// Returns whether the provided input is actively interacting with this object.
+        /// </summary>
+        /// <param name="input">Input to test.</param>
         public override bool IsInteractingWith(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
             return found.HasValue && found.Value.GetState() == BasisInteractInputState.Interacting;
         }
+
+        /// <summary>
+        /// Returns whether the provided input is currently hovering this object.
+        /// </summary>
+        /// <param name="input">Input to test.</param>
         public override bool IsHoveredBy(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
             return found.HasValue && found.Value.GetState() == BasisInteractInputState.Hovering;
         }
-        // this is cached, use it
+
+        /// <summary>
+        /// Gets the primary collider used for interaction checks.
+        /// </summary>
+        /// <returns>The collider reference, if any.</returns>
         public override Collider GetCollider()
         {
             return ColliderRef;
         }
 
+        /// <summary>
+        /// Handles desktop-only controls: mouse wheel zoom ("zoop") and drag rotation.
+        /// Temporarily pauses head/look rotation while rotating.
+        /// </summary>
+        /// <param name="DesktopEye">The desktop center-eye input wrapper.</param>
         private void PollDesktopControl(BasisInput DesktopEye)
         {
             // scroll zoop
@@ -430,7 +771,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Vector3 currentOffset = InputConstraint.sources[0].positionOffset;
             if (targetOffset == Vector3.zero)
             {
-                // BasisDebug.Log("Setting initial target to current offset:" + targetOffset + " : " + currentOffset);
+                // Initialize the target offset the first time we interact.
                 targetOffset = currentOffset;
             }
 
@@ -441,9 +782,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 Vector3 movement = DesktopZoopSpeed * mouseScroll * BasisLocalCameraDriver.Forward();
                 Vector3 newTargetOffset = targetOffset + sourceTransform.InverseTransformVector(movement);
 
-                // moving towards camera, ignore moving closer if less than min/max distance
-                // NOTE: this is cheating a bit since its assuming desktop camera is the constraint source, but its a lot faster than doing a bunch of world/local space transforms.
-                //      This also does not set offset to min distance to avoid calculating min offset position, meaning this is effectively (distance > minDistance + ZoopSpeed).
+                // Enforce min/max distance along the source forward.
                 float maxDistance = DesktopZoopMaxDistance + BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
 
                 if (mouseScroll != 0 && newTargetOffset.z > DesktopZoopMinDistance && newTargetOffset.z < maxDistance)
@@ -452,11 +791,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
 
-
             var dampendOffset = Vector3.SmoothDamp(currentOffset, targetOffset, ref currentZoopVelocity, k_DesktopZoopSmoothing, k_DesktopZoopMaxVelocity);
             InputConstraint.sources[0].positionOffset = dampendOffset;
-
-
 
             if (DesktopEye.CurrentInputState.Secondary2DAxisClick)
             {
@@ -473,8 +809,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                 var rotation = yRotation * xRotation * InputConstraint.sources[0].rotationOffset;
                 InputConstraint.sources[0].rotationOffset = rotation;
-
-                // BasisDebug.Log("Destop manipulate Pickup zoop: " + dampendOffset + " rotate: " + delta);
             }
             else if (pauseHead)
             {
@@ -485,9 +819,14 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
         }
+
+        /// <summary>
+        /// Retrieves the active interacting input wrapper, if any.
+        /// </summary>
+        /// <param name="BasisInputWrapper">Outputs the active wrapper when interaction is in progress.</param>
+        /// <returns><see langword="true"/> if an input is actively interacting; otherwise <see langword="false"/>.</returns>
         private bool GetActiveInteracting(out BasisInputWrapper BasisInputWrapper)
         {
-
             switch (Inputs.desktopCenterEye.GetState())
             {
                 case BasisInteractInputState.Interacting:
@@ -511,8 +850,45 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
             }
         }
+
+        /// <summary>
+        /// Retrieves the opposing active interacting input wrapper, if any. Intended for non-desktop inputs, should return the "opposite" hand from that holding the object
+        /// </summary>
+        /// <param name="BasisInputWrapper">Outputs the active wrapper when interaction is in progress.</param>
+        /// <returns><see langword="true"/> if an input is actively interacting; otherwise <see langword="false"/>.</returns>
+        private bool GetOppositeInteracting(out BasisInputWrapper BasisInputWrapper)
+        {
+            switch (Inputs.desktopCenterEye.GetState())
+            {
+                case BasisInteractInputState.Interacting:
+                    BasisInputWrapper = Inputs.desktopCenterEye;
+                    return true;
+                default:
+                    if (Inputs.leftHand.GetState() == BasisInteractInputState.Interacting)
+                    {
+                        BasisInputWrapper = Inputs.rightHand;
+                        return true;
+                    }
+                    else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
+                    {
+                        BasisInputWrapper = Inputs.leftHand;
+                        return true;
+                    }
+                    else
+                    {
+                        BasisInputWrapper = new BasisInputWrapper();
+                        return false;
+                    }
+            }
+        }
+
+        /// <summary>
+        /// Unity destroy hook. Cleans up highlight objects and releases the loaded addressable material.
+        /// </summary>
         public override void OnDestroy()
         {
+            OnInteractStartEvent -= OnInteractionEventFired;
+
             Destroy(HighlightClone);
             if (asyncOperationHighlightMat.IsValid())
             {
@@ -521,13 +897,17 @@ namespace Basis.Scripts.BasisSdk.Interactions
             base.OnDestroy();
         }
 
-        // override since we add extra reach on desktop
+        /// <summary>
+        /// Extends the default range check to allow additional reach on desktop (based on player height).
+        /// </summary>
+        /// <param name="source">The position of the interacting source.</param>
+        /// <param name="_interactRange">Base interaction range.</param>
+        /// <returns>Whether the source is within range of the collider or transform.</returns>
         public override bool IsWithinRange(Vector3 source, float _interactRange)
         {
             float extraReach = 0;
             if (BasisDeviceManagement.IsUserInDesktop())
             {
-
                 extraReach = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
             }
             Collider collider = GetCollider();
@@ -539,16 +919,60 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return Vector3.Distance(transform.position, source) <= _interactRange + extraReach;
         }
 
+        /// <summary>
+        /// Desktop-only: determines whether a held object should be dropped using the secondary trigger (e.g., right-click).
+        /// </summary>
+        /// <param name="input">Input to test.</param>
+        /// <returns>True when desktop center-eye secondary trigger is pressed.</returns>
         public override bool IsHoldDropTriggered(BasisInput input)
         {
-            return 
+            return
                 // special case for desktop (right-click)
                 input.TryGetRole(out var role) &&
                 role == BasisBoneTrackedRole.CenterEye &&
-                input.CurrentInputState.SecondaryTrigger == 1;;
+                input.CurrentInputState.SecondaryTrigger == 1; ;
         }
 
+
+    IEnumerator MoveAfterDelayCoroutine() {
+            yield return new WaitForSeconds(delay);
+
+            if (duration <= 0f)
+            {
+                transform.SetLocalPositionAndRotation(_positionAtStart, _rotationAtStart);
+                transform.localScale = _scaleAtStart;
+                yield break;
+            }
+
+            float elapsed = 0f;
+            transform.GetLocalPositionAndRotation(out Vector3 startPos, out Quaternion startRot);
+            Vector3 startScale = transform.localScale;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float easedT = useCustomCurve
+                    ? customCurve.Evaluate(Mathf.Clamp01(elapsed / duration))
+                    : BasisEasing.ApplyEasing(Mathf.Clamp01(elapsed / duration), easing);
+
+                transform.SetLocalPositionAndRotation(
+                    Vector3.Lerp(startPos, _positionAtStart, easedT),
+                    Quaternion.Lerp(startRot, _rotationAtStart, easedT)
+                );
+                transform.localScale = Vector3.Lerp(startScale, _scaleAtStart, easedT);
+
+                yield return null;
+            }
+
+            // Ensure final position exactly
+            transform.SetLocalPositionAndRotation(_positionAtStart, _rotationAtStart);
+            transform.localScale = _scaleAtStart;
+    }
+
+
 #if UNITY_EDITOR
+        /// <summary>
+        /// Editor-only validation to ensure required references are present and to initialize the constraint if missing.
+        /// </summary>
         public void OnValidate()
         {
             string errPrefix = "Pickup Interactable needs component defined on self or given a reference for ";
@@ -562,12 +986,26 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 #endif
+
+        /// <summary>
+        /// Convenience method to force a drop by clearing all influencers.
+        /// </summary>
         public void Drop() => ClearAllInfluencing();
     }
 
-    // NOTE: ew, i dont like - mriise
+    /// <summary>
+    /// Helper extension for evaluating a list of boolean predicates against a single argument.
+    /// </summary>
     internal static class PickupListExt
     {
+        /// <summary>
+        /// Returns <see langword="true"/> only if every predicate in <paramref name="list"/> returns
+        /// <see langword="true"/> when invoked with <paramref name="arg"/>.
+        /// </summary>
+        /// <typeparam name="T">Argument type.</typeparam>
+        /// <param name="list">List of predicates.</param>
+        /// <param name="arg">Argument to pass to each predicate.</param>
+        /// <returns>Whether all predicates returned true.</returns>
         internal static bool AllTrue<T>(this IList<Func<T, bool>> list, T arg)
         {
             int count = list.Count;

@@ -1,6 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
-using LiteNetLib;
+using Basis.Network.Core;
 using UnityEngine.InputSystem;
 public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
 {
@@ -19,6 +19,6 @@ public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
     }
     public override void OnNetworkMessageReceived(ushort RemoteUser, byte[] buffer, DeliveryMethod DeliveryMethod)
     {
-        BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJump();
+        BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJumpRequest();
     }
 }

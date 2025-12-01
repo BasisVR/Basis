@@ -1,0 +1,10 @@
+{
+    "name": "com.cnlohr.cilbox",
+    "version": "0.1.0",
+    "displayName": "Cilbox",
+    "description": "Sandbox C# CIL code with an interpreter",
+    "author": {
+        "name": "cnlohr",
+        "url": "https://github.com/cnlohr"
+    }
+}

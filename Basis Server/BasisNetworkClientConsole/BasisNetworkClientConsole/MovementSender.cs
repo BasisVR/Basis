@@ -1,10 +1,6 @@
 using Basis.Network.Core;
 using Basis.Scripts.Networking.Compression;
 using BasisNetworkClientConsole;
-using LiteNetLib;
-using LiteNetLib.Utils;
-using System;
-using System.Reflection;
 using static BasisNetworkPrimitiveCompression;
 using static SerializableBasis;
 
@@ -66,7 +62,7 @@ namespace Basis.Network
             WriteQuaternionToBytes(Rotation, ref message.array, ref offset, RotationCompression);//14
 
             // Scale (2 bytes) at the end
-            int scaleOffset = 171;
+            int scaleOffset = LocalAvatarSyncMessage.AvatarSyncSize-2;
             WriteUShort(CompressedScale, ref message.array, ref scaleOffset);//2
             pd.Message = message;
             return pd;
@@ -87,6 +83,7 @@ namespace Basis.Network
             // Reset writer before (re)serialization
             Writer.Reset();
             Message.Serialize(Writer);
+
 
             peer.Send(Writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
 

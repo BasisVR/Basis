@@ -7,7 +7,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Basis.Scripts.Virtual_keyboard.KeyboardLayoutData;
-
 namespace Basis.Scripts.Virtual_keyboard
 {
     public class BasisVirtualKeyboard : BasisUIBase
@@ -61,78 +60,77 @@ namespace Basis.Scripts.Virtual_keyboard
         }
         public void Callback(BasisVirtualKeyboardButton KeyInformation)
         {
-            if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsEnterKey || KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsCloseKey)
+            switch (KeyInformation.BasisVirtualKeyboardSpecialKey)
             {
-                HasInstance = false;
-                CloseThisMenu();
-            }
-            else
-            {
-                if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsCaseSwitchKey)
-                {
+                case BasisVirtualKeyboardSpecialKey.IsEnterKey:
+                case BasisVirtualKeyboardSpecialKey.IsCloseKey:
+                    HasInstance = false;
+                    CloseThisMenu();
+                    break;
+                case BasisVirtualKeyboardSpecialKey.IsCaseSwitchKey:
                     SetupKeyboard(CurrentSelectedLanguage, !IsCapital);
-                }
-                else
-                {
-                    if (InputField != null)
+                    break;
+                default:
                     {
-                        if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsDeleteKey)
+                        if (InputField != null)
                         {
-                            if (InputField.text.Length > 0)
+                            switch (KeyInformation.BasisVirtualKeyboardSpecialKey)
                             {
-                                InputField.text = InputField.text.Substring(0, InputField.text.Length - 1);
-                            }
-                        }
-                        else
-                        {
-                            if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.NotSpecial)
-                            {
-                                InputField.text += KeyInformation.Text.text;
-                            }
-                            else
-                            {
-                                if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsPasteKey)
-                                {
-                                    string copiedText = GUIUtility.systemCopyBuffer; // Get the clipboard text
-
-                                    if (Uri.IsWellFormedUriString(copiedText, UriKind.RelativeOrAbsolute))
+                                case BasisVirtualKeyboardSpecialKey.IsDeleteKey:
+                                    if (InputField.text.Length > 0)
                                     {
-                                        InputField.text += copiedText;
+                                        InputField.text = InputField.text.Substring(0, InputField.text.Length - 1);
                                     }
-                                }
-                            }
-                        }
-                    }
-                    if (TMPInputField != null)
-                    {
-                        if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsDeleteKey)
-                        {
-                            if (TMPInputField.text.Length > 0)
-                            {
-                                TMPInputField.text = TMPInputField.text.Substring(0, TMPInputField.text.Length - 1);
-                            }
-                        }
-                        else
-                        {
-                            if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.NotSpecial)
-                            {
-                                TMPInputField.text += KeyInformation.Text.text;
-                            }
-                            else
-                            {
-                                if (KeyInformation.BasisVirtualKeyboardSpecialKey == BasisVirtualKeyboardSpecialKey.IsPasteKey)
-                                {
-                                    string copiedText = GUIUtility.systemCopyBuffer; // Get the clipboard text
-
-                                    if (Uri.IsWellFormedUriString(copiedText, UriKind.RelativeOrAbsolute))
+                                    break;
+                                case BasisVirtualKeyboardSpecialKey.NotSpecial:
+                                    InputField.text += KeyInformation.Text.text;
+                                    break;
+                                case BasisVirtualKeyboardSpecialKey.IsPasteKey:
                                     {
-                                        TMPInputField.text += copiedText;
+                                        string copiedText = GUIUtility.systemCopyBuffer; // Get the clipboard text
+                                        if (Uri.IsWellFormedUriString(copiedText, UriKind.RelativeOrAbsolute))
+                                        {
+                                            InputField.text += copiedText;
+                                        }
+
+                                        break;
                                     }
-                                }
+                                case BasisVirtualKeyboardSpecialKey.IsCopyKey:
+                                    GUIUtility.systemCopyBuffer = InputField.text;
+                                    break;
                             }
                         }
+                        if (TMPInputField != null)
+                        {
+                            switch (KeyInformation.BasisVirtualKeyboardSpecialKey)
+                            {
+                                case BasisVirtualKeyboardSpecialKey.IsDeleteKey:
+                                    if (TMPInputField.text.Length > 0)
+                                    {
+                                        TMPInputField.text = TMPInputField.text.Substring(0, TMPInputField.text.Length - 1);
+                                    }
+                                    break;
+                                case BasisVirtualKeyboardSpecialKey.NotSpecial:
+                                    TMPInputField.text += KeyInformation.Text.text;
+                                    break;
+                                case BasisVirtualKeyboardSpecialKey.IsPasteKey:
+                                    {
+                                        string copiedText = GUIUtility.systemCopyBuffer; // Get the clipboard text
+
+                                        if (Uri.IsWellFormedUriString(copiedText, UriKind.RelativeOrAbsolute))
+                                        {
+                                            TMPInputField.text += copiedText;
+                                        }
+
+                                        break;
+                                    }
+                                case BasisVirtualKeyboardSpecialKey.IsCopyKey:
+                                    GUIUtility.systemCopyBuffer = TMPInputField.text;
+                                    break;
+                            }
+                        }
+                        break;
                     }
-                }
             }
         }
         // Setup the QWERTY keyboard layout

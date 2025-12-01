@@ -15,6 +15,9 @@ using Basis.Scripts.BasisSdk.Players;
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
 {
+    public delegate void BeforeTestInEditorHandler(GameObject clone);
+    public static BeforeTestInEditorHandler OnBeforeTestInEditor;
+
     public static event Action<BasisAvatarSDKInspector> InspectorGuiCreated;
     public static event Action ButtonClicked;
     public static event Action ValueChanged;
@@ -250,6 +253,8 @@ public partial class BasisAvatarSDKInspector : Editor
 
         ObjectField AvatarIconField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.AvatarIcon);
 
+        Toggle AvatarDoNotAutoRenameBonesField = uiElementsRoot.Q<Toggle>(BasisSDKConstants.AvatarDoNotAutoRenameBonesField);
+
         animatorField.allowSceneObjects = true;
         faceBlinkMeshField.allowSceneObjects = true;
         faceVisemeMeshField.allowSceneObjects = true;
@@ -267,6 +272,9 @@ public partial class BasisAvatarSDKInspector : Editor
         AvatarDescriptionField.RegisterCallback<ChangeEvent<string>>(AvatarDescription);
 
         AvatarIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnAssignTexture2D);
+
+        AvatarDoNotAutoRenameBonesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.doNotAutoRenameBones : false;
+        AvatarDoNotAutoRenameBonesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarDoNotAutoRenameBonesField);
 
         // Button click events
         avatarEyePositionClick.clicked += () => ClickedAvatarEyePositionButton(avatarEyePositionClick);
@@ -517,9 +525,42 @@ public partial class BasisAvatarSDKInspector : Editor
             ScheduleCallback = false;
         }
         BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
+
+        var jigglesToReset = new List<MonoBehaviour>();
+        foreach (MonoBehaviour jiggle in Avatar.gameObject.GetComponentsInChildren<MonoBehaviour>(false))
+        {
+            if (jiggle != null
+                && jiggle.GetType().FullName == "GatorDragonGames.JigglePhysics.JiggleRig"
+                && jiggle.enabled)
+            {
+                jigglesToReset.Add(jiggle);
+            }
+        }
+        GameObject inSceneItem;
+        if (jigglesToReset.Count > 0)
+        {
+            BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. We will disable the avatar in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
+            Avatar.gameObject.SetActive(false);
+            // It's a bit of a hack, but waiting three frames works.
+            await Awaitable.NextFrameAsync();
+            await Awaitable.NextFrameAsync();
+            await Awaitable.NextFrameAsync();
+            inSceneItem = GameObject.Instantiate(Avatar.gameObject);
+            Avatar.gameObject.SetActive(true);
+            inSceneItem.SetActive(true);
+        }
+        else
+        {
+            inSceneItem = GameObject.Instantiate(Avatar.gameObject);
+        }
+
+        BasisAssetBundlePipeline.DestroyEditorOnlyInAvatar(inSceneItem);
+        OnBeforeTestInEditor?.Invoke(inSceneItem);
+        BasisAssetBundlePipeline.PostProcessAvatar(inSceneItem);
+
         BasisLoadableBundle LoadableBundle = new BasisLoadableBundle
         {
-            LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = GameObject.Instantiate(Avatar.gameObject) }
+            LoadableGameobject = new BasisLoadableGameobject() { InSceneItem = inSceneItem }
         };
         LoadableBundle.LoadableGameobject.InSceneItem.transform.parent = null;
         LoadableBundle.BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
@@ -552,6 +593,14 @@ public partial class BasisAvatarSDKInspector : Editor
     public void AvatarName(ChangeEvent<string> evt)
     {
         Avatar.BasisBundleDescription.AssetBundleName = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        AssetDatabase.Refresh();
+    }
+    public void OnAvatarDoNotAutoRenameBonesField(ChangeEvent<bool> evt)
+    {
+        if (Avatar.ProcessingAvatarOptions == null) Avatar.ProcessingAvatarOptions = new BasisProcessingAvatarOptions();
+
+        Avatar.ProcessingAvatarOptions.doNotAutoRenameBones = evt.newValue;
         EditorUtility.SetDirty(Avatar);
         AssetDatabase.Refresh();
     }

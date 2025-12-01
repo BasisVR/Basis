@@ -5,27 +5,37 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
+
 namespace Basis.Scripts.UI
 {
     public class BasisPointRaycaster : BaseRaycaster
     {
         public float MaxDistance = 30;
         public bool UseWorldPosition = true;
+
         /// <summary>
         /// Modified externally by Eye Input
         /// </summary>
         public Vector2 ScreenPoint { get; set; }
+
         public Ray ray { get; private set; }
         public RaycastHit ClosestRayCastHit { get; private set; }
         public RaycastHit[] PhysicHits { get; private set; }
         public int PhysicHitCount { get; private set; }
         public BasisInput BasisInput;
+
         [Header("Debug")]
         public bool EnableDebug = false;
         public List<GameObject> _DebugHitObjects;
+
+        // Layer index, not a LayerMask
+        private static int OverlayUILayer;
+
         public override Camera eventCamera => BasisLocalCameraDriver.Instance.Camera;
+
         public void Initialize(BasisInput basisInput)
         {
+            OverlayUILayer = LayerMask.NameToLayer("OverlayUI");
             BasisInput = basisInput;
             PhysicHits = new RaycastHit[BasisPlayerInteract.k_MaxPhysicHitCount];
 
@@ -34,12 +44,11 @@ namespace Basis.Scripts.UI
         }
         public void UpdateRay()
         {
-            this.transform.SetLocalPositionAndRotation(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation);
-            ray = new Ray(this.transform.position,this.transform.forward);
+            ray = new Ray(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation * Vector3.forward);
         }
         /// <summary>
-        /// <summary>
-        /// Run after Input control apply, before `AfterControlApply`
+        /// Run after Input control apply, before `AfterControlApply` alloc free,
+        /// uses camera raycasting when required of it.
         /// </summary>
         public void UpdateRaycast()
         {
@@ -49,7 +58,6 @@ namespace Basis.Scripts.UI
             }
             else
             {
-                // TODO: what? where does this come into play?
                 ray = BasisLocalCameraDriver.Instance.Camera.ScreenPointToRay(ScreenPoint, BasisLocalCameraDriver.Instance.Camera.stereoActiveEye);
             }
 
@@ -60,75 +68,77 @@ namespace Basis.Scripts.UI
             }
             else
             {
-                if (PhysicHitCount > 1)
-                {
-                    int closestIndex = 0;
-                    float minDistance = PhysicHits[0].distance;
+                // Select best hit:
+                // 1. Prefer OverlayUI layer (closest among those)
+                // 2. If none on OverlayUI, choose closest by distance
+                int bestIndex = -1;
+                bool foundOverlay = false;
+                float bestDistance = float.PositiveInfinity;
 
-                    for (int Index = 1; Index < PhysicHitCount; Index++)
+                for (int i = 0; i < PhysicHitCount; i++)
+                {
+                    var hit = PhysicHits[i];
+                    if (hit.collider == null)
                     {
-                        if (PhysicHits[Index].distance < minDistance)
+                        continue;
+                    }
+
+                    int hitLayer = hit.collider.gameObject.layer;
+                    bool isOverlay = hitLayer == OverlayUILayer;
+
+                    if (isOverlay)
+                    {
+                        if (!foundOverlay || hit.distance < bestDistance)
                         {
-                            minDistance = PhysicHits[Index].distance;
-                            closestIndex = Index;
+                            foundOverlay = true;
+                            bestIndex = i;
+                            bestDistance = hit.distance;
                         }
                     }
-
-                    // Swap the closest hit to the first position, if needed
-                    if (closestIndex != 0)
+                    else if (!foundOverlay)
                     {
-                        (PhysicHits[0], PhysicHits[closestIndex]) = (PhysicHits[closestIndex], PhysicHits[0]);
+                        // Only consider non-overlay hits if we haven't found any overlay yet
+                        if (hit.distance < bestDistance)
+                        {
+                            bestIndex = i;
+                            bestDistance = hit.distance;
+                        }
                     }
-                    ClosestRayCastHit = PhysicHits[0];
+                }
+
+                if (bestIndex >= 0)
+                {
+                    ClosestRayCastHit = PhysicHits[bestIndex];
+
+                    // Keep "primary" hit at index 0 for any existing assumptions
+                    if (bestIndex != 0)
+                    {
+                        (PhysicHits[0], PhysicHits[bestIndex]) = (PhysicHits[bestIndex], PhysicHits[0]);
+                    }
                 }
                 else
                 {
-                    ClosestRayCastHit = PhysicHits[0];
+                    // No valid collider hits found
+                    ClosestRayCastHit = new RaycastHit();
                 }
             }
+
             if (EnableDebug)
             {
                 UpdateDebug();
             }
         }
 
-        // get a span of valid hits sorted by distance
+        // Get a span of valid hits (still sorted by original Physics order,
+        // but index 0 is now the "best" hit according to our rule).
         public RaycastHit[] GetHits()
         {
             return PhysicHits[..PhysicHitCount];
         }
 
         /// <summary>
-        /// Gets the closest raycast hit up to maxDistance that is in the layerMask
-        /// </summary>
-        /// <param name="hitInfo"></param>
-        /// <param name="maxDistance"></param>
-        /// <param name="layerMask"></param>
-        /// <returns>true on valid hit</returns> 
-        public bool FirstHitInMask(out RaycastHit hitInfo, float maxDistance = float.PositiveInfinity, int layerMask = Physics.AllLayers)
-        {
-            hitInfo = default;
-
-            for (int Index = 0; Index < PhysicHitCount; Index++)
-            {
-                var hit = PhysicHits[Index];
-                if (hit.distance > maxDistance)
-                    return false;
-                if (hit.collider == null)
-                    continue;
-
-                if ((hit.collider.gameObject.layer & layerMask) != 0)
-                {
-                    hitInfo = hit;
-                    return true;
-                }
-            }
-            
-            return false;
-        }
-
-        /// <summary>
-        /// Gets the closest raycast hit up to maxDistance
+        /// Gets the closest raycast hit up to maxDistance,
+        /// with OverlayUI layer overriding if present.
         /// </summary>
         /// <param name="hitInfo"></param>
         /// <param name="maxDistance"></param>
@@ -136,36 +146,38 @@ namespace Basis.Scripts.UI
         public bool FirstHit(out RaycastHit hitInfo, float maxDistance = float.PositiveInfinity)
         {
             hitInfo = default;
-            for (int Index = 0; Index < PhysicHitCount; Index++)
-            {
-                var hit = PhysicHits[Index];
-                if (hit.distance > maxDistance)
-                    return false;
-                if (hit.collider == null)
-                    continue;
 
-                hitInfo = hit;
-                return true;
-            }
-            
-            return false;
+            if (ClosestRayCastHit.collider == null)
+                return false;
+
+            if (ClosestRayCastHit.distance > maxDistance)
+                return false;
+
+            hitInfo = ClosestRayCastHit;
+            return true;
         }
+
         private void UpdateDebug()
         {
-            _DebugHitObjects = PhysicHits[..PhysicHitCount].Select(x => x.collider != null ? x.collider.gameObject : null).ToList();
+            _DebugHitObjects = PhysicHits[..PhysicHitCount]
+                .Select(x => x.collider != null ? x.collider.gameObject : null)
+                .ToList();
         }
-
 
         public override void Raycast(PointerEventData eventData, List<RaycastResult> resultAppendList)
         {
         }
+
         /// <summary>
-        /// dont just draw unless selected
+        /// Don't just draw unless selected
         /// </summary>
         private void OnDrawGizmosSelected()
         {
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * MaxDistance);
+            if (SMModuleDebugOptions.UseGizmos)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawLine(ray.origin, ray.origin + ray.direction * MaxDistance);
+            }
         }
     }
 }

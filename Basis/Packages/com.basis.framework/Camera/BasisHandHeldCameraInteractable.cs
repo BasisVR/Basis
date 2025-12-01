@@ -7,103 +7,143 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.BasisSdk.Interactions;
 
+/// <summary>
+/// Interactable handheld/fly camera controller:
+/// - Pins the capture camera to handheld, playspace, or world space
+/// - Provides a desktop “fly” mode with smoothed movement/rotation, momentum, and auto-leveling
+/// - Locks/unlocks player controls while interacting
+/// </summary>
 public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
 {
+    /// <summary>Owning handheld camera component and metadata.</summary>
     public BasisHandHeldCamera HHC;
+
+    /// <summary>Reference to the camera UI for orientation updates.</summary>
     private BasisHandHeldCameraUI cameraUI;
+
     [Header("Camera Settings")]
+    /// <summary>Space to which the capture camera is pinned.</summary>
     public CameraPinSpace PinSpace = CameraPinSpace.HandHeld;
 
     [Header("Flying Camera Settings")]
+    /// <summary>Base fly speed (units/second).</summary>
     public float flySpeed = 2f;
+
+    /// <summary>Multiplier applied when fast-move is held.</summary>
     public float flyFastMultiplier = 3f;
+
+    /// <summary>Acceleration toward target velocity.</summary>
     public float flyAcceleration = 10f;
+
+    /// <summary>Deceleration factor when no input (used with momentum).</summary>
     public float flyDeceleration = 8f;
+
+    /// <summary>Position smoothing factor while flying.</summary>
     public float flyMovementSmoothing = 12f;
 
     [Header("Camera Rotation")]
+    /// <summary>Mouse sensitivity for fly rotation.</summary>
     public float mouseSensitivity = 0.5f;
+
+    /// <summary>Smoothing applied to fly rotation changes.</summary>
     [Range(5f, 25f)]
     public float rotationSmoothing = 15f;
 
     [Header("Cinematic Controls")]
+    /// <summary>Whether to use momentum/inertia for movement.</summary>
     public bool useMomentum = true;
+
+    /// <summary>How quickly momentum falls off.</summary>
     [Range(2f, 12f)]
     public float inertiaDamping = 5f;
+
+    /// <summary>Automatically level pitch toward eye-height.</summary>
     public bool useAutoLeveling = false;
+
+    /// <summary>Strength of the auto-leveling force.</summary>
     public float autoLevelStrength = 2f;
+
+    /// <summary>Extra damping applied to cinematic motion.</summary>
     [Range(0.1f, 0.9f)]
     public float cinematicDamping = 0.8f;
 
-    // internal values
+    // --- internal values / locks ---
     private readonly BasisLocks.LockContext LookLock = BasisLocks.GetContext(BasisLocks.LookRotation);
     private readonly BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
     private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
-    private Vector3 cameraStartingLocalPos; // local space
-    private Quaternion cameraStartingLocalRot; // local space
 
-    // modes
+    /// <summary>Capture camera’s starting local position (handheld mode baseline).</summary>
+    private Vector3 cameraStartingLocalPos;
+
+    /// <summary>Capture camera’s starting local rotation (handheld mode baseline).</summary>
+    private Quaternion cameraStartingLocalRot;
+
+    // Modes / orientation
     private CameraOrientation currentOrientation = CameraOrientation.Landscape;
     private float orientationCheckCooldown = 0f;
 
-    [SerializeReference]
-    private BasisParentConstraint cameraPinConstraint;
-    [SerializeReference]
-    private BasisFlyCamera flyCamera;
+    [SerializeReference] private BasisParentConstraint cameraPinConstraint;
+    [SerializeReference] private BasisFlyCamera flyCamera;
 
-    const float cameraDefaultScale = 0.0003f;
+    private const float cameraDefaultScale = 0.0003f;
 
     private bool isPlayerManuallyUnlocked = false;
     private bool desktopSetup = false;
     private CameraPinSpace previousPinState = CameraPinSpace.HandHeld;
+
+    // Motion state
     private Vector3 currentVelocity = Vector3.zero;
     private Vector3 targetVelocity = Vector3.zero;
     private Vector3 velocityMomentum = Vector3.zero;
     private float rotationMomentum = 0f;
 
+    // Rotation state
     private float currentPitch = 0f;
     private float currentYaw = 0f;
     private float targetPitch = 0f;
     private float targetYaw = 0f;
 
+    // Smoothed transform (for pin constraint offset)
     private Vector3 smoothedPosition = Vector3.zero;
     private Quaternion smoothedRotation = Quaternion.identity;
 
-
-
     private bool pauseMove = false;
-    /// <summary>
-    /// Space the camera is pinned to
-    /// </summary>
+
+    /// <summary>Where to pin the camera transform.</summary>
     public enum CameraPinSpace
     {
+        /// <summary>Parented to the handheld object (local transform preserved).</summary>
         HandHeld,
+        /// <summary>Pinned relative to the local player’s avatar transform.</summary>
         PlaySpace,
+        /// <summary>Free in world space with no parent.</summary>
         WorldSpace,
     }
 
-    // not a fan of doing new, but dont want to make a initialization framework to hook into - mriise
+    /// <summary>
+    /// Unity Start override: sets up locks, desktop state, captures camera references,
+    /// subscribes to lifecycle events, and initializes constraints/fly controller.
+    /// </summary>
     public new void Start()
     {
         base.Start();
-        // force rigid ref null, pickup will use raw transform instead 
+
+        // force rigid ref null, pickup will use raw transform instead
         RigidRef = null;
 
-        // "disable" desktop zoop for this
+        // disable base desktop “zoop”/rotate
         DesktopZoopSpeed = 0;
         DesktopRotateSpeed = 0;
 
         CanSelfSteal = false;
-        // CanNetworkSteal = false; // not networked anyway
 
-        //Player Movement locking for UI Selection
+        // Desktop: lock player look/move for UI selection
         string className = nameof(BasisHandHeldCameraInteractable);
         bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
         if (inDesktop)
             LockPlayer(className);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
 
+        BasisCursorManagement.UnlockCursor(nameof(BasisHandHeldCamera),false);
 
         if (HHC.captureCamera == null)
         {
@@ -122,46 +162,59 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
 
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
-        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
 
+        // scale camera to avatar size
+        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
+                               BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+
+        // run after player movement
         BasisLocalPlayer.AfterFinalMove.AddAction(202, UpdateCamera);
 
-        cameraPinConstraint = new BasisParentConstraint();
-        cameraPinConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
-        cameraPinConstraint.Enabled = false;
+        cameraPinConstraint = new BasisParentConstraint
+        {
+            sources = new BasisConstraintSourceData[] { new() { weight = 1f } },
+            Enabled = false
+        };
 
         flyCamera = new BasisFlyCamera();
     }
-    public void SetCameraUI(BasisHandHeldCameraUI ui)
-    {
-        cameraUI = ui;
-    }
+
+    /// <summary>Assigns the UI instance so orientation changes can be reflected.</summary>
+    public void SetCameraUI(BasisHandHeldCameraUI ui) => cameraUI = ui;
+
+    /// <summary>Desktop tweak to disable pickup’s internal update loop while in desktop mode.</summary>
     private void OnInteractDesktopTweak(BasisInput _input)
     {
         if (BasisDeviceManagement.IsUserInDesktop())
         {
-            // dont poll pickup input update
+            // don’t poll pickup input update
             RequiresUpdateLoop = false;
         }
     }
+
+    /// <summary>Rescales the camera when the local player’s avatar height changes.</summary>
     private void OnHeightChanged()
     {
-        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
+                               BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
     }
+
+    /// <summary>
+    /// Per-frame camera update (runs after player movement). Handles desktop head binding,
+    /// initializes desktop constraint, and always updates pinning & fly movement where applicable.
+    /// </summary>
     private void UpdateCamera()
     {
         bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
         CheckCameraOrientation();
+
         if (inDesktop)
         {
-            if (Inputs.desktopCenterEye.Source == null)
-            {
-                return;
-            }
+            if (Inputs.desktopCenterEye.Source == null) return;
 
             flyCamera.DetectInput();
 
-           BasisCalibratedCoords Coords = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData;
+            BasisCalibratedCoords Coords = Inputs.desktopCenterEye.BoneControl.OutgoingWorldData;
             Vector3 inPos = Coords.position;
             Quaternion inRot = Coords.rotation;
 
@@ -171,12 +224,10 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
 
                 if (!desktopSetup)
                 {
-                    // do not remove, important!!!
-                    // on desktop the camera contrains itself to the initial spawn position until destroyed.
-                    // does not reset since we force destroy on boot mode change.
+                    // Camera constrains itself to initial spawn position until destroyed.
                     InteractableEnabled = false;
 
-                    // offset
+                    // compute initial offset in eye space
                     transform.GetPositionAndRotation(out Vector3 startPos, out Quaternion startRot);
                     var offsetPos = Quaternion.Inverse(inRot) * (startPos - inPos);
                     var offsetRot = Quaternion.Inverse(inRot) * startRot;
@@ -190,84 +241,88 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
             {
                 return;
             }
+
             // always constrain to head movement
             InputConstraint.UpdateSourcePositionAndRotation(0, inPos, inRot);
-            
             if (InputConstraint.Evaluate(out Vector3 pos, out Quaternion rot))
             {
                 transform.SetPositionAndRotation(pos, rot);
             }
         }
+
+        // Update pinning regardless of desktop/head-constraint logic
         PollCameraPin(Inputs.desktopCenterEye.Source);
     }
+
+    /// <summary>Detects landscape vs portrait by camera roll and triggers UI orientation updates.</summary>
     private void CheckCameraOrientation()
     {
-        // Delay between checks to reduce UI toggle jitter
         if (Time.time < orientationCheckCooldown)
             return;
 
         if (HHC != null && HHC.captureCamera != null)
         {
             float roll = HHC.captureCamera.transform.eulerAngles.z;
-            if (roll > 180f) roll -= 360f; // Normalize to [-180, 180]
+            if (roll > 180f) roll -= 360f; // normalize to [-180, 180]
 
             CameraOrientation newOrientation = Mathf.Abs(roll) > 45f ? CameraOrientation.Portrait : CameraOrientation.Landscape;
 
             if (newOrientation != currentOrientation)
             {
                 currentOrientation = newOrientation;
-                orientationCheckCooldown = Time.time + 0.5f; // Add cooldown to prevent flip-flopping
+                orientationCheckCooldown = Time.time + 0.5f; // prevent flip-flopping
                 HandleOrientationChanged(currentOrientation);
             }
         }
     }
+
+    /// <summary>Applies the new orientation to the UI and logs it.</summary>
     private void HandleOrientationChanged(CameraOrientation newOrientation)
     {
         if (cameraUI != null)
         {
             cameraUI.SetUIOrientation(newOrientation);
         }
-
         BasisDebug.Log($"[Camera UI] Orientation changed to {newOrientation}");
     }
+
+    /// <inheritdoc />
     public override bool IsInteractingWith(BasisInput input)
     {
         var found = Inputs.FindExcludeExtras(input);
         return found.HasValue && found.Value.GetState() == BasisInteractInputState.Interacting;
     }
 
+    /// <inheritdoc />
     public override bool IsHoveredBy(BasisInput input)
     {
         var found = Inputs.FindExcludeExtras(input);
         return found.HasValue && found.Value.GetState() == BasisInteractInputState.Hovering;
     }
 
-    // this is cached, use it
-    public override Collider GetCollider()
-    {
-        return ColliderRef;
-    }
+    /// <summary>Pickup collider accessor (cached in base).</summary>
+    public override Collider GetCollider() => ColliderRef;
 
+    /// <summary>
+    /// Pins the capture camera to handheld/playspace/world and applies fly motion offsets
+    /// through an internal parent-constraint.
+    /// </summary>
     private void PollCameraPin(BasisInput DesktopEye)
     {
-
-        // --- camera pinning --- 
         if (HHC.captureCamera == null) return;
-        
 
         switch (PinSpace)
         {
-            // handheld is a child of the pickup, setup local transform and let unity handle things
             case CameraPinSpace.HandHeld:
                 if (previousPinState != CameraPinSpace.HandHeld)
                 {
                     cameraPinConstraint.Enabled = false;
-                    // zero out source
                     cameraPinConstraint.UpdateSourcePositionAndRotation(0, Vector3.zero, Quaternion.identity);
                     cameraPinConstraint.SetOffsetPositionAndRotation(0, Vector3.zero, Quaternion.identity);
                     HHC.captureCamera.transform.SetLocalPositionAndRotation(cameraStartingLocalPos, cameraStartingLocalRot);
                 }
                 break;
+
             case CameraPinSpace.PlaySpace:
                 BasisLocalPlayer.Instance.AvatarTransform.GetPositionAndRotation(out Vector3 pinParentPos, out Quaternion pinParentRot);
                 cameraPinConstraint.UpdateSourcePositionAndRotation(0, pinParentPos, pinParentRot);
@@ -280,33 +335,27 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
                     cameraPinConstraint.Enabled = true;
 
                     HHC.captureCamera.transform.GetPositionAndRotation(out Vector3 camPos, out Quaternion camRot);
-
                     var offsetPos = Quaternion.Inverse(pinParentRot) * (camPos - pinParentPos);
                     var offsetRot = Quaternion.Inverse(pinParentRot) * camRot;
                     cameraPinConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
                 }
                 break;
+
             case CameraPinSpace.WorldSpace:
-                // world offset is zero/identity
                 cameraPinConstraint.UpdateSourcePositionAndRotation(0, Vector3.zero, Quaternion.identity);
 
                 MoveCameraFlying();
                 cameraPinConstraint.SetOffsetPositionAndRotation(0, smoothedPosition, smoothedRotation);
-                    
+
                 if (previousPinState != CameraPinSpace.WorldSpace)
                 {
                     cameraPinConstraint.Enabled = true;
-
                     HHC.captureCamera.transform.GetPositionAndRotation(out Vector3 camPos, out Quaternion camRot);
-                    // use current world pos
                     cameraPinConstraint.SetOffsetPositionAndRotation(0, camPos, camRot);
                 }
                 break;
-            default:
-                break;
         }
 
-        // update pin constraint
         if (cameraPinConstraint.Evaluate(out Vector3 pinPos, out Quaternion pinRot))
         {
             HHC.captureCamera.transform.SetPositionAndRotation(pinPos, pinRot);
@@ -315,12 +364,18 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         previousPinState = PinSpace;
     }
 
+    /// <summary>
+    /// Destroys self on boot mode changes to avoid managing inputs/state across modes.
+    /// </summary>
     public void OnBootModeChanged(string mode)
     {
-        // To not manage things across boot mode changes (inputs actions, ect) destroy self.
-        // User can respawn camera if they want it
         Destroy(gameObject);
     }
+
+    /// <summary>
+    /// Handles fly-mode toggling and desktop player lock/unlock cues based on mouse input.
+    /// Middle click enters/exits fly mode; right mouse temporarily unlocks player controls.
+    /// </summary>
     private void PollDesktopControl(BasisInput DesktopEye)
     {
         if (DesktopEye == null) return;
@@ -332,13 +387,13 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         bool isMiddleClick = DesktopEye.CurrentInputState.Secondary2DAxisClick;
         bool isRightClickHeld = Mouse.current != null && Mouse.current.rightButton.isPressed;
 
-        // Entering Fly Mode (middle-click)
+        // Enter/exit fly mode
         if (isMiddleClick && !pauseMove)
         {
             pauseMove = true;
-            LookLock.Add(nameof(BasisHandHeldCameraInteractable));
-            MovementLock.Add(nameof(BasisHandHeldCameraInteractable));
-            CrouchingLock.Add(nameof(BasisHandHeldCameraInteractable));
+            LookLock.Add(className);
+            MovementLock.Add(className);
+            CrouchingLock.Add(className);
 
             PinSpace = CameraPinSpace.WorldSpace;
             flyCamera.Enable();
@@ -349,54 +404,60 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         else if (!isMiddleClick && pauseMove)
         {
             pauseMove = false;
-            if (!LookLock.Remove(className))
-                BasisDebug.LogWarning($"{className} couldn't remove LookLock");
-            if (!MovementLock.Remove(className))
-                BasisDebug.LogWarning($"{className} couldn't remove MovementLock");
-            if (!CrouchingLock.Remove(className))
-                BasisDebug.LogWarning($"{className} couldn't remove CrouchingLock");
+            if (!LookLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove LookLock");
+            if (!MovementLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove MovementLock");
+            if (!CrouchingLock.Remove(className)) BasisDebug.LogWarning($"{className} couldn't remove CrouchingLock");
 
             flyCamera.Disable();
             velocityMomentum = Vector3.zero;
             rotationMomentum = 0f;
         }
 
-        if (!pauseMove) // only do this when NOT flying
+        // Temporary manual unlock while holding RMB (when not flying)
+        if (!pauseMove)
         {
-            if (!pauseMove)
+            if (isRightClickHeld && !isPlayerManuallyUnlocked)
             {
-                if (isRightClickHeld && !isPlayerManuallyUnlocked)
-                {
-                    isPlayerManuallyUnlocked = true;
-                    UnlockPlayer(className);
-                }
-                else if (!isRightClickHeld && isPlayerManuallyUnlocked)
-                {
-                    isPlayerManuallyUnlocked = false;
-                    if (inDesktop)
-                        LockPlayer(className);
-                }
+                isPlayerManuallyUnlocked = true;
+                UnlockPlayer(className);
+            }
+            else if (!isRightClickHeld && isPlayerManuallyUnlocked)
+            {
+                isPlayerManuallyUnlocked = false;
+                if (inDesktop)
+                    LockPlayer(className);
             }
         }
     }
+
+    /// <summary>Releases any player locks this interactable has taken.</summary>
     public void ReleasePlayerLocks()
     {
         string className = nameof(BasisHandHeldCameraInteractable);
         UnlockPlayer(className);
         isPlayerManuallyUnlocked = false;
     }
+
+    /// <summary>Applies look/move locks to the player (desktop).</summary>
     private void LockPlayer(string className)
     {
         LookLock.Add(className);
         MovementLock.Add(className);
-        //CrouchingLock.Add(className);
+        // CrouchingLock.Add(className);
     }
+
+    /// <summary>Removes look/move locks from the player (desktop).</summary>
     private void UnlockPlayer(string className)
     {
         LookLock.Remove(className);
         MovementLock.Remove(className);
-        //CrouchingLock.Remove(className);
+        // CrouchingLock.Remove(className);
     }
+
+    /// <summary>
+    /// Fly camera step: handles input, acceleration/deceleration, momentum, auto-leveling,
+    /// and computes smoothed position/rotation for the pin constraint offset.
+    /// </summary>
     private void MoveCameraFlying()
     {
         float deltaTime = Time.deltaTime;
@@ -411,7 +472,6 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         }
         else
         {
-            // Stop immediately if inertia disabled
             currentVelocity = Vector3.zero;
             targetVelocity = Vector3.zero;
         }
@@ -429,131 +489,124 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         ApplySmoothedPosition(deltaTime);
     }
 
+    /// <summary>Reads fly movement inputs and outputs a normalized movement vector + speed multiplier.</summary>
     private bool HandleMovementInput(out Vector3 movement, out float speedMultiplier)
     {
         movement = Vector3.zero;
         speedMultiplier = 1f;
-        
+
         var horizontalInput = flyCamera.horizontalMoveInput;
         var verticalInput = flyCamera.verticalMoveInput;
         var isFastMovement = flyCamera.isFastMovement;
-        
+
         movement = new Vector3(horizontalInput.x, verticalInput, horizontalInput.y);
-        
+
         if (movement.magnitude < 0.01f)
             return false;
-            
-        // Normalize to prevent faster diagonal movement
+
+        // prevent faster diagonal movement
         if (movement.magnitude > 1f)
             movement.Normalize();
-            
+
         speedMultiplier = isFastMovement ? flyFastMultiplier : 1f;
         return true;
     }
-        
+
+    /// <summary>Converts input to world velocity and applies acceleration and momentum.</summary>
     private void UpdateMovement(Vector3 inputMovement, float speedMultiplier, float deltaTime)
     {
-        // Transform movement to camera space
         Vector3 worldMovement = HHC.captureCamera.transform.TransformDirection(inputMovement);
-                
         targetVelocity = worldMovement * flySpeed * speedMultiplier;
-        
         currentVelocity = Vector3.Lerp(currentVelocity, targetVelocity, flyAcceleration * deltaTime);
-        
-        // Add momentum back
+
         if (useMomentum)
         {
             velocityMomentum = Vector3.Lerp(velocityMomentum, currentVelocity * 0.1f, deltaTime * 2f);
         }
     }
+
+    /// <summary>Applies exponential deceleration when no movement input is present.</summary>
     private void ApplyInertia(float deltaTime)
     {
-        // deceleration with exponential falloff
         float decelerationFactor = Mathf.Pow(cinematicDamping, deltaTime * flyDeceleration);
         currentVelocity *= decelerationFactor;
-        
+
         velocityMomentum = Vector3.Lerp(velocityMomentum, Vector3.zero, inertiaDamping * deltaTime);
-        
+
         if (currentVelocity.magnitude < 0.01f)
         {
             currentVelocity = Vector3.zero;
             velocityMomentum = Vector3.zero;
         }
     }
-    
+
+    /// <summary>Reads fly rotation input (mouse delta) and outputs the delta if significant.</summary>
     private bool HandleRotationInput(out Vector2 rotationDelta)
     {
         rotationDelta = Vector2.zero;
         var mouseInput = flyCamera.mouseInput;
-        
+
         if (mouseInput.magnitude < 0.001f)
             return false;
-            
+
         rotationDelta = mouseInput * mouseSensitivity;
         return true;
     }
-    
+
+    /// <summary>Updates target yaw/pitch from input and builds rotation momentum.</summary>
     private void UpdateRotation(Vector2 rotationDelta, float deltaTime)
     {
         targetYaw += rotationDelta.x;
         targetPitch -= rotationDelta.y;
-        
-        // Clamp pitch to prevent over-rotation
+
         targetPitch = Mathf.Clamp(targetPitch, -90f, 90f);
-        
         targetYaw = NormalizeAngle(targetYaw);
-        
+
         float rotationSpeed = rotationDelta.magnitude;
         rotationMomentum = Mathf.Lerp(rotationMomentum, rotationSpeed * 0.1f, deltaTime * 5f);
     }
-    
+
+    /// <summary>Gradually levels pitch toward zero (eye level) when enabled.</summary>
     private void ApplyAutoLeveling(float deltaTime)
     {
-        // Gradually level the pitch to bring camera back to eye level (0 degrees)
-        float targetLevelPitch = 0f; // Eye level
+        float targetLevelPitch = 0f;
         float pitchDifference = targetPitch - targetLevelPitch;
-        
-        // Only apply leveling if we're looking significantly up or down
-        if (Mathf.Abs(pitchDifference) > 5f) // 5 degree dead zone
+
+        if (Mathf.Abs(pitchDifference) > 5f)
         {
             float levelingForce = -pitchDifference * autoLevelStrength * deltaTime;
             targetPitch += levelingForce;
-            
-            // Keep within bounds
             targetPitch = Mathf.Clamp(targetPitch, -89.8f, 89.9f);
         }
     }
 
+    /// <summary>
+    /// Integrates velocity into <see cref="smoothedPosition"/> and applies smoothed rotation
+    /// with momentum-influenced smoothing.
+    /// </summary>
     private void ApplySmoothedPosition(float deltaTime)
     {
-        // Add momentum to movement
         Vector3 finalVelocity = currentVelocity + (useMomentum ? velocityMomentum : Vector3.zero);
         smoothedPosition += finalVelocity * deltaTime;
 
-        // Enhanced rotation smoothing with momentum influence
         float enhancedRotationSmoothness = rotationSmoothing + rotationMomentum;
-        
-        // Smooth rotation interpolation
+
         currentPitch = Mathf.LerpAngle(currentPitch, targetPitch, enhancedRotationSmoothness * deltaTime);
         currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, enhancedRotationSmoothness * deltaTime);
-        
-        // Create final rotation
+
         Quaternion targetRotationQuat = Quaternion.Euler(currentPitch, currentYaw, 0f);
-        
-        // Additional smoothing for ultra-cinematic feel
         smoothedRotation = Quaternion.Slerp(smoothedRotation, targetRotationQuat, rotationSmoothing * deltaTime);
     }
 
-    // Utility function to normalize angles to [-180, 180] range
+    /// <summary>Normalizes an angle to the range [-180, 180].</summary>
     private float NormalizeAngle(float angle)
     {
-        while (angle > 180f)
-            angle -= 360f;
-        while (angle < -180f)
-            angle += 360f;
+        while (angle > 180f) angle -= 360f;
+        while (angle < -180f) angle += 360f;
         return angle;
     }
-    
+
+    /// <summary>Clears all momentum/velocity state.</summary>
     public void ResetMomentum()
     {
         currentVelocity = Vector3.zero;
@@ -561,7 +614,11 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         velocityMomentum = Vector3.zero;
         rotationMomentum = 0f;
     }
-    
+
+    /// <summary>
+    /// Unsubscribes events, releases locks, destroys highlight artifacts, shuts down fly camera,
+    /// and then calls base destroy.
+    /// </summary>
     public override void OnDestroy()
     {
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
@@ -569,7 +626,6 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
 
         BasisLocalPlayer.AfterFinalMove.RemoveAction(202, UpdateCamera);
-
 
         if (pauseMove)
         {
@@ -590,6 +646,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         {
             flyCamera.OnDestroy();
         }
+
         base.OnDestroy();
     }
 }

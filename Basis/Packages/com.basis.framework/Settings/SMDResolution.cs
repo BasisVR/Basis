@@ -26,9 +26,9 @@ namespace BattlePhaze.SettingsManager.Intergrations
             monitorDropdown.ClearOptions();
             List<string> monitorOptions = new List<string>();
 
-            for (int i = 0; i < Display.displays.Length; i++)
+            for (int Index = 0; Index < Display.displays.Length; Index++)
             {
-                monitorOptions.Add("Monitor " + (i + 1));
+                monitorOptions.Add("Monitor " + (Index + 1));
             }
 
             monitorDropdown.AddOptions(monitorOptions);

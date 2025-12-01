@@ -1,0 +1,7 @@
+{
+  "name": "com.basis.shim",
+  "displayName": "Basis Shims for CILBOX",
+  "version": "0.0.1",
+  "description": "Shims for the basis framework",
+  "hideInEditor": false
+}

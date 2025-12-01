@@ -1,3 +1,4 @@
+using Basis.Network.Core;
 using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
@@ -11,9 +12,13 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
 using Basis.Scripts.TransformBinders.BoneControl;
+using BasisNetworkServer.BasisNetworking;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Unity.Profiling;
 using Unity.Profiling.Editor;
@@ -68,7 +73,7 @@ public static class BasisMenuItemsEditor
     }
     public static BasisSimulateXR FindSimulate()
     {
-        if (BasisDeviceManagement.Instance.TryFindBasisBaseTypeManagement("SimulateXR", out List<BasisBaseTypeManagement> Matched,true))
+        if (BasisDeviceManagement.Instance.TryFindBasisBaseTypeManagement("SimulateXR", out List<BasisBaseTypeManagement> Matched, true))
         {
             foreach (var m in Matched)
             {
@@ -79,7 +84,7 @@ public static class BasisMenuItemsEditor
         return null;
     }
     [MenuItem("Basis/Trackers/Create Puck Tracker")]
-    public static  void CreatePuckTracker()
+    public static void CreatePuckTracker()
     {
         BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
         var Value = FindSimulate();
@@ -88,17 +93,17 @@ public static class BasisMenuItemsEditor
         BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
     }
     [MenuItem("Basis/Trackers/Create Vive Right Controller")]
-    public static  void CreateViveRightTracker()
+    public static void CreateViveRightTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl RightHand, BasisBoneTrackedRole.RightHand);
-       var Value = FindSimulate();
+        var Value = FindSimulate();
         BasisInputXRSimulate RightTracker = Value.CreatePhysicalTrackedDevice("{indexcontroller}valve_controller_knu_3_0_right" + UnityEngine.Random.Range(-9999999999999, 999999999999), "{indexcontroller}valve_controller_knu_3_0_right", BasisBoneTrackedRole.RightHand, true);
         RightTracker.FollowMovement.position = RightHand.OutgoingWorldData.position;
         RightTracker.FollowMovement.rotation = Quaternion.identity;
         BasisDeviceManagement.VisibleTrackers(true);
     }
     [MenuItem("Basis/Trackers/Create Vive Left Controller")]
-    public static  void CreateViveLeftTracker()
+    public static void CreateViveLeftTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand);
         var Value = FindSimulate();
@@ -108,7 +113,7 @@ public static class BasisMenuItemsEditor
         BasisDeviceManagement.VisibleTrackers(true);
     }
     [MenuItem("Basis/Trackers/Create Unknown Tracker")]
-    public static  void CreateUnknowonTracker()
+    public static void CreateUnknowonTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand);
         var Value = FindSimulate();
@@ -124,13 +129,13 @@ public static class BasisMenuItemsEditor
         CreateViveRightTracker();
     }
     [MenuItem("Basis/Trackers/Create 3Point Tracking")]
-    public static  void CreatePuck3Tracker()
+    public static void CreatePuck3Tracker()
     {
         BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
         BasisSimulateXR XR = FindSimulate();
-        BasisInputXRSimulate BasisHips =  XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisHips | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
-        BasisInputXRSimulate BasisLeftFoot =  XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisLeftFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
-        BasisInputXRSimulate BasisRightFoot =  XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisRightFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
+        BasisInputXRSimulate BasisHips = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisHips | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
+        BasisInputXRSimulate BasisLeftFoot = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisLeftFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
+        BasisInputXRSimulate BasisRightFoot = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisRightFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
 
         var hips = BasisLocalAvatarDriver.References.Hips;
         var leftFoot = BasisLocalAvatarDriver.References.leftFoot;
@@ -167,8 +172,8 @@ public static class BasisMenuItemsEditor
             avatarDriver.leftShoulder, avatarDriver.RightShoulder,
             avatarDriver.leftLowerArm,avatarDriver.RightLowerArm,
             avatarDriver.LeftLowerLeg, avatarDriver.RightLowerLeg,
-            avatarDriver.leftFoot, avatarDriver.leftToes,
-            avatarDriver.rightFoot, avatarDriver.rightToes
+            avatarDriver.leftFoot, avatarDriver.leftToe,
+            avatarDriver.rightFoot, avatarDriver.rightToe
         };
         int bodyPartsCount = bodyParts.Length;
         // Create an array of the BasisInputXRSimulate instances
@@ -202,8 +207,8 @@ public static class BasisMenuItemsEditor
             avatarDriver.leftShoulder, avatarDriver.RightShoulder,
             avatarDriver.leftLowerArm,avatarDriver.RightLowerArm,
             avatarDriver.LeftLowerLeg, avatarDriver.RightLowerLeg,
-            avatarDriver.leftFoot, avatarDriver.leftToes,
-            avatarDriver.rightFoot, avatarDriver.rightToes
+            avatarDriver.leftFoot, avatarDriver.leftToe,
+            avatarDriver.rightFoot, avatarDriver.rightToe
         };
         int bodyPartsCount = bodyParts.Length;
         // Create an array of the BasisInputXRSimulate instances
@@ -251,10 +256,10 @@ public static class BasisMenuItemsEditor
         Vector3 OnlyY = new Vector3(0, RotationVector.y, 0);
         BasisLocalPlayer.Instance.transform.eulerAngles = OnlyY;
 
-        BasisAvatarEyeInput basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisAvatarEyeInput>();
+        BasisDesktopEye basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisDesktopEye>();
         if (basisAvatarEyeInput != null)
         {
-            basisAvatarEyeInput.rotationX = UnityEngine.Random.Range(-360, 360);
+            basisAvatarEyeInput.rotationYaw = UnityEngine.Random.Range(-360, 360);
         }
         BasisLocalPlayer.Instance.StartCoroutine(WaitAndCreatePuck3Tracker());
     }
@@ -280,9 +285,9 @@ public static class BasisMenuItemsEditor
         };
         serverSideSyncPlayerMessage.localReadyMessage.clientAvatarChangeMessage = new ClientAvatarChangeMessage();
         serverSideSyncPlayerMessage.localReadyMessage.localAvatarSyncMessage = new LocalAvatarSyncMessage();
-        if(BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.Id, out BasisNetworkPlayer Player))
+        if (BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.Id, out BasisNetworkPlayer Player))
         {
-          BasisNetworkTransmitter Transmitter = (BasisNetworkTransmitter)Player;
+            BasisNetworkTransmitter Transmitter = (BasisNetworkTransmitter)Player;
             if (Transmitter != null)
             {
                 BasisDebug.Log("Apply SpawnFakeRemote");
@@ -400,5 +405,57 @@ public static class BasisMenuItemsEditor
         };
 
         public SceneAndSynchronizationProfilerModule() : base(k_Counters, autoEnabledCategoryNames: k_AutoEnabledCategoryNames) { }
+    }
+
+
+    [MenuItem("Basis/ServerProfiler/RequestStatFrames")]
+    public static void RequestStatsTick()
+    {
+        BasisNetworkEvents.Snapshotdata += DataPass;
+        BasisNetworkEvents.RequestStatFrames();
+        BasisNetworkManagement.HasRequested = true;
+    }
+    [MenuItem("Basis/ServerProfiler/StopStatFrames")]
+    public static void TryStopStats()
+    {
+        BasisNetworkEvents.StopStatFrames();
+        BasisNetworkManagement.HasRequested = false;
+    }
+    public static void DataPass(BasisNetworkStatistics.Snapshot Snapshot)
+    {
+        BasisDebug.Log("Adding Data from Snapshot Network Stats",BasisDebug.LogTag.Networking);
+        // OPTIONAL: if key is a channelId (byte), map to const field names of BasisNetworkCommons
+        BasisNetworkProfiler.ResolveName = (index) =>
+        {
+            // If your keys are bytes, clamp
+            byte channelId = (byte)index;
+            var field = typeof(BasisNetworkCommons)
+                .GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy)
+                .FirstOrDefault(f => f.IsLiteral && !f.IsInitOnly &&
+                                     f.FieldType == typeof(byte) &&
+                                     (byte)f.GetRawConstantValue() == channelId);
+
+            return field?.Name ?? $"UnknownChannel({channelId})";
+        };
+
+        // INBOUND per index
+        foreach (var item in Snapshot.PerIndex)
+        {
+            int index = item.Key;
+            ulong bytes = item.Value.Bytes;
+            ulong count = item.Value.Count;
+
+            BasisNetworkProfiler.SampleInbound(index, bytes, count);
+        }
+
+        // OUTBOUND per index
+        foreach (var item in Snapshot.OutPerIndex)
+        {
+            int index = item.Key;
+            ulong bytes = item.Value.Bytes;
+            ulong count = item.Value.Count;
+
+            BasisNetworkProfiler.SampleOutbound(index, bytes, count);
+        }
     }
 }

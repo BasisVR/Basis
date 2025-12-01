@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace UnityEngine.Animations.Rigging
 {
     /// <summary>
@@ -28,11 +30,17 @@ namespace UnityEngine.Animations.Rigging
         [SyncSceneToStream, SerializeField]
         bool m_HintWeight;
 
+        [SyncSceneToStream, SerializeField]
+        bool m_Enabled;
+
         public Transform root { get => m_Root; set => m_Root = value; }
         public Transform mid { get => m_Mid; set => m_Mid = value; }
         public Transform tip { get => m_Tip; set => m_Tip = value; }
         public bool hintWeight { get => m_HintWeight; set => m_HintWeight = value; }
 
+        public bool IsEnabled { get => m_Enabled; set => m_Enabled = value; }
+
+        string BasisITwoBoneIKConstraintData.EnabledProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_Enabled));
         string BasisITwoBoneIKConstraintData.hintWeightFloatProperty => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(m_HintWeight));
         string BasisITwoBoneIKConstraintData.TargetpositionVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetPosition));
         string BasisITwoBoneIKConstraintData.TargetrotationVector3Property => ConstraintsUtils.ConstructConstraintDataPropertyName(nameof(TargetRotation));
@@ -112,12 +120,17 @@ namespace UnityEngine.Animations.Rigging
         public BoolProperty hintWeight;
         public FloatProperty jobWeight { get; set; }
         public Vector3Property BendNormal;
-
+        public BoolProperty IsEnabledWeight;
         public void ProcessRootMotion(AnimationStream stream) { }
 
         public void ProcessAnimation(AnimationStream stream)
         {
             float w = jobWeight.Get(stream);
+            if(IsEnabledWeight.Get(stream) == false)
+            {
+                Pass(stream);
+                return;
+            }
             if (w > 0f)
             {
                 Vector4 Rotation = targetRotation.Get(stream);
@@ -130,14 +143,18 @@ namespace UnityEngine.Animations.Rigging
                 AffineTransform hint = new AffineTransform(hintPosition.Get(stream), HintRot);
                 Vector3 BendNormalOutput = BendNormal.Get(stream);
                 //   BasisDebug.Log("Output Normal is " + BendNormalOutput);
-                BasisAnimationRuntimeUtils.SolveTwoBoneIKLegsAndTorso(stream, root, mid, tip, target, hint, hintWeight.Get(stream), targetOffset, BendNormalOutput);
+                BasisAnimationRuntimeUtils.SolveTwoBone(stream, root, mid, tip, target, hint, hintWeight.Get(stream), targetOffset, BendNormalOutput);
             }
             else
             {
-                BasisAnimationRuntimeUtils.PassThrough(stream, root);
-                BasisAnimationRuntimeUtils.PassThrough(stream, mid);
-                BasisAnimationRuntimeUtils.PassThrough(stream, tip);
+                Pass(stream);
             }
+        }
+        public void Pass(AnimationStream stream)
+        {
+            BasisAnimationRuntimeUtils.PassThrough(stream, root);
+            BasisAnimationRuntimeUtils.PassThrough(stream, mid);
+            BasisAnimationRuntimeUtils.PassThrough(stream, tip);
         }
     }
 
@@ -165,6 +182,7 @@ namespace UnityEngine.Animations.Rigging
         string HintpositionVector3Property { get; }
         string HintrotationVector3Property { get; }
         string HintDirectionProperty { get; }
+        string EnabledProperty { get; }
 
     }
 
@@ -183,14 +201,13 @@ namespace UnityEngine.Animations.Rigging
                 hintPosition = Vector3Property.Bind(animator, component, data.HintpositionVector3Property),
                 hintRotation = Vector4Property.Bind(animator, component, data.HintrotationVector3Property),
 
-                targetOffset = AffineTransform.identity,
+                targetOffset = new AffineTransform(data.CalibratedOffset, data.CalibratedRotation),
+
+                hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty),
+                BendNormal = Vector3Property.Bind(animator, component, data.HintDirectionProperty),
+
+                IsEnabledWeight = BoolProperty.Bind(animator, component, data.EnabledProperty),
             };
-
-            job.targetOffset.translation = data.CalibratedOffset;
-            job.targetOffset.rotation = data.CalibratedRotation;
-            job.hintWeight = BoolProperty.Bind(animator, component, data.hintWeightFloatProperty);
-            job.BendNormal = Vector3Property.Bind(animator, component, data.HintDirectionProperty);
-
             return job;
         }
 

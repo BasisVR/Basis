@@ -4,201 +4,239 @@ using Basis.Scripts.Profiler;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using static SerializableBasis;
+
 namespace Basis.Scripts.Networking.Receivers
 {
+    /// <summary>
+    /// Receives networked avatar state for a remote player, stages and interpolates frames,
+    /// and applies a posed result to the avatar each frame. Also brokers remote audio.
+    /// </summary>
     [DefaultExecutionOrder(15001)]
-    [System.Serializable]
+    [Serializable]
     public class BasisNetworkReceiver : BasisNetworkPlayer
     {
-        private const int EyesAndMouthOffset = 15; // starting muscle index for eyes/mouth
-        private const int EyesAndMouthCount = 6;  // number of floats to copy
-        public const int EyeAndMouthSize = EyesAndMouthOffset * sizeof(float); // bytes
-        public const int EyeAndMouthcount = EyesAndMouthCount * sizeof(float); // bytes
+        private const int EyesAndMouthOffset = 15;         // L/R up/down, L/R left/right, mouth open/smile
+        private const int EyesAndMouthCount = 6;
+
+        public const int EyeAndMouthSize = EyesAndMouthOffset * sizeof(float);
+        public const int EyeAndMouthCountInBytes = EyesAndMouthCount * sizeof(float);
 
         /// <summary>
-        /// If more than this many frames are queued, old frames will be dropped to catch up.
+        /// If staging backlog exceeds this, older frames are dropped to reduce latency.
         /// </summary>
         public static int BufferCapacityBeforeCleanup = 5;
 
-        [SerializeField]
-        public BasisAudioReceiver AudioReceiverModule = new BasisAudioReceiver();
-
-        [SerializeField]
-        public ConcurrentQueue<BasisAvatarBuffer> PayloadQueue = new ConcurrentQueue<BasisAvatarBuffer>();
+        [SerializeReference] public BasisAudioReceiver AudioReceiverModule = new BasisAudioReceiver();
+        [SerializeField] public ConcurrentQueue<BasisAvatarBuffer> PayloadQueue = new ConcurrentQueue<BasisAvatarBuffer>();
 
         public BasisRemotePlayer RemotePlayer;
+        [SerializeReference] public BasisRemoteAvatarBufferHolder BufferHolder = new BasisRemoteAvatarBufferHolder();
 
-        [SerializeField]
-        public BasisRemoteAvatarBufferHolder BufferHolder = new BasisRemoteAvatarBufferHolder();
+        public bool hasEvents = false;
 
-        public bool HasEvents = false;
-        public bool HasAvatarQueue;
-        public bool LogFirstError = false;
-
-        // Eyes (L/R up-down; L/R left-right) + Mouth open/smile? (example shape order)
-        public float[] EyesAndMouth = new float[] { 0, 0, 0, 0, 1, 0 };
-
+        public float[] EyesAndMouth = new float[] { 0, 0, 0, 0, 1, 0 }; // default neutral eyes, mouth open=1 for breathing
         public float[] Muscles = new float[95];
 
-        // Computed by driver
         public quaternion ApplyingRotation;
         public float3 ApplyingPosition;
         public float3 ApplyingScale;
 
-        // Interpolation timing
-        private float interpolationTime = 0f;
+        private float interpolationTime = 0f; // 0..1 over current First→Last window
 
-        // Main-thread staging for dequeued packets
         private readonly List<BasisAvatarBuffer> _staged = new List<BasisAvatarBuffer>(16);
 
-        // Shared zero array for safety
-        private static readonly float[] ZeroMuscles = new float[95];
-
-        // ---------- Compute / Apply ----------
+        public bool HasBufferHolds;
+        public bool PassedSimulate = false;
 
         /// <summary>
-        /// Called from your network simulation (main thread).
-        /// Pulls data to staging, builds/advances the interpolation window,
-        /// computes the fraction using SecondsInterval, and pushes inputs to the driver.
+        /// Main-thread simulation step. Pulls packets, maintains interpolation window,
+        /// computes interpolationTime, and feeds inputs to the network driver.
         /// </summary>
-        public void Compute()
+        public void Compute(float unscaledDeltaTime)
         {
+            if (Player == null)
+            {
+                BasisDebug.LogError("Player lost", BasisDebug.LogTag.Remote);
+                return;
+            }
+            if (Player.BasisAvatar == null) return; // expected briefly on join
+            if (Player.BasisAvatar.Animator == null)
+            {
+                BasisDebug.LogError($"Animator for {Player.DisplayName} lost", BasisDebug.LogTag.Remote);
+                return;
+            }
+            if (Player.AvatarTransform == null)
+            {
+                BasisDebug.LogError($"AvatarTransform for {Player.DisplayName} lost", BasisDebug.LogTag.Remote);
+                return;
+            }
+
             // 1) Pull network packets to main-thread staging
             PumpQueueToStaging();
 
             // 2) Ensure we have a valid interpolation window (First -> Last)
             BuildOrAdvanceWindow();
 
+            HasBufferHolds = BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer;
+
             // 3) If we have a window, compute interpolation fraction and feed the compute phase
-            if (BufferHolder.HasFirst && BufferHolder.HasLast)
+            if (HasBufferHolds)
             {
-                ComputeInterpolationFraction();
+                var first = BufferHolder.RequestCurrent();
+                var last = BufferHolder.RequestNext();
 
-                var first = BufferHolder.First;
-                var last = BufferHolder.Last;
-
-                // Ensure muscles are non-null and correct length
-                var prevMuscles = first.Muscles;
-                var targetMuscles = last.Muscles;
-
-                if (!IsValidMuscleArray(prevMuscles))
+                // Extra guard: refuse to simulate if either muscle array is invalid
+                if (!IsValidMuscleArray(first.Muscles) || !IsValidMuscleArray(last.Muscles))
                 {
-                    if (LogFirstError)
+                    // Attempt to repair once (in case they slipped in through legacy buffers)
+                    ValidateOrFixup(ref first);
+                    ValidateOrFixup(ref last);
+
+                    if (!IsValidMuscleArray(first.Muscles) || !IsValidMuscleArray(last.Muscles))
                     {
-                        BasisDebug.LogWarning("BasisNetworkReceiver: First frame muscles were null/invalid; using zeros.");
+                        // Drop this step; try again next frame
+                        PassedSimulate = false;
+                        return;
                     }
-                    prevMuscles = ZeroMuscles;
+
+                    // If we fixed them here, store back so Holder keeps the repaired arrays
+                    BufferHolder.SetCurrent(ref first);
+                    BufferHolder.SetNext(ref last);
                 }
 
-                if (!IsValidMuscleArray(targetMuscles))
-                {
-                    if (LogFirstError)
-                    {
-                        BasisDebug.LogWarning("BasisNetworkReceiver: Last frame muscles were null/invalid; using zeros.");
-                    }
-                    targetMuscles = ZeroMuscles;
-                }
+                double windowDuration =
+                    last.SecondsInterval > 0 ? last.SecondsInterval :
+                    first.SecondsInterval > 0 ? first.SecondsInterval :
+                    (1.0 / 60.0);
 
-                // Feed driver
-                BasisRemoteNetworkDriver.SetInputs(playerId, first.Position, last.Position, first.Scale, last.Scale, first.rotation, last.rotation, interpolationTime, prevMuscles, targetMuscles);
+                if (!double.IsFinite(windowDuration) || windowDuration <= 1e-6) windowDuration = 1e-3;
+
+                double step = Math.Max(unscaledDeltaTime, 0.0);
+                interpolationTime += (float)(step / windowDuration);
+                if (!float.IsFinite(interpolationTime)) interpolationTime = 0f;
+
+                if (interpolationTime > 1f) interpolationTime = 1f;
+                if (interpolationTime < 0f) interpolationTime = 0f;
+
+                PassedSimulate = BasisRemoteNetworkDriver.SetInputs(
+                    playerId, Player.BasisAvatar.HumanScale,
+                    first.Position, last.Position,
+                    first.Scale, last.Scale,
+                    first.Rotation, last.Rotation,
+                    interpolationTime,
+                    first.Muscles, last.Muscles
+                );
             }
-        }
-
-        public void Apply()
-        {
-            if (BufferHolder.HasFirst && BufferHolder.HasLast)
-            {
-                if (BasisRemoteNetworkDriver.GetOutputs(playerId, out ApplyingPosition, out ApplyingScale, out ApplyingRotation, ref Muscles))
-                {
-                    ApplyComputedData();
-                }
-            }
-        }
-
-        public void ApplyComputedData()
-        {
-            // Inline what ApplyPoseData used to do
-            float3 Scaling = Player.BasisAvatar.AnimatorHumanScale;
-            float[] MusclesLocal = Muscles ?? ZeroMuscles;
-
-            // Guard scale to avoid NaNs / zero
-            Scaling = SafeDivide(Scaling, ApplyingScale);
-
-            // Body transform
-            HumanPose.bodyPosition = Vector3.Scale(ApplyingPosition, Scaling);
-            HumanPose.bodyRotation = ApplyingRotation;
-
-            // Muscles (95)
-            if (!IsValidMuscleArray(HumanPose.muscles))
-            {
-                // HumanPose.muscles must exist & be 95; if the engine ever gives us less, bail safely
-                BasisDebug.LogError("BasisNetworkReceiver: HumanPose.muscles is invalid; aborting muscle copy this frame.");
-            }
-            else
-            {
-                Array.Copy(MusclesLocal, HumanPose.muscles, 95);
-
-                // Eyes/Mouth overlay — only if we have enough space and source
-                if (HumanPose.muscles.Length >= (EyesAndMouthOffset + EyesAndMouthCount)
-                    && EyesAndMouth != null && EyesAndMouth.Length >= EyesAndMouthCount)
-                {
-                    Buffer.BlockCopy(EyesAndMouth, 0, HumanPose.muscles, EyeAndMouthSize, EyeAndMouthcount);
-                }
-            }
-
-            Player.AvatarTransform.localScale = ApplyingScale;
-            PoseHandler.SetHumanPose(ref HumanPose);
-
-            RemotePlayer.RemoteBoneDriver.SimulateAndApply(ApplyingScale);
-
-            if (AudioReceiverModule.HasTransform)
-            {
-                var outgoing = RemotePlayer.RemoteBoneDriver.GetMouthPosition();
-               //AudioReceiverModule.AudioSourceTransform.SetPositionAndRotation(outgoing.position, outgoing.rotation);
-                BasisAudioTransformDriver.EnqueueSet(AudioReceiverModule.AudioSourceTransform, outgoing.position, outgoing.rotation);
-            }
-
-            if (RemotePlayer.HasRemoteNamePlate)
-            {
-                RemotePlayer.RemoteNamePlate.Simulate();
-            }
-        }
-
-        public static float3 SafeDivide(float3 a, float3 b, float epsilon = 1e-5f)
-        {
-            return new float3( math.abs(b.x) > epsilon ? a.x / b.x : a.x, math.abs(b.y) > epsilon ? a.y / b.y : a.y, math.abs(b.z) > epsilon ? a.z / b.z : a.z);
         }
 
         /// <summary>
-        /// Called from a background/network thread. Thread-safe.
+        /// Main-thread application step. Pulls posed outputs from the driver and applies
+        /// body position/rotation/muscles to the avatar via PoseHandler.
         /// </summary>
+        [BurstCompile]
+        public void Apply()
+        {
+            if (!PassedSimulate) return;
+
+            BasisRemoteNetworkDriver.GetOutputs_NoAlloc(
+                playerId,
+                out var outPos,                 // world pos (unused by HumanPose)
+                out float3 applyingScale,
+                out var applyingRotation,
+                out float3 scaledBody,          // HumanPose.bodyPosition (units in avatar-space)
+                Muscles
+            );
+
+            // Keep local fields current (useful for debug/telemetry)
+            ApplyingPosition = outPos;
+            ApplyingScale = applyingScale;
+            ApplyingRotation = applyingRotation;
+            HumanPose.bodyPosition = scaledBody;
+            HumanPose.bodyRotation = applyingRotation;
+            // Copy all 95 muscles
+            Memcpy95(Muscles, HumanPose.muscles);
+
+            // Overlay eyes/mouth in one shot
+            unsafe
+            {
+                fixed (float* pDst = HumanPose.muscles)
+                fixed (float* pSrc = EyesAndMouth)
+                {
+                    UnsafeUtility.MemCpy(pDst + EyesAndMouthOffset, pSrc, EyeAndMouthCountInBytes);
+                }
+            }
+
+            // Scale must be applied on transform
+            Player.AvatarTransform.localScale = applyingScale;
+
+            // HumanPoseHandler must stay on main thread
+            PoseHandler.SetHumanPose(ref HumanPose);
+            if (HasOverridenDestination)
+            {
+                var References = RemotePlayer.RemoteAvatarDriver.References;
+                References.Hips.transform.SetPositionAndRotation(OverridenPosition, OverridenRotation);
+            }
+            PassedSimulate = false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static void Memcpy95(float[] src, float[] dst)
+        {
+            const int MuscleCount = 95;
+            unsafe
+            {
+                fixed (float* pSrc = src)
+                fixed (float* pDst = dst)
+                {
+                    UnsafeUtility.MemCpy(pDst, pSrc, MuscleCount * sizeof(float));
+                }
+            }
+        }
+
         public void EnQueueAvatarBuffer(BasisAvatarBuffer avatarBuffer)
         {
             PayloadQueue.Enqueue(avatarBuffer);
         }
+
         public override void Initialize()
         {
             RemotePlayer = (BasisRemotePlayer)Player;
-            AudioReceiverModule.Initalize(this);
-
-            if (!HasEvents && RemotePlayer?.RemoteAvatarDriver != null)
+            if (RemotePlayer == null)
             {
-                RemotePlayer.RemoteAvatarDriver.CalibrationComplete += OnCalibration;
-                HasEvents = true;
+                BasisDebug.LogError("Remote Player was not found During Initialization!!");
+                return;
+            }
+            if (RemotePlayer.RemoteAvatarDriver == null)
+            {
+                BasisDebug.LogError("Remote Player RemoteAvatarDriver was not found During Initialization!!");
+                return;
             }
 
-            HasAvatarQueue = true;
+            AudioReceiverModule.Initalize(this);
+
             _staged.Clear();
             BufferHolder.ClearAndRelease();
             interpolationTime = 0f;
+            PassedSimulate = false;
+
+            if (!hasEvents)
+            {
+                RemotePlayer.RemoteAvatarDriver.CalibrationComplete += OnCalibration;
+                hasEvents = true;
+            }
         }
+
         public void OnCalibration()
         {
-            Player.BasisAvatar.AnimatorHumanScale = Vector3.one / Player.BasisAvatar.Animator.humanScale;
-            AudioReceiverModule.AvatarChanged(this);
+            AudioReceiverModule.AvatarChanged(this,true);
+
             // Track which keys got successfully sent
             List<byte> keysToRemove = new List<byte>();
 
@@ -212,111 +250,106 @@ namespace Basis.Scripts.Networking.Receivers
 
                 if (isSameAvatar)
                 {
-                    // Send the message now
                     NetworkBehaviours[message.Key].OnNetworkMessageReceived(
                         playerIdMessage.playerID,
                         Remote.payload,
                         message.Value.Method
                     );
-
-                    // mark this message as successfully sent
                     keysToRemove.Add(message.Key);
                 }
                 else
                 {
-                    // Check if this message is from a *past* avatar index
                     bool isPastMessage = IsPastAvatar(Remote.AvatarLinkIndex, LastLinkedAvatarIndex);
                     if (isPastMessage)
                     {
-                        // Discard old/past messages
                         BasisDebug.Log($"Discarding stale message with AvatarLinkIndex {Remote.AvatarLinkIndex}");
                         keysToRemove.Add(message.Key);
                     }
                 }
             }
 
-            // remove all that were either sent or expired
             foreach (byte key in keysToRemove)
             {
                 NextMessages.Remove(key);
             }
         }
-        /// <summary>
-        /// Determines if a given avatar index is "in the past" relative to the current.
-        /// Handles wrap-around since AvatarLinkIndex is a byte (0-255).
-        /// </summary>
         private bool IsPastAvatar(byte messageIndex, byte currentIndex)
         {
-            // Compute difference modulo 256
             int diff = (currentIndex - messageIndex + 256) % 256;
-
-            // If diff is between 1 and 127, then it's behind (old)
             return diff > 0 && diff < 128;
         }
+
         public override void DeInitialize()
         {
-          //no need we pump data always before requesting so its not a necessary step
-          //BasisRemoteNetworkDriver.ResetIndex(playerId);
-            BufferHolder.ClearAndRelease();
             if (_staged != null)
             {
                 int Count = _staged.Count;
                 for (int i = 0; i < Count; i++)
                 {
-                    var b = _staged[i];
-                    BasisAvatarBufferPool.Release(ref b);
+                    BasisAvatarBufferPool.Release(_staged[i]);
                 }
                 _staged.Clear();
             }
 
             while (PayloadQueue.TryDequeue(out var buffer))
             {
-                BasisAvatarBufferPool.Release(ref buffer);
+                BasisAvatarBufferPool.Release(buffer);
             }
 
-            if (RemotePlayer != null && HasEvents && RemotePlayer.RemoteAvatarDriver != null)
+            BufferHolder.ClearAndRelease();
+
+
+            if (hasEvents && RemotePlayer != null && RemotePlayer.RemoteAvatarDriver != null)
             {
                 RemotePlayer.RemoteAvatarDriver.CalibrationComplete -= OnCalibration;
-                HasEvents = false;
+                hasEvents = false;
             }
+
             AudioReceiverModule?.OnDestroy();
-
-            HasAvatarQueue = false;
+            PassedSimulate = false;
         }
 
-        public void ReceiveNetworkAudio(ServerAudioSegmentMessage audioSegment)
+        public void ReceiveNetworkAudio(ServerAudioSegmentMessage msg)
         {
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAudioSegment, audioSegment.audioSegmentData.LengthUsed);
-            AudioReceiverModule.OnDecode(audioSegment.audioSegmentData.buffer, audioSegment.audioSegmentData.LengthUsed);
-            Player.AudioReceived?.Invoke(true);
+            int serverSilentUnits = msg.audioSegmentData.TotalPlayedInSilence; // 20ms units
+
+            if (AudioReceiverModule == null)
+            {
+                BasisDebug.LogError("Missing Audio Receiver for remote player!", BasisDebug.LogTag.Remote);
+                return;
+            }
+
+            if (serverSilentUnits > 0)
+            {
+                int localUnits = System.Threading.Interlocked.Exchange(ref AudioReceiverModule._silentUnits20ms, 0);
+                int missing = serverSilentUnits - localUnits;
+                if (missing > 0)
+                {
+                    for (int i = 0; i < missing; i++)
+                        AudioReceiverModule.OnDecodeSilence();
+                }
+            }
+
+            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAudioSegment, msg.audioSegmentData.LengthUsed);
+            AudioReceiverModule.OnDecode(msg.audioSegmentData.buffer, msg.audioSegmentData.LengthUsed);
+            Player.AudioReceived?.Invoke();
         }
 
-        public void ReceiveSilentNetworkAudio(ServerAudioSegmentMessage audioSilentSegment)
+        public async void ReceiveAvatarChangeRequest(ServerAvatarChangeMessage SACM)
         {
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAudioSegment, 1);
-            AudioReceiverModule.OnDecodeSilence();
-            Player.AudioReceived?.Invoke(false);
+            RemotePlayer.CACM = SACM.clientAvatarChangeMessage;
+            BasisLoadableBundle bundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(SACM.clientAvatarChangeMessage.byteArray);
+            await RemotePlayer.CreateAvatar(SACM.clientAvatarChangeMessage.loadMode, bundle);
         }
 
-        // ---------- Avatar switching ----------
-        public async void ReceiveAvatarChangeRequest(ServerAvatarChangeMessage ServerAvatarChangeMessage)
-        {
-            RemotePlayer.CACM = ServerAvatarChangeMessage.clientAvatarChangeMessage;
-            BasisLoadableBundle BasisLoadableBundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(ServerAvatarChangeMessage.clientAvatarChangeMessage.byteArray);
-
-            await RemotePlayer.CreateAvatar(ServerAvatarChangeMessage.clientAvatarChangeMessage.loadMode, BasisLoadableBundle);
-        }
-
-        // ---------- Ctor ----------
         public BasisNetworkReceiver(ushort PlayerID)
         {
             playerId = PlayerID;
             hasID = true;
         }
 
-        /// <summary>
-        /// Move packets from the concurrent queue to a main-thread staging list.
-        /// </summary>
+        // ---------------- staging/window management ----------------
+
         private void PumpQueueToStaging()
         {
             while (PayloadQueue.TryDequeue(out var buffer))
@@ -329,54 +362,33 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 int drop = _staged.Count - MaxStage;
                 DropOldestFromStaging(drop);
+                BasisDebug.LogWarning($"Staging was larger than 64; dropping {drop}");
             }
         }
 
-        /// <summary>
-        /// Ensures we have a (First, Last) interpolation window and advances when consumed.
-        /// Now robust against empty/invalid first frames.
-        /// </summary>
         private void BuildOrAdvanceWindow()
         {
             // Seed First if missing
-            if (!BufferHolder.HasFirst)
-            {
+            if (!BufferHolder.HasCurrentBuffer)
                 TrySeedFirstFromStaging();
-            }
 
             // Fill Last if missing
-            if (!BufferHolder.HasLast)
-            {
+            if (!BufferHolder.HasNextBuffer)
                 TrySetLastFromStaging();
-            }
 
-            // If either still missing, bail; we'll try again next compute tick
-            if (!BufferHolder.HasFirst || !BufferHolder.HasLast)
-                return;
+            HasBufferHolds = BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer;
+            if (!HasBufferHolds) return;
 
-            // If we've consumed the current window, advance; repeat while we have more staged
-            while (interpolationTime >= 1f && _staged.Count > 0)
+            // Advance window while consumed and we have staged frames
+            while (interpolationTime >= 1f && _staged.Count != 0)
             {
-                // Release old First
-                if (BufferHolder.HasFirst)
-                {
-                    BasisAvatarBufferPool.Release(ref BufferHolder.First);
-                    BufferHolder.HasFirst = false;
-                }
-
-                // Promote Last -> First
-                BufferHolder.First = BufferHolder.Last;
-                BufferHolder.HasFirst = true;
-
-                // Pull new Last
-                BufferHolder.HasLast = false;
+                BufferHolder.NextBecomesCurrent();
 
                 interpolationTime = 0f;
 
                 TrySetLastFromStaging();
 
-                // If promotion produced an invalid window (rare), try to repair here
-                if (!(BufferHolder.HasFirst && BufferHolder.HasLast))
+                if (!(BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer))
                     break;
             }
 
@@ -390,7 +402,6 @@ namespace Basis.Scripts.Networking.Receivers
 
         private void TrySeedFirstFromStaging()
         {
-            // Pull until we find a valid/repairable buffer
             while (_staged.Count > 0)
             {
                 var first = _staged[0];
@@ -398,21 +409,19 @@ namespace Basis.Scripts.Networking.Receivers
 
                 if (ValidateOrFixup(ref first))
                 {
-                    BufferHolder.First = first;
-                    BufferHolder.HasFirst = true;
+                    BufferHolder.SetCurrent(ref first);
+                    BufferHolder.HasCurrentBuffer = true;
                     return;
                 }
 
-                // Unusable — release and continue
-                BasisAvatarBufferPool.Release(ref first);
+                BasisAvatarBufferPool.Release(first);
             }
         }
 
         private void TrySetLastFromStaging()
         {
-            if (!BufferHolder.HasFirst) return;
+            if (!BufferHolder.HasCurrentBuffer) return;
 
-            // Pull until we find a valid/repairable buffer
             while (_staged.Count > 0)
             {
                 var last = _staged[0];
@@ -420,33 +429,13 @@ namespace Basis.Scripts.Networking.Receivers
 
                 if (ValidateOrFixup(ref last))
                 {
-                    BufferHolder.Last = last;
-                    BufferHolder.HasLast = true;
+                    BufferHolder.SetNext(ref last);
+                    BufferHolder.HasNextBuffer = true;
                     return;
                 }
 
-                // Unusable — release and continue
-                BasisAvatarBufferPool.Release(ref last);
+                BasisAvatarBufferPool.Release(last);
             }
-        }
-
-        private void ComputeInterpolationFraction()
-        {
-            var first = BufferHolder.First;
-            var last = BufferHolder.Last;
-
-            double windowDuration =
-                last.SecondsInterval > 0 ? last.SecondsInterval :
-                first.SecondsInterval > 0 ? first.SecondsInterval :
-                (1.0 / 60.0);
-
-            // Clamp to sane floor to avoid huge dt spikes dividing by tiny intervals
-            if (windowDuration <= 1e-6) windowDuration = 1e-3;
-
-            double step = Math.Max(Time.unscaledDeltaTime, 0.0);
-            interpolationTime += (float)(step / windowDuration);
-            if (interpolationTime > 1f) interpolationTime = 1f;
-            if (interpolationTime < 0f) interpolationTime = 0f;
         }
 
         private void DropOldestFromStaging(int count)
@@ -454,28 +443,52 @@ namespace Basis.Scripts.Networking.Receivers
             count = Mathf.Min(count, _staged.Count);
             for (int i = 0; i < count; i++)
             {
-                var b = _staged[i];
-                BasisAvatarBufferPool.Release(ref b);
+                BasisAvatarBufferPool.Release(_staged[i]);
             }
             _staged.RemoveRange(0, count);
         }
 
-        // ---------- Validation / Fixup helpers ----------
-
-        private static bool IsValidMuscleArray(float[] arr) => arr != null && arr.Length >= 95;
+        // ---------------- validation / fixup ----------------
 
         /// <summary>
-        /// Validates a buffer; attempts to repair fixable fields in-place.
+        /// True if the NativeArray is created and has at least 95 muscle values.
+        /// </summary>
+        private static bool IsValidMuscleArray(NativeArray<float> arr)
+            => arr.IsCreated && arr.Length >= 95;
+
+        /// <summary>
+        /// Validates a buffer and attempts to repair fixable fields in-place.
         /// Returns true if usable after fixup; false if unrecoverable.
         /// </summary>
         private bool ValidateOrFixup(ref BasisAvatarBuffer buf)
         {
-            // Muscles
             if (!IsValidMuscleArray(buf.Muscles))
             {
-                // Replace with shared zeros to keep pose valid; we still accept the frame
-                buf.Muscles = ZeroMuscles;
+                // Allocate a zeroed 95-length buffer so downstream SIMD/memcpy logic is safe.
+                // NOTE: these must be freed by the pool when the buffer is released.
+                buf.Muscles = new NativeArray<float>(95, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             }
+
+            // 2) Sanitize transforms to avoid NaNs propagating into the driver.
+            if (!math.all(math.isfinite(buf.Position)))
+            {
+                BasisDebug.LogError($"Infinite Position Detected setting to default", BasisDebug.LogTag.Remote);
+                buf.Position = float3.zero;
+            }
+
+            if (!math.all(math.isfinite(buf.Scale)))
+            {
+                BasisDebug.LogError($"Infinite Scale Detected setting to default", BasisDebug.LogTag.Remote);
+                buf.Scale = new float3(1f, 1f, 1f);
+            }
+
+            // 3) Clamp insane timing
+            if (!double.IsFinite(buf.SecondsInterval) || buf.SecondsInterval < 0.0 || buf.SecondsInterval > 1.0)
+            {
+                BasisDebug.LogError($"Seconds Interval was {buf.SecondsInterval} correcting to 0.016f", BasisDebug.LogTag.Remote);
+                buf.SecondsInterval = 1.0 / 60.0;
+            }
+
             return true;
         }
     }

@@ -14,19 +14,55 @@ using UnityEditor;
 
 namespace Basis.Scripts.Boot_Sequence
 {
+    /// <summary>
+    /// Central bootstrapping entry point for the Basis runtime.
+    /// Initializes Addressables, spawns the framework GameObject, and (optionally) starts Unity Services/Analytics.
+    /// Handles cleanup both on app quit and when leaving Play Mode in the Editor.
+    /// </summary>
     [DefaultExecutionOrder(-50)]
     public static class BootSequence
     {
+        /// <summary>
+        /// Reference to the loaded boot manager instance (framework root) if created.
+        /// </summary>
         public static GameObject LoadedBootManager;
+
+        /// <summary>
+        /// Addressables key (or label) for the framework prefab to instantiate.
+        /// </summary>
         public static string BasisFramework = "BasisFramework";
+
+        /// <summary>
+        /// Guard to ensure we only hook global events once.
+        /// </summary>
         public static bool HasEvents = false;
+
+        /// <summary>
+        /// If true, will instantiate the framework after Addressables initialization completes.
+        /// </summary>
         public static bool WillBoot = true;
+
+        /// <summary>
+        /// If true, attempts to initialize Unity Services and enable Analytics.
+        /// </summary>
         public static bool GrabUnityAnalytics = true;
 
         // Keep handles/refs so we can release them properly.
+        /// <summary>
+        /// Handle for Addressables.InitializeAsync() to release at teardown.
+        /// </summary>
         private static AsyncOperationHandle<IResourceLocator> _addressablesInitHandle;
+
+        /// <summary>
+        /// Reference to the instantiated framework GameObject so we can ReleaseInstance().
+        /// </summary>
         private static GameObject _basisInstance;
 
+        /// <summary>
+        /// Unity runtime hook invoked after a scene has loaded.
+        /// Initializes Addressables and, if enabled, Unity Services/Analytics.
+        /// Also wires up application/editor teardown callbacks.
+        /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static async Task OnAfterSceneLoadRuntimeMethod()
         {
@@ -67,7 +103,10 @@ namespace Basis.Scripts.Boot_Sequence
             }
         }
 
-        // Completed callback (event) -> bridge to Task method
+        /// <summary>
+        /// Event bridge for Addressables initialization completion.
+        /// Forwards to the async boot method and logs exceptions.
+        /// </summary>
         private static async void OnAddressablesInitializationComplete(AsyncOperationHandle<IResourceLocator> _)
         {
             try
@@ -80,7 +119,10 @@ namespace Basis.Scripts.Boot_Sequence
             }
         }
 
-        // Actual boot work after Addressables are ready.
+        /// <summary>
+        /// Performs the actual boot work after Addressables are ready:
+        /// loads and instantiates the framework root via <see cref="AddressableResourceProcess.LoadSystemGameobject"/>.
+        /// </summary>
         public static async Task OnAddressablesInitializationComplete()
         {
             // Instantiate the system GameObject via your driver. Keep a reference so we can ReleaseInstance later.
@@ -103,6 +145,9 @@ namespace Basis.Scripts.Boot_Sequence
         // === Cleanup paths ===
 
 #if UNITY_EDITOR
+        /// <summary>
+        /// Editor-only hook to release resources when exiting Play Mode back to the Editor.
+        /// </summary>
         private static void OnPlayModeStateChanged(PlayModeStateChange state)
         {
             // We only want to release when leaving Play Mode back to the Editor.
@@ -113,11 +158,18 @@ namespace Basis.Scripts.Boot_Sequence
         }
 #endif
 
+        /// <summary>
+        /// Application quit hook to release instantiated instances and Addressables handles safely.
+        /// </summary>
         private static void OnApplicationQuitting()
         {
             SafeReleaseAll();
         }
 
+        /// <summary>
+        /// Releases the instantiated framework instance (if any) and the Addressables init handle.
+        /// Swallows and logs exceptions to avoid teardown crashes.
+        /// </summary>
         private static void SafeReleaseAll()
         {
             // Release the instantiated Addressable instance if we created one.

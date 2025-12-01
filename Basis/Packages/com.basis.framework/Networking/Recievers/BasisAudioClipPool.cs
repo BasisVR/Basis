@@ -46,7 +46,7 @@ public static class BasisAudioClipPool
         }
         else
         {
-            GameObject.Destroy(clip); // optional: or just don't enqueue it
+            AudioClip.Destroy(clip); // optional: or just don't enqueue it
         }
     }
 
@@ -57,7 +57,7 @@ public static class BasisAudioClipPool
     {
         foreach (var clip in pool)
         {
-            GameObject.Destroy(clip);
+            AudioClip.Destroy(clip);
         }
         pool.Clear();
     }

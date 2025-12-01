@@ -1,11 +1,12 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.UI.UI_Panels;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
 
 public class BasisUIAdminPanel : BasisUIBase
@@ -67,7 +68,7 @@ public class BasisUIAdminPanel : BasisUIBase
     }
     private void BindButtons()
     {
-        TeleportAll.onClick.AddListener(() => BasisNetworkModeration.TeleportAll(SelectedPlayer.playerId));
+        TeleportAll.onClick.AddListener(() => BasisNetworkModeration.TeleportAll(SelectedPlayer?.playerId));
         Ban.onClick.AddListener(() => BasisNetworkModeration.SendBan(UUIDSubmission.text, ReasonSubmission.text));
         Kick.onClick.AddListener(() => BasisNetworkModeration.SendKick(UUIDSubmission.text, ReasonSubmission.text));
         IpBan.onClick.AddListener(() => BasisNetworkModeration.SendIPBan(UUIDSubmission.text, ReasonSubmission.text));
@@ -109,7 +110,52 @@ public class BasisUIAdminPanel : BasisUIBase
                 BasisDebug.LogError("Cant find ID " + UUIDSubmission.text);
             }
         });
+        OpenServerGraph.onClick.AddListener(() =>
+        {
+            SpawnNetworkGraph();
+            CloseThisMenu();
+        });
+        CloseServerGraph.onClick.AddListener(() =>
+        {
+            DeleteNetworkGraph();
+            CloseThisMenu();
+        });
     }
+    /// <summary>
+    /// Addressable 
+    /// </summary>
+    public static UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> LocalHandle;
+    /// <summary>
+    /// Spawned 
+    /// </summary>
+    public static GameObject NetworkGraph;
+    public static void SpawnNetworkGraph()
+    {
+        if (NetworkGraph == null)
+        {
+            LocalHandle = Addressables.LoadAssetAsync<GameObject>(NetworkGraphId);
+            var InMemory = LocalHandle.WaitForCompletion();
+            NetworkGraph = GameObject.Instantiate(InMemory,null);
+            NetworkGraph.transform.position = BasisLocalCameraDriver.Position;
+            BasisDebug.Log("SpawnNetworkGraph");
+        }
+    }
+    public static void DeleteNetworkGraph()
+    {
+        if (LocalHandle.IsValid())
+        {
+            Addressables.Release(LocalHandle);
+        }
+        if (NetworkGraph != null)
+        {
+            GameObject.Destroy(NetworkGraph.gameObject);
+        }
+        BasisDebug.Log("DeleteNetworkGraph");
+    }
+    /// <summary>
+    /// Adaptive Circle Id
+    /// </summary>
+    public static string NetworkGraphId = "Packages/com.basis.sdk/Prefabs/Visual helpers/Network Graph.prefab";
     public bool FindID(string UUID, out ushort Id)
     {
         foreach (BasisNetworkPlayer Player in BasisNetworkPlayers.Players.Values)
@@ -141,6 +187,9 @@ public class BasisUIAdminPanel : BasisUIBase
 
     public Button TeleportTo;
     public Button TeleportHere;
+
+    public Button OpenServerGraph;
+    public Button CloseServerGraph;
 
     public TMP_InputField UUIDSubmission;
     public TMP_InputField ReasonSubmission;

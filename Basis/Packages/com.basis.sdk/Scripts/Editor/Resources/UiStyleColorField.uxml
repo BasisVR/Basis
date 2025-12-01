@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
+    <ui:VisualElement name="Root" style="flex-direction: row; -unity-text-align: middle-left;">
+        <ui:Label tabindex="-1" text="Label" parse-escape-sequences="true" display-tooltip-when-elided="true" style="width: 35%; min-width: 100px;" />
+        <ui:VisualElement style="flex-direction: row; flex-grow: 1; flex-shrink: 0; width: 65%;">
+            <uie:ColorField value="RGBA(0.000, 1.000, 1.000, 1.000)" hdr="false" name="ColorField" style="flex-grow: 1; min-width: 20px; flex-shrink: 1;" />
+            <ui:EnumField name="StyleField" style="flex-grow: 1;" />
+            <ui:EnumField name="TypeField" style="width: 70px;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

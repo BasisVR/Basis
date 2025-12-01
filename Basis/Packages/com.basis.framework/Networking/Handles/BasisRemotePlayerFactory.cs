@@ -1,7 +1,9 @@
+using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Player;
+using Basis.Scripts.Profiler;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
 
@@ -9,9 +11,10 @@ namespace Basis.Scripts.Networking
 {
     public static class BasisRemotePlayerFactory
     {
-        public static void HandleCreateRemotePlayer(LiteNetLib.NetPacketReader reader, InstantiationParameters Parent)
+        public static void HandleCreateRemotePlayer(NetPacketReader reader, InstantiationParameters Parent)
         {
-           // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
+            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, reader.AvailableBytes);
+            // BasisDebug.Log($"Handling Create Remote Player! {reader.AvailableBytes}");
             ServerReadyMessage ServerReadyMessage = new ServerReadyMessage();
             ServerReadyMessage.Deserialize(reader);
 
@@ -30,8 +33,7 @@ namespace Basis.Scripts.Networking
                 BasisRemotePlayer remote = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
                 BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(ServerReadyMessage.playerIdMessage.playerID);
                 // Continue with the rest of the code
-                RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage);
-                BasisNetworkReceiver.LastLinkedAvatarIndex = avatarID.LocalAvatarIndex;
+                RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage, avatarID.LocalAvatarIndex);
                 if (BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                 {
                     //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
@@ -64,10 +66,11 @@ namespace Basis.Scripts.Networking
                 return null;
             }
         }
-        public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer, ServerReadyMessage ServerReadyMessage)
+        public static void RemoteInitialization(BasisNetworkReceiver BasisNetworkReceiver, BasisRemotePlayer RemotePlayer, ServerReadyMessage ServerReadyMessage,byte LocalAvatarIndex)
         {
             BasisNetworkReceiver.Player = RemotePlayer;
             RemotePlayer.NetworkReceiver = BasisNetworkReceiver;
+            BasisNetworkReceiver.LastLinkedAvatarIndex = LocalAvatarIndex;
             if (RemotePlayer.RemoteAvatarDriver != null)
             {
                 if (RemotePlayer.RemoteAvatarDriver.HasEvents == false)
