@@ -473,7 +473,7 @@ public class BasisHandHeldCameraUI
                 break;
 
             case CameraOrientation.PortraitCW:
-                ApplyPortraitLayout(true);   // “right-hand” portrait (your existing one)
+                ApplyPortraitLayout(true);   // “right-hand” portrait
                 break;
 
             case CameraOrientation.PortraitCCW:
@@ -519,15 +519,14 @@ public class BasisHandHeldCameraUI
 
     private void ApplyPortraitLayout(bool isClockwise)
     {
-        // You can tune these magnitudes to taste; they’re based on your existing numbers
         const float mainSideOffset = 525f;  // was -525
         const float secondSideOffset = 500f;  // was -500
         const float thirdSideOffsetSum = 1050f; // ~525+525
         const float bottomMainOffset = 725f;  // was -725
         const float bottomSecondaryOffset = 525f;// was -525
 
-        float sideSign = isClockwise ? -1f : 1f;      // which side of the screen
-        float rotZ = isClockwise ? -90f : 90f;    // rotate UI towards that side
+        float sideSign = isClockwise ? -1f : 1f;
+        float rotZ = isClockwise ? -90f : 90f;
 
         // Top / left/right bars
         uiOrientationElement.localRotation = Quaternion.Euler(0f, 0f, rotZ);
@@ -539,7 +538,6 @@ public class BasisHandHeldCameraUI
         uiOrientationElement3.localRotation = Quaternion.Euler(0f, 0f, rotZ);
         uiOrientationElement3.localPosition = new Vector3(-sideSign * thirdSideOffsetSum, 0f, 0f);
 
-        // Bottom “footer” area
         uiOrientationElement4.localRotation = Quaternion.identity;
         uiOrientationElement4.localPosition = new Vector3(0f, -bottomMainOffset, 0f);
 
