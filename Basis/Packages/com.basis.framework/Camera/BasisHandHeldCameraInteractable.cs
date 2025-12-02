@@ -265,12 +265,32 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
             float roll = HHC.captureCamera.transform.eulerAngles.z;
             if (roll > 180f) roll -= 360f; // normalize to [-180, 180]
 
-            CameraOrientation newOrientation = Mathf.Abs(roll) > 45f ? CameraOrientation.Portrait : CameraOrientation.Landscape;
+            // Snap to the nearest 90° step: -180, -90, 0, +90, +180
+            int step = Mathf.RoundToInt(roll / 90f);
+            step = Mathf.Clamp(step, -2, 2);
+
+            CameraOrientation newOrientation;
+            switch (step)
+            {
+                case -2:
+                case 2:
+                    newOrientation = CameraOrientation.LandscapeFlipped; // upside-down
+                    break;
+                case 1:
+                    newOrientation = CameraOrientation.PortraitCW;        // one portrait side
+                    break;
+                case -1:
+                    newOrientation = CameraOrientation.PortraitCCW;       // opposite portrait side
+                    break;
+                default:
+                    newOrientation = CameraOrientation.Landscape;
+                    break;
+            }
 
             if (newOrientation != currentOrientation)
             {
                 currentOrientation = newOrientation;
-                orientationCheckCooldown = Time.time + 0.5f; // prevent flip-flopping
+                orientationCheckCooldown = Time.time + 0.5f;
                 HandleOrientationChanged(currentOrientation);
             }
         }

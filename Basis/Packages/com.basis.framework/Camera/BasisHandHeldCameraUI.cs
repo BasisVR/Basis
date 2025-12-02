@@ -6,8 +6,37 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Basis.Scripts.UI.UI_Panels;
+using System.Collections.Generic;
 
-public enum CameraOrientation { Landscape, Portrait }
+public enum CameraOrientation
+{
+    Landscape,
+    LandscapeFlipped,
+    PortraitCW,
+    PortraitCCW
+}
+public enum CameraButtonAction
+{
+    None,
+    TakePhoto,
+    ResetSettings,
+    CloseUI,
+    Timer,
+    ToggleNameplates,
+    ToggleDesktopOutput,
+    ToggleSelfie,
+    DepthModeAuto,
+    DepthModeManual
+}
+
+[Serializable]
+public class CameraButtonDescriptor
+{
+    public string id;
+    public CameraButtonAction action;
+    public Button button;
+    public Sprite icon;
+}
 
 /// <summary>
 /// Handles the handheld camera UI: wiring buttons, toggles, sliders; loading/saving
@@ -48,6 +77,12 @@ public class BasisHandHeldCameraUI
 
     /// <summary>Button to switch DoF to Manual mode.</summary>
     public Button DepthModeManualButton;
+
+    [Space(10)]
+    // Optional dynamic button layout
+    public Transform DynamicButtonRoot;
+    public Button ButtonPrefab;
+    public CameraButtonDescriptor[] ScriptableButtons;
 
     /// <summary>Depth of Field mode selector.</summary>
     public enum DepthMode { Auto, Manual }
@@ -169,6 +204,9 @@ public class BasisHandHeldCameraUI
         HHC = hhc;
         CachePostProcessingReferences();
         await LoadSettings();
+
+        EnsureDefaultScriptableButtons();
+        BindScriptableButtons();
         BindUIEvents();
         SetupSliderRanges();
         InitializeFormatUI();
@@ -214,6 +252,168 @@ public class BasisHandHeldCameraUI
 
         DepthModeAutoButton?.onClick.AddListener(() => SetDepthMode(DepthMode.Auto));
         DepthModeManualButton?.onClick.AddListener(() => SetDepthMode(DepthMode.Manual));
+    }
+    private void EnsureDefaultScriptableButtons()
+    {
+        if (ScriptableButtons != null && ScriptableButtons.Length > 0)
+            return;
+
+        var list = new List<CameraButtonDescriptor>();
+
+        if (TakePhotoButton != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "TakePhoto",
+                action = CameraButtonAction.TakePhoto,
+                button = TakePhotoButton
+            });
+
+        if (ResetButton != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Reset",
+                action = CameraButtonAction.ResetSettings,
+                button = ResetButton
+            });
+
+        if (CloseButton != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Close",
+                action = CameraButtonAction.CloseUI,
+                button = CloseButton
+            });
+
+        if (Timer != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Timer",
+                action = CameraButtonAction.Timer,
+                button = Timer
+            });
+
+        if (Nameplates != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Nameplates",
+                action = CameraButtonAction.ToggleNameplates,
+                button = Nameplates
+            });
+
+        if (OverrideDesktopOutput != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "OverrideDesktopOutput",
+                action = CameraButtonAction.ToggleDesktopOutput,
+                button = OverrideDesktopOutput
+            });
+
+        if (Selfie != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Selfie",
+                action = CameraButtonAction.ToggleSelfie,
+                button = Selfie
+            });
+
+        if (DepthModeAutoButton != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "DepthAuto",
+                action = CameraButtonAction.DepthModeAuto,
+                button = DepthModeAutoButton
+            });
+
+        if (DepthModeManualButton != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "DepthManual",
+                action = CameraButtonAction.DepthModeManual,
+                button = DepthModeManualButton
+            });
+
+        ScriptableButtons = list.ToArray();
+    }
+    private void BindScriptableButtons()
+    {
+        if (ScriptableButtons == null || ScriptableButtons.Length == 0)
+            return;
+
+        foreach (var descriptor in ScriptableButtons)
+        {
+            if (descriptor == null)
+                continue;
+
+            var button = descriptor.button;
+            bool createdNew = false;
+
+            // Dynamic creation if no button was assigned
+            if (button == null && ButtonPrefab != null && DynamicButtonRoot != null)
+            {
+                button = UnityEngine.Object.Instantiate(ButtonPrefab, DynamicButtonRoot, false);
+                descriptor.button = button;
+                createdNew = true;
+            }
+
+            if (button == null)
+                continue;
+
+            if (descriptor.icon != null)
+            {
+                var image = button.GetComponent<Image>();
+                if (image == null)
+                    image = button.GetComponentInChildren<Image>();
+
+                if (image != null)
+                    image.sprite = descriptor.icon;
+            }
+
+            AttachButtonAction(button, descriptor.action);
+        }
+    }
+    private void AttachButtonAction(Button button, CameraButtonAction action)
+    {
+        if (button == null)
+            return;
+
+        switch (action)
+        {
+            case CameraButtonAction.TakePhoto:
+                button.onClick.AddListener(HHC.CapturePhoto);
+                break;
+
+            case CameraButtonAction.ResetSettings:
+                button.onClick.AddListener(ResetSettings);
+                break;
+
+            case CameraButtonAction.CloseUI:
+                button.onClick.AddListener(CloseUI);
+                break;
+
+            case CameraButtonAction.Timer:
+                button.onClick.AddListener(HHC.Timer);
+                break;
+
+            case CameraButtonAction.ToggleNameplates:
+                button.onClick.AddListener(HHC.Nameplates);
+                break;
+
+            case CameraButtonAction.ToggleDesktopOutput:
+                button.onClick.AddListener(HHC.OnOverrideDesktopOutputButtonPress);
+                break;
+
+            case CameraButtonAction.ToggleSelfie:
+                button.onClick.AddListener(SelfieToggle);
+                break;
+
+            case CameraButtonAction.DepthModeAuto:
+                button.onClick.AddListener(() => SetDepthMode(DepthMode.Auto));
+                break;
+
+            case CameraButtonAction.DepthModeManual:
+                button.onClick.AddListener(() => SetDepthMode(DepthMode.Manual));
+                break;
+        }
     }
 
     /// <summary>
@@ -261,24 +461,91 @@ public class BasisHandHeldCameraUI
             return;
         }
 
-        bool isPortrait = orientation == CameraOrientation.Portrait;
+        switch (orientation)
+        {
+            case CameraOrientation.Landscape:
+                ApplyLandscapeLayout();
+                break;
 
-        uiOrientationElement.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.identity;
-        uiOrientationElement.localPosition = isPortrait ? new Vector3(-525f, 0f, 0f) : Vector3.zero;
+            case CameraOrientation.LandscapeFlipped:
+                ApplyLandscapeLayout();
+                RotateAllUI180();
+                break;
 
-        uiOrientationElement2.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.identity;
-        uiOrientationElement2.localPosition = isPortrait ? new Vector3(-500f, 0f, 0f) : Vector3.zero;
+            case CameraOrientation.PortraitCW:
+                ApplyPortraitLayout(true);   // “right-hand” portrait (your existing one)
+                break;
 
-        uiOrientationElement3.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.identity;
-        uiOrientationElement3.localPosition = isPortrait ? new Vector3(1050f, 0f, 0f) : new Vector3(0f, 600f, 0f);
+            case CameraOrientation.PortraitCCW:
+                ApplyPortraitLayout(false);  // mirrored portrait
+                break;
+        }
+    }
+    private void ApplyLandscapeLayout()
+    {
+        uiOrientationElement.localRotation = Quaternion.identity;
+        uiOrientationElement.localPosition = Vector3.zero;
 
-        uiOrientationElement4.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, 0f) : Quaternion.Euler(0f, 0f, 90f);
-        uiOrientationElement4.localPosition = isPortrait ? new Vector3(0f, -725f, 0f) : new Vector3(1250f, 0f, 0f);
+        uiOrientationElement2.localRotation = Quaternion.identity;
+        uiOrientationElement2.localPosition = Vector3.zero;
 
-        uiOrientationElement5.localRotation = isPortrait ? Quaternion.Euler(0f, 0f, -90f) : Quaternion.Euler(0f, 0f, 0f);
-        uiOrientationElement5.localPosition = isPortrait ? new Vector3(0f, -525f, 0f) : new Vector3(0f, 0f, 0f);
+        uiOrientationElement3.localRotation = Quaternion.identity;
+        uiOrientationElement3.localPosition = new Vector3(0f, 600f, 0f);
+
+        uiOrientationElement4.localRotation = Quaternion.Euler(0f, 0f, 90f);
+        uiOrientationElement4.localPosition = new Vector3(1250f, 0f, 0f);
+
+        uiOrientationElement5.localRotation = Quaternion.identity;
+        uiOrientationElement5.localPosition = Vector3.zero;
     }
 
+    // Rotate everything 180° for upside-down landscape
+    private void RotateAllUI180()
+    {
+        RotateElement180(uiOrientationElement);
+        RotateElement180(uiOrientationElement2);
+        RotateElement180(uiOrientationElement3);
+        RotateElement180(uiOrientationElement4);
+        RotateElement180(uiOrientationElement5);
+    }
+
+    private void RotateElement180(RectTransform t)
+    {
+        if (t == null) return;
+        t.localRotation *= Quaternion.Euler(0f, 0f, 180f);
+        var p = t.localPosition;
+        t.localPosition = new Vector3(-p.x, -p.y, p.z);
+    }
+
+    private void ApplyPortraitLayout(bool isClockwise)
+    {
+        // You can tune these magnitudes to taste; they’re based on your existing numbers
+        const float mainSideOffset = 525f;  // was -525
+        const float secondSideOffset = 500f;  // was -500
+        const float thirdSideOffsetSum = 1050f; // ~525+525
+        const float bottomMainOffset = 725f;  // was -725
+        const float bottomSecondaryOffset = 525f;// was -525
+
+        float sideSign = isClockwise ? -1f : 1f;      // which side of the screen
+        float rotZ = isClockwise ? -90f : 90f;    // rotate UI towards that side
+
+        // Top / left/right bars
+        uiOrientationElement.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+        uiOrientationElement.localPosition = new Vector3(sideSign * mainSideOffset, 0f, 0f);
+
+        uiOrientationElement2.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+        uiOrientationElement2.localPosition = new Vector3(sideSign * secondSideOffset, 0f, 0f);
+
+        uiOrientationElement3.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+        uiOrientationElement3.localPosition = new Vector3(-sideSign * thirdSideOffsetSum, 0f, 0f);
+
+        // Bottom “footer” area
+        uiOrientationElement4.localRotation = Quaternion.identity;
+        uiOrientationElement4.localPosition = new Vector3(0f, -bottomMainOffset, 0f);
+
+        uiOrientationElement5.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+        uiOrientationElement5.localPosition = new Vector3(0f, -bottomSecondaryOffset, 0f);
+    }
     /// <summary>Flips the camera reference by 180° yaw for a quick selfie toggle.</summary>
     private void SelfieToggle()
     {
