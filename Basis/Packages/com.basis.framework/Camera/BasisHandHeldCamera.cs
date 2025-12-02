@@ -10,7 +10,6 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
-using Basis.Scripts.Addressable_Driver.Resource;
 
 /// <summary>
 /// Handheld capture camera with preview, screenshotting (PNG/EXR),
@@ -171,10 +170,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         OnPickupUse -= OnPickupUseCapture;
 
         base.OnDestroy();
-        if (this.gameObject != null)
-        {
-            AddressableResourceProcess.ReleaseGameobject(this.gameObject);
-        }
     }
 
     /// <summary>
