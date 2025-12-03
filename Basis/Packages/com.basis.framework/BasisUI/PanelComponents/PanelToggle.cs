@@ -1,4 +1,4 @@
-using System.Collections;
+using Basis.BTween;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,20 +16,18 @@ namespace Basis.BasisUI
         public RectTransform ToggleVisual;
 
         [Header("Visual Elements")]
-        public Graphic Background;                     // <= ADD THIS (Image or any UI Graphic)
-
+        public Graphic Background;
         [Min(0)] public float ToggleVisualOffset = 20f;
 
         [Header("Tween Settings")]
         [Min(0)] public float TweenDuration = 0.2f;
-        public AnimationCurve EaseCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
-
-        [Header("Color Settings")]                     // <= NICE INSPECTOR BLOCK
         public Color OffColor = new Color(0.4f, 0.4f, 0.4f, 1f);
         public Color OnColor = new Color(0.2f, 0.8f, 0.4f, 1f);
+        private TweenAnchorPosition _toggleTween;
+        private TweenGraphicColor _backgroundTween;
 
-        private Coroutine _tweenRoutine;
         private bool _initialized;
+
 
         private PanelToggle() { }
 
@@ -62,6 +60,7 @@ namespace Basis.BasisUI
             base.ApplyValue();
 
             float targetX = Value ? ToggleVisualOffset : -ToggleVisualOffset;
+            Color targetColor = Value ? OnColor : OffColor;
 
             if (!Application.isPlaying || !_initialized || TweenDuration <= 0f)
             {
@@ -69,69 +68,34 @@ namespace Basis.BasisUI
                 return;
             }
 
-            if (_tweenRoutine != null)
-                StopCoroutine(_tweenRoutine);
 
-            _tweenRoutine = StartCoroutine(TweenToX(targetX, Value));
+
+            if (ToggleVisual)
+            {
+                if (_toggleTween && _toggleTween.Active) _toggleTween.Finish();
+                _toggleTween = ToggleVisual.TweenAnchorPosition(TweenDuration, new Vector2(targetX, 0));
+            }
+
+            if (Background)
+            {
+                if (_backgroundTween && _backgroundTween.Active) _backgroundTween.Finish();
+                _backgroundTween = Background.TweenColor(TweenDuration, Background.color, targetColor);
+            }
         }
 
         private void SetVisualInstant(bool on)
         {
-            if (ToggleVisual != null)
+            if (ToggleVisual)
             {
                 float x = on ? ToggleVisualOffset : -ToggleVisualOffset;
-                var pos = ToggleVisual.anchoredPosition;
+                Vector2 pos = ToggleVisual.anchoredPosition;
                 ToggleVisual.anchoredPosition = new Vector2(x, pos.y);
             }
 
-            if (Background != null)
+            if (Background)
             {
                 Background.color = on ? OnColor : OffColor;
             }
-        }
-
-        private IEnumerator TweenToX(float targetX, bool turningOn)
-        {
-            if (ToggleVisual == null && Background == null)
-                yield break;
-
-            Vector2 startPos = ToggleVisual ? ToggleVisual.anchoredPosition : Vector2.zero;
-            float startX = startPos.x;
-            float y = startPos.y;
-
-            Color startColor = Background ? Background.color : Color.white;
-            Color targetColor = turningOn ? OnColor : OffColor;
-
-            float time = 0f;
-
-            while (time < TweenDuration)
-            {
-                time += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(time / TweenDuration);
-
-                float eased = EaseCurve != null ? EaseCurve.Evaluate(t) : t;
-
-                if (ToggleVisual != null)
-                {
-                    float x = Mathf.Lerp(startX, targetX, eased);
-                    ToggleVisual.anchoredPosition = new Vector2(x, y);
-                }
-
-                if (Background != null)
-                {
-                    Background.color = Color.Lerp(startColor, targetColor, eased);
-                }
-
-                yield return null;
-            }
-
-            if (ToggleVisual != null)
-                ToggleVisual.anchoredPosition = new Vector2(targetX, y);
-
-            if (Background != null)
-                Background.color = targetColor;
-
-            _tweenRoutine = null;
         }
     }
 }
