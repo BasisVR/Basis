@@ -299,7 +299,6 @@ namespace Basis.Scripts.Drivers
             Vector3 playerPelvisLocalPos = 0.5f * (BasisLocalBoneDriver.LeftUpperLegControl.TposeLocalScaled.position + BasisLocalBoneDriver.RightUpperLegControl.TposeLocalScaled.position);
             Vector3 playerPos = pelvisWorldPos - playerRot * playerPelvisLocalPos;
 
-           
             LocalPlayer.transform.SetPositionAndRotation(playerPos, playerRot);
            //dont need todo this LocalPlayer.AvatarTransform.SetPositionAndRotation(playerPos, playerRot);
             LocalPlayer.LocalAnimatorDriver.HandleTeleport();

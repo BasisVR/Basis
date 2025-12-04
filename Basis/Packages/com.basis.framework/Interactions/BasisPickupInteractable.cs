@@ -89,12 +89,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         #region Inspector: References
 
-        /// <summary>
-        /// Collider reference used for range checks and optional highlight mesh generation.
-        /// </summary>
         [Header("References")]
-        public Collider ColliderRef;
-
         /// <summary>
         /// Optional rigidbody reference for physics-based motion and release velocities.
         /// </summary>
@@ -277,10 +272,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 TryGetComponent(out RigidRef);
             }
-            if (ColliderRef == null)
-            {
-                TryGetComponent(out ColliderRef);
-            }
             InputConstraint = new BasisParentConstraint();
             InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
             InputConstraint.Enabled = false;
@@ -295,7 +286,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 // NOTE: Collider mesh highlight position and size is only updated on Start().
                 //       If runtime updates are required, handle them elsewhere or create a specialized interactable.
-                HighlightClone = BasisColliderClone.CloneColliderMesh(ColliderRef, gameObject.transform, k_CloneName);
+                Collider[] colliders = GetColliders();
+                if (colliders != null && colliders.Length > 0 && colliders[0] != null)
+                {
+                    HighlightClone = BasisColliderClone.CloneColliderMesh(colliders[0], gameObject.transform, k_CloneName);
+                }
 
                 if (HighlightClone != null)
                 {
@@ -327,7 +322,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <param name="highlight">Whether to enable the highlight.</param>
         public void HighlightObject(bool highlight)
         {
-            if (ColliderRef && HighlightClone)
+            Collider[] colliders = GetColliders();
+            if (colliders != null && colliders.Length > 0 && HighlightClone)
             {
                 HighlightClone.SetActive(highlight);
             }
@@ -761,15 +757,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
-        /// Gets the primary collider used for interaction checks.
-        /// </summary>
-        /// <returns>The collider reference, if any.</returns>
-        public override Collider GetCollider()
-        {
-            return ColliderRef;
-        }
-
-        /// <summary>
         /// Handles desktop-only controls: mouse wheel zoom ("zoop") and drag rotation.
         /// Temporarily pauses head/look rotation while rotating.
         /// </summary>
@@ -909,28 +896,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         }
 
         /// <summary>
-        /// Extends the default range check to allow additional reach on desktop (based on player height).
-        /// </summary>
-        /// <param name="source">The position of the interacting source.</param>
-        /// <param name="_interactRange">Base interaction range.</param>
-        /// <returns>Whether the source is within range of the collider or transform.</returns>
-        public override bool IsWithinRange(Vector3 source, float _interactRange)
-        {
-            float extraReach = 0;
-            if (BasisDeviceManagement.IsUserInDesktop())
-            {
-                extraReach = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
-            }
-            Collider collider = GetCollider();
-            if (collider != null)
-            {
-                return Vector3.Distance(collider.ClosestPoint(source), source) <= _interactRange + extraReach;
-            }
-            // Fall back to object transform distance
-            return Vector3.Distance(transform.position, source) <= _interactRange + extraReach;
-        }
-
-        /// <summary>
         /// Desktop-only: determines whether a held object should be dropped using the secondary trigger (e.g., right-click).
         /// </summary>
         /// <param name="input">Input to test.</param>
@@ -944,8 +909,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 input.CurrentInputState.SecondaryTrigger == 1; ;
         }
 
-
-    IEnumerator MoveAfterDelayCoroutine() {
+        private IEnumerator MoveAfterDelayCoroutine() {
             yield return new WaitForSeconds(delay);
 
             if (duration <= 0f)
@@ -977,8 +941,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // Ensure final position exactly
             transform.SetLocalPositionAndRotation(_positionAtStart, _rotationAtStart);
             transform.localScale = _scaleAtStart;
-    }
-
+        }
 
 #if UNITY_EDITOR
         /// <summary>
@@ -987,7 +950,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public void OnValidate()
         {
             string errPrefix = "Pickup Interactable needs component defined on self or given a reference for ";
-            if (ColliderRef == null && !TryGetComponent(out Collider _))
+            Collider[] colliders = GetColliders();
+            if (colliders == null || colliders.Length == 0)
             {
                 Debug.LogWarning(errPrefix + "Collider", gameObject);
             }

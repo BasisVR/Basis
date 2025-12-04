@@ -21,6 +21,7 @@ namespace Basis.Scripts.UI
         public Ray ray { get; private set; }
         public RaycastHit ClosestRayCastHit { get; private set; }
         public RaycastHit[] PhysicHits { get; private set; }
+        private RaycastHit[] PhysicBackcastHits;
         public int PhysicHitCount { get; private set; }
         public BasisInput BasisInput;
 
@@ -38,6 +39,7 @@ namespace Basis.Scripts.UI
             OverlayUILayer = LayerMask.NameToLayer("OverlayUI");
             BasisInput = basisInput;
             PhysicHits = new RaycastHit[BasisPlayerInteract.k_MaxPhysicHitCount];
+            PhysicBackcastHits = new RaycastHit[4]; // We don't need as many backcast hits.
 
             // Create the ray with the adjusted starting position and direction
             UpdateRay();
@@ -120,6 +122,23 @@ namespace Basis.Scripts.UI
                 {
                     // No valid collider hits found
                     ClosestRayCastHit = new RaycastHit();
+                }
+            }
+            // One last thing: Cast backwards just in case the origin of the ray was inside a collider.
+            {
+                float backcastDistance = ClosestRayCastHit.distance > 0 ? ClosestRayCastHit.distance : MaxDistance;
+                Ray backcastRay = new Ray(ray.origin + ray.direction * backcastDistance, -ray.direction);
+                int backcastHitCount = Physics.RaycastNonAlloc(backcastRay, PhysicBackcastHits, backcastDistance, BasisPlayerInteract.Mask, BasisPlayerInteract.TriggerInteraction);
+                // Search for the farthest distance here (closest to the original ray origin)
+                float bestBackcastDistance = 0.0f;
+                for (int i = 0; i < backcastHitCount; i++)
+                {
+                    RaycastHit hit = PhysicBackcastHits[i];
+                    if (hit.distance > bestBackcastDistance)
+                    {
+                        bestBackcastDistance = hit.distance;
+                        ClosestRayCastHit = hit;
+                    }
                 }
             }
 

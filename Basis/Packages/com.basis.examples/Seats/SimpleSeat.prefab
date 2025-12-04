@@ -103,7 +103,7 @@ GameObject:
   - component: {fileID: 5115701033825129420}
   - component: {fileID: 6230911097548017353}
   m_Layer: 0
-  m_Name: Simple Seat
+  m_Name: SimpleSeat
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -158,6 +158,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -178,7 +179,7 @@ MonoBehaviour:
   _foot: {x: 0, y: -0.25, z: -0.3}
   _knee: {x: 0, y: 0.33, z: -0.3}
   _spineAngleDegrees: 90
-  canInteract: 1
+  IsSeatTakenByAnyone: 0
   LocallyInSeat: 0
 --- !u!114 &5115701033825129420
 MonoBehaviour:
