@@ -142,7 +142,7 @@ namespace Basis.Scripts.UI
         /// </summary>
         /// <param name="hitInfo"></param>
         /// <param name="maxDistance"></param>
-        /// <returns>true on valid hit</returns> 
+        /// <returns>true on valid hit</returns>
         public bool FirstHit(out RaycastHit hitInfo, float maxDistance = float.PositiveInfinity)
         {
             hitInfo = default;
