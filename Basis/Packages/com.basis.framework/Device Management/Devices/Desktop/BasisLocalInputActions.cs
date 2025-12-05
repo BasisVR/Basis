@@ -47,15 +47,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
 
-        [Header("Extra Desktop Controls")]
-        public InputActionReference DesktopLeftMove;
-        public InputActionReference DesktopRightMove;
-
         #endregion
 
         [Header("Sensitivity Settings")]
         public float MouseSensitivity = 1f;
         public float JoystickSensitivity = 1f;
+        public float KeyboardSensitivity = 5f;
 
         #region References
 
@@ -173,8 +170,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Enable();
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
-            DesktopLeftMove.action.Enable();
-            DesktopRightMove.action.Enable();
         }
 
         private void DisableActions()
@@ -194,8 +189,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Disable();
             MiddleMouseScroll.action.Disable();
             MiddleMouseScrollClick.action.Disable();
-            DesktopLeftMove.action.Disable();
-            DesktopRightMove.action.Disable();
         }
 
         private void AddCallbacks()
@@ -242,11 +235,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
-
-            DesktopLeftMove.action.performed += StartGoingLeft;
-            DesktopLeftMove.action.canceled += StopGoingLeft;
-            DesktopRightMove.action.performed += StartGoingRight;
-            DesktopRightMove.action.canceled += StopGoingRight;
         }
 
         private void RemoveCallbacks()
@@ -293,64 +281,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed -= OnSwitchOpenVR;
             XRSwitch.action.performed -= OnSwitchOpenXR;
-
-            DesktopLeftMove.action.performed -= StartGoingLeft;
-            DesktopLeftMove.action.canceled -= StopGoingLeft;
-            DesktopRightMove.action.performed -= StartGoingRight;
-            DesktopRightMove.action.canceled -= StopGoingRight;
         }
-
-        #endregion
-
-        #region Movement Helpers
-
-        public void StartGoingLeft(InputAction.CallbackContext ctx) => StartGoingLeft();
-        public void StopGoingLeft(InputAction.CallbackContext ctx) => StopGoingLeft();
-        public void StartGoingRight(InputAction.CallbackContext ctx) => StartGoingRight();
-        public void StopGoingRight(InputAction.CallbackContext ctx) => StopGoingRight();
-
-        public void StartGoingLeft()
-        {
-            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
-            {
-                manualMoveVector.x = -1;
-                ApplyManualMovement();
-            }
-        }
-
-        public void StopGoingLeft()
-        {
-            if (manualMoveVector.x < 0) manualMoveVector.x = 0;
-            ApplyManualMovement();
-        }
-        public void StartGoingRight()
-        {
-            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
-            {
-                manualMoveVector.x = 1;
-                ApplyManualMovement();
-            }
-        }
-
-        public void StopGoingRight()
-        {
-            if (manualMoveVector.x > 0) manualMoveVector.x = 0;
-            ApplyManualMovement();
-        }
-
-        private void ApplyManualMovement()
-        {
-            var lookDelta = manualMoveVector;
-
-            if (IsCrouchHeld)
-            {
-                LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
-                lookDelta.y = 0;
-            }
-
-            DesktopEyeInput?.SetLookRotationVector(lookDelta);
-        }
-
         #endregion
 
         #region Input Action Handlers
@@ -382,10 +313,22 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnLookActionPerformed(InputAction.CallbackContext ctx)
         {
-            var sensitivity = IsMonoStableInput(ctx.control.device) ? JoystickSensitivity : MouseSensitivity;
-            OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
+            float sensitivity;
+            if (ctx.control.device is Mouse)
+            {
+                sensitivity = MouseSensitivity;
+            }
+            else if (IsMonoStableInput(ctx.control.device))
+            {
+                sensitivity = JoystickSensitivity;
+            }
+            else
+            {
+                sensitivity = KeyboardSensitivity;
+            }
+            OnLookAction(ctx.ReadValue<Vector2>(), sensitivity, ctx.control.device is Mouse);
         }
-        public void OnLookAction(Vector2 delta, float sensitivity)
+        public void OnLookAction(Vector2 delta, float sensitivity, bool isMouse)
         {
             var lookDelta = delta * (deltaCoefficient * sensitivity);
             if (SMModuleControllerSettings.HasInvertedMouse)
@@ -397,14 +340,20 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
                 lookDelta.y = 0;
             }
-
+            // Send the look delta to both the desktop eye and the character driver.
             DesktopEyeInput?.SetLookRotationVector(lookDelta);
+            if (isMouse && DesktopEyeInput != null && DesktopEyeInput.IsRotationLocked())
+            {
+                return; // Don't rotate the character with the mouse if the eye rotation is locked (such as when the menu is open).
+            }
+            LocalCharacterDriver.Rotation = lookDelta;
         }
 
         public void OnLookActionCancelled(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetCrouchBlendDelta(0f);
             DesktopEyeInput?.SetLookRotationVector(Vector2.zero);
+            LocalCharacterDriver.Rotation = Vector2.zero;
         }
 
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)

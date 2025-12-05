@@ -52,6 +52,24 @@ namespace Basis.Scripts.Drivers
         private float previousHeadYawVsSeat = 0.0f;
         private bool hasEvent = false;
 
+        public bool DoesSeatingBlockLocalDesktopEyePitch()
+        {
+            if (_seat == null)
+            {
+                return false; // Pitch is allowed if not seated.
+            }
+            return false;
+        }
+
+        public bool DoesSeatingBlockLocalDesktopEyeYaw()
+        {
+            if (_seat == null)
+            {
+                return true; // Yaw is not allowed if not seated (handled by player rotation instead).
+            }
+            return false;
+        }
+
         private void GrabLatestTposeLocalScaleData()
         {
             leftLowerLegOffset = BasisLocalBoneDriver.LeftFootControl.TposeLocalScaled.position - BasisLocalBoneDriver.LeftLowerLegControl.TposeLocalScaled.position;
@@ -118,8 +136,13 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = true;
             if (BasisDesktopEye.Instance != null)
             {
-                // Set the player's relative yaw to zero to face forward on the seat, but don't do the same for pitch.
+                // Set the player's relative yaw to zero to face forward on the seat.
                 BasisDesktopEye.Instance.rotationYaw = 0.0f;
+                // Only do the same for pitch if the seat needs to block or consume pitch.
+                if (DoesSeatingBlockLocalDesktopEyePitch())
+                {
+                    BasisDesktopEye.Instance.rotationPitch = 0.0f;
+                }
             }
             _setAllOverrideUsages(true);
             LocalPlayer.OnPreSimulateBones += OnSimulate;

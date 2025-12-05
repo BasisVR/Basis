@@ -62,6 +62,6 @@ public class BasisOnScreenControls : MonoBehaviour
     }
     private void OnStickMoveRight(Vector2 vector)
     {
-        BasisLocalInputActions.Instance.OnLookAction(vector, 10);
+        BasisLocalInputActions.Instance.OnLookAction(vector, 10, false);
     }
 }
