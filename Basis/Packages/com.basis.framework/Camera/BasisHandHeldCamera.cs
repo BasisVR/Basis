@@ -1,15 +1,16 @@
-using System;
-using System.IO;
-using UnityEngine;
-using UnityEngine.Rendering.Universal;
-using UnityEngine.Rendering;
-using System.Collections;
-using TMPro;
-using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Drivers;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
+using Basis.Scripts.Drivers;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using TMPro;
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Handheld capture camera with preview, screenshotting (PNG/EXR),
@@ -136,6 +137,7 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         await InitializeUI();
         InitializeTonemapping();
         InitializeDepthOfField();
+        InitalizeVolumetrics();
         InitializeFolders();
         await HandHeld.SaveSettings();
         SetupUILayerMask();
@@ -150,7 +152,15 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         StartPreviewLoop();
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
     }
+    public void InitalizeVolumetrics()
+    {
+#if Basis_VOLUMETRIC_SUPPORTED
+        if (MetaData.Profile.TryGet(out MetaData.VolumetricFogVolume))
+        {
 
+        }
+#endif
+    }
     /// <summary>
     /// Stops preview, saves settings, releases resources, unsubscribes events,
     /// and returns this object to the Addressables pool.

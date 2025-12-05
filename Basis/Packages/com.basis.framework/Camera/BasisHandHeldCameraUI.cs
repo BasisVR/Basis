@@ -124,6 +124,10 @@ public class BasisHandHeldCameraUI
     /// <summary>Discrete exposure control; mapped to <see cref="exposureStops"/>.</summary>
     public Slider ExposureSlider;
 
+    [Space(10)]
+    /// <summary>Discrete volumetric Density control; mapped to <see cref="exposureStops"/>.</summary>
+    public Slider volumetricDensitySlider;
+
     private float[] exposureStops = new float[] { -3f, -2.5f, -2f, -1.5f, -1f, -0.5f, 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f };
 
     [Space(10)]
@@ -249,7 +253,7 @@ public class BasisHandHeldCameraUI
         BloomThresholdSlider?.onValueChanged.AddListener(ChangeBloomThreshold);
         ContrastSlider?.onValueChanged.AddListener(ChangeContrast);
         SaturationSlider?.onValueChanged.AddListener(ChangeSaturation);
-
+        volumetricDensitySlider?.onValueChanged.AddListener(ChangeVolumetricDensity);
         DepthModeAutoButton?.onClick.AddListener(() => SetDepthMode(DepthMode.Auto));
         DepthModeManualButton?.onClick.AddListener(() => SetDepthMode(DepthMode.Manual));
     }
@@ -692,6 +696,10 @@ public class BasisHandHeldCameraUI
             depthAperture = DepthApertureSlider?.value ?? 1f,
             depthFocusDistance = DepthFocusDistanceSlider?.value ?? 10f,
             exposureIndex = Mathf.Clamp((int)(ExposureSlider?.value ?? 6), 0, exposureStops.Length - 1),
+            VolumetricFogVolumedensity = volumetricDensitySlider?.value ?? 0.01f,
+            VolumetricFogenableAPVContribution = true,
+            VolumetricFogenableMainLightContribution = true,
+            VolumetricenableAdditionalLightsContribution = true,
         };
     }
 
@@ -779,6 +787,7 @@ public class BasisHandHeldCameraUI
             SetSliderValue(DepthApertureSlider, settings.depthAperture);
             SetSliderValue(DepthFocusDistanceSlider, settings.depthFocusDistance);
             SetSliderValue(ExposureSlider, settings.exposureIndex);
+            SetSliderValue(volumetricDensitySlider, settings.VolumetricFogVolumedensity);
 
             if (Format != null)
                 Format.isOn = settings.formatIndex == FORMAT_EXR;
@@ -879,6 +888,15 @@ public class BasisHandHeldCameraUI
             HHC.MetaData.bloom.intensity.value = settings.bloomIntensity;
             HHC.MetaData.bloom.threshold.value = settings.bloomThreshold;
         }
+#if Basis_VOLUMETRIC_SUPPORTED
+        if (HHC.MetaData.VolumetricFogVolume != null)
+        {
+            HHC.MetaData.VolumetricFogVolume.density.value = settings.VolumetricFogVolumedensity;
+            HHC.MetaData.VolumetricFogVolume.enableAPVContribution.value = settings.VolumetricFogenableAPVContribution;
+            HHC.MetaData.VolumetricFogVolume.enableMainLightContribution.value = settings.VolumetricFogenableMainLightContribution;
+            HHC.MetaData.VolumetricFogVolume.enableAdditionalLightsContribution.value = settings.VolumetricenableAdditionalLightsContribution;
+        }
+#endif
     }
 
     /// <summary>Updates DoF focus distance and readout.</summary>
@@ -981,6 +999,16 @@ public class BasisHandHeldCameraUI
         HHC.captureCamera.iso = int.Parse(HHC.MetaData.isoValues[index]);
     }
 
+    public void ChangeVolumetricDensity(float value)
+    {
+#if Basis_VOLUMETRIC_SUPPORTED
+    if (HHC.MetaData.VolumetricFogVolume != null)
+    {
+        HHC.MetaData.VolumetricFogVolume.density.value = value;
+    }
+#endif
+    }
+
     /// <summary>
     /// Serializable snapshot of camera + UI state for persistence.
     /// </summary>
@@ -1005,6 +1033,11 @@ public class BasisHandHeldCameraUI
             depthAperture = 1f;
             depthFocusDistance = 10;
             depthIsActive = false;
+            useManualFocus = true;
+            VolumetricFogVolumedensity = 0.01f;
+            VolumetricFogenableAPVContribution = true;
+            VolumetricFogenableMainLightContribution = true;
+            VolumetricenableAdditionalLightsContribution = true;
         }
 
         /// <summary>Index into resolution presets.</summary>
@@ -1063,5 +1096,22 @@ public class BasisHandHeldCameraUI
 
         /// <summary>True = Manual focus mode; False = Auto focus mode.</summary>
         public bool useManualFocus = true;
+
+        /// <summary>
+        /// Density of Fog in Camera
+        /// </summary>
+        public float VolumetricFogVolumedensity;
+        /// <summary>
+        /// APV enabled Fog
+        /// </summary>
+        public bool VolumetricFogenableAPVContribution;
+        /// <summary>
+        /// Main Light Enabled Fog
+        /// </summary>
+        public bool VolumetricFogenableMainLightContribution;
+        /// <summary>
+        /// Addittional Light Contribution
+        /// </summary>
+        public bool VolumetricenableAdditionalLightsContribution;
     }
 }
