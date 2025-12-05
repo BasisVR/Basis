@@ -228,6 +228,7 @@ namespace Basis.Scripts.BasisSdk.Players
             if (BasisScene != null)
             {
                 BasisSceneFactory.Initalize(BasisScene);
+                BasisSceneFactory.SpawnPlayer(this);
             }
             else
             {
