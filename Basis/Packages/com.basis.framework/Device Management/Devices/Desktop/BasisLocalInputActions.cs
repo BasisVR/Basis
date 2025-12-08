@@ -47,6 +47,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
 
+        public InputActionReference MoveLocalUpDown;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -170,6 +171,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Enable();
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
+            MoveLocalUpDown.action.Enable();
         }
 
         private void DisableActions()
@@ -189,6 +191,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Disable();
             MiddleMouseScroll.action.Disable();
             MiddleMouseScrollClick.action.Disable();
+            MoveLocalUpDown.action.Disable();
         }
 
         private void AddCallbacks()
@@ -352,12 +355,14 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)
         {
             IsJumpHeld = true;
+            LocalCharacterDriver.IsJumpHeld = true;
             LocalCharacterDriver.HandleJumpRequest();
         }
 
         public void OnJumpActionCancelled(InputAction.CallbackContext ctx)
         {
             IsJumpHeld = false;
+            LocalCharacterDriver.IsJumpHeld = false;
         }
 
         public void OnCrouchPerformed(InputAction.CallbackContext ctx)

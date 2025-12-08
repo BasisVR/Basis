@@ -485,6 +485,7 @@ MonoBehaviour:
   RightMousePressed: {fileID: -240064975923332847, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  MoveLocalUpDown: {fileID: -8761834997978577808, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
   KeyboardSensitivity: 5

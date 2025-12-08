@@ -140,6 +140,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "MoveLocalUpDown",
+                    "type": "Value",
+                    "id": "d4f90fd6-bf60-4bcb-9357-b3f6ac36f2b4",
+                    "expectedControlType": "Axis",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
                 }
             ],
             "bindings": [
@@ -659,6 +668,72 @@
                     "action": "Pointer Position",
                     "isComposite": false,
                     "isPartOfComposite": false
+                },
+                {
+                    "name": "RF",
+                    "id": "7d48d1e0-a9c8-4132-ae0a-600c5f024bfb",
+                    "path": "1DAxis",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "MoveLocalUpDown",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "positive",
+                    "id": "2c491300-1719-431b-b1f4-f2face82dd64",
+                    "path": "<Keyboard>/r",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "MoveLocalUpDown",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "negative",
+                    "id": "f27ecc65-f4b6-4a6e-810c-cb47eac45384",
+                    "path": "<Keyboard>/f",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "MoveLocalUpDown",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "DPadUD",
+                    "id": "786e17ff-255f-4e01-920e-9b6750329dea",
+                    "path": "1DAxis",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "MoveLocalUpDown",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "positive",
+                    "id": "bfaa627a-b02d-4c03-b514-06b07b221c7d",
+                    "path": "<Gamepad>/dpad/up",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "MoveLocalUpDown",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "negative",
+                    "id": "391e31c5-f1a4-4004-a596-1617b6e244dd",
+                    "path": "<Gamepad>/dpad/down",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "MoveLocalUpDown",
+                    "isComposite": false,
+                    "isPartOfComposite": true
                 }
             ]
         }

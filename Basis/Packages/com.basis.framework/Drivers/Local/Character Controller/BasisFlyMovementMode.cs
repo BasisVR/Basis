@@ -39,20 +39,7 @@ namespace Basis.Scripts.BasisCharacterController
             Vector3 move = facing * planar * ctx.CurrentSpeed * dt;
 
             // ===== Vertical input (held) =====
-            float ascendHeld = 0f;
-            float descendHeld = 0f;
-
-            // Prefer your input system if available:
-            if (BasisLocalInputActions.Instance != null)
-            {
-                ascendHeld = BasisLocalInputActions.Instance.IsJumpHeld ? 1f : 0f;
-                descendHeld = BasisLocalInputActions.Instance.IsCrouchHeld ? 1f : 0f;
-            }
-
-            if (ctx.HasJumpAction) ascendHeld = 1f;
-
-            float verticalInput = ascendHeld - descendHeld; // -1..+1
-            move.y = verticalInput * ctx.CurrentSpeed * dt;
+            move.y = ctx.GetVerticalMovement() * ctx.CurrentSpeed * dt;
 
             // Clear tap
             ctx.HasJumpAction = false;

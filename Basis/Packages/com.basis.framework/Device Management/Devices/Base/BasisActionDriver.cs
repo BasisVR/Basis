@@ -454,6 +454,7 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void JumpOnPrimaryButton(ref BasisInputState current, ref BasisInputState last)
     {
+        BasisLocalPlayer.Instance.LocalCharacterDriver.IsJumpHeld = current.PrimaryButtonGetState;
         if (current.PrimaryButtonGetState)
         {
             BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJumpRequest();
