@@ -61,7 +61,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         [System.NonSerialized] public BasisLocalPlayer LocalPlayer;
         [System.NonSerialized] public BasisLocalCharacterDriver LocalCharacterDriver;
-        [System.NonSerialized] public BasisDesktopEye AvatarEyeInput;
+        [System.NonSerialized] public BasisDesktopEye DesktopEyeInput;
 
         public PlayerInput Input;
 
@@ -348,7 +348,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 lookDelta.y = 0;
             }
 
-            AvatarEyeInput?.SetLookRotationVector(lookDelta);
+            DesktopEyeInput?.SetLookRotationVector(lookDelta);
         }
 
         #endregion
@@ -385,9 +385,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             var sensitivity = IsMonoStableInput(ctx.control.device) ? JoystickSensitivity : MouseSensitivity;
             OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
         }
-        public void OnLookAction(Vector2 Delta,float sensitivity)
+        public void OnLookAction(Vector2 delta, float sensitivity)
         {
-            var lookDelta = Delta * (deltaCoefficient * sensitivity);
+            var lookDelta = delta * (deltaCoefficient * sensitivity);
             if (SMModuleControllerSettings.HasInvertedMouse)
             {
                 lookDelta.y *= -1f;
@@ -398,13 +398,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 lookDelta.y = 0;
             }
 
-            AvatarEyeInput?.SetLookRotationVector(lookDelta);
+            DesktopEyeInput?.SetLookRotationVector(lookDelta);
         }
 
         public void OnLookActionCancelled(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetCrouchBlendDelta(0f);
-            AvatarEyeInput?.SetLookRotationVector(Vector2.zero);
+            DesktopEyeInput?.SetLookRotationVector(Vector2.zero);
         }
 
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)

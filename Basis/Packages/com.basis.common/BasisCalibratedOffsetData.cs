@@ -13,10 +13,21 @@ namespace Basis.Scripts.Common
     {
         public Quaternion rotation;
         public Vector3 position;
+
+        public static BasisCalibratedCoords Identity
+        {
+            get { return new BasisCalibratedCoords(Vector3.zero, Quaternion.identity); }
+        }
+
         public BasisCalibratedCoords(Vector3 pos, Quaternion rot)
         {
             this.position = pos;
             this.rotation = rot;
+        }
+
+        public static Vector3 operator *(BasisCalibratedCoords basisTransform, Vector3 vec)
+        {
+            return basisTransform.position + (basisTransform.rotation * vec);
         }
     }
 }
