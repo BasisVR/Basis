@@ -210,7 +210,7 @@ MonoBehaviour:
     VersionNumber: 1
     matchableDeviceIds:
     - Head OPENXR
-    HasRayCastSupport: 0
+    HasRayCastSupport: 1
     CanDisplayPhysicalTracker: 0
     HasRayCastVisual: 0
     HasRayCastRadical: 0

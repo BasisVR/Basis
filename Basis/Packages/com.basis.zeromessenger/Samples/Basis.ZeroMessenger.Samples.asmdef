@@ -1,0 +1,17 @@
+{
+    "name": "Basis.ZeroMessenger.Samples",
+    "rootNamespace": "",
+    "references": [
+        "GUID:346072a83b5f0644383e8a0bb8831c40",
+        "GUID:45c7722710e2a37438daaacbf1cd4ad1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
