@@ -39,7 +39,6 @@ namespace Basis.BasisUI
         public PanelGroupRootMode DesktopRootMode = PanelGroupRootMode.Eye;
         public PanelGroupRootMode InUse = PanelGroupRootMode.Eye;
         public float RootScale = 0.0005f;
-        public float MinZScale = 0.01f;
 
         [Header("Offsets are multiplied against the Player Eye Height.\nAssign your values assuming a height of 1 meter.")]
         public RootModeOffset WorldOffset;
@@ -57,6 +56,9 @@ namespace Basis.BasisUI
         private BasisLocalBoneControl _rightHandControl;
         private bool _hasLocalCreationEvent;
         private bool _hasLocalMoveEvent;
+
+        private const float MIN_Z_SCALE = 0.01f;
+
 
         private void Start()
         {
@@ -193,7 +195,7 @@ namespace Basis.BasisUI
             GroupOffset.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
 
             Vector3 offsetScale =  Vector3.one * (offset.Scale * RootScale);
-            offsetScale.z = Mathf.Max(MinZScale, offsetScale.z);
+            offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
             transform.localScale = Vector3.one * playerHeight;
@@ -206,7 +208,7 @@ namespace Basis.BasisUI
             GroupOffset.SetLocalPositionAndRotation(scaledOffset, HeadOffset.Rotation);
 
             Vector3 offsetScale =  Vector3.one * (HeadOffset.Scale * RootScale * scaleFactor);
-            offsetScale.z = Mathf.Max(MinZScale, offsetScale.z);
+            offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
             transform.localScale = Vector3.one * playerHeight;
