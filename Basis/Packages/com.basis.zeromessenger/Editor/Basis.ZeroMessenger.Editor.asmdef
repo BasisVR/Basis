@@ -1,0 +1,10 @@
+{
+    "name": "Basis.Zeromessenger.Editor",
+    "references": [
+      "Mriiseunity.Zeromessenger"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}
