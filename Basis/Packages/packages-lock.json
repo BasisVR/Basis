@@ -114,6 +114,14 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.zeromessenger": {
+      "version": "file:com.basis.zeromessenger",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.test-framework": "1.6.0"
+      }
+    },
     "com.cnlohr.cilbox": {
       "version": "file:com.cnlohr.cilbox",
       "depth": 0,

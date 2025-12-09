@@ -164,6 +164,7 @@
   <Project Path="Unity.Services.Core.Networking.csproj" />
   <Project Path="Unity.MemoryProfiler.csproj" />
   <Project Path="BasisEventDriver.csproj" />
+  <Project Path="Basis.ZeroMessenger.Samples.csproj" />
   <Project Path="Meta.XR.Editor.Guide.About.csproj" />
   <Project Path="BasisSDKMIrrorEditor.csproj" />
   <Project Path="Unity.XR.OpenXR.TestTooling.csproj" />
