@@ -5,6 +5,7 @@ using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders;
 using Basis.Scripts.TransformBinders.BoneControl;
+using LiteNetLib.Utils;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -58,6 +59,7 @@ namespace Basis.Scripts.Device_Management
                 if (inst != null)
                 {
                     inst.CurrentMode = value;
+                    OnBootModeChanged?.Invoke(value);
                 }
                 else
                 {
@@ -188,6 +190,7 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         private void OnDestroy()
         {
+            BasisXRManagement.DeInitalize();
             BasisPlayerFactory.DeInitalize();
             StopAllDevices();
             UnsubscribeEvents();
@@ -204,6 +207,7 @@ namespace Basis.Scripts.Device_Management
         public async Task Initialize()
         {
             BasisPlayerFactory.Initalize();
+            BasisXRManagement.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
 
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
@@ -285,9 +289,9 @@ namespace Basis.Scripts.Device_Management
             if (TryFindBasisBaseTypeManagement(mode, out var matched))
             {
                 // Safely iterate and await each start
-                for (int i = 0; i < matched.Count; i++)
+                for (int Index = 0; Index < matched.Count; Index++)
                 {
-                    var type = matched[i];
+                    var type = matched[Index];
                     if (type != null)
                     {
                         await type.AttemptStartSDK();
@@ -297,9 +301,8 @@ namespace Basis.Scripts.Device_Management
 
             BasisSettingsSystem.LoadAllSettings();
             SMDMicrophone.LoadInMicrophoneData(mode);
+            StaticCurrentMode = mode;
             await BasisActionDriver.LoadBindings();
-
-            OnBootModeChanged?.Invoke(mode);
             BasisDebug.Log($"Loading mode: {mode}", BasisDebug.LogTag.Device);
         }
 

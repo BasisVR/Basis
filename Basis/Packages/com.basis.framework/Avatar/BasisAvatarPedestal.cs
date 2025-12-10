@@ -176,7 +176,14 @@ public class BasisAvatarPedestal : BasisInteractableObject
         }
         CreateCollider(1.5f);
     }
-
+    public override void OnDestroy()
+    {
+        if(LoadedImage != null && LoadedImage != FallBackImage)
+        {
+           Texture.Destroy(LoadedImage);
+        }
+        base.OnDestroy();
+    }
     /// <summary>
     /// Creates or updates a capsule collider for interaction detection.
     /// </summary>

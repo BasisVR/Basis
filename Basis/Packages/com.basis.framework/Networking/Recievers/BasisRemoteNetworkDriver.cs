@@ -314,10 +314,12 @@ public static class BasisRemoteNetworkDriver
         [ReadOnly] public NativeArray<float> InputValues;
 
         // Output signal (flattened: players * muscles)
+        [WriteOnly]
         public NativeArray<float> OutputValues;
 
         // Per-player deltaTime (or sampling period proxy). Length == numPlayers
-        [ReadOnly] public NativeArray<float> DeltaTime;
+        [ReadOnly]
+        public NativeArray<float> DeltaTime;
 
         // Filter state per flattened channel (same length as OutputValues)
         public NativeArray<float2> PositionFilters;   // x = previous input, y = previous output
@@ -330,17 +332,12 @@ public static class BasisRemoteNetworkDriver
 
         // Stride to recover the player index from the flattened channel index
         // i.e., the number of muscles per avatar
-        [ReadOnly] public int MuscleCountPerAvatar;
+        [ReadOnly]
+        public int MuscleCountPerAvatar;
 
         public void Execute(int index)
         {
             int playerIndex = MuscleCountPerAvatar > 0 ? (index / MuscleCountPerAvatar) : 0;
-
-            if ((uint)playerIndex >= (uint)DeltaTime.Length) return;
-            if ((uint)index >= (uint)InputValues.Length) return;
-            if ((uint)index >= (uint)OutputValues.Length) return;
-            if ((uint)index >= (uint)PositionFilters.Length) return;
-            if ((uint)index >= (uint)DerivativeFilters.Length) return;
 
             float dt = DeltaTime[playerIndex];
             if (dt <= 0f) dt = 1e-3f; // guard

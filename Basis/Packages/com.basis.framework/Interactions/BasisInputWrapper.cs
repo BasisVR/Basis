@@ -33,7 +33,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (!source.TryGetRole(out BasisBoneTrackedRole role))
             {
-                BasisDebug.LogError($"Source {source.name} did not provide a valid role", BasisDebug.LogTag.Device);
+               // BasisDebug.LogError($"Source {source.name} did not provide a valid role", BasisDebug.LogTag.Device);
                 return false;
             }
 

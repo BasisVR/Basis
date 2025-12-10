@@ -13,9 +13,9 @@ namespace Basis.BasisUI
 
         public static PanelData DialoguePanelData => new PanelData
         {
-            Title = null,
+            Title = "Dialogue",
             PanelSize = new Vector2(700, 500),
-            PanelPosition = new Vector3(0, -100, -50),
+            PanelPosition = new Vector3(0, -100, -5),
         };
 
         public static string AcceptDefault = "Accept";

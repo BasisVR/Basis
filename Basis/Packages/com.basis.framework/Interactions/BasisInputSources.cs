@@ -163,7 +163,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             var created = BasisInputWrapper.TryNewTracking(input, state, out BasisInputWrapper wrapper);
             if (!created)
             {
-                BasisDebug.LogError("Unable to Create [TryNewTracking]", BasisDebug.LogTag.Device);
+              //this is totally ok.  BasisDebug.LogError("Unable to Create [TryNewTracking]", BasisDebug.LogTag.Device);
                 return false;
             }
 

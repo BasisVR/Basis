@@ -2,6 +2,7 @@ using System;
 using Basis.Scripts.Animator_Driver;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Unity.Mathematics;
@@ -40,7 +41,7 @@ namespace Basis.Scripts.BasisCharacterController
         public float pushPower = 1f;
         private const float CrouchDeltaCoefficient = 0.01f;
         private const float SnapTurnAbsoluteThreshold = 0.8f;
-        private bool UseSnapTurn => SMModuleControllerSettings.SnapTurnAngle != -1;
+        private bool UseSnapTurn => SMModuleControllerSettings.SnapTurnAngle != -1 && BasisDeviceManagement.IsCurrentModeVR();
         private float SnapTurnAngle => SMModuleControllerSettings.SnapTurnAngle;
         private bool isSnapTurning;
         public Vector3 CurrentPosition;

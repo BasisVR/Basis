@@ -1,6 +1,5 @@
 using UnityEngine;
 
-[SerializeField]
 [System.Serializable]
 public struct BasisPoseDataAdditional
 {

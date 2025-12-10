@@ -1,0 +1,157 @@
+using System.Collections.Generic;
+using UnityEditor.RenderPipelines.Core;
+using UnityEditor.ShaderGraph;
+using UnityEngine;
+using UnityEngine.Rendering.Universal;
+using static UnityEditor.Rendering.InspectorCurveEditor;
+
+namespace UnityEditor.Rendering.Universal
+{
+    /// <summary>
+    /// Custom editor for FullScreenPassRendererFeature class responsible for drawing unavailable by default properties
+    /// such as custom drop down items and additional properties.
+    /// </summary>
+    [UnityEngine.Scripting.APIUpdating.MovedFrom("")]
+    [CustomEditor(typeof(FullScreenPassRendererFeature))]
+    public class FullScreenPassRendererFeatureEditor : Editor
+    {
+        private SerializedProperty m_InjectionPointProperty;
+        private SerializedProperty m_RequirementsProperty;
+        private SerializedProperty m_FetchColorBufferProperty;
+        private SerializedProperty m_BindDepthStencilAttachmentProperty;
+        private SerializedProperty m_PassMaterialProperty;
+        private SerializedProperty m_PassIndexProperty;
+
+        private static readonly GUIContent k_InjectionPointGuiContent = new GUIContent("Injection Point", "Specifies where in the frame this pass will be injected.");
+        private static readonly GUIContent k_RequirementsGuiContent = new GUIContent("Requirements", "A mask of URP internal textures that will need to be generated and bound for sampling.\n\nNote that 'Color' here corresponds to '_CameraOpaqueTexture' so most of the time you will want to use the 'Fetch Color Buffer' option instead.");
+        private static readonly GUIContent k_FetchColorBufferGuiContent = new GUIContent("Fetch Color Buffer", "Enable this if the assigned material will need to sample the active color target. The active color will be bound to the '_BlitTexture' shader property for sampling. Note that this will introduce an internal color copy pass.");
+        private static readonly GUIContent k_BindDepthStencilAttachmentGuiContent = new GUIContent("Bind Depth-Stencil", "Enable this to bind the active camera's depth-stencil attachment to the framebuffer (only use this if depth-stencil ops are used by the assigned material as this could have a performance impact).");
+        private static readonly GUIContent k_PassMaterialGuiContent = new GUIContent("Pass Material", "The material used to render the full screen pass.");
+        private static readonly GUIContent k_PassGuiContent = new GUIContent("Pass", "The name of the shader pass to use from the assigned material.");
+
+        static readonly GUIContent k_NewFullscreenMaterialButtonText = EditorGUIUtility.TrTextContent("New", "Creates a new Fullscreen material.");
+        static readonly string k_NewBlitShaderText = "SRP Blit Shader";
+        static readonly string k_NewSGFullscreenText = "ShaderGraph Fullscreen";
+        static readonly string k_BlitShaderTemplatePath = "Packages/com.unity.render-pipelines.core/Editor/ScriptTemplates/BlitSRP.txt";
+        static readonly string k_DefaultFullscreenShaderGraphTemplatePath = "Packages/com.unity.render-pipelines.universal/Shaders/FullscreenInvertColors.shadergraph";
+
+        private void OnEnable()
+        {
+            m_InjectionPointProperty = serializedObject.FindProperty("injectionPoint");
+            m_RequirementsProperty = serializedObject.FindProperty("requirements");
+            m_FetchColorBufferProperty = serializedObject.FindProperty("fetchColorBuffer");
+            m_BindDepthStencilAttachmentProperty = serializedObject.FindProperty("bindDepthStencilAttachment");
+            m_PassMaterialProperty = serializedObject.FindProperty("passMaterial");
+            m_PassIndexProperty = serializedObject.FindProperty("passIndex");
+        }
+
+        /// <summary>
+        /// Implementation for a custom inspector
+        /// </summary>
+        public override void OnInspectorGUI()
+        {
+            var currentFeature = target as FullScreenPassRendererFeature;
+
+            if (currentFeature.passMaterial == null || currentFeature.passIndex >= currentFeature.passMaterial.passCount)
+                currentFeature.passIndex = 0;
+
+            EditorGUILayout.PropertyField(m_InjectionPointProperty, k_InjectionPointGuiContent);
+            EditorGUILayout.PropertyField(m_RequirementsProperty, k_RequirementsGuiContent);
+            EditorGUILayout.PropertyField(m_FetchColorBufferProperty, k_FetchColorBufferGuiContent);
+            EditorGUILayout.PropertyField(m_BindDepthStencilAttachmentProperty, k_BindDepthStencilAttachmentGuiContent);
+
+            MaterialFieldWithButton(m_PassMaterialProperty, k_PassMaterialGuiContent);
+
+            if (m_PassMaterialProperty.objectReferenceValue == null)
+                EditorGUILayout.HelpBox("The full screen feature will not execute - no material is assigned. Please make sure a material is assigned for this feature on the renderer asset.", MessageType.Warning, true);
+
+            if (AdvancedProperties.BeginGroup())
+            {
+                DrawMaterialPassProperty(currentFeature);
+            }
+            AdvancedProperties.EndGroup();
+
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        internal void MaterialFieldWithButton(SerializedProperty prop, GUIContent label)
+        {
+            const int k_NewFieldWidth = 70;
+
+            var rect = EditorGUILayout.GetControlRect();
+            rect.xMax -= k_NewFieldWidth + 2;
+
+            EditorGUI.PropertyField(rect, prop, label);
+
+            var newFieldRect = rect;
+            newFieldRect.x = rect.xMax + 2;
+            newFieldRect.width = k_NewFieldWidth;
+
+            if (!EditorGUI.DropdownButton(newFieldRect, k_NewFullscreenMaterialButtonText, FocusType.Keyboard))
+                return;
+
+            GenericMenu menu = new GenericMenu();
+            menu.AddItem(new GUIContent(k_NewSGFullscreenText), false, () => CreateFullscreenMaterialFromTemplate(target as FullScreenPassRendererFeature, k_DefaultFullscreenShaderGraphTemplatePath));
+
+            // For later introduction of SG Filtered Template Browser
+            //menu.AddItem(new GUIContent(k_NewSGFullscreenFromTemplateText), false, () => CreateFullscreenMaterialFromTemplate(target as FullScreenPassRendererFeature));
+
+            menu.AddItem(new GUIContent(k_NewBlitShaderText), false, () => CreateDefaultFullscreenMaterial(target as FullScreenPassRendererFeature));
+            menu.DropDown(newFieldRect);
+        }
+
+        internal static void CreateFullscreenMaterialFromTemplate(FullScreenPassRendererFeature obj, string templatePath = null)
+        {
+            var selection = Selection.activeObject; // holding selection
+            CreateShaderGraph.CreateGraphAndMaterialFromTemplate((material) =>
+            {
+                obj.passMaterial = material;
+                EditorUtility.SetDirty(obj);
+                Selection.activeObject = selection; //restoring selection
+            },
+            templatePath,
+            $"New {k_NewSGFullscreenText}");
+        }
+
+        internal static void CreateDefaultFullscreenMaterial(FullScreenPassRendererFeature obj)
+        {
+            string materialName = "New " + k_NewBlitShaderText;
+
+            var selection = Selection.activeObject; // holding selection
+            AssetCreationUtil.CreateShaderAndMaterial(
+                materialName,
+                (material) =>
+                {
+                    obj.passMaterial = material;
+                    EditorUtility.SetDirty(obj);
+                    Selection.activeObject = selection; //restoring selection
+                },
+                k_BlitShaderTemplatePath
+            );
+        }
+
+        private void DrawMaterialPassProperty(FullScreenPassRendererFeature feature)
+        {
+            List<string> selectablePasses;
+            bool isMaterialValid = feature.passMaterial != null;
+            selectablePasses = isMaterialValid ? GetPassIndexStringEntries(feature) : new List<string>() {"No material"};
+
+            // If material is invalid 0'th index is selected automatically, so it stays on "No material" entry
+            // It is invalid index, but FullScreenPassRendererFeature wont execute until material is valid
+            m_PassIndexProperty.intValue = EditorGUILayout.Popup(k_PassGuiContent, m_PassIndexProperty.intValue, selectablePasses.ToArray());
+        }
+
+        private static List<string> GetPassIndexStringEntries(FullScreenPassRendererFeature component)
+        {
+            List<string> passIndexEntries = new List<string>();
+            for (int i = 0; i < component.passMaterial.passCount; ++i)
+            {
+                // "Name of a pass (index)" - "PassAlpha (1)"
+                string entry = $"{component.passMaterial.GetPassName(i)} ({i})";
+                passIndexEntries.Add(entry);
+            }
+
+            return passIndexEntries;
+        }
+    }
+}

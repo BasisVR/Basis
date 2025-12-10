@@ -1,51 +1,79 @@
 using TMPro;
 using UnityEngine;
 using Basis.Scripts.Networking;
-using System.Text; // Import for StringBuilder
+using System;
 
 public class BasisFrameRateVisualization : MonoBehaviour
 {
-    public TextMeshProUGUI fpsText; // UI Text element to display the FPS
-    private float deltaTime = 0.0f;  // Time between frames
-    private float fps = 0.0f;  // Frames per second
-    private float timeBetweenUpdates = 0.1f;  // Time between updates (in seconds)
-    private float timeAccumulator = 0.0f;  // Time accumulator to track updates
-    private StringBuilder stringBuilder = new StringBuilder(); // Reusable StringBuilder
+    public TextMeshProUGUI fpsText;
     public string Title;
+
+    private float deltaTime;
+
+    // Reusable character buffer — adjust size if needed
+    private char[] buffer = new char[128];
+
     void Update()
     {
-        float Unscaled = Time.unscaledDeltaTime;
-        // Calculate the time it took to render the last frame
-        deltaTime += (Unscaled - deltaTime) * 0.1f;
+        float dt = Time.unscaledDeltaTime;
+        deltaTime += (dt - deltaTime) * 0.1f;
+        float fps = 1f / deltaTime;
 
-        // Calculate FPS based on deltaTime
-        fps = 1.0f / deltaTime;
+        int idx = 0;
 
-        // Accumulate time
-        timeAccumulator += Unscaled;
-        // If the accumulated time exceeds the update interval, update the FPS display
-        if (timeAccumulator >= timeBetweenUpdates)
+        // Copy title straight into buffer
+        for (int i = 0; i < Title.Length; i++)
+            buffer[idx++] = Title[i];
+
+        var peer = BasisNetworkConnection.LocalPlayerPeer;
+
+        if (peer != null)
         {
-            // Clear and construct the string using StringBuilder
-            stringBuilder.Clear();
-            stringBuilder.Append(Title);
-
-            if (BasisNetworkConnection.LocalPlayerPeer != null)
-            {
-                stringBuilder.Append(" RTT: ");
-                stringBuilder.Append(BasisNetworkConnection.LocalPlayerPeer.RoundTripTime);
-                stringBuilder.Append(" STT: ");
-                stringBuilder.Append(BasisNetworkConnection.LocalPlayerPeer.Ping);
-                stringBuilder.Append(" CCU: ");
-                stringBuilder.Append(BasisNetworkPlayers.ReceiverCount +1);
-            }
-            stringBuilder.Append(" FPS: ");
-            stringBuilder.Append(fps.ToString("F2"));
-            // Update the TextMeshProUGUI text
-            fpsText.text = stringBuilder.ToString();
-
-            // Reset the time accumulator
-            timeAccumulator = 0.0f;
+            idx = Append(buffer, " RTT:", idx);
+            idx = AppendInt(peer.RoundTripTime, idx);
+            idx = Append(buffer, " STT:", idx);
+            idx = AppendInt(peer.Ping, idx);
+            idx = Append(buffer, " CCU:", idx);
+            idx = AppendInt(BasisNetworkPlayers.ReceiverCount + 1, idx);
         }
+
+        idx = Append(buffer, " FPS:", idx);
+        idx = AppendFloat(fps, 2, idx);
+
+        // We don't convert to string → no GC
+        fpsText.SetCharArray(buffer, 0, idx);
+    }
+
+
+    // -------- Helpers (no GC) --------
+
+    private int Append(char[] buf, string str, int index)
+    {
+        for (int i = 0; i < str.Length; i++)
+            buf[index++] = str[i];
+        return index;
+    }
+
+    private int AppendInt(int val, int index)
+    {
+        return Append(buffer, val.ToString(), index); // Temporary GC? → Replace below if needed
+    }
+
+    // Manual float format (no ToString → no garbage)
+    private int AppendFloat(float value, int decimals, int index)
+    {
+        int whole = (int)value;
+        float frac = Mathf.Abs(value - whole);
+
+        index = AppendInt(whole, index);
+        buffer[index++] = '.';
+
+        for (int i = 0; i < decimals; i++)
+        {
+            frac *= 10f;
+            buffer[index++] = (char)('0' + (int)frac % 10);
+        }
+
+        return index;
     }
 }

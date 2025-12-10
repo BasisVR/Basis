@@ -235,7 +235,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             return new Vector3(sx.magnitude, sy.magnitude, sz.magnitude);
         }
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="scale"></param>
         /// <param name="LeftLowerLegControlRotation"></param>

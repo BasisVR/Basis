@@ -60,35 +60,26 @@ MonoBehaviour:
     HasEvents: 0
     AudioTransmission:
       Local: {fileID: 0}
-      IsInitalized: 0
       HasEvents: 0
-      AudioSegmentData:
-        TotalPlayedInSilence: 0
-        buffer: 
-        TotalLength: 0
-        LengthUsed: 0
-      SilentSegmentData:
+      Segment:
         TotalPlayedInSilence: 0
         buffer: 
         TotalLength: 0
         LengthUsed: 0
       SilentForHowLong: 0
     TransmissionResults:
-      MicrophoneRangeIndex: 
-      LastMicrophoneRangeIndex: 
-      HearingIndex: 
-      AvatarIndex: 
-      HearingIndexToId: 
-      LastHearingIndexToId: 
-      CalculatedDistances: []
-      IndexLength: -1
-      requiresRebuild: 0
+      LastIndexLength: -1
       TalkingPoints: 
       intervalSeconds: 0.5
       timer: 0
       SmallestDistanceToAnotherPlayer: 0
       UnClampedInterval: 0
       DefaultInterval: 0
+      AnyMicrophoneRangeChanged: 0
+      AnyHearingRangeChanged: 0
+      AnyAvatarRangeChanged: 0
+      AnyIdOrderOrLengthChanged: 0
+      outMin: 0
       MouthBone:
         rid: -2
       BasisNetworkTransmitter:
@@ -371,7 +362,7 @@ MonoBehaviour:
   - MicrophoneRange
   - HearingRange
   - AvatarRange
-  - MeshLod
+  - avatarmeshlod
   - global meshlod
 --- !u!114 &8285517692325404402
 MonoBehaviour:
@@ -494,10 +485,9 @@ MonoBehaviour:
   RightMousePressed: {fileID: -240064975923332847, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  DesktopLeftMove: {fileID: 405334284703550776, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  DesktopRightMove: {fileID: -8048210062446332474, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
+  KeyboardSensitivity: 5
   Input: {fileID: 297858091515769489}
   InputState:
     gripButton: 0
@@ -571,7 +561,7 @@ MonoBehaviour:
   m_ActionEvents: []
   m_NeverAutoSwitchControlSchemes: 1
   m_DefaultControlScheme: All
-  m_DefaultActionMap: f00afc78-a030-47bb-ae9a-e2bab910633d
+  m_DefaultActionMap: Player
   m_SplitScreenIndex: -1
   m_Camera: {fileID: 0}
 --- !u!114 &1625421887690667428
@@ -729,6 +719,7 @@ MonoBehaviour:
   m_VerticalAlignment: 4096
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0

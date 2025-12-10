@@ -29,7 +29,6 @@ public partial class BasisAvatarSDKInspector : Editor
     public VisualElement rootElement;
     public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
     public Button EventCallbackAvatarBundleButton { get; private set; }
-    public Texture2D Texture;
     private Label resultLabel; // Store the result label for later clearing
     public string Error;
     public BasisAvatarValidator BasisAvatarValidator;
@@ -255,23 +254,24 @@ public partial class BasisAvatarSDKInspector : Editor
 
         Toggle AvatarDoNotAutoRenameBonesField = uiElementsRoot.Q<Toggle>(BasisSDKConstants.AvatarDoNotAutoRenameBonesField);
 
+        AvatarIconField.objectType = typeof(Texture2D);
+
         animatorField.allowSceneObjects = true;
         faceBlinkMeshField.allowSceneObjects = true;
         faceVisemeMeshField.allowSceneObjects = true;
         AvatarIconField.allowSceneObjects = true;
 
-        AvatarIconField.value = null;
+      //  AvatarIconField.value = null;
         animatorField.value = Avatar.Animator;
         faceBlinkMeshField.value = Avatar.FaceBlinkMesh;
         faceVisemeMeshField.value = Avatar.FaceVisemeMesh;
+        AvatarIconField.value = Icon;
 
         AvatarNameField.value = Avatar.BasisBundleDescription.AssetBundleName;
         AvatarDescriptionField.value = Avatar.BasisBundleDescription.AssetBundleDescription;
 
         AvatarNameField.RegisterCallback<ChangeEvent<string>>(AvatarName);
         AvatarDescriptionField.RegisterCallback<ChangeEvent<string>>(AvatarDescription);
-
-        AvatarIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnAssignTexture2D);
 
         AvatarDoNotAutoRenameBonesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.doNotAutoRenameBones : false;
         AvatarDoNotAutoRenameBonesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarDoNotAutoRenameBonesField);
@@ -286,7 +286,9 @@ public partial class BasisAvatarSDKInspector : Editor
         BasisSDKCommonInspector.CreateBuildTargetOptions(uiElementsRoot);
         BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-        avatarBundleButton.clicked += () => EventCallbackAvatarBundle(assetBundleObject.selectedTargets);
+        AvatarIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnIconFieldChanged);
+        avatarBundleButton.clicked += () => EventCallbackAvatarBundle(assetBundleObject.selectedTargets, Icon);
+
 
         // Register Animator field change event
         animatorField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(evt => EventCallbackAnimator(evt, ref Avatar.Animator));
@@ -299,7 +301,15 @@ public partial class BasisAvatarSDKInspector : Editor
         avatarEyePositionClick.text = "Eye Position Gizmo " + AvatarHelper.BoolToText(AvatarEyePositionState);
         avatarMouthPositionClick.text = "Mouth Position Gizmo " + AvatarHelper.BoolToText(AvatarMouthPositionState);
     }
-    private async void EventCallbackAvatarBundle(List<BuildTarget> targets)
+
+    private void OnIconFieldChanged(ChangeEvent<UnityEngine.Object> evt)
+    {
+        Icon = evt.newValue as Texture2D;
+        BasisDebug.Log($"Setting to {Icon}");
+    }
+
+    public static Texture2D Icon;
+    private async void EventCallbackAvatarBundle(List<BuildTarget> targets, Texture2D Image)
     {
         if (targets == null || targets.Count == 0)
         {
@@ -326,7 +336,10 @@ public partial class BasisAvatarSDKInspector : Editor
                 }
             }
             //here
-            Texture2D Image = AssetPreview.GetAssetPreview(Avatar.gameObject);
+            if (Image == null)
+            {
+                Image = AssetPreview.GetAssetPreview(Avatar.gameObject);
+            }
             byte[] ImageBytes = null;
             if (Image != null)
             {
@@ -579,10 +592,6 @@ public partial class BasisAvatarSDKInspector : Editor
             uiElementsRoot.Remove(resultLabel);  // Remove the label from the UI
             resultLabel = null; // Optionally reset the reference to null
         }
-    }
-    public void OnAssignTexture2D(ChangeEvent<UnityEngine.Object> Texture2D)
-    {
-        Texture = (Texture2D)Texture2D.newValue;
     }
     public void AvatarDescription(ChangeEvent<string> evt)
     {

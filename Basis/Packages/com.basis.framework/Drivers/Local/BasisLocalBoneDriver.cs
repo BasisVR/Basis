@@ -77,6 +77,12 @@ namespace Basis.Scripts.Drivers
         /// <summary>Cached control for the right toe bones.</summary>
         public static BasisLocalBoneControl RightToeControl;
 
+        /// <summary>Cached control for the left toe bones.</summary>
+        public static BasisLocalBoneControl LeftShoulderControl;
+
+        /// <summary>Cached control for the right toe bones.</summary>
+        public static BasisLocalBoneControl RightShoulderControl;
+
         /// <summary>True if an eye control was found during <see cref="Initialize"/>.</summary>
         public static bool HasEye;
 
@@ -124,6 +130,8 @@ namespace Basis.Scripts.Drivers
             FindBone(out RightLowerArmControl, BasisBoneTrackedRole.RightLowerArm);
             FindBone(out LeftToeControl, BasisBoneTrackedRole.LeftToes);
             FindBone(out RightToeControl, BasisBoneTrackedRole.RightToes);
+            FindBone(out LeftShoulderControl, BasisBoneTrackedRole.LeftShoulder);
+            FindBone(out RightShoulderControl, BasisBoneTrackedRole.RightShoulder);
         }
 
         /// <summary>

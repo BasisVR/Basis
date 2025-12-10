@@ -1,7 +1,6 @@
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
-using Basis.Scripts.UI.UI_Panels;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Common;
 using Basis.BasisUI;
@@ -48,21 +47,18 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
 
-        [Header("Extra Desktop Controls")]
-        public InputActionReference DesktopLeftMove;
-        public InputActionReference DesktopRightMove;
-
         #endregion
 
         [Header("Sensitivity Settings")]
         public float MouseSensitivity = 1f;
         public float JoystickSensitivity = 1f;
+        public float KeyboardSensitivity = 5f;
 
         #region References
 
         [System.NonSerialized] public BasisLocalPlayer LocalPlayer;
         [System.NonSerialized] public BasisLocalCharacterDriver LocalCharacterDriver;
-        [System.NonSerialized] public BasisDesktopEye AvatarEyeInput;
+        [System.NonSerialized] public BasisDesktopEye DesktopEyeInput;
 
         public PlayerInput Input;
 
@@ -113,20 +109,17 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             }
             else
             {
+                HasCallbacksAndActions = true;
                 EnableActions();
                 AddCallbacks();
             }
         }
-
+        public static bool HasCallbacksAndActions = false;
         public void OnDisable()
         {
             BasisLocalCameraDriver.InstanceExists -= SetupCamera;
 
-            if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
-            {
-
-            }
-            else
+            if (HasCallbacksAndActions)
             {
                 RemoveCallbacks();
                 DisableActions();
@@ -177,8 +170,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Enable();
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
-            DesktopLeftMove.action.Enable();
-            DesktopRightMove.action.Enable();
         }
 
         private void DisableActions()
@@ -198,8 +189,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             RightMousePressed.action.Disable();
             MiddleMouseScroll.action.Disable();
             MiddleMouseScrollClick.action.Disable();
-            DesktopLeftMove.action.Disable();
-            DesktopRightMove.action.Disable();
         }
 
         private void AddCallbacks()
@@ -246,11 +235,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
-
-            DesktopLeftMove.action.performed += StartGoingLeft;
-            DesktopLeftMove.action.canceled += StopGoingLeft;
-            DesktopRightMove.action.performed += StartGoingRight;
-            DesktopRightMove.action.canceled += StopGoingRight;
         }
 
         private void RemoveCallbacks()
@@ -297,64 +281,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed -= OnSwitchOpenVR;
             XRSwitch.action.performed -= OnSwitchOpenXR;
-
-            DesktopLeftMove.action.performed -= StartGoingLeft;
-            DesktopLeftMove.action.canceled -= StopGoingLeft;
-            DesktopRightMove.action.performed -= StartGoingRight;
-            DesktopRightMove.action.canceled -= StopGoingRight;
         }
-
-        #endregion
-
-        #region Movement Helpers
-
-        public void StartGoingLeft(InputAction.CallbackContext ctx) => StartGoingLeft();
-        public void StopGoingLeft(InputAction.CallbackContext ctx) => StopGoingLeft();
-        public void StartGoingRight(InputAction.CallbackContext ctx) => StartGoingRight();
-        public void StopGoingRight(InputAction.CallbackContext ctx) => StopGoingRight();
-
-        public void StartGoingLeft()
-        {
-            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
-            {
-                manualMoveVector.x = -1;
-                ApplyManualMovement();
-            }
-        }
-
-        public void StopGoingLeft()
-        {
-            if (manualMoveVector.x < 0) manualMoveVector.x = 0;
-            ApplyManualMovement();
-        }
-        public void StartGoingRight()
-        {
-            if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
-            {
-                manualMoveVector.x = 1;
-                ApplyManualMovement();
-            }
-        }
-
-        public void StopGoingRight()
-        {
-            if (manualMoveVector.x > 0) manualMoveVector.x = 0;
-            ApplyManualMovement();
-        }
-
-        private void ApplyManualMovement()
-        {
-            var lookDelta = manualMoveVector;
-
-            if (IsCrouchHeld)
-            {
-                LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
-                lookDelta.y = 0;
-            }
-
-            AvatarEyeInput?.SetLookRotationVector(lookDelta);
-        }
-
         #endregion
 
         #region Input Action Handlers
@@ -386,12 +313,24 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnLookActionPerformed(InputAction.CallbackContext ctx)
         {
-            var sensitivity = IsMonoStableInput(ctx.control.device) ? JoystickSensitivity : MouseSensitivity;
+            float sensitivity;
+            if (ctx.control.device is Mouse)
+            {
+                sensitivity = MouseSensitivity;
+            }
+            else if (IsMonoStableInput(ctx.control.device))
+            {
+                sensitivity = JoystickSensitivity;
+            }
+            else
+            {
+                sensitivity = KeyboardSensitivity;
+            }
             OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
         }
-        public void OnLookAction(Vector2 Delta,float sensitivity)
+        public void OnLookAction(Vector2 delta, float sensitivity)
         {
-            var lookDelta = Delta * (deltaCoefficient * sensitivity);
+            var lookDelta = delta * (deltaCoefficient * sensitivity);
             if (SMModuleControllerSettings.HasInvertedMouse)
             {
                 lookDelta.y *= -1f;
@@ -401,14 +340,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 LocalCharacterDriver.SetCrouchBlendDelta(lookDelta.y);
                 lookDelta.y = 0;
             }
-
-            AvatarEyeInput?.SetLookRotationVector(lookDelta);
+            DesktopEyeInput?.SetLookRotationVector(lookDelta);
         }
 
         public void OnLookActionCancelled(InputAction.CallbackContext ctx)
         {
             LocalCharacterDriver.SetCrouchBlendDelta(0f);
-            AvatarEyeInput?.SetLookRotationVector(Vector2.zero);
+            DesktopEyeInput?.SetLookRotationVector(Vector2.zero);
         }
 
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)
@@ -477,7 +415,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public async void OnSwitchOpenXR(InputAction.CallbackContext ctx)
         {
             if (ctx.phase == InputActionPhase.Performed)
-                await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenVRLoader);
+                await BasisDeviceManagement.Instance.SwitchSetMode(BasisConstants.OpenXRLoader);
         }
 
         public async void OnSwitchOpenVR(InputAction.CallbackContext ctx)

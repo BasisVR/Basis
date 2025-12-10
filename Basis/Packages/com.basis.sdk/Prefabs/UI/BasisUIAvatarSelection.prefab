@@ -263,6 +263,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -639,6 +640,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 36e3307d767ca569e2c451dc4765a752f77239a5964ddf7227b1baa1c5dc2859
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/bunbum/1ab5101ff2684157bed25796ff1853fe20250831.BEE
@@ -651,6 +653,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: c914274e0763e2cc5483e0f45d6f17bea6a6d22ffdf4c478f593a3370f0bc495
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/Aurellia/ddd7a5b8b6f34afdae17a65d795b329620250831.BEE
@@ -663,6 +666,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 113332d5fee840829a0f2ee318dfcfb6e18b10a305c148729a5fa09f22a0a6bb
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/Mako/49543a7895164b1f871c531ac9382ebe20250831.BEE
@@ -675,6 +679,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 70e4057a82ec0bd043abbc1ad0cccb9d24080f1046775eef03b246d71c8745bd
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://cdn.yewnyx.net/gymcat/6/4a19f1a1711142e2b8151f45b486be3320251102.BEE
@@ -687,6 +692,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 2cb6d809dc624605bb6e3086ace5decbe3da036970b5ccff5aea2d3ae7fcf475
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://cdn.yewnyx.net/space/7/7c447205280746a6a901c5f34afec5b120251103.BEE
@@ -699,6 +705,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 53919ade89e30cc5475e1d8b2dc0f0f883ef712972b7f10e6ec5f341ebc441aa
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://cdn.yewnyx.net/space/7_noet/e45665e6d1ba4b86aeae86eb123150ea20251103.BEE
@@ -711,6 +718,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 73927878d72ad9fee7b1f066d89523297c256e95d57ed3cf9613eff526b62351
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://cdn.yewnyx.net/spaceman/5_noet/837a36581e4f472ea9f020e055f1eb7e20251103.BEE
@@ -723,6 +731,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 4b9467e33d75d93678bb4fc9f566f64149df24abb317eac93245519cfd6c1aac
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://cdn.yewnyx.net/yun/5/b6a733501f18404598c5e17b7dfaec7e20251102.BEE
@@ -735,18 +744,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
-  - UnlockPassword: 7a0ab549e93cf2bc804168473e065a2f4d293b1be6cefb87df862eb6de086219
-    BasisRemoteBundleEncrypted:
-      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/leona/27ca99b1efe04383b061c7def2684f6020251003.BEE
-    BasisLocalEncryptedBundle:
-      DownloadedBeeFileLocation: 
-    BasisBundleConnector:
-      UniqueVersion: LoadingAvatar
-      BasisBundleDescription:
-        AssetBundleName: 
-        AssetBundleDescription: 
-      BasisBundleGenerated: []
-      ImageBytes: 
+      DateOfCreation: 
   - UnlockPassword: 048396905feb068dee3b5f3731981eba98009ffa8c65839e4aecc8a23518aff0
     BasisRemoteBundleEncrypted:
       RemoteBeeFileLocation: https://cdn.yewnyx.net/yun/5_noet/71ce9a961a794737afc6b1af38e24bd620251102.BEE
@@ -759,6 +757,33 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
+  - UnlockPassword: cfa38c6406190aeda7a458247c07f5eca7a9cd3c54c3d3337557172fd0513f37
+    BasisRemoteBundleEncrypted:
+      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Leona/Leona_2025-12-09/f922584baa7648f9aeff60fe96a0ca4d20251209.BEE
+    BasisLocalEncryptedBundle:
+      DownloadedBeeFileLocation: 
+    BasisBundleConnector:
+      UniqueVersion: LoadingAvatar
+      BasisBundleDescription:
+        AssetBundleName: 
+        AssetBundleDescription: 
+      BasisBundleGenerated: []
+      ImageBytes: 
+      DateOfCreation: 
+  - UnlockPassword: 14b9e001eff5f59b677837ec93deafacacd217ffd342fe4d654a5b91182f2903
+    BasisRemoteBundleEncrypted:
+      RemoteBeeFileLocation: https://BasisFramework.b-cdn.net/Avatars/BEE/BEE/Leona/LeonaNoFT_2025-12-09/1cb1f21f627f4f4f9c6a8c0d1610283720251209.BEE
+    BasisLocalEncryptedBundle:
+      DownloadedBeeFileLocation: 
+    BasisBundleConnector:
+      UniqueVersion: LoadingAvatar
+      BasisBundleDescription:
+        AssetBundleName: 
+        AssetBundleDescription: 
+      BasisBundleGenerated: []
+      ImageBytes: 
+      DateOfCreation: 
   ParentedAvatarButtons: {fileID: 4009804357683877728}
   ButtonPrefab: {fileID: 5504761427362873086}
   AddAvatarApply: {fileID: 2085562167410064864}
@@ -784,6 +809,7 @@ MonoBehaviour:
         AssetBundleDescription: 
       BasisBundleGenerated: []
       ImageBytes: 
+      DateOfCreation: 
   AvatarPassword: {fileID: 2947968320631099232}
   AvatarURL: {fileID: 4204324737988704368}
   Name: {fileID: 5108156845375360599}
@@ -927,6 +953,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -1063,6 +1090,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -1332,6 +1360,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -1910,6 +1939,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -2046,6 +2076,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -2182,6 +2213,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -2318,6 +2350,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -2455,6 +2488,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -2836,6 +2870,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -3252,6 +3287,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -3509,6 +3545,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -3873,6 +3910,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -4029,6 +4067,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -4243,6 +4282,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -4612,6 +4652,7 @@ MonoBehaviour:
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -5138,6 +5179,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -5807,6 +5849,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0
@@ -6215,6 +6258,7 @@ MonoBehaviour:
   m_VerticalAlignment: 512
   m_textAlignment: 65535
   m_characterSpacing: 0
+  m_characterHorizontalScale: 1
   m_wordSpacing: 0
   m_lineSpacing: 0
   m_lineSpacingMax: 0

@@ -1,0 +1,42 @@
+{
+  "name": "com.unity.render-pipelines.universal",
+  "description": "The Universal Render Pipeline (URP) is a prebuilt Scriptable Render Pipeline, made by Unity. URP provides artist-friendly workflows that let you quickly and easily create optimized graphics across a range of platforms, from mobile to high-end consoles and PCs.",
+  "version": "17.3.0",
+  "unity": "6000.3",
+  "displayName": "Universal Render Pipeline",
+  "dependencies": {
+    "com.unity.render-pipelines.core": "17.3.0",
+    "com.unity.shadergraph": "17.3.0",
+    "com.unity.render-pipelines.universal-config": "17.0.3"
+  },
+  "keywords": [
+    "graphics",
+    "performance",
+    "rendering",
+    "mobile",
+    "render",
+    "pipeline"
+  ],
+  "samples": [
+    {
+      "displayName": "URP Package Samples",
+      "description": "Collection of scenes showcasing different features of the Universal Render Pipeline.\n \nTo setup the project to use the samples, the URP Package Samples/SharedAssets/Settings/PackageSamplesURPAsset.asset has to be assigned in the Project Settings/Graphics/Set Default Render Pipeline Asset/Default Render pipeline and/or in the Project Settings/Quality/Rendering/Render Pipeline Asset.",
+      "path": "Samples~/URPPackageSamples"
+    },
+    {
+      "displayName": "URP RenderGraph Samples",
+      "description": "Collection of scripts with some examples of RenderGraph and how it is used within the Universal Render Pipeline.",
+      "path": "Samples~/URPRenderGraphSamples"
+    },
+    {
+      "displayName": "Renderer Shader User Value Samples",
+      "description": "Adds a set of examples using Renderer Shader User Value feature.",
+      "path": "Samples~/RendererShaderUserValueSamples",
+      "dependencies": [
+        "com.unity.render-pipelines.core/Samples~/Common",
+        "com.unity.render-pipelines.core/Samples~/RendererShaderUserValue_Common"
+      ]
+    }
+  ],
+  "_fingerprint": "d9aadd996b246f5fe175a0476e09bc9741c72f81"
+}

@@ -57,6 +57,9 @@ namespace Basis.BasisUI
         private bool _hasLocalCreationEvent;
         private bool _hasLocalMoveEvent;
 
+        private const float MIN_Z_SCALE = 0.01f;
+
+
         private void Start()
         {
             if (BasisLocalPlayer.Instance)
@@ -70,6 +73,9 @@ namespace Basis.BasisUI
             }
 
             BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+        }
+        public void OnEnable()
+        {
             OnAvatarHeightChange();
         }
 
@@ -187,7 +193,11 @@ namespace Basis.BasisUI
         {
             float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
             GroupOffset.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
-            GroupOffset.localScale = Vector3.one * (offset.Scale * RootScale);
+
+            Vector3 offsetScale =  Vector3.one * (offset.Scale * RootScale);
+            offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
+            GroupOffset.localScale = offsetScale;
+
             transform.localScale = Vector3.one * playerHeight;
         }
 
@@ -196,7 +206,11 @@ namespace Basis.BasisUI
             float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
             Vector3 scaledOffset = Vector3.Scale(HeadOffset.Position, new Vector3(scaleFactor, scaleFactor, 1));
             GroupOffset.SetLocalPositionAndRotation(scaledOffset, HeadOffset.Rotation);
-            GroupOffset.localScale = Vector3.one * (HeadOffset.Scale * RootScale * scaleFactor);
+
+            Vector3 offsetScale =  Vector3.one * (HeadOffset.Scale * RootScale * scaleFactor);
+            offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
+            GroupOffset.localScale = offsetScale;
+
             transform.localScale = Vector3.one * playerHeight;
         }
 

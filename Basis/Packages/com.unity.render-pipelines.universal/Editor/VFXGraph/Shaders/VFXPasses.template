@@ -1,0 +1,75 @@
+${VFXBegin:VFXPassForward}"UniversalForwardOnly"${VFXEnd}
+${VFXBegin:VFXPassForward2D}"Universal2D"${VFXEnd}
+${VFXBegin:VFXPassShadow}"ShadowCaster"${VFXEnd}
+${VFXBegin:VFXPassVelocity}"MotionVectors"${VFXEnd}
+${VFXBegin:VFXPassDepth}"DepthOnly"${VFXEnd}
+${VFXBegin:VFXPassDepthNormal}"DepthNormalsOnly"${VFXEnd}
+
+${VFXBegin:VFXPassDepthDefine}
+#if defined(WRITE_NORMAL_BUFFER)
+#define SHADERPASS SHADERPASS_DEPTHNORMALSONLY
+#else
+#define SHADERPASS SHADERPASS_DEPTHONLY
+#endif
+${VFXEnd}
+${VFXBegin:VFXPassShadowDefine}#define SHADERPASS SHADERPASS_SHADOWS${VFXEnd}
+${VFXBegin:VFXPassVelocityDefine}#define SHADERPASS SHADERPASS_MOTION_VECTORS${VFXEnd}
+
+${VFXBegin:VFXPassForwardAdditionalPragma}
+#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+#pragma multi_compile _ DEBUG_DISPLAY
+#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Fog.hlsl"
+#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Debug/Debugging3D.hlsl"
+${VFXEnd}
+
+${VFXBegin:VFXPassForwardLitAdditionalPragma}
+#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+#pragma multi_compile _ _ADDITIONAL_LIGHTS
+#pragma multi_compile_fragment _ _ADDITIONAL_LIGHT_SHADOWS
+#pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+#pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+#pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+#pragma multi_compile_fragment _ _LIGHT_COOKIES
+#pragma multi_compile _ _LIGHT_LAYERS
+#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Fog.hlsl"
+#include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
+#pragma multi_compile _ DEBUG_DISPLAY
+${VFXEnd}
+${VFXBegin:VFXPassDepthAdditionalPragma}
+#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+${VFXEnd}
+${VFXBegin:VFXPassGBufferAdditionalPragma}
+#pragma multi_compile_fragment _ _REFLECTION_PROBE_BLENDING
+#pragma multi_compile_fragment _ _REFLECTION_PROBE_BOX_PROJECTION
+#pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+#pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+#pragma multi_compile_fragment _ _RENDER_PASS_ENABLED
+#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ProbeVolumeVariants.hlsl"
+//See Lit.shader, these multi_compile aren't used in GBuffer
+//#pragma multi_compile _ _ADDITIONAL_LIGHTS
+//#pragma multi_compile_fragment _ _SCREEN_SPACE_OCCLUSION
+#pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+#include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"
+#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+${VFXEnd}
+
+${VFXBegin:VFXUnlitDebugDisplay}
+#if defined(DEBUG_DISPLAY)
+    InputData inputData;
+    SurfaceData surfaceData;
+    ZERO_INITIALIZE(SurfaceData, surfaceData);
+    ZERO_INITIALIZE(InputData, inputData);
+    surfaceData.albedo = o.color.rgb;
+    surfaceData.alpha = o.color.a;
+
+    half4 debugColor;
+    if (CanDebugOverrideOutputColor(inputData, surfaceData, debugColor))
+    {
+        o.color = debugColor;
+    }
+#endif
+${VFXEnd}

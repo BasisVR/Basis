@@ -10,12 +10,14 @@ public class BasisBundleConnector
     public BasisBundleDescription BasisBundleDescription;
     public BasisBundleGenerated[] BasisBundleGenerated;
     public byte[] ImageBytes;
+    public string DateOfCreation;
     public BasisBundleConnector(string version, BasisBundleDescription basisBundleDescription, BasisBundleGenerated[] basisBundleGenerated, byte[] imageBytes)
     {
         UniqueVersion = version ?? throw new ArgumentNullException(nameof(version));
         BasisBundleDescription = basisBundleDescription ?? throw new ArgumentNullException(nameof(basisBundleDescription));
         BasisBundleGenerated = basisBundleGenerated ?? throw new ArgumentNullException(nameof(basisBundleGenerated));
         ImageBytes = imageBytes;
+        DateOfCreation = DateTime.UtcNow.ToString("o");
     }
     public BasisBundleConnector()
     {

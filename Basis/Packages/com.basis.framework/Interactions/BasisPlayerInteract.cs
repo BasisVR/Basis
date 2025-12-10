@@ -142,7 +142,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             for (int index = 0; index < interactInputsCount; index++)
             {
-                var interactInput = InteractInputs[index];
+                BasisInteractInput interactInput = InteractInputs[index];
                 if (interactInput.input == null)
                 {
                     BasisDebug.LogWarning("Pickup input device unexpectedly null, input devices likely changed");
@@ -154,16 +154,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // Poll hover
                 hoverSphere.PollSystem(interactInput.input.RaycastCoord.position);
 
-                RaycastHit rayHit;
-                BasisInteractableObject hitInteractable = null;
-
-                bool isValidRayHit =
-                    interactInput.input.BasisPointRaycaster.FirstHit(out rayHit, raycastDistance) &&
-                    ((1 << rayHit.collider.gameObject.layer) & Mask) != 0 &&
-                    rayHit.collider.TryGetComponent(out hitInteractable);
+                BasisInteractableObject hitInteractable = PointRaycasterFindInteractable(interactInput);
+                bool isValidRayHit = hitInteractable != null;
 
                 bool isValidHoverHit = false;
-
                 if (hoverSphere.ResultCount != 0)
                 {
                     if (ClosestInfluencableHover(hoverSphere, interactInput.input, out BasisHoverResult result, out BasisInteractableObject obj))
@@ -252,7 +246,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                         if (input.input.InteractionLineRenderer != null)
                         {
-                            Vector3 endPos = input.lastTarget.GetCollider().ClosestPoint(origin);
+                            Vector3 endPos = input.lastTarget.GetClosestPoint(origin);
                             input.input.InteractionLineRenderer.SetPosition(0, start);
                             input.input.InteractionLineRenderer.SetPosition(1, endPos);
                             input.input.InteractionLineRenderer.enabled = true;
@@ -285,6 +279,37 @@ namespace Basis.Scripts.BasisSdk.Interactions
 #if UNITY_EDITOR
             UnityEngine.Profiling.Profiler.EndSample();
 #endif
+        }
+
+        private BasisInteractableObject PointRaycasterFindInteractable(BasisInteractInput interactInput)
+        {
+            bool hit = interactInput.input.BasisPointRaycaster.FirstHit(out RaycastHit rayHit, raycastDistance);
+            if (!hit)
+            {
+                return null;
+            }
+            if (((1 << rayHit.collider.gameObject.layer) & Mask) == 0)
+            {
+                return null;
+            }
+            // Try to get component from hit collider first.
+            BasisInteractableObject hitInteractable;
+            if (rayHit.collider.TryGetComponent(out hitInteractable))
+            {
+                return hitInteractable;
+            }
+            // Try to get component from ancestors, but only consider if the hit collider is one of its colliders.
+            hitInteractable = rayHit.collider.GetComponentInParent<BasisInteractableObject>();
+            if (hitInteractable == null)
+            {
+                return null;
+            }
+            Collider[] colliders = hitInteractable.GetColliders();
+            if (colliders != null && colliders.Length > 0 && colliders.Contains(rayHit.collider))
+            {
+                return hitInteractable;
+            }
+            return null;
         }
 
         private void UpdatePickupState(BasisInteractableObject hitInteractable, ref BasisInteractInput interactInput)

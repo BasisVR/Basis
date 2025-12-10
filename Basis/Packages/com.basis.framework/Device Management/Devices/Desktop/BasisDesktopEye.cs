@@ -160,7 +160,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         /// </summary>
         public void PlayerInitialized()
         {
-            BasisLocalInputActions.Instance.AvatarEyeInput = this;
+            BasisLocalInputActions.Instance.DesktopEyeInput = this;
             Camera = BasisLocalCameraDriver.Instance.Camera;
 
             BasisDeviceManagement Device = BasisDeviceManagement.Instance;
@@ -192,6 +192,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         /// <summary>
         /// Applies yaw/pitch rotation based on the given input vector.
         /// Handles mouse-look simulation for the eye.
+        /// Note: This is relative to the player's non-head rotation. The final camera rotation is that, combined with this eye rotation.
         /// </summary>
         /// <param name="lookVector">Delta vsector from input system.</param>
         public void HandleLookRotation(Vector2 lookVector)

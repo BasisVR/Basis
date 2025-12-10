@@ -296,7 +296,13 @@ public class BasisHandHeldCameraUI
                 button = Timer
             });
 
-        //nameplates went here
+        if (Nameplates != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Nameplates",
+                action = CameraButtonAction.ToggleNameplates,
+                button = Nameplates
+            });
 
         if (OverrideDesktopOutput != null)
             list.Add(new CameraButtonDescriptor
@@ -306,7 +312,13 @@ public class BasisHandHeldCameraUI
                 button = OverrideDesktopOutput
             });
 
-        //selfie went here
+        if (Selfie != null)
+            list.Add(new CameraButtonDescriptor
+            {
+                id = "Selfie",
+                action = CameraButtonAction.ToggleSelfie,
+                button = Selfie
+            });
 
         if (DepthModeAutoButton != null)
             list.Add(new CameraButtonDescriptor

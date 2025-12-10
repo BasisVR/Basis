@@ -1,12 +1,13 @@
-using System;
-using System.Linq;
+using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Behaviour;
 using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.Networking.Receivers;
+using Basis.Scripts.Networking.Transmitters;
 using HVR.Basis.Comms.HVRUtility;
-using Basis.Network.Core;
+using System;
+using System.Linq;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -92,11 +93,13 @@ namespace HVR.Basis.Comms
         private void OnEnable()
         {
             SetBuiltInEyeFollowDriverOverriden(true);
+            BasisNetworkTransmitter.AfterAvatarChanges += ForceUpdate;
         }
 
         private void OnDisable()
         {
             SetBuiltInEyeFollowDriverOverriden(false);
+            BasisNetworkTransmitter.AfterAvatarChanges -= ForceUpdate;
         }
 
         private void OnDestroy()
@@ -138,16 +141,6 @@ namespace HVR.Basis.Comms
                 _fEyeY = value;
                 if (featureInterpolator != null) featureInterpolator.SubmitAbsolute(2, value);
             }
-        }
-/* this should not be required? (lD)
-        private void Update()
-        {
-            ForceUpdate();
-        }
-*/
-        private void LateUpdate()
-        {
-            ForceUpdate();
         }
 
         private void ForceUpdate()

@@ -205,7 +205,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         stateI.HasNewDataFrom.Set(playerJ.id, false);
                         ServerSideSyncPlayerMessage tempMsg = stateJ.SyncMessage;
                         tempMsg.interval = StartAtZeroInterval;
-                        BasisServerDeltaCompressor.SendOut(Index, peer, tempMsg);
+                        BasisServerDeltaCompressor.SendOut(peer, tempMsg);
 
 
                         sentTimes[playerJ.id] = nowTicks;

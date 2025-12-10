@@ -26,7 +26,7 @@ public class BasisSDKConstants
 
     public static readonly string AvatarName = "avatarnameinput";
     public static readonly string AvatarDescription = "avatardescriptioninput";
-    public static readonly string AvatarIcon = "AvatarIcon";
+    public static readonly string AvatarIcon = "avataricon";
     public static readonly string Avatarpassword = "avatarpassword";
     public static readonly string AvatarDocumentationURL = "https://docs.basisvr.org/docs/avatars/";
     public static readonly string AvatarTestInEditor = "TestInEditor";

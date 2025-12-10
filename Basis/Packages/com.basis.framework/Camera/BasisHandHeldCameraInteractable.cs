@@ -320,9 +320,6 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         return found.HasValue && found.Value.GetState() == BasisInteractInputState.Hovering;
     }
 
-    /// <summary>Pickup collider accessor (cached in base).</summary>
-    public override Collider GetCollider() => ColliderRef;
-
     /// <summary>
     /// Pins the capture camera to handheld/playspace/world and applies fly motion offsets
     /// through an internal parent-constraint.

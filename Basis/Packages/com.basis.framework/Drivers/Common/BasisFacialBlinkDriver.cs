@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
@@ -159,6 +160,10 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
+            if (meshRenderer == null)
+            {
+                return;
+            }
             // Start a blink if scheduled
             if (!IsClosingBlink && !IsOpeningBlink && time >= NextBlinkTime)
             {
@@ -168,11 +173,7 @@ namespace Basis.Scripts.Drivers
                 // Reset weights (closing will raise them)
                 for (int i = 0; i < blendShapeCount; i++)
                 {
-                    int idx = blendShapeIndices[i];
-                    if (idx >= 0 && idx < meshBlendShapeCount)
-                    {
-                        meshRenderer.SetBlendShapeWeight(idx, 0f);
-                    }
+                    SafeSetBlendShape(blendShapeIndices[i], 0f);
                 }
 
                 IsOpeningBlink = true;
