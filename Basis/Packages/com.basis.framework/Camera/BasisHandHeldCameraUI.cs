@@ -194,7 +194,7 @@ public class BasisHandHeldCameraUI
     /// <summary>Reference object used for selfie flipping (rotates 180° yaw).</summary>
     public GameObject cameraReference;
 
-    private bool selfie = false;
+    private bool selfieBool = false;
 
     /// <summary>The owning handheld camera component.</summary>
     public BasisHandHeldCamera HHC;
@@ -296,13 +296,7 @@ public class BasisHandHeldCameraUI
                 button = Timer
             });
 
-        if (Nameplates != null)
-            list.Add(new CameraButtonDescriptor
-            {
-                id = "Nameplates",
-                action = CameraButtonAction.ToggleNameplates,
-                button = Nameplates
-            });
+        //nameplates went here
 
         if (OverrideDesktopOutput != null)
             list.Add(new CameraButtonDescriptor
@@ -312,13 +306,7 @@ public class BasisHandHeldCameraUI
                 button = OverrideDesktopOutput
             });
 
-        if (Selfie != null)
-            list.Add(new CameraButtonDescriptor
-            {
-                id = "Selfie",
-                action = CameraButtonAction.ToggleSelfie,
-                button = Selfie
-            });
+        //selfie went here
 
         if (DepthModeAutoButton != null)
             list.Add(new CameraButtonDescriptor
@@ -552,7 +540,7 @@ public class BasisHandHeldCameraUI
     private void SelfieToggle()
     {
         cameraReference.transform.rotation *= Quaternion.Euler(0, 180, 0);
-        selfie = !selfie;
+        selfieBool = !selfieBool;
     }
 
     /// <summary>

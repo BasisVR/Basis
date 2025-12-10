@@ -8701,6 +8701,7 @@ MonoBehaviour:
     depthOfField: {fileID: 0}
     bloom: {fileID: 0}
     colorAdjustments: {fileID: 0}
+    VolumetricFogVolume: {fileID: 0}
   LastVisibilityState: 0
   references:
     version: 2
