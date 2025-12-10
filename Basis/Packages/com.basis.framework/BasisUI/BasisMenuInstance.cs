@@ -1,3 +1,4 @@
+using Basis.Scripts.UI;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -17,5 +18,16 @@ namespace Basis.BasisUI
             return AddressableInstanceBase.CreateNew<BasisMenuInstance>(Styles.Default);
         }
 
+        public override void OnCreateEvent()
+        {
+            base.OnCreateEvent();
+            BasisUINeedsVisibleTrackers.Instance.Add(this);
+        }
+
+        public override void OnReleaseEvent()
+        {
+            base.OnReleaseEvent();
+            BasisUINeedsVisibleTrackers.Instance.Remove(this);
+        }
     }
 }
