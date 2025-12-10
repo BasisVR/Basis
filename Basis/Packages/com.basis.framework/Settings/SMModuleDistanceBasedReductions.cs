@@ -45,6 +45,7 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
         set
         {
             _AvatarRange = value;
+          //  BasisDebug.Log($"Avatar Range {_AvatarRange}");
             OnAvatarRangeChanged?.Invoke(value);
         }
     }
@@ -104,7 +105,7 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
                 }
                 break;
 
-            case "meshlod":
+            case "avatarmeshlod":
                 if (SliderReadOption(optionValue, out float lod))
                 {
 #if UNITY_SERVER

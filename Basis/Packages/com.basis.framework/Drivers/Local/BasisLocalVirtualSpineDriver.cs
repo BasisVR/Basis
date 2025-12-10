@@ -66,7 +66,7 @@ public class BasisLocalVirtualSpineDriver
     /// This is static and affects all instances, Dooly said to do this to control all spine drivers at once.
     /// </summary>
     public static bool HipsFreezeToTpose = false;
-
+    public static BasisLocalVirtualSpineDriver Instance;
     /// <summary>
     /// Enables the virtual overrides on all torso controls and hooks simulation callback.
     /// Safe to call multiple times.
@@ -75,6 +75,7 @@ public class BasisLocalVirtualSpineDriver
     {
         if (_initialized) return;
 
+        Instance = this;
         BasisLocalBoneDriver.HeadControl.HasVirtualOverride = true;
         BasisLocalBoneDriver.NeckControl.HasVirtualOverride = true;
         BasisLocalBoneDriver.ChestControl.HasVirtualOverride = true;
@@ -92,12 +93,15 @@ public class BasisLocalVirtualSpineDriver
     {
         if (!_initialized) return;
 
-        BasisLocalBoneDriver.HeadControl.HasVirtualOverride = false;
-        BasisLocalBoneDriver.NeckControl.HasVirtualOverride = false;
-        BasisLocalBoneDriver.ChestControl.HasVirtualOverride = false;
-        BasisLocalBoneDriver.SpineControl.HasVirtualOverride = false;
-        BasisLocalBoneDriver.HipsControl.HasVirtualOverride = false;
-
+        if (Instance == this)
+        {
+            BasisLocalBoneDriver.HeadControl.HasVirtualOverride = false;
+            BasisLocalBoneDriver.NeckControl.HasVirtualOverride = false;
+            BasisLocalBoneDriver.ChestControl.HasVirtualOverride = false;
+            BasisLocalBoneDriver.SpineControl.HasVirtualOverride = false;
+            BasisLocalBoneDriver.HipsControl.HasVirtualOverride = false;
+            Instance = null;
+        }
         BasisLocalPlayer.Instance.OnPreSimulateBones -= OnSimulate;
         _initialized = false;
     }

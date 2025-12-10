@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Networking.Receivers;
 using UnityEngine;
 
 /// <summary>
@@ -63,6 +64,8 @@ public class BasisRemoteEyeDriver
     /// The avatar driver responsible for managing this player's avatar.
     /// </summary>
     public BasisAvatarDriver BasisAvatarDriver;
+
+    public BasisNetworkReceiver BasisNetworkReceiver;
     /// <summary>
     /// Whether the eye simulation is currently active.
     /// Controlled by face visibility and initialization state.
@@ -95,9 +98,10 @@ public class BasisRemoteEyeDriver
         {
             LinkedPlayer.FaceRenderer.Check += UpdateFaceVisibility;
             UpdateFaceVisibility(LinkedPlayer.FaceIsVisible);
+            BasisNetworkReceiver = LinkedPlayer.NetworkReceiver;
+            ScheduleNextLookAround();
+            IsEnabled = true;
         }
-        ScheduleNextLookAround();
-        IsEnabled = true;
     }
 
     /// <summary>
@@ -114,7 +118,7 @@ public class BasisRemoteEyeDriver
     /// and smoothly interpolating the eyes toward them. Applies mirrored movement
     /// for left and right eyes to maintain realism.
     /// </summary>
-    public void Simulate(double TimeAsDouble)
+    public void Simulate(double TimeAsDouble, float DeltaSpeed)
     {
         if (IsEnabled == false)
         {
@@ -134,8 +138,7 @@ public class BasisRemoteEyeDriver
 
         if (isLooking)
         {
-            float[] eyes = LinkedPlayer.NetworkReceiver.EyesAndMouth;
-            float DeltaSpeed = LookSpeed * Time.deltaTime;
+            float[] eyes = BasisNetworkReceiver.EyesAndMouth;
 
             // Apply vertical movement (same for both eyes)
             eyes[0] = Mathf.Lerp(eyes[0], targetLookPosition.y, DeltaSpeed); // Left eye vertical
@@ -146,12 +149,11 @@ public class BasisRemoteEyeDriver
             eyes[3] = Mathf.Lerp(eyes[3], -targetLookPosition.x, DeltaSpeed); // Right eye horizontal (mirrored)
 
             // Stop looking once close to target
-            if (Mathf.Abs(eyes[0] - targetLookPosition.y) < 0.01f &&
-                Mathf.Abs(eyes[1] - targetLookPosition.x) < 0.01f)
+            if (Mathf.Abs(eyes[0] - targetLookPosition.y) < 0.01f && Mathf.Abs(eyes[1] - targetLookPosition.x) < 0.01f)
             {
                 isLooking = false;
             }
-            LinkedPlayer.NetworkReceiver.EyesAndMouth = eyes;
+            BasisNetworkReceiver.EyesAndMouth = eyes;
         }
     }
 
@@ -161,7 +163,7 @@ public class BasisRemoteEyeDriver
     /// </summary>
     private void ScheduleNextLookAround()
     {
-        double interval = UnityEngine.Random.Range(MinLookAroundInterval, MaxLookAroundInterval);
+        double interval = Random.Range(MinLookAroundInterval, MaxLookAroundInterval);
         nextLookAroundTime = Time.timeAsDouble + interval;
     }
 
@@ -171,8 +173,8 @@ public class BasisRemoteEyeDriver
     private void PickNewTarget()
     {
         targetLookPosition = new Vector2(
-            UnityEngine.Random.Range(-MaxHorizontalLook, MaxHorizontalLook),
-            UnityEngine.Random.Range(-MaxVerticalLook, MaxVerticalLook)
+            Random.Range(-MaxHorizontalLook, MaxHorizontalLook),
+            Random.Range(-MaxVerticalLook, MaxVerticalLook)
         );
     }
 }

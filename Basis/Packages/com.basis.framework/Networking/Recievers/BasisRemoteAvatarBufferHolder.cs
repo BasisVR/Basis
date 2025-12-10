@@ -1,6 +1,5 @@
 using Basis.Scripts.Networking.NetworkedAvatar;
 using System;
-using UnityEngine;
 
 namespace Basis.Scripts.Networking.Receivers
 {
@@ -10,21 +9,13 @@ namespace Basis.Scripts.Networking.Receivers
         public bool HasCurrentBuffer = false;
         public bool HasNextBuffer = false;
 
-        [NonSerialized] private BasisAvatarBuffer Current;
-        [NonSerialized] private BasisAvatarBuffer Next;
+        public BasisAvatarBuffer Current { get; private set; }
+        public BasisAvatarBuffer Next { get; private set; }
 
         public void ClearAndRelease()
         {
             ReleaseCurrent();
             ReleaseNext();
-        }
-        public BasisAvatarBuffer RequestCurrent()
-        {
-            return Current;
-        }
-        public BasisAvatarBuffer RequestNext()
-        {
-            return Next;
         }
         public void SetNext(ref BasisAvatarBuffer NextTarget)
         {

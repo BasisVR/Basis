@@ -71,10 +71,12 @@ public class BasisHandHeldCameraMetaData
     /// Color Adjustments component reference (optional; retrieved from <see cref="Profile"/>).
     /// </summary>
     public ColorAdjustments colorAdjustments;
+
     /// <summary>
     /// volumetrics
     /// </summary>
 #if Basis_VOLUMETRIC_SUPPORTED
+
     public VolumetricFogVolumeComponent VolumetricFogVolume;
 #endif
 }

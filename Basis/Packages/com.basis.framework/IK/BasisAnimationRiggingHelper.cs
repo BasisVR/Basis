@@ -27,7 +27,7 @@ public static class BasisAnimationRiggingHelper
         // Skeleton references
         // ----------------------------
         // Torso / head chain
-        data.hips = Mapping.Hips;
+        data.hips =  Mapping.Hips;
         data.spine = Mapping.spine;
         data.chest = Mapping.chest;
         data.upperChest = Mapping.Upperchest;
@@ -64,23 +64,44 @@ public static class BasisAnimationRiggingHelper
         // ----------------------------
         // Head
         data.m_CalibratedOffsetHead = Vector3.zero;
-        data.m_CalibratedRotationHead = Mapping.head.rotation;
+        data.m_CalibratedRotationHead = Mapping.Hashead ? Mapping.head.rotation : Quaternion.identity;
 
         // Feet
         data.m_CalibratedOffsetLeftFoot = Vector3.zero;
-        data.m_CalibratedRotationLeftFoot = Mapping.leftFoot.rotation;
+        data.m_CalibratedRotationLeftFoot = Mapping.Hashead ? Mapping.leftFoot.rotation : Quaternion.identity;
 
         data.m_CalibratedOffsetRightFoot = Vector3.zero; // keeping original field name
-        data.m_CalibratedRotationRightFoot = Mapping.rightFoot.rotation;
+        data.m_CalibratedRotationRightFoot = Mapping.Hashead ? Mapping.rightFoot.rotation : Quaternion.identity;
 
         // Hands
         data.m_CalibratedOffsetLeftHand = Vector3.zero;
         data.m_CalibratedOffsetRightHand = Vector3.zero;
-        data.m_CalibratedRotationLeftHand = Mapping.leftHand.rotation;
-        data.m_CalibratedRotationRightHand = Mapping.rightHand.rotation;
+        data.m_CalibratedRotationLeftHand = Mapping.HasleftHand ? Mapping.leftHand.rotation : Quaternion.identity;
+        data.m_CalibratedRotationRightHand = Mapping.HasrightHand ? Mapping.rightHand.rotation : Quaternion.identity;
 
+
+        data.m_CalibratedOffsetChest = Vector3.zero;
+        data.m_CalibratedRotationChest = Mapping.Haschest ? Mapping.chest.rotation : Quaternion.identity;
+
+        data.m_CalibratedOffsetNeck = Vector3.zero;
+        data.m_CalibratedRotationNeck = Mapping.Hasneck ? Mapping.neck.rotation : Quaternion.identity;
+
+        data.m_CalibratedOffsetLeftToe = Vector3.zero;
+        data.m_CalibratedRotationLeftToe = Mapping.HasleftToes ? Mapping.leftToe.rotation : Quaternion.identity;
+
+        data.m_CalibratedOffsetRightToe = Vector3.zero;
+        data.m_CalibratedRotationRightToe = Mapping.HasrightToes ? Mapping.rightToe.rotation : Quaternion.identity;
+
+
+        data.m_CalibratedRotationLeftShoulder = Mapping.HasleftShoulder ? Mapping.leftShoulder.rotation : Quaternion.identity;
+        data.m_CalibratedOffsetLeftShoulder = Vector3.zero;
+
+
+        data.m_CalibratedRotationRightShoulder = Mapping.HasRightShoulder ? Mapping.RightShoulder.rotation : Quaternion.identity;
+        data.m_CalibratedOffsetRightShoulder = Vector3.zero;
         // Hips reference rotation
-        data.OffsetRotationHips = Mapping.Hips.rotation;
+        data.OffsetRotationHips = Mapping.HasHips ? Mapping.Hips.rotation : Quaternion.identity;
+
 
         // ----------------------------
         // Targets & hints
@@ -118,6 +139,8 @@ public static class BasisAnimationRiggingHelper
         data.HintPositionRightHand = BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.position;
         data.HintRotationRightHand = BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.rotation;
 
+        data.m_TargetRotationLeftShoulder = BasisLocalBoneDriver.LeftShoulderControl.OutgoingWorldData.rotation;
+        data.m_TargetRotationRightShoulder = BasisLocalBoneDriver.RightShoulderControl.OutgoingWorldData.rotation;
         // ----------------------------
         // Flags / options
         // ----------------------------
@@ -130,11 +153,6 @@ public static class BasisAnimationRiggingHelper
         // ----------------------------
         BasisFullIKConstraint.data = data;
 
-        // ----------------------------
-        // Post-setup helpers
-        // ----------------------------
-        SetHandCollisionScale(BasisFullIKConstraint, player.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-
         GeneratedRequiredTransforms(player, Mapping.head);
 
         GeneratedRequiredTransforms(player, Mapping.leftFoot);
@@ -143,6 +161,7 @@ public static class BasisAnimationRiggingHelper
         GeneratedRequiredTransforms(player, Mapping.leftHand);
         GeneratedRequiredTransforms(player, Mapping.rightHand);
     }
+
     public static void GeneratedRequiredTransforms(BasisLocalPlayer player,Transform baseLevel)
     {
         if (baseLevel == null)
@@ -163,6 +182,7 @@ public static class BasisAnimationRiggingHelper
         AddRigTransformIfMissing(player, hips);
     }
 
+
     private static void AddRigTransformIfMissing(BasisLocalPlayer player, Transform t)
     {
         if (!t.TryGetComponent<RigTransform>(out var rig))
@@ -175,14 +195,6 @@ public static class BasisAnimationRiggingHelper
         {
             list.Add(rig);
         }
-    }
-    public static void SetHandCollisionScale(BasisFullBodyIK TwoBoneIKConstraint, float Scale)
-    {
-        //1.6m is the default values for below.
-        TwoBoneIKConstraint.data.collisionSkin = 0.05f * Scale;
-        TwoBoneIKConstraint.data.handRadius = 0.01f * Scale;
-        TwoBoneIKConstraint.data.handSkin = 0.03f * Scale;
-        TwoBoneIKConstraint.data.chestRadius = 0.07f * Scale;
     }
     public static GameObject CreateAndSetParent(Transform parent, string name)
     {

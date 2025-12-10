@@ -268,8 +268,7 @@ namespace Basis.Scripts.Networking.Receivers
             }
             else
             {
-                BasisDebug.LogWarning("Cant Setup Viseme Audio Driver Does not meet Critera");
-
+              //  BasisDebug.LogWarning("Cant Setup Viseme Audio Driver Does not meet Critera");
             }
 
             if (BasisRemoteVisemeAudioDriver == null)

@@ -157,6 +157,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -354,6 +355,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -781,6 +783,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -815,6 +818,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -849,6 +853,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -883,6 +888,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -917,6 +923,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -931,7 +938,7 @@ MonoBehaviour:
   interactableEnabled: 1
   AutoHold: 1
   InputKey: 0
-  InteractRange: 1
+  InteractRange: 2
   highlightMode: 3
   _back: {x: 0, y: 2.07, z: -0.96}
   _foot: {x: 0, y: -0.25, z: 1.2}
@@ -1017,6 +1024,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1051,6 +1059,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1138,6 +1147,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1177,6 +1187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1253,6 +1264,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1287,6 +1299,59 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 75ecc994d378e3f4a8ff658ce83c782f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: BasisSeatExamples::ExampleRotatingChair
+--- !u!1 &1897748942
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1897748943}
+  - component: {fileID: 1897748944}
+  m_Layer: 0
+  m_Name: SeatInteractCollider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1897748943
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1897748942}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3526058654734114409}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &1897748944
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1897748942}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.6, y: 4, z: 0.6}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1910090547
 GameObject:
   m_ObjectHideFlags: 0
@@ -1447,6 +1512,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1502,6 +1568,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1557,6 +1624,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1629,13 +1697,205 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6335649775416518793, guid: 70ed8caaaef4e2443b2c6f52cfe3327f, type: 3}
       propertyPath: m_Name
-      value: Simple Seat
+      value: SimpleSeat
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 70ed8caaaef4e2443b2c6f52cfe3327f, type: 3}
+--- !u!33 &2965210041367841619
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6324777004005112201}
+  m_Mesh: {fileID: 626683588615513421, guid: 8e9677a9f8cd4c947846603d5ca204e6, type: 3}
+--- !u!4 &3526058654734114409
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6265163544628063587}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: -5, y: 0.25, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4624332438580726258}
+  - {fileID: 1897748943}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+--- !u!4 &4624332438580726258
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6324777004005112201}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3526058654734114409}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5179267217627977254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6265163544628063587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65c5374242affeb4fb34b0a64b604d2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::BasisSeatSync
+  HasNetworkID: 0
+  IsOwnedLocallyOnServer: 0
+  IsOwnedLocallyOnClient: 0
+  CurrentOwnerId: 0
+  Seat: {fileID: 8783560627819920452}
+--- !u!23 &5608920381319837394
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6324777004005112201}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: -91986665691257589, guid: 8e9677a9f8cd4c947846603d5ca204e6, type: 3}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &6265163544628063587
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3526058654734114409}
+  - component: {fileID: 8783560627819920452}
+  - component: {fileID: 5179267217627977254}
+  - component: {fileID: 6297807212850432803}
+  m_Layer: 0
+  m_Name: SeatWithChildCollider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &6297807212850432803
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6265163544628063587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e19faad92ed5dd47bd3d4036e29f69f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BasisSDK::BasisProp
+  BasisBundleDescription:
+    AssetBundleName: Basis Seat
+    AssetBundleDescription: take a seat
+--- !u!1 &6324777004005112201
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4624332438580726258}
+  - component: {fileID: 2965210041367841619}
+  - component: {fileID: 5608920381319837394}
+  m_Layer: 0
+  m_Name: SimpleChairFacingSouthMesh
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &8783560627819920452
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6265163544628063587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 439bbeee4f78dbe458b22b47dbd4f1ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  _colliderRefs: []
+  Inputs:
+    desktopCenterEye:
+      Source: {fileID: 0}
+      State: 0
+    leftHand:
+      Source: {fileID: 0}
+      State: 0
+    rightHand:
+      Source: {fileID: 0}
+      State: 0
+    extras: []
+  interactableEnabled: 1
+  AutoHold: 1
+  InputKey: 0
+  InteractRange: 1
+  highlightMode: 3
+  _back: {x: 0, y: 0.33, z: 0.24}
+  _foot: {x: 0, y: -0.25, z: -0.3}
+  _knee: {x: 0, y: 0.33, z: -0.3}
+  _spineAngleDegrees: 90
+  IsSeatTakenByAnyone: 0
+  LocallyInSeat: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -1644,3 +1904,4 @@ SceneRoots:
   - {fileID: 1511330578}
   - {fileID: 1047396103}
   - {fileID: 1977322212309204955}
+  - {fileID: 3526058654734114409}

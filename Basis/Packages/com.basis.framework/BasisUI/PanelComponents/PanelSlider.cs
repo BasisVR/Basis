@@ -11,7 +11,8 @@ namespace Basis.BasisUI
         Percentage,
         Raw,
         Meters,
-        Degrees
+        Degrees,
+        percentageFromZero
     }
 
     public class PanelSlider : PanelDataComponent<float>
@@ -193,6 +194,9 @@ namespace Basis.BasisUI
                     float range = SliderComponent.maxValue - SliderComponent.minValue;
                     float normalized = (range > 0f) ? (Value - SliderComponent.minValue) / range : 0f;
                     CurrentValueLabel.text = $"{Mathf.RoundToInt(normalized * 100f)}%";
+                    break;
+                case ValueDisplayMode.percentageFromZero:
+                    CurrentValueLabel.text = $"{Mathf.RoundToInt(Value * 100f)}%";
                     break;
 
                 case ValueDisplayMode.Raw:

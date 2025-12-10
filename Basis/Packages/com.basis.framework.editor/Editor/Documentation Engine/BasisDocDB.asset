@@ -1105,6 +1105,39 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: 
+    MemberName: StoreData
+    Kind: Field
+    ParamCount: 0
+    ParamNames:
+    - intervalSeconds
+    - rotation
+    - position
+    - muscles
+    - scale
+    ParamDocs:
+    - Time since previous frame, in seconds.
+    - Root rotation.
+    - Root position.
+    - Humanoid muscle values (length 95 expected).
+    - Avatar scale.
+    Summary: "Writes one frame to disk.\n Layout (per frame, in this exact order):\n  
+      float IntervalSeconds\n   Quaternion rotation (x, y, z, w)\n   Vector3 position
+      (x, y, z)\n   float muscles[95]\n   float scale\n\n Total: 104 floats = 416
+      bytes."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisPhonemeBlendShapeInfo
     MemberName: BasisPhonemeBlendShapeInfo
     Kind: Type
@@ -1133,6 +1166,217 @@ MonoBehaviour:
     ParamDocs: []
     Summary: the Basis Tracker Mapper goal is to calculate Distances between Input
       Devices
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisImageBackground
+    MemberName: BasisImageBackground
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "When \"Preserve Aspect\" is enabled, the sprite will be fit and culled
+      to expand into the full Image's space.\n Useful for background images.\n While
+      heavily customized, the layout math is admittedly ChatGPT's work."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisToggleMenuActionProvider
+    MemberName: ToggleAction
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Toggle the Action's state between Active and Inactive.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: EnableAction
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Sets the Action's state to Active, with callbacks.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: DisableAction
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Sets the Action's state to Inactive, with callbacks.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Instantiate a new Panel and load in the corresponding panel data.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Instantiate a new Panel and load in the corresponding panel data.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisMenuMover+PanelGroupRootMode
+    MemberName: PanelGroupRootMode
+    Kind: Enum
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Which mode the panel group uses for placement.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: SetRootMode
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - mode
+    ParamDocs: []
+    Summary: "Apply the offset for the Current Root Mode.\n This also subscribes
+      to the player's movement callback if needed."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew
+    Kind: Method
+    ParamCount: 4
+    ParamNames:
+    - data
+    - CreateNew(data
+    - parent
+    - PanelStyles.Default
+    ParamDocs: []
+    Summary: Instantiate a new Panel and load in the corresponding panel data.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew
+    Kind: Method
+    ParamCount: 3
+    ParamNames:
+    - data
+    - parent
+    - referencePath
+    ParamDocs: []
+    Summary: Instantiate a new Panel and load in the corresponding panel data.
     Remarks: 
     Returns: 
     Value: 
@@ -2476,26 +2720,6 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: GetCollider
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Pickup collider accessor (cached in base).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
     MemberName: OnBootModeChanged
     Kind: Method
     ParamCount: 1
@@ -2827,7 +3051,27 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: 
+    MemberName: VolumetricFogVolume
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: volumetrics
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: BasisHandHeldCameraUI
     Kind: Type
     ParamCount: 0
@@ -2849,7 +3093,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: TakePhotoButton
     Kind: Field
     ParamCount: 0
@@ -2869,7 +3113,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: ResetButton
     Kind: Field
     ParamCount: 0
@@ -2889,7 +3133,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: CloseButton
     Kind: Field
     ParamCount: 0
@@ -2909,7 +3153,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: Timer
     Kind: Field
     ParamCount: 0
@@ -2929,7 +3173,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: Nameplates
     Kind: Field
     ParamCount: 0
@@ -2949,7 +3193,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: OverrideDesktopOutput
     Kind: Field
     ParamCount: 0
@@ -2969,7 +3213,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: Selfie
     Kind: Field
     ParamCount: 0
@@ -2989,7 +3233,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: focusCursor
     Kind: Field
     ParamCount: 0
@@ -3009,7 +3253,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: DepthModeAutoButton
     Kind: Field
     ParamCount: 0
@@ -3029,7 +3273,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI
+  - TypeFullName: BasisHandHeldCameraUI
     MemberName: DepthModeManualButton
     Kind: Field
     ParamCount: 0
@@ -3049,7 +3293,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DepthMode
     Kind: Enum
     ParamCount: 0
@@ -3069,7 +3313,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: currentDepthMode
     Kind: Field
     ParamCount: 0
@@ -3089,7 +3333,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: Resolution
     Kind: Field
     ParamCount: 0
@@ -3109,7 +3353,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: ResolutionSprites
     Kind: Field
     ParamCount: 0
@@ -3129,7 +3373,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: Format
     Kind: Field
     ParamCount: 0
@@ -3149,7 +3393,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: useEXR
     Kind: Property
     ParamCount: 0
@@ -3169,7 +3413,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: PngSprite
     Kind: Field
     ParamCount: 0
@@ -3189,7 +3433,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: ExrSprite
     Kind: Field
     ParamCount: 0
@@ -3209,7 +3453,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DoFAutoSprite
     Kind: Field
     ParamCount: 0
@@ -3229,7 +3473,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DoFManualSprite
     Kind: Field
     ParamCount: 0
@@ -3249,7 +3493,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: ExposureSlider
     Kind: Field
     ParamCount: 0
@@ -3269,7 +3513,27 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
+    MemberName: volumetricDensitySlider
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Discrete volumetric Density control; mapped to exposureStops.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DOFFocusOutput
     Kind: Field
     ParamCount: 0
@@ -3289,7 +3553,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DepthApertureOutput
     Kind: Field
     ParamCount: 0
@@ -3309,7 +3573,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: BloomIntensityOutput
     Kind: Field
     ParamCount: 0
@@ -3329,7 +3593,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: BloomThreshholdOutput
     Kind: Field
     ParamCount: 0
@@ -3349,7 +3613,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: ContrastOutput
     Kind: Field
     ParamCount: 0
@@ -3369,7 +3633,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: SaturationOutput
     Kind: Field
     ParamCount: 0
@@ -3389,7 +3653,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: FOVOutput
     Kind: Field
     ParamCount: 0
@@ -3409,7 +3673,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: FOVSlider
     Kind: Field
     ParamCount: 0
@@ -3429,7 +3693,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DepthFocusDistanceSlider
     Kind: Field
     ParamCount: 0
@@ -3449,7 +3713,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: DepthApertureSlider
     Kind: Field
     ParamCount: 0
@@ -3469,7 +3733,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: BloomIntensitySlider
     Kind: Field
     ParamCount: 0
@@ -3489,7 +3753,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: BloomThresholdSlider
     Kind: Field
     ParamCount: 0
@@ -3509,7 +3773,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: ContrastSlider
     Kind: Field
     ParamCount: 0
@@ -3529,7 +3793,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: SaturationSlider
     Kind: Field
     ParamCount: 0
@@ -3549,7 +3813,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: uiOrientationElement
     Kind: Field
     ParamCount: 0
@@ -3569,7 +3833,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: uiOrientationElement2
     Kind: Field
     ParamCount: 0
@@ -3589,7 +3853,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: uiOrientationElement3
     Kind: Field
     ParamCount: 0
@@ -3609,7 +3873,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: uiOrientationElement4
     Kind: Field
     ParamCount: 0
@@ -3629,7 +3893,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: uiOrientationElement5
     Kind: Field
     ParamCount: 0
@@ -3649,7 +3913,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: cameraReference
     Kind: Field
     ParamCount: 0
@@ -3669,7 +3933,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: HHC
     Kind: Field
     ParamCount: 0
@@ -3689,7 +3953,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: CameraOrientation+BasisHandHeldCameraUI+DepthMode
+  - TypeFullName: BasisHandHeldCameraUI+DepthMode
     MemberName: Initialize
     Kind: Method
     ParamCount: 1
@@ -4538,6 +4802,86 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: True = Manual focus mode; False = Auto focus mode.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: VolumetricFogVolumedensity
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Density of Fog in Camera
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: VolumetricFogenableAPVContribution
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: APV enabled Fog
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: VolumetricFogenableMainLightContribution
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Main Light Enabled Fog
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: VolumetricenableAdditionalLightsContribution
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Addittional Light Contribution
     Remarks: 
     Returns: 
     Value: 
@@ -5499,7 +5843,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Device_Management.
-    MemberName: IsMobilehardware
+    MemberName: IsMobileHardware
     Kind: Method
     ParamCount: 0
     ParamNames: []
@@ -6753,7 +7097,11 @@ MonoBehaviour:
     ParamNames:
     - 0
     ParamDocs: []
-    Summary: Collection of input sources bound to this interactable.
+    Summary: "Collider references used for range checks and interaction.\n If set
+      to a non-empty array, these colliders will be used as the interactable's colliders.\n
+      If empty or null, and a collider exists on the same GameObject, that collider
+      will be used.\n If empty or null, and no collider exists on the same GameObject,
+      all child colliders will be used."
     Remarks: 
     Returns: 
     Value: 
@@ -6809,7 +7157,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
-    MemberName: RequiresUpdateLoop
+    MemberName: InputKey
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -6828,7 +7176,28 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
+    MemberName: RequiresUpdateLoop
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Flag indicating whether this object requires an update loop\n while
+      being influenced by inputs."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnInteractStartEvent
     Kind: Field
     ParamCount: 0
@@ -6848,7 +7217,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnInteractEndEvent
     Kind: Field
     ParamCount: 0
@@ -6868,7 +7237,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnHoverStartEvent
     Kind: Field
     ParamCount: 0
@@ -6888,7 +7257,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnHoverEndEvent
     Kind: Field
     ParamCount: 0
@@ -6909,7 +7278,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnInfluenceEnable
     Kind: Field
     ParamCount: 0
@@ -6929,7 +7298,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnInfluenceDisable
     Kind: Field
     ParamCount: 0
@@ -6949,7 +7318,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject
+  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: InteractableEnabled
     Kind: Field
     ParamCount: 0
@@ -7037,10 +7406,11 @@ MonoBehaviour:
     ParamCount: 2
     ParamNames:
     - source
-    - InteractRange
+    - interactRange
     ParamDocs:
-    - The source position (e.g., controller).
-    - The maximum allowed range.
+    - The position of the interacting source (such as the player's hand controller
+      or desktop user's head).
+    - Base interaction range (will be extended for desktop players).
     Summary: "Called when a new input device is added.\n Sets up role bindings for
       the input."
     Remarks: 
@@ -7057,7 +7427,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
-    MemberName: GetCollider
+    MemberName: GetColliders
     Kind: Method
     ParamCount: 0
     ParamNames: []
@@ -7598,27 +7968,6 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Multiplier applied to angular velocity when interaction ends.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable
-    MemberName: ColliderRef
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Collider reference used for range checks and optional highlight mesh
-      generation.
     Remarks: 
     Returns: 
     Value: 
@@ -8393,26 +8742,6 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
-    MemberName: GetCollider
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Gets the primary collider used for interaction checks.
-    Remarks: 
-    Returns: The collider reference, if any.
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: OnDestroy
     Kind: Method
     ParamCount: 0
@@ -8425,31 +8754,6 @@ MonoBehaviour:
       rotation.\n Temporarily pauses head/look rotation while rotating."
     Remarks: 
     Returns: if an input is actively interacting; otherwise .
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
-    MemberName: IsWithinRange
-    Kind: Method
-    ParamCount: 2
-    ParamNames:
-    - source
-    - _interactRange
-    ParamDocs:
-    - The position of the interacting source.
-    - Base interaction range.
-    Summary: Extends the default range check to allow additional reach on desktop
-      (based on player height).
-    Remarks: 
-    Returns: Whether the source is within range of the collider or transform.
     Value: 
     Examples: []
     TypeParamNames: []
@@ -8665,34 +8969,10 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
-    MemberName: CalculateSeatPositionRotation
-    Kind: Method
-    ParamCount: 3
-    ParamNames:
-    - Player
-    - hipsWorldRot
-    - hipsWorldPos
-    ParamDocs: []
-    Summary: this is hacky atm needs calculation
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Interactions.
     MemberName: ApplyRemoteLeg
     Kind: Method
-    ParamCount: 7
+    ParamCount: 6
     ParamNames:
-    - Difference
     - LeftLowerLegControlRotation
     - LeftUpperLegControlRotation
     - LeftFootControl
@@ -8861,7 +9141,8 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Ensure NativeArray is allocated correctly; does not clear existing values.
+    Summary: Ensure NativeArray is allocated with correct size; does not clear existing
+      values.
     Remarks: 
     Returns: 
     Value: 
@@ -8902,7 +9183,71 @@ MonoBehaviour:
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Thread-safe pool for BasisAvatarBuffer (class). Guards null + double-release.
+    Summary: High-performance, lock-free, thread-safe pool for BasisAvatarBuffer.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Networking.NetworkedAvatar.BasisAvatarBufferPool
+    MemberName: Get
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Get a buffer from the pool or create a new one.\n Lock-free using CAS
+      on the head pointer."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Networking.NetworkedAvatar.
+    MemberName: Release
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - item
+    ParamDocs: []
+    Summary: "Return a buffer to the pool.\n Double-release detection via PooledFlag;
+      lock-free push via CAS."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Networking.NetworkedAvatar.
+    MemberName: Deinitialize
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Dispose all buffers in the pool and clear it.\n Caller must ensure
+      no concurrent Get/Release while deinitializing."
     Remarks: 
     Returns: 
     Value: 
@@ -9583,33 +9928,13 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Networking.
-    MemberName: Statistics
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Network statistics snapshot from the peer.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.
     MemberName: DateTimeToSeconds
     Kind: Method
     ParamCount: 1
     ParamNames:
     - dateTime
     ParamDocs: []
-    Summary: Converts a DateTime to a relative number of seconds from now.
+    Summary: Network statistics snapshot from the peer.
     Remarks: 
     Returns: 
     Value: 
@@ -10743,9 +11068,8 @@ MonoBehaviour:
   - TypeFullName: Basis.Scripts.UI.
     MemberName: UpdateRaycast
     Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - true
+    ParamCount: 0
+    ParamNames: []
     ParamDocs: []
     Summary: "Run after Input control apply, before `AfterControlApply` alloc free,\n
       uses camera raycasting when required of it."
@@ -10864,6 +11188,26 @@ MonoBehaviour:
     ParamDocs: []
     Summary: "Sets the selection from a bool[] (first 'true' wins).\n If no 'true'
       values, selection becomes None."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: DisplayData
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: lets add a debug for stats about audio playback
     Remarks: 
     Returns: 
     Value: 
@@ -12884,6 +13228,425 @@ MonoBehaviour:
     - The input that was removed.
     Summary: Resets this object to follow the local player root if its current input
       is lost or removed.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.AddressableInstanceBase
+    MemberName: AddressableInstanceBase
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Type used by objects instantiated through Addressable instances.\n
+      For UI behaviours, AddressableUIInstanceBase should be used instead."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: OnCreateEvent
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Runs immediately after instantiation from Addressables.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: OnReleaseEvent
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Runs immediately before destruction and release from Addressables.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew<TInstance>
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - referencePath
+    ParamDocs: []
+    Summary: Create a new Addressable UI Instance from a given path.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew<TElement>
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - referencePath
+    - parent
+    ParamDocs: []
+    Summary: "Create a new Addressable UI Instance from a given path with an assigned
+      parent.\n \"Parent\" takes a component for easier assignment."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: ReleaseInstance
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Destroy this addressable instance.\n Callbacks will run first, followed
+      by an Addressables Release."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: rectTransform
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Lazy initialization for the self RectTransform.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew<TInstance>
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - referencePath
+    ParamDocs: []
+    Summary: Create a new Addressable UI Instance from a given path.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: CreateNew<TElement>
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - referencePath
+    - parent
+    ParamDocs: []
+    Summary: "Create a new Addressable UI Instance from a given path with an assigned
+      parent.\n \"Parent\" takes a component for easier assignment."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: OnCreateEvent
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Runs immediately after instantiation from Addressables.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: OnReleaseEvent
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Runs immediately before destruction and release from Addressables.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: ReleaseInstance
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Destroy this addressable instance.\n Callbacks will run first, followed
+      by an Addressables Release."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: BindDataIndex
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - list
+    - index
+    ParamDocs: []
+    Summary: Modify the item to fit the bound data.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisMenuBase
+    MemberName: BasisMenuBase
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: This is the backing data that supports and manages the MenuInstance
+      in the scene.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisMenuBase
+    MemberName: ProviderButtonParent
+    Kind: Property
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Parent component used containing Action Provider buttons.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisMenuBase
+    MemberName: new
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: All current buttons used by the ActionProviders.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.BasisMenuBase
+    MemberName: AddProvider
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - provider
+    ParamDocs: []
+    Summary: Add a provider that will supply an action through a button press on
+      this menu.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: RemoveProvider
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - provider
+    ParamDocs: []
+    Summary: Remove a provider, removing its button on this menu as well.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: BindActiveStateToAddressablesInstance
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - instance
+    ParamDocs: []
+    Summary: Set this button active until the given element is released.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.PanelTabPage
+    MemberName: CreateVertical
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - component
+    ParamDocs: []
+    Summary: Create a TabPage with a vertical layout predefined for the content parent.
     Remarks: 
     Returns: 
     Value: 
@@ -14998,12 +15761,32 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: Override
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: If set to `true`, overrides and disables the blinking simulation logic.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
     MemberName: meshRenderer
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Renderer containing blink blendshapes referenced by blendShapeIndex.
+    Summary: Renderer containing blink blendshapes referenced by blendShapeIndices.
     Remarks: 
     Returns: 
     Value: 
@@ -15139,12 +15922,12 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
-    MemberName: LinkedPlayer
+    MemberName: meshBlendShapeCount
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Internal flag indicating an active blink (closing phase).
+    Summary: blendshape mesh count on avatar face blink mesh.
     Remarks: 
     Returns: 
     Value: 
@@ -15159,7 +15942,27 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
-    MemberName: MeshblendShapeCount
+    MemberName: linkedPlayer
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Player whose face visibility is observed.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: IsEnabled
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -15180,17 +15983,140 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: IsClosingBlink
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Internal flag indicating an active blink (closing phase).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: IsOpeningBlink
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Internal flag indicating the opening phase after a blink.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: NextBlinkTime
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Absolute time at which the next blink should start.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: BlinkStartTime
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Absolute time when the current blink (closing) started.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
+    MemberName: OpenStartTime
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Absolute time when the opening transition started.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.BasisFacialBlinkDriver
     MemberName: Initialize
     Kind: Method
     ParamCount: 2
     ParamNames:
-    - Player
-    - Avatar
+    - player
+    - avatar
     ParamDocs:
     - The owning BasisPlayer.
     - Avatar providing blink mesh and viseme indices.
     Summary: Initializes the blink driver with player and avatar data and wires face
       visibility callbacks.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Drivers.
+    MemberName: Simulate
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - time
+    ParamDocs:
+    - Current absolute time (e.g., Time.timeAsDouble).
+    Summary: "Advances blink timing and writes blendshape weights for close/open
+      phases.\n Should be called once per frame."
     Remarks: 
     Returns: 
     Value: 
@@ -15229,10 +16155,11 @@ MonoBehaviour:
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - State
+    - state
     ParamDocs:
     - True if the face is currently visible.
-    Summary: Updates the internal enabled state based on face visibility.
+    Summary: "Updates the internal enabled state based on face visibility\n and resets
+      blendshape state when disabled."
     Remarks: 
     Returns: 
     Value: 
@@ -15251,7 +16178,7 @@ MonoBehaviour:
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - Avatar
+    - avatar
     ParamDocs:
     - Avatar to validate.
     Summary: Checks whether the provided avatar contains the data needed to run the
@@ -15271,34 +16198,13 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: Simulate
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - Time
-    ParamDocs: []
-    Summary: "Advances blink timing and writes blendshape weights for close/open
-      phases.\n Should be called once per frame."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.
     MemberName: SetNextBlinkTime
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - Time
-    ParamDocs: []
+    - currentTime
+    ParamDocs:
+    - Time to offset from.
     Summary: Randomizes the absolute time for the next blink within minBlinkInterval
       and maxBlinkInterval.
     Remarks: 
@@ -15423,27 +16329,6 @@ MonoBehaviour:
     Remarks: On a cache miss, persists the default height to FileNameAndExtension
       and returns it.
     Returns: The stored eye height if found; otherwise the default value from BasisLocalPlayer.DefaultPlayerEyeHeight.
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: SaveHeight
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Saves the current player's eye height if a local player instance exists;
-      otherwise saves the default player eye height.
-    Remarks: Height is clamped to be nonnegative prior to persistence.
-    Returns: 
     Value: 
     Examples: []
     TypeParamNames: []
@@ -18231,33 +19116,12 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.BasisLocalCameraDriver
-    MemberName: NearClip
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Near clip plane override.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Drivers.BasisLocalCameraDriver
     MemberName: LeftEye
     Kind: Field
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: World-space position of the left eye (XR). In desktop mode this equals
-      camera position.
+    Summary: The desired far clipping plane from scene settings before avatar overriding.
     Remarks: 
     Returns: 
     Value: 
@@ -18569,7 +19433,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Drivers.
-    MemberName: OnHeightChanged
+    MemberName: UpdateCameraScale
     Kind: Method
     ParamCount: 0
     ParamNames: []
@@ -23262,6 +24126,27 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: BasisRemoteEyeDriver
+    MemberName: IsEnabled
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Whether the eye simulation is currently active.\n Controlled by face
+      visibility and initialization state."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisRemoteEyeDriver
     MemberName: OnDestroy
     Kind: Method
     ParamCount: 0
@@ -23308,31 +24193,12 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
-    MemberName: IsEnabled
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Whether the eye simulation is currently active.\n Controlled by face
-      visibility and initialization state."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
     MemberName: Simulate
     Kind: Method
-    ParamCount: 0
-    ParamNames: []
+    ParamCount: 2
+    ParamNames:
+    - TimeAsDouble
+    - DeltaSpeed
     ParamDocs:
     - True if the face is visible, false otherwise.
     Summary: Updates the simulation state based on whether the face is currently
@@ -25267,13 +26133,13 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Transmitters.
-    MemberName: IterationOverRemotePlayers
+  - TypeFullName: 
+    MemberName: Simulate
     Kind: Method
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: How far we can hear locally.
+    Summary: Called each frame; drives scheduling of distance job and network sync.
     Remarks: 
     Returns: 
     Value: 
@@ -25287,13 +26153,55 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Networking.Transmitters.
-    MemberName: MicrophoneOutputCheck
+  - TypeFullName: 
+    MemberName: ResizeOrCreateArrayData
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - receiverCount
+    ParamDocs: []
+    Summary: Allocate / reallocate all NativeArrays.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: ReleaseResults
     Kind: Method
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Lets the server know who can hear us.
+    Summary: Dispose NativeArrays and complete outstanding jobs.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: BasisDistanceJob
+    MemberName: Execute
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: AnyMicrophoneRangeChanged AnyHearingRangeChanged AnyAvatarRangeChanged
+      AnyIdOrderOrLengthChanged;
     Remarks: 
     Returns: 
     Value: 
@@ -26360,8 +27268,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
-    MemberName: BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
+    MemberName: BasisLocalHeight
     Kind: Type
     ParamCount: 0
     ParamNames: []
@@ -26373,9 +27281,9 @@ MonoBehaviour:
     Remarks: "Use PickHeightMode(BasisSelectedHeightMode) to populate the\n SelectedPlayerHeight,
       SelectedAvatarHeight,\n SelectedPlayerToDefaultScale, and SelectedAvatarToAvatarDefaultScale
       fields\n based on the chosen mode (ArmSpan, EyeHeight, or Custom).\n \n\n\n
-      Note on the `Custom` branch: the scale computation uses\n BasisLocalPlayer.DefaultAvatarEyeHeight
-      for the player scale and\n BasisLocalPlayer.DefaultPlayerEyeHeight for the
-      avatar scale. Verify this is intentional."
+      Note on the `Custom` branch: the scale computation uses\n DefaultAvatarEyeHeight
+      for the player scale and\n DefaultPlayerEyeHeight for the avatar scale. Verify
+      this is intentional."
     Returns: 
     Value: 
     Examples: []
@@ -26388,7 +27296,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: AvatarName
     Kind: Field
     ParamCount: 0
@@ -26409,7 +27317,108 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
+    MemberName: FallbackSizeInMeters
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "Fallback height (meters) used when no measurement is available.\n not
+      the total height but the eye height"
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
+    MemberName: DefaultPlayerEyeHeight
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Default measured eye height for the player (meters).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
+    MemberName: DefaultAvatarEyeHeight
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Default measured eye height for the avatar (meters).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
+    MemberName: DefaultPlayerArmSpan
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Default measured arm span for the player (meters).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
+    MemberName: DefaultAvatarArmSpan
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Default measured arm span for the avatar (meters).
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: PlayerEyeHeight
     Kind: Field
     ParamCount: 0
@@ -26429,7 +27438,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: AvatarEyeHeight
     Kind: Field
     ParamCount: 0
@@ -26449,7 +27458,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: PlayerArmSpan
     Kind: Field
     ParamCount: 0
@@ -26469,7 +27478,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: AvatarArmSpan
     Kind: Field
     ParamCount: 0
@@ -26489,7 +27498,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: CustomPlayerEyeHeight
     Kind: Field
     ParamCount: 0
@@ -26509,7 +27518,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: CustomAvatarEyeHeight
     Kind: Field
     ParamCount: 0
@@ -26529,7 +27538,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: value
     Kind: Field
     ParamCount: 0
@@ -26550,7 +27559,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeightInformation
+  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalHeight
     MemberName: PickHeightMode
     Kind: Method
     ParamCount: 1
@@ -26625,107 +27634,6 @@ MonoBehaviour:
     ParamDocs: []
     Summary: True when the local player has completed initialization and is ready
       for interaction.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
-    MemberName: FallbackSize
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "Fallback height (meters) used when no measurement is available.\n not
-      the total height but the eye height"
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
-    MemberName: DefaultPlayerEyeHeight
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Default measured eye height for the player (meters).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
-    MemberName: DefaultAvatarEyeHeight
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Default measured eye height for the avatar (meters).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
-    MemberName: DefaultPlayerArmSpan
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Default measured arm span for the player (meters).
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
-    MemberName: DefaultAvatarArmSpan
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Default measured arm span for the avatar (meters).
     Remarks: 
     Returns: 
     Value: 
@@ -27143,7 +28051,7 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.BasisSdk.Players.BasisLocalPlayer
-    MemberName: BasisLocalHeightInformation
+    MemberName: BasisLocalHeight
     Kind: Method
     ParamCount: 0
     ParamNames: []
@@ -28723,6 +29631,130 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: Basis.BasisUI.PanelLayoutContainer
+    MemberName: ChildLayoutOptions
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Layout options must be applied immediately after through ApplyLayoutOptions().
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.PanelLayoutContainer
+    MemberName: Direction
+    Kind: Property
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Direction is handled via Horizontal/Vertical Layout Groups and cannot
+      be changed at runtime.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.
+    MemberName: Direction
+    Kind: Property
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Direction is handled via Horizontal/Vertical Layout Groups and should
+      not be changed.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.LayoutContainerOptions
+    MemberName: Constrained
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Will shrink the container down as far as possible while fitting all
+      child elements within.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BTween.
+    MemberName: Process
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - currentTime
+    ParamDocs: []
+    Summary: Returns true when completed.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BTween.
+    MemberName: Finish
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Complete a tween, applying its End value.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: BasisActionDriver
     MemberName: BasisActionDriver
     Kind: Type
@@ -29771,6 +30803,46 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Device_Management.Devices.BasisInput
+    MemberName: hoverSphere
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Hover Supported Raycasting
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.BasisInput
+    MemberName: InteractionLineRenderer
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: line renderer associated with this input
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.BasisInput
     MemberName: DeviceMatchSettings
     Kind: Field
     ParamCount: 0
@@ -30329,10 +31401,11 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: Basis.Scripts.Device_Management.Devices.
-    MemberName: UpdatePlayerControl
+    MemberName: UpdateInputEvents
     Kind: Method
-    ParamCount: 1
+    ParamCount: 2
     ParamNames:
+    - true
     - true
     ParamDocs: []
     Summary: "Pushes current input state to the action driver and updates raycasting/UI
@@ -30440,7 +31513,7 @@ MonoBehaviour:
     Kind: Method
     ParamCount: 1
     ParamNames:
-    - BaseInput
+    - input
     ParamDocs:
     - The owning input device component.
     Summary: Creates and initializes raycasting helpers for this device (pointer
@@ -30525,8 +31598,10 @@ MonoBehaviour:
   - TypeFullName: Basis.Scripts.Device_Management.Devices.
     MemberName: ConvertToScaledDeviceCoord
     Kind: Method
-    ParamCount: 0
-    ParamNames: []
+    ParamCount: 2
+    ParamNames:
+    - UnscaledDeviceCoord
+    - ScaledDeviceCoord
     ParamDocs: []
     Summary: Applies player scale to UnscaledDeviceCoord to produce ScaledDeviceCoord.
     Remarks: 
@@ -30549,26 +31624,6 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: "Writes the device\u2019s scaled pose directly into the bound bone control."
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.
-    MemberName: OnDisable
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: 'Unity callback: unhooks frame events when this component is disabled.'
     Remarks: 
     Returns: 
     Value: 
@@ -30610,7 +31665,7 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: "Device-specific poll implementation. Populate UnscaledDeviceCoord and/or\n
-      ScaledDeviceCoord and call UpdatePlayerControl at the end."
+      ScaledDeviceCoord and call UpdateInputEvents at the end."
     Remarks: 
     Returns: 
     Value: 
@@ -31752,8 +32807,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
-    MemberName: BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
+    MemberName: BasisDesktopEye
     Kind: Type
     ParamCount: 0
     ParamNames: []
@@ -31774,7 +32829,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: Camera
     Kind: Field
     ParamCount: 0
@@ -31794,27 +32849,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
-    MemberName: AvatarDriver
-    Kind: Field
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: Reference to the BasisLocalAvatarDriver associated with the local player.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: Instance
     Kind: Field
     ParamCount: 0
@@ -31834,7 +32869,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: rotationSpeed
     Kind: Field
     ParamCount: 0
@@ -31854,8 +32889,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
-    MemberName: rotationY
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
+    MemberName: rotationPitch
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -31874,8 +32909,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
-    MemberName: rotationX
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
+    MemberName: rotationYaw
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -31894,8 +32929,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
-    MemberName: minimumY
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
+    MemberName: minimumPitch
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -31914,8 +32949,8 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
-    MemberName: maximumY
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
+    MemberName: maximumPitch
     Kind: Field
     ParamCount: 0
     ParamNames: []
@@ -31934,7 +32969,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: LookRotationVector
     Kind: Field
     ParamCount: 0
@@ -31954,7 +32989,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: BasisLocalVirtualSpineDriver
     Kind: Method
     ParamCount: 0
@@ -31975,7 +33010,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: HasEyeEvents
     Kind: Field
     ParamCount: 0
@@ -31995,7 +33030,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: X
     Kind: Field
     ParamCount: 0
@@ -32015,7 +33050,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: Z
     Kind: Field
     ParamCount: 0
@@ -32035,7 +33070,7 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
-  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisAvatarEyeInput
+  - TypeFullName: Basis.Scripts.Device_Management.Devices.Desktop.BasisDesktopEye
     MemberName: Initialize
     Kind: Method
     ParamCount: 2
@@ -33297,12 +34332,32 @@ MonoBehaviour:
     ObsoleteMsg: 
     Platforms: []
   - TypeFullName: 
+    MemberName: UnloadAllLoadedItems
+    Kind: Field
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Attempts to load the configured Basis asset.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
     MemberName: LoadNow
     Kind: Method
     ParamCount: 0
     ParamNames: []
     ParamDocs: []
-    Summary: Attempts to load the configured Basis asset.
+    Summary: Loads immediately if not already loaded.
     Remarks: 
     Returns: 
     Value: 
@@ -34868,6 +35923,27 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.UiStyleIDAttributeDrawer
+    MemberName: UiStyleIDAttributeDrawer
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Drawer for displaying a custom dropdown of Styles associated with the
+      Style Type.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: BasisGenerateUniqueID
     MemberName: GenerateUniqueID
     Kind: Method
@@ -34877,6 +35953,50 @@ MonoBehaviour:
     Summary: Generates a unique ID using a GUID and the current UTC date (yyyyMMdd).
     Remarks: 
     Returns: A unique identifier combining a GUID and UTC date.
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.UiStyleUtilities
+    MemberName: RecordComponent
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - component
+    ParamDocs: []
+    Summary: "Runtime-safe undo recording for a given component.\n This does not
+      record an Undo action at runtime, but will safely compile for Runtime code."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.
+    MemberName: SetActive
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - element
+    - value
+    ParamDocs: []
+    Summary: Toggle a given VisualElement's display On or Off.
+    Remarks: 
+    Returns: 
     Value: 
     Examples: []
     TypeParamNames: []
@@ -34901,6 +36021,154 @@ MonoBehaviour:
     Summary: "Generate Mesh LODs via ModelImporter for all SkinnedMeshRenderers under
       the given root.\n Requires Unity 6000.2+ where ModelImporter.generateMeshLods
       exists."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.UiStyleSelectableExtensions
+    MemberName: ApplyStyle
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - selectable
+    - styleId
+    ParamDocs: []
+    Summary: Apply transition styles to a given Selectable component by Style ID.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.
+    MemberName: ApplyStyle
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - selectable
+    - style
+    ParamDocs: []
+    Summary: Apply transition styles to a given Selectable component by Style Reference.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.BaseUiStyleComponent
+    MemberName: BaseUiStyleComponent
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Base class used for implementing custom styled components.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.UiStyleButton
+    MemberName: UiStyleButton
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Apply a style to a given Button component.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.UiStyleImageExtensions
+    MemberName: ApplyStyle
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - image
+    - styleId
+    ParamDocs: []
+    Summary: Apply a style to a given Image component by Style ID.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.
+    MemberName: ApplyStyle
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - image
+    - style
+    ParamDocs: []
+    Summary: Apply a style to a given Image component by Style Reference.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.BasisUI.Styling.UiStyleImage
+    MemberName: UiStyleImage
+    Kind: Type
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Apply a style to a given Image component.
     Remarks: 
     Returns: 
     Value: 
@@ -36005,7 +37273,7 @@ MonoBehaviour:
     - port
     - ReadyMessage
     - AuthenticationMessage
-    - false
+    - Configuration
     ParamDocs:
     - 
     - 
@@ -36588,6 +37856,73 @@ MonoBehaviour:
     Since: 
     ObsoleteMsg: 
     Platforms: []
+  - TypeFullName: Basis.Network.Core.DeliveryMethod
+    MemberName: DeliveryMethod
+    Kind: Enum
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: Sending method type
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Configuration
+    MemberName: LoadFromXml
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - filePath
+    ParamDocs:
+    - Path to config file
+    Summary: Read config from file. If no file is found create a default config file
+      at filePath
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: 
+    MemberName: ProcessEnvironmentalOverrides
+    Kind: Method
+    ParamCount: 0
+    ParamNames: []
+    ParamDocs: []
+    Summary: "This code will override what is written in the config.xml if it finds\n
+      an Environmental Variable with the same name as a public config field.\n\n
+      On windows you can test this in the console:\n    $env:PeerLimit = \"256\"\n  
+      .\\BasisNetworkConsole.exe\n But it is intended to allow Linux admins to override
+      defaults during launch."
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
   - TypeFullName: BNL
     MemberName: BNL
     Kind: Type
@@ -36595,6 +37930,189 @@ MonoBehaviour:
     ParamNames: []
     ParamDocs: []
     Summary: Basis Network Logger with Console Colors
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: GetStringArray
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - maxStringLength
+    ParamDocs: []
+    Summary: "Note that \"maxStringLength\" only limits the number of characters
+      in a string, not its size in bytes.\n Strings that exceed this parameter are
+      returned as empty"
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: GetString
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - maxLength
+    ParamDocs: []
+    Summary: Note that "maxLength" only limits the number of characters in a string,
+      not its size in bytes.
+    Remarks: 
+    Returns: '"string.Empty" if value > "maxLength"'
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: PeekString
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - maxLength
+    ParamDocs: []
+    Summary: Note that "maxLength" only limits the number of characters in a string,
+      not its size in bytes.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: FromBytes
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - bytes
+    - copy
+    ParamDocs:
+    - Source byte array
+    - Copy array to new location or use existing
+    Summary: Creates NetDataWriter from existing ByteArray
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: FromBytes
+    Kind: Method
+    ParamCount: 3
+    ParamNames:
+    - bytes
+    - offset
+    - length
+    ParamDocs:
+    - Source byte array
+    - Offset of array
+    - Length of array
+    Summary: Creates NetDataWriter from existing ByteArray (always copied data)
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: FromBytes
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - bytes
+    ParamDocs: []
+    Summary: Creates NetDataWriter from the given `bytes`.
+    Remarks: 
+    Returns: 
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: SetPosition
+    Kind: Method
+    ParamCount: 1
+    ParamNames:
+    - position
+    ParamDocs:
+    - new byte position
+    Summary: Sets position of NetDataWriter to rewrite previous values
+    Remarks: 
+    Returns: previous position of data writer
+    Value: 
+    Examples: []
+    TypeParamNames: []
+    TypeParamDocs: []
+    ExceptionCrefs: []
+    ExceptionDocs: []
+    SeeCrefs: []
+    SeeAlsoCrefs: []
+    Since: 
+    ObsoleteMsg: 
+    Platforms: []
+  - TypeFullName: Basis.Network.Core.
+    MemberName: Put
+    Kind: Method
+    ParamCount: 2
+    ParamNames:
+    - value
+    - maxLength
+    ParamDocs: []
+    Summary: Note that "maxLength" only limits the number of characters in a string,
+      not its size in bytes.
     Remarks: 
     Returns: 
     Value: 
@@ -41172,53 +42690,6 @@ MonoBehaviour:
     - message
     ParamDocs: []
     Summary: Retrieves the last VoiceReceiversMessage for a player.
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: Configuration
-    MemberName: LoadFromXml
-    Kind: Method
-    ParamCount: 1
-    ParamNames:
-    - filePath
-    ParamDocs:
-    - Path to config file
-    Summary: Read config from file. If no file is found create a default config file
-      at filePath
-    Remarks: 
-    Returns: 
-    Value: 
-    Examples: []
-    TypeParamNames: []
-    TypeParamDocs: []
-    ExceptionCrefs: []
-    ExceptionDocs: []
-    SeeCrefs: []
-    SeeAlsoCrefs: []
-    Since: 
-    ObsoleteMsg: 
-    Platforms: []
-  - TypeFullName: 
-    MemberName: ProcessEnvironmentalOverrides
-    Kind: Method
-    ParamCount: 0
-    ParamNames: []
-    ParamDocs: []
-    Summary: "This code will override what is written in the config.xml if it finds\n
-      an Environmental Variable with the same name as a public config field.\n\n
-      On windows you can test this in the console:\n    $env:PeerLimit = \"256\"\n  
-      .\\BasisNetworkConsole.exe\n But it is intended to allow Linux admins to override
-      defaults during launch."
     Remarks: 
     Returns: 
     Value: 

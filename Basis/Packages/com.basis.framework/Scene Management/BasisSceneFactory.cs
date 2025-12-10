@@ -125,13 +125,13 @@ public static class BasisSceneFactory
 
         BasisDebug.Log("Mixer group assigned to all scene AudioSources.");
     }
-    public static void SpawnPlayer(BasisLocalPlayer Basis)
+    public static void SpawnPlayer(BasisLocalPlayer localPlayer)
     {
         BasisDebug.Log("Spawning Player");
         RequestSpawnPoint(out Vector3 position, out Quaternion rotation);
-        if (Basis != null)
+        if (localPlayer != null)
         {
-            Basis.Teleport(position, rotation);
+            localPlayer.Teleport(position, rotation);
         }
         else
         {

@@ -1289,8 +1289,6 @@ namespace LiteNetLib
                 _peersLock.ExitReadLock();
             }
         }
-
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         /// <summary>
         /// Send data to all connected peers (channel - 0)
         /// </summary>
@@ -1350,8 +1348,6 @@ namespace LiteNetLib
             message.CopyTo(new Span<byte>(packet.RawData, headerSize, message.Length));
             return SendRawAndRecycle(packet, remoteEndPoint) > 0;
         }
-#endif
-
         /// <summary>
         /// Start logic thread and listening on available port
         /// </summary>
@@ -1622,8 +1618,6 @@ namespace LiteNetLib
                 return peer;
             }
         }
-
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         /// <summary>
         /// Connect to remote host
         /// </summary>
@@ -1663,8 +1657,6 @@ namespace LiteNetLib
                 return peer;
             }
         }
-#endif
-
         /// <summary>
         /// Force closes connection and stop all threads.
         /// </summary>

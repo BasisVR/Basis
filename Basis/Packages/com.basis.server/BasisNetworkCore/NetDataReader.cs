@@ -447,13 +447,9 @@ namespace Basis.Network.Core {
         
         public Guid GetGuid()
         {
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
-            var result =  new Guid(_data.AsSpan(_position, 16));
+            var result = new Guid(_data.AsSpan(_position, 16));
             _position += 16;
             return result;
-#else
-            return new Guid(GetBytesWithLength());
-#endif
         }
 
         public ArraySegment<byte> GetBytesSegment(int count)
@@ -484,19 +480,17 @@ namespace Basis.Network.Core {
         //     return obj;
         // }
 
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlySpan<byte> GetRemainingBytesSpan()
         {
             return new ReadOnlySpan<byte>(_data, _position, _dataSize - _position);
         }
-        
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlyMemory<byte> GetRemainingBytesMemory()
         {
             return new ReadOnlyMemory<byte>(_data, _position, _dataSize - _position);
         }
-#endif
 
         public byte[] GetRemainingBytes()
         {

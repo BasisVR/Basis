@@ -306,6 +306,7 @@ public class BasisHandHeldCameraUI
                 button = OverrideDesktopOutput
             });
 
+
         //Remove Selfie code
 
         if (DepthModeAutoButton != null)

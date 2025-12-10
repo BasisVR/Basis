@@ -27,23 +27,6 @@ namespace Basis.Scripts.Device_Management.Devices
         /// Boot modes that should attempt XR loader initialization.
         /// </summary>
         public string[] ActiveOnModes = new string[] { BasisConstants.OpenVRLoader, BasisConstants.OpenXRLoader };
-
-        /// <summary>
-        /// Refreshes cached references to <see cref="XRGeneralSettings"/> and its <see cref="XRManagerSettings"/>.
-        /// Safe to call repeatedly.
-        /// </summary>
-        public void ReInitalizeCheck()
-        {
-            if (XRGeneralSettings.Instance != null)
-            {
-                xRGeneralSettings = XRGeneralSettings.Instance;
-                if (xRGeneralSettings.Manager != null)
-                {
-                    xRManagerSettings = xRGeneralSettings.Manager;
-                }
-            }
-        }
-
         /// <summary>
         /// Attempts to begin XR loading if the provided boot <paramref name="Mode"/> is in <see cref="ActiveOnModes"/>.
         /// Kicks off a coroutine to initialize and start subsystems.
@@ -55,30 +38,23 @@ namespace Basis.Scripts.Device_Management.Devices
             if (ActiveOnModes.Contains(Mode))
             {
                 BasisDebug.Log($"Starting Attempt of load LoadXR {Mode}", BasisDebug.LogTag.Device);
-                ReInitalizeCheck();
+                List<XRLoader> Loaders = AvaliableLoaders;
+
+                foreach (XRLoader loader in Loaders)
+                {
+                    if (loader == null)
+                    {
+                        continue;
+                    }
+                    if (loader.name != Mode)
+                    {
+                        xRManagerSettings.TryRemoveLoader(loader);
+                    }
+                }
                 BasisDeviceManagement.Instance.StartCoroutine(LoadXR());
                 return true;
             }
             return false;
-        }
-
-        /// <summary>
-        /// Removes an active XR loader that matches the given <paramref name="BasisBootedMode"/>.
-        /// Useful when switching back to non-XR modes.
-        /// </summary>
-        /// <param name="BasisBootedMode">Name of the loader/mode to remove.</param>
-        public void DisableDeviceManagerSolution(string BasisBootedMode)
-        {
-            ReInitalizeCheck();
-            IReadOnlyList<XRLoader> Loaders = xRManagerSettings.activeLoaders;
-            foreach (XRLoader loader in Loaders)
-            {
-                if (loader?.name == BasisBootedMode.ToString())
-                {
-                    xRManagerSettings.TryRemoveLoader(loader);
-                    return;
-                }
-            }
         }
 
         /// <summary>
@@ -102,6 +78,7 @@ namespace Basis.Scripts.Device_Management.Devices
             else
             {
                 BasisDebug.LogError("No Active Loader Present! falling back to desktop!");
+                result = BasisConstants.Desktop;
             }
 
             BasisDebug.Log($"Found Loader {result}", BasisDebug.LogTag.Device);
@@ -129,6 +106,25 @@ namespace Basis.Scripts.Device_Management.Devices
                     xRManagerSettings.DeinitializeLoader();
                 }
             }
+        }
+        public List<XRLoader> AvaliableLoaders;
+        public void Initalize()
+        {
+            if (XRGeneralSettings.Instance != null)
+            {
+                xRGeneralSettings = XRGeneralSettings.Instance;
+                if (xRGeneralSettings.Manager != null)
+                {
+                    xRManagerSettings = xRGeneralSettings.Manager;
+                    AvaliableLoaders = xRManagerSettings.activeLoaders.ToList();
+                }
+            }
+        }
+        public void DeInitalize()
+        {
+#if UNITY_EDITOR
+            xRManagerSettings.TrySetLoaders(AvaliableLoaders);
+#endif
         }
     }
 }

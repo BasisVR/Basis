@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using Basis.Scripts.Device_Management;
-using Basis.Scripts.UI.UI_Panels;
 using UnityEngine;
 
 namespace Basis.Scripts.UI
@@ -14,7 +13,7 @@ namespace Basis.Scripts.UI
         {
             BasisUINeedsVisibleTrackers.sceneInstance = this;
         }
-        
+
         private void OnDisable()
         {
             BasisUINeedsVisibleTrackers.sceneInstance = null;
@@ -38,27 +37,27 @@ namespace Basis.Scripts.UI
             }
         }
     }
-    
+
     public class BasisUINeedsVisibleTrackers
     {
         public static BasisTrackerVisibilityHandler sceneInstance;
-        
+
         public static BasisUINeedsVisibleTrackers Instance
         {
             get { return instance ??= new BasisUINeedsVisibleTrackers(); }
         }
         private static BasisUINeedsVisibleTrackers instance;
-        private HashSet<BasisUIBase> requesters = new();
-        
+        private HashSet<MonoBehaviour> requesters = new();
+
         public bool ShouldBeVisible => requesters.Count > 0;
 
-        public void Add(BasisUIBase requester)
+        public void Add(MonoBehaviour requester)
         {
             requesters.Add(requester);
             if (sceneInstance) sceneInstance.VerifyAtEndOfFrame();
         }
 
-        public void Remove(BasisUIBase requester)
+        public void Remove(MonoBehaviour requester)
         {
             requesters.Remove(requester);
             if (sceneInstance) sceneInstance.VerifyAtEndOfFrame();

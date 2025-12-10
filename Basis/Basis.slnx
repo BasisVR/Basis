@@ -38,13 +38,15 @@
   <Project Path="SteamVR.csproj" />
   <Project Path="com.gator-dragon-games.jigglephysics.editor.csproj" />
   <Project Path="Unity.XR.CoreUtils.csproj" />
+  <Project Path="Unity.RenderPipelines.Universal.Editor.Tests.csproj" />
   <Project Path="Unity.Searcher.Editor.csproj" />
-  <Project Path="Unity.ResourceManager.csproj" />
   <Project Path="Unity.XR.Hands.csproj" />
+  <Project Path="Unity.ResourceManager.csproj" />
   <Project Path="UnityEditor.TestRunner.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.Runtime.csproj" />
   <Project Path="BasisSDKEditor.csproj" />
   <Project Path="com.gator-dragon-games.jigglephysics.csproj" />
+  <Project Path="Unity.UnifiedRayTracing.Runtime.csproj" />
   <Project Path="BasisSerializer.OdinSerializer.csproj" />
   <Project Path="BasisNetworkServer.csproj" />
   <Project Path="Unity.VisualEffectGraph.Runtime.csproj" />
@@ -58,7 +60,6 @@
   <Project Path="Unity.TextMeshPro.csproj" />
   <Project Path="Unity.TextMeshPro.Editor.csproj" />
   <Project Path="SteamVR_Input_Editor.csproj" />
-  <Project Path="Unity.Rendering.LightTransport.Runtime.csproj" />
   <Project Path="Unity.Services.Analytics.Editor.csproj" />
   <Project Path="Unity.Burst.Editor.csproj" />
   <Project Path="Meta.XR.Editor.Tags.csproj" />
@@ -68,6 +69,7 @@
   <Project Path="Meta.XR.Editor.ToolingSupport.csproj" />
   <Project Path="BasisCommon.csproj" />
   <Project Path="UnityEditor.UI.csproj" />
+  <Project Path="Unity.RenderPipelines.Universal.2D.Editor.Overrides.csproj" />
   <Project Path="Meta.XR.Editor.PlayCompanion.csproj" />
   <Project Path="Meta.XR.Editor.Reflection.csproj" />
   <Project Path="com.cqf.urpvolumetricfog.editor.csproj" />
@@ -123,6 +125,7 @@
   <Project Path="BasisSettings.csproj" />
   <Project Path="Unity.Services.Core.Analytics.csproj" />
   <Project Path="Unity.EditorCoroutines.Editor.csproj" />
+  <Project Path="Unity.RenderPipelines.Universal.Runtime.Tests.csproj" />
   <Project Path="SteamAudioUnityEditor.csproj" />
   <Project Path="BasisOpenXR.csproj" />
   <Project Path="BasisOpenVR.csproj" />
@@ -148,14 +151,15 @@
   <Project Path="BasisConsoleDisplay.csproj" />
   <Project Path="UnityEngine.XR.LegacyInputHelpers.csproj" />
   <Project Path="Unity.XR.OpenXR.Features.RuntimeDebugger.Editor.csproj" />
-  <Project Path="Unity.Rendering.LightTransport.Editor.csproj" />
   <Project Path="Unity.InputSystem.DocCodeSamples.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.Shaders.csproj" />
   <Project Path="Unity.RenderPipelines.Core.Runtime.Shared.csproj" />
+  <Project Path="Unity.InternalAPIEngineBridge.004.csproj" />
   <Project Path="Meta.XR.Editor.StatusMenu.csproj" />
   <Project Path="Unity.Toolchain.Linux-x86_64.csproj" />
   <Project Path="Unity.Sysroot.Linux_x86_64.csproj" />
   <Project Path="Unity.2D.Sprite.AIIntegration.Editor.csproj" />
+  <Project Path="Unity.RenderPipelines.Core.Editor.Shared.csproj" />
   <Project Path="Unity.Services.Core.Networking.csproj" />
   <Project Path="Unity.MemoryProfiler.csproj" />
   <Project Path="BasisEventDriver.csproj" />
@@ -169,12 +173,12 @@
   <Project Path="UnityEditor.SpatialTracking.csproj" />
   <Project Path="BasisDebug.csproj" />
   <Project Path="BasisNetworkClient.csproj" />
+  <Project Path="Unity.Rendering.LightTransport.Editor.csproj" />
   <Project Path="Unity.Services.Core.Environments.csproj" />
   <Project Path="Unity.Collections.Editor.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.Config.Runtime.csproj" />
   <Project Path="Unity.RenderPipelines.ShaderGraph.ShaderGraphLibrary.csproj" />
   <Project Path="Unity.RenderPipelines.Core.ShaderLibrary.csproj" />
   <Project Path="Unity.XR.OpenXR.Features.OculusQuestSupport.csproj" />
-  <Project Path="Unity.RenderPipelines.Core.Editor.Shared.csproj" />
   <Project Path="RNNoiseIntergration.csproj" />
 </Solution>

@@ -217,7 +217,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 await CreateAvatar(AlwaysRequestedMode, AlwaysRequestedAvatar);
             }
         }
-
+        public bool IsLoadingAnAvatar = false;
         /// <summary>
         /// Creates or replaces the current avatar using the provided load mode and bundle.
         /// Applies user visibility settings and distance gating before loading,
@@ -228,6 +228,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <returns>A task that completes when the avatar is loaded or a fallback is applied.</returns>
         public async Task CreateAvatar(byte Mode, BasisLoadableBundle BasisLoadableBundle)
         {
+            IsLoadingAnAvatar = true;
             if (BasisLoadableBundle == null ||
                 string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
@@ -252,10 +253,11 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
                     BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero,Quaternion.identity);
+                    Vector3.zero, Quaternion.identity);
             }
 
             LastComputedMeshLod = -1;
+            IsLoadingAnAvatar = false;
         }
 
         #endregion

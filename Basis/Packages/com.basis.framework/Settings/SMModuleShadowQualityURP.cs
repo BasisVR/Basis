@@ -10,7 +10,7 @@ public class SMModuleShadowQualityURP : BasisSettingsBase
         Asset.cascade2Split = 0.12f;                // 12% for 2-cascade setting
         Asset.cascade3Split = new Vector2(0.12f, 0.5f);  // 12% and 50% for 3-cascade setting
         Asset.cascade4Split = new Vector3(0.12f, 0.3f, 0.6f); // 12%, 30%, and 60% for 4-cascade setting
-        switch (optionValue)
+        switch (optionValue.ToLower())
         {
             case "very low":
                 Asset.mainLightShadowmapResolution = 256;

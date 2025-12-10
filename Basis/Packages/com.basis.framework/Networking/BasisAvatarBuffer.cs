@@ -1,5 +1,6 @@
 using System;
-using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using Unity.Collections;
 using Unity.Mathematics;
 
@@ -11,14 +12,21 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public const int MuscleCount = 95;
 
         public quaternion Rotation = quaternion.identity;
-        public float3 Scale = new float3(1, 1, 1);
-        public float3 Position = new float3(0, 0, 0);
+        public float3 Scale = new float3(1f, 1f, 1f);
+        public float3 Position = new float3(0f, 0f, 0f);
         public NativeArray<float> Muscles;
         public double SecondsInterval = 0.01;
 
         public bool IsDisposed = false;
 
-        /// <summary>Ensure NativeArray is allocated correctly; does not clear existing values.</summary>
+        // Pool internals (intrusive lock-free stack)
+        internal BasisAvatarBuffer NextInPool;
+        internal int PooledFlag; // 0 = not in pool, 1 = in pool
+
+        /// <summary>
+        /// Ensure NativeArray is allocated with correct size; does not clear existing values.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureAllocated()
         {
             if (IsDisposed)
@@ -28,12 +36,19 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             if (!Muscles.IsCreated || Muscles.Length != MuscleCount)
             {
-                if (Muscles.IsCreated) Muscles.Dispose();
-                Muscles = new NativeArray<float>(MuscleCount, Allocator.Persistent); // values are zeroed by default
+                if (Muscles.IsCreated)
+                {
+                    Muscles.Dispose();
+                }
+
+                Muscles = new NativeArray<float>(MuscleCount, Allocator.Persistent);
             }
         }
 
-        /// <summary>Reset fields to defaults. Optionally zero the muscle array.</summary>
+        /// <summary>
+        /// Reset fields to defaults. Optionally zero the muscle array.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Reset(bool clearMuscles = false)
         {
             if (IsDisposed)
@@ -48,94 +63,140 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             Position = new float3(0f, 0f, 0f);
             SecondsInterval = 0.01;
 
-            if (clearMuscles)
+            if (clearMuscles && Muscles.IsCreated)
             {
-                // Simple safe clear; if you need speed, switch to UnsafeUtility.MemClear.
-                for (int i = 0; i < Muscles.Length; i++) Muscles[i] = 0f;
+                // Simple safe clear; switch to UnsafeUtility.MemClear if you need even more speed.
+                for (int i = 0; i < Muscles.Length; i++)
+                {
+                    Muscles[i] = 0f;
+                }
             }
         }
 
         public void Dispose()
         {
-            if (IsDisposed) return;
-            if (Muscles.IsCreated) Muscles.Dispose();
+            if (IsDisposed)
+                return;
+
+            if (Muscles.IsCreated)
+            {
+                Muscles.Dispose();
+                Muscles = default;
+            }
+
             IsDisposed = true;
+            NextInPool = null;
+            // PooledFlag intentionally not reset here; disposed objects shouldn't be pooled again.
         }
     }
 
-    /// <summary>Thread-safe pool for BasisAvatarBuffer (class). Guards null + double-release.</summary>
+    /// <summary>
+    /// High-performance, lock-free, thread-safe pool for BasisAvatarBuffer.
+    /// </summary>
     public static class BasisAvatarBufferPool
     {
-        private static readonly Stack<BasisAvatarBuffer> _pool = new Stack<BasisAvatarBuffer>();
-        private static readonly HashSet<BasisAvatarBuffer> _inPool = new HashSet<BasisAvatarBuffer>(); // detect double-release
-        private static readonly object _lock = new object();
+        // Intrusive lock-free stack: head points directly to a BasisAvatarBuffer,
+        // which contains NextInPool to form a singly-linked list.
+        private static BasisAvatarBuffer _head;
 
+        /// <summary>
+        /// Get a buffer from the pool or create a new one.
+        /// Lock-free using CAS on the head pointer.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static BasisAvatarBuffer Get()
         {
-            lock (_lock)
+            while (true)
             {
-                while (_pool.Count > 0)
+                var head = _head;
+
+                if (head == null)
                 {
-                    var item = _pool.Pop();
-                    if (item == null)
-                    {
-                        BasisDebug.LogError("Null buffer popped from pool!");
-                        continue;
-                    }
-
-                    if (!_inPool.Remove(item))
-                    {
-                        BasisDebug.LogWarning("Buffer not tracked properly in _inPool.");
-                    }
-
-                    item.Reset(clearMuscles: false);
-                    return item;
+                    // Pool empty: allocate a fresh buffer.
+                    var fresh = new BasisAvatarBuffer();
+                    fresh.Reset(clearMuscles: false);
+                    return fresh;
                 }
-            }
 
-            var fresh = new BasisAvatarBuffer();
-            fresh.Reset(clearMuscles: false);
-            return fresh;
+                var next = head.NextInPool;
+
+                // Try to pop: if _head == head, set it to next.
+                if (Interlocked.CompareExchange(ref _head, next, head) == head)
+                {
+                    head.NextInPool = null;
+
+                    // Mark as out of pool.
+                    Interlocked.Exchange(ref head.PooledFlag, 0);
+
+                    head.Reset(clearMuscles: false);
+                    return head;
+                }
+
+                // CAS failed due to contention – brief spin.
+                Thread.SpinWait(1);
+            }
         }
+
+        /// <summary>
+        /// Return a buffer to the pool.
+        /// Double-release detection via PooledFlag; lock-free push via CAS.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Release(BasisAvatarBuffer item)
         {
             if (item == null)
             {
-                BasisDebug.LogError("released Avatar Buffer was null");
-                return; // don’t push nulls
-            }
-            if (_inPool.Contains(item))
-            {
-                BasisDebug.LogError("Double release detected!");
+                BasisDebug.LogError("Released BasisAvatarBuffer was null.");
                 return;
             }
-            lock (_lock)
+
+            if (item.IsDisposed)
             {
-                if (_inPool.Contains(item))
+                BasisDebug.LogError("Attempted to release a disposed BasisAvatarBuffer.");
+                return;
+            }
+
+            // Double-release detection: if it was already 1, it's already in the pool.
+            if (Interlocked.Exchange(ref item.PooledFlag, 1) == 1)
+            {
+                BasisDebug.LogError("Double release detected for BasisAvatarBuffer.");
+                return;
+            }
+
+            item.Reset(clearMuscles: false);
+
+            while (true)
+            {
+                var head = _head;
+                item.NextInPool = head;
+
+                // Try to push: if _head == head, set it to item.
+                if (Interlocked.CompareExchange(ref _head, item, head) == head)
                 {
-                    // Optional: log once to help catch double-release bugs.
-                    // Debug.LogWarning("BasisAvatarBuffer double-release detected.");
                     return;
                 }
 
-                // Reset lightweight fields; keep the persistent Muscles allocation.
-                item.Reset(clearMuscles: false);
-
-                _pool.Push(item);
-                _inPool.Add(item);
+                // CAS failed – another thread changed the head; retry.
+                Thread.SpinWait(1);
             }
         }
 
+        /// <summary>
+        /// Dispose all buffers in the pool and clear it.
+        /// Caller must ensure no concurrent Get/Release while deinitializing.
+        /// </summary>
         public static void Deinitialize()
         {
-            lock (_lock)
+            // Detach the current stack in one atomic op so new Get/Release calls
+            // see a null head (or you just don't call them anymore after this).
+            var head = Interlocked.Exchange(ref _head, null);
+
+            while (head != null)
             {
-                while (_pool.Count > 0)
-                {
-                    var item = _pool.Pop();
-                    if (item != null) item.Dispose();
-                }
-                _inPool.Clear();
+                var next = head.NextInPool;
+                head.NextInPool = null;
+                head.Dispose();
+                head = next;
             }
         }
     }

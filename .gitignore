@@ -18,6 +18,9 @@
 # Gradle cache directory
 .gradle/
 
+# Oculus
+*.exe.meta
+
 # Vim
 *.swp
 *.swo

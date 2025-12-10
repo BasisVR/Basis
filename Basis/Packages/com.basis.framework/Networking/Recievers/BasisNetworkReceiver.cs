@@ -50,7 +50,7 @@ namespace Basis.Scripts.Networking.Receivers
 
         private float interpolationTime = 0f; // 0..1 over current First→Last window
 
-        private readonly List<BasisAvatarBuffer> _staged = new List<BasisAvatarBuffer>(16);
+        private readonly Queue<BasisAvatarBuffer> _staged  = new Queue<BasisAvatarBuffer>(16);
 
         public bool HasBufferHolds;
         public bool PassedSimulate = false;
@@ -61,11 +61,6 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public void Compute(float unscaledDeltaTime)
         {
-            if (Player == null)
-            {
-                BasisDebug.LogError("Player lost", BasisDebug.LogTag.Remote);
-                return;
-            }
             if (Player.BasisAvatar == null) return; // expected briefly on join
             if (Player.BasisAvatar.Animator == null)
             {
@@ -79,51 +74,83 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             // 1) Pull network packets to main-thread staging
-            PumpQueueToStaging();
+            while (PayloadQueue.TryDequeue(out var buffer))
+            {
+                _staged.Enqueue(buffer);
+            }
+
+            const int MaxStage = 64;
+            if (_staged.Count > MaxStage)
+            {
+                int drop = _staged.Count - MaxStage;
+                DropOldestFromStaging(drop);
+                BasisDebug.LogWarning($"Staging was larger than 64; dropping {drop}");
+            }
 
             // 2) Ensure we have a valid interpolation window (First -> Last)
-            BuildOrAdvanceWindow();
+            // Seed First if missing
+            if (!BufferHolder.HasCurrentBuffer)
+            {
+                TrySeedFirstFromStaging();
+            }
+
+            // Fill Last if missing
+            if (!BufferHolder.HasNextBuffer)
+            {
+                TrySetLastFromStaging();
+            }
+
+            HasBufferHolds = BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer;
+            if (!HasBufferHolds)
+            {
+                return;
+            }
+
+            // Advance window while consumed and we have staged frames
+            while (interpolationTime >= 1f && _staged.Count != 0)
+            {
+                BufferHolder.NextBecomesCurrent();
+
+                interpolationTime = 0f;
+
+                TrySetLastFromStaging();
+
+                if (!(BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer))
+                {
+                    break;
+                }
+            }
+
+            // If staging backlog is large, drop old frames to reduce latency
+            if (_staged.Count > BufferCapacityBeforeCleanup)
+            {
+                int drop = _staged.Count - BufferCapacityBeforeCleanup;
+                DropOldestFromStaging(drop);
+            }
 
             HasBufferHolds = BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer;
 
             // 3) If we have a window, compute interpolation fraction and feed the compute phase
             if (HasBufferHolds)
             {
-                var first = BufferHolder.RequestCurrent();
-                var last = BufferHolder.RequestNext();
+                var first = BufferHolder.Current;
+                var last = BufferHolder.Next;
 
-                // Extra guard: refuse to simulate if either muscle array is invalid
-                if (!IsValidMuscleArray(first.Muscles) || !IsValidMuscleArray(last.Muscles))
-                {
-                    // Attempt to repair once (in case they slipped in through legacy buffers)
-                    ValidateOrFixup(ref first);
-                    ValidateOrFixup(ref last);
-
-                    if (!IsValidMuscleArray(first.Muscles) || !IsValidMuscleArray(last.Muscles))
-                    {
-                        // Drop this step; try again next frame
-                        PassedSimulate = false;
-                        return;
-                    }
-
-                    // If we fixed them here, store back so Holder keeps the repaired arrays
-                    BufferHolder.SetCurrent(ref first);
-                    BufferHolder.SetNext(ref last);
-                }
-
-                double windowDuration =
-                    last.SecondsInterval > 0 ? last.SecondsInterval :
-                    first.SecondsInterval > 0 ? first.SecondsInterval :
-                    (1.0 / 60.0);
+                double windowDuration =last.SecondsInterval > 0 ? last.SecondsInterval :first.SecondsInterval > 0 ? first.SecondsInterval : (1.0 / 60.0);
 
                 if (!double.IsFinite(windowDuration) || windowDuration <= 1e-6) windowDuration = 1e-3;
 
                 double step = Math.Max(unscaledDeltaTime, 0.0);
                 interpolationTime += (float)(step / windowDuration);
-                if (!float.IsFinite(interpolationTime)) interpolationTime = 0f;
 
-                if (interpolationTime > 1f) interpolationTime = 1f;
-                if (interpolationTime < 0f) interpolationTime = 0f;
+                if (!float.IsFinite(interpolationTime))
+                {
+                    interpolationTime = 0f;
+                }
+                else
+                {
+                    interpolationTime = Mathf.Clamp01(interpolationTime);
+                }
 
                 PassedSimulate = BasisRemoteNetworkDriver.SetInputs(
                     playerId, Player.BasisAvatar.HumanScale,
@@ -140,7 +167,6 @@ namespace Basis.Scripts.Networking.Receivers
         /// Main-thread application step. Pulls posed outputs from the driver and applies
         /// body position/rotation/muscles to the avatar via PoseHandler.
         /// </summary>
-        [BurstCompile]
         public void Apply()
         {
             if (!PassedSimulate) return;
@@ -284,9 +310,9 @@ namespace Basis.Scripts.Networking.Receivers
             if (_staged != null)
             {
                 int Count = _staged.Count;
-                for (int i = 0; i < Count; i++)
+                for (int Index = 0; Index < Count; Index++)
                 {
-                    BasisAvatarBufferPool.Release(_staged[i]);
+                    BasisAvatarBufferPool.Release(_staged.Dequeue());
                 }
                 _staged.Clear();
             }
@@ -326,7 +352,9 @@ namespace Basis.Scripts.Networking.Receivers
                 if (missing > 0)
                 {
                     for (int i = 0; i < missing; i++)
+                    {
                         AudioReceiverModule.OnDecodeSilence();
+                    }
                 }
             }
 
@@ -347,65 +375,11 @@ namespace Basis.Scripts.Networking.Receivers
             playerId = PlayerID;
             hasID = true;
         }
-
-        // ---------------- staging/window management ----------------
-
-        private void PumpQueueToStaging()
-        {
-            while (PayloadQueue.TryDequeue(out var buffer))
-            {
-                _staged.Add(buffer);
-            }
-
-            const int MaxStage = 64;
-            if (_staged.Count > MaxStage)
-            {
-                int drop = _staged.Count - MaxStage;
-                DropOldestFromStaging(drop);
-                BasisDebug.LogWarning($"Staging was larger than 64; dropping {drop}");
-            }
-        }
-
-        private void BuildOrAdvanceWindow()
-        {
-            // Seed First if missing
-            if (!BufferHolder.HasCurrentBuffer)
-                TrySeedFirstFromStaging();
-
-            // Fill Last if missing
-            if (!BufferHolder.HasNextBuffer)
-                TrySetLastFromStaging();
-
-            HasBufferHolds = BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer;
-            if (!HasBufferHolds) return;
-
-            // Advance window while consumed and we have staged frames
-            while (interpolationTime >= 1f && _staged.Count != 0)
-            {
-                BufferHolder.NextBecomesCurrent();
-
-                interpolationTime = 0f;
-
-                TrySetLastFromStaging();
-
-                if (!(BufferHolder.HasCurrentBuffer && BufferHolder.HasNextBuffer))
-                    break;
-            }
-
-            // If staging backlog is large, drop old frames to reduce latency
-            if (_staged.Count > BufferCapacityBeforeCleanup)
-            {
-                int drop = _staged.Count - BufferCapacityBeforeCleanup;
-                DropOldestFromStaging(drop);
-            }
-        }
-
         private void TrySeedFirstFromStaging()
         {
             while (_staged.Count > 0)
             {
-                var first = _staged[0];
-                _staged.RemoveAt(0);
+                var first = _staged.Dequeue();
 
                 if (ValidateOrFixup(ref first))
                 {
@@ -424,8 +398,7 @@ namespace Basis.Scripts.Networking.Receivers
 
             while (_staged.Count > 0)
             {
-                var last = _staged[0];
-                _staged.RemoveAt(0);
+                var last = _staged.Dequeue();
 
                 if (ValidateOrFixup(ref last))
                 {
@@ -443,9 +416,9 @@ namespace Basis.Scripts.Networking.Receivers
             count = Mathf.Min(count, _staged.Count);
             for (int i = 0; i < count; i++)
             {
-                BasisAvatarBufferPool.Release(_staged[i]);
+                var buf = _staged.Dequeue();
+                BasisAvatarBufferPool.Release(buf);
             }
-            _staged.RemoveRange(0, count);
         }
 
         // ---------------- validation / fixup ----------------
@@ -453,8 +426,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// <summary>
         /// True if the NativeArray is created and has at least 95 muscle values.
         /// </summary>
-        private static bool IsValidMuscleArray(NativeArray<float> arr)
-            => arr.IsCreated && arr.Length >= 95;
+        private static bool IsValidMuscleArray(NativeArray<float> arr) => arr.IsCreated && arr.Length >= 95;
 
         /// <summary>
         /// Validates a buffer and attempts to repair fixable fields in-place.

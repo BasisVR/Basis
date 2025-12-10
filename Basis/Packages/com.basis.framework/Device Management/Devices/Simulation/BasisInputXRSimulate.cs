@@ -37,6 +37,10 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
         public float LerpAmount = 0.1f;
 
         /// <summary>
+        /// turning this on will mean that the positions get scaled relative to the overriden height.
+        /// </summary>
+        public bool AccountForScale = false;
+        /// <summary>
         /// Polls the simulated device pose (and optional jitter), updates scaled coordinates,
         /// and forwards values to the bound bone control when a role is assigned.
         /// </summary>
@@ -66,6 +70,11 @@ namespace Basis.Scripts.Device_Management.Devices.Simulation
             ScaledDeviceCoord.position /= SPTDS;
             ScaledDeviceCoord.position = OffsetCoords.position + (ScaledDeviceCoord.position * SPTDS);
             ScaledDeviceCoord.rotation = LocalRawRotation;
+
+            if(AccountForScale)
+            {
+                ScaledDeviceCoord.position *= BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            }
 
             if (hasRoleAssigned)
             {

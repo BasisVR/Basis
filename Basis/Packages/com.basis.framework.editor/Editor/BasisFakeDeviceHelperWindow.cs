@@ -32,7 +32,7 @@ public class BasisFakeDeviceHelperWindow : EditorWindow
         if (GUILayout.Button("Submit"))
         {
             BasisSimulateXR Sim = BasisMenuItemsEditor.FindSimulate();
-            Sim.CreatePhysicalTrackedDevice(TrackerUniquePhysicalName, TrackerPhysicalName, BasisBoneTrackedRole, Overridebool);
         }
     }
+
 }

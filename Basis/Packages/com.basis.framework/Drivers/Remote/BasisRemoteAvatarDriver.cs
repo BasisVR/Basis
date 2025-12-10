@@ -93,7 +93,15 @@ namespace Basis.Scripts.Drivers
             var JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
             foreach (JiggleRig Rig in JiggleRigs)
             {
-                Rig.HasAnimatedParameters = false;
+                JiggleRigData Data = Rig.GetJiggleRigData();
+                if (Data.jiggleTreeInputParameters.collisionToggle)
+                {
+                    Rig.HasAnimatedParameters = true;
+                }
+                else
+                {
+                    Rig.HasAnimatedParameters = false;
+                }
                 Rig.OnInitialize();
             }
 

@@ -18,7 +18,7 @@
     "com.unity.toolchain.macos-arm64-linux-x86_64": "2.0.5",
     "com.unity.toolchain.win-x86_64-linux-x86_64": "2.0.11",
     "com.unity.visualeffectgraph": "17.2.0",
-    "com.unity.xr.hands": "1.7.1",
+    "com.unity.xr.hands": "1.7.2",
     "com.unity.xr.management": "4.5.3",
     "com.unity.xr.openxr": "1.16.0",
     "com.valvesoftware.unity.openvr": "file:com.valvesoftware.unity.openvr-1.2.1.tgz",

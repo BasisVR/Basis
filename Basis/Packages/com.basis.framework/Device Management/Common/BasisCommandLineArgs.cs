@@ -12,7 +12,7 @@ namespace Basis.Scripts.Command_Line_Args
         /// <summary>
         /// Initializes the command line argument handling for disabling specific device manager solutions.
         /// </summary>
-        public static void Initialize(string[] BakedIn,out string ForcedDeviceManager)
+        public static void Initialize(string[] BakedIn, out string ForcedDeviceManager)
         {
             string[] args = Environment.GetCommandLineArgs();
             List<string> StringArgs = args.ToList();
@@ -40,8 +40,8 @@ namespace Basis.Scripts.Command_Line_Args
         {
             try
             {
-                BasisDeviceManagement.Instance.BasisXRManagement.DisableDeviceManagerSolution(mode);
-                BasisDebug.Log($"Device manager solution for mode {mode} has been successfully disabled.", BasisDebug.LogTag.Device);
+                //   BasisDeviceManagement.Instance.BasisXRManagement.DisableDeviceManagerSolution(mode);
+                //   BasisDebug.Log($"Device manager solution for mode {mode} has been successfully disabled.", BasisDebug.LogTag.Device);
             }
             catch (Exception ex)
             {

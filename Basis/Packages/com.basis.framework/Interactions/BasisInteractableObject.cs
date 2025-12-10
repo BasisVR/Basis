@@ -15,6 +15,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
     public abstract class BasisInteractableObject : MonoBehaviour
     {
         /// <summary>
+        /// Collider references used for range checks and interaction.
+        /// If set to a non-empty array, these colliders will be used as the interactable's colliders.
+        /// If empty or null, and a collider exists on the same GameObject, that collider will be used.
+        /// If empty or null, and no collider exists on the same GameObject, all child colliders will be used.
+        /// </summary>
+        [Tooltip("Optional, leave this empty to auto-detect colliders on self, or on children if none on self.")]
+        [SerializeField] private Collider[] _colliderRefs;
+
+        /// <summary>
         /// Collection of input sources bound to this interactable.
         /// </summary>
         public BasisInputSources Inputs = new(0);
@@ -178,10 +187,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public virtual void Awake()
         {
+            _colliderRefs = GetColliders();
             if (BasisLocalPlayer.PlayerReady)
+            {
                 SetupInputs();
+            }
             else
+            {
                 BasisLocalPlayer.OnLocalPlayerCreatedAndReady += SetupInputs;
+            }
         }
 
         /// <summary>
@@ -251,30 +265,53 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// Determines whether the interactable is within range of a source point.
         /// Uses collider if available, otherwise falls back to transform position.
         /// </summary>
-        /// <param name="source">The source position (e.g., controller).</param>
-        /// <param name="InteractRange">The maximum allowed range.</param>
+        /// <param name="source">The position of the interacting source (such as the player's hand controller or desktop user's head).</param>
+        /// <param name="interactRange">Base interaction range (will be extended for desktop players).</param>
         /// <returns>True if within range, false otherwise.</returns>
-        public virtual bool IsWithinRange(Vector3 source, float InteractRange)
+        public virtual bool IsWithinRange(Vector3 source, float interactRange)
         {
-            Collider collider = GetCollider();
-            if (collider != null)
+            float extraReach = 0;
+            if (Device_Management.BasisDeviceManagement.IsUserInDesktop())
             {
-                return Vector3.Distance(collider.ClosestPoint(source), source) <= InteractRange;
+                // Adding half the player's height mimics a VR user's arm reach.
+                extraReach = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
             }
-            return Vector3.Distance(transform.position, source) <= InteractRange;
+            return Vector3.Distance(GetClosestPoint(source), source) <= interactRange + extraReach;
+        }
+
+        public Vector3 GetClosestPoint(Vector3 source)
+        {
+            float closestDistanceSqr = float.MaxValue;
+            Vector3 closestPoint = transform.position;
+            for (int i = 0; i < _colliderRefs.Length; i++)
+            {
+                Collider childCollider = _colliderRefs[i];
+                Vector3 point = childCollider.ClosestPoint(source);
+                float distanceSqr = (point - source).sqrMagnitude;
+                if (distanceSqr < closestDistanceSqr)
+                {
+                    closestDistanceSqr = distanceSqr;
+                    closestPoint = point;
+                }
+            }
+            return closestPoint;
         }
 
         /// <summary>
         /// Gets the collider attached to this object if one exists.
         /// Override with cached reference when possible.
         /// </summary>
-        public virtual Collider GetCollider()
+        public Collider[] GetColliders()
         {
+            if (_colliderRefs != null && _colliderRefs.Length > 0)
+            {
+                return _colliderRefs;
+            }
             if (TryGetComponent(out Collider col))
             {
-                return col;
+                return new Collider[] { col };
             }
-            return null;
+            return GetComponentsInChildren<Collider>();
         }
 
         /// <summary>

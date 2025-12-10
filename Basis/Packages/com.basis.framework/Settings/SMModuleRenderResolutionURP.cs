@@ -1,6 +1,7 @@
 using Basis.Scripts.Device_Management;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
 public class SMModuleRenderResolutionURP : BasisSettingsBase
@@ -43,35 +44,18 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
         {
             XRSettings.useOcclusionMesh = true;
         }
-#if UNITY_ANDROID
-#else
         RenderScale = Option;
-        if (BasisDeviceManagement.StaticCurrentMode == BasisConstants.Desktop)
+        UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
+        /// the system allows us to scale the render resolution correctly, however gpu culling does not know about this
+        if (Asset.renderScale != RenderScale)
         {
-            UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
-            if (Asset.renderScale != RenderScale)
-            {
-                Asset.renderScale = RenderScale;
-            }
+            Asset.renderScale = RenderScale;
         }
-        else
-        {
-            UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
-            if (XRSettings.eyeTextureResolutionScale != Option)
-            {
-                XRSettings.eyeTextureResolutionScale = RenderScale;
-            }
-            /// the system allows us to scale the render resolution correctly, however gpu culling does not know about this
-            if (Asset.renderScale != 1)
-            {
-                Asset.renderScale = 1;
-            }
-        }
-#endif
     }
     public float foveatedRenderingLevel = 0;
     private void HandleFoveatedRendering(float value)
     {
+        BasisDebug.Log($"changing Foveated To {value}", BasisDebug.LogTag.Video);
         SubsystemManager.GetSubsystems<XRDisplaySubsystem>(xrDisplays);
 
         if (xrDisplays.Count == 0)
