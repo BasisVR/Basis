@@ -295,9 +295,7 @@ public class BasisHandHeldCameraUI
                 action = CameraButtonAction.Timer,
                 button = Timer
             });
-
         //Removed Nameplate code
-
         if (OverrideDesktopOutput != null)
             list.Add(new CameraButtonDescriptor
             {
@@ -305,10 +303,7 @@ public class BasisHandHeldCameraUI
                 action = CameraButtonAction.ToggleDesktopOutput,
                 button = OverrideDesktopOutput
             });
-
-
         //Remove Selfie code
-
         if (DepthModeAutoButton != null)
             list.Add(new CameraButtonDescriptor
             {
