@@ -485,10 +485,9 @@ MonoBehaviour:
   RightMousePressed: {fileID: -240064975923332847, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  DesktopLeftMove: {fileID: 405334284703550776, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  DesktopRightMove: {fileID: -8048210062446332474, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
+  KeyboardSensitivity: 5
   Input: {fileID: 297858091515769489}
   InputState:
     gripButton: 0

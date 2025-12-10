@@ -133,24 +133,6 @@
                     "initialStateCheck": true
                 },
                 {
-                    "name": "Desktop Left",
-                    "type": "Button",
-                    "id": "e030056a-bc4b-4cb1-bce1-8acf3cde04c9",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
-                    "name": "Desktop Right",
-                    "type": "Button",
-                    "id": "993c2420-16b9-4f6c-83f9-3b9ce0eb4edc",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Pointer Position",
                     "type": "Value",
                     "id": "1a52cb69-ee91-40d3-92fb-452be4a39647",
@@ -314,6 +296,83 @@
                     "action": "Look Delta",
                     "isComposite": false,
                     "isPartOfComposite": false
+                },
+                {
+                    "name": "IJKL",
+                    "id": "3fd3dff6-cec4-474e-afef-5d1d271d8914",
+                    "path": "Dpad",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Look Delta",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "up",
+                    "id": "51f1a2fe-df15-4c63-9ca9-5c7dedd8b1fa",
+                    "path": "<Keyboard>/i",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "All",
+                    "action": "Look Delta",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "down",
+                    "id": "c22f22f7-21df-4823-aa6d-72b010e8ce3a",
+                    "path": "<Keyboard>/k",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "All",
+                    "action": "Look Delta",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "d873943d-9125-47cf-ab81-d362f918a0ab",
+                    "path": "<Keyboard>/j",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "All",
+                    "action": "Look Delta",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "left",
+                    "id": "e813f13e-0fd7-4197-b61c-dcd1a7d5fb5b",
+                    "path": "<Keyboard>/comma",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "All",
+                    "action": "Look Delta",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "f10ccab4-8fab-44ac-beab-cf087f2a10d0",
+                    "path": "<Keyboard>/l",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "All",
+                    "action": "Look Delta",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "right",
+                    "id": "cdbdbce8-383b-4d95-99c6-332c6b25abba",
+                    "path": "<Keyboard>/period",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "All",
+                    "action": "Look Delta",
+                    "isComposite": false,
+                    "isPartOfComposite": true
                 },
                 {
                     "name": "",
@@ -554,28 +613,6 @@
                     "processors": "",
                     "groups": "",
                     "action": "MiddleMouse",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "20839d3c-32aa-4639-851e-33a180379edd",
-                    "path": "<Keyboard>/comma",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": ";All",
-                    "action": "Desktop Left",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
-                {
-                    "name": "",
-                    "id": "8ffec8d5-370f-450c-a506-664aa9124a55",
-                    "path": "<Keyboard>/period",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": ";All",
-                    "action": "Desktop Right",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
