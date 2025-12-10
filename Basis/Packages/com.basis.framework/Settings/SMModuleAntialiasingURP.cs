@@ -1,3 +1,5 @@
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 public class SMModuleAntialiasingURP : BasisSettingsBase
@@ -12,11 +14,20 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
         UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
         if (Camera == null)
         {
-            Camera = Camera.main;
-            Data = Camera.GetComponent<UniversalAdditionalCameraData>();
+            if (BasisLocalCameraDriver.Instance != null)
+            {
+                Camera = BasisLocalCameraDriver.Instance.Camera;
+                Data = BasisLocalCameraDriver.Instance.CameraData;
+            }
+            if (Camera == null)
+            {
+                Camera = Camera.main;
+                Camera.TryGetComponent<UniversalAdditionalCameraData>(out Data);
+            }
         }
-        if (Camera == null)
+        if (Camera == null || Data == null)
         {
+            BasisDebug.LogError("Missing Camera Or Data!");
             return;
         }
         BasisDebug.Log($"Antialiasing Changed to {optionValue}", BasisDebug.LogTag.Local);
