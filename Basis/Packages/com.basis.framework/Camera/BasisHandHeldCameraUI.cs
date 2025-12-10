@@ -296,7 +296,7 @@ public class BasisHandHeldCameraUI
                 button = Timer
             });
 
-        //nameplates went here
+        //Removed Nameplate code
 
         if (OverrideDesktopOutput != null)
             list.Add(new CameraButtonDescriptor
@@ -306,7 +306,7 @@ public class BasisHandHeldCameraUI
                 button = OverrideDesktopOutput
             });
 
-        //selfie went here
+        //Remove Selfie code
 
         if (DepthModeAutoButton != null)
             list.Add(new CameraButtonDescriptor
@@ -990,10 +990,10 @@ public class BasisHandHeldCameraUI
     public void ChangeVolumetricDensity(float value)
     {
 #if Basis_VOLUMETRIC_SUPPORTED
-    if (HHC.MetaData.VolumetricFogVolume != null)
-    {
-        HHC.MetaData.VolumetricFogVolume.density.value = value;
-    }
+        if (HHC.MetaData.VolumetricFogVolume != null)
+        {
+            HHC.MetaData.VolumetricFogVolume.density.value = value;
+        }
 #endif
     }
 
