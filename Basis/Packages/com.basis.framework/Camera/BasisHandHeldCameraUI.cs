@@ -152,6 +152,9 @@ public class BasisHandHeldCameraUI
     /// <summary>UI readout for field-of-view.</summary>
     public TextMeshProUGUI FOVOutput;
 
+    /// <summary>UI readout for Volumetric Fog.</summary>
+    public TextMeshProUGUI VolFogOutput;
+
     [Space(10)]
     /// <summary>Field-of-view slider.</summary>
     public Slider FOVSlider;
@@ -989,6 +992,7 @@ public class BasisHandHeldCameraUI
         if (HHC.MetaData.VolumetricFogVolume != null)
         {
             HHC.MetaData.VolumetricFogVolume.density.value = value;
+            VolFogOutput.text = value.ToString("F1");
         }
 #endif
     }

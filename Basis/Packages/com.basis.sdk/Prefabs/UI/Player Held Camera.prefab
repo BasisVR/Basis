@@ -338,7 +338,7 @@ GameObject:
   - component: {fileID: 5550994410080703016}
   - component: {fileID: 5150294346835305957}
   m_Layer: 9
-  m_Name: Saturation_Output
+  m_Name: VolFog_Output
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3516,7 +3516,7 @@ GameObject:
   - component: {fileID: 8566268101629294924}
   - component: {fileID: 5209653681830488067}
   m_Layer: 9
-  m_Name: Saturation Label
+  m_Name: Volumetric Label
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7528,6 +7528,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6399811493597755084
 GameObject:
@@ -8547,6 +8548,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 99141fe8e12cbb74594d89d9ebab533b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -8573,7 +8575,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 5230811529794356320}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 1028902784308609428
@@ -8671,6 +8672,7 @@ MonoBehaviour:
     ContrastOutput: {fileID: 5569691775703642467}
     SaturationOutput: {fileID: 7477901559397167971}
     FOVOutput: {fileID: 134330094476790557}
+    VolFogOutput: {fileID: 5150294346835305957}
     FOVSlider: {fileID: 5890582484757246809}
     DepthFocusDistanceSlider: {fileID: 2972662589661173681}
     DepthApertureSlider: {fileID: 4703616697908198782}
@@ -9115,6 +9117,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &7203686346787492588
 GameObject:
