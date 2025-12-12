@@ -28,7 +28,7 @@ public class BasisSDKConstants
     public static readonly string AvatarDescription = "avatardescriptioninput";
     public static readonly string AvatarIcon = "avataricon";
     public static readonly string Avatarpassword = "avatarpassword";
-    public static readonly string AvatarDocumentationURL = "https://docs.basisvr.org/docs/avatars/";
+    public static readonly string AvatarDocumentationURL = "https://docs.basisvr.org/docs/avatar";
     public static readonly string AvatarTestInEditor = "TestInEditor";
     public static readonly string AvatarAnimatorControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
 
