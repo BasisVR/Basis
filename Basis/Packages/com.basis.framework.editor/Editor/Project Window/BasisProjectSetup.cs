@@ -47,9 +47,9 @@ public partial class BasisProjectSetup : EditorWindow
 
     // Links
     private const string BASIS_SITE = "https://basisvr.org/";
-    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org/docs/getting-started/";
-    private const string BASIS_AVATARS = "https://docs.basisvr.org/docs/avatars/";
-    private const string BASIS_WORLDS = "https://docs.basisvr.org/docs/worlds/";
+    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org/docs";
+    private const string BASIS_AVATARS = "https://docs.basisvr.org/docs/avatar";
+    private const string BASIS_WORLDS = "https://docs.basisvr.org/docs/world";
     private const string BASIS_DONATE = "https://opencollective.com/basis";
     private const string UNITY_HUB_ADD_MODULES = "https://docs.unity3d.com/hub/manual/AddModules.html";
 
