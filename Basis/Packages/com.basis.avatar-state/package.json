@@ -1,0 +1,19 @@
+{
+	"name": "com.basis.avatar-state",
+	"displayName":"Basis Avatar State",
+	"version": "0.1.0",
+	"unity": "6000.3",
+	"unityRelease": "0f1",
+	"description": "Replace this with your own description of the package. \n\nFor best results, use this text to summarize: \n\u25AA What the package does \n\u25AA How it can benefit the user \n\nNote: Special formatting characters are supported, including line breaks ('\\n') and bullets ('\\u25AA').",
+	"dependencies": {
+		"com.unity.test-framework": "1.6.0"
+	},
+	"author": {
+		"name": "mriise",
+		"url": "http://www.example.com",
+		"email": "me@mriise.net"
+	},
+	"changelogUrl": "https://example.com/changelog.html",
+	"documentationUrl": "https://example.com/",
+	"licensesUrl": "https://example.com/licensing.html"
+}

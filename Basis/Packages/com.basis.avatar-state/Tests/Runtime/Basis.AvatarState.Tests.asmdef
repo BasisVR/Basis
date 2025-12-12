@@ -1,0 +1,11 @@
+{
+    "name": "Basis.AvatarState.Tests",
+    "references": [
+        "Basis.AvatarState"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": []
+}
