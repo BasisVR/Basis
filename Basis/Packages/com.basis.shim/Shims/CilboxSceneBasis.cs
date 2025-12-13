@@ -36,7 +36,7 @@ namespace Cilbox
 			"Basis.BasisNetworkShim+NetworkMessageEvent",
 			"Basis.BasisNetworkShim+PlayerJoinedEvent",
 			"Basis.BasisNetworkShim+PlayerLeftEvent",
-			"LiteNetLib.DeliveryMethod",
+			"Basis.Network.Core.DeliveryMethod",
 
 
 			"Cilbox.CilboxPublicUtils",

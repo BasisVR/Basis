@@ -1592,10 +1592,13 @@ spiperf.End();
 					
 					foreach (MonoBehaviour component in components)
 					{
-						Type t = component.GetType();
-						if( !TypesInUseInScene.Contains( t ) )
+						if( component != null )
 						{
-							TypesInUseInScene.Add( t);
+							Type t = component.GetType();
+							if( !TypesInUseInScene.Contains( t ) )
+							{
+								TypesInUseInScene.Add( t);
+							}
 						}
 					}
 				}

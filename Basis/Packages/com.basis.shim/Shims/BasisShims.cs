@@ -23,8 +23,20 @@ namespace Basis
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
 			// Actually needs to be CilboxProxies.
-			CilboxProxy p = (CilboxProxy)o;
-			GameObject go = p.gameObject;
+			GameObject go = null;
+			string setGUID = "";
+			if( o is CilboxProxy )
+			{
+				CilboxProxy p = (CilboxProxy)o;
+				go = p.gameObject;
+				setGUID = p.buildTimeGuid + p.initialLoadPath;
+			}
+			else
+			{
+				MonoBehaviour p = (MonoBehaviour)o;
+				go = p.gameObject;
+				setGUID = p.GetInstanceID().ToString();
+			}
 
 			BasisNetworkShim bi;
 
@@ -32,8 +44,8 @@ namespace Basis
 
 			bi = go.AddComponent<BasisNetworkShim>();
 
-			bi.AssignNetworkGUIDIdentifier(p.buildTimeGuid + p.initialLoadPath);
-			Debug.Log( $"ADDING ASSIGN: {bi} {p.buildTimeGuid + p.initialLoadPath}");
+			bi.AssignNetworkGUIDIdentifier(setGUID);
+			Debug.Log( $"ADDING ASSIGN: {bi} {setGUID}");
 
 			return bi;
 		}
@@ -41,8 +53,11 @@ namespace Basis
 		public static BasisInteractableShim MakeInteractable( object o )
 		{
 			// Actually needs to be CilboxProxies.
-			CilboxProxy p = (CilboxProxy)o;
-			GameObject go = p.gameObject;
+			GameObject go = null;
+			if( o is CilboxProxy )
+				go = ((CilboxProxy)o).gameObject;
+			else
+				go = ((MonoBehaviour)o).gameObject;
 
 			BasisInteractableShim bi;
 			if( go.TryGetComponent<BasisInteractableShim>( out bi ) ) return bi;
