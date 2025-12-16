@@ -8,6 +8,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.UI.UI_Panels;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
 
 namespace Basis.BasisUI
@@ -385,6 +386,8 @@ namespace Basis.BasisUI
             }
 
             NewAvatarPanel.Hide();
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rectTransform);
         }
 
         public void RemoveAvatar()
