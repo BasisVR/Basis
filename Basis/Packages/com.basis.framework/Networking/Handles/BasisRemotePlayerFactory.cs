@@ -34,6 +34,7 @@ namespace Basis.Scripts.Networking
                 BasisNetworkReceiver BasisNetworkReceiver = new BasisNetworkReceiver(ServerReadyMessage.playerIdMessage.playerID);
                 // Continue with the rest of the code
                 RemoteInitialization(BasisNetworkReceiver, remote, ServerReadyMessage, avatarID.LocalAvatarIndex);
+                remote.LoadAvatarFromInitial(avatarID);
                 if (BasisNetworkPlayers.AddPlayer(BasisNetworkReceiver))
                 {
                     //    BasisDebug.Log("Added Player AT " + BasisNetworkReceiver.NetId);
@@ -56,7 +57,6 @@ namespace Basis.Scripts.Networking
                 BasisNetworkPlayer.OnPlayerJoined?.Invoke(BasisNetworkReceiver);
 
                 BasisNetworkPlayers.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
-                remote.LoadAvatarFromInitial(avatarID);
 
                 return BasisNetworkReceiver;
             }

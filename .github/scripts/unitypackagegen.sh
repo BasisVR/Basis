@@ -25,26 +25,27 @@ if [[ "$1" == "full" ]]; then
   PACKAGES+=":Packages/com.valvesoftware.unity.openvr-1.2.1.tgz"
 
   # Need this for framework (But only framework)
-  SUBFOLDERS+=":Packages/com.basis.framework:
+  SUBFOLDERS+=":Packages/com.avionblock.opussharp:
+              Packages/com.basis.bundlemanagement:
+              Packages/com.basis.common:
+              Packages/com.basis.console:
+              Packages/com.basis.eventdriver:
+              Packages/com.basis.examples:
+              Packages/com.basis.framework:
               Packages/com.basis.framework.editor:
               Packages/com.basis.gizmos:
-              Packages/com.basis.console:
               Packages/com.basis.visualtrackers:
-              Packages/com.basis.examples:
+              Packages/com.basis.openvr:
+              Packages/com.basis.openxr:
+              Packages/com.basis.profilerintergration:
               Packages/com.basis.settings:
               Packages/com.basis.shim:
               Packages/com.cnlohr.cilbox:
+              Packages/com.cqf.urpvolumetricfog:
+              Packages/com.hecomi.ulipsync:
               Packages/com.steam.steamvr:
               Packages/com.steam.steamaudio:
-              Packages/com.hecomi.ulipsync:
               Packages/com.xiph.rnnoise:
-              Packages/com.basis.common:
-              Packages/com.basis.eventdriver:
-              Packages/com.basis.openvr:
-              Packages/com.basis.openxr:
-              Packages/com.basis.bundlemanagement:
-              Packages/com.basis.profilerintergration:
-              Packages/com.avionblock.opussharp:
               Assets/Resources:
               Assets/StreamingAssets:
               Assets/Plugins:

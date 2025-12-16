@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#2.1.0",
+    "com.llealloo.audiolink": "https://github.com/llealloo/audiolink.git?path=Packages/com.llealloo.audiolink#3.0.0",
     "com.unity.2d.sprite": "1.0.0",
     "com.unity.addressables": "2.7.6",
     "com.unity.animation.rigging": "1.4.0",

@@ -186,15 +186,23 @@ namespace Basis.Scripts.BasisSdk.Players
         /// This is an async-void method intended to be fire-and-forget on the main thread.
         /// Prefer <see cref="CreateAvatar(byte, BasisLoadableBundle)"/> for awaited flows.
         /// </remarks>
-        public async void LoadAvatarFromInitial(ClientAvatarChangeMessage CACM)
+        public void LoadAvatarFromInitial(ClientAvatarChangeMessage CACM)
         {
             if (BasisAvatar == null)
             {
                 this.CACM = CACM;
                 BasisLoadableBundle BasisLoadedBundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(CACM.byteArray);
+
+                InAvatarRange = false;
+
                 if (BasisLoadedBundle != null)
                 {
-                    await CreateAvatar(CACM.loadMode, BasisLoadedBundle);
+                    AlwaysRequestedAvatar = BasisLoadedBundle;
+                    AlwaysRequestedMode = CACM.loadMode;
+
+                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
+                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
+                    Vector3.zero, Quaternion.identity);
                 }
                 else
                 {
@@ -246,8 +254,7 @@ namespace Basis.Scripts.BasisSdk.Players
 
             if (BasisPlayerSettingsData.AvatarVisible && InAvatarRange)
             {
-                await BasisAvatarFactory.LoadAvatarRemote(
-                    this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
+                await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
             }
             else
             {

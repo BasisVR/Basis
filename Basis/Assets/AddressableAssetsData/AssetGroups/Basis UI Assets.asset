@@ -144,6 +144,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ac2ae4c72e7aa9948a6c5fbe35cdbab1
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/Mirror.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b96b9b309a5689d45a3779b69f280f66
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Horizontal.prefab
     m_ReadOnly: 0
