@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -74,42 +75,65 @@ namespace Basis.Scripts.Avatar
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
         public static async Task LoadAvatarLocal(BasisLocalPlayer Player, byte Mode, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
         {
+            var token = ReplacePlayerLoadToken(Player);
+
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
-                await LoadAvatarAfterError(Player, Position, Rotation);
+                await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                ClearPlayerLoadToken(Player, token);
                 return;
             }
 
+            // Fallback can happen instantly, no restriction
             RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
 
             try
             {
                 GameObject Output = null;
+
                 switch (Mode)
                 {
-                    case 0: // Download
-                        BasisDebug.Log($"Requested Avatar was a AssetBundle Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
-                        Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation);
-                        break;
-
-                    case 1: // Local load
-                        BasisDebug.Log($"Requested Avatar was an Addressable Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
-                        InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
-                        ChecksRequired Required = new ChecksRequired(true, false, true);
-                        Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
-                        break;
-
-                    case 2: // In-scene object
+                    case 2: // in-scene is instant, no gate needed
                         Output = BasisLoadableBundle.LoadableGameobject.InSceneItem;
                         Output.transform.SetPositionAndRotation(Position, Rotation);
                         break;
 
-                    default: // Fallback to download
-                        BasisDebug.Log($"Using Default, index was out of range. Falling back to download: {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
-                        Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation);
+                    case 0:
+                    case 1:
+                    default:
+                        // Gate ONLY the actual load (download/addressables), NOT fallback.
+                        await _loadGate.WaitAsync(token);
+                        try
+                        {
+                            token.ThrowIfCancellationRequested();
+
+                            if (Mode == 0)
+                            {
+                                BasisDebug.Log($"Requested Avatar was a AssetBundle Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
+                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token);
+                            }
+                            else
+                            {
+                                BasisDebug.Log($"Requested Avatar was an Addressable Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
+                                InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
+                                ChecksRequired Required = new ChecksRequired(true, false, true);
+
+                                // If LoadAsGameObjectsAsync doesn't accept a token, we still check before/after.
+                                Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(
+                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+
+                                token.ThrowIfCancellationRequested();
+                            }
+                        }
+                        finally
+                        {
+                            _loadGate.Release();
+                        }
                         break;
                 }
+
+                token.ThrowIfCancellationRequested();
 
                 Player.AvatarMetaData = BasisLoadableBundle;
                 Player.AvatarLoadMode = Mode;
@@ -118,51 +142,84 @@ namespace Basis.Scripts.Avatar
                 BasisHeightDriver.ChangeEyeHeightMode(Player, BasisSelectedHeightMode.EyeHeight);
                 Player.AvatarSwitched();
             }
+            catch (OperationCanceledException)
+            {
+                // Replaced by a newer request: do NOT load fallback; the newer request will handle visuals.
+            }
             catch (Exception e)
             {
                 BasisDebug.LogError($"Loading avatar failed: {e}");
-                await LoadAvatarAfterError(Player, Position, Rotation);
+                // Only fallback if this request is still the current one.
+                if (!token.IsCancellationRequested)
+                    await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+            }
+            finally
+            {
+                ClearPlayerLoadToken(Player, token);
             }
         }
+
 
         /// <summary>
         /// Loads an avatar for a <see cref="BasisRemotePlayer"/> with similar logic to <see cref="LoadAvatarLocal"/>.
         /// </summary>
         public static async Task LoadAvatarRemote(BasisRemotePlayer Player, byte Mode, BasisLoadableBundle BasisLoadableBundle, Vector3 Position, Quaternion Rotation)
         {
+            var token = ReplacePlayerLoadToken(Player);
+
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
-                await LoadAvatarAfterError(Player, Position, Rotation);
+                await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                ClearPlayerLoadToken(Player, token);
                 return;
             }
 
+            // Instant fallback, not gated
             RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
 
             try
             {
                 GameObject Output = null;
+
                 switch (Mode)
                 {
-                    case 0: // Download
-                        Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, MaxDownloadSizeInMBRemote);
-                        break;
-
-                    case 1: // Local load
-                        ChecksRequired Required = new ChecksRequired(false, false, true);
-                        InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
-                        Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
-                        break;
-
-                    case 2: // In-scene object
+                    case 2:
                         Output = BasisLoadableBundle.LoadableGameobject.InSceneItem;
                         Output.transform.SetPositionAndRotation(Position, Rotation);
                         break;
 
-                    default: // Fallback to download
-                        Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, MaxDownloadSizeInMBRemote);
+                    case 0:
+                    case 1:
+                    default:
+                        await _loadGate.WaitAsync(token);
+                        try
+                        {
+                            token.ThrowIfCancellationRequested();
+
+                            if (Mode == 0)
+                            {
+                                Output = await DownloadAndLoadAvatar(BasisLoadableBundle, Player, Position, Rotation, token, MaxDownloadSizeInMBRemote);
+                            }
+                            else
+                            {
+                                ChecksRequired Required = new ChecksRequired(false, false, true);
+                                InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
+
+                                Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(
+                                    BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+
+                                token.ThrowIfCancellationRequested();
+                            }
+                        }
+                        finally
+                        {
+                            _loadGate.Release();
+                        }
                         break;
                 }
+
+                token.ThrowIfCancellationRequested();
 
                 Player.AvatarMetaData = BasisLoadableBundle;
                 Player.AvatarLoadMode = Mode;
@@ -170,12 +227,22 @@ namespace Basis.Scripts.Avatar
                 InitializePlayerAvatar(Player, Output);
                 Player.AvatarSwitched();
             }
+            catch (OperationCanceledException)
+            {
+                // replaced; ignore
+            }
             catch (Exception e)
             {
                 BasisDebug.LogError($"Loading avatar failed: {e}");
-                await LoadAvatarAfterError(Player, Position, Rotation);
+                if (!token.IsCancellationRequested)
+                    await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+            }
+            finally
+            {
+                ClearPlayerLoadToken(Player, token);
             }
         }
+
 
         /// <summary>
         /// Downloads and instantiates an avatar from a bundle.
@@ -184,11 +251,11 @@ namespace Basis.Scripts.Avatar
         /// <param name="BasisPlayer">The player to assign the avatar to.</param>
         /// <param name="Position">Spawn position for the avatar.</param>
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
-        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken  Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
         {
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(
-                BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, new CancellationToken(),
+                BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, Token,
                 Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform, true,MaxDownloadSizeInMB);
 
             BasisPlayer.ProgressReportAvatarLoad.ReportProgress(UniqueID, 100, "Setting Position");
@@ -330,6 +397,38 @@ namespace Basis.Scripts.Avatar
             Player.LocalAvatarDriver.InitialLocalCalibration(Player);
             Player.BasisAvatar.OnAvatarReady?.Invoke(true);
             BasisLocalAvatarDriver.CalibrationComplete?.Invoke();
+        }
+
+        private const int MaxConcurrentAvatarLoads = 50;
+        private static readonly SemaphoreSlim _loadGate = new(MaxConcurrentAvatarLoads, MaxConcurrentAvatarLoads);
+
+        // Tracks the latest in-flight request per player (local/remote share this).
+        private static readonly ConcurrentDictionary<int, CancellationTokenSource> _playerLoadCts = new();
+
+        private static CancellationToken ReplacePlayerLoadToken(BasisPlayer player)
+        {
+            int key = player.GetInstanceID();
+
+            // Cancel & dispose previous request (if any)
+            if (_playerLoadCts.TryRemove(key, out var old))
+            {
+                try { old.Cancel(); } catch { /* ignore */ }
+                old.Dispose();
+            }
+
+            var cts = new CancellationTokenSource();
+            _playerLoadCts[key] = cts;
+            return cts.Token;
+        }
+
+        private static void ClearPlayerLoadToken(BasisPlayer player, CancellationToken token)
+        {
+            int key = player.GetInstanceID();
+            if (_playerLoadCts.TryGetValue(key, out var cts) && cts.Token == token)
+            {
+                _playerLoadCts.TryRemove(key, out _);
+                cts.Dispose();
+            }
         }
     }
 }

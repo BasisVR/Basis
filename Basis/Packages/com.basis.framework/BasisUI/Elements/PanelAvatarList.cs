@@ -131,23 +131,29 @@ namespace Basis.BasisUI
                     // This catches for invalid meta file downloads.
                     try
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         await BasisBeeManagement.HandleMetaOnlyLoad(Wrapper, report, cancellationToken);
                         if (cancellationToken.IsCancellationRequested) return;
                         title = Wrapper.LoadableBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
                         byte[] imageBytes = Wrapper.LoadableBundle.BasisBundleConnector.ImageBytes;
                         if (imageBytes != null)
                         {
-                            IconTexture = BasisTextureCompression.FromPngBytes(Wrapper.LoadableBundle.BasisBundleConnector.ImageBytes);
-                            IconSprite = Sprite.Create(IconTexture,new Rect(0, 0, IconTexture.width, IconTexture.height), Vector2.zero);
+                            IconTexture =
+                                BasisTextureCompression.FromPngBytes(Wrapper.LoadableBundle.BasisBundleConnector
+                                    .ImageBytes);
+                            IconSprite = Sprite.Create(IconTexture,
+                                new Rect(0, 0, IconTexture.width, IconTexture.height), Vector2.zero);
                         }
 
                         if (IconSprite) Button.Descriptor.SetIcon(IconSprite);
                     }
-                    // TODO: This will trigger if the async task is continuing after the menu has been closed.
+                    // This will trigger if the async task is canceled after the menu has been closed.
                     catch (Exception e)
                     {
                         BasisDebug.LogError(e);
-                        BasisLoadHandler.RemoveDiscInfo(Wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
+                        BasisLoadHandler.RemoveDiscInfo(Wrapper.LoadableBundle.BasisRemoteBundleEncrypted
+                            .RemoteBeeFileLocation);
                         return;
                     }
                 }
@@ -158,7 +164,7 @@ namespace Basis.BasisUI
 
         public List<BasisLoadableBundle> PreLoadedAvatars = new();
         public BasisProgressReport Report = new();
-        public CancellationToken CancellationToken = CancellationToken.None;
+        public CancellationTokenSource CancellationSource = new();
         public AvatarMenuItem SelectedAvatar;
 
         public TextMeshProUGUI CreationDateLabel;
@@ -191,6 +197,17 @@ namespace Basis.BasisUI
             NewAvatarPanel.Hide();
 
             _ = LoadAvatarBundles();
+        }
+
+        public override void OnReleaseEvent()
+        {
+            base.OnReleaseEvent();
+
+            if (CancellationSource != null)
+            {
+                CancellationSource.Cancel();
+                CancellationSource.Dispose();
+            }
         }
 
         private async Task LoadAvatarBundles()
@@ -236,7 +253,7 @@ namespace Basis.BasisUI
 
             foreach (AvatarMenuItem item in MenuItems)
             {
-                await item.LoadItemData(Report, CancellationToken);
+                await item.LoadItemData(Report, CancellationSource.Token);
             }
         }
 
@@ -262,7 +279,7 @@ namespace Basis.BasisUI
             button.OnClicked += () => OnTabSelected(button);
             button.OnClicked += () => ShowAvatarInfo(item);
 
-            await item.LoadItemData(Report, CancellationToken);
+            await item.LoadItemData(Report, CancellationSource.Token);
             CachedAvatarData.AvatarBundles.Add(bundle);
 
             if (selectAfterCreate) button.OnClick();

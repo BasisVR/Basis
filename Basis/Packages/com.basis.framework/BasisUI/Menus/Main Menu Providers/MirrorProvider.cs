@@ -13,7 +13,7 @@ namespace Basis.BasisUI
         }
 
         public override string Title => "Mirror";
-        public override string IconAddress => null;
+        public override string IconAddress => AddressableAssets.Sprites.Mirror;
         public override int Order => 13;
 
 

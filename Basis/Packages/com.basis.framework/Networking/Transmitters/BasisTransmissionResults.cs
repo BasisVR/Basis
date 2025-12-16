@@ -118,9 +118,17 @@ public class BasisTransmissionResults
         for (int index = 0; index < receiverCount; index++)
         {
             BasisNetworkReceiver remote = snapshot[index];
-            RemoteBoneJobSystem.GetOutGoingMouth(remote.playerId, out float3 outgoing);
-            targetPositions[index] = outgoing;
-            IndexToPlayerId[index] = remote.playerId;
+            ushort ID = remote.playerId;
+            if (RemoteBoneJobSystem.GetOutGoingMouth(ID, out float3 outgoing))
+            {
+                targetPositions[index] = outgoing;
+            }
+            else
+            {
+                BasisDebug.LogError("Bad TargetPosition Inserted");
+                targetPositions[index] = outgoing;
+            }
+            IndexToPlayerId[index] = ID;
         }
         distanceJobHandle = distanceJob.Schedule();
         // Compress avatar state (doesn't touch mouth bone used as input)
