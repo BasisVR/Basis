@@ -37,6 +37,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 172f80a26fa4db44cbf38ee83dc59d83
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field -
+      Entry Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1a8dc43a8a9af6b4ca44cf0b4e02a2c5
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry
       Variant.prefab
@@ -178,6 +184,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dd81b7712360e4b47afc784fa476e1d4
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry
+      Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e33527f56f5a6c84c91195c63a1816a3
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown.prefab
     m_ReadOnly: 0
@@ -200,6 +212,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f6c5e8b8cbc5f024387005329aa21903
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Volume Meter Horizontal.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fa756b7e45507eb4e9145a581c7e8c9e
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

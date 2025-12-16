@@ -178,10 +178,18 @@ namespace Basis.BasisUI
             rectTransform.pivot = pos;
         }
 
-        public void SetSize(Vector2 pos)
+        public void SetSize(Vector2 size)
         {
-            rectTransform.sizeDelta = pos;
+            rectTransform.sizeDelta = size;
+
+            Layout.minWidth = size.x;
+            Layout.minHeight = size.y;
+            Layout.preferredWidth = size.x;
+            Layout.preferredHeight = size.y;
         }
+
+        public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
+        public void SetWidth(float width) => SetSize(new Vector2(rectTransform.sizeDelta.x, width));
 
         public void ForceRebuild()
         {

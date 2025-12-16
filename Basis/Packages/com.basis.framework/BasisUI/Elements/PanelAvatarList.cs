@@ -132,6 +132,7 @@ namespace Basis.BasisUI
                     try
                     {
                         await BasisBeeManagement.HandleMetaOnlyLoad(Wrapper, report, cancellationToken);
+                        if (cancellationToken.IsCancellationRequested) return;
                         title = Wrapper.LoadableBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName;
                         byte[] imageBytes = Wrapper.LoadableBundle.BasisBundleConnector.ImageBytes;
                         if (imageBytes != null)

@@ -146,11 +146,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3150597490002740505, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_Padding.m_Left
-      value: 10
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3150597490002740505, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_Padding.m_Right
-      value: 10
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3150597490002740505, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_Padding.m_Bottom

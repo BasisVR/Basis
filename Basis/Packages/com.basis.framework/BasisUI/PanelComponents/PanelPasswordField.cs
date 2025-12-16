@@ -23,14 +23,22 @@ namespace Basis.BasisUI
         [SerializeField] protected Image _visibleIcon;
         [SerializeField] protected Image _invisibleIcon;
         [SerializeField] protected string _placeholder;
+        [SerializeField] protected bool _readOnly;
 
         public static class PasswordFieldStyles
         {
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field.prefab";
+
+            public static string Entry =>
+                "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Entry Variant.prefab";
         }
 
         public static PanelPasswordField CreateNew(Component parent)
             => CreateNew<PanelPasswordField>(PasswordFieldStyles.Default, parent);
+
+
+        public static PanelPasswordField CreateNewEntry(Component parent)
+            => CreateNew<PanelPasswordField>(PasswordFieldStyles.Entry, parent);
 
 
         protected override void Awake()
@@ -49,9 +57,7 @@ namespace Basis.BasisUI
         protected override void ApplyValue()
         {
             base.ApplyValue();
-            _inputField.contentType = Value ?
-                TMP_InputField.ContentType.Standard :
-                TMP_InputField.ContentType.Password;
+            _inputField.contentType = Value ? TMP_InputField.ContentType.Standard : TMP_InputField.ContentType.Password;
             _inputField.ForceLabelUpdate();
 
             _visibleIcon.enabled = Value;
@@ -69,9 +75,12 @@ namespace Basis.BasisUI
             base.OnValidate();
             if (Application.isPlaying) return;
 
+            _inputField.readOnly = _readOnly;
+
             if (_placeholderField && _placeholderField.text != _placeholder)
             {
-                Undo.RecordObject(_placeholderField, $"Assigned placeholder text to {_placeholderField.gameObject.name}: {_placeholder}");
+                Undo.RecordObject(_placeholderField,
+                    $"Assigned placeholder text to {_placeholderField.gameObject.name}: {_placeholder}");
                 _placeholderField.text = _placeholder;
             }
         }
