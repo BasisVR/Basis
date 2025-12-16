@@ -202,7 +202,7 @@ namespace Basis.Scripts.UI
             {
                 UpdateRayCastResult();   // sets all RaycastResult data
                 UpdateLineRenderer();    // updates the line renderer
-                UpdateRadicalRenderer(); // moves the Redical renderer
+                UpdateReticleRenderer(); // moves the Reticle renderer
             }
             else
             {
@@ -254,7 +254,7 @@ namespace Basis.Scripts.UI
             }
         }
 
-        private void UpdateRadicalRenderer()
+        private void UpdateReticleRenderer()
         {
             if (HasRedicalRenderer)
             {
