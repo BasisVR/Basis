@@ -48,6 +48,7 @@ public class BasisSDKConstants
     public static List<BuildTarget> allowedTargets = new List<BuildTarget>
     {
         BuildTarget.StandaloneWindows64,
+        BuildTarget.StandaloneOSX,
         BuildTarget.StandaloneLinux64,
         BuildTarget.Android,
         BuildTarget.iOS,
@@ -56,6 +57,7 @@ public class BasisSDKConstants
     public static Dictionary<BuildTarget, string> targetDisplayNames = new Dictionary<BuildTarget, string>
     {
         { BuildTarget.StandaloneWindows64, "Windows" },
+        { BuildTarget.StandaloneOSX, "Mac" },
         { BuildTarget.StandaloneLinux64, "Linux" },
         { BuildTarget.Android, "Android" },
         { BuildTarget.iOS, "IOS" },

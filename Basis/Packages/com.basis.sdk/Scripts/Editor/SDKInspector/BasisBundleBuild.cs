@@ -363,10 +363,12 @@ public static class BasisBundleBuild
         OpenFolderInExplorer(fullPath);
         return fullPath;
     }
-    // Convert a Unity path to a Windows-compatible path and open it in File Explorer
+    // Convert a Unity path to a platform-compatible path and open it in File Explorer
     public static void OpenFolderInExplorer(string folderPath)
     {
 #if UNITY_EDITOR_LINUX
+        string osPath = folderPath;
+#elif UNITY_EDITOR_OSX
         string osPath = folderPath;
 #else
         // Convert Unity-style file path (forward slashes) to Windows-style (backslashes)
@@ -377,8 +379,11 @@ public static class BasisBundleBuild
         if (Directory.Exists(osPath) || File.Exists(osPath))
         {
 #if UNITY_EDITOR_LINUX
-            // On Linux, use 'xdg-open' or 'open'
+            // On Linux, use 'xdg-open'
             System.Diagnostics.Process.Start("xdg-open", osPath);
+#elif UNITY_EDITOR_OSX
+            // On Mac, use 'open'
+            System.Diagnostics.Process.Start("open", osPath);
 #else
             // On Windows, use 'explorer' to open the folder or highlight the file
             System.Diagnostics.Process.Start("explorer.exe", osPath);
