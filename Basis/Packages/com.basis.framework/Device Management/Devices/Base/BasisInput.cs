@@ -179,7 +179,7 @@ namespace Basis.Scripts.Device_Management.Devices
             if (DeviceMatchSettings.HasTrackedRole)
             {
                 BasisDebug.Log("Overriding Tracker " + DeviceMatchSettings.DeviceID, BasisDebug.LogTag.Input);
-                AssignRoleAndTracker(DeviceMatchSettings.TrackedRole);
+                AssignRoleAndTracker(basisBoneTrackedRole);
             }
 
             // Initialize raycasting helpers if supported
