@@ -13,7 +13,9 @@
         "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
-    "excludePlatforms": [],
+    "excludePlatforms": [
+        "macOSStandalone"
+    ],
     "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
@@ -111,9 +113,9 @@
             "define": "UNITY_TEXTMESHPRO"
         },
         {
-            "define": "OVR_UNITY_PACKAGE_MANAGER",
             "name": "com.meta.xr.sdk.core",
-            "expression": ""
+            "expression": "",
+            "define": "OVR_UNITY_PACKAGE_MANAGER"
         }
     ],
     "noEngineReferences": false
