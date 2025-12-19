@@ -1,0 +1,14 @@
+{
+    "name": "Basis.ZeroMessenger.Editor.Tests",
+    "references": [
+        "Basis.ZeroMessenger.Editor",
+        "Basis.ZeroMessenger"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}
