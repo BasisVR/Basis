@@ -14,7 +14,10 @@
     ],
     "includePlatforms": [],
     "excludePlatforms": [
-        "macOSStandalone"
+        "iOS",
+        "macOSStandalone",
+        "tvOS",
+        "VisionOS"
     ],
     "allowUnsafeCode": true,
     "overrideReferences": false,
