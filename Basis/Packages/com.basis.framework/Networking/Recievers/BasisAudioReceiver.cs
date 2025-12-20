@@ -358,7 +358,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 if (decoder != null)
                 {
-                    OpusDecoderExtensions.SetGain(decoder, 1024);
+                    OpusDecoderExtensions.SetGain(decoder, 256);
                 }
                 BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
                 return;
@@ -372,21 +372,26 @@ namespace Basis.Scripts.Networking.Receivers
             if (volume <= 0f)
             {
                 audioSource.volume = 0f;
-                gain = 256;              // "mute" gain for Opus
-            }
-            else if (volume <= 1f)
-            {
-                audioSource.volume = volume;
-                gain = 1024;             // nominal gain
+                gain = 256;
             }
             else
             {
-                audioSource.volume = 1f;
-                gain = (short)Mathf.Clamp(volume * 1024f, 1024f, short.MaxValue);
+
+                if (volume > 1)
+                {
+                    audioSource.volume = 1;
+                    gain = (short)Mathf.Clamp(volume * 1024f, 256, short.MaxValue);
+                }
+                else
+                {
+                    audioSource.volume = volume;
+                    gain = 1024;
+                }
             }
 
             if (decoder != null)
             {
+                BasisDebug.Log($"Gain Set To {gain}");
                 OpusDecoderExtensions.SetGain(decoder, gain);
             }
             else

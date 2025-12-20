@@ -1,6 +1,5 @@
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.UI.UI_Panels;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using TMPro;
@@ -58,7 +57,7 @@ namespace Basis.BasisUI
             panel.Descriptor.ForceRebuild();
         }
 
-        public async void SwitchToOpenVR()
+        public void SwitchToOpenVR()
         {
             BasisMainMenu.Instance.OpenDialogue("Switch To OpenVR",
                 "Are you sure you want to swap to OpenVR?",
@@ -72,7 +71,7 @@ namespace Basis.BasisUI
                 });
         }
 
-        public async void SwitchToOpenXR()
+        public void SwitchToOpenXR()
         {
             BasisMainMenu.Instance.OpenDialogue("Switch To OpenXR",
                 "Are you sure you want to swap to OpenXR?",
@@ -86,7 +85,7 @@ namespace Basis.BasisUI
                 });
         }
 
-        public async void SwitchToDesktop()
+        public void SwitchToDesktop()
         {
             BasisMainMenu.Instance.OpenDialogue("Switch To Desktop",
                 "Are you sure you want to swap to Desktop?",
@@ -528,7 +527,7 @@ namespace Basis.BasisUI
             PanelElementDescriptor debugGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             debugGroup.SetTitle("Debug Visuals");
-            debugGroup.SetDescription("Debug rendering modes and overlays.");
+            debugGroup.SetDescription("Debug Systems running through visuals in 3D space");
 
             // Debug Visuals Toggle
             PanelToggle toggleDebugVisuals = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
@@ -537,7 +536,7 @@ namespace Basis.BasisUI
 
             // Visual State Mode
             PanelDropdown dropdownVisualState = PanelDropdown.CreateNewEntry(debugGroup.ContentParent);
-            dropdownVisualState.Descriptor.SetTitle("Visual State");
+            dropdownVisualState.Descriptor.SetTitle("Visual Helpers");
             dropdownVisualState.AssignEntries(new List<string>
             {
                 "Off",
