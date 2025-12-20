@@ -415,6 +415,32 @@ namespace OpusSharp.Core.Extensions
         }
         
         /// <summary>
+        /// Configures the encoder's QEXT extension.
+        /// </summary>
+        /// <param name="encoder">The encoder state.</param>
+        /// <param name="enabled">Whether to enable the QEXT extension or not.</param>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static void SetQext(this OpusEncoder encoder, bool enabled)
+        {
+            encoder.Ctl(EncoderCTL.OPUS_SET_QEXT, enabled ? 1 : 0);
+        }
+        
+        /// <summary>
+        /// Determine if the QEXT extension is enabled in the encoder.
+        /// </summary>
+        /// <param name="encoder">The encoder state.</param>
+        /// <returns>Whether the QEXT extension is enabled or not.</returns>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static bool GetQext(this OpusEncoder encoder)
+        {
+            var value = 0;
+            encoder.Ctl(EncoderCTL.OPUS_GET_QEXT, ref value);
+            return value == 1;
+        }
+        
+        /// <summary>
         /// Resets the codec state to be equivalent to a freshly initialized state.
         /// </summary>
         /// <param name="encoder">The encoder state.</param>

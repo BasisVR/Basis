@@ -44,7 +44,6 @@ namespace uLipSync
         public float MultipliedWeight;
         public float finalWeight;
         int mfccNum => profile.mfccNum;
-        public uLipSyncBlendShape uLipSyncBlendShape;
         public void LateUpdate()
         {
             // If last scheduled job is still running, skip this frame.
@@ -143,7 +142,7 @@ namespace uLipSync
 
         public void OnLipSyncUpdate()
         {
-            var smr = uLipSyncBlendShape != null ? uLipSyncBlendShape.skinnedMeshRenderer : null;
+            var smr = skinnedMeshRenderer;
             if (smr == null || smr.sharedMesh == null) return;
 
             int blendShapeCount = smr.sharedMesh.blendShapeCount;
@@ -153,15 +152,15 @@ namespace uLipSync
             if (rawVolume > 0f)
             {
                 float logv = Mathf.Log10(rawVolume);
-                float denom = Mathf.Max(uLipSyncBlendShape.VolumeDifference, 1e-4f);
-                normVol = Mathf.Clamp01((logv - uLipSyncBlendShape.minVolume) / denom);
+                float denom = Mathf.Max(uLipSync.VolumeDifference, 1e-4f);
+                normVol = Mathf.Clamp01((logv - uLipSync.minVolume) / denom);
             }
 
-            uLipSyncBlendShape._volume = uLipSyncBlendShape.SmoothDamp(uLipSyncBlendShape._volume, normVol, ref uLipSyncBlendShape._openCloseVelocity);
+            _volume = SmoothDamp(_volume, normVol, ref _openCloseVelocity);
 
-            globalMultiplier = uLipSyncBlendShape._volume * 100;
+            globalMultiplier = _volume * 100;
 
-            var infos = uLipSyncBlendShape.BlendShapeInfos;
+            var infos = BlendShapeInfos;
             if (infos == null) return;
 
             int count = infos.Length;
@@ -187,7 +186,7 @@ namespace uLipSync
                 }
 
                 float vel = bs.weightVelocity;
-                bs.weight = uLipSyncBlendShape.SmoothDamp(bs.weight, targetWeight, ref vel);
+                bs.weight = SmoothDamp(bs.weight, targetWeight, ref vel);
                 bs.weightVelocity = vel;
 
                 totalWeight += bs.weight;
@@ -404,6 +403,41 @@ namespace uLipSync
         {
             if (array.IsCreated) array.Dispose();
             array = default;
+        }
+        public SkinnedMeshRenderer skinnedMeshRenderer;
+        public List<BlendShapeInfo> CachedblendShapes = new List<BlendShapeInfo>();
+        public BlendShapeInfo[] BlendShapeInfos;
+
+        public const float smoothness = 0.05f;
+        public const float minVolume = -2.5f;
+        public const float maxVolume = -1.5f;
+        public const float VolumeDifference = uLipSync.maxVolume - uLipSync.minVolume;
+        public float _volume = 0f;
+        public float _openCloseVelocity = 0f;
+
+        public float SmoothDamp(float value, float target, ref float velocity)
+        {
+            return Mathf.SmoothDamp(value, target, ref velocity, smoothness);
+        }
+
+        public BlendShapeInfo GetBlendShapeInfo(string phoneme)
+        {
+            return CachedblendShapes.Find(info => info.phoneme == phoneme);
+        }
+
+        public void AddBlendShape(string phoneme, int blendShape)
+        {
+            var bs = GetBlendShapeInfo(phoneme);
+            if (bs == null)
+            {
+                bs = new BlendShapeInfo { phoneme = phoneme };
+                CachedblendShapes.Add(bs);
+            }
+
+            if (skinnedMeshRenderer != null)
+            {
+                bs.index = blendShape;
+            }
         }
     }
 }

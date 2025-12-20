@@ -174,6 +174,12 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalHeight CurrentHeight = new BasisLocalHeight();
 
         /// <summary>
+        /// Driver responsible for simulating/controlling facial blinking.
+        /// </summary>
+        [Header("Blink Driver")]
+        [SerializeField]
+        public BasisLocalFacialBlinkDriver FacialBlinkDriver = new BasisLocalFacialBlinkDriver();
+        /// <summary>
         /// Bootstraps the local player by wiring up drivers, input, and events, and loading the initial avatar.
         /// </summary>
         /// <returns>A task that completes when initialization and avatar load are finished.</returns>

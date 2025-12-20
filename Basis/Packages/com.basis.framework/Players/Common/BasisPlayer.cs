@@ -141,13 +141,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLoadableBundle AvatarMetaData;
 
         /// <summary>
-        /// Driver responsible for simulating/controlling facial blinking.
-        /// </summary>
-        [Header("Blink Driver")]
-        [SerializeField]
-        public BasisFacialBlinkDriver FacialBlinkDriver = new BasisFacialBlinkDriver();
-
-        /// <summary>
         /// Computes and stores a display-safe version of <see cref="DisplayName"/> by stripping any &lt;...&gt; tags.
         /// </summary>
         public void SetSafeDisplayname()

@@ -61,6 +61,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 TransmissionResults.ReleaseResults();
                 HasEvents = false;
             }
+            BasisRemoteFaceManagement.Dispose();
         }
 
         public static NetDataWriter AvatarChangeWriter = new NetDataWriter();

@@ -15,6 +15,8 @@ namespace OpusSharp.Core
         /// Direct safe handle for the <see cref="OpusEncoder"/>. IT IS NOT RECOMMENDED TO CLOSE THE HANDLE DIRECTLY! Instead, use <see cref="Dispose(bool)"/> to dispose the handle and object safely.
         /// </summary>
         protected OpusEncoderSafeHandle _handler;
+
+        private readonly bool _useStatic;
         private bool _disposed;
 
         /// <summary>
@@ -22,12 +24,17 @@ namespace OpusSharp.Core
         /// </summary>
         /// <param name="sample_rate">The sample rate, this must be one of 8000, 12000, 16000, 24000, or 48000.</param>
         /// <param name="channels">Number of channels, this must be 1 or 2.</param>
+        /// <param name="use_static">Whether to use a statically linked version of opus.</param>
         /// <param name="application">Coding mode (one of <see cref="OpusPredefinedValues.OPUS_APPLICATION_VOIP"/>, <see cref="OpusPredefinedValues.OPUS_APPLICATION_AUDIO"/> or <see cref="OpusPredefinedValues.OPUS_APPLICATION_RESTRICTED_LOWDELAY"/></param>
         /// <exception cref="OpusException" />
-        public unsafe OpusEncoder(int sample_rate, int channels, OpusPredefinedValues application)
+        public unsafe OpusEncoder(int sample_rate, int channels, OpusPredefinedValues application,
+            bool use_static = false)
         {
+            _useStatic = use_static;
             var error = 0;
-            _handler = NativeOpus.opus_encoder_create(sample_rate, channels, (int)application, &error);
+            _handler = use_static
+                ? StaticNativeOpus.opus_encoder_create(sample_rate, channels, (int)application, &error)
+                : NativeOpus.opus_encoder_create(sample_rate, channels, (int)application, &error);
             CheckError(error);
         }
 
@@ -55,7 +62,9 @@ namespace OpusSharp.Core
             fixed (byte* inputPtr = input)
             fixed (byte* outputPtr = output)
             {
-                var result = NativeOpus.opus_encode(_handler, (short*)inputPtr, frame_size, outputPtr, max_data_bytes);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode(_handler, (short*)inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode(_handler, (short*)inputPtr, frame_size, outputPtr, max_data_bytes);
                 CheckError(result);
                 return result;
             }
@@ -77,7 +86,33 @@ namespace OpusSharp.Core
             fixed (short* inputPtr = input)
             fixed (byte* outputPtr = output)
             {
-                var result = NativeOpus.opus_encode(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode(_handler, inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
+                CheckError(result);
+                return result;
+            }
+        }
+        
+        /// <summary>
+        /// Encodes a pcm frame.
+        /// </summary>
+        /// <param name="input">Input signal (interleaved if 2 channels). length is frame_size*channels*sizeof(int).</param>
+        /// <param name="frame_size">The frame size of the pcm data. This must be an Opus frame size for the encoder's sampling rate. For example, at 48 kHz the permitted values are 120, 240, 480, 960, 1920, and 2880. Passing in a duration of less than 10 ms (480 samples at 48 kHz) will prevent the encoder from using the LPC or hybrid modes.</param>
+        /// <param name="output">Output payload. This must contain storage for at least max_data_bytes.</param>
+        /// <param name="max_data_bytes">Size of the allocated memory for the output payload. This may be used to impose an upper limit on the instant bitrate, but should not be used as the only bitrate control. Use <see cref="EncoderCTL.OPUS_SET_BITRATE"/> to control the bitrate.</param>
+        /// <returns>The length of the encoded packet (in bytes).</returns>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public unsafe int Encode(Span<int> input, int frame_size, Span<byte> output, int max_data_bytes)
+        {
+            ThrowIfDisposed();
+            fixed (int* inputPtr = input)
+            fixed (byte* outputPtr = output)
+            {
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode24(_handler, inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode24(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
                 CheckError(result);
                 return result;
             }
@@ -99,7 +134,9 @@ namespace OpusSharp.Core
             fixed (float* inputPtr = input)
             fixed (byte* outputPtr = output)
             {
-                var result = NativeOpus.opus_encode_float(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode_float(_handler, inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode_float(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
                 CheckError(result);
                 return result;
             }
@@ -115,7 +152,8 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(byte[] input, int frame_size, byte[] output, int max_data_bytes) => Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        public int Encode(byte[] input, int frame_size, byte[] output, int max_data_bytes) =>
+            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
 
         /// <summary>
         /// Encodes a pcm frame.
@@ -127,7 +165,21 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(short[] input, int frame_size, byte[] output, int max_data_bytes) => Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        public int Encode(short[] input, int frame_size, byte[] output, int max_data_bytes) =>
+            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        
+        /// <summary>
+        /// Encodes a pcm frame.
+        /// </summary>
+        /// <param name="input">Input signal (interleaved if 2 channels). length is frame_size*channels*sizeof(int).</param>
+        /// <param name="frame_size">The frame size of the pcm data. This must be an Opus frame size for the encoder's sampling rate. For example, at 48 kHz the permitted values are 120, 240, 480, 960, 1920, and 2880. Passing in a duration of less than 10 ms (480 samples at 48 kHz) will prevent the encoder from using the LPC or hybrid modes.</param>
+        /// <param name="output">Output payload. This must contain storage for at least max_data_bytes.</param>
+        /// <param name="max_data_bytes">Size of the allocated memory for the output payload. This may be used to impose an upper limit on the instant bitrate, but should not be used as the only bitrate control. Use <see cref="EncoderCTL.OPUS_SET_BITRATE"/> to control the bitrate.</param>
+        /// <returns>The length of the encoded packet (in bytes).</returns>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public int Encode(int[] input, int frame_size, byte[] output, int max_data_bytes) =>
+            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
 
         /// <summary>
         /// Encodes a floating point pcm frame.
@@ -139,7 +191,8 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(float[] input, int frame_size, byte[] output, int max_data_bytes) => Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        public int Encode(float[] input, int frame_size, byte[] output, int max_data_bytes) =>
+            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
 
         /// <summary>
         /// Performs a ctl request.
@@ -151,11 +204,13 @@ namespace OpusSharp.Core
         public int Ctl(EncoderCTL request)
         {
             ThrowIfDisposed();
-            var result = NativeOpus.opus_encoder_ctl(_handler, (int)request);
+            var result = _useStatic
+                ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request)
+                : NativeOpus.opus_encoder_ctl(_handler, (int)request);
             CheckError(result);
             return result;
         }
-        
+
         /// <summary>
         /// Performs a ctl request.
         /// </summary>
@@ -167,11 +222,13 @@ namespace OpusSharp.Core
         public int Ctl(EncoderCTL request, int value)
         {
             ThrowIfDisposed();
-            var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, value);
+            var result = _useStatic
+                ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, value)
+                : NativeOpus.opus_encoder_ctl(_handler, (int)request, value);
             CheckError(result);
             return result;
         }
-        
+
         /// <summary>
         /// Performs a ctl request.
         /// </summary>
@@ -186,12 +243,14 @@ namespace OpusSharp.Core
             ThrowIfDisposed();
             fixed (void* valuePtr = &value)
             {
-                var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr)
+                    : NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr);
                 CheckError(result);
                 return result;
             }
         }
-        
+
         /// <summary>
         /// Performs a ctl request.
         /// </summary>
@@ -202,18 +261,20 @@ namespace OpusSharp.Core
         /// <returns>The result code of the request. See <see cref="OpusErrorCodes"/>.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public unsafe int Ctl<T>(EncoderCTL request, ref T value, int value2) 
+        public unsafe int Ctl<T>(EncoderCTL request, ref T value, int value2)
             where T : unmanaged
         {
             ThrowIfDisposed();
             fixed (void* valuePtr = &value)
             {
-                var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr, value2);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr, value2)
+                    : NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr, value2);
                 CheckError(result);
                 return result;
             }
         }
-        
+
         /// <summary>
         /// Performs a ctl request.
         /// </summary>
@@ -224,13 +285,15 @@ namespace OpusSharp.Core
         /// <returns>The result code of the request. See <see cref="OpusErrorCodes"/>.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public unsafe int Ctl<T>(EncoderCTL request, int value, ref T value2) 
+        public unsafe int Ctl<T>(EncoderCTL request, int value, ref T value2)
             where T : unmanaged
         {
             ThrowIfDisposed();
             fixed (void* value2Ptr = &value2)
             {
-                var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, value, value2Ptr);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, value, value2Ptr)
+                    : NativeOpus.opus_encoder_ctl(_handler, (int)request, value, value2Ptr);
                 CheckError(result);
                 return result;
             }
@@ -247,7 +310,7 @@ namespace OpusSharp.Core
         /// <returns>The result code of the request. See <see cref="OpusErrorCodes"/>.</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public unsafe int Ctl<T, T2>(EncoderCTL request, ref T value, ref T2 value2) 
+        public unsafe int Ctl<T, T2>(EncoderCTL request, ref T value, ref T2 value2)
             where T : unmanaged
             where T2 : unmanaged
         {
@@ -255,7 +318,9 @@ namespace OpusSharp.Core
             fixed (void* valuePtr = &value)
             fixed (void* value2Ptr = &value2)
             {
-                var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr, value2Ptr);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr, value2Ptr)
+                    : NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr, value2Ptr);
                 CheckError(result);
                 return result;
             }
@@ -271,11 +336,13 @@ namespace OpusSharp.Core
         public int Ctl(GenericCTL request)
         {
             ThrowIfDisposed();
-            var result = NativeOpus.opus_encoder_ctl(_handler, (int)request);
+            var result = _useStatic
+                ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request)
+                : NativeOpus.opus_encoder_ctl(_handler, (int)request);
             CheckError(result);
             return result;
         }
-        
+
         /// <summary>
         /// Performs a ctl set request.
         /// </summary>
@@ -287,7 +354,9 @@ namespace OpusSharp.Core
         public int Ctl(GenericCTL request, int value)
         {
             ThrowIfDisposed();
-            var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, value);
+            var result = _useStatic
+                ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, value)
+                : NativeOpus.opus_encoder_ctl(_handler, (int)request, value);
             CheckError(result);
             return result;
         }
@@ -306,7 +375,9 @@ namespace OpusSharp.Core
             ThrowIfDisposed();
             fixed (void* valuePtr = &value)
             {
-                var result = NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr);
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr)
+                    : NativeOpus.opus_encoder_ctl(_handler, (int)request, valuePtr);
                 CheckError(result);
                 return result;
             }
@@ -351,7 +422,7 @@ namespace OpusSharp.Core
         /// </summary>
         /// <param name="error">The error code to input.</param>
         /// <exception cref="OpusException"></exception>
-        protected void CheckError(int error)
+        protected static void CheckError(int error)
         {
             if (error < 0)
                 throw new OpusException(((OpusErrorCodes)error).ToString());

@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable FieldCanBeMadeReadOnly.Global
+// ReSharper disable InconsistentNaming
 namespace OpusSharp.Core
 {
     /// <summary>
@@ -11,10 +14,13 @@ namespace OpusSharp.Core
         /// <summary>
         /// Gets the libopus version string.
         /// </summary>
+        /// <param name="use_static">Whether to use a statically linked version of opus.</param>
         /// <returns>Version string.</returns>
-        public static unsafe string Version()
+        public static unsafe string Version(bool use_static = false)
         {
-            var version = NativeOpus.opus_get_version_string();
+            var version = use_static
+                ? StaticNativeOpus.opus_get_version_string()
+                : NativeOpus.opus_get_version_string();
             return Marshal.PtrToStringAnsi((IntPtr)version) ?? "";
         }
 
@@ -22,10 +28,11 @@ namespace OpusSharp.Core
         /// Converts an opus error code into a human-readable string.
         /// </summary>
         /// <param name="error">Error number.</param>
+        /// <param name="use_static">Whether to use a statically linked version of opus.</param>
         /// <returns>Error string.</returns>
-        public static unsafe string StringError(int error)
+        public static unsafe string StringError(int error, bool use_static = false)
         {
-            var stringError = NativeOpus.opus_strerror(error);
+            var stringError = use_static ? StaticNativeOpus.opus_strerror(error) : NativeOpus.opus_strerror(error);
             return Marshal.PtrToStringAnsi((IntPtr)stringError) ?? "";
         }
     }

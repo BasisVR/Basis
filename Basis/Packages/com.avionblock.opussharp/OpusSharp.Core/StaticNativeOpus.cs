@@ -1,4 +1,4 @@
-﻿using OpusSharp.Core.SafeHandlers;
+using OpusSharp.Core.SafeHandlers;
 using System;
 using System.Runtime.InteropServices;
                                    
@@ -9,9 +9,9 @@ namespace OpusSharp.Core
     /// <summary>
     /// Native opus handler that directly calls the exported opus functions. Requires a dynamically loaded library.
     /// </summary>
-    public static class NativeOpus
+    public static class StaticNativeOpus
     {
-        private const string DllName = "opus";
+        private const string DllName = "__Internal__";
 
         //Encoder
         /// <summary>
@@ -23,15 +23,15 @@ namespace OpusSharp.Core
         public static extern int opus_encoder_get_size(int channels);
 
         /// <summary>
-        /// Allocates and initializes an encoder state.
+        /// Allocates and initializes an encoder state (statically linked).
         /// </summary>
         /// <param name="Fs">Sampling rate of input signal (Hz) This must be one of 8000, 12000, 16000, 24000, or 48000.</param>
         /// <param name="channels">Number of channels (1 or 2) in input signal.</param>
         /// <param name="application">Coding mode (one of <see cref="OpusPredefinedValues.OPUS_APPLICATION_VOIP"/>, <see cref="OpusPredefinedValues.OPUS_APPLICATION_AUDIO"/> or <see cref="OpusPredefinedValues.OPUS_APPLICATION_RESTRICTED_LOWDELAY"/>)</param>
         /// <param name="error"><see cref="OpusErrorCodes.OPUS_OK"/> Success or <see cref="OpusErrorCodes"/>.</param>
-        /// <returns><see cref="OpusEncoderSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusEncoderSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusEncoderSafeHandle opus_encoder_create(int Fs, int channels, int application, int* error);
+        public static extern unsafe StaticOpusEncoderSafeHandle opus_encoder_create(int Fs, int channels, int application, int* error);
 
         /// <summary>
         /// Initializes a previously allocated <see cref="OpusEncoderSafeHandle"/> state. The memory pointed to by st must be at least the size returned by <see cref="opus_encoder_get_size(int)"/>.
@@ -159,14 +159,14 @@ namespace OpusSharp.Core
         public static extern int opus_decoder_get_size(int channels);
 
         /// <summary>
-        /// Allocates and initializes a <see cref="OpusDecoderSafeHandle"/> state.
+        /// Allocates and initializes a <see cref="StaticOpusDecoderSafeHandle"/> state.
         /// </summary>
         /// <param name="Fs">Sample rate to decode at (Hz). This must be one of 8000, 12000, 16000, 24000, or 48000.</param>
         /// <param name="channels">Number of channels (1 or 2) to decode.</param>
         /// <param name="error"><see cref="OpusErrorCodes.OPUS_OK"/> Success or <see cref="OpusErrorCodes"/>.</param>
-        /// <returns><see cref="OpusDecoderSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusDecoderSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusDecoderSafeHandle opus_decoder_create(int Fs, int channels, int* error);
+        public static extern unsafe StaticOpusDecoderSafeHandle opus_decoder_create(int Fs, int channels, int* error);
 
         /// <summary>
         /// Initializes a previously allocated <see cref="OpusDecoderSafeHandle"/> state.
@@ -203,7 +203,7 @@ namespace OpusSharp.Core
         /// <returns>Number of decoded samples or <see cref="OpusErrorCodes"/>.</returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe int opus_decode24(OpusDecoderSafeHandle st, byte* data, int len, int* pcm, int frame_size, int decode_fec);
-
+        
         /// <summary>
         /// Decode an Opus packet with floating point output.
         /// </summary>
@@ -262,12 +262,12 @@ namespace OpusSharp.Core
         public static extern int opus_dred_decoder_get_size();
 
         /// <summary>
-        /// Allocates and initializes an <see cref="OpusDREDDecoderSafeHandle"/> state.
+        /// Allocates and initializes an <see cref="StaticOpusDREDDecoderSafeHandle"/> state.
         /// </summary>
         /// <param name="error"><see cref="OpusErrorCodes.OPUS_OK"/> Success or <see cref="OpusErrorCodes"/>.</param>
-        /// <returns><see cref="OpusDREDDecoderSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusDREDDecoderSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusDREDDecoderSafeHandle opus_dred_decoder_create(int* error);
+        public static extern unsafe StaticOpusDREDDecoderSafeHandle opus_dred_decoder_create(int* error);
 
         /// <summary>
         /// Initializes an <see cref="OpusDREDDecoderSafeHandle"/> state.
@@ -312,12 +312,12 @@ namespace OpusSharp.Core
         public static extern int opus_dred_get_size();
 
         /// <summary>
-        /// Allocates and initializes a <see cref="OpusDREDSafeHandle"/> state.
+        /// Allocates and initializes a <see cref="StaticOpusDREDSafeHandle"/> state.
         /// </summary>
         /// <param name="error"><see cref="OpusErrorCodes.OPUS_OK"/> Success or <see cref="OpusErrorCodes"/>.</param>
-        /// <returns><see cref="OpusDREDSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusDREDSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusDREDSafeHandle opus_dred_alloc(int* error);
+        public static extern unsafe StaticOpusDREDSafeHandle opus_dred_alloc(int* error);
 
         /// <summary>
         /// Frees an <see cref="OpusDREDSafeHandle"/> allocated by <see cref="opus_dred_alloc(int*)"/>.
@@ -374,7 +374,7 @@ namespace OpusSharp.Core
         /// <returns>Number of decoded samples or <see cref="OpusErrorCodes"/>.</returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe int opus_decoder_dred_decode24(OpusDecoderSafeHandle st, OpusDREDSafeHandle dred, int dred_offset, int* pcm, int frame_size);
-
+        
         /// <summary>
         /// Decode audio from an <see cref="OpusDREDSafeHandle"/> packet with floating point output.
         /// </summary>
@@ -486,16 +486,16 @@ namespace OpusSharp.Core
         /// (Re)initializes a previously allocated <see cref="OpusRepacketizerSafeHandle"/> state.
         /// </summary>
         /// <param name="rp">The <see cref="OpusRepacketizerSafeHandle"/> state to (re)initialize.</param>
-        /// <returns><see cref="OpusRepacketizerSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusRepacketizerSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern OpusRepacketizerSafeHandle opus_repacketizer_init(OpusRepacketizerSafeHandle rp);
+        public static extern StaticOpusRepacketizerSafeHandle opus_repacketizer_init(OpusRepacketizerSafeHandle rp);
 
         /// <summary>
-        /// Allocates memory and initializes the new <see cref="OpusRepacketizerSafeHandle"/> with <see cref="opus_repacketizer_init(OpusRepacketizerSafeHandle)"/>.
+        /// Allocates memory and initializes the new <see cref="StaticOpusRepacketizerSafeHandle"/> with <see cref="opus_repacketizer_init(OpusRepacketizerSafeHandle)"/>.
         /// </summary>
-        /// <returns><see cref="OpusRepacketizerSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusRepacketizerSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern OpusRepacketizerSafeHandle opus_repacketizer_create();
+        public static extern StaticOpusRepacketizerSafeHandle opus_repacketizer_create();
 
         /// <summary>
         /// Frees an <see cref="OpusRepacketizerSafeHandle"/> allocated by <see cref="opus_repacketizer_create"/>.
@@ -604,7 +604,7 @@ namespace OpusSharp.Core
         public static extern int opus_multistream_surround_encoder_get_size(int channels, int mapping_family);
 
         /// <summary>
-        /// Allocates and initializes a <see cref="OpusMSEncoderSafeHandle"/> state.
+        /// Allocates and initializes a <see cref="StaticOpusMSEncoderSafeHandle"/> state.
         /// </summary>
         /// <param name="Fs">Sampling rate of the input signal (in Hz). This must be one of 8000, 12000, 16000, 24000, or 48000.</param>
         /// <param name="channels">Number of channels in the input signal. This must be at most 255. It may be greater than the number of coded channels (streams + coupled_streams).</param>
@@ -613,9 +613,9 @@ namespace OpusSharp.Core
         /// <param name="mapping">Mapping from encoded channels to input channels, as described in Opus Multistream API. As an extra constraint, the multistream encoder does not allow encoding coupled streams for which one channel is unused since this is never a good idea.</param>
         /// <param name="application">The target encoder application. This must be one of the following: <see cref="OpusPredefinedValues.OPUS_APPLICATION_VOIP"/>, <see cref="OpusPredefinedValues.OPUS_APPLICATION_AUDIO"/> or <see cref="OpusPredefinedValues.OPUS_APPLICATION_RESTRICTED_LOWDELAY"/>.</param>
         /// <param name="error">Returns <see cref="OpusErrorCodes.OPUS_OK"/> on success, or an error code (see <see cref="OpusErrorCodes"/>) on failure.</param>
-        /// <returns><see cref="OpusMSEncoderSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusMSEncoderSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusMSEncoderSafeHandle opus_multistream_encoder_create(int Fs, int channels, int streams, int coupled_streams, byte* mapping, int application, int* error);
+        public static extern unsafe StaticOpusMSEncoderSafeHandle opus_multistream_encoder_create(int Fs, int channels, int streams, int coupled_streams, byte* mapping, int application, int* error);
 
         /// <summary>
         /// N.A.
@@ -630,7 +630,7 @@ namespace OpusSharp.Core
         /// <param name="error"></param>
         /// <returns></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusMSEncoderSafeHandle opus_multistream_surround_encoder_create(int Fs, int channels, int mapping_family, int* streams, int* coupled_streams, byte* mapping, int application, int* error);
+        public static extern unsafe StaticOpusMSEncoderSafeHandle opus_multistream_surround_encoder_create(int Fs, int channels, int mapping_family, int* streams, int* coupled_streams, byte* mapping, int application, int* error);
 
         /// <summary>
         /// Initialize a previously allocated <see cref="OpusMSEncoderSafeHandle"/> state.
@@ -777,7 +777,7 @@ namespace OpusSharp.Core
         public static extern int opus_multistream_decoder_get_size(int streams, int coupled_streams);
 
         /// <summary>
-        /// Allocates and initializes a <see cref="OpusMSDecoderSafeHandle"/> state.
+        /// Allocates and initializes a <see cref="StaticOpusMSDecoderSafeHandle"/> state.
         /// </summary>
         /// <param name="Fs">Sampling rate to decode at (in Hz). This must be one of 8000, 12000, 16000, 24000, or 48000.</param>
         /// <param name="channels">Number of channels to output. This must be at most 255. It may be different from the number of coded channels (streams + coupled_streams).</param>
@@ -785,9 +785,9 @@ namespace OpusSharp.Core
         /// <param name="coupled_streams">Number of streams to decode as coupled (2 channel) streams. This must be no larger than the total number of streams. Additionally, The total number of coded channels (streams + coupled_streams) must be no more than 255.</param>
         /// <param name="mapping">Mapping from coded channels to output channels, as described in Opus Multistream API.</param>
         /// <param name="error">Returns <see cref="OpusErrorCodes.OPUS_OK"/> on success, or an error code (see <see cref="OpusErrorCodes"/>) on failure.</param>
-        /// <returns><see cref="OpusMSDecoderSafeHandle"/></returns>
+        /// <returns><see cref="StaticOpusMSDecoderSafeHandle"/></returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern unsafe OpusMSDecoderSafeHandle opus_multistream_decoder_create(int Fs, int channels, int streams, int coupled_streams, byte* mapping, int* error);
+        public static extern unsafe StaticOpusMSDecoderSafeHandle opus_multistream_decoder_create(int Fs, int channels, int streams, int coupled_streams, byte* mapping, int* error);
 
         /// <summary>
         /// Initialize a previously allocated <see cref="OpusMSDecoderSafeHandle"/> state object.
@@ -827,7 +827,7 @@ namespace OpusSharp.Core
         /// <returns>Number of samples decoded on success or a negative error code (see <see cref="OpusErrorCodes"/>) on failure.</returns>
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
         public static extern unsafe int opus_multistream_decode24(OpusMSDecoderSafeHandle st, int* data, int len, short* pcm, int frame_size, int decode_fec);
-
+        
         /// <summary>
         /// Decode a multistream Opus packet with floating point output.
         /// </summary>
