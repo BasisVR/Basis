@@ -1,13 +1,11 @@
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
-using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
 using Basis.Scripts.TransformBinders.BoneControl;
-using System;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
@@ -75,21 +73,7 @@ public class BasisTransmissionResults
     /// </summary>
     public void Simulate()
     {
-        int receiverCount = BasisNetworkPlayers.ReceiverCount;
-        var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
-        double activeTime = Time.timeAsDouble;
         float deltaTime = Time.deltaTime;
-        float DeltaSpeed = BasisRemoteEyeDriver.LookSpeed * deltaTime;
-        for (int index = 0; index < receiverCount; index++)
-        {
-            var receiver = snapshot[index];
-            var remote = receiver.RemotePlayer;
-            // Small anim drivers
-            remote.RemoteEyeDriver.Simulate(activeTime, DeltaSpeed);
-            remote.FacialBlinkDriver.Simulate(activeTime);
-        }
-
-
         timer += deltaTime;
 
         if (timer <= intervalSeconds)
@@ -108,6 +92,9 @@ public class BasisTransmissionResults
         distanceJob.SquaredHearingDistance = SMModuleDistanceBasedReductions.HearingRange;
         distanceJob.SquaredVoiceDistance = SMModuleDistanceBasedReductions.MicrophoneRange;
         distanceJob.referencePosition = MouthBone.OutgoingWorldData.position;
+
+        int receiverCount = BasisNetworkPlayers.ReceiverCount;
+        var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
 
         bool DifferentLengths = LastIndexLength != receiverCount;
         if (DifferentLengths)
@@ -301,7 +288,7 @@ public class BasisTransmissionResults
         if (LastIndexToPlayerId.IsCreated) LastIndexToPlayerId.Dispose();
         if (IndexToPlayerId.IsCreated) IndexToPlayerId.Dispose();
 
-        if(distanceJob.AnyChangedArray.IsCreated) distanceJob.AnyChangedArray.Dispose();
+        if (distanceJob.AnyChangedArray.IsCreated) distanceJob.AnyChangedArray.Dispose();
         if (distanceJob.SMD.IsCreated) distanceJob.SMD.Dispose();
     }
     [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Standard)]

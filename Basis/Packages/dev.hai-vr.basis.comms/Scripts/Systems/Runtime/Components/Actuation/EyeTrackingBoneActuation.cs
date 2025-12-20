@@ -110,8 +110,8 @@ namespace HVR.Basis.Comms
 
                 if (IsLocal && Receiver != null)
                 {
-                    Receiver.RemotePlayer.RemoteEyeDriver.Override = false;
-                    Receiver.RemotePlayer.FacialBlinkDriver.Override = false;
+                    Receiver.RemotePlayer.RemoteFaceDriver.OverrideEye = false;
+                    Receiver.RemotePlayer.RemoteFaceDriver.OverrideBlinking = false;
                 }
             }
         }
@@ -174,8 +174,8 @@ namespace HVR.Basis.Comms
             {
                 if (IsLocal && Receiver != null)
                 {
-                    Receiver.RemotePlayer.RemoteEyeDriver.Override = true;
-                    Receiver.RemotePlayer.FacialBlinkDriver.Override = true;
+                    Receiver.RemotePlayer.RemoteFaceDriver.OverrideEye = true;
+                    Receiver.RemotePlayer.RemoteFaceDriver.OverrideBlinking = true;
                     switch (side)
                     {
                         case EyeSide.Left:

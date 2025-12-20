@@ -341,7 +341,7 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Avatar.FaceVisemeMesh.gameObject);
             LocalPlayer.FaceRenderer.Check += LocalPlayer.UpdateFaceVisibility;
 
-            if (BasisFacialBlinkDriver.MeetsRequirements(Avatar))
+            if (BasisLocalFacialBlinkDriver.MeetsRequirements(Avatar))
             {
                 LocalPlayer.FacialBlinkDriver.Initialize(LocalPlayer, Avatar);
             }

@@ -17,7 +17,7 @@ namespace Basis.Scripts.Drivers
     /// updates when the face is not visible.
     /// </remarks>
     [System.Serializable]
-    public class BasisFacialBlinkDriver
+    public class BasisLocalFacialBlinkDriver
     {
         /// <summary>
         /// If set to <c>true</c>, overrides and disables the blinking simulation logic.

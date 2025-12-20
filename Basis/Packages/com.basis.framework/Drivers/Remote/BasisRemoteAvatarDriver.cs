@@ -61,10 +61,10 @@ namespace Basis.Scripts.Drivers
         /// Performs remote-avatar calibration and registers it with the job system.
         /// Initializes TPose, references, face visibility, eye/blink drivers, and physics colliders.
         /// </summary>
-        /// <param name="player">The remote player whose avatar is being configured.</param>
-        public void RemoteCalibration(BasisRemotePlayer player)
+        /// <param name="RemotePlayer">The remote player whose avatar is being configured.</param>
+        public void RemoteCalibration(BasisRemotePlayer RemotePlayer)
         {
-            if (!IsAble(player))
+            if (!IsAble(RemotePlayer))
             {
                 return;
             }
@@ -73,7 +73,7 @@ namespace Basis.Scripts.Drivers
                 // BasisDebug.Log("RemoteCalibration Underway", BasisDebug.LogTag.Avatar);
             }
 
-            Player = player;
+            Player = RemotePlayer;
 
             // Cache renderers and prep avatar layer/tpose
             SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
@@ -81,16 +81,16 @@ namespace Basis.Scripts.Drivers
             SetupAvatarLayers(Player, BasisLayerMapper.RemoteAvatarLayer);
             PutAvatarIntoTPose();
 
-            player.BasisAvatar.HumanScale = player.BasisAvatar.Animator.humanScale;
+            RemotePlayer.BasisAvatar.HumanScale = RemotePlayer.BasisAvatar.Animator.humanScale;
 
             AvatarInitalScale = Player.BasisAvatar.transform.localScale;
 
             // Auto-detect bone refs and record TPose
-            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, player.BasisAvatar.transform, ref References);
+            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, RemotePlayer.BasisAvatar.transform, ref References);
             References.RecordPoses(Player.BasisAvatar.Animator);
 
             // Initialize any jiggle rigs
-            var JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
+            var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
             foreach (JiggleRig Rig in JiggleRigs)
             {
                 JiggleRigData Data = Rig.GetJiggleRigData();
@@ -107,65 +107,63 @@ namespace Basis.Scripts.Drivers
 
             // Face visibility setup
             Player.FaceIsVisible = false;
-            if (player.BasisAvatar == null)
+            if (RemotePlayer.BasisAvatar == null)
             {
                 BasisDebug.LogError("Missing Avatar On Remote", BasisDebug.LogTag.Avatar);
             }
-            if (player.BasisAvatar.FaceVisemeMesh == null)
+            if (RemotePlayer.BasisAvatar.FaceVisemeMesh == null)
             {
                 BasisDebug.Log("Missing Face for " + Player.DisplayName, BasisDebug.LogTag.Avatar);
             }
 
-            Player.UpdateFaceVisibility(player.BasisAvatar.FaceVisemeMesh.isVisible);
+            Player.UpdateFaceVisibility(RemotePlayer.BasisAvatar.FaceVisemeMesh.isVisible);
             if (Player.FaceRenderer != null)
             {
                 GameObject.Destroy(Player.FaceRenderer);
             }
-            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(player.BasisAvatar.FaceVisemeMesh.gameObject);
+            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(RemotePlayer.BasisAvatar.FaceVisemeMesh.gameObject);
             Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
 
             // Blink + eyes
-            if (BasisFacialBlinkDriver.MeetsRequirements(player.BasisAvatar))
+            if (BasisRemoteFaceDriver.MeetsRequirements(RemotePlayer.BasisAvatar))
             {
-                Player.FacialBlinkDriver.Initialize(Player, player.BasisAvatar);
+                RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
             }
-            player.RemoteEyeDriver.Initalize(this, player);
-
             // Renderer perf flags
             UpdateWhenOffscreenAndDisableMatrixRecal(false);
-            player.BasisAvatar.Animator.logWarnings = false;
+            RemotePlayer.BasisAvatar.Animator.logWarnings = false;
 
             // Ensure stale data is removed
             if (InBoneDriver)
             {
-                RemoteBoneJobSystem.RemoveRemotePlayer(player.NetworkReceiver.playerId);
+                RemoteBoneJobSystem.RemoveRemotePlayer(RemotePlayer.NetworkReceiver.playerId);
                 InBoneDriver = false;
             }
 
             // Register with the RemoteBoneJobSystem
             RemoteBoneJobSystem.AddRemotePlayer(
-                key: player.NetworkReceiver.playerId,
-                remotePlayerRoot: player.BasisAvatar.Animator.transform,
-                head: player.RemoteAvatarDriver.References.head,
-                hips: player.RemoteAvatarDriver.References.Hips,
-                tposeHead: player.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Head],
-                tposeHips: player.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Hips],
+                key: RemotePlayer.NetworkReceiver.playerId,
+                remotePlayerRoot: RemotePlayer.BasisAvatar.Animator.transform,
+                head: RemotePlayer.RemoteAvatarDriver.References.head,
+                hips: RemotePlayer.RemoteAvatarDriver.References.Hips,
+                tposeHead: RemotePlayer.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Head],
+                tposeHips: RemotePlayer.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Hips],
                 authoredCenterEyeWorld: BasisHelpers.ConvertFromLocalSpace(
-                    BasisHelpers.AvatarPositionConversion(player.BasisAvatar.AvatarEyePosition),
-                    player.BasisAvatar.Animator.transform.position
+                    BasisHelpers.AvatarPositionConversion(RemotePlayer.BasisAvatar.AvatarEyePosition),
+                    RemotePlayer.BasisAvatar.Animator.transform.position
                 ),
                 authoredMouthWorld: BasisHelpers.ConvertFromLocalSpace(
-                    BasisHelpers.AvatarPositionConversion(player.BasisAvatar.AvatarMouthPosition),
-                    player.BasisAvatar.Animator.transform.position
+                    BasisHelpers.AvatarPositionConversion(RemotePlayer.BasisAvatar.AvatarMouthPosition),
+                    RemotePlayer.BasisAvatar.Animator.transform.position
                 ),
-                NamePlate: player.RemoteNamePlate.Self,
-                AvatarScale: player.BasisAvatar.Animator.transform,
-                MouthTransform: player.MouthTransform
+                NamePlate: RemotePlayer.RemoteNamePlate.Self,
+                AvatarScale: RemotePlayer.BasisAvatar.Animator.transform,
+                MouthTransform: RemotePlayer.MouthTransform
             );
             InBoneDriver = true;
 
             // player.RemoteBoneDriver.InitializeFromAvatar(player);
-            player.BasisAvatar.Animator.enabled = false;
+            RemotePlayer.BasisAvatar.Animator.enabled = false;
 
             SetupAvatarJiggleColliders();
             ResetAvatarAnimator();

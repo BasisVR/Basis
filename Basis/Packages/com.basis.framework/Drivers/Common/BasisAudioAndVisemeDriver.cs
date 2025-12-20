@@ -57,19 +57,9 @@ namespace Basis.Scripts.Drivers
         public uLipSync.uLipSync uLipSync;
 
         /// <summary>
-        /// uLipSync component that writes analysed phoneme weights into blendshapes.
-        /// </summary>
-        public uLipSyncBlendShape uLipSyncBlendShape;
-
-        /// <summary>
         /// Table mapping phoneme strings (e.g., "A", "E") to avatar blendshape indices.
         /// </summary>
         public List<BasisPhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<BasisPhonemeBlendShapeInfo>();
-
-        /// <summary>
-        /// Indicates whether this was the first initialization for this instance.
-        /// </summary>
-        public bool FirstTime = false;
 
         /// <summary>
         /// Tracks whether initialization completed successfully.
@@ -113,11 +103,6 @@ namespace Basis.Scripts.Drivers
                 //  BasisDebug.Log("not setting up BasisVisemeDriver blendShapeCount was empty");
                 return false;
             }
-
-            if (uLipSync == null)
-            {
-                FirstTime = true;
-            }
             if (uLipSync == null)
             {
                 uLipSync = BasisHelpers.GetOrAddComponent<uLipSync.uLipSync>(BasisPlayer.gameObject);
@@ -125,13 +110,7 @@ namespace Basis.Scripts.Drivers
 
             phonemeBlendShapeTable.Clear();
             uLipSync.profile = BasisDeviceManagement.Instance.LipSyncProfile;
-
-            if (uLipSyncBlendShape == null)
-            {
-                uLipSyncBlendShape = BasisHelpers.GetOrAddComponent<uLipSyncBlendShape>(BasisPlayer.gameObject);
-            }
-
-            uLipSyncBlendShape.skinnedMeshRenderer = Avatar.FaceVisemeMesh;
+            uLipSync.skinnedMeshRenderer = Avatar.FaceVisemeMesh;
 
             // Build viseme availability and phoneme mapping table
             BlendShapeCount = Avatar.FaceVisemeMovement.Length;
@@ -174,19 +153,13 @@ namespace Basis.Scripts.Drivers
             }
 
             // Push mappings into uLipSyncBlendShape
-            uLipSyncBlendShape.CachedblendShapes.Clear();
+            uLipSync.CachedblendShapes.Clear();
             for (int i = 0; i < phonemeBlendShapeTable.Count; i++)
             {
                 var info = phonemeBlendShapeTable[i];
-                uLipSyncBlendShape.AddBlendShape(info.phoneme, info.blendShape);
+                uLipSync.AddBlendShape(info.phoneme, info.blendShape);
             }
-            uLipSyncBlendShape.BlendShapeInfos = uLipSyncBlendShape.CachedblendShapes.ToArray();
-
-            if (FirstTime)
-            {
-                uLipSync.uLipSyncBlendShape = uLipSyncBlendShape;
-            }
-
+            uLipSync.BlendShapeInfos = uLipSync.CachedblendShapes.ToArray();
             uLipSync.Initalize();
 
             // Wire visibility and lifetime callbacks (only once per renderer instance)
@@ -266,15 +239,6 @@ namespace Basis.Scripts.Drivers
         /// </remarks>
         public void OnPausedEvent(bool IsPaused)
         {
-            if (uLipSyncBlendShape != null)
-            {
-                if (IsPaused)
-                {
-                }
-                else
-                {
-                }
-            }
         }
     }
 }
