@@ -374,6 +374,16 @@ namespace OpusSharp.Core
         /// Provide external DNN weights from binary object (only when explicitly built without the weights).
         /// </summary>
         OPUS_SET_DNN_BLOB = 4052,
+        
+        /// <summary>
+        /// If set to 1, enables quality extension (QEXT), otherwise disables it (default). Warning: This will hurt audio quality unless operating at a very high bitrate.
+        /// </summary>
+        OPUS_SET_QEXT = 4056,
+        
+        /// <summary>
+        /// Gets the encoder's configured quality extension (QEXT).
+        /// </summary>
+        OPUS_GET_QEXT = 4057
     }
 
     /// <summary>
@@ -400,6 +410,26 @@ namespace OpusSharp.Core
         /// Gets the pitch of the last decoded frame, if available.
         /// </summary>
         OPUS_GET_PITCH = 4033,
+        
+        /// <summary>
+        /// Enables blind bandwidth extension for wideband signals if decoding sampling rate is 48 kHz.
+        /// </summary>
+        OPUS_SET_OSCE_BWE = 4054,
+        
+        /// <summary>
+        /// Gets blind bandwidth extension flag for wideband signals if decoding sampling rate is 48 kHz.
+        /// </summary>
+        OPUS_GET_OSCE_BWE = 4055,
+        
+        /// <summary>
+        /// If set to 1, the decoder will ignore all extensions found in the padding area (does not affect DRED, which is decoded separately).
+        /// </summary>
+        OPUS_SET_IGNORE_EXTENSIONS = 4058,
+        
+        /// <summary>
+        /// Gets whether the decoder is ignoring extensions.
+        /// </summary>
+        OPUS_GET_IGNORE_EXTENSIONS = 4059,
     }
 
     /// <summary>

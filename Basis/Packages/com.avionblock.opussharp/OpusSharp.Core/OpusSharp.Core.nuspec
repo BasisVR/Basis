@@ -2,7 +2,7 @@
 <package>
 	<metadata>
 		<id>OpusSharp.Core</id>
-		<version>1.5.2.1</version>
+		<version>1.6.0.0</version>
 		<authors>SineVector241</authors>
 		<description>Standard library for OpusSharp.</description>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
@@ -11,7 +11,7 @@
 		<readme>docs/README.md</readme>
 
 		<projectUrl>https://avionblock.github.io/OpusSharp/index.html</projectUrl>
-		<repository type="git" url="https://github.com/AvionBlock/OpusSharp"></repository>
+		<repository type="git" url="https://github.com/AvionBlock/OpusSharp" />
 
 		<dependencies>
 		  <group targetFramework="netstandard2.1">
