@@ -4,7 +4,7 @@
     "references": [
         "SteamVR",
         "SteamVR_Actions",
-        "Basis_Framework",
+        "Basis Framework",
         "UnityEngine.SpatialTracking",
         "BasisCommon",
         "BasisSDK",
