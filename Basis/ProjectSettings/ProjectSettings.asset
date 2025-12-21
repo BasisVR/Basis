@@ -171,6 +171,7 @@ PlayerSettings:
   applicationIdentifier:
     Android: com.BasisUnity.BasisUnity
     Standalone: com.Basis-Unity.Basis-Unity
+    iPhone: com.Basis-Unity.Basis-Unity
   buildNumber:
     Standalone: 0
     VisionOS: 0
@@ -512,6 +513,8 @@ PlayerSettings:
   m_BuildTargetGraphicsJobs:
   - m_BuildTarget: AndroidPlayer
     m_GraphicsJobs: 1
+  - m_BuildTarget: iOSSupport
+    m_GraphicsJobs: 1
   m_BuildTargetGraphicsJobMode: []
   m_BuildTargetGraphicsAPIs:
   - m_BuildTarget: WindowsStandaloneSupport
@@ -542,7 +545,13 @@ PlayerSettings:
   - serializedVersion: 2
     m_BuildTarget: Android
     m_EncodingQuality: 1
-  m_BuildTargetGroupHDRCubemapEncodingQuality: []
+  - serializedVersion: 2
+    m_BuildTarget: iOS
+    m_EncodingQuality: 1
+  m_BuildTargetGroupHDRCubemapEncodingQuality:
+  - serializedVersion: 2
+    m_BuildTarget: iOS
+    m_EncodingQuality: 1
   m_BuildTargetGroupLightmapSettings: []
   m_BuildTargetGroupLoadStoreDebugModeSettings: []
   m_BuildTargetNormalMapEncoding: []
@@ -550,16 +559,20 @@ PlayerSettings:
   - serializedVersion: 3
     m_BuildTarget: Android
     m_Formats: 03000000
+  - serializedVersion: 3
+    m_BuildTarget: iOS
+    m_Formats: 03000000
   playModeTestRunnerEnabled: 0
   runPlayModeTestAsEditModeTest: 0
   actionOnDotNetUnhandledException: 1
   editorGfxJobOverride: 1
   enableInternalProfiler: 0
   logObjCUncaughtExceptions: 1
-  enableCrashReportAPI: 0
+  enableCrashReportAPI: 1
   cameraUsageDescription: 
   locationUsageDescription: 
-  microphoneUsageDescription: This application uses the microphone for voice communication and audio features. 
+  microphoneUsageDescription: This application uses the microphone for voice communication
+    and audio features.
   bluetoothUsageDescription: 
   macOSTargetOSVersion: 12.0
   switchNMETAOverride: 
@@ -827,7 +840,7 @@ PlayerSettings:
     WebGL: STEAMAUDIO_ENABLED
     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS
     XboxOne: 
-    iPhone: STEAMAUDIO_ENABLED
+    iPhone: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;AUDIOLINK;AUDIOLINK_V1;BASIS_FRAMEWORK_EXISTS;LITENETLIB_SPANS;USE_STICK_CONTROL_THUMBSTICKS
     tvOS: 
   additionalCompilerArguments: {}
   platformArchitecture: {}
@@ -931,7 +944,7 @@ PlayerSettings:
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
   cloudProjectId: 119fdfcf-36b9-4c45-a3e2-7da2705a7ef7
-  framebufferDepthMemorylessMode: 0
+  framebufferDepthMemorylessMode: 2
   qualitySettingsNames: []
   projectName: Basis Unity
   organizationId: luke-doolan
