@@ -7,7 +7,7 @@ public class SMModuleHDRURP : BasisSettingsBase
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
         UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
-#if UNITY_ANDROID
+#if UNITY_ANDROID || UNITY_IOS
         Asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
         Asset.supportsHDR = false;
                 if (Camera.main != null)

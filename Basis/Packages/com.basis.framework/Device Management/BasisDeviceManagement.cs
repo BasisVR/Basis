@@ -641,7 +641,12 @@ namespace Basis.Scripts.Device_Management
 #else
             if (Application.isMobilePlatform) // try to boot vr first on standalone devices.
             {
-                // On mobile we assume OpenXR (tunable per project).
+                // iOS devices (iPhones/iPads) should use Desktop mode for touch controls
+                if (Application.platform == RuntimePlatform.IPhonePlayer)
+                {
+                    return BasisConstants.Desktop;
+                }
+                // On Android we assume OpenXR for VR headsets like Quest
                 return BasisConstants.OpenXRLoader;
             }
             else

@@ -5,6 +5,7 @@ public class BasisPlatformDefault<T>
 {
     public T windows;
     public T android;
+    public T ios;
     public T linux;
     public T other;
 
@@ -17,6 +18,8 @@ public class BasisPlatformDefault<T>
                 return windows;
             case RuntimePlatform.Android:
                 return android;
+            case RuntimePlatform.IPhonePlayer:
+                return ios;
             case RuntimePlatform.LinuxPlayer:
             case RuntimePlatform.LinuxEditor:
                 return linux;
@@ -33,6 +36,7 @@ public class BasisPlatformDefault<T>
     {
         windows = defaultAll;
         android = defaultAll;
+        ios = defaultAll;
         linux = defaultAll;
         other = defaultAll;
     }

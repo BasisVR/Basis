@@ -49,7 +49,7 @@ public static class BasisLocalMicrophoneDriver
     public static int rmsIndex = 0;
     public static float averageRms;
 
-#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_STANDALONE_LINUX
     public static RNNoise.NET.Denoiser Denoiser = new RNNoise.NET.Denoiser();
 #endif
 
@@ -105,7 +105,7 @@ public static class BasisLocalMicrophoneDriver
 
     // Temp buffers for denoiser wet/dry and chunking
     private static float[] _denoiseDry; // copy of pre-denoise frame
-    #if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
+    #if !UNITY_ANDROID && !UNITY_IOS && !UNITY_STANDALONE_LINUX
     private static float[] _tmp480;     // 480-sample scratch (allocated on demand)
 #endif
     // ---------------------------------------------------------
@@ -155,7 +155,7 @@ public static class BasisLocalMicrophoneDriver
             {
                 VAJ.processBufferArray.Dispose();
             }
-#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_STANDALONE_LINUX
             Denoiser?.Dispose();
             Denoiser = null;
             _tmp480 = null;
@@ -272,7 +272,7 @@ public static class BasisLocalMicrophoneDriver
             Array.Clear(processBufferArray, 0, processBufferArray.Length);
             Array.Clear(_denoiseDry, 0, _denoiseDry.Length);
 
-#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_STANDALONE_LINUX
             if (Denoiser == null) Denoiser = new RNNoise.NET.Denoiser();
 #endif
 
@@ -557,7 +557,7 @@ public static class BasisLocalMicrophoneDriver
     }
     public static void ApplyDeNoise()
     {
-#if !UNITY_ANDROID && !UNITY_STANDALONE_LINUX
+#if !UNITY_ANDROID && !UNITY_IOS && !UNITY_STANDALONE_LINUX
         if (_denoiseDry == null || _denoiseDry.Length != processBufferArray.Length)
             CreateOrResizeArray(processBufferArray.Length, ref _denoiseDry);
 

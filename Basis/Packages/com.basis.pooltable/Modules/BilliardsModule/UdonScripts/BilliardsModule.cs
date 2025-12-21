@@ -1,4 +1,4 @@
-#if UNITY_ANDROID
+#if UNITY_ANDROID || UNITY_IOS
 #define HT_QUEST
 #endif
 
