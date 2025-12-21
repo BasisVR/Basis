@@ -4,6 +4,7 @@
   <Project Path="Unity.RenderPipelines.GPUDriven.Runtime.csproj" />
   <Project Path="Unity.InputSystem.csproj" />
   <Project Path="Unity.Services.Core.Internal.csproj" />
+  <Project Path="Unity.XR.OpenVR.Editor.csproj" />
   <Project Path="Unity.ShaderGraph.Editor.csproj" />
   <Project Path="Unity.RenderPipelines.Core.Runtime.csproj" />
   <Project Path="Unity.ScriptableBuildPipeline.Editor.csproj" />
@@ -88,6 +89,7 @@
   <Project Path="Unity.Services.Core.Configuration.csproj" />
   <Project Path="AudioLink.csproj" />
   <Project Path="Unity.XR.Management.Editor.csproj" />
+  <Project Path="Unity.XR.OpenVR.csproj" />
   <Project Path="Meta.XR.Editor.Notifications.csproj" />
   <Project Path="Unity.XR.OpenXR.Features.MetaQuestSupport.Editor.csproj" />
   <Project Path="Unity.Services.Core.Environments.Internal.csproj" />
@@ -156,8 +158,6 @@
   <Project Path="Unity.RenderPipelines.Core.Runtime.Shared.csproj" />
   <Project Path="Unity.InternalAPIEngineBridge.004.csproj" />
   <Project Path="Meta.XR.Editor.StatusMenu.csproj" />
-  <Project Path="Unity.Toolchain.Linux-x86_64.csproj" />
-  <Project Path="Unity.Sysroot.Linux_x86_64.csproj" />
   <Project Path="Basis.Zeromessenger.Editor.csproj" />
   <Project Path="Unity.2D.Sprite.AIIntegration.Editor.csproj" />
   <Project Path="Unity.RenderPipelines.Core.Editor.Shared.csproj" />
