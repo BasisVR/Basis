@@ -5,7 +5,11 @@ namespace RNNoise.NET
 {
     public static class Native
     {
+#if UNITY_IOS && !UNITY_EDITOR
+        public const string LIBRARY_NAME = "__Internal";
+#else
         public const string LIBRARY_NAME = "rnnoise";
+#endif
         public const int FRAME_SIZE = 480;
 
         public const float SIGNAL_SCALE = short.MaxValue;
