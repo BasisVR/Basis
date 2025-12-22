@@ -87,6 +87,7 @@ public class BasisAvatarValidator
 
         errorMessageLabel = new Label("No Errors");
         errorMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        errorMessageLabel.style.whiteSpace = WhiteSpace.Normal;
         errorPanel.Add(errorMessageLabel);
 
         errorPanel.style.display = DisplayStyle.None;
@@ -115,6 +116,7 @@ public class BasisAvatarValidator
 
         warningMessageLabel = new Label("No Errors");
         warningMessageLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        warningMessageLabel.style.whiteSpace = WhiteSpace.Normal;
         warningPanel.Add(warningMessageLabel);
 
         warningPanel.style.display = DisplayStyle.None;
