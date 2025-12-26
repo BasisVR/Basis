@@ -224,11 +224,21 @@ namespace HVR.Basis.Comms
                 .Concat(addressOverrides)
                 .Where(it => it.overrideDefaultValue)
                 .ToArray();
+            var skipThose = new HashSet<int>();
             foreach (var addressOverride in overrides)
             {
-                if (_addessIdToBaseIndex.TryGetValue(HVRAddress.AddressToId(addressOverride.address), out var key))
+                var addressId = HVRAddress.AddressToId(addressOverride.address);
+                if (_addessIdToBaseIndex.TryGetValue(addressId, out var key))
                 {
                     featureInterpolator.SubmitAbsolute(key, addressOverride.defaultValue);
+                    skipThose.Add(addressId);
+                }
+            }
+            foreach (var addressIdToKey in _addessIdToBaseIndex)
+            {
+                if (!skipThose.Contains(addressIdToKey.Key))
+                {
+                    featureInterpolator.SubmitAbsolute(addressIdToKey.Value, 0f);
                 }
             }
         }
