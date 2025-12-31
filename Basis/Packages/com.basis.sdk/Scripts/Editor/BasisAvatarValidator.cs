@@ -428,7 +428,7 @@ public class BasisAvatarValidator
                 TextureImporter texImporter = AssetImporter.GetAtPath(texPath) as TextureImporter;
                 if (texImporter != null)
                 {
-                    if (!texImporter.streamingMipmaps)
+                    if (texImporter.mipmapEnabled && !texImporter.streamingMipmaps)
                     {
                         warnings.Add(new BasisValidationIssue($"Texture \"{tex.name}\" does not have Streaming Mip Maps enabled. this will effect negatively its performance ranking",null));
                     }
