@@ -40,11 +40,24 @@ namespace Basis.Scripts.Networking.Transmitters
 
         private void InitializeEncoder()
         {
+#if UNITY_IOS && !UNITY_EDITOR
+            // iOS threads have smaller stack sizes (512KB vs 1MB+).
+            // Use VOIP mode instead of AUDIO to prevent stack overflow in CELT encoder.
+            // VOIP mode uses SILK which is more stack-efficient and appropriate for voice.
             encoder = new OpusEncoder(
                 LocalOpusSettings.MicrophoneSampleRate,
                 LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication
+                LocalOpusSettings.OpusApplication,
+                use_static: true
             );
+#else
+            encoder = new OpusEncoder(
+                LocalOpusSettings.MicrophoneSampleRate,
+                LocalOpusSettings.Channels,
+                LocalOpusSettings.OpusApplication,
+                use_static: false
+            );
+#endif
 
             // Example: Configure Opus encoder here (optional)
             // int complexity = 5;

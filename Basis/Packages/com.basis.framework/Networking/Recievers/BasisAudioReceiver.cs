@@ -86,7 +86,8 @@ namespace Basis.Scripts.Networking.Receivers
         /// <summary>
         /// Opus decoder used for network voice frames.
         /// </summary>
-        public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
+
+        public OpusDecoder decoder;
 
         private float[] _inputScratch;    // big enough for the largest chunk we pull
         private int _cachedOutputRate = -1;
@@ -222,6 +223,13 @@ namespace Basis.Scripts.Networking.Receivers
             silentData ??= new float[RemoteOpusSettings.FrameSize];
 
             BasisNetworkReceiver = networkedPlayer;
+
+#if UNITY_IOS && !UNITY_EDITOR
+            // iOS requires statically linked Opus library
+            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
+#else
+            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+#endif
         }
 
         /// <summary>
@@ -358,7 +366,14 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 if (decoder != null)
                 {
-                    OpusDecoderExtensions.SetGain(decoder, 256);
+                    try
+                    {
+                        OpusDecoderExtensions.SetGain(decoder, 256);
+                    }
+                    catch (OpusException)
+                    {
+                        // SetGain may fail on some Opus builds - non-fatal
+                    }
                 }
                 BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
                 return;
@@ -382,8 +397,17 @@ namespace Basis.Scripts.Networking.Receivers
             }
             if (decoder != null)
             {
-              //  BasisDebug.Log($"Gain Set To {gain}");
-                OpusDecoderExtensions.SetGain(decoder, gain);
+                try
+                {
+                    //  BasisDebug.Log($"Gain Set To {gain}");
+                    OpusDecoderExtensions.SetGain(decoder, gain);
+                }
+                catch (OpusException ex)
+                {
+                    // Some Opus library builds may not support OPUS_SET_GAIN or may fail
+                    // if called before any decoding has occurred. This is non-fatal.
+                    BasisDebug.LogWarning($"Failed to set decoder gain: {ex.Message}", BasisDebug.LogTag.Voice);
+                }
             }
             else
             {

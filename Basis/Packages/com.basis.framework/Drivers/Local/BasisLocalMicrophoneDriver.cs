@@ -75,6 +75,11 @@ public static class BasisLocalMicrophoneDriver
             PlayerPrefs.SetInt(MicrophoneState, isPaused ? 1 : 0);
             ResetMicrophones(SMDMicrophone.SelectedMicrophone);
             OnPausedAction?.Invoke(isPaused);
+
+#if UNITY_IOS && !UNITY_EDITOR
+            // Reapply iOS audio session after microphone state change to maintain speaker output
+            Basis.Scripts.Platform.BasisIOSAudioSession.ReapplySettings();
+#endif
         }
     }
 

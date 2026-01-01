@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8
+guid: ffab12fd53201473fa1f131180566b97
 PluginImporter:
   externalObjects: {}
   serializedVersion: 3
@@ -14,6 +14,8 @@ PluginImporter:
     Android:
       enabled: 0
       settings:
+        AndroidLibraryDependee: UnityLibrary
+        AndroidSharedLibraryType: Executable
         CPU: ARMv7
     Any:
       enabled: 0
@@ -24,11 +26,13 @@ PluginImporter:
         Exclude OSXUniversal: 1
         Exclude Win: 1
         Exclude Win64: 1
+        Exclude iOS: 0
     Editor:
       enabled: 0
       settings:
-        CPU: None
+        CPU: AnyCPU
         DefaultValueInitialized: true
+        OS: AnyOS
     Linux64:
       enabled: 0
       settings:
@@ -49,9 +53,9 @@ PluginImporter:
       enabled: 1
       settings:
         AddToEmbeddedBinaries: false
-        CPU: ARM64
-        CompileFlags:
-        FrameworkDependencies:
-  userData:
-  assetBundleName:
-  assetBundleVariant:
+        CPU: AnyCPU
+        CompileFlags: 
+        FrameworkDependencies: 
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
