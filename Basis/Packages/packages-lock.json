@@ -102,6 +102,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.vehicles": {
+      "version": "file:com.basis.vehicles",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.visualtrackers": {
       "version": "file:com.basis.visualtrackers",
       "depth": 0,

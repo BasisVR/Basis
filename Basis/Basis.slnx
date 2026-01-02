@@ -60,6 +60,7 @@
   <Project Path="Unity.TextMeshPro.Editor.csproj" />
   <Project Path="SteamVR_Input_Editor.csproj" />
   <Project Path="Unity.Services.Analytics.Editor.csproj" />
+  <Project Path="BasisVehicles.csproj" />
   <Project Path="Unity.Burst.Editor.csproj" />
   <Project Path="Meta.XR.Editor.Tags.csproj" />
   <Project Path="BasisSDK.csproj" />

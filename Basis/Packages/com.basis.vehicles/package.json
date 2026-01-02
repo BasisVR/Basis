@@ -1,0 +1,7 @@
+{
+  "name": "com.basis.vehicles",
+  "displayName": "Basis Vehicles",
+  "version": "0.0.1",
+  "description": "General-purpose vehicle system for Basis.",
+  "hideInEditor": false
+}
