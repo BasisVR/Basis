@@ -205,6 +205,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             rotationYaw += lookVector.x * rotationSpeed; // yaw
             rotationPitch -= lookVector.y * rotationSpeed; // pitch (invert Y)
         }
+
         /// <summary>
         /// Main polling loop for updating eye input state.
         /// Calculates eye position/rotation based on avatar head, crouching, and inputs deltas.

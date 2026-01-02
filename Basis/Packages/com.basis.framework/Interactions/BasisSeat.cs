@@ -415,9 +415,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #endregion Unity Lifecycle Hooks
 
         #region Basis Integration
+        public Action<BasisPlayer> OnPlayerEnterSeat;
+        public Action<BasisPlayer> OnPlayerExitSeat;
         private BasisInput _interactingInput = null;
-        public bool IsSeatTakenByAnyone = false;
+        private bool IsSeatTakenByAnyone = false;
         public bool LocallyInSeat;
+        public bool ResetPitchOnEntry = false;
         public override bool CanHover(BasisInput input)
         {
             // Can only hover when not already hovering or interacting.
@@ -516,24 +519,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
             else
             {
                 BasisLocalPlayer.Instance.LocalSeatDriver.Sit(this);
-                SetSeatOccupied(true);
-                LocallyInSeat = true;
+                OnEnterSeat(BasisLocalPlayer.Instance);
             }
             base.OnInteractStart(input);
         }
-        public void Sit()
-        {
-            BasisLocalPlayer.Instance.LocalSeatDriver.Sit(this);
-            SetSeatOccupied(true);
-            LocallyInSeat = true;
-        }
-        public void Stand()
-        {
-            BasisLocalPlayer.Instance.LocalSeatDriver.Stand();
-            SetSeatOccupied(false);
-            LocallyInSeat = false;
-        }
-
 
         public override void OnInteractEnd(BasisInput input)
         {
@@ -544,17 +533,25 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Ignored);
                     _interactingInput = null;
                 }
-
             }
         }
+
+        public void OnEnterSeat(BasisPlayer player)
+        {
+            SetSeatOccupied(true);
+            LocallyInSeat = true;
+            OnPlayerEnterSeat?.Invoke(player);
+        }
+
         /// <summary>
         /// this one actually does the callback.
         /// </summary>
-        public void OnExitSeat()
+        public void OnExitSeat(BasisPlayer player)
         {
             base.OnInteractEnd(null);
             SetSeatOccupied(false);
             LocallyInSeat = false;
+            OnPlayerExitSeat?.Invoke(player);
         }
         #endregion Basis Integration
     }

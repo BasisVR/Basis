@@ -118,8 +118,13 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = true;
             if (BasisDesktopEye.Instance != null)
             {
-                // Set the player's relative yaw to zero to face forward on the seat, but don't do the same for pitch.
+                // Set the player's relative yaw to zero to face forward on the seat.
                 BasisDesktopEye.Instance.rotationYaw = 0.0f;
+                // Only do the same for pitch if requested by the seat, to avoid disorienting the player.
+                if (_seat.ResetPitchOnEntry)
+                {
+                    BasisDesktopEye.Instance.rotationPitch = 0.0f;
+                }
             }
             _setAllOverrideUsages(true);
             LocalPlayer.OnPreSimulateBones += OnSimulate;
@@ -143,7 +148,7 @@ namespace Basis.Scripts.Drivers
             }
 
             LocalPlayer.LocalAnimatorDriver.PauseAnimator = false;
-            _seat.OnExitSeat();
+            _seat.OnExitSeat(LocalPlayer);
             BasisLocalVirtualSpineDriver.HipsFreezeToTpose = false;
             LocalPlayer.OnPreSimulateBones -= OnSimulate;
             LocalPlayer.LocalCharacterDriver.MovementLock.Remove(nameof(BasisLocalSeatDriver));

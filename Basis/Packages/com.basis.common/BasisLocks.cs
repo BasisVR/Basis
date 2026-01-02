@@ -110,6 +110,16 @@ namespace Basis.Scripts.Common
                     return lockList.Contains(key);
             }
 
+            public bool ContainsOnly(string key)
+            {
+                int count = Count;
+                if (count == 0) return false;
+                if (count > 1) return false;
+                if (!Locks.TryGetValue(Context, out var lockList)) return false;
+                lock (ListLocks[Context])
+                    return lockList[0] == key;
+            }
+
             public void CopyTo(string[] array, int arrayIndex)
             {
                 ToArray().CopyTo(array, arrayIndex);
