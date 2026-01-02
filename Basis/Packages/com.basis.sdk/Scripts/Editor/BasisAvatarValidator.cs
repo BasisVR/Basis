@@ -17,6 +17,8 @@ public class BasisAvatarValidator
     private Label passedMessageLabel;
     public const int MaxTrianglesBeforeWarning = 150000;
     public const int MeshVertices = 65535;
+    public const int MaxTextureSizeBeforeWarning = 4096;
+    public const int MaxTextureSizeWithoutMipMaps = 256;
     public VisualElement Root;
     public BasisAvatarValidator(BasisAvatar avatar, VisualElement root)
     {
@@ -152,11 +154,13 @@ public class BasisAvatarValidator
     public class BasisValidationIssue
     {
         public string Message { get; }
+        public string FixLabel { get; }
         public Action Fix { get; }
-        public BasisValidationIssue(string message, Action fix = null)
+        public BasisValidationIssue(string message, Action fix = null, string fixLabel = "")
         {
             Message = message;
             Fix = fix;
+            FixLabel = fixLabel;
         }
     }
     private static void RemoveMissingScripts(GameObject MissingScriptParent)
@@ -423,20 +427,46 @@ public class BasisAvatarValidator
         foreach (Texture tex in texturesToCheck)
         {
             string texPath = AssetDatabase.GetAssetPath(tex);
-            if (!string.IsNullOrEmpty(texPath))
+            if (string.IsNullOrEmpty(texPath))
             {
-                TextureImporter texImporter = AssetImporter.GetAtPath(texPath) as TextureImporter;
-                if (texImporter != null)
+                continue;
+            }
+
+            TextureImporter texImporter = AssetImporter.GetAtPath(texPath) as TextureImporter;
+            if (texImporter == null)
+            {
+                continue;
+            }
+
+            // Prompt to enable mip maps on sufficiently large textures
+            if (texImporter.maxTextureSize > MaxTextureSizeWithoutMipMaps && !texImporter.mipmapEnabled)
+            {
+                warnings.Add(new BasisValidationIssue($"Texture \"{tex.name}\" does not have Mip Maps enabled. This will negatively affect its performance ranking.",() =>
                 {
-                    if (texImporter.mipmapEnabled && !texImporter.streamingMipmaps)
-                    {
-                        warnings.Add(new BasisValidationIssue($"Texture \"{tex.name}\" does not have Streaming Mip Maps enabled. this will effect negatively its performance ranking",null));
-                    }
-                    if(texImporter.maxTextureSize > 4096)
-                    {
-                        warnings.Add(new BasisValidationIssue($"Texture \"{tex.name}\" is {texImporter.maxTextureSize} this will impact performance negatively", null));
-                    }
-                }
+                    texImporter.mipmapEnabled = true;
+                    texImporter.streamingMipmaps = true; // all mip maps should be streamed
+                    texImporter.SaveAndReimport();
+                }, $"Enable Mip Maps on \"{tex.name}\""));
+            }
+
+            // Enforce streaming mip maps where mip maps are enabled
+            if (texImporter.mipmapEnabled && !texImporter.streamingMipmaps)
+            {
+                warnings.Add(new BasisValidationIssue($"Texture \"{tex.name}\" does not have Streaming Mip Maps enabled. This will negatively affect its performance ranking.", () =>
+                {
+                    texImporter.streamingMipmaps = true;
+                    texImporter.SaveAndReimport();
+                }, $"Enable Streaming Mip Maps on \"{tex.name}\""));
+            }
+
+            // Warn on very large textures
+            if(texImporter.maxTextureSize > MaxTextureSizeBeforeWarning)
+            {
+                warnings.Add(new BasisValidationIssue($"Texture \"{tex.name}\" is {texImporter.maxTextureSize} (should be <= {MaxTextureSizeBeforeWarning}). This will negatively affect its performance ranking.", (() =>
+                {
+                    texImporter.maxTextureSize = MaxTextureSizeBeforeWarning;
+                    texImporter.SaveAndReimport();
+                }), $"Resize \"{tex.name}\" to {MaxTextureSizeBeforeWarning}"));
             }
         }
     }
@@ -497,7 +527,7 @@ public class BasisAvatarValidator
             Action ActFix = issue.Fix;
             if (ActFix != null)
             {
-                AutoFixButton(Root, ActFix, issue.Message);
+                AutoFixButton(Root, ActFix, issue.Message, true);
             }
             if (!IssueList.Exists(i => i == issue.Message))
             {
@@ -520,7 +550,8 @@ public class BasisAvatarValidator
             Action ActFix = issue.Fix;
             if (ActFix != null)
             {
-                AutoFixButton(Root, ActFix, issue.Message);
+                string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? issue.Message : issue.FixLabel;
+                AutoFixButton(Root, ActFix, actionTitle, false);
             }
             if (!warningsList.Exists(i => i==issue.Message))
             {
@@ -540,7 +571,7 @@ public class BasisAvatarValidator
         FixMeButtons.Clear();
     }
     public List<Button> FixMeButtons = new List<Button>();
-    public void AutoFixButton(VisualElement rootElement, Action onClickAction, string fixMe)
+    public void AutoFixButton(VisualElement rootElement, Action onClickAction, string fixMe, bool isError = true)
     {
         foreach(Button button in FixMeButtons)
         {
@@ -560,11 +591,19 @@ public class BasisAvatarValidator
 
         fixMeButton.text = fixMe; // Icon + Text
 
+        Color errBackground = new Color(0.96f, 0.26f, 0.21f); // Material Red 500
+        Color errHover = new Color(0.9f, 0.2f, 0.2f);
+
+        Color warnBackground = new Color(1f, 0.63f, 0f); // Material Amber 700
+        Color warnHover = new Color(1f, 0.7f, 0f);
+
         // Modern slick style
-        fixMeButton.style.backgroundColor = new StyleColor(new Color(0.5f, 0.5f, 0.5f, 1f)); // Material Red 500
+        fixMeButton.style.backgroundColor = new StyleColor(isError ? errBackground : warnBackground);
         fixMeButton.style.color = new StyleColor(Color.white);
         fixMeButton.style.fontSize = 14;
         fixMeButton.style.unityFontStyleAndWeight = FontStyle.Bold;
+        fixMeButton.style.whiteSpace = WhiteSpace.Normal;
+        fixMeButton.style.flexShrink = 0;
 
         // Padding and margin
         fixMeButton.style.paddingTop = 6;
@@ -592,11 +631,11 @@ public class BasisAvatarValidator
         // Hover effect via C# events (UI Toolkit lacks hover pseudoclass in C# directly)
         fixMeButton.RegisterCallback<MouseEnterEvent>(evt =>
         {
-            fixMeButton.style.backgroundColor = new StyleColor(new Color(0.9f, 0.2f, 0.2f));
+            fixMeButton.style.backgroundColor = new StyleColor(isError ? errHover : warnHover);
         });
         fixMeButton.RegisterCallback<MouseLeaveEvent>(evt =>
         {
-            fixMeButton.style.backgroundColor = new StyleColor(new Color(0.96f, 0.26f, 0.21f));
+            fixMeButton.style.backgroundColor = new StyleColor(isError ? errBackground : warnBackground);
         });
 
         // Add to root and store
