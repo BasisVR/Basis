@@ -1,9 +1,13 @@
+using System.Linq;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Threading;
+using Basis.BasisUI;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using TMPro;
 using UnityEngine;
 
@@ -272,11 +276,20 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public void WasPressed(BasisInput input)
         {
-            if (BasisRemotePlayer != null && BasisIndividualPlayerSettings.Instance == null)
+            /*if (BasisRemotePlayer != null && BasisIndividualPlayerSettings.Instance == null)
             {
                 input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume);
                 BasisIndividualPlayerSettings.OpenPlayerSettings(BasisRemotePlayer);
-            }
+            }*/
+            BasisNetworkPlayer networkPlayer = BasisNetworkPlayers.Players.Values.FirstOrDefault(p => p.Player.UUID == BasisRemotePlayer.UUID);
+            if (networkPlayer == null) return;
+
+            if (!BasisMainMenu.Instance) BasisMainMenu.Open();
+            PlayersProvider provider = (PlayersProvider)BasisMenuBase<BasisMainMenu>.Providers.Find(
+                prov => prov is PlayersProvider);
+            if (provider == null) return;
+            provider.OpenMenu(networkPlayer);
+
         }
         public override bool IsInteractingWith(BasisInput input)
         {
