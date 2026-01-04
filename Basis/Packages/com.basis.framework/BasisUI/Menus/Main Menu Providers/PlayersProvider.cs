@@ -2,6 +2,7 @@ using UnityEngine;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using System.Threading.Tasks;
 
 
 namespace Basis.BasisUI
@@ -18,7 +19,7 @@ namespace Basis.BasisUI
         public override string IconAddress => AddressableAssets.Sprites.Avatars;
         public override int Order => 3;
 
-        public void OpenMenu(BasisNetworkPlayer highlightPlayer = null)
+        public async void OpenMenu(BasisNetworkPlayer highlightPlayer = null)
         {
             if (BasisMainMenu.ActiveMenuTitle == Title) return;
             BasisLocalPlayer.Instance?.SetSafeDisplayname();
@@ -30,7 +31,7 @@ namespace Basis.BasisUI
             PanelPlayerList avatarList = PanelPlayerList.CreateNew(panel.Descriptor.ContentParent);
             if (highlightPlayer != null)
             {
-                avatarList.ShowPlayer(highlightPlayer);
+                await avatarList.ShowPlayer(highlightPlayer);
             }
         }
         public override void RunAction()
