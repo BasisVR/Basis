@@ -186,8 +186,10 @@ namespace Basis.BasisUI
         public PanelPasswordField AvatarUrlField;
         public PanelPasswordField AvatarPasswordField;
         public GameObject WindowsIcon;
+        public GameObject MacIcon;
         public GameObject LinuxIcon;
         public GameObject AndroidIcon;
+        public GameObject IOSIcon;
         public PanelAvatarAddNew NewAvatarPanel;
         public PanelButton NewAvatarButton;
 
@@ -389,11 +391,17 @@ namespace Basis.BasisUI
                     case "StandaloneWindows64":
                         WindowsIcon.SetActive(true);
                         break;
+                    case "StandaloineOSX":
+                        MacIcon.SetActive(true);
+                        break;
                     case "StandaloneLinux64":
                         AndroidIcon.SetActive(true);
                         break;
                     case "Android":
                         LinuxIcon.SetActive(true);
+                        break;
+                    case "IOS":
+                        IOSIcon.SetActive(true);
                         break;
                 }
             }
