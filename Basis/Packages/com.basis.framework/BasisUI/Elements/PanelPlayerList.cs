@@ -552,6 +552,8 @@ namespace Basis.BasisUI
             Array.Copy(snapshot, _sortedBuffer, count);
             Array.Sort(_sortedBuffer, 0, count, Comparer<BasisNetworkReceiver>.Create(ReceiverNameComparison));
 
+            CreatePlayerButton(BasisNetworkPlayer.LocalPlayer, SelectionButtons.Count);
+
             for (int i = 0; i < count; i++)
             {
                 var receiver = _sortedBuffer[i];
