@@ -1,5 +1,6 @@
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
 using System;
@@ -150,17 +151,23 @@ namespace Basis.Scripts.Networking
         public static float Beta = 2;
      //   [Header("DerivativeCutoff This controls how noisy the speed estimate itself is.Before the filter adapts, it estimates velocity:")]
         public static float DerivativeCutoff = 2;
+        public static BasisNetworkReceiver[] snapshot;
+        public static int Length;
         /// <summary>
         /// Simulates network computation step (state updates, bone drivers, profiler update).
         /// </summary>
         /// <param name="UnscaledDeltaTime">Delta time since last tick (unscaled).</param>
         public static void SimulateNetworkCompute(float UnscaledDeltaTime)
         {
-            if (!NetworkRunning) return;
+            if (!NetworkRunning)
+            {
+                return;
+            }
 
-            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+            snapshot = BasisNetworkPlayers.ReceiversSnapshot;
             BoneJobSystem = RemoteBoneJobSystem.Schedule(); // will always be a frame behind
-            for (int Index = 0; Index < snapshot.Length; Index++)
+            Length = snapshot.Length;
+            for (int Index = 0; Index < Length; Index++)
             {
                 snapshot[Index].Compute(UnscaledDeltaTime);
             }
@@ -184,12 +191,13 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static void SimulateNetworkApply()
         {
-            if (!NetworkRunning) return;
+            if (!NetworkRunning)
+            {
+                return;
+            }
 
             BasisRemoteNetworkDriver.Apply();
-
-            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
-            for (int Index = 0; Index < snapshot.Length; Index++)
+            for (int Index = 0; Index < Length; Index++)
             {
                 snapshot[Index].Apply();
             }

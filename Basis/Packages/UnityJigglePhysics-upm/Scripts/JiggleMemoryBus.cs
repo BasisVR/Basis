@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
@@ -130,7 +131,7 @@ public class JiggleMemoryBus {
     private static void Init() {
         if (dummyTransforms != null) {
             foreach (Transform t in dummyTransforms) {
-                Object.Destroy(t.gameObject);
+                    UnityEngine.Object.Destroy(t.gameObject);
             }
 
             dummyTransforms.Clear();
@@ -182,7 +183,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
     public static Transform GetDummyTransform(int index) {
         while (dummyTransforms.Count <= index) {
             Transform dummyTransform = new GameObject($"JigglePhysicsDummyTransform{index}").transform;
-            Object.DontDestroyOnLoad(dummyTransform.gameObject);
+            UnityEngine.Object.DontDestroyOnLoad(dummyTransform.gameObject);
             dummyTransform.gameObject.hideFlags = HideFlags.HideAndDontSave;
             dummyTransforms.Add(dummyTransform);
         }
@@ -218,23 +219,49 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         sceneColliderCapacity = newColliderCapacity;
     }
 
-    private void ResizePersonalColliderCapacity(int newColliderCapacity) {
-        personalColliderMemoryFragmenter.Resize(newColliderCapacity);
-        var newColliders = new JiggleCollider[newColliderCapacity];
-        personalColliderArrayOutput = new JiggleCollider[newColliderCapacity];
-        if (personalColliderArray != null) {
-            System.Array.Copy(personalColliderArray, newColliders,
-                System.Math.Min(personalColliderCount, newColliderCapacity));
-        }
-        personalColliderArray = newColliders;
-        if (personalColliders.IsCreated) {
-            personalColliders.Dispose();
-        }
-        personalColliders = new NativeArray<JiggleCollider>(personalColliderArray, Allocator.Persistent);
-        personalColliderCapacity = newColliderCapacity;
-    }
+        private void ResizePersonalColliderCapacity(int newColliderCapacity)
+        {
+            if (newColliderCapacity < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(newColliderCapacity), "Capacity cannot be negative.");
+            }
 
-    private void ResizeTransformCapacity(int newTransformCapacity) {
+            personalColliderMemoryFragmenter.Resize(newColliderCapacity);
+
+            var newColliders = new JiggleCollider[newColliderCapacity];
+            personalColliderArrayOutput = new JiggleCollider[newColliderCapacity];
+
+            if (personalColliderArray != null && newColliderCapacity > 0)
+            {
+                // Clamp copy length to BOTH arrays (and ensure count can't exceed old array length)
+                int copyLen = personalColliderCount;
+
+                if (copyLen < 0) copyLen = 0; // extra paranoia
+                if (copyLen > personalColliderArray.Length) copyLen = personalColliderArray.Length;
+                if (copyLen > newColliders.Length) copyLen = newColliders.Length;
+
+                if (copyLen > 0)
+                    Array.Copy(personalColliderArray, 0, newColliders, 0, copyLen);
+            }
+
+            personalColliderArray = newColliders;
+
+            if (personalColliders.IsCreated)
+            {
+                personalColliders.Dispose();
+            }
+
+            personalColliders = new NativeArray<JiggleCollider>(personalColliderArray, Allocator.Persistent);
+            personalColliderCapacity = newColliderCapacity;
+
+            // Optional but recommended: keep count sane when shrinking
+            if (personalColliderCount > personalColliderCapacity)
+            {
+                personalColliderCount = personalColliderCapacity;
+            }
+        }
+
+        private void ResizeTransformCapacity(int newTransformCapacity) {
         memoryFragmenter.Resize(newTransformCapacity);
         var newSimulateInputPosesArray = new JiggleTransform[newTransformCapacity];
         var newRestPoseTransformsArray = new JiggleTransform[newTransformCapacity];
