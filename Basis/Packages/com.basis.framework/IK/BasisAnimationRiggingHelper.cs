@@ -63,42 +63,23 @@ public static class BasisAnimationRiggingHelper
         // Calibration defaults
         // ----------------------------
         // Head
-        data.m_CalibratedOffsetHead = Vector3.zero;
         data.m_CalibratedRotationHead = Mapping.Hashead ? Mapping.head.rotation : Quaternion.identity;
 
         // Feet
-        data.m_CalibratedOffsetLeftFoot = Vector3.zero;
         data.m_CalibratedRotationLeftFoot = Mapping.Hashead ? Mapping.leftFoot.rotation : Quaternion.identity;
-
-        data.m_CalibratedOffsetRightFoot = Vector3.zero; // keeping original field name
         data.m_CalibratedRotationRightFoot = Mapping.Hashead ? Mapping.rightFoot.rotation : Quaternion.identity;
 
         // Hands
-        data.m_CalibratedOffsetLeftHand = Vector3.zero;
-        data.m_CalibratedOffsetRightHand = Vector3.zero;
         data.m_CalibratedRotationLeftHand = Mapping.HasleftHand ? Mapping.leftHand.rotation : Quaternion.identity;
         data.m_CalibratedRotationRightHand = Mapping.HasrightHand ? Mapping.rightHand.rotation : Quaternion.identity;
-
-
-        data.m_CalibratedOffsetChest = Vector3.zero;
         data.m_CalibratedRotationChest = Mapping.Haschest ? Mapping.chest.rotation : Quaternion.identity;
-
-        data.m_CalibratedOffsetNeck = Vector3.zero;
         data.m_CalibratedRotationNeck = Mapping.Hasneck ? Mapping.neck.rotation : Quaternion.identity;
-
-        data.m_CalibratedOffsetLeftToe = Vector3.zero;
         data.m_CalibratedRotationLeftToe = Mapping.HasleftToes ? Mapping.leftToe.rotation : Quaternion.identity;
-
-        data.m_CalibratedOffsetRightToe = Vector3.zero;
         data.m_CalibratedRotationRightToe = Mapping.HasrightToes ? Mapping.rightToe.rotation : Quaternion.identity;
 
 
         data.m_CalibratedRotationLeftShoulder = Mapping.HasleftShoulder ? Mapping.leftShoulder.rotation : Quaternion.identity;
-        data.m_CalibratedOffsetLeftShoulder = Vector3.zero;
-
-
         data.m_CalibratedRotationRightShoulder = Mapping.HasRightShoulder ? Mapping.RightShoulder.rotation : Quaternion.identity;
-        data.m_CalibratedOffsetRightShoulder = Vector3.zero;
         // Hips reference rotation
         data.OffsetRotationHips = Mapping.HasHips ? Mapping.Hips.rotation : Quaternion.identity;
 
