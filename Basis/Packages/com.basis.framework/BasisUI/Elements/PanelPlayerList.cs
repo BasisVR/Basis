@@ -319,8 +319,9 @@ namespace Basis.BasisUI
         {
             // small, predictable size; allocate once
             var badges = new List<PlayerBadge>(0);
-          //lD Finish this!  string platform = (player.Player as BasisRemotePlayer)?.GetRuntimePlatform().ToString() ?? "Unknown";
-          //  badges.Add(GetPlatformPlayerBadge(platform));
+            // lD Finish this!
+            // string platform = player.Player.GetRuntimePlatform().ToString();
+            // badges.Add(GetPlatformPlayerBadge(platform));
 
             return badges.ToArray();
         }
@@ -402,62 +403,65 @@ namespace Basis.BasisUI
             // fixed max count here keeps list from resizing
             var actions = new List<UserButtonAction>(6);
 
-            if (settings.AvatarVisible)
+            if (!player.IsLocal) // only show for remote players
             {
-                actions.Add(new UserButtonAction
+                if (settings.AvatarVisible)
                 {
-                    title = "Avatar Shown",
-                    action = WrapAction(player, settings, () =>
+                    actions.Add(new UserButtonAction
                     {
-                        settings.AvatarVisible = false;
-                        _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
-                        (player.Player as BasisRemotePlayer)?.ReloadAvatar();
-                    }),
-                    buttonStyle = "Button Success"
-                });
-            }
-            else
-            {
-                actions.Add(new UserButtonAction
+                        title = "Avatar Shown",
+                        action = WrapAction(player, settings, () =>
+                        {
+                            settings.AvatarVisible = false;
+                            _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
+                            (player.Player as BasisRemotePlayer)?.ReloadAvatar();
+                        }),
+                        buttonStyle = "Button Success"
+                    });
+                }
+                else
                 {
-                    title = "Avatar Hidden",
-                    action = WrapAction(player, settings, () =>
+                    actions.Add(new UserButtonAction
                     {
-                        settings.AvatarVisible = true;
-                        _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
-                        (player.Player as BasisRemotePlayer)?.ReloadAvatar();
-                    }),
-                    buttonStyle = "Button Danger"
-                });
-            }
+                        title = "Avatar Hidden",
+                        action = WrapAction(player, settings, () =>
+                        {
+                            settings.AvatarVisible = true;
+                            _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
+                            (player.Player as BasisRemotePlayer)?.ReloadAvatar();
+                        }),
+                        buttonStyle = "Button Danger"
+                    });
+                }
 
-            if (settings.AvatarInteraction)
-            {
-                actions.Add(new UserButtonAction
+                if (settings.AvatarInteraction)
                 {
-                    title = "Interactions Enabled",
-                    action = WrapAction(player, settings, () =>
+                    actions.Add(new UserButtonAction
                     {
-                        settings.AvatarInteraction = false;
-                        _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
-                        (player.Player as BasisRemotePlayer)?.ReloadAvatar();
-                    }),
-                    buttonStyle = "Button Success"
-                });
-            }
-            else
-            {
-                actions.Add(new UserButtonAction
+                        title = "Interactions Enabled",
+                        action = WrapAction(player, settings, () =>
+                        {
+                            settings.AvatarInteraction = false;
+                            _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
+                            (player.Player as BasisRemotePlayer)?.ReloadAvatar();
+                        }),
+                        buttonStyle = "Button Success"
+                    });
+                }
+                else
                 {
-                    title = "Interactions Disabled",
-                    action = WrapAction(player, settings, () =>
+                    actions.Add(new UserButtonAction
                     {
-                        settings.AvatarInteraction = true;
-                        _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
-                        (player.Player as BasisRemotePlayer)?.ReloadAvatar();
-                    }),
-                    buttonStyle = "Button Danger"
-                });
+                        title = "Interactions Disabled",
+                        action = WrapAction(player, settings, () =>
+                        {
+                            settings.AvatarInteraction = true;
+                            _ = BasisPlayerSettingsManager.SetPlayerSettings(settings);
+                            (player.Player as BasisRemotePlayer)?.ReloadAvatar();
+                        }),
+                        buttonStyle = "Button Danger"
+                    });
+                }
             }
 
             actions.Add(new UserButtonAction

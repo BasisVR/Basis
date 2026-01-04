@@ -233,6 +233,7 @@ public static class BasisNetworkEvents
 
                 BasisLocalPlayer.Instance.UUID = SMDM.ClientMetaDataMessage.playerUUID;
                 BasisLocalPlayer.Instance.DisplayName = SMDM.ClientMetaDataMessage.playerDisplayName;
+                BasisLocalPlayer.Instance.SetSafeDisplayname(); // set safe display name after getting it from server
                 BasisNetworkManagement.ServerMetaDataMessage = SMDM;
 
                 break;
