@@ -318,8 +318,10 @@ namespace Basis.BasisUI
             AvatarPasswordField.SetPassword(string.Empty);
 
             WindowsIcon.SetActive(false);
+            MacIcon.SetActive(false);
             AndroidIcon.SetActive(false);
             LinuxIcon.SetActive(false);
+            IOSIcon.SetActive(false);
 
             NewAvatarPanel.Hide();
         }
@@ -381,8 +383,10 @@ namespace Basis.BasisUI
                 .Select(pair => pair.Platform).ToArray();
 
             WindowsIcon.SetActive(false);
+            MacIcon.SetActive(false);
             AndroidIcon.SetActive(false);
             LinuxIcon.SetActive(false);
+            IOSIcon.SetActive(false);
 
             foreach (string platform in platforms)
             {
@@ -391,7 +395,7 @@ namespace Basis.BasisUI
                     case "StandaloneWindows64":
                         WindowsIcon.SetActive(true);
                         break;
-                    case "StandaloineOSX":
+                    case "StandaloneOSX":
                         MacIcon.SetActive(true);
                         break;
                     case "StandaloneLinux64":
@@ -400,7 +404,7 @@ namespace Basis.BasisUI
                     case "Android":
                         LinuxIcon.SetActive(true);
                         break;
-                    case "IOS":
+                    case "iOS":
                         IOSIcon.SetActive(true);
                         break;
                 }
