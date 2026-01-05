@@ -102,7 +102,7 @@ namespace Basis.Network
                 {
                     byteArray = avatarBytes,
                     loadMode = (byte)ConfigManager.AvatarLoadMode,
-                    LocalAvatarIndex = 0,
+                    LocalAvatarIndex = 1,
 
                 },
                 localAvatarSyncMessage = new LocalAvatarSyncMessage

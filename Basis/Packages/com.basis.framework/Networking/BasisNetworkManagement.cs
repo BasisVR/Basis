@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
@@ -151,25 +152,41 @@ namespace Basis.Scripts.Networking
         public static float Beta = 2;
      //   [Header("DerivativeCutoff This controls how noisy the speed estimate itself is.Before the filter adapts, it estimates velocity:")]
         public static float DerivativeCutoff = 2;
-        public static BasisNetworkReceiver[] snapshot;
-        public static int Length;
         /// <summary>
         /// Simulates network computation step (state updates, bone drivers, profiler update).
         /// </summary>
         /// <param name="UnscaledDeltaTime">Delta time since last tick (unscaled).</param>
-        public static void SimulateNetworkCompute(float UnscaledDeltaTime)
+        public static void SimulateNetworkCompute(double UnscaledDeltaTime)
         {
             if (!NetworkRunning)
             {
                 return;
             }
 
-            snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+            BasisNetworkPlayers.PublishReceiversSnapshot();
+
             BoneJobSystem = RemoteBoneJobSystem.Schedule(); // will always be a frame behind
-            Length = snapshot.Length;
-            for (int Index = 0; Index < Length; Index++)
+
+            UnscaledDeltaTime = Math.Max(UnscaledDeltaTime, 0f);
+            if (!math.isfinite(UnscaledDeltaTime))
             {
-                snapshot[Index].Compute(UnscaledDeltaTime);
+                UnscaledDeltaTime = 0;
+            }
+            if (BasisNetworkPlayers.ReceiverCount > BasisRemoteNetworkDriver.FixedCapacity)
+            {
+                BasisDebug.LogError($"Exceeded Fixed Capacity! {BasisNetworkPlayers.ReceiverCount} > {BasisRemoteNetworkDriver.FixedCapacity}", BasisDebug.LogTag.Networking);
+                return;
+            }
+
+            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
+            {
+                var rec = BasisNetworkPlayers.ReceiversSnapshot[Index];
+                rec.Compute(UnscaledDeltaTime);
+                ushort id = rec.playerId;
+                if (id > BasisNetworkPlayers.LargestNetworkReceiverID)
+                {
+                    BasisNetworkPlayers.LargestNetworkReceiverID = id;
+                }
             }
             BasisRemoteNetworkDriver.Compute();
             BasisNetworkProfiler.Update();
@@ -197,9 +214,9 @@ namespace Basis.Scripts.Networking
             }
 
             BasisRemoteNetworkDriver.Apply();
-            for (int Index = 0; Index < Length; Index++)
+            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
             {
-                snapshot[Index].Apply();
+                BasisNetworkPlayers.ReceiversSnapshot[Index].Apply();
             }
         }
 

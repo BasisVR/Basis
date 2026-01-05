@@ -515,7 +515,9 @@ PlayerSettings:
     m_GraphicsJobs: 1
   - m_BuildTarget: iOSSupport
     m_GraphicsJobs: 1
-  m_BuildTargetGraphicsJobMode: []
+  m_BuildTargetGraphicsJobMode:
+  - m_BuildTarget: WindowsStandaloneSupport
+    m_GraphicsJobMode: 0
   m_BuildTargetGraphicsAPIs:
   - m_BuildTarget: WindowsStandaloneSupport
     m_APIs: 15000000

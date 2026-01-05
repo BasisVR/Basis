@@ -40,8 +40,6 @@ public static class BasisNetworkLifeCycle
 
         Management.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
         BasisNetworkManagement.OnEnableInstanceCreate?.Invoke();
-
-        BasisNetworkPlayers.PublishReceiversSnapshot();
         BasisNetworkManagement.NetworkRunning = true;
     }
     public static bool GoingThroughReboot = false;

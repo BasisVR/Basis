@@ -21,8 +21,8 @@ namespace Basis.Network
             var passwordBytes = Encoding.UTF8.GetBytes(ConfigManager.Password);
             var avatarInfo = new BasisAvatarNetworkLoad
             {
-                URL = "https://basisframework.b-cdn.net/Avatars/BEE/BEE/dooly%20aho2/773b8fdafc9541d28881c3618cdc195320251212.BEE",
-                UnlockPassword = "ff7b7efadd31214281b54be03575c2ff6aa500e871699eab1e713e05b8427428"
+                URL = ConfigManager.AvatarUrl,
+                UnlockPassword = ConfigManager.Password
             };
             var avatarBytes = avatarInfo.EncodeToBytes();
 
@@ -41,7 +41,7 @@ namespace Basis.Network
                     clientAvatarChangeMessage = new ClientAvatarChangeMessage
                     {
                         byteArray = avatarBytes,
-                        loadMode = 0,
+                        loadMode = (byte)ConfigManager.AvatarLoadMode,
                         LocalAvatarIndex = 0,
                     },
                     localAvatarSyncMessage = new LocalAvatarSyncMessage
@@ -86,8 +86,8 @@ namespace Basis.Network
 
             var avatarInfo = new BasisAvatarNetworkLoad
             {
-                URL = "https://basisframework.b-cdn.net/Avatars/BEE/BEE/dooly%20aho2/773b8fdafc9541d28881c3618cdc195320251212.BEE",
-                UnlockPassword = "ff7b7efadd31214281b54be03575c2ff6aa500e871699eab1e713e05b8427428"
+                URL = ConfigManager.AvatarUrl,
+                UnlockPassword = ConfigManager.Password
             };
             var avatarBytes = avatarInfo.EncodeToBytes();
 
@@ -101,8 +101,8 @@ namespace Basis.Network
                 clientAvatarChangeMessage = new ClientAvatarChangeMessage
                 {
                     byteArray = avatarBytes,
-                    loadMode = 0,
-                    LocalAvatarIndex = 0,
+                    loadMode = (byte)ConfigManager.AvatarLoadMode,
+                    LocalAvatarIndex = 1,
 
                 },
                 localAvatarSyncMessage = new LocalAvatarSyncMessage

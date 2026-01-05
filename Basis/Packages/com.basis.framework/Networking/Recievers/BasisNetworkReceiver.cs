@@ -38,10 +38,9 @@ namespace Basis.Scripts.Networking.Receivers
         public float[] EyesAndMouth = new float[] { 0, 0, 0, 0, 1, 0 }; // default neutral eyes, mouth open=1 for breathing
         public float3 ApplyingScale;
 
-        private float interpolationTime = 0f; // 0..1 over current->next window
+        private double interpolationTime = 0f; // 0..1 over current->next window
 
         public bool HasBufferHolds;
-        public bool PassedSimulate = false;
 
         // ---------------- staging (ring buffer) ----------------
         private const int MaxStage = 64;
@@ -69,7 +68,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// Main-thread simulation step. Pulls packets, maintains interpolation window,
         /// computes interpolationTime, and feeds inputs to the network driver.
         /// </summary>
-        public void Compute(float unscaledDeltaTime)
+        public void Compute(double unscaledDeltaTime)
         {
             // expected briefly on join
             if (Player.BasisAvatar == null)
@@ -176,20 +175,20 @@ namespace Basis.Scripts.Networking.Receivers
                     first.SecondsInterval > 0 ? first.SecondsInterval :
                     (1.0 / 60.0);
 
-                if (!double.IsFinite(windowDuration) || windowDuration <= 1e-6)
+                if (!math.isfinite(windowDuration) || windowDuration <= 1e-6)
                 {
                     windowDuration = 1e-3;
                 }
-
-                double step = Math.Max(unscaledDeltaTime, 0.0);
-
-                int depth = _stagedRing.Count;
-                float rate = 1f + CatchupGain * (depth - TargetJitterDepth);
+                float rate = 1f + CatchupGain * (StagedCount - TargetJitterDepth);
                 rate = Mathf.Clamp(rate, MinPlaybackRate, MaxPlaybackRate);
-                interpolationTime += (float)((step / windowDuration) * rate);
-                PassedSimulate = BasisRemoteNetworkDriver.SetFrameTiming(playerId, interpolationTime, unscaledDeltaTime);
+                interpolationTime += ((double)unscaledDeltaTime / windowDuration * (double)rate);
+                if (!math.isfinite(interpolationTime))
+                {
+                    interpolationTime = 1;
+                }
+                BasisRemoteNetworkDriver.SetFrameTiming(playerId, interpolationTime,unscaledDeltaTime);
 
-                if (PassedSimulate && SentLatest)
+                if (SentLatest)
                 {
 
                     BasisRemoteNetworkDriver.SetFrameInputs(
@@ -197,28 +196,28 @@ namespace Basis.Scripts.Networking.Receivers
                         Player.BasisAvatar.HumanScale,
                         first.Position, last.Position,
                         first.Scale, last.Scale,
-                        first.Rotation, last.Rotation
+                        first.Rotation, last.Rotation,
+                         first.Muscles, last.Muscles
                     );
-
-                    BasisRemoteNetworkDriver.SetMuscleWindow(playerId, first.Muscles, last.Muscles);
+                    IsDataReady = true;
                     SentLatest = false;
                 }
             }
         }
-
+        public bool IsDataReady = false;
         /// <summary>
         /// Main-thread application step. Pulls posed outputs from the driver and applies
         /// body position/rotation/muscles to the avatar via PoseHandler.
         /// </summary>
         public void Apply()
         {
-            if (PassedSimulate)
+            if (IsDataReady)
             {
                 // These outputs should be stable when simulate passed.
-                BasisRemoteNetworkDriver.GetOutputs_NoAlloc(playerId, out bool outscale, out var ApplyingRotation, out float3 scaledBody);
-                BasisRemoteNetworkDriver.GetMuscleArray(playerId,ref HumanPose,EyesAndMouth,EyesAndMouthOffset,EyeAndMouthCountInBytes);
+                BasisRemoteNetworkDriver.GetMuscleArray(playerId, out bool outscale, out var ApplyingRotation, out float3 scaledBody, ref HumanPose, EyesAndMouth, EyesAndMouthOffset, EyeAndMouthCountInBytes);
                 HumanPose.bodyPosition = scaledBody;
                 HumanPose.bodyRotation = ApplyingRotation;
+
                 if (outscale)
                 {
                     ApplyScale();
@@ -231,9 +230,8 @@ namespace Basis.Scripts.Networking.Receivers
                         DidLastAvatarTransformChanged = false;
                     }
                 }
-                PassedSimulate = false;
             }
-            if (hasRequiredData)
+            if (IsDataReady && hasRequiredData)
             {
                 PoseHandler.SetHumanPose(ref HumanPose);
                 if (HasOverridenDestination)
@@ -264,8 +262,6 @@ namespace Basis.Scripts.Networking.Receivers
             StagedCount = 0;
             ClearAndRelease();
             interpolationTime = 0f;
-            PassedSimulate = false;
-
             // Clear any packets that arrived before init (rare, but safe)
             while (PayloadQueue.TryDequeue(out var buf))
             {
@@ -314,7 +310,9 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             foreach (byte key in keysToRemove)
+            {
                 NextMessages.Remove(key);
+            }
         }
 
         private bool IsPastAvatar(byte messageIndex, byte currentIndex)
@@ -349,7 +347,6 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             AudioReceiverModule?.OnDestroy();
-            PassedSimulate = false;
         }
 
         public void ReceiveNetworkAudio(ServerAudioSegmentMessage msg)

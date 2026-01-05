@@ -5,11 +5,10 @@ namespace Basis.Network.Core.Compression
         public const int FloatSize = sizeof(float);
         public const int UShortSize = sizeof(ushort);
         public const int Vector3Size = 3 * FloatSize;
-        public const int QuaternionSize = 3 * FloatSize + UShortSize;
         private static int avatarSyncSize;
         private static bool IsWired = false;
         public static int WritePosition = 12;
-        public static int WriteRotation = 8;
+        public static int WriteRotation = 16;
         public static int WriteScale = 2;
         public static int AvatarSyncSize
         {

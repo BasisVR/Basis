@@ -3,6 +3,7 @@ using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Receivers;
 using System;
 using Unity.Mathematics;
+using UnityEngine.UIElements;
 using static SerializableBasis;
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
@@ -71,25 +72,24 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             BasisOrderedDataSet.DecompressAvatarMuscles_BitPacked(data, ref BasisAvatarBuffer.Muscles, ref offset);
             BasisAvatarBuffer.Scale = MuscleDecompress(BasisUnityBitPackerExtensionsUnsafe.ReadUShort(ref data, ref offset), MinimumValueSupported, MaximumValueSupported);
             // Reject NaN, Infinity, zero, negative, or insane values
-            if (!double.IsFinite(secondsInterval) || secondsInterval <= 0.0 || secondsInterval > 1.0)
+            if (!math.isfinite(secondsInterval) || secondsInterval <= 0.0 || secondsInterval > 1.0)
             {
-                BasisDebug.LogError($"SecondsInterval was {secondsInterval}, correcting to 0.0166667", BasisDebug.LogTag.Remote);
+                BasisDebug.LogError($"SecondsInterval was {secondsInterval}, rejecting", BasisDebug.LogTag.Remote);
                 BasisAvatarBufferPool.Release(BasisAvatarBuffer);
                 return false;
             }
             BasisAvatarBuffer.SecondsInterval = secondsInterval;
 
-            // 2) Sanitize transforms to avoid NaNs propagating into the driver.
             if (!math.all(math.isfinite(BasisAvatarBuffer.Position)))
             {
-                BasisDebug.LogError($"Infinite Position Detected setting to default", BasisDebug.LogTag.Remote);
+                BasisDebug.LogError("Non-finite Position detected, rejecting", BasisDebug.LogTag.Remote);
                 BasisAvatarBufferPool.Release(BasisAvatarBuffer);
                 return false;
             }
 
             if (!math.all(math.isfinite(BasisAvatarBuffer.Scale)))
             {
-                BasisDebug.LogError($"Infinite Scale Detected setting to default", BasisDebug.LogTag.Remote);
+                BasisDebug.LogError("Non-finite Scale detected, rejecting", BasisDebug.LogTag.Remote);
                 BasisAvatarBufferPool.Release(BasisAvatarBuffer);
                 return false;
             }

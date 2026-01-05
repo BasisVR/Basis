@@ -21,10 +21,9 @@ namespace Basis.Scripts.Networking
         public static readonly ConcurrentDictionary<string, ushort> OwnershipPairing = new();
 
         // Receiver snapshot for multi-threaded compute/apply phases.
-        private static volatile BasisNetworkReceiver[] _receiversSnapshot = Array.Empty<BasisNetworkReceiver>();
-        public static BasisNetworkReceiver[] ReceiversSnapshot => _receiversSnapshot;
-        public static int ReceiverCount => _receiversSnapshot.Length;
-
+        public static BasisNetworkReceiver[] ReceiversSnapshot = Array.Empty<BasisNetworkReceiver>();
+        public static int ReceiverCount;
+        public static ushort LargestNetworkReceiverID;
         // --- Lifecycle helpers ---------------------------------------------
         public static void ClearAllRegistries()
         {
@@ -36,11 +35,11 @@ namespace Basis.Scripts.Networking
             RemotePlayers.Clear();
             JoiningPlayers.Clear();
             OwnershipPairing.Clear();
-            PublishReceiversSnapshot();
         }
         public static void PublishReceiversSnapshot()
         {
-            _receiversSnapshot = RemotePlayers.Count == 0 ? Array.Empty<BasisNetworkReceiver>() : RemotePlayers.Values.ToArray();
+            ReceiversSnapshot = RemotePlayers.Count == 0 ? Array.Empty<BasisNetworkReceiver>() : RemotePlayers.Values.ToArray();
+            ReceiverCount = ReceiversSnapshot.Length;
         }
 
         // --- Registry APIs --------------------------------------------------
@@ -84,8 +83,6 @@ namespace Basis.Scripts.Networking
                     BasisDebug.LogError($"Failed to add remote player {netPlayer.playerId} to RemotePlayers. Rolled back from Players.");
                     return false;
                 }
-
-                PublishReceiversSnapshot();
             }
 
             return true;
@@ -102,7 +99,6 @@ namespace Basis.Scripts.Networking
 
             Players.TryRemove(netId, out player);
             RemotePlayers.TryRemove(netId, out _);
-            PublishReceiversSnapshot();
             return true;
         }
 

@@ -1,11 +1,3 @@
-// =======================================================
-// BasisNetworkAvatarCompressor_BitPacked.cs
-// Full compressor with:
-// - parallel quantization (IJobParallelFor)
-// - single-thread pack (IJob)
-// - bitstream output (packed bytes)
-// =======================================================
-
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
@@ -175,11 +167,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             ushort compressed = (ushort)(normalized * BasisOrderedDataSet.UShortRangeDifference);
             BasisUnityBitPackerExtensionsUnsafe.WriteUShort(compressed, ref message.array, ref offset);
         }
-
-        // =======================================================
-        // Initialization
-        // =======================================================
-
         static void EnsureInitialized()
         {
             if (sInitialized) return;
@@ -272,11 +259,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             sInitialized = false;
         }
-
-        // =======================================================
-        // Jobs
-        // =======================================================
-
         [BurstCompile(FloatMode = FloatMode.Fast, FloatPrecision = FloatPrecision.Low)]
         struct QuantizeJob : IJobParallelFor
         {
@@ -336,11 +318,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-
-        // =======================================================
-        // BitWriter: packs LSB-first into Packed[]
-        // IMPORTANT: Packed[] must be zeroed before writing (we OR bits in).
-        // =======================================================
         static class BitWriter
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
