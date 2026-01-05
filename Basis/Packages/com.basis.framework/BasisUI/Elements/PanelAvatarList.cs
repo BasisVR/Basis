@@ -319,8 +319,8 @@ namespace Basis.BasisUI
 
             WindowsIcon.SetActive(false);
             MacIcon.SetActive(false);
-            AndroidIcon.SetActive(false);
             LinuxIcon.SetActive(false);
+            AndroidIcon.SetActive(false);
             IOSIcon.SetActive(false);
 
             NewAvatarPanel.Hide();
@@ -384,8 +384,8 @@ namespace Basis.BasisUI
 
             WindowsIcon.SetActive(false);
             MacIcon.SetActive(false);
-            AndroidIcon.SetActive(false);
             LinuxIcon.SetActive(false);
+            AndroidIcon.SetActive(false);
             IOSIcon.SetActive(false);
 
             foreach (string platform in platforms)
@@ -399,10 +399,10 @@ namespace Basis.BasisUI
                         MacIcon.SetActive(true);
                         break;
                     case "StandaloneLinux64":
-                        AndroidIcon.SetActive(true);
+                        LinuxIcon.SetActive(true);
                         break;
                     case "Android":
-                        LinuxIcon.SetActive(true);
+                        AndroidIcon.SetActive(true);
                         break;
                     case "iOS":
                         IOSIcon.SetActive(true);
