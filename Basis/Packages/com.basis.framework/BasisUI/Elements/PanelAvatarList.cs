@@ -373,7 +373,7 @@ namespace Basis.BasisUI
             }
             else
             {
-                creationDate = DateTime.Parse(creationDate).ToString(CultureInfo.InvariantCulture);
+                creationDate = DateTime.Parse(creationDate, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal).ToString(CultureInfo.InvariantCulture);
                 creationDate += " UTC";
             }
 
