@@ -9,10 +9,32 @@ namespace Basis.BasisUI
 {
     public class PlayersProvider : BasisMenuActionProvider<BasisMainMenu>
     {
-        [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new PlayersProvider());
+        }
+
+        public static void RemoveFromMenu()
+        {
+            PlayersProvider existingProvider = (PlayersProvider)BasisMenuBase<BasisMainMenu>.Providers.Find(
+                provider => provider is PlayersProvider);
+            if (existingProvider != null)
+            {
+                BasisMenuBase<BasisMainMenu>.RemoveProvider(existingProvider);
+            }
+        }
+
+        [RuntimeInitializeOnLoadMethod]
+        public static void SubscribeToEvents()
+        {
+            BasisNetworkPlayer.OnLocalPlayerJoined += (nPlr, lPlr) =>
+            {
+                AddToMenu();
+            };
+            BasisNetworkPlayer.OnLocalPlayerLeft += (nPlr, lPlr) =>
+            {
+                RemoveFromMenu();
+            };
         }
 
         public override string Title => "Players";
