@@ -193,6 +193,7 @@ namespace Basis.Scripts.Device_Management
             BasisPlayerFactory.DeInitalize();
             StopAllDevices();
             UnsubscribeEvents();
+            BasisUlipSyncDriver.DisposeShared();
         }
 
         #endregion
@@ -208,7 +209,7 @@ namespace Basis.Scripts.Device_Management
             BasisPlayerFactory.Initalize();
             BasisXRManagement.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
-            BasisUlipSync.profile = BasisDeviceManagement.Instance.LipSyncProfile;
+            BasisUlipSyncDriver.Initialize(BasisDeviceManagement.Instance.LipSyncProfile);
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
             StartAllStartIfPermanentlyExists();
             await SwitchSetModeToDefault();

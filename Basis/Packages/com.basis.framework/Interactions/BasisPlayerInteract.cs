@@ -18,6 +18,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public static LayerMask playerLayer;
         public static LayerMask LocalPlayerAvatar;
         public static LayerMask Mask;
+        public static LayerMask IgnoredByInteractable;
 
         public static QueryTriggerInteraction TriggerInteraction = QueryTriggerInteraction.UseGlobal;
 
@@ -53,6 +54,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             playerLayer = LayerMask.NameToLayer("Player");
             LocalPlayerAvatar = LayerMask.NameToLayer("LocalPlayerAvatar");
 
+            IgnoredByInteractable = LayerMask.NameToLayer("IgnoredByInteractable");
             // Create a LayerMask that includes all layers
             LayerMask allLayers = ~0;
 
@@ -60,6 +62,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             Mask = allLayers &
                    ~(1 << (int)IgnoreRaycasting) &
                    ~(1 << (int)playerLayer) &
+                   ~(1 << (int)IgnoredByInteractable) &
                    ~(1 << (int)LocalPlayerAvatar);
 
             Instance = this;

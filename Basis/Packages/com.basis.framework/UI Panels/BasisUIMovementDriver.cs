@@ -28,7 +28,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 if (!hasLocalCreationEvent)
                 {
-                    BasisLocalPlayer.OnLocalPlayerCreated += LocalPlayerGenerated;
+                    BasisLocalPlayer.OnLocalPlayerInitalized += LocalPlayerGenerated;
                     hasLocalCreationEvent = true;
                 }
             }
@@ -50,7 +50,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
             if (hasLocalCreationEvent)
             {
-                BasisLocalPlayer.OnLocalPlayerCreated -= LocalPlayerGenerated;
+                BasisLocalPlayer.OnLocalPlayerInitalized -= LocalPlayerGenerated;
                 hasLocalCreationEvent = false;
             }
         }

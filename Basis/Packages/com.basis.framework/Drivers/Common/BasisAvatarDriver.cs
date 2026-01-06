@@ -344,6 +344,10 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
+            if(FindHeadAndCreateShadowHead)
+            {
+                RemoveOldShadowClones();
+            }
 
             for (int index = 0; index < skinnedMeshRendererLength; index++)
             {
@@ -373,40 +377,67 @@ namespace Basis.Scripts.Drivers
                 }
             }
         }
-
+        public static List<SkinnedMeshRenderer> LocalShadowClones = new List<SkinnedMeshRenderer>();
+        private static void RemoveOldShadowClones()
+        {
+            int count = LocalShadowClones.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                SkinnedMeshRenderer Renderer = LocalShadowClones[Index];
+                if (Renderer != null)
+                {
+                    GameObject.Destroy(Renderer.gameObject);
+                }
+            }
+            LocalShadowClones.Clear();
+        }
         private static void EnsureShadowOnlyClone(SkinnedMeshRenderer source, int layer)
         {
+            if (source.enabled && source.gameObject.activeSelf)
+            {
+                // Create clone object as sibling (keeps hierarchy simple)
+                var cloneGO = new GameObject(source.gameObject.name + "_ShadowOnly");
+                var sourcetransform = source.transform;
+                var clonetransform = cloneGO.transform;
+                clonetransform.SetParent(sourcetransform.parent, worldPositionStays: false);
+                sourcetransform.GetPositionAndRotation(out UnityEngine.Vector3 position, out Quaternion rotation);
+                clonetransform.SetPositionAndRotation(position, rotation);
+                clonetransform.localScale = sourcetransform.localScale;
+                cloneGO.layer = layer;
+                // Clone SMR setup
+                var LocalShadowClone = cloneGO.AddComponent<SkinnedMeshRenderer>();
+                LocalShadowClones.Add(LocalShadowClone);
+                // The whole point:
+                LocalShadowClone.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                LocalShadowClone.receiveShadows = false;
 
+                if (source.sharedMesh != null)
+                {
+                    LocalShadowClone.sharedMesh = source.sharedMesh;
+                }
+                if (source.sharedMaterials != null)
+                {
+                    LocalShadowClone.sharedMaterials = source.sharedMaterials;
+                }
+                if (source.bones != null)
+                {
+                    LocalShadowClone.bones = source.bones;
+                }
+                if (source.rootBone != null)
+                {
+                    LocalShadowClone.rootBone = source.rootBone;
+                }
+                // Keep it stable/offscreen-safe if needed (usually not required, but harmless)
+                LocalShadowClone.updateWhenOffscreen = true;
 
-            // Create clone object as sibling (keeps hierarchy simple)
-            var cloneGO = new GameObject(source.gameObject.name + "_ShadowOnly");
-            cloneGO.transform.SetParent(source.transform.parent, worldPositionStays: false);
-            cloneGO.transform.SetPositionAndRotation(source.transform.position, source.transform.rotation);
-            cloneGO.transform.localScale = source.transform.localScale;
-            cloneGO.layer = layer;
+                // Optional: copy key renderer flags that can affect bounds/skin updates
+                LocalShadowClone.quality = source.quality;
+                LocalShadowClone.skinnedMotionVectors = source.skinnedMotionVectors;
+                LocalShadowClone.allowOcclusionWhenDynamic = source.allowOcclusionWhenDynamic;
 
-            // Clone SMR setup
-            var shadowSMR = cloneGO.AddComponent<SkinnedMeshRenderer>();
-            shadowSMR.sharedMesh = source.sharedMesh;
-            shadowSMR.sharedMaterials = source.sharedMaterials;
-
-            shadowSMR.bones = source.bones;
-            shadowSMR.rootBone = source.rootBone;
-
-            // Keep it stable/offscreen-safe if needed (usually not required, but harmless)
-            shadowSMR.updateWhenOffscreen = true;
-
-            // The whole point:
-            shadowSMR.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
-            shadowSMR.receiveShadows = false;
-
-            // Optional: copy key renderer flags that can affect bounds/skin updates
-            shadowSMR.quality = source.quality;
-            shadowSMR.skinnedMotionVectors = source.skinnedMotionVectors;
-            shadowSMR.allowOcclusionWhenDynamic = source.allowOcclusionWhenDynamic;
-
-            // Optional: bounds (helps if your bounds are tiny and shadows pop)
-            shadowSMR.localBounds = source.localBounds;
+                // Optional: bounds (helps if your bounds are tiny and shadows pop)
+                LocalShadowClone.localBounds = source.localBounds;
+            }
         }
 
         private static bool TryGetFirstColor(Material mat, out Color value, out string foundProp)

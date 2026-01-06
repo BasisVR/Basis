@@ -21,7 +21,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (state == BasisInteractInputState.NotAdded)
             {
-                BasisDebug.LogError($"Unable to create device for {source?.name ?? "UNKNOWN (null source)"} because state was NotAdded", BasisDebug.LogTag.Device);
+             //   BasisDebug.LogError($"Unable to create device for {source?.name ?? "UNKNOWN (null source)"} because state was NotAdded", BasisDebug.LogTag.Device);
                 return false;
             }
 

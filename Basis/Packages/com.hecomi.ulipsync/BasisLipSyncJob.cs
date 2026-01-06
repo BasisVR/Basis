@@ -61,6 +61,8 @@ namespace uLipSync
         // Workspace
         public BasisLipSyncWorkspace ws;
 
+        [ReadOnly] public NativeArray<float> firTaps;
+        [ReadOnly] public NativeArray<float> hammingWindow;
         // -------------------------------
         // Constants
         // -------------------------------
@@ -89,13 +91,13 @@ namespace uLipSync
             }
 
             // 3) FIR lowpass (proper convolution)
-            LowPassFilterInPlace_Precomputed(ws.buffer, ws.tmp, ws.firTaps);
+            LowPassFilterInPlace_Precomputed(ws.buffer, ws.tmp, firTaps);
 
             // 4) Downsample + PreEmphasis fused into ws.down
             DownSampleAndPreEmphasis(ws.buffer, ws.down, outputSampleRate, targetSampleRate, PREEMPH);
 
             // 5) Prepare FFT frame + window
-            PrepareWindowedFrame(ws.down, ws.frame, ws.hammingWindow);
+            PrepareWindowedFrame(ws.down, ws.frame, hammingWindow);
 
             // 6) FFT power spectrum half using precomputed plan
             FFTPowerHalf_Planned(ws.frame, ws.powerHalf, ws.fftRe, ws.fftIm, ws.fftPlan);

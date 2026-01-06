@@ -42,7 +42,10 @@ namespace Basis.Scripts.Addressable_Driver.Resource
             if (Reference != null)
             {
                 Addressables.ReleaseInstance(Reference);
-                GameObject.Destroy(Reference);
+                if (Reference != null)
+                {
+                    GameObject.Destroy(Reference);
+                }
             }
         }
     }

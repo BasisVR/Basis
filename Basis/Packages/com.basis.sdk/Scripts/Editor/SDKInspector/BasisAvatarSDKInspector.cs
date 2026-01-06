@@ -524,7 +524,7 @@ public partial class BasisAvatarSDKInspector : Editor
         {
             ScheduleCallback = true;
             BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
-            BasisLocalPlayer.OnLocalPlayerCreatedAndReady += LoadAvatar;
+            BasisLocalPlayer.OnLocalPlayerInitalized += LoadAvatar;
         }
 #endif
     }
@@ -534,7 +534,7 @@ public partial class BasisAvatarSDKInspector : Editor
 #if BASIS_FRAMEWORK_EXISTS
         if (ScheduleCallback)
         {
-            BasisLocalPlayer.OnLocalPlayerCreatedAndReady -= LoadAvatar;
+            BasisLocalPlayer.OnLocalPlayerInitalized -= LoadAvatar;
             ScheduleCallback = false;
         }
         BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);

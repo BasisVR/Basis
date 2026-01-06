@@ -2,7 +2,7 @@ using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
-
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -125,6 +125,10 @@ public static class BasisSceneFactory
 
         BasisDebug.Log("Mixer group assigned to all scene AudioSources.");
     }
+    /// <summary>
+    /// Fired after the player has been spawned into the scene.
+    /// </summary>
+    public static Action OnSpawnedEvent;
     public static void SpawnPlayer(BasisLocalPlayer localPlayer)
     {
         BasisDebug.Log("Spawning Player");
@@ -137,6 +141,7 @@ public static class BasisSceneFactory
         {
             BasisDebug.LogError("Missing Local Player!");
         }
+        OnSpawnedEvent?.Invoke();
     }
     public static void Simulate()
     {

@@ -34,7 +34,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 if (hasGeneratedAction == false)
                 {
-                    BasisLocalPlayer.OnLocalPlayerCreated += OnLocalPlayerGenerated;
+                    BasisLocalPlayer.OnLocalPlayerInitalized += OnLocalPlayerGenerated;
                     hasGeneratedAction = true;
                 }
             }
@@ -44,7 +44,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (hasGeneratedAction)
             {
-                BasisLocalPlayer.OnLocalPlayerCreated -= OnLocalPlayerGenerated;
+                BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerGenerated;
                 hasGeneratedAction = false;
             }
 

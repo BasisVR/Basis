@@ -105,7 +105,7 @@ namespace Basis.Scripts.Drivers
             phonemeBlendShapeTable.Clear();
             uLipSync.skinnedMeshRenderer = Avatar.FaceVisemeMesh;
             uLipSync.sharedMesh = Avatar.FaceVisemeMesh.sharedMesh;
-            uLipSync.Count = uLipSync.sharedMesh.blendShapeCount;
+            uLipSync.blendShapeCount = uLipSync.sharedMesh.blendShapeCount;
             // Build viseme availability and phoneme mapping table
             BlendShapeCount = Avatar.FaceVisemeMovement.Length;
             HasViseme = new bool[BlendShapeCount];
@@ -171,7 +171,7 @@ namespace Basis.Scripts.Drivers
         }
         public void OnDestroy()
         {
-            uLipSync.OnDestroy();
+            uLipSync.DisposeBuffers();
         }
         public void Simulate(float DeltaTime)
         {

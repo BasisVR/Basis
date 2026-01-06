@@ -318,8 +318,10 @@ namespace Basis.BasisUI
             AvatarPasswordField.SetPassword(string.Empty);
 
             WindowsIcon.SetActive(false);
-            AndroidIcon.SetActive(false);
+            MacIcon.SetActive(false);
             LinuxIcon.SetActive(false);
+            AndroidIcon.SetActive(false);
+            IOSIcon.SetActive(false);
 
             NewAvatarPanel.Hide();
         }
@@ -371,7 +373,7 @@ namespace Basis.BasisUI
             }
             else
             {
-                creationDate = DateTime.Parse(creationDate).ToString(CultureInfo.InvariantCulture);
+                creationDate = DateTime.Parse(creationDate, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal).ToString(CultureInfo.InvariantCulture);
                 creationDate += " UTC";
             }
 
@@ -381,8 +383,10 @@ namespace Basis.BasisUI
                 .Select(pair => pair.Platform).ToArray();
 
             WindowsIcon.SetActive(false);
-            AndroidIcon.SetActive(false);
+            MacIcon.SetActive(false);
             LinuxIcon.SetActive(false);
+            AndroidIcon.SetActive(false);
+            IOSIcon.SetActive(false);
 
             foreach (string platform in platforms)
             {
@@ -391,16 +395,16 @@ namespace Basis.BasisUI
                     case "StandaloneWindows64":
                         WindowsIcon.SetActive(true);
                         break;
-                    case "StandaloineOSX":
+                    case "StandaloneOSX":
                         MacIcon.SetActive(true);
                         break;
                     case "StandaloneLinux64":
-                        AndroidIcon.SetActive(true);
-                        break;
-                    case "Android":
                         LinuxIcon.SetActive(true);
                         break;
-                    case "IOS":
+                    case "Android":
+                        AndroidIcon.SetActive(true);
+                        break;
+                    case "iOS":
                         IOSIcon.SetActive(true);
                         break;
                 }

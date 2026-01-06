@@ -20,7 +20,7 @@ namespace Basis.Scripts.BasisSdk.Players
     /// </summary>
     /// <remarks>
     /// Use <see cref="LocalInitialize"/> to wire up drivers, load the initial avatar,
-    /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerCreatedAndReady"/>
+    /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerInitalized"/>
     /// to know when the player has finished bootstrapping.
     /// </remarks>
     public class BasisLocalPlayer : BasisPlayer
@@ -58,12 +58,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Fired once the local player has completed <see cref="LocalInitialize"/> and is ready.
         /// </summary>
-        public static Action OnLocalPlayerCreatedAndReady;
-
-        /// <summary>
-        /// Fired as soon as the local player object is created and begins initialization.
-        /// </summary>
-        public static Action OnLocalPlayerCreated;
+        public static Action OnLocalPlayerInitalized;
 
         /// <summary>
         /// Fired whenever the local avatar asset changes (including initial creation).
@@ -73,7 +68,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Fired after the player has been spawned/teleported into the scene.
         /// </summary>
-        public static Action OnSpawnedEvent;
+        public static Action OnTeleportEvent;
 
         /// <summary>
         /// Fired on the frame after a player height change is requested.
@@ -183,8 +178,6 @@ namespace Basis.Scripts.BasisSdk.Players
             }
 
             BasisLocalMicrophoneDriver.OnPausedAction += LocalVisemeDriver.OnPausedEvent;
-
-            OnLocalPlayerCreated?.Invoke();
             IsLocal = true;
 
             LocalBoneDriver.CreateInitialArrays(true);
@@ -219,8 +212,6 @@ namespace Basis.Scripts.BasisSdk.Players
             }
 
             BasisLocalMicrophoneDriver.Initialize();
-            PlayerReady = true;
-            OnLocalPlayerCreatedAndReady?.Invoke();
 
             BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
             if (BasisScene != null)
@@ -234,6 +225,8 @@ namespace Basis.Scripts.BasisSdk.Players
             }
 
             BasisUILoadingBar.Initalize();
+            PlayerReady = true;
+            OnLocalPlayerInitalized?.Invoke();
         }
 
         /// <summary>
@@ -290,7 +283,7 @@ namespace Basis.Scripts.BasisSdk.Players
             this.transform.SetPositionAndRotation(position, rotation);
             LocalCharacterDriver.IsEnabled = wasCharacterEnabled;
             LocalAnimatorDriver.HandleTeleport();
-            OnSpawnedEvent?.Invoke();
+            OnTeleportEvent?.Invoke();
         }
         public void Respawn()
         {

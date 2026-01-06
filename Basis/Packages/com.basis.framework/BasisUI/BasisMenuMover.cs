@@ -68,7 +68,7 @@ namespace Basis.BasisUI
             }
             else
             {
-                BasisLocalPlayer.OnLocalPlayerCreated += OnLocalPlayerCreated;
+                BasisLocalPlayer.OnLocalPlayerInitalized += OnLocalPlayerCreated;
                 _hasLocalCreationEvent = true;
             }
 
@@ -86,7 +86,7 @@ namespace Basis.BasisUI
 
             if (_hasLocalCreationEvent)
             {
-                BasisLocalPlayer.OnLocalPlayerCreated -= OnLocalPlayerCreated;
+                BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerCreated;
             }
 
             if (_hasLocalMoveEvent)
