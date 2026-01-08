@@ -100,15 +100,22 @@ public class BasisBundleUnCombineEditor : EditorWindow
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
 
             EditorUtility.DisplayProgressBar("Decrypting", "Decrypting bundle...", 0.6f);
-            byte[] LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, value.Value.SectionData, progressCallback);
-
+          var LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, value.Value.SectionData, progressCallback);
+            if (LoadedBundleData.Success)
+            {
+                BasisDebug.Log("Passed Decrypt.", BasisDebug.LogTag.Event);
+            }
+            else
+            {
+                BasisDebug.LogError($"Failed to Decrypt, {LoadedBundleData.Error} | {LoadedBundleData.Message} | {LoadedBundleData.Exception}");
+            }
             string SafeFolder = SanitizePath(FolderToSaveTo, Path.GetInvalidPathChars());
             string FileName = SanitizePath(Path.GetFileNameWithoutExtension(LocalFile), Path.GetInvalidFileNameChars());
 
             string FinalPath = Path.Combine(SafeFolder, $"{FileName}.Bundle");
 
             EditorUtility.DisplayProgressBar("Saving", "Writing decrypted bundle...", 0.9f);
-            await File.WriteAllBytesAsync(FinalPath, LoadedBundleData);
+            await File.WriteAllBytesAsync(FinalPath, LoadedBundleData.Data);
 
             EditorUtility.ClearProgressBar();
             EditorUtility.DisplayDialog("Success", $"Decryption complete. File saved to:\n{FinalPath}", "OK");

@@ -37,15 +37,15 @@ public class BasisOpenXRHandInput : BasisInputController
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole)
     {
         HandBiasSplay = 0;
-        leftHandToIKRotationOffset = new Vector3(0, 90, -30);
-        rightHandToIKRotationOffset = new Vector3(0, -90, 30);
+        leftHandToIKRotationOffset = new Vector3(0, 0, -180);
+        rightHandToIKRotationOffset = new Vector3(0, 0, 0);
 
-        LeftHandPalmCorrection = new Vector3(-90, 90, -30);
+        LeftHandPalmCorrection = new Vector3(0, 0, 0);
 
-        RightHandPalmCorrection = new Vector3(-90, 90, -150);
+        RightHandPalmCorrection = new Vector3(0, 0, 0);
 
-        leftHandToIKPositionOffset = new Vector3(0,0, -0.03f);
-        rightHandToIKPositionOffset = new Vector3(0,0, -0.03f);
+        leftHandToIKPositionOffset = new Vector3(0,0, 0);
+        rightHandToIKPositionOffset = new Vector3(0,0, 0);
 
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole,true);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";

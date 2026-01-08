@@ -33,6 +33,7 @@ public class BasisSDKConstants
     public static readonly string AvatarAnimatorControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
 
     public static readonly string AvatarDoNotAutoRenameBonesField = "AvatarDoNotAutoRenameBonesField";
+    public static readonly string AvatarAutomaticallyRemoveBlendshapesField = "AvatarAutomaticallyRemoveBlendshapesField";
     #endregion
     #region Prop
     public static readonly string PropuxmlPath = $"{BasePath}{PropFile}";

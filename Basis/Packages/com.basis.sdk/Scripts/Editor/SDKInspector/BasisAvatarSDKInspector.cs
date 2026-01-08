@@ -253,6 +253,7 @@ public partial class BasisAvatarSDKInspector : Editor
         ObjectField AvatarIconField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.AvatarIcon);
 
         Toggle AvatarDoNotAutoRenameBonesField = uiElementsRoot.Q<Toggle>(BasisSDKConstants.AvatarDoNotAutoRenameBonesField);
+        Toggle AvatarAutomaticallyRemoveBlendshapesField = uiElementsRoot.Q<Toggle>(BasisSDKConstants.AvatarAutomaticallyRemoveBlendshapesField);
 
         AvatarIconField.objectType = typeof(Texture2D);
 
@@ -276,6 +277,8 @@ public partial class BasisAvatarSDKInspector : Editor
         AvatarDoNotAutoRenameBonesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.doNotAutoRenameBones : false;
         AvatarDoNotAutoRenameBonesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarDoNotAutoRenameBonesField);
 
+        AvatarAutomaticallyRemoveBlendshapesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes : false;
+        AvatarAutomaticallyRemoveBlendshapesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarRemoveUnusedBlendshapesField);
         // Button click events
         avatarEyePositionClick.clicked += () => ClickedAvatarEyePositionButton(avatarEyePositionClick);
         avatarMouthPositionClick.clicked += () => ClickedAvatarMouthPositionButton(avatarMouthPositionClick);
@@ -316,12 +319,6 @@ public partial class BasisAvatarSDKInspector : Editor
             Debug.LogError("No build targets selected.");
             return;
         }
-
-#if UNITY_6000_2_OR_NEWER
-        GenerateMeshLODs(3);
-#endif
-        // CheckTranslation(Avatar);
-
         if (BasisAvatarValidator.ValidateAvatar(out List<BasisValidationIssue> Errors, out List<BasisValidationIssue> Warnings, out List<string> Passes))
         {
             if (Avatar.Animator.runtimeAnimatorController != null)
@@ -345,8 +342,22 @@ public partial class BasisAvatarSDKInspector : Editor
             {
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
+
             Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
-            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes,Avatar, targets);
+            // Build from a stripped clone so the authored avatar stays untouched.
+            GameObject buildRoot = GameObject.Instantiate(Avatar.gameObject);
+            buildRoot.TryGetComponent<BasisAvatar>(out Avatar);
+            // If your pipeline needs editor-only stripping, do it here.
+            BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
+            BasisBuildBlendshapeStripper.StripForBuild(settings: assetBundleObject, buildRoot, Avatar);
+
+#if UNITY_6000_2_OR_NEWER
+            GenerateMeshLODs(3);
+#endif
+
+            Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, Avatar, targets);
+
             EditorUtility.ClearProgressBar();
             // Clear any previous result label
             ClearResultLabel();
@@ -610,6 +621,14 @@ public partial class BasisAvatarSDKInspector : Editor
         if (Avatar.ProcessingAvatarOptions == null) Avatar.ProcessingAvatarOptions = new BasisProcessingAvatarOptions();
 
         Avatar.ProcessingAvatarOptions.doNotAutoRenameBones = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        AssetDatabase.Refresh();
+    }
+    public void OnAvatarRemoveUnusedBlendshapesField(ChangeEvent<bool> evt)
+    {
+        if (Avatar.ProcessingAvatarOptions == null) Avatar.ProcessingAvatarOptions = new BasisProcessingAvatarOptions();
+
+        Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes = evt.newValue;
         EditorUtility.SetDirty(Avatar);
         AssetDatabase.Refresh();
     }

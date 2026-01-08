@@ -97,6 +97,7 @@ public static class BasisHeightDriver
         ApplyAvatarScale(1);//we set the avatar scale to 1 to grab good arm spans
         BasisLocalHeightCalculator.CalculateAvatarEyeHeight();
         BasisLocalHeightCalculator.CalculateAvatarArmSpan();
+        BasisLocalHeightCalculator.ValidateEyeToArmSizes();
         ApplyAvatarScale(ApplyScale);
         BasisLocalPlayer.Instance.ExecuteNextFrame(() =>
         {

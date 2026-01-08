@@ -186,8 +186,6 @@ namespace Basis.Scripts.UI.NamePlate
         private static NativeArray<PlateOutput> outputB;
 
         private static int writeBuffer; // 0 => A, 1 => B
-        private static int readBuffer => writeBuffer ^ 1;
-
         private static bool allocated;
         private static int capacity;
 

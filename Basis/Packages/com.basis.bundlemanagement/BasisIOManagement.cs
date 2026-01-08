@@ -251,33 +251,47 @@ public static class BasisIOManagement
     public static async Task<BeeResult<BeeReadResult>> ReadBEEFileEx(string filePath, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(filePath))
+        {
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: File path is null or empty.");
+        }
 
         if (!File.Exists(filePath))
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File not found: {filePath}");
+        }
 
         if (string.IsNullOrWhiteSpace(vp))
+        {
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: VP is null or empty.");
+        }
 
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: true);
 
         if (fs.Length < BasisBeeConstants.DiskHeaderSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File too small to contain header. Size={fs.Length} bytes.");
+        }
 
         // Read Int32 connector size (little-endian)
         byte[] sizeBytes = await ReadExactAsync(fs, BasisBeeConstants.DiskHeaderSize, cancellationToken);
         if (sizeBytes.Length != BasisBeeConstants.DiskHeaderSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read connector size (header). Got {sizeBytes.Length} bytes.");
+        }
 
         int connectorSize = ReadInt32LittleEndian(sizeBytes);
         long remainingPossible = fs.Length - fs.Position;
         if (connectorSize <= 0 || connectorSize > remainingPossible)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Invalid connector size {connectorSize}. Remaining file bytes: {remainingPossible}. File may be corrupt.");
+        }
 
         // Read connector bytes
         byte[] connectorBytes = await ReadExactAsync(fs, connectorSize, cancellationToken);
         if (connectorBytes.Length != connectorSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
+        }
 
         BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback);
         BasisDebug.Log("GenerateMetaFromBytes", BasisDebug.LogTag.Event);

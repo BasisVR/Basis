@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
@@ -131,7 +130,7 @@ public class JiggleMemoryBus {
     private static void Init() {
         if (dummyTransforms != null) {
             foreach (Transform t in dummyTransforms) {
-                    UnityEngine.Object.Destroy(t.gameObject);
+                Object.Destroy(t.gameObject);
             }
 
             dummyTransforms.Clear();
@@ -183,7 +182,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
     public static Transform GetDummyTransform(int index) {
         while (dummyTransforms.Count <= index) {
             Transform dummyTransform = new GameObject($"JigglePhysicsDummyTransform{index}").transform;
-            UnityEngine.Object.DontDestroyOnLoad(dummyTransform.gameObject);
+            Object.DontDestroyOnLoad(dummyTransform.gameObject);
             dummyTransform.gameObject.hideFlags = HideFlags.HideAndDontSave;
             dummyTransforms.Add(dummyTransform);
         }
@@ -208,8 +207,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         var newColliders = new JiggleCollider[newColliderCapacity];
         sceneColliderArrayOutput = new JiggleCollider[newColliderCapacity];
         if (sceneColliderArray != null) {
-            System.Array.Copy(sceneColliderArray, newColliders,
-                System.Math.Min(sceneColliderCount, newColliderCapacity));
+            System.Array.Copy(sceneColliderArray, newColliders, System.Math.Min(sceneColliderCount, sceneColliderArray.Length));
         }
         sceneColliderArray = newColliders;
         if (sceneColliders.IsCreated) {
@@ -219,49 +217,22 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         sceneColliderCapacity = newColliderCapacity;
     }
 
-        private void ResizePersonalColliderCapacity(int newColliderCapacity)
-        {
-            if (newColliderCapacity < 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(newColliderCapacity), "Capacity cannot be negative.");
-            }
-
-            personalColliderMemoryFragmenter.Resize(newColliderCapacity);
-
-            var newColliders = new JiggleCollider[newColliderCapacity];
-            personalColliderArrayOutput = new JiggleCollider[newColliderCapacity];
-
-            if (personalColliderArray != null && newColliderCapacity > 0)
-            {
-                // Clamp copy length to BOTH arrays (and ensure count can't exceed old array length)
-                int copyLen = personalColliderCount;
-
-                if (copyLen < 0) copyLen = 0; // extra paranoia
-                if (copyLen > personalColliderArray.Length) copyLen = personalColliderArray.Length;
-                if (copyLen > newColliders.Length) copyLen = newColliders.Length;
-
-                if (copyLen > 0)
-                    Array.Copy(personalColliderArray, 0, newColliders, 0, copyLen);
-            }
-
-            personalColliderArray = newColliders;
-
-            if (personalColliders.IsCreated)
-            {
-                personalColliders.Dispose();
-            }
-
-            personalColliders = new NativeArray<JiggleCollider>(personalColliderArray, Allocator.Persistent);
-            personalColliderCapacity = newColliderCapacity;
-
-            // Optional but recommended: keep count sane when shrinking
-            if (personalColliderCount > personalColliderCapacity)
-            {
-                personalColliderCount = personalColliderCapacity;
-            }
+    private void ResizePersonalColliderCapacity(int newColliderCapacity) {
+        personalColliderMemoryFragmenter.Resize(newColliderCapacity);
+        var newColliders = new JiggleCollider[newColliderCapacity];
+        personalColliderArrayOutput = new JiggleCollider[newColliderCapacity];
+        if (personalColliderArray != null) {
+            System.Array.Copy(personalColliderArray, newColliders, System.Math.Min(personalColliderCount, personalColliderArray.Length));
         }
+        personalColliderArray = newColliders;
+        if (personalColliders.IsCreated) {
+            personalColliders.Dispose();
+        }
+        personalColliders = new NativeArray<JiggleCollider>(personalColliderArray, Allocator.Persistent);
+        personalColliderCapacity = newColliderCapacity;
+    }
 
-        private void ResizeTransformCapacity(int newTransformCapacity) {
+    private void ResizeTransformCapacity(int newTransformCapacity) {
         memoryFragmenter.Resize(newTransformCapacity);
         var newSimulateInputPosesArray = new JiggleTransform[newTransformCapacity];
         var newRestPoseTransformsArray = new JiggleTransform[newTransformCapacity];
@@ -345,8 +316,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         jiggleTreeStructsArrayOutput = new JiggleTreeJobData[newTreeCapacity];
 
         if (jiggleTreeStructsArray != null) {
-            System.Array.Copy(jiggleTreeStructsArray, newJiggleTreeStructsArray,
-                System.Math.Min(treeCount, newTreeCapacity));
+            System.Array.Copy(jiggleTreeStructsArray, newJiggleTreeStructsArray, System.Math.Min(treeCount, jiggleTreeStructsArray.Length));
         }
 
         jiggleTreeStructsArray = newJiggleTreeStructsArray;
@@ -776,9 +746,20 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
 
             for (int i = 0; i < pendingAddCount; i++) {
                 var jiggleTree = pendingAddTrees[i];
-                var pointCount = (int)pendingAddTrees[i].GetStruct().pointCount;
+                var pointCount = (int)jiggleTree.GetStruct().pointCount;
+                if (pointCount != jiggleTree.bones.Length) {
+                    jiggleTree.SetDirty();
+                    JigglePhysics.SetGlobalDirty();
+                    pendingAddTrees.RemoveAt(i);
+                    pendingAddCount--;
+                    i--;
+                    Debug.LogError("JigglePhysics: Cannot add tree, point count does not match bone count. Attempting to regenerate tree...");
+                    continue;
+                }
                 if (pointCount > JiggleTreeJobData.MAX_POINTS) {
                     pendingAddTrees.RemoveAt(i);
+                    pendingAddCount--;
+                    i--;
                     Debug.LogError("JigglePhysics: Cannot add tree with more than " + JiggleTreeJobData.MAX_POINTS + " points to memory bus.");
                     continue;
                 }
@@ -801,8 +782,10 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
 
                 if (!TryAddTransformsToSlice(startIndex, jiggleTree)) {
                     memoryFragmenter.Free(startIndex, pointCount);
+                    jiggleTree.SetDirty();
                     pendingAddTrees.RemoveAt(i);
-                    i=Mathf.Max(i-1,0);
+                    pendingAddCount--;
+                    i--;
                 }
             }
 

@@ -21,7 +21,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         // Device pose (controller) from compositor
         public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
         public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
-        public SteamVR_Utils.RigidTransform DeviceLocalSpace;
         public EVRCompositorError result;
         public Vector3 RaycastOffset = new Vector3(0, 0.05f, 0.05f);
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
@@ -29,11 +28,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             HandBiasSplay = -0.8f;
 
             // existing hand rotation offsets
-            leftHandToIKRotationOffset = new Vector3(170, 0, -120);
-            rightHandToIKRotationOffset = new Vector3(170, 0, 120);
+            leftHandToIKRotationOffset = new Vector3(105, 185, 265);
+            rightHandToIKRotationOffset = new Vector3(105, 185,265);
 
-            leftHandToIKPositionOffset = new Vector3(0, 0.05f, -0.02f);
-            rightHandToIKPositionOffset = new Vector3(0, 0.05f, -0.02f);
+            leftHandToIKPositionOffset = new Vector3(-0.02f, 0.07f, 0.02f);
+            rightHandToIKPositionOffset = new Vector3(-0.02f, 0.07f, 0.02f);
 
             if (HasOnUpdate && DeviceposeAction != null)
             {
@@ -115,8 +114,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 return;
             }
 
-            DeviceLocalSpace = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
-
             // ------- CURLS (0..1 from SteamVR) -> [-1..1] rig values
             float[] curls = skeletonAction.GetFingerCurls();
 
@@ -155,8 +152,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             BoneRotations = skeletonAction.boneRotations;
 
             // Raw device pose in *unscaled* world space
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, DeviceLocalSpace.pos);
-            UnscaledDeviceCoord.rotation = DeviceLocalSpace.rot;
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, deviceGamePose.mDeviceToAbsoluteTracking.GetPosition());
+            UnscaledDeviceCoord.rotation = deviceGamePose.mDeviceToAbsoluteTracking.GetRotation();
 
             // scale from the avatar currently selected to the avatar's "default" rig size
             float avatarScale = BasisHeightDriver.AvatarToPlayerScale;

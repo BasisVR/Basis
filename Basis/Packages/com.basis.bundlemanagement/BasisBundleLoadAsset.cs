@@ -19,7 +19,7 @@ public static class BasisBundleLoadAsset
                         {
                             string ReplacedName = Generated.AssetToLoadName.Replace(".bundle", ".prefab");
 
-                            AssetBundleRequest Request = BasisLoadableBundle.AssetBundle.LoadAssetAsync<GameObject>(ReplacedName);//assets/temporarystorage/19a260b00e5f474f8472fa9dea4ca2a920250227.prefab
+                            AssetBundleRequest Request = BasisLoadableBundle.AssetBundle.LoadAssetAsync<GameObject>(ReplacedName);
                             await Request;
                             GameObject loadedObject = Request.asset as GameObject;
                             if (loadedObject == null)

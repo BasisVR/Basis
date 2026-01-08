@@ -23,20 +23,20 @@ public static class BasisObjectSyncDriver
     private static TransformAccessArray _remoteTransforms;
     private static NativeList<float3> _targetPositions;
     private static NativeList<quaternion> _targetRotations;
-    private static NativeList<float3> _targetScales;          // NEW: scales
+    private static NativeList<float3> _targetScales;
     private static NativeList<float> _lerpMultipliers;
 
     private static Transform[] _cachedTransforms = Array.Empty<Transform>();
     private static Transform[] _lastCachedTransforms = Array.Empty<Transform>();
     private static JobHandle _remoteJobHandle;
-
+    public static int TargetCount = -1;
     public static void Initalization()
     {
         _remoteTransforms = new TransformAccessArray(0);
         _targetPositions = new NativeList<float3>(128, Allocator.Persistent);
         TargetCount = _targetPositions.Length;
         _targetRotations = new NativeList<quaternion>(128, Allocator.Persistent);
-        _targetScales = new NativeList<float3>(128, Allocator.Persistent); // NEW
+        _targetScales = new NativeList<float3>(128, Allocator.Persistent);
         _lerpMultipliers = new NativeList<float>(128, Allocator.Persistent);
     }
 
@@ -47,7 +47,7 @@ public static class BasisObjectSyncDriver
         if (_remoteTransforms.isCreated) _remoteTransforms.Dispose();
         if (_targetPositions.IsCreated) _targetPositions.Dispose();
         if (_targetRotations.IsCreated) _targetRotations.Dispose();
-        if (_targetScales.IsCreated) _targetScales.Dispose();              // NEW
+        if (_targetScales.IsCreated) _targetScales.Dispose();
         if (_lerpMultipliers.IsCreated) _lerpMultipliers.Dispose();
     }
 
@@ -65,7 +65,6 @@ public static class BasisObjectSyncDriver
             }
         }
     }
-    public static int TargetCount = -1;
     public static void ScheduleRemoteLerp(float deltaTime)
     {
         _remoteJobHandle.Complete();
@@ -231,6 +230,6 @@ public struct BasisTranslationUpdate
 {
     public float3 TargetPosition;
     public quaternion TargetRotation;
-    public float3 TargetScales;    // already present; now applied by job
+    public float3 TargetScales;
     public float LerpMultipliers;
 }

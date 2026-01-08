@@ -1,10 +1,3 @@
-// ============================
-// BasisUlipSyncDriver.cs
-// Single-profile shared cache:
-// - Shared phoneme blobs (means/std/invStd/phonemesZ/norms)
-// - Shared DSP constants (fir taps, hamming window, FFT plan)
-// - Shared mel + dct plans (depend on fftN/melDiv/mfccLen)
-// ============================
 using System;
 using System.Collections.Generic;
 using uLipSync;
@@ -79,7 +72,9 @@ public static unsafe class BasisUlipSyncDriver
 
         // Single-profile assumption: if same profile already built, do nothing.
         if (_initialized && ReferenceEquals(Profile, profile))
+        {
             return;
+        }
 
         DisposeShared();
         Profile = profile;
@@ -139,11 +134,17 @@ public static unsafe class BasisUlipSyncDriver
         {
             int len = math.min(meansArr.Length, mfccLen);
             NativeArray<float>.Copy(meansArr, 0, SharedMeans, 0, len);
-            for (int i = len; i < mfccLen; i++) SharedMeans[i] = 0f;
+            for (int i = len; i < mfccLen; i++)
+            {
+                SharedMeans[i] = 0f;
+            }
         }
         else
         {
-            for (int i = 0; i < mfccLen; i++) SharedMeans[i] = 0f;
+            for (int i = 0; i < mfccLen; i++)
+            {
+                SharedMeans[i] = 0f;
+            }
         }
 
         var stdArr = profile.standardDeviation;
@@ -151,11 +152,17 @@ public static unsafe class BasisUlipSyncDriver
         {
             int len = math.min(stdArr.Length, mfccLen);
             NativeArray<float>.Copy(stdArr, 0, SharedStd, 0, len);
-            for (int i = len; i < mfccLen; i++) SharedStd[i] = 1f;
+            for (int i = len; i < mfccLen; i++)
+            {
+                SharedStd[i] = 1f;
+            }
         }
         else
         {
-            for (int i = 0; i < mfccLen; i++) SharedStd[i] = 1f;
+            for (int i = 0; i < mfccLen; i++)
+            {
+                SharedStd[i] = 1f;
+            }
         }
 
         // invStd + phonemesZ + norms once
@@ -165,11 +172,13 @@ public static unsafe class BasisUlipSyncDriver
 
         // phoneme name map once
         PhonemeNameToIndex.Clear();
-        for (int i = 0; i < phonemeCount; i++)
+        for (int Index = 0; Index < phonemeCount; Index++)
         {
-            var name = profile.GetPhoneme(i);
+            var name = profile.GetPhoneme(Index);
             if (!string.IsNullOrEmpty(name))
-                PhonemeNameToIndex[name] = i;
+            {
+                PhonemeNameToIndex[name] = Index;
+            }
         }
 
         // --------- shared DSP constants ----------
@@ -197,11 +206,6 @@ public static unsafe class BasisUlipSyncDriver
 
         _initialized = true;
     }
-    public static string GetPhoneme(int index)
-    {
-        return Profile.GetPhoneme(index);
-    }
-
     public static void DisposeShared()
     {
         _initialized = false;

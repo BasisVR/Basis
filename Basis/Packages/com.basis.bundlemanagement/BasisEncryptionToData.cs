@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using UnityEngine;
-using static UnityEngine.LightProbeProxyVolume;
 public static class BasisEncryptionToData
 {
     public static async Task<AssetBundleCreateRequest> GenerateBundleFromFile(string Password, byte[] Bytes, uint CRC, BasisProgressReport progressCallback)
@@ -12,10 +11,19 @@ public static class BasisEncryptionToData
         };
         string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
         // Decrypt the file asynchronously
-        byte[] LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
+        var LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
+
+        if (LoadedBundleData.Success)
+        {
+            BasisDebug.Log("Attempting Asset Bundle Load...", BasisDebug.LogTag.Event);
+        }
+        else
+        {
+            BasisDebug.LogError($"Failed to Decrypt, {LoadedBundleData.Error} | {LoadedBundleData.Message} | {LoadedBundleData.Exception}");
+        }
 
         // Start the AssetBundle loading process from memory with CRC check
-        AssetBundleCreateRequest assetBundleCreateRequest = AssetBundle.LoadFromMemoryAsync(LoadedBundleData, CRC);
+        AssetBundleCreateRequest assetBundleCreateRequest = AssetBundle.LoadFromMemoryAsync(LoadedBundleData.Data, CRC);
         // Track the last reported progress
         int lastReportedProgress = -1;
 
@@ -51,11 +59,19 @@ public static class BasisEncryptionToData
         var basisPassword = new BasisEncryptionWrapper.BasisPassword { VP = password };
         string uniqueID = BasisGenerateUniqueID.GenerateUniqueID();
 
-        byte[] decryptedMeta = await BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, basisPassword, encryptedBytes, progressCallback);
+        var decryptedMeta = await BasisEncryptionWrapper.DecryptFromBytesAsync(uniqueID, basisPassword, encryptedBytes, progressCallback);
 
-        BasisDebug.Log("Converting decrypted meta file to BasisBundleInformation...", BasisDebug.LogTag.Event);
 
-        return ConvertBytesToJson(decryptedMeta, out var connector) ? connector : null;
+        if (decryptedMeta.Success)
+        {
+            BasisDebug.Log("Converting decrypted meta file to BasisBundleInformation...", BasisDebug.LogTag.Event);
+            return ConvertBytesToJson(decryptedMeta.Data, out var connector) ? connector : null;
+        }
+        else
+        {
+            BasisDebug.LogError($"Failed to Decrypt, {decryptedMeta.Error} | {decryptedMeta.Message} | {decryptedMeta.Exception}");
+            return null;
+        }
     }
 
     public static bool ConvertBytesToJson(byte[] data, out BasisBundleConnector connector)

@@ -31,7 +31,10 @@ public static class BasisTextureCompression
         {
             Texture2D resized = EnforceMaxSize(tex);
 
-            if (madeCopy) UnityEngine.Object.Destroy(tex);
+            if (madeCopy)
+            {
+                UnityEngine.Object.Destroy(tex);
+            }
 
             tex = resized;
             madeCopy = true;
@@ -44,7 +47,9 @@ public static class BasisTextureCompression
         finally
         {
             if (madeCopy && tex != source)
+            {
                 UnityEngine.Object.Destroy(tex);
+            }
         }
     }
 

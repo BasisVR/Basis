@@ -1,6 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Player;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -268,10 +269,7 @@ public class BasisLocalHandDriver
         {
             BasisLocalAvatarDriver.SavedruntimeAnimatorController = Anim.runtimeAnimatorController;
         }
-        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op =
-            Addressables.LoadAssetAsync<RuntimeAnimatorController>(BasisLocalAvatarDriver.TPose);
-        RuntimeAnimatorController RAC = op.WaitForCompletion();
-        Anim.runtimeAnimatorController = RAC;
+        Anim.runtimeAnimatorController = BasisPlayerFactory.TposeController;
         float desiredTime = Time.deltaTime;
         Anim.Update(desiredTime);
     }

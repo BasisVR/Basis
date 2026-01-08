@@ -335,16 +335,12 @@ public unsafe class BasisUlipSync
         // Map phoneme -> index using SHARED dictionary
         if (BlendShapeInfos != null)
         {
-            for (int i = 0; i < BlendShapeInfos.Length; i++)
+            for (int Index = 0; Index < BlendShapeInfos.Length; Index++)
             {
-                var bs = BlendShapeInfos[i];
-                bs.phonemeIndex =
-                    (!string.IsNullOrEmpty(bs.phoneme) &&
-                     BasisUlipSyncDriver.PhonemeNameToIndex.TryGetValue(bs.phoneme, out int idx))
-                    ? idx
-                    : -1;
+                var bs = BlendShapeInfos[Index];
+                bs.phonemeIndex = (!string.IsNullOrEmpty(bs.phoneme) && BasisUlipSyncDriver.PhonemeNameToIndex.TryGetValue(bs.phoneme, out int idx)) ? idx : -1;
 
-                BlendShapeInfos[i] = bs;
+                BlendShapeInfos[Index] = bs;
             }
         }
         SafeDispose(ref _blendMap);
@@ -355,7 +351,10 @@ public unsafe class BasisUlipSync
         SafeDispose(ref _drivenBlendShapes);
 
         int blendInfoCount = (BlendShapeInfos != null) ? BlendShapeInfos.Length : 0;
-        if (blendShapeCount <= 0 || blendInfoCount <= 0) return;
+        if (blendShapeCount <= 0 || blendInfoCount <= 0)
+        {
+            return;
+        }
 
         _blendMap = new NativeArray<BlendMap>(blendInfoCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         _bsWeight = new NativeArray<float>(blendInfoCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
@@ -364,10 +363,10 @@ public unsafe class BasisUlipSync
         _finalByBlendShape = new NativeArray<float>(blendShapeCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
         _volState = new NativeArray<float>(2, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 
-        for (int i = 0; i < blendInfoCount; i++)
+        for (int Index = 0; Index < blendInfoCount; Index++)
         {
-            var bs = BlendShapeInfos[i];
-            _blendMap[i] = new BlendMap
+            var bs = BlendShapeInfos[Index];
+            _blendMap[Index] = new BlendMap
             {
                 blendShapeIndex = bs.index,
                 phonemeIndex = bs.phonemeIndex
@@ -375,11 +374,13 @@ public unsafe class BasisUlipSync
         }
 
         HashSet<int> driven = new HashSet<int>();
-        for (int i = 0; i < blendInfoCount; i++)
+        for (int Index = 0; Index < blendInfoCount; Index++)
         {
-            int idx = BlendShapeInfos[i].index;
+            int idx = BlendShapeInfos[Index].index;
             if ((uint)idx < (uint)blendShapeCount)
+            {
                 driven.Add(idx);
+            }
         }
 
         int drivenCount = driven.Count;
@@ -388,7 +389,9 @@ public unsafe class BasisUlipSync
             _drivenBlendShapes = new NativeArray<int>(drivenCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             int w = 0;
             foreach (var idx in driven)
+            {
                 _drivenBlendShapes[w++] = idx;
+            }
         }
 
         _lastApplied = null;

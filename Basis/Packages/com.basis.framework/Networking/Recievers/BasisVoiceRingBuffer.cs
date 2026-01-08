@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 
@@ -11,7 +12,7 @@ public class BasisVoiceRingBuffer
     private int size;
     private int realCount; // number of real samples currently resident
     private readonly object bufferLock = new();
-    public Queue<float[]> BufferedReturn = new Queue<float[]>();
+    public ConcurrentQueue<float[]> BufferedReturn = new ConcurrentQueue<float[]>();
 
     public BasisVoiceRingBuffer()
     {
@@ -30,6 +31,7 @@ public class BasisVoiceRingBuffer
     // Computed from current contents instead of a sticky flag
     public bool HasRealAudio => Volatile.Read(ref realCount) > 0;
 
+    public int Count => Interlocked.CompareExchange(ref size, 0, 0);
     /// <summary>
     /// Add 'length' samples from 'segment'. If hasActualAudio is true, those samples are flagged as real (non-silent).
     /// Older data is overwritten if needed (ring semantics).
@@ -93,13 +95,12 @@ public class BasisVoiceRingBuffer
         if (segmentSize <= 0)
             throw new ArgumentOutOfRangeException(nameof(segmentSize));
 
-        // reuse buffer if possible
         lock (BufferedReturn)
         {
             if (!BufferedReturn.TryDequeue(out segment) || segment.Length != segmentSize)
-            {
                 segment = new float[segmentSize];
-            }
+            else
+                Array.Clear(segment, 0, segmentSize);
         }
 
         lock (bufferLock)
@@ -107,22 +108,20 @@ public class BasisVoiceRingBuffer
             int currentSize = Interlocked.CompareExchange(ref size, 0, 0);
             int itemsToRemove = Math.Min(segmentSize, currentSize);
 
-            // Read audio out (may wrap)
             int firstPart = Math.Min(itemsToRemove, Capacity - tail);
             Array.Copy(buffer, tail, segment, 0, firstPart);
+
             int remaining = itemsToRemove - firstPart;
             if (remaining > 0)
-            {
                 Array.Copy(buffer, 0, segment, firstPart, remaining);
-            }
 
-            // Count and clear real flags for the removed region
             int removedReal = CountTrueAndClear(tail, itemsToRemove);
             if (removedReal != 0) Interlocked.Add(ref realCount, -removedReal);
 
-            // advance tail/size
             tail = (tail + itemsToRemove) % Capacity;
             Interlocked.Add(ref size, -itemsToRemove);
+
+            // segment is already zero-filled from itemsToRemove..end
         }
     }
 

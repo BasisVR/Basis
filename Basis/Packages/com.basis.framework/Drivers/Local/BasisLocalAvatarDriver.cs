@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System;
@@ -11,7 +12,6 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.Animations.Rigging;
-using UnityEngine.Rendering;
 
 namespace Basis.Scripts.Drivers
 {
@@ -22,8 +22,6 @@ namespace Basis.Scripts.Drivers
     [Serializable]
     public class BasisLocalAvatarDriver : BasisAvatarDriver
     {
-        /// <summary>Addressable path to the T-Pose animator controller asset.</summary>
-        public const string TPose = "Assets/Animator/Animated TPose.controller";
 
         /// <summary>Addressables key for the default locomotion animator controller.</summary>
         public const string Locomotion = "Locomotion";
@@ -351,9 +349,7 @@ namespace Basis.Scripts.Drivers
             {
                 SavedruntimeAnimatorController = BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController;
             }
-            UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op = Addressables.LoadAssetAsync<RuntimeAnimatorController>(TPose);
-            RuntimeAnimatorController RAC = op.WaitForCompletion();
-            BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController = RAC;
+            BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController = BasisPlayerFactory.TposeController;
             ForceUpdateAnimator(BasisLocalPlayer.Instance.BasisAvatar.Animator);
             TposeStateChange?.Invoke();
 

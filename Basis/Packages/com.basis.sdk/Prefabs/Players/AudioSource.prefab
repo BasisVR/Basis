@@ -240,7 +240,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
-  Transform: {fileID: 0}
+  mAudioSource: {fileID: 1948872803205194439}
+  Transform: {fileID: 1810431766226541370}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!114 &7865084452988920708
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -87,7 +87,6 @@ namespace Basis.Scripts.Avatar
 
             // Fallback can happen instantly, no restriction
             RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
-
             try
             {
                 GameObject Output = null;
@@ -176,7 +175,6 @@ namespace Basis.Scripts.Avatar
 
             // Instant fallback, not gated
             RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
-
             try
             {
                 GameObject Output = null;

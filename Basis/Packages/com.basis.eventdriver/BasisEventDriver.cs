@@ -177,8 +177,8 @@ public class BasisEventDriver : MonoBehaviour
         JigglePhysics.SchedulePose(TimeAsDouble);//requires free access to all transform of a player.
 
         // Device management tick
-        BasisDeviceManagement.OnDeviceManagementLoop?.Invoke(); //can do
-        BasisRemoteAudioDriver.Simulate(DeltaTime); //can do
+        BasisDeviceManagement.OnDeviceManagementLoop?.Invoke();
+        BasisRemoteAudioDriver.Simulate(DeltaTime);
 #if UNITY_SERVER
 #else
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
@@ -195,16 +195,21 @@ public class BasisEventDriver : MonoBehaviour
             JigglePhysics.ScheduleRender();
         }
         BasisRemoteAudioDriver.Apply();
+        BasisRemoteNamePlateDriver.CompleteNamePlates();
+        if (BasisLocalPlayer.PlayerReady)
+        {
+            BasisLocalPlayer.Instance.LocalVisemeDriver.Apply();
+
+        }
         //doing main thread work before this call is ideal for best performance.
         JigglePhysics.CompletePose();
         SteamAudioManager.Schedule();
-        BasisRemoteNamePlateDriver.CompleteNamePlates();
         BasisRemoteFaceManagement.Simulate(TimeAsDouble, DeltaTime);
 
         if (BasisLocalPlayer.PlayerReady)
         {
             // Eye driver (local)
-            BasisLocalPlayer.Instance.LocalEyeDriver.Simulate(DeltaTime); // cant do
+            BasisLocalPlayer.Instance.LocalEyeDriver.Simulate(DeltaTime);
         }
 
         if (SMModuleDebugOptions.UseGizmos)
@@ -214,7 +219,7 @@ public class BasisEventDriver : MonoBehaviour
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisLocalPlayer.Instance.LocalEyeDriver.Apply();
-            BasisLocalPlayer.Instance.LocalVisemeDriver.Apply();
+
         }
         SteamAudioManager.Apply();
 #if UNITY_SERVER
@@ -235,6 +240,7 @@ public class BasisEventDriver : MonoBehaviour
             // send out avatar
             BasisNetworkTransmitter.AfterAvatarChanges?.Invoke();
             BasisRemoteFaceManagement.Apply();
+            BasisLocalCameraDriver.Instance.microphoneIconDriver.Simulate(DeltaTime);
         }
     }
 
@@ -245,6 +251,7 @@ public class BasisEventDriver : MonoBehaviour
     {
         JigglePhysics.Dispose();
         BasisLocalMicrophoneDriver.StopProcessingThread();
+        BasisRemoteNamePlateDriver.Dispose();
         await BasisPlayerSettingsManager.FlushAllNow();
     }
 

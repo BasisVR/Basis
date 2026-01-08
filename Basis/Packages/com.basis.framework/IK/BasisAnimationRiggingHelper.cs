@@ -69,9 +69,25 @@ public static class BasisAnimationRiggingHelper
         data.m_CalibratedRotationLeftFoot = Mapping.Hashead ? Mapping.leftFoot.rotation : Quaternion.identity;
         data.m_CalibratedRotationRightFoot = Mapping.Hashead ? Mapping.rightFoot.rotation : Quaternion.identity;
 
-        // Hands
-        data.m_CalibratedRotationLeftHand = Mapping.HasleftHand ? Mapping.leftHand.rotation : Quaternion.identity;
-        data.m_CalibratedRotationRightHand = Mapping.HasrightHand ? Mapping.rightHand.rotation : Quaternion.identity;
+
+        Quaternion leftLandmarkBind = HandRotationFromLandmarks(
+            Mapping.leftHand.position,
+            Mapping.LeftIndex[0].position,
+            Mapping.LeftLittle[0].position);
+
+        Quaternion rightLandmarkBind = HandRotationFromLandmarks(
+            Mapping.rightHand.position,
+            Mapping.RightIndex[0].position,
+            Mapping.RightLittle[0].position);
+
+        // Bone bind rotations (world space)
+        Quaternion leftBoneBind = Mapping.leftHand.rotation;
+        Quaternion rightBoneBind = Mapping.rightHand.rotation;
+
+        // IMPORTANT: because job does final = target * offset
+        data.m_CalibratedRotationLeftHand = Quaternion.Inverse(leftLandmarkBind) * leftBoneBind;
+        data.m_CalibratedRotationRightHand = Quaternion.Inverse(rightLandmarkBind) * rightBoneBind;
+
         data.m_CalibratedRotationChest = Mapping.Haschest ? Mapping.chest.rotation : Quaternion.identity;
         data.m_CalibratedRotationNeck = Mapping.Hasneck ? Mapping.neck.rotation : Quaternion.identity;
         data.m_CalibratedRotationLeftToe = Mapping.HasleftToes ? Mapping.leftToe.rotation : Quaternion.identity;
@@ -142,7 +158,23 @@ public static class BasisAnimationRiggingHelper
         GeneratedRequiredTransforms(player, Mapping.leftHand);
         GeneratedRequiredTransforms(player, Mapping.rightHand);
     }
+   public static Quaternion HandRotationFromLandmarks(Vector3 wrist, Vector3 indexMCP, Vector3 pinkyMCP)
+    {
+        // Palm right direction (index to pinky)
+        Vector3 right = (pinkyMCP - indexMCP).normalized;
 
+        // Palm forward direction (wrist to between knuckles)
+        Vector3 knuckleMid = (indexMCP + pinkyMCP) * 0.5f;
+        Vector3 forward = (knuckleMid - wrist).normalized;
+
+        // Palm normal (up-ish). Order matters: swap if flipped.
+        Vector3 up = Vector3.Cross(forward, right).normalized;
+
+        // Re-orthogonalize to avoid drift
+        right = Vector3.Cross(up, forward).normalized;
+
+        return Quaternion.LookRotation(forward, up);
+    }
     public static void GeneratedRequiredTransforms(BasisLocalPlayer player,Transform baseLevel)
     {
         if (baseLevel == null)

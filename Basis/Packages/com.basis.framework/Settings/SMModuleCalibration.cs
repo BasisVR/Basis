@@ -162,7 +162,6 @@ public class SMModuleCalibration : BasisSettingsBase
             // ---------- HEAD ----------
             case "fbikheadsmoothpos":
                 {
-                    BasisDebug.Log("fbikheadsmoothpos", BasisDebug.LogTag.Core);
                     if (bool.TryParse(optionValue, out var parsed))
                         BasisLocalRigDriver.SmoothPos[BasisLocalRigDriver.S_Head] = parsed;
                     break;

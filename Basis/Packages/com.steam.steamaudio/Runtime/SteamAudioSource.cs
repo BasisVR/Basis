@@ -160,7 +160,7 @@ namespace SteamAudio
         UnityEngine.Vector3[] mDeformedSphereVertices = null;
         Mesh mDeformedSphereMesh = null;
 
-        AudioSource mAudioSource = null;
+        public AudioSource mAudioSource = null;
         AudioSourceAttenuationData mAttenuationData = new AudioSourceAttenuationData { };
         DistanceAttenuationModel mCurveAttenuationModel = new DistanceAttenuationModel { };
         GCHandle mThis;
@@ -170,8 +170,6 @@ namespace SteamAudio
         public Transform Transform;
         public bool IsUnityEngineUsed;
         public bool AllowsUpdateParameters = false;
-
-        // --------- HOT PATH OPTIMIZATION CACHES ----------
         private DistanceAttenuationModel mDefaultAttenuationModel;
         private SimulationFlags mCachedSimFlags;
         private DirectSimulationFlags mCachedDirectFlags;
@@ -191,7 +189,10 @@ namespace SteamAudio
 
         private void Awake()
         {
-            Transform = this.transform;
+            if (transform != null)
+            {
+                Transform = this.transform;
+            }
 
             mSimulator = SteamAudioManager.Simulator;
 
@@ -206,9 +207,10 @@ namespace SteamAudio
                 mAudioEngineSource.Initialize(gameObject);
                 mAudioEngineSource.UpdateParameters(this);
             }
-
-            mAudioSource = GetComponent<AudioSource>();
-
+            if (mAudioSource == null)
+            {
+                TryGetComponent<AudioSource>(out mAudioSource);
+            }
             mThis = GCHandle.Alloc(this);
 
             // Default model cached once
@@ -270,7 +272,10 @@ namespace SteamAudio
 
         private void OnEnable()
         {
-            Transform = this.transform;
+            if (transform != null)
+            {
+                Transform = this.transform;
+            }
 
             mSource.AddToSimulator(mSimulator);
             SteamAudioManager.AddSource(this);
@@ -337,16 +342,16 @@ namespace SteamAudio
         {
             // Refresh settings ref (can change in editor / domain reloads)
             if (mSettings == null)
+            {
                 mSettings = SteamAudioSettings.Singleton;
+            }
 
             // Default model cached
             mDefaultAttenuationModel.type = DistanceAttenuationModelType.Default;
 
             bool reflectionsRealtime = reflectionsType == ReflectionsType.Realtime;
             bool reflectionsBakedSrcActive = reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null;
-            bool reflectionsBakedLstActive = reflectionsType == ReflectionsType.BakedStaticListener &&
-                                             listener != null &&
-                                             listener.currentBakedListener != null;
+            bool reflectionsBakedLstActive = reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null;
 
             mCachedReflectionsEnabledAny = reflections && (reflectionsRealtime || reflectionsBakedSrcActive || reflectionsBakedLstActive);
 
