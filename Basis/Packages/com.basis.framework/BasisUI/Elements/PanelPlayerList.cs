@@ -50,6 +50,7 @@ namespace Basis.BasisUI
         public static PanelPlayerList CreateNew(Component parent)
             => CreateNew<PanelPlayerList>(PlayerListStyles.Default, parent);
 
+        public bool ShowLocalPlayerInList = false;
         public PlatformBadge[] PlatformBadges = new PlatformBadge[]
         {
             new() { platformRegex = "Windows", platformDisplayName = "PC", platformIcon = null },
@@ -533,7 +534,6 @@ namespace Basis.BasisUI
         }
         private bool PlayerPassesFilter(BasisNetworkPlayer player) => !_activeFilter.HasValue || _activeFilter.Value.filterFunction(player);
         private static readonly Comparison<BasisNetworkReceiver> ReceiverNameComparison = (a, b) => string.Compare(a.Player.SafeDisplayName, b.Player.SafeDisplayName, StringComparison.OrdinalIgnoreCase);
-
         private List<string> UpdatePlayerListAndCollectIndexChars()
         {
             ClearPlayerButtons();
@@ -545,14 +545,17 @@ namespace Basis.BasisUI
 
             BasisNetworkReceiver[] snapshot = BasisNetworkPlayers.ReceiversSnapshot;
             int count = snapshot?.Length ?? 0;
-            if (count == 0) return _indexChars;
+            if (ShowLocalPlayerInList)
+            {
+                CreatePlayerButton(BasisNetworkPlayer.LocalPlayer, SelectionButtons.Count);
+            } else if (count == 0) {
+                return _indexChars; // empty
+            }
 
             EnsureBufferSize(count);
 
             Array.Copy(snapshot, _sortedBuffer, count);
             Array.Sort(_sortedBuffer, 0, count, Comparer<BasisNetworkReceiver>.Create(ReceiverNameComparison));
-
-            CreatePlayerButton(BasisNetworkPlayer.LocalPlayer, SelectionButtons.Count);
 
             for (int i = 0; i < count; i++)
             {
@@ -597,6 +600,7 @@ namespace Basis.BasisUI
 
         private void CreatePlayerButton(BasisNetworkPlayer player, int visualIndex)
         {
+            Debug.Log("Creating button for player: " + player.Player.SafeDisplayName);
             PanelButton button = GetPlayerButton();
             button.gameObject.SetActive(true);
 
