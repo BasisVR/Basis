@@ -2,6 +2,7 @@ using Basis.Scripts.BasisSdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,7 +15,7 @@ public class BasisAvatarValidator
     private VisualElement errorPanel;
     private Label errorMessageLabel;
 
-    private VisualElement warningPanel;
+    private Dictionary<ValidationCategory, VisualElement> warningPanels = new Dictionary<ValidationCategory, VisualElement>();
     private Label warningMessageLabel;
 
     private VisualElement passedPanel;
@@ -36,7 +37,7 @@ public class BasisAvatarValidator
         Root = root;
 
         CreateErrorPanel(root);
-        CreateWarningPanel(root);
+        //CreateWarningPanel(root);
         CreatePassedPanel(root);
 
         EditorApplication.update += UpdateValidation; // Run per frame
@@ -50,7 +51,7 @@ public class BasisAvatarValidator
     private void UpdateValidation()
     {
         // Clear fix buttons each frame so they match current validation results
-        ClearFixButtons(Root);
+        //ClearFixButtons(Root);
 
         if (ValidateAvatar(out List<BasisValidationIssue> errors, out List<BasisValidationIssue> warnings, out List<string> passes))
             HideErrorPanel();
@@ -92,7 +93,7 @@ public class BasisAvatarValidator
         errorPanel.style.display = DisplayStyle.None;
         rootElement.Add(errorPanel);
     }
-
+    /*
     public void CreateWarningPanel(VisualElement rootElement)
     {
         warningPanel = new VisualElement();
@@ -119,6 +120,7 @@ public class BasisAvatarValidator
         warningPanel.style.display = DisplayStyle.None;
         rootElement.Add(warningPanel);
     }
+    */
 
     public void CreatePassedPanel(VisualElement rootElement)
     {
@@ -162,13 +164,16 @@ public class BasisAvatarValidator
         public string Message { get; }
         public string FixLabel { get; }
         public Action Fix { get; }
+        public UnityEngine.Object RelatedObject { get; }
 
-        public BasisValidationIssue(string message, ValidationCategory category = ValidationCategory.None, Action fix = null, string fixLabel = "")
+        public BasisValidationIssue(string message, ValidationCategory category = ValidationCategory.None,
+                                Action fix = null, string fixLabel = "", UnityEngine.Object relatedObject = null)
         {
             Category = category;
             Message = message;
             Fix = fix;
             FixLabel = fixLabel;
+            RelatedObject = relatedObject;
         }
     }
 
@@ -203,25 +208,19 @@ public class BasisAvatarValidator
         }
         passes.Add("Avatar is assigned.");
 
-        // Missing scripts
-        int missingCount = 0;
-        Component[] components = Avatar.GetComponentsInChildren<Component>(true);
-        for (int i = 0; i < components.Length; i++)
+        Transform[] children = Avatar.gameObject.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
         {
-            if (components[i] == null) missingCount++;
-        }
-
-        if (missingCount == 0)
-        {
-            passes.Add("No missing scripts found in the scene.");
-        }
-        else
-        {
-            warnings.Add(new BasisValidationIssue(
-                "Missing script references found. Click to remove them.", ValidationCategory.MissingReference,
+            int count = GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(child.gameObject);
+            if (count > 0)
+            {
+                warnings.Add(new BasisValidationIssue(
+                $"Missing script references found on {child.gameObject}. Click here to locate it.", ValidationCategory.MissingReference,
                 () => RemoveMissingScripts(Avatar.gameObject),
-                "Remove missing scripts"
-            ));
+                "Remove missing scripts",
+                child.gameObject
+                ));
+            }
         }
 
         // Animator
@@ -314,6 +313,17 @@ public class BasisAvatarValidator
                 "Set default description"
             ));
         }
+        BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
+        if (assetBundleObject != null)
+        {
+            if(assetBundleObject.UseCustomPassword && (assetBundleObject.UserSelectedPassword == null ||  assetBundleObject.UserSelectedPassword == ""))
+            {
+                errors.Add(new BasisValidationIssue(
+                    "Can not have custom password be empty!",
+                    ValidationCategory.Security,
+                    null));
+            }
+        }
 
         // Processing options
         if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes == false)
@@ -374,7 +384,7 @@ public class BasisAvatarValidator
             else
             {
                 warnings.Add(new BasisValidationIssue(
-                    $"Duplicate name found; it will be renamed automatically: {entry.Key} ({entry.Value} times)", ValidationCategory.Perfomance,
+                    $"Duplicate name found; it will be renamed automatically: {entry.Key} ({entry.Value} times)", ValidationCategory.GameObject,
                     null
                 ));
             }
@@ -850,30 +860,142 @@ public class BasisAvatarValidator
         errorPanel.style.display = DisplayStyle.None;
     }
 
+    private VisualElement CreateCategoryPanel(ValidationCategory category)
+    {
+        VisualElement panel = new VisualElement();
+
+        // Style
+        panel.style.backgroundColor = new StyleColor(new Color(0.65098f, 0.63137f, 0.05098f, 0.5f));
+        panel.style.marginBottom = 10;
+        panel.style.paddingTop = 5;
+        panel.style.paddingBottom = 5;
+        panel.style.borderLeftWidth = 2;
+        panel.style.borderRightWidth = 2;
+        panel.style.borderTopWidth = 2;
+        panel.style.borderBottomWidth = 2;
+        panel.style.borderBottomColor = new StyleColor(Color.yellow);
+        // ... add your radius styling here ...
+
+        // Create Label
+        Label label = new Label();
+        label.name = "MessageLabel";
+        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+        label.style.whiteSpace = WhiteSpace.Normal;
+
+        // Optional: Add a header to show which category this is
+        Label header = new Label($"{category} Warnings");
+        header.style.unityFontStyleAndWeight = FontStyle.Bold;
+        header.style.color = new StyleColor(Color.white); // Make header distinct
+        panel.Add(header);
+
+        panel.Add(label);
+
+        return panel;
+    }
+    private string _lastWarningSignature = "";
     private void ShowWarningPanel(VisualElement Root, List<BasisValidationIssue> warnings)
     {
-        List<string> warningsList = new List<string>();
+        // 1. GENERATE SIGNATURE
+        // Create a simple string representing the current warnings (e.g. "Category:Message|Category:Message")
+        // If the list is huge, we can use a hash, but string join is usually fine for UI lists.
+        string currentSignature = string.Join("|", warnings.Select(w => $"{w.Category}:{w.Message}"));
 
-        for (int i = 0; i < warnings.Count; i++)
+        // 2. DIRTY CHECK
+        // If the data is exactly the same as the last frame, DO NOTHING.
+        if (currentSignature == _lastWarningSignature) return;
+
+        // Data changed, save the new signature
+        _lastWarningSignature = currentSignature;
+
+        // 3. REBUILD LOGIC
+        // (Optimization: Instead of warningPanel.Clear(), we hide existing ones and re-enable only what we need)
+
+        // Reset all known panels to hidden initially (pool-like behavior)
+        foreach (var panel in warningPanels.Values)
         {
-            var issue = warnings[i];
-            if (issue.Fix != null)
-            {
-                string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? issue.Message : issue.FixLabel;
-                AutoFixButton(Root, issue.Fix, actionTitle, false);
-            }
-
-            if (!warningsList.Contains(issue.Message))
-                warningsList.Add(issue.Message);
+            panel.style.display = DisplayStyle.None;
         }
 
-        warningMessageLabel.text = string.Join("\n", warningsList.ToArray());
-        warningPanel.style.display = DisplayStyle.Flex;
+        int maxDisplayCount = 3;
+        var groupedIssues = warnings.GroupBy(w => w.Category);
+
+        foreach (var group in groupedIssues)
+        {
+            ValidationCategory category = group.Key;
+            List<BasisValidationIssue> issues = group.ToList();
+
+            // --- LAZY CREATION ---
+            // Only create the visual element if we've never seen this category before
+            if (!warningPanels.ContainsKey(category))
+            {
+                VisualElement newPanel = CreateCategoryPanel(category); // Uses your helper method
+                Root.Add(newPanel); // Add to the main Root UI
+                warningPanels.Add(category, newPanel);
+            }
+
+            // Get the cached panel
+            VisualElement currentPanel = warningPanels[category];
+            currentPanel.style.display = DisplayStyle.Flex; // Unhide it
+
+            // --- UPDATE TEXT ---
+            Label messageLabel = currentPanel.Q<Label>("MessageLabel");
+
+            List<BasisValidationIssue> uniqueMessages = issues.Distinct().ToList();
+            List<string> textLines = new List<string>();
+
+            for (int i = 0; i < uniqueMessages.Count; i++)
+            {
+                if (i >= maxDisplayCount && uniqueMessages.Count > maxDisplayCount)
+                {
+                    int remaining = uniqueMessages.Count - i;
+                    textLines.Add($"\n... + {remaining} more {category} warnings");
+                    break;
+                }
+                textLines.Add($"- {uniqueMessages[i].Message}");
+            }
+            messageLabel.text = string.Join("\n", textLines);
+            messageLabel.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                Selection.objects = uniqueMessages.Select(i => i.RelatedObject).Where(obj => obj != null).ToArray();
+                if (Selection.objects.Length > 0)
+                {
+                    EditorGUIUtility.PingObject(Selection.objects[0]);
+                }
+            });
+
+            // --- BUTTON HANDLING ---
+            // Buttons are tricky because they have callbacks. 
+            // Simple approach: Clear ONLY buttons (not the whole panel) and rebuild them.
+            // Assuming your CreateCategoryPanel adds a container named "ButtonContainer" or we append to end.
+
+            // Remove old buttons (elements that are NOT the label or header)
+            // A cleaner way is to keep a dedicated container for buttons inside the panel
+            var buttonContainer = currentPanel.Q<VisualElement>("ButtonContainer");
+            if (buttonContainer == null)
+            {
+                // If you didn't create a container in the helper, create one now dynamically
+                buttonContainer = new VisualElement() { name = "ButtonContainer" };
+                currentPanel.Add(buttonContainer);
+            }
+            buttonContainer.Clear(); // Only clear the buttons
+
+            foreach (var issue in issues)
+            {
+                if (issue.Fix != null)
+                {
+                    string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? "Fix" : issue.FixLabel;
+                    AutoFixButton(buttonContainer, issue.Fix, actionTitle, false);
+                }
+            }
+        }
     }
 
     private void HideWarningPanel()
     {
-        warningPanel.style.display = DisplayStyle.None;
+        foreach (var panel in warningPanels.Values)
+        {
+            panel.style.display = DisplayStyle.None;
+        }
     }
 
     private void ShowPassedPanel(List<string> passes)
