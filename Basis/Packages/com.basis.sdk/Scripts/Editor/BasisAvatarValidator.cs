@@ -326,7 +326,7 @@ public class BasisAvatarValidator
         }
 
         // Processing options
-        if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes == false)
+        if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes == false && Avatar.transform.Find("HVR.Networking") == null)
         {
             warnings.Add(new BasisValidationIssue(
                 "Recommend turning on RemoveUnusedBlendshapes in Processing Options! Leave off for face/eye tracking.", ValidationCategory.Perfomance,
