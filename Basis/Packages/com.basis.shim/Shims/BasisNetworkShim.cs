@@ -25,27 +25,27 @@ namespace Basis
 
         public override void OnNetworkReady()
         {
-			NetworkReady.Invoke();
+			NetworkReady?.Invoke();
         }
         public override void ServerOwnershipDestroyed()
         {
-			ServerOwnershipDestroyedE.Invoke();
+			ServerOwnershipDestroyedE?.Invoke();
         }
         public override void OnOwnershipTransfer(BasisNetworkPlayer NetNewOwner)
         {
-			OwnershipTransfer.Invoke(NetNewOwner);
+			OwnershipTransfer?.Invoke(NetNewOwner);
         }
         public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
-			NetworkMessageReceived.Invoke( PlayerID, buffer, DeliveryMethod );
+			NetworkMessageReceived?.Invoke( PlayerID, buffer, DeliveryMethod );
         }
         public override void OnPlayerLeft(BasisNetworkPlayer player)
         {
-			PlayerLeft.Invoke( player );
+			PlayerLeft?.Invoke( player );
         }
         public override void OnPlayerJoined(BasisNetworkPlayer player)
         {
-			PlayerJoined.Invoke( player );
+			PlayerJoined?.Invoke( player );
         }
 	}
 }
