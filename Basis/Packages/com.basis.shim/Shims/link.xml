@@ -16,6 +16,11 @@
 		<type fullname="System.DayOfWeek" preserve="all"/>
 		<type fullname="System.Double" preserve="all"/>
 		<type fullname="System.Exception" preserve="all"/>
+        <type fullname="System.IO.BinaryReader" preserve="all"/>
+        <type fullname="System.IO.BinaryWriter" preserve="all"/>
+        <type fullname="System.IO.MemoryStream" preserve="all"/>
+        <type fullname="System.IO.Stream" preserve="all"/>
+        <type fullname="System.IDisposable" preserve="all"/>
 		<type fullname="System.Int16" preserve="all"/>
 		<type fullname="System.Int32" preserve="all"/>
 		<type fullname="System.Int64" preserve="all"/>
