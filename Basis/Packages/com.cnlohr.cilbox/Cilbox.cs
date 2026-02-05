@@ -25,6 +25,17 @@ public class CilboxTarget : Attribute { }
 
 namespace Cilbox
 {
+	public class CilboxExceptionHandlingClause
+	{
+		public ExceptionHandlingClauseOptions Flags;
+		public int TryOffset;
+		public int TryLength;
+		public int TryEndOffset;
+		public int HandlerOffset;
+		public int HandlerLength;
+		public Type? CatchType;
+	}
+
 	public class CilboxMethod
 	{
 		public CilboxClass parentClass;
@@ -38,6 +49,8 @@ namespace Cilbox
 		public bool isVoid;
 		public String[] signatureParameters;
 		public Type[]   typeParameters;
+		public CilboxExceptionHandlingClause[] exceptionClauses;
+		public bool hasExceptionClauses = false;
 
 #if UNITY_EDITOR
 		ProfilerMarker perfMarkerInterpret;
@@ -79,10 +92,40 @@ namespace Cilbox
 				typeParameters[sn] = parentClass.box.usage.GetNativeTypeFromSerializee( thisp["dt"] );
 				sn++;
 			}
+
+			if (methodProps.TryGetValue("eh", out Serializee ehArray))
+			{
+				Serializee[] ehc = ehArray.AsArray();
+				exceptionClauses = new CilboxExceptionHandlingClause[ehc.Length];
+				for (int e = 0; e < ehc.Length; e++)
+				{
+					Dictionary< String, Serializee > thisehc = ehc[e].AsMap();
+					CilboxExceptionHandlingClause clause = new CilboxExceptionHandlingClause();
+					clause.Flags = (ExceptionHandlingClauseOptions)Convert.ToInt32(thisehc["flags"].AsString());
+					clause.TryOffset = Convert.ToInt32(thisehc["tryOff"].AsString());
+					clause.TryLength = Convert.ToInt32(thisehc["tryLen"].AsString());
+					clause.TryEndOffset = clause.TryOffset + clause.TryLength;
+					clause.HandlerOffset = Convert.ToInt32(thisehc["hOff"].AsString());
+					clause.HandlerLength = Convert.ToInt32(thisehc["hLen"].AsString());
+					if (thisehc.ContainsKey("cType"))
+					{
+						clause.CatchType = parentClass.box.usage.GetNativeTypeFromSerializee(thisehc["cType"]);
+					}
+					exceptionClauses[e] = clause;
+				}
+				hasExceptionClauses = exceptionClauses.Length > 0;
+
+				Array.Sort(exceptionClauses, CompareExceptionClausesLengthDesc);
+			}
+
 #if UNITY_EDITOR
 			perfMarkerInterpret = new ProfilerMarker(parentClass.className + ":" + fullSignature);
 #endif
 
+			static int CompareExceptionClausesLengthDesc( CilboxExceptionHandlingClause a, CilboxExceptionHandlingClause b )
+			{
+				return b.TryLength.CompareTo( a.TryLength );
+			}
 		}
 
 		public object Interpret( CilboxProxy ths, object [] parametersIn )
@@ -130,6 +173,7 @@ namespace Cilbox
 		{
 			Span<StackElement> stackBuffer = stackBufferIn.AsSpan();
 			Span<StackElement> parameters = parametersIn.AsSpan();
+			Stack<int> handlerClauseStack = null; // don't allocate unless necessary
 
 #if UNITY_EDITOR
 			perfMarkerInterpret.Begin();
@@ -352,7 +396,7 @@ spiperf.Begin();
 							{
 								// TRICKY: This generally can only be arrived at when scripts run their own constructors.
 								if( st.DeclaringType == typeof( MonoBehaviour ) )
-									iko = this; 
+									iko = this;
 								else // Otherwise it's normal.
 									iko = ((ConstructorInfo)st).Invoke( callpar );
 							}
@@ -416,6 +460,68 @@ spiperf.Begin();
 
 					case 0x2b: pc += (sbyte)byteCode[pc] + 1; break; //br.s
 					case 0x38: { int ofs = (int)BytecodeAsU32( ref pc ); pc += ofs; break; } // br
+
+					case 0xdd: // leave
+					case 0xde: // leave.s
+					{
+						int currentInstruction = pc;
+						sp = -1; // leave(.s) clears the stack.
+						int offset = (b == 0xde) ? (sbyte)byteCode[pc++] : (int)BytecodeAsU32( ref pc );
+						int leaveTarget = pc + offset;
+
+						// early out if no exception clauses.
+						if (!hasExceptionClauses)
+						{
+							pc = leaveTarget;
+							break;
+						}
+
+						if (handlerClauseStack == null)
+						{
+							handlerClauseStack = new Stack<int>();
+						}
+
+						handlerClauseStack.Push(leaveTarget);
+						for( int i = 0; i < exceptionClauses.Length; i++ )
+						{
+							CilboxExceptionHandlingClause c = exceptionClauses[i];
+
+							// only handling Finally for now
+							// todo: add catch handling?
+							if (c.Flags != ExceptionHandlingClauseOptions.Finally)
+							{
+								continue;
+							}
+
+							// Check we are in bounds of the Try block.
+							if (currentInstruction < c.TryOffset || currentInstruction >= c.TryEndOffset)
+							{
+								continue;
+							}
+
+							// Verify leaveTarget is outside the try block.
+							if (leaveTarget >= c.TryOffset && leaveTarget < c.TryEndOffset)
+							{
+								continue;
+							}
+
+							handlerClauseStack.Push(c.HandlerOffset);
+						}
+
+						// Continue to the leave target or innermost handler.
+						pc = handlerClauseStack.Pop();
+						break;
+					}
+
+					case 0xdc: // endfault, endfinally
+					{
+						if (handlerClauseStack == null || handlerClauseStack.Count == 0)
+						{
+							throw new Exception("endfinally without a matching target.");
+						}
+						pc = handlerClauseStack.Pop();
+						break;
+					}
 
 					case 0x2c: case 0x39: // brfalse.s, brnull.s, brzero.s - is it zero, null or  / brfalse
 					case 0x2d: case 0x3a: // brinst.s, brtrue.s / btrue
@@ -524,7 +630,7 @@ spiperf.Begin();
 							case 5: if( sa.o != sb.o ) pc += joffset; break;
 							default: throw new( "Invalid object comparison" );
 							} break;
-						default: 
+						default:
 							throw new( "Invalid comparison" );
 						}
 						break;
@@ -703,7 +809,7 @@ spiperf.Begin();
 					}
 
 					case 0x7a: throw (System.Exception)stackBuffer[sp--].AsObject(); //throw
-					case 0x7b: 
+					case 0x7b:
 					{
 						uint bc = BytecodeAsU32( ref pc );
 
@@ -711,7 +817,7 @@ spiperf.Begin();
 						if( se.o is CilboxProxy )
 							stackBuffer[++sp] = ((CilboxProxy)se.o).fields[box.metadatas[bc].fieldIndex];
 						else
-							throw new Exception( "Unimplemented.  Attempting to get field on non-cilbox object" ); 
+							throw new Exception( "Unimplemented.  Attempting to get field on non-cilbox object" );
 						// Tricky:  Do not allow host-fields without great care. For instance, getting access to PlatformActual.DelegateRepackage would all the program out.
 						break; //ldfld
 					}
@@ -740,17 +846,17 @@ spiperf.Begin();
 							throw new Exception( "Unimplemented.  Attempting to set field on non-cilbox object" );
 						break; //stfld
 					}
-					case 0x7e: 
+					case 0x7e:
 					{
 						uint bc = BytecodeAsU32( ref pc );
 						stackBuffer[++sp].Load( parentClass.staticFields[box.metadatas[bc].fieldIndex] );
 						break; //ldsfld
 					}
-					case 0x7f: 
+					case 0x7f:
 					{
 						uint bc = BytecodeAsU32( ref pc );
 						stackBuffer[++sp] = StackElement.CreateReference( (Array)(parentClass.staticFields), (uint)box.metadatas[bc].fieldIndex );
-						break;// ldsflda 
+						break;// ldsflda
 					}
 					case 0x80:
 					{
@@ -763,7 +869,7 @@ spiperf.Begin();
 					{
 						uint otyp = BytecodeAsU32( ref pc );
 						stackBuffer[sp].LoadObject( stackBuffer[sp].AsObject() );//(metaType.nativeType)stackBuffer[sp-1].AsObject();
-						break; 
+						break;
 					}
 					case 0x8d:
 					{
@@ -983,6 +1089,10 @@ spiperf.Begin();
 							if( dt.isNative )
 								throw new Exception( $"Cannot create references to functions outside this cilbox ({dt.Name})" );
 							stackBuffer[++sp].LoadObject( box.classesList[dt.interpretiveMethodClass].methods[dt.interpretiveMethod] );
+							break;
+						case 0x16: // constrained.
+							// handled by reflection so discard the type token
+							BytecodeAsU32( ref pc );
 							break;
 						default:
 							throw new Exception( $"Opcode 0xfe 0x{b.ToString("X2")} unimplemented" );
@@ -1444,7 +1554,7 @@ spiperf.End();
 			if( ++interpreterAccountingDepth == 1 )
 			{
 				// First entry, if we've been disabled, quiety abort.
-				// this is normal if 
+				// this is normal if
 				if( disabled )
 				{
 					--interpreterAccountingDepth;
@@ -1589,7 +1699,7 @@ spiperf.End();
 				foreach (GameObject root in rootObjects)
 				{
 					MonoBehaviour[] components = root.GetComponentsInChildren<MonoBehaviour>(true);
-					
+
 					foreach (MonoBehaviour component in components)
 					{
 						if( component != null )
@@ -1857,6 +1967,29 @@ spiperf.End();
 							bytecodeLength += byteCode.Length;
 							MethodProps["body"] = Serializee.CreateFromBlob(byteCode);
 
+							IList<ExceptionHandlingClause> exceptions = mb.ExceptionHandlingClauses;
+							if( exceptions.Count > 0 )
+							{
+								Serializee [] excArray = new Serializee[exceptions.Count];
+								for( int k = 0; k < exceptions.Count; k++ )
+								{
+									ExceptionHandlingClause c = exceptions[k];
+									Dictionary< String, Serializee > exc = new Dictionary< String, Serializee >();
+									exc["flags"] = new Serializee( ((int)c.Flags).ToString() );
+									exc["tryOff"] = new Serializee( c.TryOffset.ToString() );
+									exc["tryLen"] = new Serializee( c.TryLength.ToString() );
+									exc["hOff"] = new Serializee( c.HandlerOffset.ToString() );
+									exc["hLen"] = new Serializee( c.HandlerLength.ToString() );
+
+									if( c.Flags == ExceptionHandlingClauseOptions.Clause && c.CatchType != null )
+									{
+										exc["cType"] = CilboxUtil.GetSerializeeFromNativeType( c.CatchType );
+									}
+									excArray[k] = new Serializee( exc );
+								}
+								MethodProps["eh"] = new Serializee( excArray );
+							}
+
 							Serializee [] localVars = new Serializee[mb.LocalVariables.Count];
 							for( int i = 0; i < mb.LocalVariables.Count; i++ )
 							{
@@ -1922,7 +2055,7 @@ spiperf.End();
 						foreach( var f in fi )
 						{
 							Dictionary< String, Serializee > dictField = new Dictionary< String, Serializee >();
-							dictField["name"] = new Serializee( f.Name ); 
+							dictField["name"] = new Serializee( f.Name );
 							dictField["type"] = CilboxUtil.GetSerializeeFromNativeType( f.FieldType );
 							fields.Add( new Serializee( dictField ) );
 
@@ -1989,7 +2122,7 @@ spiperf.End();
 			}
 
 			{
-				MonoScript ms = MonoScript.FromMonoBehaviour(tac); 
+				MonoScript ms = MonoScript.FromMonoBehaviour(tac);
 				String scriptPath = AssetDatabase.GetAssetPath( ms );
 				if( scriptPath == null ) Debug.LogError( "Can't find path to cilbox for writing XML." );
 				else
@@ -2103,7 +2236,7 @@ spiperf.End();
 			}
 
 			perf.End(); perf = new ProfilerMarker( "Destroying Silboxable Scripts" ); perf.Begin();
-			// re-attach the refrences to 
+			// re-attach the refrences to
 			foreach (MonoBehaviour m in allBehavioursThatNeedCilboxing)
 			{
 				UnityEngine.Object.DestroyImmediate( m );
