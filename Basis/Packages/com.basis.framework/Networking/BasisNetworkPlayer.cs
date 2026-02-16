@@ -104,7 +104,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // All checks pas
                 PoseHandler = new HumanPoseHandler(
                     basisAvatar.Animator.avatar,
-                    Player.AvatarTransform
+                    basisAvatar.Animator.transform
                 );
                // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
