@@ -301,6 +301,7 @@ namespace Basis.Scripts.Avatar
             Player.IsConsideredFallBackAvatar = isFallback;
             Player.BasisAvatar = avatar;
             Player.AvatarTransform = avatar.transform;
+            Player.AvatarAnimatorTransform = avatar.Animator.transform;
             Player.BasisAvatar.Renders = avatar.GetComponentsInChildren<Renderer>(true);
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
 

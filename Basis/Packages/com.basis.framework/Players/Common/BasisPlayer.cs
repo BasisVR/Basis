@@ -65,6 +65,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public Transform AvatarTransform;
 
         /// <summary>
+        /// Transform of the avatar's animator component
+        /// </summary>
+        public Transform AvatarAnimatorTransform;
+
+        /// <summary>
         /// Cached self transform for quick access.
         /// </summary>
         public Transform PlayerSelf; // yes caching myself is faster.
