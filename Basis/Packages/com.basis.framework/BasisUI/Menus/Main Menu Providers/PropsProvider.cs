@@ -7,7 +7,7 @@ public class PropsProvider : BasisMenuActionProvider<BasisMainMenu>
     [RuntimeInitializeOnLoadMethod]
     public static void AddToMenu()
     {
-     //  BasisMenuBase<BasisMainMenu>.AddProvider(new PropsProvider());
+        //BasisMenuBase<BasisMainMenu>.AddProvider(new PropsProvider());
     }
 
     public override string Title => "Props";
