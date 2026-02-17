@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
@@ -49,7 +50,7 @@ public static class BasisNetworkModeration
         BasisNetworkConnection.LocalPlayerPeer.Send(
             writer,
             BasisNetworkCommons.AdminChannel,
-            DeliveryMethod.ReliableSequenced
+            Basis.Network.Core.DeliveryMethod.ReliableSequenced
         );
     }
 
@@ -153,7 +154,10 @@ public static class BasisNetworkModeration
     {
         if (ValidateString(message, nameof(message)))
         {
-            BasisUINotification.OpenNotification(message, false, Vector3.zero);
+            BasisMainMenu.Close();
+            BasisMainMenu.Open();
+            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value => { });
+            BasisDebug.LogError(message);
         }
     }
     public static void AdminMessage(NetDataReader reader)

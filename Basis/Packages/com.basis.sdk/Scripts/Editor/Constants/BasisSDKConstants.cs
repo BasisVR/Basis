@@ -63,4 +63,10 @@ public class BasisSDKConstants
         { BuildTarget.Android, "Android" },
         { BuildTarget.iOS, "IOS" },
     };
+    public static List<BuildTarget> OcclusionCullingTargets = new List<BuildTarget>
+    {
+        BuildTarget.WebGL,
+        BuildTarget.Android,
+        BuildTarget.iOS,
+    };
 }

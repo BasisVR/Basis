@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -334,13 +335,24 @@ public static class BasisNetworkEvents
         {
             if (disconnectInfo.AdditionalData.TryGetString(out string Reason))
             {
-                BasisUINotification.OpenNotification(Reason, false, Vector3.zero);
+                BasisMainMenu.Open();
+                BasisMainMenu.Instance.OpenDialogue("Server Connection", Reason, "ok", value =>
+                {
+                });
                 BasisDebug.LogError(Reason);
+            }
+            else
+            {
+                BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
         }
         else
         {
-            BasisUINotification.OpenNotification(disconnectInfo.Reason.ToString(), false, Vector3.zero);
+            BasisMainMenu.Open();
+            BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+              {
+              });
+
             BasisDebug.LogError(disconnectInfo.Reason.ToString());
         }
         if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
@@ -350,11 +362,7 @@ public static class BasisNetworkEvents
     }
     public static void PeerDisconnectedEvent(NetPeer peer, DisconnectInfo disconnectInfo)
     {
-        BasisDebug.Log($"Client disconnected from server [{peer.Id}]");
-        if (peer == BasisNetworkConnection.LocalPlayerPeer)
-        {
-            BasisNetworkConnection.HandleDisconnection(peer, disconnectInfo);
-        }
+        BasisNetworkConnection.HandleDisconnection(peer, disconnectInfo);
         if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
         {
             BasisDeviceManagement.EnqueueOnMainThread(() =>

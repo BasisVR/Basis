@@ -1,4 +1,5 @@
 using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.Scripts.Drivers
@@ -18,7 +19,7 @@ namespace Basis.Scripts.Drivers
         [Range(0.01f, 10f)] public float dCutoff = 1.0f;    // derivative cutoff
 
         private bool _initialized;
-        private float _lastTimestamp;
+        private double _lastTimestamp;
 
         protected LowPassFilter _x;
         protected LowPassFilter _dx;
@@ -38,7 +39,7 @@ namespace Basis.Scripts.Drivers
             return 1.0f / (1.0f + tau / Mathf.Max(dt, 1e-6f));
         }
 
-        protected float ComputeDt(float timestamp)
+        protected float ComputeDt(double timestamp)
         {
             if (!_initialized)
             {
@@ -46,7 +47,7 @@ namespace Basis.Scripts.Drivers
                 _lastTimestamp = timestamp;
                 return 1f / 90f; // safe default ~90 FPS
             }
-            float dt = Mathf.Max(timestamp - _lastTimestamp, 1e-6f);
+            float dt = (float)math.max(timestamp - _lastTimestamp, 1e-6f);
             _lastTimestamp = timestamp;
             return dt;
         }

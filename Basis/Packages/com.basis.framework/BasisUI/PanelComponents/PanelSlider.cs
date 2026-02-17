@@ -183,7 +183,14 @@ namespace Basis.BasisUI
         public override void SetValueWithoutNotify(float value)
         {
             base.SetValueWithoutNotify(value);
-            SliderComponent.SetValueWithoutNotify(value);
+            if (SliderComponent != null)
+            {
+                SliderComponent.SetValueWithoutNotify(value);
+            }
+            else
+            {
+                BasisDebug.LogError("Missing Slider Component!");
+            }
         }
 
         protected override void ApplyValue()

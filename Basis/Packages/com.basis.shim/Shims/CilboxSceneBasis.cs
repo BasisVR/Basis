@@ -52,6 +52,11 @@ namespace Cilbox
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
+			"System.IO.BinaryReader",
+			"System.IO.BinaryWriter",
+			"System.IO.MemoryStream",
+			"System.IO.Stream",
+			"System.IDisposable",
 			"System.Int16",
 			"System.Int32",
 			"System.Int64",
@@ -98,7 +103,16 @@ namespace Cilbox
 			"UnityEngine.Transform",
 			"UnityEngine.Vector4",
 			"UnityEngine.Vector3",
-		};
+			"UnityEngine.Vector2",
+			"UnityEngine.shader",
+			"UnityEngine.Light",
+			"UnityEngine.Quaternion",
+			"UnityEngine.Behaviour",
+            "UnityEngine.Gradient",
+            "UnityEngine.RenderSettings",
+            "UnityEngine.Rendering.AmbientMode",
+            "UnityEngine.DynamicGI",
+        };
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
 

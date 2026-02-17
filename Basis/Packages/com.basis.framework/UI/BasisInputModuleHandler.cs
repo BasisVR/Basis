@@ -267,5 +267,15 @@ namespace Basis.Scripts.UI
             }
             return null;
         }
+        public bool IsTyping()
+        {
+            if (CurrentSelectedTMP_InputField != null)
+                return CurrentSelectedTMP_InputField.isFocused;
+
+            if (CurrentSelectedInputField != null)
+                return CurrentSelectedInputField.isFocused;
+
+            return false;
+        }
     }
 }

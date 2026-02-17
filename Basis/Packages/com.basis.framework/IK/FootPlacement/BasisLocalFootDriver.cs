@@ -79,19 +79,19 @@ public class BasisLocalFootDriver
     public void InitializeVariables()
     {
         AvatarTransform = BasisLocalPlayer.Instance.AvatarTransform;
-        Hips = BasisLocalAvatarDriver.References.Hips;
+        Hips = BasisLocalAvatarDriver.Mapping.Hips;
 
-        var leftFoot = BasisLocalAvatarDriver.References.leftFoot;
-        var rightFoot = BasisLocalAvatarDriver.References.rightFoot;
+        var leftFoot = BasisLocalAvatarDriver.Mapping.leftFoot;
+        var rightFoot = BasisLocalAvatarDriver.Mapping.rightFoot;
 
         left = new FootState("Left", leftFoot, -1);
         right = new FootState("Right", rightFoot, +1);
 
         // Try to grab thigh/shin from references if available; otherwise walk parents.
-        left.thigh = SafeGet(BasisLocalAvatarDriver.References.LeftUpperLeg, leftFoot != null ? leftFoot.parent?.parent : null);
-        left.shin = SafeGet(BasisLocalAvatarDriver.References.LeftLowerLeg, leftFoot != null ? leftFoot.parent : null);
-        right.thigh = SafeGet(BasisLocalAvatarDriver.References.RightUpperLeg, rightFoot != null ? rightFoot.parent?.parent : null);
-        right.shin = SafeGet(BasisLocalAvatarDriver.References.RightLowerLeg, rightFoot != null ? rightFoot.parent : null);
+        left.thigh = SafeGet(BasisLocalAvatarDriver.Mapping.LeftUpperLeg, leftFoot != null ? leftFoot.parent?.parent : null);
+        left.shin = SafeGet(BasisLocalAvatarDriver.Mapping.LeftLowerLeg, leftFoot != null ? leftFoot.parent : null);
+        right.thigh = SafeGet(BasisLocalAvatarDriver.Mapping.RightUpperLeg, rightFoot != null ? rightFoot.parent?.parent : null);
+        right.shin = SafeGet(BasisLocalAvatarDriver.Mapping.RightLowerLeg, rightFoot != null ? rightFoot.parent : null);
 
         groundLayers = (groundLayers.value == 0) ? LayerMask.GetMask("Default") : groundLayers;
 

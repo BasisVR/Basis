@@ -1,6 +1,8 @@
+using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
@@ -338,7 +340,7 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetMovementSpeedMultiplierFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
-        Vector2 axis = current.Primary2DAxis;
+        Vector2 axis = current.Primary2DAxisDeadZoned;
         float largestValue = Mathf.Abs(axis.x) > Mathf.Abs(axis.y) ? axis.x : axis.y;
         var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
         controller.SetMovementSpeedMultiplier(largestValue);
@@ -352,8 +354,8 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetMovementVectorFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
-        var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
-        controller.SetMovementVector(current.Primary2DAxis);
+        BasisLocalCharacterDriver controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        controller.SetMovementVector(current.Primary2DAxisDeadZoned);
     }
 
     /// <summary>
@@ -380,15 +382,6 @@ public static class BasisActionDriver
         {
 
             Basis.BasisUI.BasisMainMenu.Toggle();
-
-            /*if (BasisHamburgerMenu.Instance == null)
-            {
-                BasisHamburgerMenu.OpenHamburgerMenuNow();
-            }
-            else
-            {
-                BasisHamburgerMenu.Instance.CloseThisMenu();
-            }*/
         }
     }
 
@@ -402,7 +395,7 @@ public static class BasisActionDriver
     {
         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
         {
-            switch (SMDMicrophone.SelectedTalkmode)
+            switch (SMDMicrophone.Current.TalkMode)
             {
                 case SMDMicrophone.BasisMicrophoneMode.OnActivation:
                     if (current.PrimaryButtonGetState == false && last.PrimaryButtonGetState)
@@ -443,7 +436,7 @@ public static class BasisActionDriver
     public static void RotateFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
         var driver = BasisLocalPlayer.Instance.LocalCharacterDriver;
-        driver.Rotation = current.Primary2DAxis;
+        driver.Rotation = current.Primary2DAxisButterfly;
     }
 
     /// <summary>

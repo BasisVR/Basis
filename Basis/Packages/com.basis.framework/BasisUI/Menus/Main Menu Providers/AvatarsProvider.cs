@@ -1,4 +1,3 @@
-using Basis.Scripts.UI.UI_Panels;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -15,6 +14,8 @@ namespace Basis.BasisUI
         public override string IconAddress => AddressableAssets.Sprites.Avatars;
         public override int Order => 2;
 
+        public override bool Hidden => false;
+
         public override void RunAction()
         {
             if (BasisMainMenu.ActiveMenuTitle == Title) BasisMainMenu.Instance.ActiveMenu.ReleaseInstance();
@@ -25,11 +26,6 @@ namespace Basis.BasisUI
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
 
             PanelAvatarList avatarList = PanelAvatarList.CreateNew(panel.Descriptor.ContentParent);
-
-            /*
-            BasisMainMenu.Close();
-            BasisUIAvatarSelection.OpenMenuNow(BasisUIAvatarSelection.AvatarPanel);
-            */
         }
     }
 }

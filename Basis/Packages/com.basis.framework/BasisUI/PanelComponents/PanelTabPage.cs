@@ -26,6 +26,27 @@ namespace Basis.BasisUI
             page.Descriptor.ContentParent = descriptor.ContentParent;
             return page;
         }
+        /// <summary>
+        /// Create a TabPage with a Horizontal layout predefined for the content parent.
+        /// </summary>
+        public static PanelTabPage CreateHorizontal(Component component)
+        {
+            PanelTabPage page = CreateNew(component);
+            PanelElementDescriptor descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.ScrollViewHorizontal, page.Descriptor.ContentParent);
+            page.Descriptor.ContentParent = descriptor.ContentParent;
+            return page;
+        }
+        /// <summary>
+        /// Create a TabPage with a Grid layout predefined for the content parent.
+        /// </summary>
+        public static PanelTabPage CreateGrid(Component component)
+        {
+            PanelTabPage page = CreateNew(component);
+            PanelElementDescriptor descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.ScrollViewGrid, page.Descriptor.ContentParent);
+            page.Descriptor.ContentParent = descriptor.ContentParent;
+            return page;
+        }
+
 
         public void ShowPage(bool value)
         {

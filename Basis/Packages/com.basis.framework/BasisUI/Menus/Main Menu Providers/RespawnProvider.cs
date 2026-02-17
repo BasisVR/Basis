@@ -15,6 +15,8 @@ namespace Basis.BasisUI
         public override string IconAddress => AddressableAssets.Sprites.Respawn;
         public override int Order => 11;
 
+        public override bool Hidden => false;
+
         public override void RunAction()
         {
             if (BasisLocalPlayer.Instance)

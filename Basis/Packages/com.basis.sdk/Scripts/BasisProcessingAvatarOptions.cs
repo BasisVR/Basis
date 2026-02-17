@@ -14,6 +14,6 @@ namespace Basis.Scripts.BasisSdk
         /// Removes Unused Blendshapes, can be controlled through the callbacks
         /// when on the blendshape indexes break and need reconstruction from callback.
         /// </summary>
-        public bool RemoveUnusedBlendshapes = false;
+      // disabled does work just not for all avatars  public bool RemoveUnusedBlendshapes = false;
     }
 }

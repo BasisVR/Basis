@@ -58,7 +58,7 @@ MonoBehaviour:
   m_Spacing: 15
   m_ChildForceExpandWidth: 1
   m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 0
+  m_ChildControlWidth: 1
   m_ChildControlHeight: 1
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
@@ -256,6 +256,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelElement
   _clearOnAwake: 0
+  _useDefaultIconForNull: 0
   <DefaultIcon>k__BackingField: {fileID: 0}
   <DefaultTexture>k__BackingField: {fileID: 0}
   <DefaultTitle>k__BackingField: 

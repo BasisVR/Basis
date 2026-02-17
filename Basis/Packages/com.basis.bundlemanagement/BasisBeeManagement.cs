@@ -67,20 +67,27 @@ public static class BasisBeeManagement
             }
         }
         BasisDebug.Log("Calling Load Request", BasisDebug.LogTag.System);
-        AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
-
-        wrapper.AssetBundle = bundleRequest.assetBundle;
-
-        if (IsMetaOnDisc == false)
+        try
         {
-            BasisBEEExtensionMeta newDiscInfo = new BasisBEEExtensionMeta
-            {
-                StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted,
-                StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
-                UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
-            };
+            AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
 
-            await BasisLoadHandler.AddDiscInfo(newDiscInfo);
+            wrapper.AssetBundle = bundleRequest.assetBundle;
+
+            if (IsMetaOnDisc == false)
+            {
+                BasisBEEExtensionMeta newDiscInfo = new BasisBEEExtensionMeta
+                {
+                    StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted,
+                    StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
+                    UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
+                };
+
+                await BasisLoadHandler.AddDiscInfo(newDiscInfo);
+            }
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError(ex);
         }
     }
     /// <summary>

@@ -50,6 +50,7 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static BasisNetworkManagement Instance;
 
+        public static Action OnIstanceCreated;
         /// <summary>
         /// Indicates whether the network is currently running.
         /// </summary>
@@ -105,6 +106,7 @@ namespace Basis.Scripts.Networking
 
             Instance = this;
             BasisNetworkLifeCycle.Initalize(this);
+            OnIstanceCreated?.Invoke();
         }
 
         private async void OnDisable()
@@ -165,8 +167,6 @@ namespace Basis.Scripts.Networking
 
             BasisNetworkPlayers.PublishReceiversSnapshot();
 
-            BoneJobSystem = RemoteBoneJobSystem.Schedule(); // will always be a frame behind
-
             UnscaledDeltaTime = Math.Max(UnscaledDeltaTime, 0f);
             if (!math.isfinite(UnscaledDeltaTime))
             {
@@ -190,7 +190,6 @@ namespace Basis.Scripts.Networking
             }
             BasisRemoteNetworkDriver.Compute();
             BasisNetworkProfiler.Update();
-            RemoteBoneJobSystem.Complete(BoneJobSystem);
 
             if (HasRequested)
             {
@@ -218,6 +217,10 @@ namespace Basis.Scripts.Networking
             {
                 BasisNetworkPlayers.ReceiversSnapshot[Index].Apply();
             }
+
+            BoneJobSystem = RemoteBoneJobSystem.Schedule();
+
+            RemoteBoneJobSystem.Complete(BoneJobSystem);
         }
 
         #endregion

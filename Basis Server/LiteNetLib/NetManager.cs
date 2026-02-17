@@ -628,7 +628,9 @@ namespace LiteNetLib
 
                     int sleepTime = UpdateTime - (int)stopwatch.ElapsedMilliseconds;
                     if (sleepTime > 0)
+                    {
                         _updateTriggerEvent.WaitOne(sleepTime);
+                    }
                 }
                 catch (ThreadAbortException)
                 {

@@ -328,3 +328,16 @@ MonoBehaviour:
   - BasisZoneSwitchCCMode
   - BasisSeatSync
   - Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  - VehicleNetworkToggles
+  - Basis.Scripts.Vehicles.Main.BasisVehiclePilotSeat
+  - Basis.Scripts.Vehicles.Main.BasisVehicleBody
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleWheel
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleThruster
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleHoverThruster
+  - ExampleMovingChair
+  - ExampleRotatingChair
+  - Cilbox.CilboxScene
+  - BasisNetworkedVehicles
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleSteeringWheel
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
+  - Basis.Network.Vehicles.BasisNetworkedVehicle

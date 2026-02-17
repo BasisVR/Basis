@@ -4,5 +4,7 @@ namespace Basis.BasisUI
     {
         Vertical,
         Horizontal,
+        HorizontalNoBackground,
+        VerticalNoBackground
     }
 }

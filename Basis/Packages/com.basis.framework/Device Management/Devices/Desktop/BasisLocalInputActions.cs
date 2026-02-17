@@ -316,20 +316,23 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnLookActionPerformed(InputAction.CallbackContext ctx)
         {
-            float sensitivity;
-            if (ctx.control.device is Mouse)
+            if (BasisInputModuleHandler.Instance.IsTyping() == false)
             {
-                sensitivity = MouseSensitivity;
+                float sensitivity;
+                if (ctx.control.device is Mouse)
+                {
+                    sensitivity = MouseSensitivity;
+                }
+                else if (IsMonoStableInput(ctx.control.device))
+                {
+                    sensitivity = JoystickSensitivity;
+                }
+                else
+                {
+                    sensitivity = KeyboardSensitivity;
+                }
+                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
             }
-            else if (IsMonoStableInput(ctx.control.device))
-            {
-                sensitivity = JoystickSensitivity;
-            }
-            else
-            {
-                sensitivity = KeyboardSensitivity;
-            }
-            OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
         }
         public void OnLookAction(Vector2 delta, float sensitivity)
         {
@@ -430,7 +433,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnLeftMouse(InputAction.CallbackContext ctx) => InputState.Trigger = ctx.ReadValue<float>();
         public void OnRightMouse(InputAction.CallbackContext ctx) => InputState.SecondaryTrigger = ctx.ReadValue<float>();
-        public void OnMouseScroll(InputAction.CallbackContext ctx) => InputState.Secondary2DAxis = ctx.ReadValue<Vector2>();
+        public void OnMouseScroll(InputAction.CallbackContext ctx) => InputState.Secondary2DAxisRaw = ctx.ReadValue<Vector2>();
         public void OnMouseScrollClick(InputAction.CallbackContext ctx) => InputState.Secondary2DAxisClick = ctx.ReadValue<float>() == 1;
 
         #endregion

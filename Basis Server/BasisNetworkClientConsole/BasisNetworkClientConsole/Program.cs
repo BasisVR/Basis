@@ -25,51 +25,62 @@ namespace Basis
 
             MovementSender.Initialize(clientManager.ClientCount);
 
-            // Start staggered movement
-            _ = StartStaggeredMovementLoop(clientManager.FinalPeers);
+            // Start smooth independent movement loops
+            StartSmoothMovementLoops(clientManager.FinalPeers);
 
             // Start random reconnects
             _ = StartRandomReconnectLoop(clientManager);
 
             await Task.Delay(-1); // keep main alive
         }
-        public static void StopClient(ClientManager Manager, int Index)
+
+        public static void StopClient(ClientManager manager, int index)
         {
-            var Value = Manager.FinalPeers[Index];
-            if(Value != null)
+            var peer = manager.FinalPeers[index];
+            if (peer != null)
             {
-                Value.Disconnect();
+                peer.Disconnect();
             }
         }
-        private static async Task StartStaggeredMovementLoop(NetPeer[] peers)
+
+        /// <summary>
+        /// One independent movement loop per peer.
+        /// This avoids traffic spikes and creates smooth network flow.
+        /// </summary>
+        private static void StartSmoothMovementLoops(NetPeer[] peers)
         {
-            int peerCount = peers.Length;
-            var random = new Random();
-
-            while (true)
+            for (int Index = 0; Index < peers.Length; Index++)
             {
-                int baseDelay = ClientManager.rng.Next(50, 250);
-                int intervalSpread = baseDelay / Math.Max(peerCount, 1); // stagger time between each peer
+                int peerIndex = Index;
 
-                var tasks = new List<Task>();
-
-                for (int i = 0; i < peerCount; i++)
+                _ = Task.Run(async () =>
                 {
-                    int delay = intervalSpread * i + random.Next(0, 5); // small randomness to avoid perfect rhythm
-                    int peerIndex = i;
+                    // Unique RNG per peer to avoid sync
+                    var rng = new Random(Guid.NewGuid().GetHashCode());
 
-                    tasks.Add(Task.Run(async () =>
+                    // Stable base interval per peer (ms)
+                    int baseInterval = rng.Next(60, 120);
+
+                    // Initial offset so peers don’t align at startup
+                    await Task.Delay(rng.Next(0, baseInterval));
+
+                    while (true)
                     {
-                        await Task.Delay(delay); // staggered delay
-                        MovementSender.ProcessSingle(peers[peerIndex], peerIndex);
-                    }));
-                }
+                        var peer = peers[peerIndex];
 
-                await Task.WhenAll(tasks);
+                        if (peer != null)
+                        {
+                            MovementSender.ProcessSingle(peer, peerIndex);
+                        }
 
-                await Task.Delay(baseDelay); // global cycle delay before next batch
+                        // Small jitter keeps it natural but stable
+                        int jitter = rng.Next(-5, 6);
+                        await Task.Delay(baseInterval + jitter);
+                    }
+                });
             }
         }
+
         private static async Task StartRandomReconnectLoop(ClientManager clientManager)
         {
             var rng = new Random();
@@ -77,12 +88,12 @@ namespace Basis
 
             while (true)
             {
-                int waitMinutes = rng.Next(1, 21); // 1 to 20 minutes
+                int waitMinutes = rng.Next(1, 21); // 1–20 minutes
                 await Task.Delay(TimeSpan.FromMinutes(waitMinutes));
 
                 int indexToRestart = rng.Next(0, totalClients);
-
                 BNL.Log($"Randomly restarting client at index {indexToRestart}");
+
                 await clientManager.ReconnectClientAsync(indexToRestart);
             }
         }

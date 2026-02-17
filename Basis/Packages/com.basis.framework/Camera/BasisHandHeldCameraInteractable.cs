@@ -164,11 +164,10 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
 
         // scale camera to avatar size
-        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
-                               BasisHeightDriver.AvatarToPlayerScale;
+        transform.localScale = Vector3.one * cameraDefaultScale * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
 
         // run after player movement
-        BasisLocalPlayer.AfterFinalMove.AddAction(202, UpdateCamera);
+        BasisLocalPlayer.AfterSimulateOnLate.AddAction(202, UpdateCamera);
 
         cameraPinConstraint = new BasisParentConstraint
         {
@@ -193,10 +192,9 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     }
 
     /// <summary>Rescales the camera when the local player’s avatar height changes.</summary>
-    private void OnHeightChanged()
+    private void OnHeightChanged(BasisHeightDriver.HeightModeChange HeightModeChange)
     {
-        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *
-                               BasisHeightDriver.AvatarToPlayerScale;
+        transform.localScale = new Vector3(cameraDefaultScale, cameraDefaultScale, cameraDefaultScale) *  BasisHeightDriver.ScaledToMatchValue;
     }
 
     /// <summary>
@@ -415,8 +413,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
             PinSpace = CameraPinSpace.WorldSpace;
             flyCamera.Enable();
 
-            smoothedRotation = HHC.captureCamera.transform.rotation;
-            smoothedPosition = HHC.captureCamera.transform.position;
+            HHC.captureCamera.transform.GetPositionAndRotation(out smoothedPosition, out smoothedRotation);
         }
         else if (!isMiddleClick && pauseMove)
         {
@@ -642,7 +639,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         OnInteractStartEvent -= OnInteractDesktopTweak;
         BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
 
-        BasisLocalPlayer.AfterFinalMove.RemoveAction(202, UpdateCamera);
+        BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(202, UpdateCamera);
 
         if (pauseMove)
         {

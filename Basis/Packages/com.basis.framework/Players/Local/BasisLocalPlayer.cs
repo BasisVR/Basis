@@ -11,6 +11,7 @@ using System.Collections;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static BasisHeightDriver;
 
 namespace Basis.Scripts.BasisSdk.Players
 {
@@ -73,13 +74,24 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Fired on the frame after a player height change is requested.
         /// </summary>
-        public static Action OnPlayersHeightChangedNextFrame;
+        public static Action<HeightModeChange> OnPlayersHeightChangedNextFrame;
+
+        /// <summary>
+        /// Fires Just Before the Apply of the remote player, good for chair movement
+        /// </summary>
+        public static BasisOrderedDelegate JustBeforeNetworkApply = new BasisOrderedDelegate();
 
         /// <summary>
         /// Ordered delegate queue invoked after all movement and simulation have completed for the frame.
         /// </summary>
-        public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();
+        public static BasisOrderedDelegate AfterSimulateOnRender = new BasisOrderedDelegate();
 
+        /// <summary>
+        /// Ordered delegate queue invoked after all movement and simulation have completed for the frame.
+        /// </summary>
+        public static BasisOrderedDelegate AfterSimulateOnLate = new BasisOrderedDelegate();
+
+        public static Matrix4x4 localToWorldMatrix = Matrix4x4.identity;
         #region Drivers
 
         /// <summary>
@@ -274,13 +286,17 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         /// <param name="position">Target world position.</param>
         /// <param name="rotation">Target world rotation.</param>
-        public void Teleport(Vector3 position, Quaternion rotation)
+        public void Teleport(Vector3 position, Quaternion rotation,bool BypassStand = false)
         {
             BasisDebug.Log("Teleporting", BasisDebug.LogTag.Local);
-            LocalSeatDriver.Stand();
+            if (BypassStand == false)
+            {
+                LocalSeatDriver.Stand();
+            }
             bool wasCharacterEnabled = LocalCharacterDriver.IsEnabled;
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
+            AvatarTransform.rotation = Quaternion.identity;
             LocalCharacterDriver.IsEnabled = wasCharacterEnabled;
             LocalAnimatorDriver.HandleTeleport();
             OnTeleportEvent?.Invoke();
@@ -302,7 +318,6 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisSceneFactory.SpawnPlayer(this);
             }
         }
-
         /// <summary>
         /// Creates or replaces the local avatar using the specified load mode and bundle, then persists the selection.
         /// </summary>
@@ -311,8 +326,8 @@ namespace Basis.Scripts.BasisSdk.Players
         public async Task CreateAvatar(byte LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle, this.transform.position, Quaternion.identity);
-            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
             OnLocalAvatarChanged?.Invoke();
+            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
         }
 
         /// <summary>
@@ -365,7 +380,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 LocalHandDriver.Dispose();
             }
-            BasisLocalEyeDriver.OnDisable();
+            BasisLocalEyeDriver.Dispose();
             if (FacialBlinkDriver != null)
             {
                 FacialBlinkDriver.OnDestroy();
@@ -382,37 +397,33 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public void DriveAudioToViseme()
         {
-            LocalVisemeDriver.ProcessAudioSamples(
-                BasisLocalMicrophoneDriver.processBufferArray,
-                1,
-                BasisLocalMicrophoneDriver.processBufferArray.Length);
+            LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray,1,BasisLocalMicrophoneDriver.processBufferArray.Length);
         }
-        /// <summary>
-        /// Main per-frame simulation entry point, executed on render/update.
-        /// Performs movement, bone simulation, T-pose driving, IK targets, animator evaluation, hands,
-        /// and then invokes <see cref="AfterFinalMove"/>.
-        /// </summary>
-        /// <param name="DeltaTime">Frame delta time.</param>
-        public void SimulateOnRender(float DeltaTime)
+        public void Simulate(float DeltaTime)
         {
             // now lets move the local player position.
             LocalCharacterDriver.SimulateMovement(DeltaTime);
 
+            OnLateSimulateBones(this);
+
+
+            ApplyVirtualData(this);
             // moves all bones to where they belong
             // This also drives head and camera movement.
-            LocalBoneDriver.SimulateAndApply(this, DeltaTime);
+            LocalBoneDriver.Simulate(DeltaTime, localToWorldMatrix);
 
             // moves Avatar Hip Transform to where it belongs in tpose.
             if (BasisLocalAvatarDriver.CurrentlyTposing)
             {
+                LocalRigDriver.ResetSmoothingState();
                 DriveTpose();
             }
 
             // Simulate Final Destination of IK then process Animator and IK processes.
             LocalRigDriver.SimulateIKDestinations(DeltaTime);
 
-            // update WorldPosition in BoneDriver so AfterFinalMove can use world coords
-            LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix);
+            // update WorldPosition in BoneDriver so AfterSimulateOnLate can use world coords
+            LocalBoneDriver.SimulateWorldDestinations(localToWorldMatrix);
 
             // Apply Animator Weights using most current data and outside movement effectors.
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
@@ -420,10 +431,41 @@ namespace Basis.Scripts.BasisSdk.Players
             // handles fingers
             LocalHandDriver.UpdateFingers(DeltaTime);
 
-            // now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
-            AfterFinalMove?.Invoke();
+            AfterSimulateOnLate?.Invoke();
         }
+        public void OnDrawGizmosSelected()
+        {
+            LocalSeatDriver.DrawGizmosSelected();
+        }
+        public static void FireJustBeforeNetworkApply()
+        {
+            JustBeforeNetworkApply?.Invoke();
+        }
+        /// <summary>
+        /// Main per-frame simulation entry point, executed on render/update.ddd
+        /// Performs movement, bone simulation, T-pose driving, IK targets, animator evaluation, hands,
+        /// and then invokes <see cref="AfterSimulateOnRender"/>.
+        /// </summary>
+        public void SimulateOnRender()
+        {
+            OnRenderSimulateBones(this);
 
+            // now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
+            AfterSimulateOnRender?.Invoke();
+        }
+        public void OnLateSimulateBones(BasisPlayer Player)
+        {
+            Player.OnLatePollData?.Invoke();
+        }
+        public void ApplyVirtualData(BasisPlayer Player)
+        {
+
+            Player.OnVirtualData?.Invoke();
+        }
+        public void OnRenderSimulateBones(BasisPlayer Player)
+        {
+            Player.OnRenderPollData?.Invoke();
+        }
         /// <summary>
         /// Positions the avatar in a T-pose such that the head aligns to tracked head position/orientation (yaw only).
         /// </summary>

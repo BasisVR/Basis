@@ -26,11 +26,11 @@ namespace Basis.BasisUI
         public CancellationToken CancellationToken = new CancellationToken();
 
 
-        public override void OnCreateEvent()
+        public override async void OnCreateEvent()
         {
             base.OnCreateEvent();
             AvatarList.OnValueChanged += OnItemSelected;
-            LoadAvatarsFromDisc();
+           await LoadAvatarsFromDisc();
         }
 
         private void OnItemSelected(int index)

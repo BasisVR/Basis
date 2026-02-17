@@ -51,21 +51,26 @@ namespace Basis.BasisUI
         public void BindProvidersToButtons()
         {
             foreach (PanelButton button in ProviderButtons)
+            {
                 button.ReleaseInstance();
+            }
 
             ProviderButtons.Clear();
 
             foreach (BasisMenuActionProvider<TMenu> provider in Providers)
             {
-                PanelButton button = PanelButton.CreateNew(
-                    PanelButton.ButtonStyles.Hotbar,
-                    ProviderButtonParent);
+                if (provider.Hidden == false)
+                {
+                    PanelButton button = PanelButton.CreateNew(
+                        PanelButton.ButtonStyles.Hotbar,
+                        ProviderButtonParent);
 
-                button.Descriptor.SetTitle(provider.Title);
-                button.SetIcon(provider.IconAddress);
-                provider.BindToButton(this, button);
-                ProviderButtons.Add(button);
-                provider.OnButtonCreated(button);
+                    button.Descriptor.SetTitle(provider.Title);
+                    button.SetIcon(provider.IconAddress);
+                    provider.BindToButton(this, button);
+                    ProviderButtons.Add(button);
+                    provider.OnButtonCreated(button);
+                }
             }
         }
 
@@ -91,9 +96,7 @@ namespace Basis.BasisUI
         {
             if (Dialogue)
             {
-                //TODO: This seems to be firing during the Close Game modal.
-                // It is possibly firing multiple times at once. Look into this.
-                Debug.LogWarning("An existing Dialogue window is already active.");
+                BasisDebug.LogWarning("An existing Dialogue window is already active.");
                 return;
             }
 
@@ -112,7 +115,7 @@ namespace Basis.BasisUI
         {
             if (Dialogue)
             {
-                Debug.LogWarning("An existing Dialogue window is already active.");
+                BasisDebug.LogWarning("An existing Dialogue window is already active.");
                 return;
             }
 

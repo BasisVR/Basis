@@ -29,12 +29,6 @@ public class BasisLocalEyeDriver
     [Tooltip("How long a saccade takes (fast).")]
     public Vector2 saccadeTimeRange = new Vector2(0.05f, 0.15f);
 
-    [Header("Micro-motions")]
-    [Tooltip("Small jitter during holds (degrees).")]
-    [Range(0f, 2f)] public float microSaccadeDeg = 0.35f;
-
-    [Tooltip("How often micro-saccades occur (seconds).")]
-    public Vector2 microIntervalRange = new Vector2(1f, 2f);
 
     [Header("Style")]
     [Tooltip("Bias toward looking near center. Higher = more centered.")]
@@ -61,7 +55,9 @@ public class BasisLocalEyeDriver
     public static quaternion rightEyeInitialRotation;
     public static void Initalize()
     {
-        var References = BasisLocalAvatarDriver.References;
+        Dispose();
+
+        var References = BasisLocalAvatarDriver.Mapping;
         if (References.HasLeftEye == false || References.HasRightEye == false)
         {
             IsEnabled = false;
@@ -81,10 +77,12 @@ public class BasisLocalEyeDriver
 
     }
 
-    public static void OnDisable()
+    public static JobHandle handle;
+    public static void Dispose()
     {
         if (_state.IsCreated)
         {
+            handle.Complete();
             _state.Dispose();
         }
     }
@@ -105,10 +103,6 @@ public class BasisLocalEyeDriver
                 saccadeMin = saccadeTimeRange.x,
                 saccadeMax = saccadeTimeRange.y,
 
-                microDeg = microSaccadeDeg,
-                microMin = microIntervalRange.x,
-                microMax = microIntervalRange.y,
-
                 centerBias = centerBias,
                 perEyeVarRad = perEyeVarianceDeg,
                 occasionalCenterReturn = occasionalCenterReturn,
@@ -126,7 +120,6 @@ public class BasisLocalEyeDriver
             handle = job.Schedule();
         }
     }
-    public JobHandle handle;
     public void Apply()
     {
         if (HasEyeSchedule)
@@ -231,9 +224,6 @@ public class BasisLocalEyeDriver
         public float holdMin, holdMax;
         public float saccadeMin, saccadeMax;
 
-        public float microDeg;
-        public float microMin, microMax;
-
         public float centerBias;
         public float perEyeVarRad;
 
@@ -255,8 +245,6 @@ public class BasisLocalEyeDriver
                 math.radians(maxAngleRad),
                 holdMin, holdMax,
                 saccadeMin, saccadeMax,
-                microDeg,
-                microMin, microMax,
                 centerBias,
                math.radians(perEyeVarRad),
                 occasionalCenterReturn,
@@ -280,10 +268,6 @@ public class BasisLocalEyeDriver
         public float phaseT;
         public float phaseDur;
 
-        // Micro-saccades during hold
-        public float microT;
-        public float microNext;
-
         // Motion in canonical space as yaw/pitch (radians)
         public float2 startYawPitch;
         public float2 targetYawPitch;
@@ -305,9 +289,6 @@ public class BasisLocalEyeDriver
                 phaseT = 0f,
                 phaseDur = 0.5f,
 
-                microT = 0f,
-                microNext = 0.15f,
-
                 startYawPitch = float2.zero,
                 targetYawPitch = float2.zero,
                 currentYawPitch = float2.zero,
@@ -322,8 +303,6 @@ public class BasisLocalEyeDriver
             float maxAngleRad,
             float holdMin, float holdMax,
             float saccadeMin, float saccadeMax,
-            float microDeg,
-            float microMin, float microMax,
             float centerBias,
             float perEyeVarRad,
             bool occasionalCenterReturn,
@@ -334,26 +313,9 @@ public class BasisLocalEyeDriver
         {
             // Advance timers
             phaseT += dt;
-            microT += dt;
 
             if (phase == 0) // Hold
             {
-                // Micro-saccades: tiny target nudges while holding
-                if (microT >= microNext)
-                {
-                    microT = 0f;
-                    microNext = rng.NextFloat(microMin, microMax);
-
-                    float microRad = math.radians(microDeg);
-                    float2 micro = new float2(
-                        rng.NextFloat(-microRad, microRad),
-                        rng.NextFloat(-microRad, microRad)
-                    );
-
-                    targetYawPitch += micro;
-                    targetYawPitch = ClampYawPitchPlane(targetYawPitch, maxAngleRad);
-                }
-
                 // Soft drift toward target while holding
                 currentYawPitch = math.lerp(currentYawPitch, targetYawPitch, 1f - math.exp(-dt * 8f));
 
@@ -383,9 +345,6 @@ public class BasisLocalEyeDriver
                     phase = 0;
                     phaseT = 0f;
                     phaseDur = rng.NextFloat(holdMin, holdMax);
-
-                    microT = 0f;
-                    microNext = rng.NextFloat(microMin, microMax);
                 }
             }
 

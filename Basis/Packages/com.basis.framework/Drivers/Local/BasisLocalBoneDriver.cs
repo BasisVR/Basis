@@ -4,7 +4,6 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using UnityEngine;
 
@@ -141,10 +140,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         /// <param name="deltaTime">Time elapsed since last update (seconds).</param>
         /// <param name="transform">Parent transform whose <see cref="Transform.localToWorldMatrix"/> seeds world computation.</param>
-        public void Simulate(float deltaTime, Transform transform)
+        public void Simulate(float deltaTime, Matrix4x4 parentMatrix)
         {
             // sequence all other devices to run at the same time
-            Matrix4x4 parentMatrix = transform.localToWorldMatrix;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].ComputeMovementLocal(parentMatrix, deltaTime);
@@ -160,11 +158,10 @@ namespace Basis.Scripts.Drivers
         /// effectively skipping interpolation/lerp for this frame.
         /// </summary>
         /// <param name="transform">Parent transform for world calculations.</param>
-        public void SimulateWithoutLerp(Transform transform)
+        public void SimulateWithoutLerp(Matrix4x4 parentMatrix)
         {
             // sequence all other devices to run at the same time
             float DeltaTime = Time.deltaTime;
-            Matrix4x4 parentMatrix = transform.localToWorldMatrix;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
@@ -191,31 +188,22 @@ namespace Basis.Scripts.Drivers
                 GizmoBone GizmoBone = GizmoBones[i];
                 if (GizmoBone.GizmoTransform != null)
                 {
-                    float ScaledDistance = BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(GizmoBone.Control) * BasisHeightDriver.heightScaleFactor;
+                    float ScaledDistance = BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(GizmoBone.Control) * BasisHeightDriver.ScaledToMatchValue;
                     BasisGizmoManager.UpdateSphereGizmo(GizmoBone.GizmoReference, GizmoBone.GizmoTransform.position, Vector3.one * ScaledDistance);
                 }
             }
         }
 
         /// <summary>
-        /// Invokes pre-sim callbacks on the player and simulates this driver for the frame.
-        /// </summary>
-        /// <param name="Player">The owning player.</param>
-        /// <param name="deltaTime">Elapsed time since last update (seconds).</param>
-        public void SimulateAndApply(BasisPlayer Player, float deltaTime)
-        {
-            Player.OnPreSimulateBones?.Invoke();
-            Simulate(deltaTime, Player.PlayerSelf);
-        }
-
-        /// <summary>
         /// Invokes pre-sim callbacks on the player and simulates without interpolation.
         /// </summary>
         /// <param name="Player">The owning player.</param>
-        public void SimulateAndApplyWithoutLerp(BasisPlayer Player)
+        public void SimulateAndApplyWithoutLerp(BasisLocalPlayer Player)
         {
-            Player.OnPreSimulateBones?.Invoke();
-            SimulateWithoutLerp(Player.PlayerSelf);
+            Player.OnLateSimulateBones(Player);
+            Player.OnRenderSimulateBones(Player);
+            Player.ApplyVirtualData(Player);
+            SimulateWithoutLerp(BasisLocalPlayer.localToWorldMatrix);
         }
 
         /// <summary>
@@ -375,7 +363,7 @@ namespace Basis.Scripts.Drivers
         public void UpdateGizmoUsage(bool State)
         {
             BasisDebug.Log("Running Bone Driver Gizmos", BasisDebug.LogTag.Gizmo);
-            float Size = BasisHeightDriver.heightScaleFactor;
+            float Size = BasisHeightDriver.ScaledToMatchValue;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 BasisLocalBoneControl Control = Controls[Index];

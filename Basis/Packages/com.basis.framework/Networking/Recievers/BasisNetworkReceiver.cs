@@ -23,6 +23,8 @@ namespace Basis.Scripts.Networking.Receivers
         private const int EyesAndMouthCount = 6;
         public const int EyeAndMouthCountInBytes = EyesAndMouthCount * sizeof(float);
 
+        private double _serverClockSeconds;
+        private bool _serverClockSeeded;
         /// <summary>
         /// If staging backlog exceeds this, older frames are dropped to reduce latency.
         /// </summary>
@@ -98,8 +100,19 @@ namespace Basis.Scripts.Networking.Receivers
             }
             hasRequiredData = true;
             // 1) Pull network packets to main-thread staging ring (bounded)
-            while (PayloadQueue.TryDequeue(out var buffer))
+            while (PayloadQueue.TryDequeue(out BasisAvatarBuffer buffer))
             {
+                // Stamp monotonic server time *here* (single-threaded)
+                if (!_serverClockSeeded)
+                {
+                    _serverClockSeconds = 0.0;
+                    _serverClockSeeded = true;
+                }
+
+                // secondsInterval already validated/clamped by decompressor
+                _serverClockSeconds += buffer.SecondsInterval;
+                buffer.ServerTimeSeconds = _serverClockSeconds;
+
                 _stagedRing.EnqueueOverwriteOldest(buffer, onOverwrite: BasisAvatarBufferPool.Release);
             }
             StagedCount = _stagedRing.Count;
@@ -170,14 +183,11 @@ namespace Basis.Scripts.Networking.Receivers
                 var first = Current;
                 var last = Next;
 
-                double windowDuration =
-                    last.SecondsInterval > 0 ? last.SecondsInterval :
-                    first.SecondsInterval > 0 ? first.SecondsInterval :
-                    (1.0 / 60.0);
-
+                double windowDuration = last.ServerTimeSeconds - first.ServerTimeSeconds;
                 if (!math.isfinite(windowDuration) || windowDuration <= 1e-6)
                 {
-                    windowDuration = 1e-3;
+                    // fallback if something goes weird
+                    windowDuration = math.max(last.SecondsInterval, 1e-3);
                 }
                 float rate = 1f + CatchupGain * (StagedCount - TargetJitterDepth);
                 rate = Mathf.Clamp(rate, MinPlaybackRate, MaxPlaybackRate);
@@ -186,7 +196,8 @@ namespace Basis.Scripts.Networking.Receivers
                 {
                     interpolationTime = 1;
                 }
-                BasisRemoteNetworkDriver.SetFrameTiming(playerId, interpolationTime,unscaledDeltaTime);
+                double effectiveDt = unscaledDeltaTime * (double)rate;
+                BasisRemoteNetworkDriver.SetFrameTiming(playerId, interpolationTime, effectiveDt);
 
                 if (SentLatest)
                 {
@@ -236,8 +247,11 @@ namespace Basis.Scripts.Networking.Receivers
                 PoseHandler.SetHumanPose(ref HumanPose);
                 if (HasOverridenDestination)
                 {
-                    var References = RemotePlayer.RemoteAvatarDriver.References;
-                    References.Hips.transform.SetPositionAndRotation(OverridenPosition, OverridenRotation);
+                    var References = RemotePlayer?.RemoteAvatarDriver?.References;
+                    if (References.Hips != null)
+                    {
+                        References.Hips.SetPositionAndRotation(OverridenPosition, OverridenRotation);
+                    }
                 }
             }
         }
@@ -254,6 +268,8 @@ namespace Basis.Scripts.Networking.Receivers
 
         public override void Initialize()
         {
+            _serverClockSeconds = 0.0;
+            _serverClockSeeded = false;
             RemotePlayer = (BasisRemotePlayer)Player;
             AudioReceiverModule.Initalize(this);
 
@@ -323,6 +339,8 @@ namespace Basis.Scripts.Networking.Receivers
 
         public override void DeInitialize()
         {
+            _serverClockSeconds = 0.0;
+            _serverClockSeeded = false;
             // _stagedRing can be null if Initialize never completed, so don't Assert here—guard.
             if (_stagedRing != null)
             {

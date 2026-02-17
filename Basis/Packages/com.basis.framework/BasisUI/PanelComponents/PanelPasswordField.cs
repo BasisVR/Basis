@@ -16,9 +16,9 @@ namespace Basis.BasisUI
         public Action<string> OnSubmit;
 
         public string Password => _inputField.text;
-
-        [SerializeField] protected TMP_InputField _inputField;
-        [SerializeField] protected TextMeshProUGUI _placeholderField;
+        [SerializeField] public LayoutElement LayoutElement;
+        [SerializeField] public TMP_InputField _inputField;
+        [SerializeField] public TextMeshProUGUI _placeholderField;
         [SerializeField] protected Toggle _showToggle;
         [SerializeField] protected Image _visibleIcon;
         [SerializeField] protected Image _invisibleIcon;
@@ -31,12 +31,15 @@ namespace Basis.BasisUI
 
             public static string Entry =>
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Entry Variant.prefab";
+
+            public static string EntryLong => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Entry Variant - Long.prefab";
         }
 
         public static PanelPasswordField CreateNew(Component parent)
             => CreateNew<PanelPasswordField>(PasswordFieldStyles.Default, parent);
 
-
+        public static PanelPasswordField CreateNew(string Entry,Component parent)
+    => CreateNew<PanelPasswordField>(Entry, parent);
         public static PanelPasswordField CreateNewEntry(Component parent)
             => CreateNew<PanelPasswordField>(PasswordFieldStyles.Entry, parent);
 
@@ -47,7 +50,11 @@ namespace Basis.BasisUI
             _showToggle.onValueChanged.AddListener(SetValue);
             _inputField.onEndEdit.AddListener(_ => OnComponentUsed());
         }
-
+        public void DisableIcons()
+        {
+            _visibleIcon.enabled = false;
+            _invisibleIcon.enabled = false;
+        }
         public override void OnComponentUsed()
         {
             base.OnComponentUsed();

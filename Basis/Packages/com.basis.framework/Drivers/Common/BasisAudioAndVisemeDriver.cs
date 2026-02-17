@@ -1,8 +1,6 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using System.Collections.Generic;
-using uLipSync;
-
 namespace Basis.Scripts.Drivers
 {
     /// <summary>
@@ -88,17 +86,17 @@ namespace Basis.Scripts.Drivers
 
             if (Avatar == null)
             {
-              //   BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
+                //   BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh == null)
             {
-              //   BasisDebug.Log("not setting up BasisVisemeDriver FaceVisemeMesh was null");
+                //   BasisDebug.Log("not setting up BasisVisemeDriver FaceVisemeMesh was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh.sharedMesh.blendShapeCount == 0)
             {
-              //  BasisDebug.Log("not setting up BasisVisemeDriver blendShapeCount was empty");
+                //  BasisDebug.Log("not setting up BasisVisemeDriver blendShapeCount was empty");
                 return false;
             }
 
@@ -235,8 +233,15 @@ namespace Basis.Scripts.Drivers
         /// </remarks>
         public void ProcessAudioSamples(float[] data, int channels, int Length)
         {
-            if (uLipSyncEnabledState == false) return;
-            if (WasSuccessful == false) return;
+            if (uLipSyncEnabledState == false)
+            {
+                return;
+            }
+
+            if (WasSuccessful == false)
+            {
+                return;
+            }
 
             uLipSync.OnDataReceived(data, channels, Length);
         }
@@ -250,6 +255,13 @@ namespace Basis.Scripts.Drivers
         /// </remarks>
         public void OnPausedEvent(bool IsPaused)
         {
+            if (IsPaused)
+            {
+                foreach (BasisPhonemeBlendShapeInfo blendshapeIndex in phonemeBlendShapeTable)
+                {
+                    Avatar.FaceVisemeMesh.SetBlendShapeWeight(blendshapeIndex.blendShape, 0);
+                }
+            }
         }
     }
 }

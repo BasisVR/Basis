@@ -41,6 +41,11 @@ namespace Basis.BTween
 
         public override bool Process(double currentTime)
         {
+            if (Target == null)
+            {
+                return false;
+            }
+
             if (base.Process(currentTime))
                 return true;
 

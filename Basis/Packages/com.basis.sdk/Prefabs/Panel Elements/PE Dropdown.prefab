@@ -1277,10 +1277,10 @@ MonoBehaviour:
   m_OnValueChanged:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
+      - m_Target: {fileID: 6184094533324797003}
         m_TargetAssemblyTypeName: Basis.BasisUI.PanelDropdown, Basis Framework
-        m_MethodName: OnComponentUsed
-        m_Mode: 1
+        m_MethodName: SetValue
+        m_Mode: 5
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine

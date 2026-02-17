@@ -82,6 +82,11 @@ namespace Basis.BasisUI
                 _backgroundTween = Background.TweenColor(TweenDuration, Background.color, targetColor);
             }
         }
+        public override void SetValueWithoutNotify(bool value)
+        {
+            base.SetValueWithoutNotify(value);
+            ToggleComponent.SetIsOnWithoutNotify(value);
+        }
 
         private void SetVisualInstant(bool on)
         {

@@ -61,18 +61,18 @@ namespace Basis.Scripts.Vehicles.Main
         private List<Parts.BasisVehicleHoverThruster> _hoverThrusters = new List<Parts.BasisVehicleHoverThruster>();
         private List<Parts.BasisVehicleWheel> _wheels = new List<Parts.BasisVehicleWheel>();
         private List<Parts.BasisVehiclePart> _otherParts = new List<Parts.BasisVehiclePart>();
-
+        public Rigidbody rb;
         private void Awake()
         {
             if (PilotSeat != null)
             {
                 PilotSeat.PilotedVehicleBody = this;
             }
+            rb = GetComponent<Rigidbody>();
         }
 
         private void FixedUpdate()
         {
-            Rigidbody rb = GetComponent<Rigidbody>();
             if (rb == null)
             {
                 BasisDebug.LogError("BasisVehicleBody: No Rigidbody found on the vehicle body.");
@@ -84,14 +84,14 @@ namespace Basis.Scripts.Vehicles.Main
             Vector3 localAngularVel = transform.InverseTransformDirection(rb.angularVelocity);
             Vector3 localUpDirection = -GetLocalGravityDirection();
             // Determine the actual linear values to use based on activation, throttle, and dampeners.
-            if (UseThrottle && MaxSpeed >= 0.0f)
+            if (MaxSpeed >= 0.0f)
             {
                 // In this case, the throttle should be a ratio of the maximum speed,
                 // with the thrust adjusting so that the vehicle meets the target speed.
                 Vector3 targetVelocity = MaxSpeed * Vector3.ClampMagnitude(LinearActivation, 1.0f);
                 actualLinear = (targetVelocity - localLinearVel) / MaxSpeed;
             }
-            else if (LinearDampeners)
+            else if (!UseThrottle && LinearDampeners)
             {
                 if (Mathf.Approximately(actualLinear.x, 0.0f))
                 {

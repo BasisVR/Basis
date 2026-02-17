@@ -168,13 +168,17 @@ public static class BasisNetworkSpawnItem
                 RemoteBeeFileLocation = localLoadResource.CombinedURL
             },
             UnlockPassword = localLoadResource.UnlockPassword,
+
         };
         BasisProgressReport BasisProgressReport = new BasisProgressReport();
         BasisProgressReport.OnProgressReport += BasisUILoadingBar.ProgressReport;
+        var position = new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ);
+        var rotation = new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW);
+        var scale = new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ);
         GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(loadBundle, true, BasisProgressReport, new CancellationToken(),
-            new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ),
-            new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW),
-            new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ),
+            position,
+            rotation,
+            scale,
             localLoadResource.ModifyScale, Selector, BasisNetworkManagement.Instance.transform);
 
         if (reference == null)
@@ -183,11 +187,23 @@ public static class BasisNetworkSpawnItem
             BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
             return null;
         }
+        reference.name = localLoadResource.LoadedNetID;
         if (reference.TryGetComponent<BasisNetworkContentBase>(out BasisNetworkContentBase BasisContentBase))
         {
             BasisContentBase.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
         }
-        SpawnedGameobjects.TryAdd(localLoadResource.LoadedNetID, reference);
+        else
+        {
+            BasisDebug.LogWarning($"Gameobject Did not have a class deriving from {nameof(BasisNetworkContentBase)} on it!");
+        }
+        if (SpawnedGameobjects.TryAdd(localLoadResource.LoadedNetID, reference))
+        {
+
+        }
+        else
+        {
+            BasisDebug.LogError("Already has Spawned Gameobject with this ID!!");
+        }
         BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
         return reference;
     }

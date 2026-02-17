@@ -38,6 +38,13 @@ public abstract class BasisBaseTypeManagement : MonoBehaviour
     public virtual void StartSDK()
     {
     }
+    /// <summary>
+    /// this is the correct time to poll everything
+    /// </summary>
+    public virtual void Simulate()
+    {
+
+    }
 
     /// <summary>
     /// Determines if the device can be booted based on the provided request string.  

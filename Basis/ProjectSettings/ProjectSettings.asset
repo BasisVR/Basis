@@ -143,11 +143,10 @@ PlayerSettings:
   loadStoreDebugModeEnabled: 0
   visionOSBundleVersion: 1.0
   tvOSBundleVersion: 1.0
-  bundleVersion: 2
+  bundleVersion: 2.0.1
   preloadedAssets:
   - {fileID: 11400000, guid: cf469a9a31a25dc449c2537cb0b17ad6, type: 2}
   - {fileID: -944628639613478452, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
-  - {fileID: 11400000, guid: cbf2a9bc3df50124e9ab11af8774a1ce, type: 2}
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -178,13 +177,13 @@ PlayerSettings:
     iPhone: 0
     tvOS: 0
   overrideDefaultApplicationIdentifier: 1
-  AndroidBundleVersionCode: 157
+  AndroidBundleVersionCode: 172
   AndroidMinSdkVersion: 32
   AndroidTargetSdkVersion: 34
   AndroidPreferredInstallLocation: 0
   AndroidPreferredDataLocation: 1
   aotOptions: 
-  stripEngineCode: 1
+  stripEngineCode: 0
   iPhoneStrippingLevel: 0
   iPhoneScriptCallOptimization: 0
   ForceInternetPermission: 0
@@ -274,8 +273,7 @@ PlayerSettings:
   AndroidAllowedArchitectures: -1
   AndroidSplashScreenScale: 0
   androidSplashScreen: {fileID: 0}
-  AndroidKeystoreName: C:/Users/doola/OneDrive/Documents/Github/Basis Foundation/Basis
-    Keys/BasisQuest.keystore
+  AndroidKeystoreName: C:/Users/doola/OneDrive/Documents/Github/Basis Keys/BasisQuest.keystore
   AndroidKeyaliasName: basis
   AndroidEnableArmv9SecurityFeatures: 0
   AndroidEnableArm64MTE: 0
@@ -520,9 +518,13 @@ PlayerSettings:
   m_BuildTargetGraphicsJobMode:
   - m_BuildTarget: WindowsStandaloneSupport
     m_GraphicsJobMode: 2
+  - m_BuildTarget: iOSSupport
+    m_GraphicsJobMode: 2
+  - m_BuildTarget: AndroidPlayer
+    m_GraphicsJobMode: 2
   m_BuildTargetGraphicsAPIs:
   - m_BuildTarget: WindowsStandaloneSupport
-    m_APIs: 15000000
+    m_APIs: 02000000
     m_Automatic: 0
   - m_BuildTarget: MacStandaloneSupport
     m_APIs: 10000000
@@ -844,7 +846,7 @@ PlayerSettings:
     WebGL: STEAMAUDIO_ENABLED
     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS
     XboxOne: 
-    iPhone: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;AUDIOLINK;AUDIOLINK_V1;BASIS_FRAMEWORK_EXISTS;LITENETLIB_SPANS;USE_STICK_CONTROL_THUMBSTICKS
+    iPhone: SETTINGS_MANAGER_UNIVERSAL;STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;AUDIOLINK;AUDIOLINK_V1;BASIS_FRAMEWORK_EXISTS;LITENETLIB_SPANS;USE_STICK_CONTROL_THUMBSTICKS;Basis_VOLUMETRIC_SUPPORTED
     tvOS: 
   additionalCompilerArguments: {}
   platformArchitecture: {}

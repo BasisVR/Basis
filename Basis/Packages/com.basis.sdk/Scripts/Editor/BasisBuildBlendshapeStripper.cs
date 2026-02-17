@@ -58,10 +58,7 @@ public static class BasisBuildBlendshapeStripper
     /// - Then we remap BasisAvatar indices to the new meshes.
     /// - Finally, callbacks fire so other systems can remap too.
     /// </summary>
-    public static void StripForBuild(
-        BasisAssetBundleObject settings,
-        GameObject buildRoot,
-        Basis.Scripts.BasisSdk.BasisAvatar avatarOnClone)
+    public static void StripForBuild(BasisAssetBundleObject settings, GameObject buildRoot,Basis.Scripts.BasisSdk.BasisAvatar avatarOnClone)
     {
         if (buildRoot == null) throw new ArgumentNullException(nameof(buildRoot));
         if (avatarOnClone == null) throw new ArgumentNullException(nameof(avatarOnClone));
@@ -133,12 +130,12 @@ public static class BasisBuildBlendshapeStripper
             }
             catch (Exception ex)
             {
-                Debug.LogException(ex);
+                BasisDebug.LogError($"{ex.Message} {ex.StackTrace}");
             }
         }
 
         AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
+        AssetDatabase.Refresh( ImportAssetOptions.ForceSynchronousImport);
 
         // Remap default avatar indices (by name)
         UpdateAvatarBlendshapeIndicesAfterStrip(
@@ -156,7 +153,7 @@ public static class BasisBuildBlendshapeStripper
         }
         catch (Exception ex)
         {
-            Debug.LogException(ex);
+            BasisDebug.LogError($"{ex.Message} {ex.StackTrace}");
         }
     }
 

@@ -1,41 +1,54 @@
-
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
+using Basis.BasisUI;
 
 public class SMModuleHDRURP : BasisSettingsBase
 {
+    // --- Canonical setting key (from defaults) ---
+    private static string K_HDR_SUPPORT => BasisSettingsDefaults.HDRSupport.BindingKey; // "hdr support"
+
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
+        // Only react to the HDR setting
+        if (matchedSettingName != K_HDR_SUPPORT)
+            return;
+
+        UniversalRenderPipelineAsset asset =
+            (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
+
 #if UNITY_ANDROID || UNITY_IOS
-        Asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
-        Asset.supportsHDR = false;
-                if (Camera.main != null)
-                {
-                    Camera.main.allowHDR = false;
-                }
+        // Mobile platforms: HDR forced off
+        asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
+        asset.supportsHDR = false;
+
+        if (Camera.main != null)
+        {
+            Camera.main.allowHDR = false;
+        }
 #else
         switch (optionValue)
         {
             case "64bit":
-                Asset.hdrColorBufferPrecision = HDRColorBufferPrecision._64Bits;
-                Asset.supportsHDR = true;
+                asset.hdrColorBufferPrecision = HDRColorBufferPrecision._64Bits;
+                asset.supportsHDR = true;
                 if (Camera.main != null)
                 {
                     Camera.main.allowHDR = true;
                 }
                 break;
+
             case "32bit":
-                Asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
-                Asset.supportsHDR = true;
+                asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
+                asset.supportsHDR = true;
                 if (Camera.main != null)
                 {
                     Camera.main.allowHDR = true;
                 }
                 break;
+
             case "off":
-                Asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
-                Asset.supportsHDR = false;
+                asset.hdrColorBufferPrecision = HDRColorBufferPrecision._32Bits;
+                asset.supportsHDR = false;
                 if (Camera.main != null)
                 {
                     Camera.main.allowHDR = false;
@@ -44,6 +57,7 @@ public class SMModuleHDRURP : BasisSettingsBase
         }
 #endif
     }
+
     public override void ChangedSettings()
     {
     }

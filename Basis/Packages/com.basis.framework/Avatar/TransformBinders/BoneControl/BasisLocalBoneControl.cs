@@ -88,7 +88,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         }
 
         /// <summary>Raised when <see cref="HasRigLayer"/> changes.</summary>
-        public Action OnHasRigChanged;
+        public Action<bool> OnHasRigChanged;
 
         [SerializeField] private BasisHasRigLayer hasRigLayer = BasisHasRigLayer.HasNoRigLayer;
 
@@ -104,7 +104,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 if (hasRigLayer != value)
                 {
                     hasRigLayer = value;
-                    OnHasRigChanged?.Invoke();
+                    OnHasRigChanged?.Invoke(false);//means the ik does not detach
                 }
             }
         }

@@ -68,9 +68,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             SystemOrMenuButton = 8,
             GripButton = 9,
         }
-        public bool HasState(BasisInputState state)
+        public bool HasState(BasisInputState state, BasisInputKey Key)
         {
-            switch (InputKey)
+            switch (Key)
             {
                 case BasisInputKey.Trigger:
                     // Fire when main trigger is fully pressed
@@ -82,10 +82,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                 case BasisInputKey.Primary2DAxis:
                     // Axis has state if it's non-zero (already deadzoned in BasisInputState)
-                    return state.Primary2DAxis.sqrMagnitude > 0f;
+                    return state.Primary2DAxisDeadZoned.sqrMagnitude > 0f;
 
                 case BasisInputKey.Secondary2DAxis:
-                    return state.Secondary2DAxis.sqrMagnitude > 0f;
+                    return state.Secondary2DAxisDeadZoned.sqrMagnitude > 0f;
 
                 case BasisInputKey.Primary2DAxisClick:
                     return state.Primary2DAxisClick;
@@ -274,7 +274,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (Device_Management.BasisDeviceManagement.IsUserInDesktop())
             {
                 // Adding half the player's height mimics a VR user's arm reach.
-                extraReach = BasisHeightDriver.SelectedPlayerHeight / 2;
+                extraReach = BasisHeightDriver.SelectedScaledPlayerHeight / 2;
             }
             return Vector3.Distance(GetClosestPoint(source), source) <= interactRange + extraReach;
         }

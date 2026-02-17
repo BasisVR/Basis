@@ -256,6 +256,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelElementDescriptor
   _clearOnAwake: 0
+  _useDefaultIconForNull: 0
   <DefaultIcon>k__BackingField: {fileID: 0}
   <DefaultTexture>k__BackingField: {fileID: 0}
   <DefaultTitle>k__BackingField: 
@@ -317,7 +318,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 0, y: -106}
+  m_AnchoredPosition: {x: 0, y: -116}
   m_SizeDelta: {x: 350, y: 0}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!114 &7097654758554276796

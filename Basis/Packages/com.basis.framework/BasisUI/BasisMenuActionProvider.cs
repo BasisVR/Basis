@@ -13,7 +13,7 @@ namespace Basis.BasisUI
             if (Order > target.Order) return 1;
             return string.CompareOrdinal(Title, target.Title);
         }
-
+        public abstract bool Hidden { get; }
         public abstract string Title { get; }
         public abstract string IconAddress { get; }
         public abstract int Order { get; }

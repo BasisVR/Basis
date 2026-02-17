@@ -65,7 +65,6 @@ public partial class BasisAvatarSDKInspector : Editor
             rootElement.Add(button);
             BasisAutomaticSetupAvatarEditor.TryToAutomatic(this);
             SetupItems();
-            //deprecated 15/05/2025 use BasisJiggleBonesComponent  AvatarSDKJiggleBonesView.Initialize(this);
             AvatarSDKVisemes.Initialize(this);
             InspectorGuiCreated?.Invoke(this);
         }
@@ -262,7 +261,7 @@ public partial class BasisAvatarSDKInspector : Editor
         faceVisemeMeshField.allowSceneObjects = true;
         AvatarIconField.allowSceneObjects = true;
 
-      //  AvatarIconField.value = null;
+        //  AvatarIconField.value = null;
         animatorField.value = Avatar.Animator;
         faceBlinkMeshField.value = Avatar.FaceBlinkMesh;
         faceVisemeMeshField.value = Avatar.FaceVisemeMesh;
@@ -277,8 +276,8 @@ public partial class BasisAvatarSDKInspector : Editor
         AvatarDoNotAutoRenameBonesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.doNotAutoRenameBones : false;
         AvatarDoNotAutoRenameBonesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarDoNotAutoRenameBonesField);
 
-        AvatarAutomaticallyRemoveBlendshapesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes : false;
-        AvatarAutomaticallyRemoveBlendshapesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarRemoveUnusedBlendshapesField);
+      //  AvatarAutomaticallyRemoveBlendshapesField.value = Avatar.ProcessingAvatarOptions != null ? Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes : false;
+       // AvatarAutomaticallyRemoveBlendshapesField.RegisterCallback<ChangeEvent<bool>>(OnAvatarRemoveUnusedBlendshapesField);
         // Button click events
         avatarEyePositionClick.clicked += () => ClickedAvatarEyePositionButton(avatarEyePositionClick);
         avatarMouthPositionClick.clicked += () => ClickedAvatarMouthPositionButton(avatarMouthPositionClick);
@@ -316,7 +315,7 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         if (targets == null || targets.Count == 0)
         {
-            Debug.LogError("No build targets selected.");
+            BasisDebug.LogError("No build targets selected.");
             return;
         }
         if (BasisAvatarValidator.ValidateAvatar(out List<BasisValidationIssue> Errors, out List<BasisValidationIssue> Warnings, out List<string> Passes))
@@ -326,7 +325,7 @@ public partial class BasisAvatarSDKInspector : Editor
                 string path = AssetDatabase.GetAssetPath(Avatar.Animator.runtimeAnimatorController);
                 if (path == BasisSDKConstants.AvatarAnimatorControllerPath)
                 {
-                    Debug.Log("Animator Controller Used was the default! UnAssigning");
+                    BasisDebug.Log("Animator Controller Used was the default! UnAssigning");
                     Avatar.Animator.runtimeAnimatorController = null;
                     EditorUtility.SetDirty(Avatar.Animator);
                     AssetDatabase.SaveAssetIfDirty(Avatar);
@@ -342,25 +341,40 @@ public partial class BasisAvatarSDKInspector : Editor
             {
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
-
-            Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
-            // Build from a stripped clone so the authored avatar stays untouched.
-            GameObject buildRoot = GameObject.Instantiate(Avatar.gameObject);
-            buildRoot.TryGetComponent<BasisAvatar>(out Avatar);
-            // If your pipeline needs editor-only stripping, do it here.
+            (bool success, string message) BundleCreatedState = new(false, "");
+            GameObject buildRoot = null;
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            BasisBuildBlendshapeStripper.StripForBuild(settings: assetBundleObject, buildRoot, Avatar);
+            try
+            {
+                BasisDebug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+                // Build from a stripped clone so the authored avatar stays untouched.
+                buildRoot = GameObject.Instantiate(Avatar.gameObject);
+                buildRoot.TryGetComponent<BasisAvatar>(out Avatar);
+                //  if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes)
+                //  {
+                // If your pipeline needs editor-only stripping, do it here.
+                //  BasisBuildBlendshapeStripper.StripForBuild(settings: assetBundleObject, buildRoot, Avatar);
 
+                //}
 #if UNITY_6000_2_OR_NEWER
-            GenerateMeshLODs(3);
+                GenerateMeshLODs(3);
 #endif
 
-            Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
-            (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, Avatar, targets);
+                BasisDebug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+                BundleCreatedState = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, Avatar, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
 
-            EditorUtility.ClearProgressBar();
-            // Clear any previous result label
-            ClearResultLabel();
+                EditorUtility.ClearProgressBar();
+                // Clear any previous result label
+                ClearResultLabel();
+            }
+            finally
+            {
+                if (buildRoot != null)
+                {
+                    BasisDebug.Log("Cleaning Up Duplicated Avatar", BasisDebug.LogTag.Core);
+                    GameObject.DestroyImmediate(buildRoot);
+                }
+            }
 
             // Display new result in the UI
             resultLabel = new Label
@@ -368,14 +382,14 @@ public partial class BasisAvatarSDKInspector : Editor
                 style = { fontSize = 14 }
             };
             resultLabel.style.color = Color.black; // Error message color
-            if (success)
+            if (BundleCreatedState.success)
             {
                 resultLabel.text = "Build successful";
                 resultLabel.style.backgroundColor = Color.green;
             }
             else
             {
-                resultLabel.text = $"Build failed: {message}";
+                resultLabel.text = $"Build failed: {BundleCreatedState.message}";
                 resultLabel.style.backgroundColor = Color.red;
             }
 
@@ -395,127 +409,114 @@ public partial class BasisAvatarSDKInspector : Editor
             }
         }
     }
-#if UNITY_6000_2_OR_NEWER
-    /// <summary>
-    /// Generate Mesh LODs via ModelImporter for all SkinnedMeshRenderers under the given root.
-    /// Requires Unity 6000.2+ where ModelImporter.generateMeshLods exists.
-    /// </summary>
-    /// <param name="root">Root GameObject (e.g., your avatar/prefab in the scene or a prefab asset loaded in memory).</param>
-    /// <param name="lodLimit">
-    /// Maximum mesh LOD to generate. Use -1 to leave the current importer value unchanged.
-    /// </param>
+#if UNITY_6000_2_OR_NEWER && UNITY_EDITOR
     public void GenerateMeshLODs(int lodLimit = -1)
     {
         var smrs = Avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true);
         if (smrs == null || smrs.Length == 0)
         {
-            Debug.LogWarning($"GenerateMeshLODs: No SkinnedMeshRenderer found under.");
+            BasisDebug.LogWarning("GenerateMeshLODs: No SkinnedMeshRenderer found under root.");
+            return;
         }
 
-        // Collect unique importer asset paths (FBX/OBJ). Multiple meshes often come from the same file.
-        var pathsNeedingReimport = new HashSet<string>();
+        var modelPathsNeedingReimport = new HashSet<string>();
+        var meshAssetsNeedingSave = new HashSet<Mesh>(); // for .asset meshes (and others without ModelImporter)
 
         foreach (var smr in smrs)
         {
-            if (smr == null || smr.sharedMesh == null)
-                continue;
+            if (smr == null || smr.sharedMesh == null) continue;
 
-            // Get the asset path for the mesh; for model sub-assets this is the FBX/OBJ path.
-            string meshPath = AssetDatabase.GetAssetPath(smr.sharedMesh);
-            if (string.IsNullOrEmpty(meshPath))
-                continue;
+            var mesh = smr.sharedMesh;
+            string meshPath = AssetDatabase.GetAssetPath(mesh);
+            if (string.IsNullOrEmpty(meshPath)) continue;
 
             var importer = AssetImporter.GetAtPath(meshPath) as ModelImporter;
-            if (importer == null)
-                continue; // Not a model-imported mesh (e.g., .asset mesh), skip.
 
-            // Set importer flags
-            bool changed = false;
-
-            if (!importer.generateMeshLods)
+            if (importer != null)
             {
-                importer.generateMeshLods = true;
-                changed = true;
+                bool changed = false;
+
+                if (!importer.generateMeshLods)
+                {
+                    importer.generateMeshLods = true;
+                    changed = true;
+                }
+
+                if (lodLimit >= 0 && importer.maximumMeshLod != lodLimit)
+                {
+                    importer.maximumMeshLod = lodLimit;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    modelPathsNeedingReimport.Add(meshPath);
+                }
+            }
+            else
+            {
+                // .asset Mesh (or otherwise not model-imported):
+                // Generate Mesh LODs directly on the mesh asset.
+                // meshLodLimit here = "max number of LOD levels to generate" (see docs).
+                // 0 => generate none beyond original; negative => auto-stop at ~64 indices.  :contentReference[oaicite:3]{index=3}
+                int meshLodLimit = lodLimit; // reuse your parameter; adjust semantics if you want
+                MeshLodUtility.GenerateMeshLods(mesh, meshLodLimit);
+
+                EditorUtility.SetDirty(mesh);
+                meshAssetsNeedingSave.Add(mesh);
             }
 
-            if (lodLimit >= 0 && importer.maximumMeshLod != lodLimit)
-            {
-                importer.maximumMeshLod = lodLimit;
-                changed = true;
-            }
-
-            if (changed)
-                pathsNeedingReimport.Add(meshPath);
-
-            // Component-level preferences (do not require reimport)
+            // Renderer-level knobs (work once mesh actually has Mesh LODs) :contentReference[oaicite:4]{index=4}
             smr.meshLodSelectionBias = 0f;
             smr.forceMeshLod = -1;
         }
 
-        if (pathsNeedingReimport.Count == 0)
+        // Reimport model files (FBX/OBJ)
+        if (modelPathsNeedingReimport.Count > 0)
         {
-            Debug.Log("GenerateMeshLODs: No importer changes detected.");
-            return;
-        }
-
-        try
-        {
-            AssetDatabase.StartAssetEditing();
-
-            int i = 0;
-            int total = pathsNeedingReimport.Count;
-            foreach (var path in pathsNeedingReimport)
+            try
             {
-                if (EditorUtility.DisplayCancelableProgressBar(
-                        "Reimporting Models (LODs)",
-                        $"{i + 1}/{total}: {path}",
-                        (float)i / total))
-                {
-                    Debug.LogWarning("GenerateMeshLODs: Canceled by user.");
-                    break;
-                }
+                AssetDatabase.StartAssetEditing();
+                int i = 0, total = modelPathsNeedingReimport.Count;
 
-                var importer = AssetImporter.GetAtPath(path) as ModelImporter;
-                if (importer != null)
+                foreach (var path in modelPathsNeedingReimport)
                 {
-                    // Write settings and reimport this asset immediately.
-                    // Either approach works; SaveAndReimport is the simplest.
-                    importer.SaveAndReimport();
-                    // Alternatively:
-                    // AssetDatabase.WriteImportSettingsIfDirty(path);
-                    // AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
-                }
+                    if (EditorUtility.DisplayCancelableProgressBar(
+                            "Reimporting Models (Mesh LODs)",
+                            $"{i + 1}/{total}: {path}",
+                            (float)i / total))
+                    {
+                        Debug.LogWarning("GenerateMeshLODs: Canceled by user.");
+                        break;
+                    }
 
-                i++;
+                    var mi = AssetImporter.GetAtPath(path) as ModelImporter;
+                    if (mi != null) mi.SaveAndReimport();
+                    i++;
+                }
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+                AssetDatabase.StopAssetEditing();
             }
         }
-        finally
-        {
-            EditorUtility.ClearProgressBar();
-            AssetDatabase.StopAssetEditing();
-            AssetDatabase.SaveAssets();
-            // No need for AssetDatabase.Refresh(); reimports were explicit.
-        }
 
-        Debug.Log($"GenerateMeshLODs: Reimported {pathsNeedingReimport.Count} model asset(s).");
+        // Save modified .asset meshes
+        if (meshAssetsNeedingSave.Count > 0)
+            AssetDatabase.SaveAssets();
+
+        Debug.Log($"GenerateMeshLODs: Reimported {modelPathsNeedingReimport.Count} model asset(s), updated {meshAssetsNeedingSave.Count} mesh asset(s).");
     }
 #endif
     public void AvatarTestInEditorClickFunction()
     {
         if (!Application.isPlaying)
         {
-            int result = EditorUtility.DisplayDialogComplex("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now? once done you will need to press it again! please also make sure you have a floor in your scene!", "Yes", "No", ""
-        );
-
-            switch (result)
+            bool result = EditorUtility.DisplayDialog("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now? once done you will need to press it again! please also make sure you have a floor in your scene!", "yes", "no");
+            if (result)
             {
-                case 0: // Yes
-                    EditorApplication.EnterPlaymode();
-                    break;
-                case 1: // No
-                    break;
-                default:
-                    break;
+                EditorApplication.EnterPlaymode();
             }
         }
         else
@@ -624,6 +625,7 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         AssetDatabase.Refresh();
     }
+    /*
     public void OnAvatarRemoveUnusedBlendshapesField(ChangeEvent<bool> evt)
     {
         if (Avatar.ProcessingAvatarOptions == null) Avatar.ProcessingAvatarOptions = new BasisProcessingAvatarOptions();
@@ -632,4 +634,5 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         AssetDatabase.Refresh();
     }
+    */
 }

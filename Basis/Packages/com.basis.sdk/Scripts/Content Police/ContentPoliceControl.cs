@@ -1,134 +1,101 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
+
 public static class ContentPoliceControl
 {
-    // Reused buffers to avoid allocations (NOT thread-safe; fine for Unity main thread).
-    private static readonly List<MonoBehaviour> _monoBuffer = new(256);
-    private static readonly List<Collider> _colliderBuffer = new(256);
-    private static Transform _stagingRoot;
-
-    private static Transform GetStagingRoot()
-    {
-        if (_stagingRoot != null) return _stagingRoot;
-
-        var go = new GameObject("__ContentPolice_Staging__");
-        go.hideFlags = HideFlags.HideAndDontSave;
-        go.SetActive(false);
-        _stagingRoot = go.transform;
-        return _stagingRoot;
-    }
     /// <summary>
     /// Creates a copy of a GameObject, removes any unapproved MonoBehaviours, and returns the cleaned copy through instantiation. 
     /// </summary>
-    /// <param name="original"></param>
-    /// <param name="checks"></param>
-    /// <param name="position"></param>
-    /// <param name="rotation"></param>
-    /// <param name="modifyScale"></param>
-    /// <param name="scale"></param>
-    /// <param name="selector"></param>
-    /// <param name="parent"></param>
-    /// <returns></returns>
-    public static GameObject ContentControl(
-        GameObject original,
-        ChecksRequired checks,
-        Vector3 position,
-        Quaternion rotation,
-        bool modifyScale,
-        Vector3 scale,
-        BundledContentHolder.Selector selector,
-        Transform parent = null)
+    /// <param name="SearchAndDestroy">The original GameObject to copy and clean.</param>
+    /// <param name="ChecksRequired">Whether to remove unapproved MonoBehaviours or not.</param>
+    /// <param name="Position">The position to instantiate the cleaned copy.</param>
+    /// <param name="Rotation">The rotation to instantiate the cleaned copy.</param>
+    /// <param name="Parent">The parent transform for the instantiated copy. Defaults to null.</param>
+    /// <returns>A copy of the GameObject with unapproved scripts removed.</returns>
+    public static GameObject ContentControl(GameObject SearchAndDestroy, ChecksRequired ChecksRequired, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, BundledContentHolder.Selector Selector, Transform Parent = null)
     {
-        if (!checks.UseContentRemoval)
+        if (ChecksRequired.UseContentRemoval)
         {
-            return parent == null
-                ? UnityEngine.Object.Instantiate(original, position, rotation)
-                : UnityEngine.Object.Instantiate(original, position, rotation, parent);
-        }
+            GameObject newGameObject = new GameObject("Temp");
+            newGameObject.SetActive(false);
 
-        if (!BundledContentHolder.Instance.GetSelector(selector, out ContentPoliceSelector policeCheck))
-        {
-            BasisDebug.LogError("cant find Police check for " + selector, BasisDebug.LogTag.Event);
-            return null;
-        }
-
-        // Instantiate under a reusable inactive staging root so it's inactive during cleanup.
-        var staging = GetStagingRoot();
-        var clone = UnityEngine.Object.Instantiate(original, position, rotation, staging);
-        clone.SetActive(false);
-
-        if (modifyScale)
-        {
-            // Logging is surprisingly expensive in bulk; consider gating this behind a debug flag.
-            BasisDebug.Log($"Overriding Default scale is now {scale} for Game object {clone.name}");
-            clone.transform.localScale = scale;
-        }
-
-        // Cache approved types once.
-        HashSet<Type> approved = policeCheck.ApprovedTypes;
-
-        // 1) Disable animator events (only animators)
-        if (checks.DisableAnimatorEvents)
-        {
-            // If you want to avoid alloc here too, add an animator buffer similarly.
-            var animators = clone.GetComponentsInChildren<Animator>(true);
-            for (int i = 0; i < animators.Length; i++)
+            SearchAndDestroy = GameObject.Instantiate(SearchAndDestroy, Position, Rotation, newGameObject.transform);
+            if (ModifyScale)
             {
-                animators[i].fireEvents = false;
+                BasisDebug.Log($"Overriding Default scale is now {Scale} for Game object {SearchAndDestroy.name}");
+                SearchAndDestroy.transform.localScale = Scale;
             }
-        }
+            // Create a list to hold all components in the original GameObject
+            UnityEngine.Component[] components = SearchAndDestroy.GetComponentsInChildren<UnityEngine.Component>(true);
 
-        // 2) Remove colliders (only colliders)
-        if (checks.RemoveColliders)
-        {
-            _colliderBuffer.Clear();
-            clone.GetComponentsInChildren(true, _colliderBuffer);
-            for (int i = 0; i < _colliderBuffer.Count; i++)
+            int count = components.Length;
+
+            if (BundledContentHolder.Instance.GetSelector(Selector, out ContentPoliceSelector PoliceCheck))
             {
-                UnityEngine.Object.Destroy(_colliderBuffer[i]);
-            }
-        }
-
-        // 3) Remove unapproved scripts (only MonoBehaviours)
-        _monoBuffer.Clear();
-        clone.GetComponentsInChildren(true, _monoBuffer);
-
-        bool isPlaying = Application.isPlaying;
-
-        for (int i = 0; i < _monoBuffer.Count; i++)
-        {
-            var mb = _monoBuffer[i];
-            if (mb == null)
-            {
-                continue;
-            }
-
-            var t = mb.GetType();
-            if (!approved.Contains(t))
-            {
-                // Avoid spamming logs per component in production. Consider counting instead.
-                // Debug.LogError($"MonoBehaviour {t.FullName} is not approved and will be removed.");
-
-                if (isPlaying)
+                for (int Index = 0; Index < count; Index++)
                 {
-                    UnityEngine.Object.Destroy(mb);
+                    Component component = components[Index];
+                    //do this first before we nuke stuff
+                    if (component is Animator animator)
+                    {
+                        if (ChecksRequired.DisableAnimatorEvents)
+                        {
+                            animator.fireEvents = false;
+                        }
+                    }
+                    else
+                    {
+                        if (component is Collider collider)
+                        {
+                            if (ChecksRequired.RemoveColliders)
+                            {
+                                GameObject.Destroy(collider);
+                            }
+                        }
+                    }
+                    // Check if the component is a MonoBehaviour and not in the approved list
+                    if (component is UnityEngine.Component monoBehaviour)
+                    {
+                        string monoTypeName = monoBehaviour.GetType().FullName;
+                        if (!PoliceCheck.selectedTypes.Contains(monoTypeName))
+                        {
+                            Debug.LogError($"MonoBehaviour {monoTypeName} is not approved and will be removed.");
+                            GameObject.DestroyImmediate(monoBehaviour); // Destroy the unapproved MonoBehaviour immediately
+                        }
+                    }
+                }
+                // Instantiate the cleaned GameObject copy
+                if (Parent == null)
+                {
+                    SearchAndDestroy.transform.parent = null;
+                    SearchAndDestroy.SetActive(true);
                 }
                 else
                 {
-                    UnityEngine.Object.DestroyImmediate(mb);
+                    SearchAndDestroy.transform.parent = Parent;
+                    SearchAndDestroy.SetActive(true);
                 }
             }
+            else
+            {
+                BasisDebug.LogError("cant find Police check for " + Selector, BasisDebug.LogTag.Event);
+            }
+            GameObject.DestroyImmediate(newGameObject);
+
         }
-
-        // Re-parent to final parent and activate
-        clone.transform.SetParent(parent, worldPositionStays: true);
-        clone.SetActive(true);
-
-        return clone;
+        else
+        {
+            if (Parent == null)
+            {
+                SearchAndDestroy = GameObject.Instantiate(SearchAndDestroy, Position, Rotation);
+            }
+            else
+            {
+                SearchAndDestroy = GameObject.Instantiate(SearchAndDestroy, Position, Rotation, Parent);
+            }
+        }
+        return SearchAndDestroy;
     }
 }
-
 /// <summary>
 /// Defines the checks required for content control.
 /// </summary>

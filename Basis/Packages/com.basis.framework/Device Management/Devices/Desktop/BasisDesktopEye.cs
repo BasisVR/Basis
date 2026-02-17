@@ -23,10 +23,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public static BasisDesktopEye Instance;
 
         [Header("Rotation")]
-        /// <summary>
-        /// Sensitivity multiplier for look rotation speed.
-        /// </summary>
-        public float rotationSpeed = 1f;
 
         /// <summary>
         /// Current pitch rotation (X axis).
@@ -89,8 +85,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
-                BasisDebug.Log($"Using Configured Height {BasisHeightDriver.SelectedPlayerHeight}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.SelectedPlayerHeight, Z);
+                BasisDebug.Log($"Using Configured Height {BasisHeightDriver.SelectedScaledPlayerHeight}", BasisDebug.LogTag.Input);
+                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.SelectedScaledPlayerHeight, Z);
             }
             else
             {
@@ -202,15 +198,15 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 return;
             }
 
-            rotationYaw += lookVector.x * rotationSpeed; // yaw
-            rotationPitch -= lookVector.y * rotationSpeed; // pitch (invert Y)
+            rotationYaw += lookVector.x * SMModuleControllerSettings.MouseSensitivty; // yaw
+            rotationPitch -= lookVector.y * SMModuleControllerSettings.MouseSensitivty; // pitch (invert Y)
         }
 
         /// <summary>
         /// Main polling loop for updating eye input state.
         /// Calculates eye position/rotation based on avatar head, crouching, and inputs deltas.
         /// </summary>
-        public override void DoPollData()
+        public override void LateDoPollData()
         {
             if (!hasRoleAssigned)
             {
@@ -263,8 +259,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, eyeWorld);
             UnscaledDeviceCoord.rotation = targetRot;
 
-            ScaledDeviceCoord.position = OffsetCoords.position + UnscaledDeviceCoord.position;
-            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+            ScaledDeviceCoord.rotation = OffsetCoords.rotation * UnscaledDeviceCoord.rotation;
+            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * UnscaledDeviceCoord.position);
 
             ControlOnlyAsDevice();
             if (IsComputingRaycast)

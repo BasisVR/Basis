@@ -6,14 +6,17 @@ using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Profiler;
 using System;
 using System.Collections.Concurrent;
+using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 using static SerializableBasis;
-
 public static class BasisNetworkHandleAvatar
 {
     public static ConcurrentQueue<ServerSideSyncPlayerMessage> Message = new ConcurrentQueue<ServerSideSyncPlayerMessage>();
 
-    // Baseline byte array per player (fixed once per player)
+    // Baseline per player (payload bytes only). Size depends on DataQualityLevel.
     private static readonly ConcurrentDictionary<ushort, byte[]> AvatarBaselines = new ConcurrentDictionary<ushort, byte[]>();
+
+    // Track which quality the baseline was built for (so we can decide whether to refresh).
+    private static readonly ConcurrentDictionary<ushort, byte> BaselineQuality = new ConcurrentDictionary<ushort, byte>();
 
     public static void HandleAvatarUpdate(NetPacketReader reader, DeliveryMethod deliveryMethod)
     {
@@ -24,27 +27,55 @@ public static class BasisNetworkHandleAvatar
     {
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, reader.AvailableBytes);
 
-        if (Message.TryDequeue(out ServerSideSyncPlayerMessage ssm) == false)
-        {
+        if (!Message.TryDequeue(out ServerSideSyncPlayerMessage ssm))
             ssm = new ServerSideSyncPlayerMessage();
-        }
 
         // Normal full deserialize – matches ServerSideSyncPlayerMessage.Serialize on server
         ssm.Deserialize(reader);
 
         ushort playerId = ssm.playerIdMessage.playerID;
 
-        // Build / cache baseline ONLY on first full for this player
+        // Cache baseline from first "full" message (or refresh if quality changed; policy below)
         var lav = ssm.avatarSerialization;
-        if (lav.array != null && lav.array.Length == BasisBitPackingConstants.AvatarSyncSize)
+
+        if (lav.array != null)
         {
-            if (!AvatarBaselines.ContainsKey(playerId))
+            var q = (BitQuality)lav.DataQualityLevel;
+
+            if (BasisAvatarBitPacking.IsValidQuality(q))
             {
-                byte[] baseline = new byte[BasisBitPackingConstants.AvatarSyncSize];
-                Buffer.BlockCopy(lav.array, 0, baseline, 0, BasisBitPackingConstants.AvatarSyncSize);
-                AvatarBaselines[playerId] = baseline;
+                int expectedSize = BasisAvatarBitPacking.ConvertToSize(q);
+
+                if (lav.array.Length >= expectedSize)
+                {
+                    bool hasBaseline = AvatarBaselines.TryGetValue(playerId, out var existing);
+                    bool hasQuality = BaselineQuality.TryGetValue(playerId, out var existingQ);
+
+                    // --- Policy choice ---
+                    // A) "First baseline only" (old behavior): only set baseline if missing.
+                    // B) Refresh if quality changes (recommended now that payload size can change).
+                    bool shouldRefresh =
+                        !hasBaseline ||
+                        !hasQuality ||
+                        existingQ != lav.DataQualityLevel ||
+                        existing == null ||
+                        existing.Length != expectedSize;
+
+                    if (shouldRefresh)
+                    {
+                        byte[] baseline = new byte[expectedSize];
+                        Buffer.BlockCopy(lav.array, 0, baseline, 0, expectedSize);
+
+                        AvatarBaselines[playerId] = baseline;
+                        BaselineQuality[playerId] = lav.DataQualityLevel;
+                    }
+                    else
+                    {
+                        // If you truly want "never overwrite", comment out the refresh block above
+                        // and just do TryAdd here.
+                    }
+                }
             }
-            // If a baseline already exists, we DON'T overwrite it.
         }
 
         if (BasisNetworkPlayers.RemotePlayers.TryGetValue(playerId, out BasisNetworkReceiver player))
@@ -54,12 +85,12 @@ public static class BasisNetworkHandleAvatar
         else
         {
             // Still keep baseline; player may spawn later.
-            // BasisDebug.Log($"Missing player for full avatar update {playerId}");
         }
 
         Message.Enqueue(ssm);
         TrimQueue();
     }
+
     private static void TrimQueue()
     {
         if (Message.Count > 256)
@@ -71,17 +102,33 @@ public static class BasisNetworkHandleAvatar
 
     public static void HandleAvatarChangeMessage(NetPacketReader reader)
     {
-        ServerAvatarChangeMessage ServerAvatarChangeMessage = new ServerAvatarChangeMessage();
-        ServerAvatarChangeMessage.Deserialize(reader);
-        ushort PlayerID = ServerAvatarChangeMessage.uShortPlayerId.playerID;
-        if (BasisNetworkPlayers.Players.TryGetValue(PlayerID, out BasisNetworkPlayer Player))
+        ServerAvatarChangeMessage msg = new ServerAvatarChangeMessage();
+        msg.Deserialize(reader);
+
+        ushort playerId = msg.uShortPlayerId.playerID;
+        if (BasisNetworkPlayers.Players.TryGetValue(playerId, out BasisNetworkPlayer player))
         {
-            BasisNetworkReceiver networkReceiver = (BasisNetworkReceiver)Player;
-            networkReceiver.ReceiveAvatarChangeRequest(ServerAvatarChangeMessage);
+            ((BasisNetworkReceiver)player).ReceiveAvatarChangeRequest(msg);
         }
         else
         {
-            BasisDebug.Log("Missing Player For Message " + ServerAvatarChangeMessage.uShortPlayerId.playerID);
+            BasisDebug.Log("Missing Player For Message " + playerId);
         }
+    }
+
+    // Optional accessors if other systems need the baseline
+    public static bool TryGetBaseline(ushort playerId, out byte[] baseline, out BitQuality quality)
+    {
+        baseline = null;
+        quality = BitQuality.Medium;
+
+        if (!AvatarBaselines.TryGetValue(playerId, out baseline))
+            return false;
+
+        if (!BaselineQuality.TryGetValue(playerId, out byte q))
+            return true;
+
+        quality = (BitQuality)q;
+        return true;
     }
 }

@@ -1,4 +1,4 @@
-using Basis.Scripts.BasisSdk.Players;
+using Basis.BasisUI;
 using Basis.Scripts.Drivers;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
@@ -11,6 +11,10 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
     public int HighmsaaSampleCount = 8;
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
+        if(matchedSettingName != BasisSettingsDefaults.Antialiasing.BindingKey)
+        {
+            return;
+        }
         UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
         if (Camera == null)
         {
@@ -31,7 +35,7 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
             return;
         }
         BasisDebug.Log($"Antialiasing Changed to {optionValue}", BasisDebug.LogTag.Local);
-        switch (optionValue.ToLower())
+        switch (optionValue)
         {
             case "msaa off":
                 Asset.msaaSampleCount = 1;

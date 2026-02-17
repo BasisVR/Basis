@@ -31,7 +31,7 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
 
         Vector3 chestA = data.chest.position;
         Vector3 chestB = data.neck.position;
-        float chestR = Mathf.Max(0f, data.chestRadius + data.collisionSkin);
+        float chestR = Mathf.Max(0f, data.ChestRadius + data.CollisionSkin);
 
         // Draw chest capsule
         Gizmos.matrix = Matrix4x4.identity;
@@ -53,20 +53,20 @@ public class BasisHandCollisionVisualizer : MonoBehaviour
         if (left)
         {
             tgtPos = data.PositionLeftHand;
-            hintPos = data.HintPositionLeftHand;
+            hintPos = data.LeftLowerArmPosition;
             hsLocal = data.LeftHand.position;
             heLocal = data.leftLowerArm.position;
         }
         else
         {
             tgtPos = data.PositionRightHand;
-            hintPos = data.HintPositionRightHand;
+            hintPos = data.RightLowerArmPosition;
             hsLocal = data.RightHand.position;
             heLocal = data.RightLowerArm.position;
         }
-        float handR = Mathf.Max(0f, data.handRadius + data.handSkin);
+        float handR = Mathf.Max(0f, data.HandRadius + data.HandSkin);
 
-        bool useCapsule = data.useHandCapsule;
+        bool useCapsule = data.UseHandCapsule;
 
         if (useCapsule)
         {

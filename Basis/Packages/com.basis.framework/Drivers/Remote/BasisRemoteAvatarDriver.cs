@@ -81,7 +81,9 @@ namespace Basis.Scripts.Drivers
             PutAvatarIntoTPose();
 
             RemotePlayer.BasisAvatar.HumanScale = RemotePlayer.BasisAvatar.Animator.humanScale;
-
+            RemotePlayer.BasisAvatar.Animator.applyRootMotion = false;
+            RemotePlayer.BasisAvatar.Animator.updateMode = AnimatorUpdateMode.Normal;
+            RemotePlayer.BasisAvatar.Animator.speed = 0;
             AvatarInitalScale = Player.BasisAvatar.transform.localScale;
 
             // Auto-detect bone refs and record TPose
@@ -124,7 +126,7 @@ namespace Basis.Scripts.Drivers
                 RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
             }
             // Renderer perf flags
-            RenderMeshSettings(false,BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, false, false,false);
+            RemoteRenderMeshSettings(BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer);
 
             RemotePlayer.BasisAvatar.Animator.logWarnings = false;
 
@@ -153,7 +155,8 @@ namespace Basis.Scripts.Drivers
                 ),
                 NamePlate: RemotePlayer.RemoteNamePlate.Self,
                 AvatarScale: RemotePlayer.BasisAvatar.Animator.transform,
-                MouthTransform: RemotePlayer.MouthTransform
+                MouthTransform: RemotePlayer.MouthTransform,
+                TposedScale: RemotePlayer.RemoteAvatarDriver.AvatarInitalScale
             );
             InBoneDriver = true;
 

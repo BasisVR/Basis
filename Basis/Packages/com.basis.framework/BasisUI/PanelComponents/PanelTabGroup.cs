@@ -16,6 +16,9 @@ namespace Basis.BasisUI
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical.prefab";
             public static string Horizontal =>
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal.prefab";
+
+            public static string HorizontalNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal - No Background.prefab";
+            public static string VerticalNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical - No Background.prefab";
         }
 
 
@@ -28,6 +31,10 @@ namespace Basis.BasisUI
                     return CreateNew<PanelTabGroup>(TabGroupStyles.Vertical, parent);
                 case LayoutDirection.Horizontal:
                     return CreateNew<PanelTabGroup>(TabGroupStyles.Horizontal, parent);
+                case LayoutDirection.HorizontalNoBackground:
+                    return CreateNew<PanelTabGroup>(TabGroupStyles.HorizontalNoBackground, parent);
+                case LayoutDirection.VerticalNoBackground:
+                    return CreateNew<PanelTabGroup>(TabGroupStyles.VerticalNoBackground, parent);
             }
         }
 

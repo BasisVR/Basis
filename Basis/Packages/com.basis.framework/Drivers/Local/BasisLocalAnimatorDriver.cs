@@ -4,9 +4,9 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using Unity.Mathematics;
-using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Avatar;
 
 namespace Basis.Scripts.Animator_Driver
 {

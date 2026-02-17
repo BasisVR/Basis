@@ -51,7 +51,7 @@ namespace Basis.Scripts.Drivers
         public static Action TposeStateChange;
 
         /// <summary>Discovered avatar transform references (head, hands, etc.).</summary>
-        public static BasisTransformMapping References = new BasisTransformMapping();
+        public static BasisTransformMapping Mapping = new BasisTransformMapping();
 
         /// <summary>Saved animator controller used to restore after T-pose.</summary>
         public static RuntimeAnimatorController SavedruntimeAnimatorController;
@@ -96,7 +96,7 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            player.LocalRigDriver.Initialize(player, References);
+            player.LocalRigDriver.Initialize(player, Mapping);
 
             player.LocalRigDriver.CleanupBeforeContinue();
             player.LocalRigDriver.AdditionalTransforms.Clear();
@@ -136,11 +136,11 @@ namespace Basis.Scripts.Drivers
 
             player.LocalBoneDriver.RemoveAllListeners();
             BasisLocalEyeDriver.Initalize();
-            RenderMeshSettings(true, BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, true, true,true);
+            LocalRenderMeshSettings(BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, player.BasisAvatar.FaceVisemeMesh);
 
-            if (References.Hashead)
+            if (Mapping.Hashead)
             {
-                HeadScale = References.head.localScale;
+                HeadScale = Mapping.head.localScale;
             }
             else
             {
@@ -175,7 +175,6 @@ namespace Basis.Scripts.Drivers
             {
                 Spine.HasRigLayer = BasisHasRigLayer.HasRigLayer;
             }
-
             StoredRolesTransforms = BasisAvatarIKStageCalibration.GetAllRolesAsTransform();
             player.AvatarTransform.parent = player.transform;
             player.AvatarTransform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -185,7 +184,7 @@ namespace Basis.Scripts.Drivers
             RemoveJiggleRigColliders();
             if (player.IsConsideredFallBackAvatar == false)
             {
-                AddJiggleRigColliders(References);
+                AddJiggleRigColliders(Mapping);
             }
             BasisHeightDriver.ApplyScaleAndHeight();
 
@@ -195,9 +194,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public static void ScaleHeadToNormal()
         {
-            if (IsNormalHead || Instance == null || References.Hashead == false) return;
+            if (IsNormalHead || Instance == null || Mapping.Hashead == false) return;
 
-            References.head.localScale = HeadScale;
+            Mapping.head.localScale = HeadScale;
             IsNormalHead = true;
         }
 
@@ -214,11 +213,11 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
-            if (References.Hashead == false)
+            if (Mapping.Hashead == false)
             {
                 return;
             }
-            References.head.localScale = HeadScaledDown;
+            Mapping.head.localScale = HeadScaledDown;
             IsNormalHead = false;
         }
 
@@ -309,8 +308,8 @@ namespace Basis.Scripts.Drivers
         {
             var Avatar = LocalPlayer.BasisAvatar;
             FindSkinnedMeshRenders(LocalPlayer);
-            BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref References);
-            References.RecordPoses(LocalPlayer.BasisAvatar.Animator);
+            BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref Mapping);
+            Mapping.RecordPoses(LocalPlayer.BasisAvatar.Animator);
             LocalPlayer.FaceIsVisible = false;
 
             if (Avatar == null)
@@ -353,8 +352,9 @@ namespace Basis.Scripts.Drivers
             ForceUpdateAnimator(BasisLocalPlayer.Instance.BasisAvatar.Animator);
             TposeStateChange?.Invoke();
 
+            BasisLocalPlayer.Instance.LocalRigDriver.DisableAllTrackers();
             //anytime a avatar goes into a tpose we can grab the avatar height information
-            BasisHeightDriver.CaptureAvatarHeight();
+            BasisHeightDriver.CaptureAvatarHeightDuringTpose();
         }
 
         /// <summary>

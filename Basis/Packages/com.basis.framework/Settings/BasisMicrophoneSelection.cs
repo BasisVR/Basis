@@ -39,9 +39,9 @@ public class BasisMicrophoneSelection : MonoBehaviour
         }
 
         Dropdown.AddOptions(TmpOptions);
-        Dropdown.value = MicrophoneToValue(SMDMicrophone.SelectedMicrophone);
-        Volume.value = SMDMicrophone.SelectedVolumeMicrophone;
-        UpdateMicrophoneVolumeText(SMDMicrophone.SelectedVolumeMicrophone);
+        Dropdown.value = MicrophoneToValue(SMDMicrophone.Current.Microphone);
+        Volume.value = SMDMicrophone.Current.Volume01;
+        UpdateMicrophoneVolumeText(SMDMicrophone.Current.Volume01);
     }
 
     public int MicrophoneToValue(string Active)
@@ -65,15 +65,33 @@ public class BasisMicrophoneSelection : MonoBehaviour
 
     private void VolumeChanged(float value)
     {
-        SMDMicrophone.SaveVolumeSettings(BasisDeviceManagement.StaticCurrentMode, value);
+        // Ensure we’re operating on the active mode snapshot (covers mode swaps while UI is open)
+        if (SMDMicrophone.CurrentMode != BasisDeviceManagement.StaticCurrentMode)
+        {
+            SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.StaticCurrentMode);
+        }
+
+        // Single source of truth (updates prefs + emits ONE settings-changed event)
+        SMDMicrophone.SetVolume(value);
+
         UpdateMicrophoneVolumeText(value);
     }
 
     private void ApplyChanges(int index)
     {
-        SMDMicrophone.SaveMicrophoneData(BasisDeviceManagement.StaticCurrentMode, SMDMicrophone.MicrophoneDevices[index]);
-    }
+        if (SMDMicrophone.CurrentMode != BasisDeviceManagement.StaticCurrentMode)
+        {
+            SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.StaticCurrentMode);
+        }
 
+        var devices = SMDMicrophone.MicrophoneDevices;
+        if (devices == null || devices.Length == 0) return;
+
+        index = Mathf.Clamp(index, 0, devices.Length - 1);
+
+        // Single source of truth (updates prefs + emits ONE settings-changed event)
+        SMDMicrophone.SetMicrophone(devices[index]);
+    }
     private void UpdateMicrophoneVolumeText(float value)
     {
         int percentage = Mathf.RoundToInt(value * 100);

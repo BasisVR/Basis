@@ -11,6 +11,8 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.EventSystems;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.UI;
+using UnityEngine.UIElements;
+using static BasisHeightDriver;
 
 namespace Basis.Scripts.UI
 {
@@ -89,9 +91,34 @@ namespace Basis.Scripts.UI
                 LineRenderer.positionCount = 2;
                 HasLineRenderer = true;
                 LineRenderer.enabled = HasLineRenderer;
-                LineRenderer.numCapVertices = 12;
-                LineRenderer.numCornerVertices = 12;
+                LineRenderer.numCapVertices = 32;
+                LineRenderer.numCornerVertices = 32;
                 LineRenderer.gameObject.layer = UILayer;
+
+                LineRenderer.useWorldSpace = true;
+                LineRenderer.textureMode = LineTextureMode.Tile;
+                LineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                LineRenderer.startWidth = 0.1f;
+                LineRenderer.endWidth = 0.1f;
+                LineRenderer.widthMultiplier = BasisPlayerInteract.interactLineWidth;
+                LineRenderer.useWorldSpace = true;
+                LineRenderer.textureMode = LineTextureMode.Tile;
+                LineRenderer.applyActiveColorSpace = false;
+                var g = new Gradient();
+                g.SetKeys(
+                    new[]
+                    {
+        new GradientColorKey(new Color(0.3019608f,0.09411766f,0.2980392f), 0f),
+        new GradientColorKey(new Color(0.1058824f,0.1411765f,0.3137255f), 1f),
+                    },
+                    new[]
+                    {
+        new GradientAlphaKey(1.00f, 1),
+        new GradientAlphaKey(1, 0),
+                    }
+                );
+
+                LineRenderer.colorGradient = g;
             }
             if (basisInput.DeviceMatchSettings.HasRayCastRadical)
             {
@@ -122,18 +149,23 @@ namespace Basis.Scripts.UI
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChanged;
             }
         }
-
         public void OnPlayersHeightChanged()
         {
+            OnPlayersHeightChanged(HeightModeChange.OnTpose);
+        }
+
+        public void OnPlayersHeightChanged(HeightModeChange Mode)
+        {
+            float uiScale = BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
             if (LineRenderer != null)
             {
-                float Size = lineWidth * BasisHeightDriver.AvatarToPlayerScale;
-                LineRenderer.startWidth = Size;
-                LineRenderer.endWidth = Size;
+                float size = lineWidth * uiScale;
+                LineRenderer.startWidth = size;
+                LineRenderer.endWidth = size;
             }
             if (highlightQuadInstance != null)
             {
-                highlightQuadInstance.transform.localScale = highlightQuadInitalSize * BasisHeightDriver.AvatarToPlayerScale;
+                highlightQuadInstance.transform.localScale = highlightQuadInitalSize * uiScale;
             }
         }
 
@@ -249,8 +281,13 @@ namespace Basis.Scripts.UI
 
             if (HasLineRenderer)
             {
-                LineRenderer.SetPosition(0, BasisPointRaycaster.ray.origin);
-                LineRenderer.SetPosition(1, PhysicHit.point);
+                const float endOffset = 0.01f; // tweak in meters (VR usually likes 0.005–0.02)
+
+                Vector3 start = BasisPointRaycaster.ray.origin;
+                Vector3 end = PhysicHit.point + PhysicHit.normal * endOffset;
+
+                LineRenderer.SetPosition(0, start);
+                LineRenderer.SetPosition(1, end);
             }
         }
 

@@ -1,6 +1,7 @@
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections.Generic;
 using UnityEngine;
+using static Basis.Scripts.Avatar.BasisAvatarIKStageCalibration;
 namespace Basis.Scripts.Avatar
 {
     /// <summary>

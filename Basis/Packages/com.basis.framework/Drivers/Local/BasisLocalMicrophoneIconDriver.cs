@@ -103,9 +103,7 @@ namespace Basis.Scripts.Drivers
             float u = Mathf.Clamp(VRdesiredNormXY.x, -1f + marginU, 1f - marginU);
             float v = Mathf.Clamp(VRdesiredNormXY.y, -1f + marginV, 1f - marginV);
 
-            Vector3 centerAtDepth = cam.transform.InverseTransformPoint(
-                Position + cam.transform.forward * BasisHeightDriver.AvatarToPlayerScale
-            );
+            Vector3 centerAtDepth = cam.transform.InverseTransformPoint(Position + cam.transform.forward * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale);
 
             Vector3 rightLocal = (TR - TL).normalized;
             Vector3 upLocal = (TL - BL).normalized;

@@ -61,6 +61,12 @@ public struct TposeAndOffsetDataJob
     public float3 offsets_unscaled_CenterEye;
     /// <summary>Unscaled offset from head to mouth.</summary>
     public float3 offsets_unscaled_Mouth;
+
+
+    /// <summary>
+    /// default scale
+    /// </summary>
+    public float3 TposeScale;
 }
 
 /// <summary>
@@ -173,6 +179,10 @@ public struct BasisRemoteBoneJob : IJobParallelFor
         float3 spineP = chestP + math.mul(headR, sc.offsets_scaled_Spine);
         float3 eyeP = headP + math.mul(headR, sc.offsets_scaled_CenterEye);
         float3 mouthP = headP + math.mul(headR, sc.offsets_scaled_Mouth);
+
+
+        float3 difference = SafeDivide(f.nowScale, a.TposeScale);
+
         Out[i] = new RemoteFrameOutput
         {
             pos_Head = headP,
@@ -189,9 +199,19 @@ public struct BasisRemoteBoneJob : IJobParallelFor
             rot_Hips = hipsR,
             rot_CenterEye = headR,
             rot_Mouth = headR,
+
+
             // Used for vertical offsetting of the nameplate UI
-            HeightAvatarHipCoord = sc.tposeLocal_scaled_Hips.y * 1.2f
+            HeightAvatarHipCoord = difference.y * 1.2f,
         };
+    }
+    float3 SafeDivide(float3 numerator, float3 denominator)
+    {
+        const float eps = 1e-6f;
+
+        float3 safeDenom = math.select(denominator,math.sign(denominator) * eps, math.abs(denominator) < eps);
+
+        return numerator / safeDenom;
     }
 }
 
@@ -488,9 +508,7 @@ public static class RemoteBoneJobSystem
     /// <param name="AvatarScale">Transform used for avatar scaling (if any).</param>
     /// <param name="MouthTransform">Mouth transform to be driven.</param>
     /// <returns>The provided <paramref name="key"/>.</returns>
-    public static int AddRemotePlayer(int key, Transform remotePlayerRoot, Transform head, Transform hips,
-        BasisCalibratedCoords tposeHead, BasisCalibratedCoords tposeHips, float3 authoredCenterEyeWorld,
-        float3 authoredMouthWorld, Transform NamePlate, Transform AvatarScale, Transform MouthTransform)
+    public static int AddRemotePlayer(int key, Transform remotePlayerRoot, Transform head, Transform hips,BasisCalibratedCoords tposeHead, BasisCalibratedCoords tposeHips, float3 authoredCenterEyeWorld,float3 authoredMouthWorld, Transform NamePlate, Transform AvatarScale, Transform MouthTransform,float3 TposedScale)
     {
         if (!sInitialized) Initialize();
         CompletePending();
@@ -527,7 +545,8 @@ public static class RemoteBoneJobSystem
             offsets_unscaled_Chest = offChest,
             offsets_unscaled_Spine = offSpine,
             offsets_unscaled_CenterEye = offEye,
-            offsets_unscaled_Mouth = offMouth
+            offsets_unscaled_Mouth = offMouth,
+             TposeScale = TposedScale
         };
 
         int idx = sAuthoring.Length;

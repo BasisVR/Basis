@@ -34,7 +34,10 @@ public class BasisAnimationsToIK : MonoBehaviour
 
         foreach (BasisInputXRSimulate tracker in simulated.Inputs)
         {
-            if (tracker == null) continue;
+            if (tracker == null)
+            {
+                continue;
+            }
 
             if (tracker.TryGetRole(out BasisBoneTrackedRole role) && BasisAvatarDriver.TryConvertToHumanoidRole(role, out HumanBodyBones humanoidBone))
             {

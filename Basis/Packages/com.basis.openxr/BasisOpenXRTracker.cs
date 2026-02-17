@@ -29,7 +29,10 @@ public class BasisOpenXRTracker : BasisInput
         DisableInputActions();
         base.OnDestroy();
     }
-    public override void DoPollData()
+    public override void LateDoPollData()
+    {
+    }
+    public override void RenderPollData()
     {
         if (Position.action != null)
         {

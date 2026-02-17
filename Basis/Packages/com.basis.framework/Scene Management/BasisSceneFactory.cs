@@ -1,11 +1,9 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Audio;
 using UnityEngine.Rendering.Universal;
 
 public static class BasisSceneFactory
@@ -143,9 +141,9 @@ public static class BasisSceneFactory
         }
         OnSpawnedEvent?.Invoke();
     }
-    public static void Simulate()
+    public static void Simulate(float FixedDeltaTime)
     {
-        timeSinceLastCheck += Time.deltaTime;
+        timeSinceLastCheck += FixedDeltaTime;
         // Check only if enough time has passed
         if (timeSinceLastCheck > RespawnCheckTimer)
         {

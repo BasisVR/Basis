@@ -7,9 +7,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
-using static BasisSerialization;
-
+using UnityEngine.SceneManagement;
 public static class BasisBundleBuild
 {
     public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
@@ -437,5 +437,79 @@ public static class BasisBundleBuild
         }
         Debug.Log("Hexadecimal string conversion successful.");
         return hex.ToString();
+    }
+public static class OcclusionCullingTools
+{
+    public static void ClearOcclusion(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded) return;
+
+        // Ensure scene is active so APIs behave consistently
+        Scene prev = SceneManager.GetActiveScene();
+        SceneManager.SetActiveScene(scene);
+
+        // Unity editor API for clearing occlusion data
+        StaticOcclusionCulling.Clear();
+
+        // Mark dirty so it can be saved if you choose to
+        EditorSceneManager.MarkSceneDirty(scene);
+
+        SceneManager.SetActiveScene(prev);
+        Debug.Log($"Cleared occlusion data for scene: {scene.path}");
+    }
+
+    public static void BakeOcclusion(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded) return;
+
+        Scene prev = SceneManager.GetActiveScene();
+        SceneManager.SetActiveScene(scene);
+
+        // Bake (can take time; runs in editor)
+        StaticOcclusionCulling.GenerateInBackground();
+
+        // Optionally wait until it's done if you need deterministic output:
+        // while (StaticOcclusionCulling.isRunning) { /* pump editor? */ }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+
+        SceneManager.SetActiveScene(prev);
+        Debug.Log($"Started occlusion bake for scene: {scene.path}");
+    }
+}
+public static class OcclusionPolicyConfig
+    {
+        // Decide what you want per platform.
+        public static OcclusionPolicy ForTarget(BuildTarget t)
+        {
+            // Mobile currently unsupported: do nothing (or clear, if you prefer)
+            if (t == BuildTarget.Android || t == BuildTarget.iOS)
+                return OcclusionPolicy.LeaveAsIs;
+
+            // Example:
+            // - Windows/Mac/Linux: bake
+            // - WebGL: clear (often not worth it / can be problematic depending on your pipeline)
+            switch (t)
+            {
+                case BuildTarget.StandaloneWindows:
+                case BuildTarget.StandaloneWindows64:
+                case BuildTarget.StandaloneOSX:
+                case BuildTarget.StandaloneLinux64:
+                    return OcclusionPolicy.Bake;
+
+                case BuildTarget.WebGL:
+                    return OcclusionPolicy.Clear;
+
+                default:
+                    return OcclusionPolicy.LeaveAsIs;
+            }
+        }
+    }
+
+    public enum OcclusionPolicy
+    {
+        LeaveAsIs,
+        Clear,
+        Bake
     }
 }

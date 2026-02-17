@@ -1,21 +1,45 @@
 using Basis.Scripts.Device_Management.Devices.OpenVR;
 using Basis.Scripts.TransformBinders.BoneControl;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.SpatialTracking;
 using Valve.VR;
+using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
+
 namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
 {
     [DefaultExecutionOrder(15001)]
     public class BasisOpenVRInputSpatial : BasisInput
     {
-        public TrackedPoseDriver.TrackedPose TrackedPose = TrackedPoseDriver.TrackedPose.Center;
+        // SteamVR/OpenVR tracked device backing this "spatial" device
+        public OpenVRDevice Device;
+
+        // Compositor poses (same pattern as your controller)
+        public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
+        public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
+        public EVRCompositorError result;
+
+        // Optional: keep if you still want a notion of what this *represents*
+        // (CenterEye vs GenericTracker etc). Not used for pose anymore.
+        public BasisBoneTrackedRole InitialRole;
+
         public BasisOpenVRInputEye BasisOpenVRInputEye;
         public BasisLocalVirtualSpineDriver BasisVirtualSpine = new BasisLocalVirtualSpineDriver();
-        public void Initialize(TrackedPoseDriver.TrackedPose trackedPose, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
+
+        /// <summary>
+        /// SteamVR/OpenVR init. Mirrors your controller-style init.
+        /// </summary>
+        public void Initialize(
+            OpenVRDevice device,
+            string UniqueID,
+            string UnUniqueID,
+            string subSystems,
+            bool AssignTrackedRole,
+            BasisBoneTrackedRole basisBoneTrackedRole)
         {
-            TrackedPose = trackedPose;
+            Device = device;
+            InitialRole = basisBoneTrackedRole;
+
             InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
+
             if (basisBoneTrackedRole == BasisBoneTrackedRole.CenterEye)
             {
                 BasisOpenVRInputEye = gameObject.AddComponent<BasisOpenVRInputEye>();
@@ -23,37 +47,84 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
                 BasisVirtualSpine.Initialize();
             }
         }
+
         public new void OnDestroy()
         {
             BasisVirtualSpine.DeInitialize();
-            BasisOpenVRInputEye.Shutdown();
+
+            if (BasisOpenVRInputEye != null)
+                BasisOpenVRInputEye.Shutdown();
+
             base.OnDestroy();
         }
-        public override void DoPollData()
-        {
-            if (PoseDataSource.TryGetDataFromSource(TrackedPose, out Pose resultPose))
-            {
-                ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, resultPose.position);
-                UnscaledDeviceCoord.rotation = resultPose.rotation;
 
-                ConvertToScaledDeviceCoord();
-                if (TryGetRole(out var CurrentRole) && CurrentRole == BasisBoneTrackedRole.CenterEye)
+        public override void LateDoPollData()
+        {
+            // Intentionally empty (matches your existing pattern)
+        }
+
+        public override void RenderPollData()
+        {
+            if (!SteamVR.active || SteamVR.instance == null || SteamVR.instance.compositor == null)
+            {
+                BasisDebug.LogError("Cant Poll SteamVR was not active");
+                return;
+            }
+            // Pull latest pose directly from compositor (SteamVR way)
+            result = SteamVR.instance.compositor.GetLastPoseForTrackedDeviceIndex(
+                Device.deviceIndex,
+                ref devicePose,
+                ref deviceGamePose
+            );
+
+            if (result != EVRCompositorError.None)
+            {
+                return;
+            }
+
+            if (!devicePose.bPoseIsValid)
+            {
+                return;
+            }
+
+            // Unscaled device coord in *real* tracking space
+            ComputeUnscaledDeviceCoord(
+                ref UnscaledDeviceCoord,
+                devicePose.mDeviceToAbsoluteTracking.GetPosition()
+            );
+            UnscaledDeviceCoord.rotation = devicePose.mDeviceToAbsoluteTracking.GetRotation();
+
+            // Your existing scaling pipeline
+            ConvertToScaledDeviceCoord();
+
+            // CenterEye extra simulation path
+            if (TryGetRole(out var currentRole) && currentRole == BasisBoneTrackedRole.CenterEye)
+            {
+                if (BasisOpenVRInputEye != null)
                 {
                     BasisOpenVRInputEye.Simulate();
                 }
             }
+
+            // Push into your device pipeline
             ControlOnlyAsDevice();
+
+            // Ray: same as before
             ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
+
             UpdateInputEvents();
         }
+
         public override void ShowTrackedVisual()
         {
             if (BasisVisualTracker == null)
             {
-                DeviceSupportInformation Match = BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
-                if (Match.CanDisplayPhysicalTracker)
+                DeviceSupportInformation match =
+                    BasisDeviceManagement.Instance.BasisDeviceNameMatcher.GetAssociatedDeviceMatchableNames(CommonDeviceIdentifier);
+
+                if (match.CanDisplayPhysicalTracker)
                 {
-                    LoadModelWithKey(Match.DeviceID);
+                    LoadModelWithKey(match.DeviceID);
                 }
                 else
                 {
@@ -64,10 +135,12 @@ namespace Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking
                 }
             }
         }
+
         public override void PlayHaptic(float duration = 0.25F, float amplitude = 0.5F, float frequency = 0.5F)
         {
             BasisDebug.LogError("Spatial does not support Haptics Playback");
         }
+
         public override void PlaySoundEffect(string SoundEffectName, float Volume)
         {
             PlaySoundEffectDefaultImplementation(SoundEffectName, Volume);

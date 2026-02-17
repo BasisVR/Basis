@@ -53,14 +53,24 @@ namespace Basis.Scripts.UI
 
         public void Add(MonoBehaviour requester)
         {
+            if (requesters.Contains(requester))
+            {
+                return;
+            }
             requesters.Add(requester);
-            if (sceneInstance) sceneInstance.VerifyAtEndOfFrame();
+            if (sceneInstance)
+            {
+                sceneInstance.VerifyAtEndOfFrame();
+            }
         }
 
         public void Remove(MonoBehaviour requester)
         {
             requesters.Remove(requester);
-            if (sceneInstance) sceneInstance.VerifyAtEndOfFrame();
+            if (sceneInstance)
+            {
+                sceneInstance.VerifyAtEndOfFrame();
+            }
         }
     }
 }

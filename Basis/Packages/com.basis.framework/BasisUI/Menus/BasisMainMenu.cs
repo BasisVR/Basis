@@ -1,4 +1,3 @@
-using Basis.Scripts.UI.UI_Panels;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -12,7 +11,11 @@ namespace Basis.BasisUI
         {
             get
             {
-                if (!Instance || !Instance.ActiveMenu) return string.Empty;
+                if (!Instance || !Instance.ActiveMenu)
+                {
+                    return string.Empty;
+                }
+
                 return Instance.ActiveMenu.Data.Title;
             }
         }
@@ -24,13 +27,9 @@ namespace Basis.BasisUI
 
         public BasisMainMenu()
         {
-            HotbarMenu = BasisMenuPanel.CreateNew(
-                BasisMenuPanel.PanelData.Toolbar(MenuTitle),
-                MenuObjectInstance.PanelRoot);
+            HotbarMenu = BasisMenuPanel.CreateNew(BasisMenuPanel.PanelData.Toolbar(MenuTitle), MenuObjectInstance.PanelRoot);
 
-            HorizontalLayout = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.ScrollViewHorizontal, 
-                HotbarMenu.Descriptor.ContentParent);
+            HorizontalLayout = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.ScrollViewHorizontal, HotbarMenu.Descriptor.ContentParent);
 
             BindProvidersToButtons();
         }
@@ -39,20 +38,34 @@ namespace Basis.BasisUI
         {
             BasisUIManagement.CloseAllMenus();
 
-            if (Instance) Instance.Release();
+            if (Instance)
+            {
+                Instance.Release();
+            }
+
             Instance = new BasisMainMenu();
             BasisCursorManagement.UnlockCursor(nameof(BasisMainMenu));
         }
 
         public static void Toggle()
         {
-            if (Instance) Close();
-            else Open();
+            if (Instance)
+            {
+                Close();
+            }
+            else
+            {
+                Open();
+            }
         }
 
         public static void Close()
         {
-            if (!Instance) return;
+            if (!Instance)
+            {
+                return;
+            }
+
             Instance.Release();
             Instance = null;
             BasisCursorManagement.LockCursor(nameof(BasisMainMenu));
@@ -67,15 +80,16 @@ namespace Basis.BasisUI
             if (Instance.ActiveMenu)
             {
                 if (Instance.ActiveMenu.Data.Title == data.Title)
+                {
                     return Instance.ActiveMenu;
+                }
                 else
+                {
                     Instance.ActiveMenu.ReleaseInstance();
+                }
             }
 
-            Instance.ActiveMenu = BasisMenuPanel.CreateNew(
-                data,
-                Instance.MenuObjectInstance.PanelRoot,
-                style);
+            Instance.ActiveMenu = BasisMenuPanel.CreateNew( data, Instance.MenuObjectInstance.PanelRoot, style);
             return Instance.ActiveMenu;
         }
     }

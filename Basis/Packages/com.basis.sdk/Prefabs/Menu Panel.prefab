@@ -279,7 +279,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_TargetDisplay: 0
 --- !u!114 &3549843446976270124
 MonoBehaviour:
@@ -366,6 +366,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelElement
   _clearOnAwake: 1
+  _useDefaultIconForNull: 0
   <DefaultIcon>k__BackingField: {fileID: 0}
   <DefaultTexture>k__BackingField: {fileID: 0}
   <DefaultTitle>k__BackingField: Page Title

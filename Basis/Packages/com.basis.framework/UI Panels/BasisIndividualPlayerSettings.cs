@@ -105,11 +105,6 @@ public class BasisIndividualPlayerSettings : BasisUIBase
         UserVolumeOverride.onValueChanged.AddListener(value => ChangePlayersVolume(RemotePlayer.UUID, value));
     }
 
-    float SnapValue(float value)
-    {
-        return Mathf.Round(value / step) * step;
-    }
-
     public async void ToggleAvatarInteractions(string playerUUID)
     {
         var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(playerUUID);
@@ -155,6 +150,11 @@ public class BasisIndividualPlayerSettings : BasisUIBase
         }
         bool over = volume > 1.0f;
         SliderVolumePercentage.color = over ? Color.red : Color.white;
+    }
+
+    float SnapValue(float value)
+    {
+        return Mathf.Round(value / step) * step;
     }
     public void Update()
     {

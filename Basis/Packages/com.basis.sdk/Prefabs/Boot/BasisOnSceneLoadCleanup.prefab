@@ -147,14 +147,14 @@ Light:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5639681454576053259}
   m_Enabled: 1
-  serializedVersion: 11
+  serializedVersion: 12
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 1.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
-  m_CookieSize: 10
+  m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 2
     m_Resolution: -1
@@ -243,7 +243,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1521688259443178838}
   - component: {fileID: 2233025765587422440}
-  - component: {fileID: 2964141905449137060}
   - component: {fileID: 1035056478208136688}
   m_Layer: 0
   m_Name: BasisOnSceneLoadCleanup
@@ -282,24 +281,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TriggerOn: 1
---- !u!114 &2964141905449137060
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6945557231596396514}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8b8ccb530de3d8f438caa72441558765, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  LoadRequest: UserNamePanel
-  Selector: 1
-  Result: {fileID: 0}
-  Position: {x: 0, y: 0, z: 1}
-  Rotation: {x: 0, y: 0, z: 0, w: 1}
-  ReleaseOnDestroy: 0
 --- !u!114 &1035056478208136688
 MonoBehaviour:
   m_ObjectHideFlags: 0

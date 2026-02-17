@@ -1,69 +1,84 @@
 using System;
 using UnityEngine;
 using UnityEngine.Audio;
+using Basis.BasisUI;
+
 public class SMModuleAudio : BasisSettingsBase
 {
     public AudioMixer Mixer;
     public AudioMixerGroup WorldDefaultMixer;
+
     public static SMModuleAudio Instance;
+
+    public static Action<float> MainVolume;
+    public static Action<float> MenusVolume;
+    public static Action<float> WorldVolume;
+    public static Action<float> PlayerVolume;
+
+    public static float ActiveMainVolume;
+    public static float ActiveMenusVolume;
+    public static float ActiveWorldVolume;
+    public static float ActivePlayerVolume;
+
+    // --- Binding names (single source of truth) ---
+    private static string K_MAIN_VOLUME => BasisSettingsDefaults.MainVolume.BindingKey;
+    private static string K_MENU_VOLUME => BasisSettingsDefaults.MenuVolume.BindingKey;
+    private static string K_WORLD_VOLUME => BasisSettingsDefaults.WorldVolume.BindingKey;
+    private static string K_PLAYER_VOLUME => BasisSettingsDefaults.PlayerVolume.BindingKey;
+
     public new void Awake()
     {
         Instance = this;
         base.Awake();
     }
-    public static Action<float> MainVolume;
-    public static Action<float> MenusVolume;
-    public static Action<float> WorldVolume;
-    public static Action<float> PlayerVolume;
-    public static float ActiveMainVolume;
-    public static float ActiveMenusVolume;
-    public static float ActiveWorldVolume;
-    public static float ActivePlayerVolume;
+
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
         switch (matchedSettingName)
         {
-            case "main volume":
-                if (SliderReadOption(optionValue, out float NewActiveMainVolume))
+            case var s when s == K_MAIN_VOLUME:
+                if (SliderReadOption(optionValue, out float newMain))
                 {
-                    BasisDebug.Log($"setting main Volume to {NewActiveMainVolume}");
-                    ActiveMainVolume = NewActiveMainVolume / 100;
+                    BasisDebug.Log($"setting main Volume to {newMain}");
+                    ActiveMainVolume = newMain / 100f;
                     MainVolume?.Invoke(ActiveMainVolume);
                     AudioListener.volume = ActiveMainVolume;
                 }
                 break;
-            case "menu volume":
-                if (SliderReadOption(optionValue, out float NewActiveMenusVolume))
+
+            case var s when s == K_MENU_VOLUME:
+                if (SliderReadOption(optionValue, out float newMenus))
                 {
-                    BasisDebug.Log($"setting Menu Volume to {NewActiveMenusVolume}");
-                    ActiveMenusVolume = ChangeVolume(NewActiveMenusVolume, "menu");
+                    BasisDebug.Log($"setting Menu Volume to {newMenus}");
+                    ActiveMenusVolume = ChangeVolume(newMenus, "menu");
                     MenusVolume?.Invoke(ActiveMenusVolume);
                 }
                 break;
-            case "world volume":
-                if (SliderReadOption(optionValue, out float NewActiveWorldVolume))
+
+            case var s when s == K_WORLD_VOLUME:
+                if (SliderReadOption(optionValue, out float newWorld))
                 {
-                    BasisDebug.Log($"setting world Volume to {NewActiveWorldVolume}");
-                    ActiveWorldVolume = ChangeVolume(NewActiveWorldVolume, "world");
+                    BasisDebug.Log($"setting world Volume to {newWorld}");
+                    ActiveWorldVolume = ChangeVolume(newWorld, "world");
                     WorldVolume?.Invoke(ActiveWorldVolume);
                 }
                 break;
-            case "player volume":
-                if (SliderReadOption(optionValue, out float NewActivePlayerVolume))
+
+            case var s when s == K_PLAYER_VOLUME:
+                if (SliderReadOption(optionValue, out float newPlayer))
                 {
-                    BasisDebug.Log($"setting player Volume to {NewActivePlayerVolume}");
-                    ActivePlayerVolume = ChangeVolume(NewActivePlayerVolume, "player");
+                    BasisDebug.Log($"setting player Volume to {newPlayer}");
+                    ActivePlayerVolume = ChangeVolume(newPlayer, "player");
                     PlayerVolume?.Invoke(ActivePlayerVolume);
                 }
                 break;
-            default:
-                BasisDebug.LogError($"Missing Audio Settings for {matchedSettingName}");
-                break;
         }
     }
+
     public override void ChangedSettings()
     {
     }
+
     public float ChangeVolume(float value, string name)
     {
         // Convert 0–100 slider to 0.0001–1 (linear scale)

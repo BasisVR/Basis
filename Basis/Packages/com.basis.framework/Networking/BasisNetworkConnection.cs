@@ -4,12 +4,10 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Transmitters;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
 using System;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using static SerializableBasis;
@@ -152,7 +150,6 @@ namespace Basis.Scripts.Networking
                     BasisNetworkManagement.Instance.transform.GetPositionAndRotation(out Vector3 _, out Quaternion _);
 
                     var transmitter = new BasisNetworkTransmitter(localPlayerID);
-                    BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out transmitter.TransmissionResults.MouthBone, BasisBoneTrackedRole.Mouth);
                     BasisNetworkManagement.Transmitter = transmitter;
                     BasisNetworkManagement.Instance.LocalAccessTransmitter = transmitter;
                     transmitter.Player = BasisLocalPlayer.Instance;

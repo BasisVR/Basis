@@ -38,14 +38,14 @@ public class BasisOpenXRHandInput : BasisInputController
     {
         HandBiasSplay = 0;
         leftHandToIKRotationOffset = new Vector3(0, 0, -180);
-        rightHandToIKRotationOffset = new Vector3(0, 0, 0);
+        rightHandToIKRotationOffset = new Vector3(0, 0, 0);//mistake
 
-        LeftHandPalmCorrection = new Vector3(0, 0, 0);
+        LeftHandPalmCorrection = new Vector3(0, 0, -90);
 
-        RightHandPalmCorrection = new Vector3(0, 0, 0);
+        RightHandPalmCorrection = new Vector3(0, 0, -90);
 
-        leftHandToIKPositionOffset = new Vector3(0,0, 0);
-        rightHandToIKPositionOffset = new Vector3(0,0, 0);
+        leftHandToIKPositionOffset = new Vector3(0,0, -0.05f);
+        rightHandToIKPositionOffset = new Vector3(0,0, -0.05f);
 
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole,true);
         string devicePath = basisBoneTrackedRole == BasisBoneTrackedRole.LeftHand ? "<XRController>{LeftHand}" : "<XRController>{RightHand}";
@@ -113,10 +113,13 @@ public class BasisOpenXRHandInput : BasisInputController
         DisableInputActions();
         base.OnDestroy();
     }
-    public override void DoPollData()
+    public override void LateDoPollData()
     {
-        CurrentInputState.Primary2DAxis = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
-        CurrentInputState.Secondary2DAxis = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+    }
+    public override void RenderPollData()
+    {
+        CurrentInputState.Primary2DAxisRaw = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Secondary2DAxisRaw = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
         CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
         CurrentInputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
         CurrentInputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > TriggerDownAmount;
@@ -140,9 +143,16 @@ public class BasisOpenXRHandInput : BasisInputController
         ConvertToScaledDeviceCoord();
         ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
         UpdateRaycastOffset();
-        float avatarScale = BasisHeightDriver.AvatarToPlayerScale;
+        float playerToAvatar = BasisHeightDriver.DeviceScale;
 
-        ComputeRaycastDirection(OffsetCoords.position + (PointerPositionYScaled.position * avatarScale), HandFinal.rotation, ActiveRaycastOffset);
+        var originLocal = PointerPositionYScaled.position * playerToAvatar;
+        var originWorld = OffsetCoords.position + (OffsetCoords.rotation * originLocal);
+
+        ComputeRaycastDirection(
+            originWorld,
+            HandFinal.rotation,
+            ActiveRaycastOffset
+        );
         UpdateInputEvents();
     }
     public BasisCalibratedCoords PointerPositionYScaled;
@@ -156,52 +166,78 @@ public class BasisOpenXRHandInput : BasisInputController
     /// <param name="updateType"></param>
     public void OnHandUpdate(XRHandSubsystem subsystem, XRHandSubsystem.UpdateSuccessFlags flags, XRHandSubsystem.UpdateType updateType)
     {
-        if (TryGetRole(out BasisBoneTrackedRole assignedRole))
+        if (!TryGetRole(out BasisBoneTrackedRole assignedRole)) return;
+
+        float playerToAvatar = BasisHeightDriver.DeviceScale;
+
+        // helper local function (keeps the diff small)
+        Vector3 ApplyOffsetToPos(Vector3 rawLocalPos)
         {
-            float avatarScale = BasisHeightDriver.AvatarToPlayerScale;
-            switch (assignedRole)
-            {
-                case BasisBoneTrackedRole.LeftHand:
-                    if (subsystem.leftHand.isTracked)
+            // rawLocalPos is in your “device/player” space; we scale first, then rotate+translate by offset
+            Vector3 scaled = ChangeHandYHeight(rawLocalPos) * playerToAvatar;
+            return OffsetCoords.position + (OffsetCoords.rotation * scaled);
+        }
+
+        Quaternion ApplyOffsetToRot(Quaternion rawRot)
+        {
+            return OffsetCoords.rotation * rawRot;
+        }
+
+        switch (assignedRole)
+        {
+            case BasisBoneTrackedRole.LeftHand:
+                if (subsystem.leftHand.isTracked)
+                {
+                    UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
+
+                    // keep your existing “final rotation” logic, but (optionally) parent it to OffsetCoords.rotation
+                    HandFinal.rotation = HandleHandFinalRotation(ApplyOffsetToRot(HandRaw.rotation));
+                    HandFinal.position = ApplyOffsetToPos(HandRaw.position);
+                }
+                else
+                {
+                    HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
+                    HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
+
+                    var corrected = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
+                    HandFinal.rotation = ApplyOffsetToRot(corrected);
+                    HandFinal.position = ApplyOffsetToPos(HandRaw.position);
+
+                    FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand);
+
+                    if (UseIKPositionOffset)
                     {
-                        UpdateHandPose(subsystem.leftHand, BasisLocalPlayer.Instance.LocalHandDriver.LeftHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandleHandFinalRotation(HandRaw.rotation);
-                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
+                        // IK offset should be rotated by the *same* frame you’re using (use HandFinal.rotation usually)
+                        HandFinal.position += (HandFinal.rotation * (leftHandToIKPositionOffset * playerToAvatar));
                     }
-                    else
+                }
+                break;
+
+            case BasisBoneTrackedRole.RightHand:
+                if (subsystem.rightHand.isTracked)
+                {
+                    UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
+
+                    HandFinal.rotation = HandleHandFinalRotation(ApplyOffsetToRot(HandRaw.rotation));
+                    HandFinal.position = ApplyOffsetToPos(HandRaw.position);
+                }
+                else
+                {
+                    HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
+                    HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
+
+                    var corrected = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
+                    HandFinal.rotation = ApplyOffsetToRot(corrected);
+                    HandFinal.position = ApplyOffsetToPos(HandRaw.position);
+
+                    FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.RightHand);
+
+                    if (UseIKPositionOffset)
                     {
-                        HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
-                        HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
-                        HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(LeftHandPalmCorrection));
-                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
-                        FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.LeftHand);
-                        if (UseIKPositionOffset)
-                        {
-                            HandFinal.position += HandRaw.rotation * (leftHandToIKPositionOffset * avatarScale);
-                        }
+                        HandFinal.position += (HandFinal.rotation * (rightHandToIKPositionOffset * playerToAvatar));
                     }
-                    break;
-                case BasisBoneTrackedRole.RightHand:
-                    if (subsystem.rightHand.isTracked)
-                    {
-                        UpdateHandPose(subsystem.rightHand, BasisLocalPlayer.Instance.LocalHandDriver.RightHand, out HandRaw.position, out HandRaw.rotation);
-                        HandFinal.rotation = HandleHandFinalRotation(HandRaw.rotation);
-                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
-                    }
-                    else
-                    {
-                        HandRaw.position = PalmPoseActionPosition.action.ReadValue<Vector3>();
-                        HandRaw.rotation = PalmPoseActionRotation.action.ReadValue<Quaternion>();
-                        HandFinal.rotation = math.mul(HandRaw.rotation, Quaternion.Euler(RightHandPalmCorrection));
-                        HandFinal.position = OffsetCoords.position + (ChangeHandYHeight(HandRaw.position) * avatarScale);
-                        FallbackHand(BasisLocalPlayer.Instance.LocalHandDriver.RightHand);
-                        if (UseIKPositionOffset)
-                        {
-                            HandFinal.position += HandRaw.rotation * (rightHandToIKPositionOffset * avatarScale);
-                        }
-                    }
-                    break;
-            }
+                }
+                break;
         }
     }
     public void FallbackHand(BasisFingerPose Hand)

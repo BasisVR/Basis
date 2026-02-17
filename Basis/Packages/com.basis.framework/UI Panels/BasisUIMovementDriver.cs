@@ -2,6 +2,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using UnityEngine;
+using static BasisHeightDriver;
 namespace Basis.Scripts.UI.UI_Panels
 {
     public class BasisUIMovementDriver : MonoBehaviour
@@ -43,7 +44,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (SnapToPlayOnDistance)
             {
-                BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUIFollow);
+                BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(120, UpdateUIFollow);
             }
 
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= SetUILocation;
@@ -58,7 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             if (SnapToPlayOnDistance)
             {
-                BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUIFollow);
+                BasisLocalPlayer.AfterSimulateOnLate.AddAction(120, UpdateUIFollow);
             }
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame += SetUILocation;
             SetUILocation();
@@ -80,8 +81,11 @@ namespace Basis.Scripts.UI.UI_Panels
                 SetUILocation();
             }
         }
-
         public void SetUILocation()
+        {
+            SetUILocation(HeightModeChange.OnTpose);
+        }
+        public void SetUILocation(HeightModeChange Mode)
         {
             BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
 
@@ -93,7 +97,7 @@ namespace Basis.Scripts.UI.UI_Panels
             Vector3 eulerRotation = Rotation.eulerAngles;
             eulerRotation.z = 0f;
 
-            float Scale = BasisHeightDriver.PlayerToAvatarScale;
+            float Scale = BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
             Quaternion horizontalRotation = Quaternion.Euler(eulerRotation);
             Vector3 adjustedOffset = new Vector3(WorldOffset.x, 0, WorldOffset.z) * Scale;
             targetPosition = Position + (horizontalRotation * adjustedOffset);
@@ -101,7 +105,7 @@ namespace Basis.Scripts.UI.UI_Panels
             transform.SetPositionAndRotation(targetPosition, horizontalRotation);
             transform.localScale = InitalScale * Scale;
 
-            CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * BasisHeightDriver.PlayerToAvatarScale;
+            CurrentMaxDistanceInVRBeforeSnap = MaxDistanceInVRBeforeSnap * Scale;
         }
     }
 }

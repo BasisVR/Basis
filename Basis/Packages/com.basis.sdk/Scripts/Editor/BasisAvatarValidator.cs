@@ -2,6 +2,7 @@ using Basis.Scripts.BasisSdk;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,7 +15,7 @@ public class BasisAvatarValidator
     private VisualElement errorPanel;
     private Label errorMessageLabel;
 
-    private VisualElement warningPanel;
+    private Dictionary<ValidationCategory, VisualElement> warningPanels = new Dictionary<ValidationCategory, VisualElement>();
     private Label warningMessageLabel;
 
     private VisualElement passedPanel;
@@ -36,7 +37,7 @@ public class BasisAvatarValidator
         Root = root;
 
         CreateErrorPanel(root);
-        CreateWarningPanel(root);
+        //CreateWarningPanel(root);
         CreatePassedPanel(root);
 
         EditorApplication.update += UpdateValidation; // Run per frame
@@ -50,7 +51,7 @@ public class BasisAvatarValidator
     private void UpdateValidation()
     {
         // Clear fix buttons each frame so they match current validation results
-        ClearFixButtons(Root);
+        //ClearFixButtons(Root);
 
         if (ValidateAvatar(out List<BasisValidationIssue> errors, out List<BasisValidationIssue> warnings, out List<string> passes))
             HideErrorPanel();
@@ -92,7 +93,7 @@ public class BasisAvatarValidator
         errorPanel.style.display = DisplayStyle.None;
         rootElement.Add(errorPanel);
     }
-
+    /*
     public void CreateWarningPanel(VisualElement rootElement)
     {
         warningPanel = new VisualElement();
@@ -119,6 +120,7 @@ public class BasisAvatarValidator
         warningPanel.style.display = DisplayStyle.None;
         rootElement.Add(warningPanel);
     }
+    */
 
     public void CreatePassedPanel(VisualElement rootElement)
     {
@@ -146,17 +148,32 @@ public class BasisAvatarValidator
         rootElement.Add(passedPanel);
     }
 
+    public enum ValidationCategory
+    {
+        None,
+        Configuration,
+        GameObject,
+        Perfomance,
+        Security,
+        MissingReference
+    }
+
     public class BasisValidationIssue
     {
+        public ValidationCategory Category { get; }
         public string Message { get; }
         public string FixLabel { get; }
         public Action Fix { get; }
+        public UnityEngine.Object RelatedObject { get; }
 
-        public BasisValidationIssue(string message, Action fix = null, string fixLabel = "")
+        public BasisValidationIssue(string message, ValidationCategory category = ValidationCategory.None,
+                                Action fix = null, string fixLabel = "", UnityEngine.Object relatedObject = null)
         {
+            Category = category;
             Message = message;
             Fix = fix;
             FixLabel = fixLabel;
+            RelatedObject = relatedObject;
         }
     }
 
@@ -186,30 +203,24 @@ public class BasisAvatarValidator
 
         if (Avatar == null)
         {
-            errors.Add(new BasisValidationIssue("Avatar is missing.", null));
+            errors.Add(new BasisValidationIssue("Avatar is missing.", ValidationCategory.Configuration, null));
             return false;
         }
         passes.Add("Avatar is assigned.");
 
-        // Missing scripts
-        int missingCount = 0;
-        Component[] components = Avatar.GetComponentsInChildren<Component>(true);
-        for (int i = 0; i < components.Length; i++)
+        Transform[] children = Avatar.gameObject.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
         {
-            if (components[i] == null) missingCount++;
-        }
-
-        if (missingCount == 0)
-        {
-            passes.Add("No missing scripts found in the scene.");
-        }
-        else
-        {
-            warnings.Add(new BasisValidationIssue(
-                "Missing script references found. Click to remove them.",
+            int count = GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(child.gameObject);
+            if (count > 0)
+            {
+                warnings.Add(new BasisValidationIssue(
+                $"Missing script references found on {child.gameObject}. Click here to locate it.", ValidationCategory.MissingReference,
                 () => RemoveMissingScripts(Avatar.gameObject),
-                "Remove missing scripts"
-            ));
+                "Remove missing scripts",
+                child.gameObject
+                ));
+            }
         }
 
         // Animator
@@ -220,7 +231,7 @@ public class BasisAvatarValidator
             if (Avatar.Animator.runtimeAnimatorController != null)
             {
                 warnings.Add(new BasisValidationIssue(
-                    "Animator Controller exists. Verify it supports Basis before usage.",
+                    "Animator Controller exists. Verify it supports Basis before usage.", ValidationCategory.Configuration,
                     null
                 ));
             }
@@ -228,7 +239,7 @@ public class BasisAvatarValidator
             if (Avatar.Animator.avatar == null)
             {
                 errors.Add(new BasisValidationIssue(
-                    "Animator exists but has no Avatar (Humanoid avatar not generated).",
+                    "Animator exists but has no Avatar (Humanoid avatar not generated).", ValidationCategory.Configuration,
                     FixTryCreateHumanoidAvatarOnSourceModels,
                     "Set source model(s) to Humanoid + Create Avatar"
                 ));
@@ -237,7 +248,7 @@ public class BasisAvatarValidator
         else
         {
             errors.Add(new BasisValidationIssue(
-                "Animator is missing.",
+                "Animator is missing.", ValidationCategory.MissingReference,
                 FixAddOrAssignAnimator,
                 "Add/Assign Animator"
             ));
@@ -247,19 +258,19 @@ public class BasisAvatarValidator
         if (Avatar.BlinkViseme != null && Avatar.BlinkViseme.Length > 0)
             passes.Add("BlinkViseme Meta Data is assigned.");
         else
-            errors.Add(new BasisValidationIssue("BlinkViseme Meta Data is missing.", null));
+            errors.Add(new BasisValidationIssue("BlinkViseme Meta Data is missing.", ValidationCategory.MissingReference, null));
 
         if (Avatar.FaceVisemeMovement != null && Avatar.FaceVisemeMovement.Length > 0)
             passes.Add("FaceVisemeMovement Meta Data is assigned.");
         else
-            errors.Add(new BasisValidationIssue("FaceVisemeMovement Meta Data is missing.", null));
+            errors.Add(new BasisValidationIssue("FaceVisemeMovement Meta Data is missing.", ValidationCategory.MissingReference, null));
 
         // Face meshes
         if (Avatar.FaceBlinkMesh != null)
             passes.Add("FaceBlinkMesh is assigned.");
         else
             errors.Add(new BasisValidationIssue(
-                "FaceBlinkMesh is missing. Assign a skinned mesh.",
+                "FaceBlinkMesh is missing. Assign a skinned mesh.", ValidationCategory.MissingReference,
                 FixAssignFaceMeshesFromChildren,
                 "Auto-assign Face meshes"
             ));
@@ -268,7 +279,7 @@ public class BasisAvatarValidator
             passes.Add("FaceVisemeMesh is assigned.");
         else
             errors.Add(new BasisValidationIssue(
-                "FaceVisemeMesh is missing. Assign a skinned mesh.",
+                "FaceVisemeMesh is missing. Assign a skinned mesh.", ValidationCategory.MissingReference,
                 FixAssignFaceMeshesFromChildren,
                 "Auto-assign Face meshes"
             ));
@@ -277,18 +288,18 @@ public class BasisAvatarValidator
         if (Avatar.AvatarEyePosition != Vector2.zero)
             passes.Add("Avatar Eye Position is set.");
         else
-            errors.Add(new BasisValidationIssue("Avatar Eye Position is not set.", null));
+            errors.Add(new BasisValidationIssue("Avatar Eye Position is not set.", ValidationCategory.Configuration, null));
 
         if (Avatar.AvatarMouthPosition != Vector2.zero)
             passes.Add("Avatar Mouth Position is set.");
         else
-            errors.Add(new BasisValidationIssue("Avatar Mouth Position is not set.", null));
+            errors.Add(new BasisValidationIssue("Avatar Mouth Position is not set.", ValidationCategory.Configuration, null));
 
         // Bundle name/description
         if (string.IsNullOrEmpty(Avatar.BasisBundleDescription.AssetBundleName))
         {
             errors.Add(new BasisValidationIssue(
-                "Avatar Name is empty.",
+                "Avatar Name is empty.", ValidationCategory.Configuration,
                 FixSetDefaultBundleName,
                 "Set name from GameObject"
             ));
@@ -297,27 +308,39 @@ public class BasisAvatarValidator
         if (string.IsNullOrEmpty(Avatar.BasisBundleDescription.AssetBundleDescription))
         {
             warnings.Add(new BasisValidationIssue(
-                "Avatar Description is empty.",
+                "Avatar Description is empty.", ValidationCategory.Configuration,
                 FixSetDefaultDescription,
                 "Set default description"
             ));
         }
-
+        BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
+        if (assetBundleObject != null)
+        {
+            if(assetBundleObject.UseCustomPassword && (assetBundleObject.UserSelectedPassword == null ||  assetBundleObject.UserSelectedPassword == ""))
+            {
+                errors.Add(new BasisValidationIssue(
+                    "Can not have custom password be empty!",
+                    ValidationCategory.Security,
+                    null));
+            }
+        }
+        /*
         // Processing options
-        if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes == false)
+        if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes == false && Avatar.transform.Find("HVR.Networking") == null)
         {
             warnings.Add(new BasisValidationIssue(
-                "Recommend turning on RemoveUnusedBlendshapes in Processing Options! Leave off for face/eye tracking.",
+                "Recommend turning on RemoveUnusedBlendshapes in Processing Options! Leave off for face/eye tracking.", ValidationCategory.Perfomance,
                 FixRemoveUnusedBlendShape,
-                "Turn on RemoveUnusedBlendshapes"
+                "Turn on RemoveUnusedBlendshapes (dont if your using Face/Eye Tracking!!!"
             ));
         }
+        */
 
         // IL2CPP
         if (ReportIfNoIll2CPP())
         {
             warnings.Add(new BasisValidationIssue(
-                "IL2CPP may be missing. Check Unity Hub modules (Linux/Windows/Android IL2CPP commonly needed).",
+                "IL2CPP may be missing. Check Unity Hub modules (Linux/Windows/Android IL2CPP commonly needed).", ValidationCategory.None,
                 null
             ));
         }
@@ -354,7 +377,7 @@ public class BasisAvatarValidator
             if (Avatar.ProcessingAvatarOptions != null && Avatar.ProcessingAvatarOptions.doNotAutoRenameBones)
             {
                 errors.Add(new BasisValidationIssue(
-                    $"Duplicate name found: {entry.Key} ({entry.Value} times)",
+                    $"Duplicate name found: {entry.Key} ({entry.Value} times)", ValidationCategory.Configuration,
                     FixDisableDoNotAutoRenameBones,
                     "Allow auto-rename bones"
                 ));
@@ -362,7 +385,7 @@ public class BasisAvatarValidator
             else
             {
                 warnings.Add(new BasisValidationIssue(
-                    $"Duplicate name found; it will be renamed automatically: {entry.Key} ({entry.Value} times)",
+                    $"Duplicate name found; it will be renamed automatically: {entry.Key} ({entry.Value} times)", ValidationCategory.GameObject,
                     null
                 ));
             }
@@ -370,14 +393,14 @@ public class BasisAvatarValidator
 
         return errors.Count == 0;
     }
-
+    /*
     public void FixRemoveUnusedBlendShape()
     {
         if (Avatar?.ProcessingAvatarOptions == null) return;
         Avatar.ProcessingAvatarOptions.RemoveUnusedBlendshapes = true;
         EditorUtility.SetDirty(Avatar);
     }
-
+    */
     // -----------------------------
     // NEW: Fix helpers
     // -----------------------------
@@ -551,6 +574,7 @@ public class BasisAvatarValidator
         {
             warnings.Add(new BasisValidationIssue(
                 "Translation DoF is Eabled on one or more source models (Humanoid). This can cause retargeting issues.",
+                ValidationCategory.GameObject,
                 FixTryCreateHumanoidAvatarOnSourceModels,
                 "Disable Translation DoF + Humanoid Avatar on source models"
             ));
@@ -597,6 +621,7 @@ public class BasisAvatarValidator
                 // Offer best-effort fallback: URP Lit if present else Standard if present
                 errors.Add(new BasisValidationIssue(
                     $"Material \"{mat.name}\" on \"{renderer.gameObject.name}\" is using an error/unsupported shader (pink).",
+                    ValidationCategory.GameObject,
                     () => FixMaterialShaderFallback(mat),
                     "Set shader fallback (URP Lit / Standard)"
                 ));
@@ -676,6 +701,7 @@ public class BasisAvatarValidator
             {
                 warnings.Add(new BasisValidationIssue(
                     $"Texture \"{tex.name}\" does not have Mip Maps enabled. This will negatively affect its performance ranking.",
+                    ValidationCategory.Perfomance,
                     () =>
                     {
                         texImporter.mipmapEnabled = true;
@@ -690,6 +716,7 @@ public class BasisAvatarValidator
             {
                 warnings.Add(new BasisValidationIssue(
                     $"Texture \"{tex.name}\" does not have Streaming Mip Maps enabled. This will negatively affect its performance ranking.",
+                    ValidationCategory.Perfomance,
                     () =>
                     {
                         texImporter.streamingMipmaps = true;
@@ -702,7 +729,9 @@ public class BasisAvatarValidator
             if (texImporter.maxTextureSize > MaxTextureSizeBeforeWarning)
             {
                 warnings.Add(new BasisValidationIssue(
+
                     $"Texture \"{tex.name}\" is {texImporter.maxTextureSize} (should be <= {MaxTextureSizeBeforeWarning}). This will negatively affect its performance ranking.",
+                    ValidationCategory.Perfomance,
                     () =>
                     {
                         texImporter.maxTextureSize = MaxTextureSizeBeforeWarning;
@@ -726,6 +755,7 @@ public class BasisAvatarValidator
         {
             Errors.Add(new BasisValidationIssue(
                 $"{skinnedMeshRenderer.gameObject.name} does not have a mesh assigned to its SkinnedMeshRenderer!",
+                ValidationCategory.GameObject,
                 null
             ));
             return;
@@ -740,6 +770,7 @@ public class BasisAvatarValidator
             {
                 Warnings.Add(new BasisValidationIssue(
                     $"{skinnedMeshRenderer.gameObject.name} has more than {MaxTrianglesBeforeWarning} triangles. This will cause performance issues.",
+                    ValidationCategory.Perfomance,
                     null
                 ));
             }
@@ -752,6 +783,7 @@ public class BasisAvatarValidator
             {
                 Warnings.Add(new BasisValidationIssue(
                     $"{skinnedMeshRenderer.gameObject.name} has more vertices than can be properly rendered ({MeshVertices}). This will cause performance issues.",
+                    ValidationCategory.Perfomance,
                     null
                 ));
             }
@@ -768,6 +800,7 @@ public class BasisAvatarValidator
                 {
                     Warnings.Add(new BasisValidationIssue(
                         $"{assetPath} does not have legacy blendshapes enabled, which may increase file size.",
+                        ValidationCategory.GameObject,
                         null
                     ));
                 }
@@ -779,6 +812,7 @@ public class BasisAvatarValidator
         {
             Errors.Add(new BasisValidationIssue(
                 "Dynamic Occlusion disabled on SkinnedMeshRenderer: " + skinnedMeshRenderer.gameObject.name,
+                ValidationCategory.GameObject,
                 FixEnableDynamicOcclusionAllSMR,
                 "Enable Dynamic Occlusion on all SMRs"
             ));
@@ -827,30 +861,142 @@ public class BasisAvatarValidator
         errorPanel.style.display = DisplayStyle.None;
     }
 
+    private VisualElement CreateCategoryPanel(ValidationCategory category)
+    {
+        VisualElement panel = new VisualElement();
+
+        // Style
+        panel.style.backgroundColor = new StyleColor(new Color(0.65098f, 0.63137f, 0.05098f, 0.5f));
+        panel.style.marginBottom = 10;
+        panel.style.paddingTop = 5;
+        panel.style.paddingBottom = 5;
+        panel.style.borderLeftWidth = 2;
+        panel.style.borderRightWidth = 2;
+        panel.style.borderTopWidth = 2;
+        panel.style.borderBottomWidth = 2;
+        panel.style.borderBottomColor = new StyleColor(Color.yellow);
+        // ... add your radius styling here ...
+
+        // Create Label
+        Label label = new Label();
+        label.name = "MessageLabel";
+        label.style.unityFontStyleAndWeight = FontStyle.Bold;
+        label.style.whiteSpace = WhiteSpace.Normal;
+
+        // Optional: Add a header to show which category this is
+        Label header = new Label($"{category} Warnings");
+        header.style.unityFontStyleAndWeight = FontStyle.Bold;
+        header.style.color = new StyleColor(Color.white); // Make header distinct
+        panel.Add(header);
+
+        panel.Add(label);
+
+        return panel;
+    }
+    private string _lastWarningSignature = "";
     private void ShowWarningPanel(VisualElement Root, List<BasisValidationIssue> warnings)
     {
-        List<string> warningsList = new List<string>();
+        // 1. GENERATE SIGNATURE
+        // Create a simple string representing the current warnings (e.g. "Category:Message|Category:Message")
+        // If the list is huge, we can use a hash, but string join is usually fine for UI lists.
+        string currentSignature = string.Join("|", warnings.Select(w => $"{w.Category}:{w.Message}"));
 
-        for (int i = 0; i < warnings.Count; i++)
+        // 2. DIRTY CHECK
+        // If the data is exactly the same as the last frame, DO NOTHING.
+        if (currentSignature == _lastWarningSignature) return;
+
+        // Data changed, save the new signature
+        _lastWarningSignature = currentSignature;
+
+        // 3. REBUILD LOGIC
+        // (Optimization: Instead of warningPanel.Clear(), we hide existing ones and re-enable only what we need)
+
+        // Reset all known panels to hidden initially (pool-like behavior)
+        foreach (var panel in warningPanels.Values)
         {
-            var issue = warnings[i];
-            if (issue.Fix != null)
-            {
-                string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? issue.Message : issue.FixLabel;
-                AutoFixButton(Root, issue.Fix, actionTitle, false);
-            }
-
-            if (!warningsList.Contains(issue.Message))
-                warningsList.Add(issue.Message);
+            panel.style.display = DisplayStyle.None;
         }
 
-        warningMessageLabel.text = string.Join("\n", warningsList.ToArray());
-        warningPanel.style.display = DisplayStyle.Flex;
+        int maxDisplayCount = 3;
+        var groupedIssues = warnings.GroupBy(w => w.Category);
+
+        foreach (var group in groupedIssues)
+        {
+            ValidationCategory category = group.Key;
+            List<BasisValidationIssue> issues = group.ToList();
+
+            // --- LAZY CREATION ---
+            // Only create the visual element if we've never seen this category before
+            if (!warningPanels.ContainsKey(category))
+            {
+                VisualElement newPanel = CreateCategoryPanel(category); // Uses your helper method
+                Root.Add(newPanel); // Add to the main Root UI
+                warningPanels.Add(category, newPanel);
+            }
+
+            // Get the cached panel
+            VisualElement currentPanel = warningPanels[category];
+            currentPanel.style.display = DisplayStyle.Flex; // Unhide it
+
+            // --- UPDATE TEXT ---
+            Label messageLabel = currentPanel.Q<Label>("MessageLabel");
+
+            List<BasisValidationIssue> uniqueMessages = issues.Distinct().ToList();
+            List<string> textLines = new List<string>();
+
+            for (int i = 0; i < uniqueMessages.Count; i++)
+            {
+                if (i >= maxDisplayCount && uniqueMessages.Count > maxDisplayCount)
+                {
+                    int remaining = uniqueMessages.Count - i;
+                    textLines.Add($"\n... + {remaining} more {category} warnings");
+                    break;
+                }
+                textLines.Add($"- {uniqueMessages[i].Message}");
+            }
+            messageLabel.text = string.Join("\n", textLines);
+            messageLabel.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                Selection.objects = uniqueMessages.Select(i => i.RelatedObject).Where(obj => obj != null).ToArray();
+                if (Selection.objects.Length > 0)
+                {
+                    EditorGUIUtility.PingObject(Selection.objects[0]);
+                }
+            });
+
+            // --- BUTTON HANDLING ---
+            // Buttons are tricky because they have callbacks. 
+            // Simple approach: Clear ONLY buttons (not the whole panel) and rebuild them.
+            // Assuming your CreateCategoryPanel adds a container named "ButtonContainer" or we append to end.
+
+            // Remove old buttons (elements that are NOT the label or header)
+            // A cleaner way is to keep a dedicated container for buttons inside the panel
+            var buttonContainer = currentPanel.Q<VisualElement>("ButtonContainer");
+            if (buttonContainer == null)
+            {
+                // If you didn't create a container in the helper, create one now dynamically
+                buttonContainer = new VisualElement() { name = "ButtonContainer" };
+                currentPanel.Add(buttonContainer);
+            }
+            buttonContainer.Clear(); // Only clear the buttons
+
+            foreach (var issue in issues)
+            {
+                if (issue.Fix != null)
+                {
+                    string actionTitle = string.IsNullOrWhiteSpace(issue.FixLabel) ? "Fix" : issue.FixLabel;
+                    AutoFixButton(buttonContainer, issue.Fix, actionTitle, false);
+                }
+            }
+        }
     }
 
     private void HideWarningPanel()
     {
-        warningPanel.style.display = DisplayStyle.None;
+        foreach (var panel in warningPanels.Values)
+        {
+            panel.style.display = DisplayStyle.None;
+        }
     }
 
     private void ShowPassedPanel(List<string> passes)

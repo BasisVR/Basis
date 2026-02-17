@@ -206,7 +206,10 @@ namespace Basis.BasisUI
             ClearAvatarInfo();
 
             NewAvatarButton.OnClicked += NewAvatarPanel.Show;
-            LoadAvatarButton.OnClicked += () => _ = LoadAvatar();
+            LoadAvatarButton.OnClicked += async () =>
+            {
+                await LoadAvatar();
+            };
             RemoveAvatarButton.OnClicked += RemoveAvatar;
 
             NewAvatarPanel.Hide();
@@ -238,13 +241,19 @@ namespace Basis.BasisUI
 
         private async Task CreateButtons()
         {
-            foreach (PanelButton button in SelectionButtons)
+            int count = SelectionButtons.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                PanelButton button = SelectionButtons[Index];
                 button.ReleaseInstance();
+            }
 
             SelectionButtons.Clear();
 
-            foreach (BasisLoadableBundle bundle in CachedAvatarData.AvatarBundles)
+            int BundleCount = CachedAvatarData.AvatarBundles.Count;
+            for (int Index = 0; Index < BundleCount; Index++)
             {
+                BasisLoadableBundle bundle = CachedAvatarData.AvatarBundles[Index];
                 PanelButton button = PanelButton.CreateNew(PanelButton.ButtonStyles.Avatar, TabButtonParent);
                 SelectionButtons.Add(button);
                 button.Descriptor.SetTitle("Avatar");
@@ -324,6 +333,10 @@ namespace Basis.BasisUI
             IOSIcon.SetActive(false);
 
             NewAvatarPanel.Hide();
+
+            AvatarIDField.gameObject.SetActive(false);
+            AvatarUrlField.gameObject.SetActive(false);
+            AvatarPasswordField.gameObject.SetActive(false);
         }
 
         private void ShowAvatarInfo(AvatarMenuItem item)
@@ -354,6 +367,10 @@ namespace Basis.BasisUI
                 ClearAvatarInfo();
                 return;
             }
+
+            AvatarIDField.gameObject.SetActive(true);
+            AvatarUrlField.gameObject.SetActive(true);
+            AvatarPasswordField.gameObject.SetActive(true);
 
             Descriptor.SetIcon(item.IconSprite);
             Descriptor.SetTitle(description.AssetBundleName);

@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using UnityEngine;
 public static class BasisEncryptionToData
@@ -11,19 +12,26 @@ public static class BasisEncryptionToData
         };
         string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
         // Decrypt the file asynchronously
-        var LoadedBundleData = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
+        var decrypted = await BasisEncryptionWrapper.DecryptFromBytesAsync(UniqueID, BasisPassword, Bytes, progressCallback);
 
-        if (LoadedBundleData.Success)
+        if (!decrypted.Success || decrypted.Data == null || decrypted.Data.Length == 0)
         {
-            BasisDebug.Log("Attempting Asset Bundle Load...", BasisDebug.LogTag.Event);
-        }
-        else
-        {
-            BasisDebug.LogError($"Failed to Decrypt, {LoadedBundleData.Error} | {LoadedBundleData.Message} | {LoadedBundleData.Exception}");
+            BasisDebug.LogError($"Decrypt failed: {decrypted.Error} | {decrypted.Message}");
+            return null; // <-- critical
         }
 
-        // Start the AssetBundle loading process from memory with CRC check
-        AssetBundleCreateRequest assetBundleCreateRequest = AssetBundle.LoadFromMemoryAsync(LoadedBundleData.Data, CRC);
+        BasisDebug.Log("Attempting Asset Bundle Load...", BasisDebug.LogTag.Event);
+
+        AssetBundleCreateRequest assetBundleCreateRequest;
+        try
+        {
+            assetBundleCreateRequest = AssetBundle.LoadFromMemoryAsync(decrypted.Data, CRC);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"LoadFromMemoryAsync threw: {ex}");
+            return null;
+        }
         // Track the last reported progress
         int lastReportedProgress = -1;
 
@@ -39,18 +47,22 @@ public static class BasisEncryptionToData
                 lastReportedProgress = progress;
 
                 // Call the progress callback with the current progress
-                progressCallback.ReportProgress(UniqueID.ToString(),progress, "loading bundle");
+                progressCallback.ReportProgress(UniqueID.ToString(), progress, "loading bundle");
             }
 
             // Wait a short period before checking again to avoid busy waiting
             await Task.Delay(50); // Adjust delay as needed (e.g., 50ms)
         }
 
-        // Ensure progress reaches 100% after completion
-        progressCallback.ReportProgress(UniqueID.ToString(), 100, "loading bundle");
-
-        // Await the request completion
+        progressCallback?.ReportProgress(UniqueID, 100, "loading bundle");
         await assetBundleCreateRequest;
+
+        // req.assetBundle can still be null if CRC fails or bytes aren’t a bundle.
+        if (assetBundleCreateRequest.assetBundle == null)
+        {
+            BasisDebug.LogError("AssetBundle load finished but assetBundle is null (CRC mismatch or invalid bundle bytes).");
+            return null;
+        }
 
         return assetBundleCreateRequest;
     }

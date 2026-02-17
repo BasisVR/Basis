@@ -158,7 +158,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         /// <param name="networkedPlayer">The networked player whose voice we render.</param>
         /// <param name="MouthParent">Transform to parent the audio source under (e.g., mouth).</param>
-        public async Task LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent)
+        public async Task LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent,float MaxDistance)
         {
             if (AudioSourceTransform == null || audioSource == null)
             {
@@ -169,6 +169,8 @@ namespace Basis.Scripts.Networking.Receivers
                 audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.playerId);
                 audioSource.loop = true;
                 audioSource.Play();
+
+                audioSource.maxDistance = MaxDistance;
             }
             HasAudioSource = true;
             AvatarChanged(networkedPlayer,false);
@@ -185,7 +187,13 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogError($"{ex}", BasisDebug.LogTag.Remote);
             }
         }
-
+        public void ApplyRangeData(float Distance)
+        {
+            if (HasAudioSource)
+            {
+                audioSource.maxDistance = Distance;
+            }
+        }
         /// <summary>
         /// Stops playback, returns pooled resources, and clears references.
         /// </summary>
@@ -302,7 +310,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// <summary>
         /// Starts audio playback, allocating scratch buffers and creating the source if needed.
         /// </summary>
-        public void StartAudio()
+        public void StartAudio(float MaxDistance)
         {
             // Conservative initial sizes; will grow once and then reuse.
             const int BufferSize = 1024;
@@ -345,11 +353,11 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogError("Mouth Transform Does not exist in Audio Receiver!", BasisDebug.LogTag.Remote);
                 return;
             }
-            LoadAudioSource();
+            LoadAudioSource(MaxDistance);
         }
-        public async void LoadAudioSource()
+        public async void LoadAudioSource(float MaxDistance)
         {
-            await LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform);
+            await LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform, MaxDistance);
         }
 
         /// <summary>
@@ -394,6 +402,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 float db = 20f * Mathf.Log10(volume);
                 gain = (int)(db * 256f);
+                audioSource.volume = 1;
             }
             if (decoder != null)
             {

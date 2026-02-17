@@ -65,6 +65,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public Transform AvatarTransform;
 
         /// <summary>
+        /// Transform of the avatar's animator component
+        /// </summary>
+        public Transform AvatarAnimatorTransform;
+
+        /// <summary>
         /// Cached self transform for quick access.
         /// </summary>
         public Transform PlayerSelf; // yes caching myself is faster.
@@ -122,7 +127,17 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Called before bone simulation updates for this player, if subscribed.
         /// </summary>
-        public SimulationHandler OnPreSimulateBones;
+        public SimulationHandler OnLatePollData;
+
+        /// <summary>
+        /// Called before bone simulation updates for this player, if subscribed.
+        /// </summary>
+        public SimulationHandler OnRenderPollData;
+
+        /// <summary>
+        /// Called before bone simulation updates for this player, if subscribed.
+        /// </summary>
+        public SimulationHandler OnVirtualData;
 
         /// <summary>
         /// Whether the currently active avatar is considered a fallback (placeholder) asset.

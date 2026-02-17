@@ -22,17 +22,19 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         public TrackedDevicePose_t devicePose = new TrackedDevicePose_t();
         public TrackedDevicePose_t deviceGamePose = new TrackedDevicePose_t();
         public EVRCompositorError result;
-        public Vector3 RaycastOffset = new Vector3(0, 0.05f, 0.05f);
+        public Vector3 LeftRaycastOffset = new Vector3(0, 0, 0.06f);
+        public Vector3 RightRaycastOffset = new Vector3(0, 0, 0.06f);
         public void Initialize(OpenVRDevice device, string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole, BasisBoneTrackedRole basisBoneTrackedRole, SteamVR_Input_Sources SteamVR_Input_Sources)
         {
             HandBiasSplay = -0.8f;
 
             // existing hand rotation offsets
-            leftHandToIKRotationOffset = new Vector3(105, 185, 265);
-            rightHandToIKRotationOffset = new Vector3(105, 185,265);
+            leftHandToIKRotationOffset = new Vector3(80, 69, 150);
+            rightHandToIKRotationOffset = new Vector3(112, 80,198);//114 -> 80
 
-            leftHandToIKPositionOffset = new Vector3(-0.02f, 0.07f, 0.02f);
-            rightHandToIKPositionOffset = new Vector3(-0.02f, 0.07f, 0.02f);
+            leftHandToIKPositionOffset = new Vector3(0.02f, 0.08f, 0.02f);
+            rightHandToIKPositionOffset = new Vector3(-0.02f, 0.08f, 0.02f);
+
 
             if (HasOnUpdate && DeviceposeAction != null)
             {
@@ -60,8 +62,11 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             }
             base.OnDestroy();
         }
-
-        public override void DoPollData()
+        public override void LateDoPollData()
+        {
+            
+        }
+        public override void RenderPollData()
         {
             if (!SteamVR.active)
             {
@@ -75,10 +80,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             CurrentInputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
             CurrentInputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
             CurrentInputState.Primary2DAxisClick = SteamVR_Actions._default.JoyStickClick.GetState(inputSource);
-            CurrentInputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
+            CurrentInputState.Primary2DAxisRaw = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
             CurrentInputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
             CurrentInputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
-            CurrentInputState.Secondary2DAxis = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
+            CurrentInputState.Secondary2DAxisRaw = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
             CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
 
             // Update hand (left/right)
@@ -100,7 +105,6 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
             UpdateInputEvents();
         }
-
         private void UpdateHandPose(BasisFingerPose hand, SteamVR_Action_Skeleton skeletonAction, bool isLeft)
         {
             // Latest compositor-space device pose
@@ -109,7 +113,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             {
                 return;
             }
-            if (deviceGamePose.bPoseIsValid == false)
+            if (devicePose.bPoseIsValid == false)
             {
                 return;
             }
@@ -152,11 +156,10 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             BoneRotations = skeletonAction.boneRotations;
 
             // Raw device pose in *unscaled* world space
-            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, deviceGamePose.mDeviceToAbsoluteTracking.GetPosition());
-            UnscaledDeviceCoord.rotation = deviceGamePose.mDeviceToAbsoluteTracking.GetRotation();
+            ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, devicePose.mDeviceToAbsoluteTracking.GetPosition());
+            UnscaledDeviceCoord.rotation = devicePose.mDeviceToAbsoluteTracking.GetRotation();
 
-            // scale from the avatar currently selected to the avatar's "default" rig size
-            float avatarScale = BasisHeightDriver.AvatarToPlayerScale;
+            float Scale = BasisHeightDriver.DeviceScale;
 
             // Wrist data from skeleton
             int idxWrist = SteamVR_Skeleton_JointIndexes.wrist;
@@ -189,23 +192,24 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             Quaternion wristWorldRot = baseWristWorldRot * rotOffset;
 
             // ---------- SCALE UP TO AVATAR SPACE ----------
-            Vector3 wristWorldPos = wristWorldPosUnscaled * avatarScale;
+            Vector3 wristScaledPos = wristWorldPosUnscaled * Scale;
 
-            // Global offset is in scaled space (as before)
-            wristWorldPos += OffsetCoords.position;
+            // Apply OffsetCoords as a proper transform
+            Vector3 wristWorldPos = OffsetCoords.position + (OffsetCoords.rotation * wristScaledPos);
 
-            // Push results
+            Quaternion wristFinalRot = OffsetCoords.rotation * wristWorldRot;
+
             ScaledDeviceCoord.position = wristWorldPos;
-            ScaledDeviceCoord.rotation = wristWorldRot;
+            ScaledDeviceCoord.rotation = wristFinalRot;
 
-            HandFinal.rotation = wristWorldRot;
             HandFinal.position = wristWorldPos;
+            HandFinal.rotation = wristFinalRot;
 
             ControlOnlyAsHand(HandFinal.position, HandFinal.rotation);
 
             UpdateRaycastOffset();
             ComputeRaycastDirection(
-                wristWorldPos + (UnscaledDeviceCoord.rotation * (RaycastOffset * avatarScale)),
+                wristWorldPos + (UnscaledDeviceCoord.rotation * (isLeft ? LeftRaycastOffset : RightRaycastOffset * Scale)),
                 HandFinal.rotation,
                 ActiveRaycastOffset
             );

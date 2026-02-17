@@ -50,7 +50,19 @@ public static class BasisAssetBundlePipeline
         {
             if (isScene)
             {
+                if (settings.RebakeOcclusionCulling)
+                {
+                    if (settings.RebakeOcclusionCullingInThese.Contains(Target))
+                    {
+                        StaticOcclusionCulling.Compute();
+                    }
+                    else
+                    {
+                        StaticOcclusionCulling.Clear();
+                    }
+                }
                 OnBeforeBuildScene?.Invoke(scene, settings);
+
                 assetPath = TemporaryStorageHandler.SaveScene(scene, settings, out uniqueID);
             }
             else
@@ -66,9 +78,9 @@ public static class BasisAssetBundlePipeline
                     GameObject.DestroyImmediate(prefab);
                 }
             }
-            AssetBundleBuild Build =  new AssetBundleBuild() {  assetBundleName = uniqueID, assetNames = new string[] { assetPath } };
+            AssetBundleBuild Build = new AssetBundleBuild() { assetBundleName = uniqueID, assetNames = new string[] { assetPath } };
             AssetBundleBuild[] Builds = new AssetBundleBuild[] { Build };
-            (BasisBundleGenerated, AssetBundleBuilder.InformationHash) value = await AssetBundleBuilder.BuildAssetBundle(Builds,targetDirectory, settings, uniqueID, isScene ? "Scene" : "GameObject", Password, Target);
+            (BasisBundleGenerated, AssetBundleBuilder.InformationHash) value = await AssetBundleBuilder.BuildAssetBundle(Builds, targetDirectory, settings, uniqueID, isScene ? "Scene" : "GameObject", Password, Target);
             TemporaryStorageHandler.ClearTemporaryStorage(settings.TemporaryStorage);
             AssetDatabase.Refresh();
 
@@ -116,25 +128,31 @@ public static class BasisAssetBundlePipeline
 
     public static void PostProcessAvatar(GameObject prefab)
     {
-        var avatar = prefab.GetComponent<BasisAvatar>();
-        if (avatar == null) return;
-
-        var processing = avatar.ProcessingAvatarOptions;
-        if (processing == null) return;
-
-        if (!processing.doNotAutoRenameBones)
+        if (prefab.TryGetComponent<BasisAvatar>(out BasisAvatar avatar))
         {
-            ProcessAutoRenameBones(prefab);
-        }
+            var processing = avatar.ProcessingAvatarOptions;
+            if (processing == null) return;
 
-        // We do not want to keep this data at runtime.
-        avatar.ProcessingAvatarOptions = null;
+            if (!processing.doNotAutoRenameBones)
+            {
+                ProcessAutoRenameBones(prefab);
+            }
+
+            // We do not want to keep this data at runtime.
+            avatar.ProcessingAvatarOptions = null;
+        }
     }
 
     private static void ProcessAutoRenameBones(GameObject prefab)
     {
-        var animator = prefab.GetComponent<Animator>();
-        if (animator == null || animator.avatar == null) return;
+        if (!prefab.TryGetComponent<Animator>(out Animator animator))
+        {
+            return;
+        }
+        if (animator.avatar == null)
+        {
+            return;
+        }
 
         var allHumanoidBoneTransforms = AllValidBonesOf(animator).ToHashSet();
         var hips = animator.GetBoneTransform(HumanBodyBones.Hips);

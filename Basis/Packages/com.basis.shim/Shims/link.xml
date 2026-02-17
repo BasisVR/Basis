@@ -16,6 +16,11 @@
 		<type fullname="System.DayOfWeek" preserve="all"/>
 		<type fullname="System.Double" preserve="all"/>
 		<type fullname="System.Exception" preserve="all"/>
+        <type fullname="System.IO.BinaryReader" preserve="all"/>
+        <type fullname="System.IO.BinaryWriter" preserve="all"/>
+        <type fullname="System.IO.MemoryStream" preserve="all"/>
+        <type fullname="System.IO.Stream" preserve="all"/>
+        <type fullname="System.IDisposable" preserve="all"/>
 		<type fullname="System.Int16" preserve="all"/>
 		<type fullname="System.Int32" preserve="all"/>
 		<type fullname="System.Int64" preserve="all"/>
@@ -31,10 +36,6 @@
 		<type fullname="System.ValueTuple" preserve="all"/>
 		<type fullname="System.Void" preserve="all"/>
 		<type fullname="<PrivateImplementationDetails>" preserve="all"/>
-	</assembly>
-	<assembly fullname="BasisExamples">
-		<type fullname="ExampleButtonInteractable" preserve="all"/>
-		<type fullname="ExampleButtonInteractable+ClickEvent" preserve="all"/>
 	</assembly>
 	<assembly fullname="UnityEngine">
 		<type fullname="UnityEngine.CustomRenderTexture" preserve="all"/>
@@ -63,6 +64,14 @@
 		<type fullname="UnityEngine.Transform" preserve="all"/>
 		<type fullname="UnityEngine.Vector4" preserve="all"/>
 		<type fullname="UnityEngine.Vector3" preserve="all"/>
+		<type fullname="UnityEngine.Vector2" preserve="all"/>
+		<type fullname="UnityEngine.Light" preserve="all"/>
+		<type fullname="UnityEngine.Quaternion" preserve="all"/>
+		<type fullname="UnityEngine.Behaviour" preserve="all"/>
+		<type fullname="UnityEngine.Gradient" preserve="all"/>
+		<type fullname="UnityEngine.RenderSettings" preserve="all"/>
+		<type fullname="UnityEngine.Rendering.AmbientMode" preserve="all"/>
+		<type fullname="UnityEngine.DynamicGI" preserve="all"/>
 	</assembly>
 	<assembly fullname="BasisShims">
 		<type fullname="Basis.BasisUrl" preserve="all"/>
@@ -79,8 +88,8 @@
 		<type fullname="Basis.BasisNetworkShim+PlayerJoinedEvent" preserve="all"/>
 		<type fullname="Basis.BasisNetworkShim+PlayerLeftEvent" preserve="all"/>
 	</assembly>
-	<assembly fullname="LiteNetLib">
-		<type fullname="LiteNetLib.DeliveryMethod" preserve="all"/>
+	<assembly fullname="BasisNetworkCore">
+		<type fullname="Basis.Network.Core.DeliveryMethod" preserve="all"/>
 	</assembly>
 	<assembly fullname="Cilbox">
 		<type fullname="Cilbox.CilboxPublicUtils" preserve="all"/>

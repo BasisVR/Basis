@@ -10,7 +10,7 @@ namespace Basis.Scripts.UI
 {
     public class BasisPointRaycaster : BaseRaycaster
     {
-        public float MaxDistance = 30;
+        public float MaxDistance = 120;
         public bool UseWorldPosition = true;
 
         /// <summary>

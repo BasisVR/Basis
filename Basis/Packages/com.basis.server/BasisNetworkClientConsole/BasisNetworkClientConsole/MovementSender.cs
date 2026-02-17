@@ -2,7 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
 using BasisNetworkClientConsole;
-using static BasisNetworkPrimitiveCompression;
+using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 using static SerializableBasis;
 
 namespace Basis.Network
@@ -15,8 +15,6 @@ namespace Basis.Network
         private const ushort UShortMax = ushort.MaxValue;   // 65535
         private const ushort UShortRangeDifference = UShortMax - UShortMin;
 
-        public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
-
         public static Vector3[] PlayersCurrentPosition;
         public static PlayerData[] ActivePlayerData;
 
@@ -27,46 +25,70 @@ namespace Basis.Network
         }
 
         // Precompute compressed scale once; reused for all messages.
-        private static readonly ushort CompressedScale = CompressScaleOnce(1);
+        private static readonly ushort CompressedScale = CompressScaleOnce(1f);
 
         public static void Initialize(int clientCount)
         {
             PlayersCurrentPosition = new Vector3[clientCount];
             ActivePlayerData = new PlayerData[clientCount];
 
-            for (int Index = 0; Index < clientCount; Index++)
+            for (int i = 0; i < clientCount; i++)
             {
-                PlayersCurrentPosition[Index] = Randomizer.GetRandomOffset();
-                ActivePlayerData[Index] = Generate();
+                PlayersCurrentPosition[i] = Randomizer.GetRandomOffset();
+                ActivePlayerData[i] = Generate();
             }
         }
         public static PlayerData Generate()
         {
-            var pd = new PlayerData
+            var message = new LocalAvatarSyncMessage
             {
-                Writer = new NetDataWriter(),
-                Message = new LocalAvatarSyncMessage
-                {
-                    AdditionalAvatarDatas = null,
-                    AdditionalAvatarDataSize = 0,
-                    LinkedAvatarIndex = 0,
-                    array = new byte[BasisBitPackingConstants.AvatarSyncSize],
-                }
+                DataQualityLevel = (byte)BitQuality.High,
+                AdditionalAvatarDatas = null,
+                AdditionalAvatarDataSize = 0,
+                LinkedAvatarIndex = 0,
+                array = new byte[ClientManager.Size],
             };
 
+            // Build the static parts once (muscles default, scale default, rotation default)
+            WriteInitialPayload(ref message);
+
+            return new PlayerData
+            {
+                Writer = new NetDataWriter(),
+                Message = message
+            };
+        }
+
+        private static void WriteInitialPayload(ref LocalAvatarSyncMessage message)
+        {
+            if (message.array.Length != ClientManager.Size)
+            {
+                message.array = new byte[ClientManager.Size];
+            }
+            // Layout:
+            // [Position 12][Muscles muscleBytes][Scale 2][Rotation 16]
+
             int offset = 0;
-            var message = pd.Message;
-            // Position (12 bytes)
-            WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset);//12
 
-            // Rotation xyz (12 bytes) + compressed w (2 bytes)
-            WriteQuaternionToBytes(Rotation, ref message.array, ref offset, RotationCompression);//14
+            // Position (placeholder; will be overwritten each tick)
+            WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset); // +12
 
-            // Scale (2 bytes) at the end
-            int scaleOffset = BasisBitPackingConstants.AvatarSyncSize - 2;
-            WriteUShort(CompressedScale, ref message.array, ref scaleOffset);//2
-            pd.Message = message;
-            return pd;
+            // Muscles bitstream (for console test: write zeros = neutral-ish)
+            int muscleBytes = BasisAvatarBitPacking.MuscleBytes(BitQuality.High);
+            Array.Clear(message.array, offset, muscleBytes);
+            offset += muscleBytes;
+
+            // Scale (2)
+            WriteUShort(CompressedScale, ref message.array, ref offset); // +2
+
+            // Rotation (16) last
+            WriteQuaternionToBytes(Rotation, ref message.array, ref offset); // +16
+
+            // Safety check: we should land exactly at payload size
+            if (offset != ClientManager.Size)
+            {
+                BNL.LogError($"[MovementSender] Payload build mismatch. Wrote {offset}");
+            }
         }
 
         public static void ProcessSingle(NetPeer peer, int index)
@@ -76,19 +98,20 @@ namespace Basis.Network
             // Update position
             PlayersCurrentPosition[index] += Randomizer.GetRandomOffset();
 
-            // Overwrite just the position region in the message buffer
+            // Overwrite just the position region in the message buffer (first 12 bytes)
             int offset = 0;
-            var Message = ActivePlayerData[index].Message;
-            WritePosition(PlayersCurrentPosition[index], ref Message.array, ref offset);
-            var Writer = ActivePlayerData[index].Writer;
-            // Reset writer before (re)serialization
-            Writer.Reset();
-            Message.Serialize(Writer);
+            var msg = ActivePlayerData[index].Message;
 
+            WritePosition(PlayersCurrentPosition[index], ref msg.array, ref offset);
 
-            peer.Send(Writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+            // Serialize and send
+            var writer = ActivePlayerData[index].Writer;
+            writer.Reset();
+            msg.Serialize(writer, BitQuality.High);
 
-            ActivePlayerData[index].Message = Message;
+            peer.Send(writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+
+            ActivePlayerData[index].Message = msg;
         }
 
         public static void WritePosition(Scripts.Networking.Compression.Vector3 position, ref byte[] buffer, ref int offset)
@@ -106,19 +129,17 @@ namespace Basis.Network
             offset += 12;
         }
 
-        public unsafe static void WriteQuaternionToBytes(Quaternion q, ref byte[] bytes, ref int offset, BasisRangedUshortFloatData compressor)
+        public unsafe static void WriteQuaternionToBytes(Quaternion q, ref byte[] bytes, ref int offset)
         {
             fixed (byte* ptr = &bytes[offset])
             {
                 *((float*)ptr) = float.IsNaN(q.value.x) ? 0f : q.value.x;
                 *((float*)(ptr + 4)) = float.IsNaN(q.value.y) ? 0f : q.value.y;
                 *((float*)(ptr + 8)) = float.IsNaN(q.value.z) ? 0f : q.value.z;
+                *((float*)(ptr + 12)) = float.IsNaN(q.value.w) ? 1f : q.value.w;
             }
-            offset += 12;
 
-            float w = float.IsNaN(q.value.w) ? 1f : q.value.w;
-            ushort compressedW = compressor.Compress(w);
-            WriteUShort(compressedW, ref bytes, ref offset);
+            offset += 16;
         }
 
         private static ushort CompressScaleOnce(float scale)
@@ -126,11 +147,11 @@ namespace Basis.Network
             const float Min = 0.005f;
             const float Max = 150f;
             const float Range = Max - Min;
-            float clamped = scale;//math.clamp(scale, Min, Max);
-            // Normalized value of a uniform scale of 1.0 within [Min, Max]
-            float normalized = (clamped - Min) / Range;
-            ushort compressed = (ushort)(normalized * UShortRangeDifference);
 
+            float clamped = scale;
+            float normalized = (clamped - Min) / Range;
+
+            ushort compressed = (ushort)(normalized * UShortRangeDifference);
             return compressed;
         }
 

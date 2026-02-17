@@ -1,8 +1,8 @@
-using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -14,10 +14,12 @@ namespace Basis.BasisUI
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new ServersProvider());
         }
-
-        public override string Title => "Servers";
+        public static string TitleStatic = "Servers";
+        public override string Title => TitleStatic;
         public override string IconAddress => AddressableAssets.Sprites.Servers;
         public override int Order => 1;
+
+        public override bool Hidden => false;
 
         public override void RunAction()
         {
@@ -31,7 +33,7 @@ namespace Basis.BasisUI
                 new BasisMenuPanel.PanelData
                 {
                     Title = this.Title,
-                    PanelSize = new Vector2(600, 800),
+                    PanelSize = new Vector2(650, 900),
                     PanelPosition = default
                 },
                 BasisMenuPanel.PanelStyles.Page);
@@ -49,6 +51,8 @@ namespace Basis.BasisUI
 
             ipAddressField = PanelTextField.CreateNewEntry(container);
             ipAddressField.Descriptor.SetTitle("IP Address");
+
+
 
             useLocalhost = PanelButton.CreateNew(container);
             useLocalhost.Descriptor.SetTitle("Use \"Localhost\"");
@@ -70,12 +74,49 @@ namespace Basis.BasisUI
             connectButton.Descriptor.SetHeight(80);
             connectButton.OnClicked += () => _ = HasUserName();
 
+            ShowAdvancedSettings = PanelButton.CreateNew(container);
+
+            ShowAdvancedSettings.Descriptor.SetTitle("Show Advanced Settings");
+            ShowAdvancedSettings.OnClicked += ShowAdvancedOptions;
+
+            Info = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group,container);
+
+            portField.gameObject.SetActive(false);
+            useLocalhost.gameObject.SetActive(false);
+            passwordField.gameObject.SetActive(false);
+            hostModeToggle.gameObject.SetActive(false);
+            ipAddressField.gameObject.SetActive(false);
             if (BasisNetworkManagement.Instance)
             {
                 LoadCurrentSettings();
             }
+            else
+            {
+                BasisNetworkManagement.OnIstanceCreated += LoadCurrentSettings;
+            }
         }
+        public void ShowAdvancedOptions()
+        {
 
+            bool State = useLocalhost.gameObject.activeSelf;
+            bool Opposite = !State;
+
+            if(Opposite)
+            {
+                ShowAdvancedSettings.Descriptor.SetTitle("Hide Advanced Settings");
+            }
+            else
+            {
+                ShowAdvancedSettings.Descriptor.SetTitle("Show Advanced Settings");
+            }
+            useLocalhost.gameObject.SetActive(Opposite);
+            passwordField.gameObject.SetActive(Opposite);
+            hostModeToggle.gameObject.SetActive(Opposite);
+            portField.gameObject.SetActive(Opposite);
+            ipAddressField.gameObject.SetActive(Opposite);
+        }
+        private PanelElementDescriptor Info;
+        private PanelButton ShowAdvancedSettings;
         private PanelTextField usernameField;
         private PanelTextField ipAddressField;
         private PanelButton useLocalhost;
@@ -99,32 +140,42 @@ namespace Basis.BasisUI
         {
             // Set button to non-interactable immediately after clicking
             connectButton.ButtonComponent.interactable = false;
-
-            if (!string.IsNullOrEmpty(usernameField.Value))
+            Info.SetTitle("Connecting");
+            Info.SetDescription("Initalizing...");
+            string UserName = usernameField._inputField.text;
+            if (!string.IsNullOrEmpty(UserName))
             {
                 if (BasisNetworkConnection.LocalPlayerIsConnected)
                 {
+                    Info.SetTitle("Connecting");
+                    Info.SetDescription("Disconnecting...");
                     await BasisNetworkLifeCycle.Destroy(BasisNetworkManagement.Instance);
                     BasisNetworkLifeCycle.Initalize(BasisNetworkManagement.Instance);
                 }
-
-                BasisLocalPlayer.Instance.DisplayName = usernameField.Value;
+                Info.SetTitle("Connecting");
+                Info.SetDescription("Preparing...");
+                BasisLocalPlayer.Instance.DisplayName = UserName;
                 BasisLocalPlayer.Instance.SetSafeDisplayname();
                 BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, LoadFileName);
                 if (BasisNetworkManagement.Instance)
                 {
+                    Info.SetTitle("Connecting");
+                    Info.SetDescription("Loading Asset Bundle...");
                     await CreateAssetBundle();
                     BasisNetworkManagement.Instance.Ip = ipAddressField.Value;
                     BasisNetworkManagement.Instance.Password = passwordField.Password;
                     BasisNetworkManagement.Instance.IsHostMode = hostModeToggle.Value;
                     ushort.TryParse(portField.Value, out BasisNetworkManagement.Instance.Port);
+                    Info.SetTitle("Connecting");
+                    Info.SetDescription("Staging...");
                     BasisNetworkManagement.Instance.Connect();
                     BasisMainMenu.Close();
                 }
             }
             else
             {
-                BasisDebug.LogError("Name was empty, bailing");
+                Info.SetTitle("Error");
+                Info.SetDescription("Display Name Was Empty");
                 // Re-enable button interaction if username is empty
                 connectButton.ButtonComponent.interactable = true;
             }

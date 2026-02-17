@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static SerializableBasis;
@@ -457,7 +458,7 @@ namespace BasisServerHandle
                 {
                     syncState = new LocalAvatarSyncMessage
                     {
-                        array = new byte[BasisBitPackingConstants.AvatarSyncSize],
+                        array = new byte[NetworkServer.HighQualityLength],
                         AdditionalAvatarDatas = null,
                         AdditionalAvatarDataSize = 0,
                         LinkedAvatarIndex = 0

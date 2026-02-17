@@ -58,7 +58,11 @@ namespace Basis.BasisUI
             string deny,
             Action<bool> callback)
         {
-            if (!BasisMainMenu.Instance) return null;
+            if (!BasisMainMenu.Instance)
+            {
+                return null;
+            }
+
             Component parent = BasisMainMenu.Instance.MenuObjectInstance.PanelRoot;
 
             BasisMenuDialoguePanel panel = CreateNew<BasisMenuDialoguePanel>(DialogueStyles.Default, parent);
@@ -77,7 +81,11 @@ namespace Basis.BasisUI
             string accept,
             Action<bool> callback)
         {
-            if (!BasisMainMenu.Instance) return null;
+            if (!BasisMainMenu.Instance)
+            {
+                return null;
+            }
+
             Component parent = BasisMainMenu.Instance.MenuObjectInstance.PanelRoot;
 
             BasisMenuDialoguePanel panel = CreateNew<BasisMenuDialoguePanel>(DialogueStyles.Default, parent);

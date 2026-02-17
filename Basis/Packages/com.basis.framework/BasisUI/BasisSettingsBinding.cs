@@ -69,7 +69,7 @@ namespace Basis
             }
         }
 
-        private void LoadBindingValue()
+        public void LoadBindingValue()
         {
             switch (typeof(T))
             {

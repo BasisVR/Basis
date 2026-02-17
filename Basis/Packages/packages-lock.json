@@ -18,12 +18,6 @@
       "source": "embedded",
       "dependencies": {}
     },
-    "com.basis.console": {
-      "version": "file:com.basis.console",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.basis.corenetworking": {
       "version": "file:com.basis.server",
       "depth": 0,
@@ -138,7 +132,10 @@
       "version": "file:UnityJigglePhysics-upm",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.unity.mathematics": "1.0.0",
+        "com.unity.collections": "2.0.0"
+      }
     },
     "com.hecomi.basisulipsync": {
       "version": "file:com.hecomi.ulipsync",
@@ -157,12 +154,6 @@
     },
     "com.llealloo.audiolink": {
       "version": "file:AudioLink",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
-    "com.meta.xr.sdk.core": {
-      "version": "file:com.meta.xr.sdk.core",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}
@@ -192,7 +183,7 @@
       "dependencies": {}
     },
     "com.unity.addressables": {
-      "version": "2.7.6",
+      "version": "2.8.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -202,13 +193,13 @@
         "com.unity.modules.jsonserialize": "1.0.0",
         "com.unity.modules.imageconversion": "1.0.0",
         "com.unity.modules.unitywebrequest": "1.0.0",
-        "com.unity.scriptablebuildpipeline": "2.5.0",
+        "com.unity.scriptablebuildpipeline": "2.5.2",
         "com.unity.modules.unitywebrequestassetbundle": "1.0.0"
       },
       "url": "https://packages.unity.com"
     },
     "com.unity.animation.rigging": {
-      "version": "1.4.0",
+      "version": "1.4.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -219,7 +210,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.burst": {
-      "version": "1.8.26",
+      "version": "1.8.27",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -262,7 +253,7 @@
       "dependencies": {}
     },
     "com.unity.ide.rider": {
-      "version": "3.0.38",
+      "version": "3.0.39",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -271,16 +262,16 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.ide.visualstudio": {
-      "version": "2.0.25",
+      "version": "2.0.26",
       "depth": 0,
       "source": "registry",
       "dependencies": {
-        "com.unity.test-framework": "1.1.31"
+        "com.unity.test-framework": "1.1.33"
       },
       "url": "https://packages.unity.com"
     },
     "com.unity.inputsystem": {
-      "version": "1.17.0",
+      "version": "1.18.0",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -362,7 +353,7 @@
       }
     },
     "com.unity.scriptablebuildpipeline": {
-      "version": "2.5.0",
+      "version": "2.5.2",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -504,7 +495,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.hands": {
-      "version": "1.7.2",
+      "version": "1.7.3",
       "depth": 0,
       "source": "registry",
       "dependencies": {

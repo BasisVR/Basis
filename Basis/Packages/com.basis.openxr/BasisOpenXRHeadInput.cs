@@ -40,7 +40,10 @@ public class BasisOpenXRHeadInput : BasisInput
         base.OnDestroy();
     }
 
-    public override void DoPollData()
+    public override void LateDoPollData()
+    {
+    }
+    public override void RenderPollData()
     {
         ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, Position.action.ReadValue<Vector3>());
         UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();

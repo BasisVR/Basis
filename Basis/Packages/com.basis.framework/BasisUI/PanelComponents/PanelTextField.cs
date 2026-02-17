@@ -6,8 +6,8 @@ namespace Basis.BasisUI
     public class PanelTextField : PanelDataComponent<string>
     {
 
-        [SerializeField] protected TMP_InputField _inputField;
-        [SerializeField] protected TextMeshProUGUI _placeholderLabel;
+        [SerializeField] public TMP_InputField _inputField;
+        [SerializeField] public TextMeshProUGUI _placeholderLabel;
         [SerializeField] protected string _placeholderText;
         [SerializeField] protected string _defaultValue;
         [SerializeField] protected TMP_InputField.ContentType _contentType = TMP_InputField.ContentType.Alphanumeric;
@@ -16,10 +16,13 @@ namespace Basis.BasisUI
         {
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field.prefab";
             public static string Entry => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry Variant.prefab";
+            public static string LargeDefault => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Large Text Field.prefab";
         }
 
         public static PanelTextField CreateNew(Component parent)
             => CreateNew<PanelTextField>(TextFieldStyles.Default, parent);
+        public static PanelTextField CreateNewLarge(Component parent)
+    => CreateNew<PanelTextField>(TextFieldStyles.LargeDefault, parent);
 
         public static PanelTextField CreateNewEntry(Component parent)
             => CreateNew<PanelTextField>(TextFieldStyles.Entry, parent);

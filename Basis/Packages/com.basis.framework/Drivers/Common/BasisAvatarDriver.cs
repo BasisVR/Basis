@@ -1,8 +1,6 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
-using SteamAudio;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -338,43 +336,38 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Fix renderers + repair broken shaders by swapping to a URP shader and copying over textures/colors.
         /// </summary>
-        public static void RenderMeshSettings(bool forceLodToZero,int layer,int skinnedMeshRendererLength,SkinnedMeshRenderer[] skinnedMeshRenderers, bool updateWhenOffscreen, bool forceMatrixRecalculationPerRender, bool FindHeadAndCreateShadowHead)
+        public static void LocalRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers, SkinnedMeshRenderer FaceMesh)
         {
-            if (skinnedMeshRenderers == null || skinnedMeshRendererLength <= 0)
-            {
-                return;
-            }
-            if(FindHeadAndCreateShadowHead)
-            {
-                RemoveOldShadowClones();
-            }
+            RemoveOldShadowClones();
 
             for (int index = 0; index < skinnedMeshRendererLength; index++)
             {
+                var Render = skinnedMeshRenderers[index];
+                //  Render.shadowCastingMode = ShadowCastingMode.On;
+                Render.updateWhenOffscreen = true;
+                Render.forceMatrixRecalculationPerRender = true;
+                Render.gameObject.layer = layer;
+                Render.forceMeshLod = 0;
+                MaterialCorrection(Render, BundledContentHolder.Instance.UrpShader);
+            }
+            if (FaceMesh != null)
+            {
+                FaceMesh.shadowCastingMode = ShadowCastingMode.Off;
+                EnsureShadowOnlyClone(FaceMesh, layer);
+            }
+        }
+        /// <summary>
+        /// Fix renderers + repair broken shaders by swapping to a URP shader and copying over textures/colors.
+        /// </summary>
+        public static void RemoteRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
+        {
+            for (int index = 0; index < skinnedMeshRendererLength; index++)
+            {
                 var r = skinnedMeshRenderers[index];
-                if (r == null)
-                {
-                    continue;
-                }
-                if(FindHeadAndCreateShadowHead)
-                {
-                    r.shadowCastingMode = ShadowCastingMode.Off;
-                }
-                r.updateWhenOffscreen = updateWhenOffscreen;
-                r.forceMatrixRecalculationPerRender = forceMatrixRecalculationPerRender;
+                r.updateWhenOffscreen = false;
+                r.forceMatrixRecalculationPerRender = false;
                 r.gameObject.layer = layer;
-
-                if (forceLodToZero)
-                {
-                    r.forceMeshLod = 0;
-                }
-
                 MaterialCorrection(r, BundledContentHolder.Instance.UrpShader);
-
-                if (FindHeadAndCreateShadowHead)
-                {
-                    EnsureShadowOnlyClone(r, layer);
-                }
             }
         }
         public static List<SkinnedMeshRenderer> LocalShadowClones = new List<SkinnedMeshRenderer>();
@@ -410,7 +403,7 @@ namespace Basis.Scripts.Drivers
                 // The whole point:
                 LocalShadowClone.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
                 LocalShadowClone.receiveShadows = false;
-
+                LocalShadowClone.lightProbeUsage = LightProbeUsage.Off;
                 if (source.sharedMesh != null)
                 {
                     LocalShadowClone.sharedMesh = source.sharedMesh;
@@ -427,16 +420,13 @@ namespace Basis.Scripts.Drivers
                 {
                     LocalShadowClone.rootBone = source.rootBone;
                 }
-                // Keep it stable/offscreen-safe if needed (usually not required, but harmless)
-                LocalShadowClone.updateWhenOffscreen = true;
-
-                // Optional: copy key renderer flags that can affect bounds/skin updates
-                LocalShadowClone.quality = source.quality;
-                LocalShadowClone.skinnedMotionVectors = source.skinnedMotionVectors;
-                LocalShadowClone.allowOcclusionWhenDynamic = source.allowOcclusionWhenDynamic;
-
-                // Optional: bounds (helps if your bounds are tiny and shadows pop)
+                LocalShadowClone.updateWhenOffscreen = false;
+                LocalShadowClone.forceMatrixRecalculationPerRender = false;
+                LocalShadowClone.quality = SkinQuality.Bone1;
+                LocalShadowClone.allowOcclusionWhenDynamic = true;
+                LocalShadowClone.skinnedMotionVectors = false;
                 LocalShadowClone.localBounds = source.localBounds;
+                LocalShadowClone.forceMeshLod = -1;
             }
         }
 

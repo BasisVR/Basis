@@ -1,12 +1,13 @@
-using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using System.Threading.Tasks;
-using Basis.Scripts.Drivers;
-using Basis.Scripts.Device_Management;
+using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
+using static BasisHeightDriver;
 
 namespace Basis.Scripts.UI.UI_Panels
 {
@@ -58,7 +59,7 @@ namespace Basis.Scripts.UI.UI_Panels
         /// Singleton instance of this UI controller.
         /// </summary>
         public static BasisSetUserName Instance;
-
+        public float InitalY;
         /// <summary>
         /// Unity Start hook. Initializes UI, registers callbacks, and loads cached settings.
         /// </summary>
@@ -66,6 +67,7 @@ namespace Basis.Scripts.UI.UI_Panels
         {
             Instance = this;
             InitalScale = gameObject.transform.localScale;
+            InitalY = gameObject.transform.position.y;
             UserNameTMP_InputField.text = BasisDataStore.LoadString(LoadFileName, string.Empty);
             Ready.onClick.AddListener(HasUserName);
             AdvancedSettingsPanel.SetActive(false);
@@ -81,22 +83,29 @@ namespace Basis.Scripts.UI.UI_Panels
                 this.transform.SetParent(BasisDeviceManagement.Instance.transform, true);
             }
 
-            ApplySize();
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySize;
+            ApplySizeAndPosition();
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += ApplySizeAndPosition;
             if (BasisNetworkManagement.Instance != null)
             {
                 LoadCurrentSettings();
             }
+            BasisLocalPlayer.OnLocalPlayerInitalized += ApplySizeAndPosition;
+            BasisLocalPlayer.OnLocalAvatarChanged += ApplySizeAndPosition;
+            BasisLocalCameraDriver.InstanceExists += ApplySizeAndPosition;
         }
-
+        public void ApplySizeAndPosition(HeightModeChange Mode)
+        {
+            ApplySizeAndPosition();
+        }
         /// <summary>
         /// Rescales the UI panel based on the local player's avatar height.
         /// </summary>
-        public void ApplySize()
+        public void ApplySizeAndPosition()
         {
             if (BasisLocalPlayer.Instance != null)
             {
-                this.transform.localScale = InitalScale * BasisHeightDriver.AvatarToPlayerScale;
+                this.transform.localScale = InitalScale * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
+                this.transform.position  = new Vector3(this.transform.position.x, -1.4f + BasisHeightDriver.SelectedScaledPlayerHeight, this.transform.position.z);
             }
         }
 
@@ -110,7 +119,10 @@ namespace Basis.Scripts.UI.UI_Panels
                 AdvancedSettings.onClick.RemoveListener(ToggleAdvancedSettings);
                 UseLocalhost.onClick.RemoveListener(UseLocalHost);
             }
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySize;
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= ApplySizeAndPosition;
+            BasisLocalPlayer.OnLocalPlayerInitalized -= ApplySizeAndPosition;
+            BasisLocalPlayer.OnLocalAvatarChanged -= ApplySizeAndPosition;
+            BasisLocalCameraDriver.InstanceExists -= ApplySizeAndPosition;
         }
 
         /// <summary>
@@ -150,6 +162,7 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 this.transform.SetParent(BasisDeviceManagement.Instance.transform);
             }
+            ApplySizeAndPosition();
         }
 
         /// <summary>

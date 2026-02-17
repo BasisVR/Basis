@@ -16,7 +16,7 @@ public static partial class SerializableBasis
         {
             playerIdMessage.Serialize(Writer);
             Writer.Put(interval);
-            avatarSerialization.Serialize(Writer);
+            avatarSerialization.Serialize(Writer, (Basis.Network.Core.Compression.BasisAvatarBitPacking.BitQuality)avatarSerialization.DataQualityLevel);
         }
     }
 }

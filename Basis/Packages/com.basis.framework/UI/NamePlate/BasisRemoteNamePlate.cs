@@ -1,4 +1,4 @@
-using System.Linq;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -276,20 +276,23 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public void WasPressed(BasisInput input)
         {
-            /*if (BasisRemotePlayer != null && BasisIndividualPlayerSettings.Instance == null)
+            if (BasisRemotePlayer != null && BasisIndividualPlayerSettings.Instance == null && BasisMainMenu.ActiveMenuTitle != IndividualPlayerProvider.StaticTitle)
             {
+                BasisMainMenu.Close();
                 input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume);
-                BasisIndividualPlayerSettings.OpenPlayerSettings(BasisRemotePlayer);
-            }*/
-            BasisNetworkPlayer networkPlayer = BasisNetworkPlayers.Players.Values.FirstOrDefault(p => p.Player.UUID == BasisRemotePlayer.UUID);
-            if (networkPlayer == null) return;
-
-            if (!BasisMainMenu.Instance) BasisMainMenu.Open();
-            PlayersProvider provider = (PlayersProvider)BasisMenuBase<BasisMainMenu>.Providers.Find(
-                prov => prov is PlayersProvider);
-            if (provider == null) return;
-            provider.OpenMenu(networkPlayer);
-
+                IndividualPlayerProvider.remotePlayer = BasisRemotePlayer;
+                BasisMainMenu.Open();
+                int count = BasisMainMenu.Providers.Count;
+                for (int Index = 0; Index < count; Index++)
+                {
+                    BasisMenuActionProvider<BasisMainMenu> provider = BasisMainMenu.Providers[Index];
+                    if (provider.Title == IndividualPlayerProvider.StaticTitle)
+                    {
+                        provider.RunAction();
+                        return;
+                    }
+                }
+            }
         }
         public override bool IsInteractingWith(BasisInput input)
         {
@@ -307,7 +310,7 @@ namespace Basis.Scripts.UI.NamePlate
         public override bool IsInteractTriggered(BasisInput input)
         {
             // click or mostly triggered
-            return HasState(input.CurrentInputState);
+            return HasState(input.CurrentInputState, InputKey);
         }
     }
 }

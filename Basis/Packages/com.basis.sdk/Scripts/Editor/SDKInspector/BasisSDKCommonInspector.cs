@@ -7,13 +7,60 @@ public static class BasisSDKCommonInspector
 {
     public static void CreateBuildOptionsDropdown(VisualElement parent)
     {
-        BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
+        BasisAssetBundleObject assetBundleObject =
+            AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(
+                BasisAssetBundleObject.AssetBundleObject);
+
         Foldout foldout = new Foldout
         {
             text = "Build AssetBundle Options",
             value = false
         };
         parent.Add(foldout);
+
+        Toggle toggle = new Toggle("Use Custom Password")
+        {
+            value = assetBundleObject.UseCustomPassword
+        };
+
+        TextField passwordField = new TextField("Password")
+        {
+            value = assetBundleObject.UserSelectedPassword,
+            isPasswordField = true // masks input
+        };
+
+        // Initial state
+        passwordField.SetEnabled(toggle.value);
+        passwordField.style.display = toggle.value
+            ? DisplayStyle.Flex
+            : DisplayStyle.None;
+
+        toggle.RegisterValueChangedCallback(evt =>
+        {
+            assetBundleObject.UseCustomPassword = evt.newValue;
+
+            passwordField.SetEnabled(evt.newValue);
+            passwordField.style.display = evt.newValue
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+
+            if (!evt.newValue)
+            {
+                assetBundleObject.UserSelectedPassword = "";
+                passwordField.value = "";
+            }
+
+            EditorUtility.SetDirty(assetBundleObject);
+        });
+
+        passwordField.RegisterValueChangedCallback(evt =>
+        {
+            assetBundleObject.UserSelectedPassword = evt.newValue;
+            EditorUtility.SetDirty(assetBundleObject);
+        });
+
+        foldout.Add(toggle);
+        foldout.Add(passwordField);
 
         foreach (BuildAssetBundleOptions option in Enum.GetValues(typeof(BuildAssetBundleOptions)))
         {
@@ -28,12 +75,12 @@ public static class BasisSDKCommonInspector
                 continue; // Skip obsolete options from being shown
 
             }
-            Toggle toggle = new Toggle(option.ToString())
+            Toggle BABOTggle = new Toggle(option.ToString())
             {
                 value = assetBundleObject.BuildAssetBundleOptions.HasFlag(option)
             };
 
-            toggle.RegisterValueChangedCallback(evt =>
+            BABOTggle.RegisterValueChangedCallback(evt =>
             {
                 if (evt.newValue)
                 {
@@ -45,7 +92,7 @@ public static class BasisSDKCommonInspector
                 }
             });
 
-            foldout.Add(toggle);
+            foldout.Add(BABOTggle);
         }
         EditorUtility.SetDirty(assetBundleObject);
         AssetDatabase.SaveAssets();

@@ -27,6 +27,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0a567d33a926609498ff7326c03a6e6b
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/calibrateWhite.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1176a1853ad8f87448d1b6d2965b5dea
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Avatar List Page.prefab
     m_ReadOnly: 0
@@ -51,6 +56,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1de64c0896704184697d1c4bd1af9b41
     m_Address: Packages/com.basis.sdk/Textures/Runtime/avatarWhite.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1fe4ba37c99a5bc4ab67846df4e71a1c
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/items.png
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -91,6 +101,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 64a436389ec64fc47bfd6d1068f1e3c9
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 75bd3bdc3bf3d5d4980a0c74358b93b9
+    m_Address: Panel Elements/Overlay Panel.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -159,6 +174,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c8641e85bc7395f4da039ce980f3dafe
+    m_Address: StylePalette
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ca03bbea6cd5ed94cb06a7275778e2f7
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Single Select.prefab
     m_ReadOnly: 0
@@ -195,6 +215,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e0f426c988eb0f84a8e32126d17abeb1
+    m_Address: StyleLibrary
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e33527f56f5a6c84c91195c63a1816a3
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown.prefab
     m_ReadOnly: 0
@@ -217,6 +242,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: f6c5e8b8cbc5f024387005329aa21903
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Volume Meter Horizontal.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f9e0cc4f77f32074a871f7393eb4886d
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

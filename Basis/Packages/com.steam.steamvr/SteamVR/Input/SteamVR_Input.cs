@@ -1,4 +1,4 @@
-﻿//======= Copyright (c) Valve Corporation, All rights reserved. ===============
+//======= Copyright (c) Valve Corporation, All rights reserved. ===============
 
 using UnityEngine;
 using System.IO;
@@ -1214,7 +1214,7 @@ namespace Valve.VR
 
         internal static bool ShouldMakeCopy()
         {
-            bool shouldMakeCopy = SteamVR_Behaviour.isPlaying == false;
+            bool shouldMakeCopy = SteamVR_Render.isPlaying == false;
 
             return shouldMakeCopy;
         }

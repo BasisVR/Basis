@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.Network.Core.Compression;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
 using BasisDidLink;
@@ -10,28 +11,33 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
+using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 
 public static class NetworkServer
 {
     public static EventBasedNetListener Listener;
-    public static NetManager Server;
+    public static LNLNetManager Server;
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static Configuration Configuration;
     public static IAuth Auth;
     public static IAuthIdentity AuthIdentity;
+    public static int HighQualityLength;
     #region Server Entry Point
 
     public static void StartServer(Configuration configuration)
     {
         Configuration = configuration;
 
+        HighQualityLength = BasisAvatarBitPacking.ConvertToSize(BitQuality.High);
         InitializePulseSettings();
         InitializeAuth();
         SetupServer(configuration);
         SubscribeEvents();
 
         if (configuration.EnableStatistics)
+        {
             BasisStatistics.StartWorkerThread(Server);
+        }
 
         BNL.Log("Server Worker Threads Booted");
     }
@@ -76,12 +82,14 @@ public static class NetworkServer
         if (configuration.OverrideAutoDiscoveryOfIpv)
         {
             IPAddress? IPv4Address, IPv6Address;
-            if (!IPAddress.TryParse(Configuration.IPv4Address, out IPv4Address)) {
+            if (!IPAddress.TryParse(Configuration.IPv4Address, out IPv4Address))
+            {
                 BNL.LogWarning("Failed to parse IPv4 bind address, falling back to 0.0.0.0");
                 IPv4Address = IPAddress.Parse("0.0.0.0");
             }
 
-            if (!IPAddress.TryParse(Configuration.IPv6Address, out IPv6Address)) {
+            if (!IPAddress.TryParse(Configuration.IPv6Address, out IPv6Address))
+            {
                 BNL.LogWarning("Failed to parse IPv6 bind address, falling back to ::1");
                 IPv6Address = IPAddress.Parse("::1");
             }
@@ -92,14 +100,16 @@ public static class NetworkServer
         else
         {
             BNL.Log($"Server Wiring up SetPort {Configuration.SetPort}");
-            Server.Start(Configuration.SetPort);
+            Server.Start(IPAddress.Any, IPAddress.IPv6Any, Configuration.SetPort);
         }
     }
-
     #endregion
     public static void BroadcastMessageToClients(NetDataWriter writer, byte channel, NetPeer sender, ReadOnlySpan<NetPeer> clients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int maxMessages = 70)
     {
-        if (!CheckValidated(writer)) return;
+        if (!CheckValidated(writer))
+        {
+            return;
+        }
 
         foreach (var client in clients)
         {
@@ -111,7 +121,10 @@ public static class NetworkServer
     }
     public static void BroadcastMessageToClients(NetDataWriter writer, byte channel, ReadOnlySpan<NetPeer> clients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int maxMessages = 70)
     {
-        if (!CheckValidated(writer)) return;
+        if (!CheckValidated(writer))
+        {
+            return;
+        }
 
         foreach (var client in clients)
         {
@@ -121,7 +134,10 @@ public static class NetworkServer
 
     public static void BroadcastMessageToClients(NetDataWriter writer, byte channel, ref List<NetPeer> clients, DeliveryMethod deliveryMethod = DeliveryMethod.Sequenced, int maxMessages = 70)
     {
-        if (!CheckValidated(writer)) return;
+        if (!CheckValidated(writer))
+        {
+            return;
+        }
 
         int count = clients.Count;
         for (int Index = 0; Index < count; Index++)
@@ -143,7 +159,7 @@ public static class NetworkServer
             }
             else
             {
-               // BNL.LogError("Skipping send out of Channel " + channel);
+                // BNL.LogError("Skipping send out of Channel " + channel);
             }
         }
         else

@@ -152,7 +152,7 @@ namespace Basis.Scripts.UI
             Vector2 previousPosition = currentEventData.position;
             currentEventData.delta = hit.screenPosition - previousPosition;
             currentEventData.position = hit.screenPosition;
-            currentEventData.scrollDelta = BaseInput.CurrentInputState.Secondary2DAxis;
+            currentEventData.scrollDelta = BaseInput.CurrentInputState.Secondary2DAxisDeadZoned;
 
             // Always keep latest raycast, so movement / scroll / hover use up-to-date info
             currentEventData.pointerCurrentRaycast = raycastResult;

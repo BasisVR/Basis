@@ -108,8 +108,7 @@ public static partial class BasisEncryptionWrapper
                 {
                     reportProgress?.ReportProgress(UniqueID, progress, ProgressWritingData);
                     lastReportedProgress = progress;
-                }
-            }
+                }            }
         }
         finally
         {
@@ -129,7 +128,9 @@ public static partial class BasisEncryptionWrapper
         CancellationToken ct = default)
     {
         if (encryptedData != null && encryptedData.Length > LargeFileThreshold)
+        {
             return Task.Run(() => DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress, ct), ct);
+        }
 
         return DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress, ct);
     }
@@ -234,21 +235,20 @@ public static partial class BasisEncryptionWrapper
             reportProgress?.ReportProgress(UniqueID, 100, ProgressDecryptionComplete);
             return BasisDecryptResult.Ok(msOutput.ToArray());
         }
-        catch (OperationCanceledException oce)
-        {
-            return BasisDecryptResult.Fail(BasisDecryptError.Cancelled, "Decryption cancelled.", oce);
-        }
-        catch (CryptographicException ce)
-        {
-            // Most common: wrong password OR corrupted ciphertext (padding/MAC-less format).
-            // Since you don't authenticate, you can't distinguish reliably. Be honest.
-            return BasisDecryptResult.Fail(
-                BasisDecryptError.WrongPasswordOrCorruptedData,
-                "Decryption failed: wrong password or data corrupted (unauthenticated ciphertext).",
-                ce);
-        }
         catch (Exception ex)
         {
+            if (ex is OperationCanceledException oce)
+            {
+                return BasisDecryptResult.Fail(BasisDecryptError.Cancelled, "Decryption cancelled.", oce);
+            }
+
+            // Treat all crypto failures the same (wrong password OR corrupt data)
+            // NOTE: avoid referencing CryptographicException in a catch clause.
+            if (ex.GetType().FullName == "System.Security.Cryptography.CryptographicException")
+            {
+                return BasisDecryptResult.Fail( BasisDecryptError.WrongPasswordOrCorruptedData, "Decryption failed: wrong password or data corrupted (unauthenticated ciphertext).", ex);
+            }
+
             return BasisDecryptResult.Fail(BasisDecryptError.Unknown, "Decryption failed with an unexpected error.", ex);
         }
     }

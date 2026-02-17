@@ -25,10 +25,7 @@ namespace Basis.Scripts.Device_Management
         /// <param name="nameToMatch">Incoming device name or identifier to match.</param>
         /// <param name="FallBackRole">Role to set on the generated fallback entry (if created).</param>
         /// <param name="UseFallbackROle">If true, the generated fallback will claim a tracked role using <paramref name="FallBackRole"/>.</param>
-        public DeviceSupportInformation GetAssociatedDeviceMatchableNames(
-            string nameToMatch,
-            BasisBoneTrackedRole FallBackRole = BasisBoneTrackedRole.CenterEye,
-            bool UseFallbackROle = false)
+        public DeviceSupportInformation GetAssociatedDeviceMatchableNames( string nameToMatch, BasisBoneTrackedRole FallBackRole = BasisBoneTrackedRole.CenterEye, bool UseFallbackROle = false)
         {
             if (string.IsNullOrEmpty(nameToMatch))
             {
@@ -109,7 +106,7 @@ namespace Basis.Scripts.Device_Management
         private DeviceSupportInformation CreateAndRegisterFallback(string nameToMatch, BasisBoneTrackedRole fallbackRole, bool useFallbackRole)
         {
             bool HasRayCastVisual = true;
-            bool HasRayCastRadical = true;
+            bool HasRayCastRadical = false;
             bool HasRayCastSupport = true;
             if (fallbackRole == BasisBoneTrackedRole.CenterEye && useFallbackRole)
             {

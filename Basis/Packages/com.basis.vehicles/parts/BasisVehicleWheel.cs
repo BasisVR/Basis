@@ -83,11 +83,13 @@ namespace Basis.Scripts.Vehicles.Parts
             for (int i = 0; i < transform.childCount; i++)
             {
                 Transform child = transform.GetChild(i);
-                BasisCalibratedCoords coords = new BasisCalibratedCoords(child.localPosition, child.localRotation);
-                _childTransforms.Add(child, coords);
+                if (_childTransforms.ContainsKey(child) == false)
+                {
+                    BasisCalibratedCoords coords = new BasisCalibratedCoords(child.localPosition, child.localRotation);
+                    _childTransforms.Add(child, coords);
+                }
             }
         }
-
         private void FixedUpdate()
         {
             if (!Active)

@@ -14,7 +14,7 @@ public class BasisTouchInputDevice : BasisInput
         InitalizeTracking( uniqueID,  unUniqueDeviceID,  subSystems,  ForceAssignTrackedRole,  basisBoneTrackedRole, hasRayCastOverrideSupport);
         BasisPointRaycaster.UseWorldPosition = false;
     }
-    public override void DoPollData()
+    public override void LateDoPollData()
     {
         if (HasRaycaster)
         {

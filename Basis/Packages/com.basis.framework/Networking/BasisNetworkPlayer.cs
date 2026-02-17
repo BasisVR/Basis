@@ -104,7 +104,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // All checks pas
                 PoseHandler = new HumanPoseHandler(
                     basisAvatar.Animator.avatar,
-                    Player.AvatarTransform
+                    Player.AvatarAnimatorTransform
                 );
                // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
@@ -294,7 +294,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                return BasisLocalAvatarDriver.References.GetBoneLocalPositionRotation(bone, out position, out rotation);
+                return BasisLocalAvatarDriver.Mapping.GetBoneLocalPositionRotation(bone, out position, out rotation);
             }
             else
             {
@@ -401,7 +401,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                BasisLocalAvatarDriver.References.GetBonePosition(bone, out Vector3 position);
+                BasisLocalAvatarDriver.Mapping.GetBonePosition(bone, out Vector3 position);
                 return position;
             }
             else
@@ -414,7 +414,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                BasisLocalAvatarDriver.References.GetBoneRotation(bone, out Quaternion rotation);
+                BasisLocalAvatarDriver.Mapping.GetBoneRotation(bone, out Quaternion rotation);
                 return rotation;
             }
             else

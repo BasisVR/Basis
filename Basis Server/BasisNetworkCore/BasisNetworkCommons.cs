@@ -7,7 +7,7 @@ namespace Basis.Network.Core
         /// </summary>
         public const int MaxConnections = 1024;
 
-        public const int NetworkIntervalPoll = 5;
+        public const int NetworkIntervalPoll = 2;
         public const int PingInterval = 1500;
         public const int ReceivePollingTime = 50000;
         public const int PacketPoolSize = 1700;

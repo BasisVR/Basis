@@ -1,134 +1,102 @@
 using System;
 using UnityEngine;
+using Basis.BasisUI;
 
 public class SMModuleDistanceBasedReductions : BasisSettingsBase
 {
-    private static float _microphoneRange;
-    private static float _hearingRange;
-    private static float _AvatarRange;
-    private static float _meshLod;
-
+    private static float _microphoneRange = 25f;
+    private static float _hearingRange = 25f;
+    private static float _avatarRange = 25f;
+    private static float _meshLod = 25f;
+    private static string K_MIC_RANGE => BasisSettingsDefaults.MicrophoneRange.BindingKey;   // "microphonerange"
+    private static string K_HEARING_RANGE => BasisSettingsDefaults.HearingRange.BindingKey;     // "hearingrange"
+    private static string K_AVATAR_RANGE => BasisSettingsDefaults.AvatarRange.BindingKey;      // "avatarrange"
+    private static string K_AVATAR_MESH_LOD => BasisSettingsDefaults.AvatarMeshLOD.BindingKey;    // "avatarmeshlod"
+    private static string K_GLOBAL_MESH_LOD => BasisSettingsDefaults.GlobalMeshLOD.BindingKey;    // "global meshlod" (note space!)
     public static event Action<float> OnMicrophoneRangeChanged;
     public static event Action<float> OnHearingRangeChanged;
     public static event Action<float> OnAvatarRangeChanged;
     public static event Action<float> OnMeshLodChanged;
-
-    /// <summary>
-    /// will be value * value returned pre-squared
-    /// </summary>
     public static float MicrophoneRange
     {
         get => _microphoneRange;
-        set
-        {
-            _microphoneRange = value;
-            OnMicrophoneRangeChanged?.Invoke(value);
-        }
+        private set => SetAndNotify(ref _microphoneRange, value, OnMicrophoneRangeChanged);
     }
-
-    /// <summary>
-    /// will be value * value returned pre-squared
-    /// </summary>
     public static float HearingRange
     {
         get => _hearingRange;
-        set
-        {
-            _hearingRange = value;
-            OnHearingRangeChanged?.Invoke(value);
-        }
+        private set => SetAndNotify(ref _hearingRange, value, OnHearingRangeChanged);
     }
-
     public static float AvatarRange
     {
-        get => _AvatarRange;
-        set
-        {
-            _AvatarRange = value;
-          //  BasisDebug.Log($"Avatar Range {_AvatarRange}");
-            OnAvatarRangeChanged?.Invoke(value);
-        }
+        get => _avatarRange;
+        private set => SetAndNotify(ref _avatarRange, value, OnAvatarRangeChanged);
     }
-
     public static float MeshLod
     {
         get => _meshLod;
-        set
-        {
-            _meshLod = value;
-            OnMeshLodChanged?.Invoke(value);
-        }
+        private set => SetAndNotify(ref _meshLod, value, OnMeshLodChanged);
     }
-
-    /// <summary>
-    /// microphone range
-    /// hearing range
-    /// maximum avatars
-    /// mesh LOD
-    /// </summary>
-    public override void ValidSettingsChange(string matchedSettingName, string optionValue)
+    private static void SetAndNotify(ref float field, float value, Action<float> changedEvent)
     {
-        string key = matchedSettingName.ToLower();
-
-        switch (key)
-        {
-            case "microphonerange":
-                if (SliderReadOption(optionValue, out float newMicrophoneRange))
-                {
-#if UNITY_SERVER
-                    MicrophoneRange = 0;
-#else
-                    MicrophoneRange = newMicrophoneRange * newMicrophoneRange;
-#endif
-                }
-                break;
-
-            case "hearingrange":
-                if (SliderReadOption(optionValue, out float newHearingRange))
-                {
-#if UNITY_SERVER
-                    HearingRange = 0;
-#else
-                    HearingRange = newHearingRange * newHearingRange;
-#endif
-                }
-                break;
-
-            case "avatarrange":
-                if (SliderReadOption(optionValue, out float loadRange))
-                {
-#if UNITY_SERVER
-                    AvatarRange = 0;
-#else
-                    AvatarRange = loadRange * loadRange;
-#endif
-                }
-                break;
-
-            case "avatarmeshlod":
-                if (SliderReadOption(optionValue, out float lod))
-                {
-#if UNITY_SERVER
-                    MeshLod = 0;
-#else
-                    MeshLod = lod * lod;
-#endif
-                }
-                break;
-            case "global meshlod":
-                if (SliderReadOption(optionValue, out float GlobalLOD))
-                {
-                    BasisDebug.Log($"Global MESHLOD set to {GlobalLOD}");
-                    QualitySettings.meshLodThreshold = GlobalLOD;
-                }
-                break;
-
-            default:
-                // Optionally handle unknown settings
-                break;
-        }
+        field = value;
+        changedEvent?.Invoke(value);
     }
+    private static bool TryReadSlider(string optionValue, out float raw) => StaticSliderReadOption(optionValue, out raw);
+#if UNITY_SERVER
+    private static float ServerSafeDistance(float _) => 0f;
+#else
+    private static float SquaredDistance(float v) => v * v;
+#endif
+    private static void LogDistanceSetting(string label, float value) => BasisDebug.Log($"{label} {value}");
     public override void ChangedSettings()
     {
+        // Intentionally left blank (base contract).
+    }
+    public override void ValidSettingsChange(string matchedSettingName, string optionValue)
+    {
+        switch (matchedSettingName)
+        {
+            case var s when s == K_MIC_RANGE:
+                ApplyDistanceSetting(optionValue, "MicrophoneRange", v => MicrophoneRange = v);
+                break;
+
+            case var s when s == K_HEARING_RANGE:
+                ApplyDistanceSetting(optionValue, "HearingRange", v => HearingRange = v);
+                break;
+
+            case var s when s == K_AVATAR_RANGE:
+                ApplyDistanceSetting(optionValue, "AvatarRange", v => AvatarRange = v);
+                break;
+
+            case var s when s == K_AVATAR_MESH_LOD:
+                ApplyDistanceSetting(optionValue, "MeshLod", v => MeshLod = v);
+                break;
+
+            case var s when s == K_GLOBAL_MESH_LOD:
+                if (TryReadSlider(optionValue, out var globalLod))
+                {
+                    QualitySettings.meshLodThreshold = globalLod;
+                    LogDistanceSetting("Global Mesh LOD", globalLod);
+                }
+                break;
+        }
+    }
+
+    private static void ApplyDistanceSetting(string optionValue, string label, Action<float> assign)
+    {
+        if (!TryReadSlider(optionValue, out var raw))
+        {
+            return;
+        }
+
+#if UNITY_SERVER
+        assign(ServerSafeDistance(raw));
+        LogDistanceSetting(label, 0f);
+#else
+        var squared = SquaredDistance(raw);
+        assign(squared);
+        LogDistanceSetting(label, squared);
+#endif
     }
 }

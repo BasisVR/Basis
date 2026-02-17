@@ -611,7 +611,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // If trigger pulled on opposing input, scale object based on hand distance
                 if (enableScaleWithGesture && GetOppositeInteracting(out BasisInputWrapper opposingInput))
                 {
-                    if (HasState(opposingInput.Source.CurrentInputState))
+                    if (HasState(opposingInput.Source.CurrentInputState, InputKey))
                     {
                         float distanceBetweenHands = BasisPickupHelpers.GetNormalizedDistanceBetweenHands(Inputs);
                         if (_previousDistance == -1)
@@ -646,8 +646,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Trigger state machine for OnPickupUse
-            bool State = HasState(interactingInput.Source.CurrentInputState);
-            bool LastState = HasState(interactingInput.Source.LastInputState);
+            bool State = HasState(interactingInput.Source.CurrentInputState, InputKey);
+            bool LastState = HasState(interactingInput.Source.LastInputState, InputKey);
             if (State && LastState == false)
             {
                 OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseDown);
@@ -763,7 +763,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private void PollDesktopControl(BasisInput DesktopEye)
         {
             // scroll zoop
-            float mouseScroll = DesktopEye.CurrentInputState.Secondary2DAxis.y; // only ever 1, 0, -1
+            float mouseScroll = DesktopEye.CurrentInputState.Secondary2DAxisDeadZoned.y; // only ever 1, 0, -1
 
             Vector3 currentOffset = InputConstraint.sources[0].positionOffset;
             if (targetOffset == Vector3.zero)
@@ -774,13 +774,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (mouseScroll != 0)
             {
-                Transform sourceTransform = BasisLocalCameraDriver.Instance.Camera.transform;
+                Transform sourceTransform = BasisLocalCameraDriver.Instance.transform;
 
                 Vector3 movement = DesktopZoopSpeed * mouseScroll * BasisLocalCameraDriver.Forward();
                 Vector3 newTargetOffset = targetOffset + sourceTransform.InverseTransformVector(movement);
 
                 // Enforce min/max distance along the source forward.
-                float maxDistance = DesktopZoopMaxDistance + BasisHeightDriver.SelectedPlayerHeight / 2;
+                float maxDistance = DesktopZoopMaxDistance + BasisHeightDriver.SelectedScaledPlayerHeight / 2;
 
                 if (mouseScroll != 0 && newTargetOffset.z > DesktopZoopMinDistance && newTargetOffset.z < maxDistance)
                 {

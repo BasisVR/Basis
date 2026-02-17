@@ -11,7 +11,7 @@ public static class BasisNetworkIdResolver
 
     public static ConcurrentDictionary<string, ushort> KnownIdMap = new ConcurrentDictionary<string, ushort>();
     public static ConcurrentDictionary<string, TaskCompletionSource<ushort>> PendingResolutions = new ConcurrentDictionary<string, TaskCompletionSource<ushort>>();
-    private const int TimeoutMilliseconds = 10000; // 10 seconds
+    private const int TimeoutMilliseconds = 400000; // 400 seconds
 
     public static async Task<BasisIdResolutionResult> ResolveAsync(string stringId)
     {

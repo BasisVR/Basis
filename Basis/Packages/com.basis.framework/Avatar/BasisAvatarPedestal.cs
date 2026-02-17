@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -218,9 +219,10 @@ public class BasisAvatarPedestal : BasisInteractableObject
         {
             WasJustPressed = true;
 
-            BasisUIAcceptDenyPanel.OpenAcceptDenyPanel("Do You Want To Swap Into This Avatar?", (bool accepted) =>
+            BasisMainMenu.Open();
+            BasisMainMenu.Instance.OpenDialogue("Avatar Pedestal", "Do You Want To Swap Into This Avatar?", "yes","no", value =>
             {
-                if (accepted)
+                if (value)
                 {
                     switch (LoadMode)
                     {
@@ -378,6 +380,6 @@ public class BasisAvatarPedestal : BasisInteractableObject
     /// <inheritdoc/>
     public override bool IsInteractTriggered(BasisInput input)
     {
-        return HasState(input.CurrentInputState);
+        return HasState(input.CurrentInputState, InputKey);
     }
 }

@@ -13,6 +13,7 @@ namespace Basis.BasisUI
         {
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown.prefab";
             public static string Entry => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry Variant.prefab";
+            public static string OverlayEntry => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry Variant - Overlay.prefab";
         }
 
         public TMP_Dropdown DropdownComponent;
@@ -74,6 +75,16 @@ namespace Basis.BasisUI
                 }
             }
             return 0;
+        }
+        public string SelectedString
+        {
+            get
+            {
+                if (DropdownComponent == null) return string.Empty;
+                int index = DropdownComponent.value;
+                if (index < 0 || index >= DropdownComponent.options.Count) return string.Empty;
+                return DropdownComponent.options[index].text;
+            }
         }
 
     }

@@ -1,10 +1,10 @@
-using System;
 using Basis.Scripts.Animator_Driver;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
+using System;
 using Unity.Mathematics;
 using UnityEngine;
 using static Basis.Scripts.BasisSdk.Players.BasisPlayer;
@@ -27,7 +27,6 @@ namespace Basis.Scripts.BasisCharacterController
         [SerializeField] public float RaycastDistance = 0.2f;
         [SerializeField] public float MinimumColliderSize = 0.01f;
         private Quaternion currentRotation;
-        private float eyeHeight;
         public SimulationHandler JustJumped;
         public SimulationHandler JustLanded;
         public bool LastWasGrounded = true;
@@ -42,12 +41,11 @@ namespace Basis.Scripts.BasisCharacterController
         public float pushPower = 1f;
         private const float CrouchDeltaCoefficient = 0.01f;
         private const float SnapTurnAbsoluteThreshold = 0.8f;
-        private bool UseSnapTurn => SMModuleControllerSettings.SnapTurnAngle != -1 && BasisDeviceManagement.IsCurrentModeVR();
-        private float SnapTurnAngle => SMModuleControllerSettings.SnapTurnAngle;
         private bool isSnapTurning;
         public Vector3 CurrentPosition;
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
+        public float radius;
         public Vector2 MovementVector { get; private set; }
         /// <summary>
         /// A value between 0 and 1 representing the relative speed of player movement.
@@ -71,7 +69,7 @@ namespace Basis.Scripts.BasisCharacterController
         public bool IsCrouching => CrouchBlend <= LocalAnimatorDriver.CrouchThreshold;
         public bool IsRunning => CurrentSpeed > DefaultMovementSpeed;
         public bool UseMaxSpeed => BasisLocalInputActions.Instance.IsRunHeld;
-
+        public bool CanPushRigidbodys = false;
         public bool IsEnabled
         {
             get
@@ -82,6 +80,8 @@ namespace Basis.Scripts.BasisCharacterController
             set
             {
                 isEnabled = value;
+                Validate();
+                CalculateCharacterSize();
                 characterController.enabled = value;
             }
         }
@@ -111,28 +111,37 @@ namespace Basis.Scripts.BasisCharacterController
             }
             MaximumMovementSpeedBoost = MaximumMovementSpeed / DefaultMovementSpeed;
             SetMovementSpeedMultiplier(GetMultiplierForMovementSpeed(DefaultMovementSpeed));
+            Validate();
+            CalculateCharacterSize();
         }
 
         public void OnControllerColliderHit(ControllerColliderHit hit)
         {
-            // Check if the hit object has a Rigidbody and if it is not kinematic
-            Rigidbody body = hit.collider.attachedRigidbody;
-
-            if (body == null || body.isKinematic)
+            if (CanPushRigidbodys)
             {
-                return;
+                // Check if the hit object has a Rigidbody and if it is not kinematic
+                Rigidbody body = hit.collider.attachedRigidbody;
+
+                if (body == null || body.isKinematic)
+                {
+                    return;
+                }
+
+                // Ensure we're only pushing objects in the horizontal plane
+                Vector3 pushDir = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
+
+                // Apply the force to the object
+                body.AddForce(pushDir * pushPower, ForceMode.Impulse);
             }
-
-            // Ensure we're only pushing objects in the horizontal plane
-            Vector3 pushDir = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
-
-            // Apply the force to the object
-            body.AddForce(pushDir * pushPower, ForceMode.Impulse);
         }
         public void SimulateMovement(float DeltaTime)
         {
             if (!IsEnabled)
             {
+
+                // If you want basis localToWorld using the *new* pose:
+                BasisLocalPlayerTransform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
+                BasisLocalPlayer.localToWorldMatrix = Matrix4x4.TRS(Position, Rotation, BasisLocalPlayerTransform.lossyScale);
                 return;
             }
             LastBottomPoint = bottomPointLocalSpace;
@@ -142,7 +151,7 @@ namespace Basis.Scripts.BasisCharacterController
 
             // Calculate the rotation amount for this frame
             float rotationAmount;
-            if (UseSnapTurn)
+            if (SMModuleControllerSettings.UsingSnapTurnAngle && BasisDeviceManagement.IsCurrentModeVR())
             {
                 var isAboveThreshold = math.abs(Rotation.x) > SnapTurnAbsoluteThreshold;
                 if (isAboveThreshold != isSnapTurning)
@@ -150,7 +159,7 @@ namespace Basis.Scripts.BasisCharacterController
                     isSnapTurning = isAboveThreshold;
                     if (isSnapTurning)
                     {
-                        rotationAmount = math.sign(Rotation.x) * SnapTurnAngle;
+                        rotationAmount = math.sign(Rotation.x) * SMModuleControllerSettings.SnapTurnAngle;
                     }
                     else
                     {
@@ -187,6 +196,12 @@ namespace Basis.Scripts.BasisCharacterController
 
             float HeightOffset = (characterController.height / 2) - characterController.radius;
             bottomPointLocalSpace = FinalRotation + (characterController.center - new Vector3(0, HeightOffset, 0));
+
+            Quaternion newRot = rotation * CurrentRotation;
+            Vector3 newPos = FinalRotation;
+
+            // If you want basis localToWorld using the *new* pose:
+            BasisLocalPlayer.localToWorldMatrix = Matrix4x4.TRS(newPos, newRot, BasisLocalPlayerTransform.lossyScale);
         }
 
         public float GetVerticalMovement()
@@ -304,33 +319,57 @@ namespace Basis.Scripts.BasisCharacterController
             Flags = characterController.Move(totalMoveDirection);
             BasisLocalPlayerTransform.GetPositionAndRotation(out CurrentPosition, out CurrentRotation);
         }
+        public void Validate()
+        {
+            radius = characterController.radius;
+            if (float.IsNaN(radius) || float.IsInfinity(radius) || radius <= 0f)
+            {
+                radius = 0.1f;
+            }
+
+            characterController.radius = radius;
+        }
         public void CalculateCharacterSize()
         {
-            if (BasisLocalBoneDriver.HasEye)
-            {
-                eyeHeight = BasisLocalBoneDriver.EyeControl.OutGoingData.position.y;
-            }
-            else
-            {
-                eyeHeight = BasisHeightDriver.FallbackHeightInMeters;
-            }
-            float adjustedHeight = eyeHeight;
-            if (MinimumColliderSize > adjustedHeight)
-            {
-                adjustedHeight = MinimumColliderSize;
-            }
-            characterController.height = adjustedHeight;
-            float SkinModifiedHeight = adjustedHeight / 2;
+            float rawEyeHeight = BasisLocalBoneDriver.HasEye ? BasisLocalBoneDriver.EyeControl.OutGoingData.position.y : BasisHeightDriver.FallbackHeightInMeters;
 
+            // Validate tracking data
+            if (float.IsNaN(rawEyeHeight) || float.IsInfinity(rawEyeHeight) || rawEyeHeight <= 0f)
+            {
+                rawEyeHeight = BasisHeightDriver.FallbackHeightInMeters;
+            }
+
+            // Enforce minimum collider size
+            if (rawEyeHeight < MinimumColliderSize)
+            {
+                rawEyeHeight = MinimumColliderSize;
+            }
+
+            // Ensure height is valid relative to radius
+            float minHeight = 2f * radius + 0.001f;
+            float finalHeight = Mathf.Max(rawEyeHeight, minHeight);
+
+            characterController.height = finalHeight;
+
+            float halfHeight = finalHeight * 0.5f;
+
+            // Keep capsule bottom aligned with floor
             if (BasisLocalBoneDriver.HasEye)
             {
                 var outgoing = BasisLocalBoneDriver.EyeControl.OutGoingData.position;
-                characterController.center = new Vector3(outgoing.x, SkinModifiedHeight, outgoing.z);
+                characterController.center = new Vector3(outgoing.x, halfHeight, outgoing.z);
             }
             else
             {
-                characterController.center = new Vector3(0, SkinModifiedHeight, 0);
+                characterController.center = new Vector3(0f, halfHeight, 0f);
             }
+
+            // Clamp stepOffset to something sane relative to height
+            float maxStep = (finalHeight + 2f * characterController.radius) - 0.001f;
+            maxStep = Mathf.Max(0f, maxStep);
+            maxStep = Mathf.Min(maxStep, finalHeight * 0.25f);
+
+            characterController.stepOffset = Mathf.Min(characterController.stepOffset, maxStep);
         }
     }
 }
