@@ -18,15 +18,13 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            //BasisMenuBase<BasisMainMenu>.AddProvider(new ItemsProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new ItemsProvider());
         }
 
         public override string Title => "Items";
         public override string IconAddress => AddressableAssets.Sprites.Items;
-        public override int Order => 1; // after Settings
-
+        public override int Order => 2; // after Settings
         public override bool Hidden => false;
-
         public static BasisMenuPanel panel;
         public override async void RunAction()
         {
