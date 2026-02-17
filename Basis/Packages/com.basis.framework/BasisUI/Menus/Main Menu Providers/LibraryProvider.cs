@@ -30,42 +30,46 @@ namespace Basis.BasisUI
         {
             if (BasisMainMenu.ActiveMenuTitle == Title) return;
 
+            // this creates our panel
             panel = BasisMainMenu.CreateActiveMenu(
                 BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.PanelStyles.Page);
 
+            // this sets the title of our panel
             var titleLabel = panel.Descriptor.TitleLabel;
             titleLabel.text = Title;
 
             BoundButton?.BindActiveStateToAddressablesInstance(panel);
 
-            PanelTabGroup tabGroup = PanelTabGroup.CreateNew(panel.Descriptor.ContentParent, LayoutDirection.Vertical);
+            PanelTabGroup tabGroup = PanelTabGroup.CreateNew(panel.Descriptor.ContentParent, LayoutDirection.Horizontal);
 
-            await BasisDataStoreItemKeys.LoadKeys();
-            BasisDataStoreItemKeys.ItemKey[] data = BasisDataStoreItemKeys.DisplayKeys();
+            // await BasisDataStoreItemKeys.LoadKeys();
+            // BasisDataStoreItemKeys.ItemKey[] data = BasisDataStoreItemKeys.DisplayKeys();
 
             List<BasisDataStoreItemKeys.ItemKey> props = new();
             List<BasisDataStoreItemKeys.ItemKey> worlds = new();
             List<BasisDataStoreItemKeys.ItemKey> avatars = new();
-            BasisDebug.Log($"Stored Item Keys were {data.Length}");
-            for (int i = 0; i < data.Length; i++)
-            {
-                var k = data[i];
-                switch (k.Mode)
-                {
-                    case BundledContentHolder.Mode.Prop: props.Add(k); break;
-                    case BundledContentHolder.Mode.World: worlds.Add(k); break;
-                    case BundledContentHolder.Mode.Avatar: avatars.Add(k); break;
-                    default:
-                        BasisDebug.LogError($"Mode Not Implented! {k.Mode}");
-                        break;
-                }
-            }
+            // BasisDebug.Log($"Stored Item Keys were {data.Length}");
+            // for (int i = 0; i < data.Length; i++)
+            // {
+            //     var k = data[i];
+            //     switch (k.Mode)
+            //     {
+            //         case BundledContentHolder.Mode.Prop: props.Add(k); break;
+            //         case BundledContentHolder.Mode.World: worlds.Add(k); break;
+            //         case BundledContentHolder.Mode.Avatar: avatars.Add(k); break;
+            //         default:
+            //             BasisDebug.LogError($"Mode Not Implented! {k.Mode}");
+            //             break;
+            //     }
+            // }
 
+            // create our main tabs
             tabGroup.AddTab("Props", null, PropsTab(tabGroup, props));
             tabGroup.AddTab("Worlds", null, WorldsTab(tabGroup, worlds));
             tabGroup.AddTab("Avatars", null, AvatarsTab(tabGroup, avatars));
 
+            // add our extra menu button items, this is the buttons below the panel content
             tabGroup.AddExtraAction("Add New Item", AddNewItem);
 
             panel.Descriptor.ForceRebuild();
@@ -207,9 +211,10 @@ namespace Basis.BasisUI
         public static PanelTabPage PropsTab(PanelTabGroup tabGroup, List<BasisDataStoreItemKeys.ItemKey> items)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
-            tab.rectTransform.offsetMin = new Vector2(20, 0);
+            tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Props");
+            //d.SetTitle("Props");
+            d.SetIcon(AddressableAssets.Sprites.Items);
             BuildItemsList(items, tab);
             d.ForceRebuild();
             return tab;
@@ -217,9 +222,10 @@ namespace Basis.BasisUI
         public static PanelTabPage WorldsTab(PanelTabGroup tabGroup, List<BasisDataStoreItemKeys.ItemKey> items)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
-            tab.rectTransform.offsetMin = new Vector2(20, 0);
+            tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Worlds");
+            //d.SetTitle("Worlds");
+            d.SetIcon(AddressableAssets.Sprites.Servers);
             BuildItemsList(items, tab);
             d.ForceRebuild();
             return tab;
@@ -227,9 +233,10 @@ namespace Basis.BasisUI
         public static PanelTabPage AvatarsTab(PanelTabGroup tabGroup, List<BasisDataStoreItemKeys.ItemKey> items)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
-            tab.rectTransform.offsetMin = new Vector2(20, 0);
+            tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            d.SetTitle("Avatars");
+            //d.SetTitle("Avatars");
+            d.SetIcon(AddressableAssets.Sprites.Avatars);
             BuildItemsList(items, tab);
             d.ForceRebuild();
             return tab;
