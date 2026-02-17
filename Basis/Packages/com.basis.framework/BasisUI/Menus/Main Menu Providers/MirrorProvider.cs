@@ -9,7 +9,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            BasisMenuBase<BasisMainMenu>.AddProvider(new MirrorProvider());
+            //BasisMenuBase<BasisMainMenu>.AddProvider(new MirrorProvider());
         }
 
         public override string Title => "Mirror";
