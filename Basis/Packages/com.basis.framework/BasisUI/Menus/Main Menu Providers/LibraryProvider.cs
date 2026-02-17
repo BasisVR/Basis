@@ -13,20 +13,18 @@ using static Basis.BasisUI.PanelButton;
 
 namespace Basis.BasisUI
 {
-    public partial class ItemsProvider : BasisMenuActionProvider<BasisMainMenu>
+    public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            //BasisMenuBase<BasisMainMenu>.AddProvider(new ItemsProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new LibraryProvider());
         }
 
-        public override string Title => "Items";
-        public override string IconAddress => AddressableAssets.Sprites.Items;
+        public override string Title => "Library";
+        public override string IconAddress => AddressableAssets.Sprites.Library;
         public override int Order => 1; // after Settings
-
         public override bool Hidden => false;
-
         public static BasisMenuPanel panel;
         public override async void RunAction()
         {

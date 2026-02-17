@@ -20,6 +20,7 @@ namespace Basis.BasisUI
             public static string Mirror = "Packages/com.basis.sdk/Textures/Runtime/Mirror.png";
             public static string Exit = "Packages/com.basis.sdk/Textures/Runtime/exit-outline.png";
             public static string Items = "Packages/com.basis.sdk/Textures/Runtime/items.png";
+            public static string Library = "Packages/com.basis.sdk/Textures/Runtime/library-outline.png";
         }
 
         public static Sprite GetSprite(string path)
