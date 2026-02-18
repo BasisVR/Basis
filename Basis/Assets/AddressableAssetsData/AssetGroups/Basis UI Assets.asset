@@ -119,6 +119,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7e571c64d9cdd834a90133d8db72c649
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/search.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7f82d6af13c883d4b885adbeab63a58d
     m_Address: Packages/com.basis.sdk/Textures/Runtime/exit-outline.png
     m_ReadOnly: 0
