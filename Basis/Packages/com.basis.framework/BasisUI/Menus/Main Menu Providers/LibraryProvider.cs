@@ -15,6 +15,8 @@ namespace Basis.BasisUI
 {
     public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
+        # region Provider Setup
+
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
@@ -26,6 +28,13 @@ namespace Basis.BasisUI
         public override int Order => 1; // after Settings
         public override bool Hidden => false;
         public static BasisMenuPanel panel;
+
+        // Cache of the last item URLs that were built into each tab to avoid unnecessary rebuilds
+        private static readonly Dictionary<PanelTabPage, string[]> _tabItemsCache = new();
+
+        // reference to the search field
+        public static PanelTextField searchField;
+
         public override async void RunAction()
         {
             if (BasisMainMenu.ActiveMenuTitle == Title) return;
@@ -35,6 +44,9 @@ namespace Basis.BasisUI
                 BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.PanelStyles.Page);
 
+            // Reset tab cache for this panel instance to avoid stale references
+            _tabItemsCache.Clear();
+
             // this sets the title of our panel
             var titleLabel = panel.Descriptor.TitleLabel;
             titleLabel.text = Title;
@@ -43,37 +55,52 @@ namespace Basis.BasisUI
 
             PanelTabGroup tabGroup = PanelTabGroup.CreateNew(panel.Descriptor.ContentParent, LayoutDirection.Horizontal);
 
-            // await BasisDataStoreItemKeys.LoadKeys();
-            // BasisDataStoreItemKeys.ItemKey[] data = BasisDataStoreItemKeys.DisplayKeys();
+            // create our main tabs without preloading items; items will be loaded lazily on tab selection
+            var propsTab = PropsTab(tabGroup);
+            var worldsTab = WorldsTab(tabGroup);
+            var avatarsTab = AvatarsTab(tabGroup);
 
-            List<BasisDataStoreItemKeys.ItemKey> props = new();
-            List<BasisDataStoreItemKeys.ItemKey> worlds = new();
-            List<BasisDataStoreItemKeys.ItemKey> avatars = new();
-            // BasisDebug.Log($"Stored Item Keys were {data.Length}");
-            // for (int i = 0; i < data.Length; i++)
-            // {
-            //     var k = data[i];
-            //     switch (k.Mode)
-            //     {
-            //         case BundledContentHolder.Mode.Prop: props.Add(k); break;
-            //         case BundledContentHolder.Mode.World: worlds.Add(k); break;
-            //         case BundledContentHolder.Mode.Avatar: avatars.Add(k); break;
-            //         default:
-            //             BasisDebug.LogError($"Mode Not Implented! {k.Mode}");
-            //             break;
-            //     }
-            // }
+            // Initialize empty caches so first-selection triggers loading
+            _tabItemsCache[propsTab] = Array.Empty<string>();
+            _tabItemsCache[worldsTab] = Array.Empty<string>();
+            _tabItemsCache[avatarsTab] = Array.Empty<string>();
 
-            // create our main tabs
-            tabGroup.AddTab("Props", null, PropsTab(tabGroup, props));
-            tabGroup.AddTab("Worlds", null, WorldsTab(tabGroup, worlds));
-            tabGroup.AddTab("Avatars", null, AvatarsTab(tabGroup, avatars));
+            // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
+            tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, () => RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab), propsTab);
+            tabGroup.AddTab("Worlds", AddressableAssets.Sprites.Servers, () => RefreshTabAsync(BundledContentHolder.Mode.World, worldsTab), worldsTab);
+            tabGroup.AddTab("Avatars",AddressableAssets.Sprites.Avatars, () => RefreshTabAsync(BundledContentHolder.Mode.Avatar, avatarsTab), avatarsTab);
+
+            searchField = PanelTextField.CreateNewEntry(tabGroup.ExtrasContainer);
+            searchField.Descriptor.SetTitle("Search:");
+            searchField.Descriptor.SetIcon(AddressableAssets.Sprites.Search);
+            //searchField.Descriptor.SetDescription("Description Test 123");
+            searchField.Descriptor.SetSize(new Vector2(60, 80));
+
+            var sorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, tabGroup.ExtrasContainer);
+            string[] modeNames = Enum.GetNames(typeof(BundledContentHolder.Mode));
+            sorting.Descriptor.SetTitle("Sort");
+            sorting.Descriptor.SetSize(new Vector2(60, 80));
+            sorting.AssignEntries(modeNames.ToList());
+            sorting.SetValueWithoutNotify(BundledContentHolder.Mode.Avatar.ToString());
 
             // add our extra menu button items, this is the buttons below the panel content
-            tabGroup.AddExtraAction("Add New Item", AddNewItem);
+            tabGroup.AddExtraAction("Add New Content", AddNewItem);
+
+            //fpsCapField.AssignBinding(BasisSettingsDefaults.VSyncCapFps);
+
+            // TMP_InputField fpsInput = fpsCapField._inputField;
+            // if (fpsInput != null)
+            // {
+            //     fpsInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+            //     fpsInput.lineType = TMP_InputField.LineType.SingleLine;
+            // }
 
             panel.Descriptor.ForceRebuild();
         }
+
+        #endregion
+
+        #region Add New Item Overlay
         // Keep refs so you can close/destroy the UI you created.
         private static PanelElementDescriptor _background;
         private static PanelElementDescriptor _descriptor;
@@ -148,6 +175,7 @@ namespace Basis.BasisUI
                 }
             };
         }
+
         public static TMP_Text CreateText(string content, Component Parent)
         {
             GameObject go = new GameObject("RuntimeText");
@@ -208,36 +236,34 @@ namespace Basis.BasisUI
                 _background = null;
             }
         }
-        public static PanelTabPage PropsTab(PanelTabGroup tabGroup, List<BasisDataStoreItemKeys.ItemKey> items)
+
+        #endregion
+
+        #region Tab Content Builders and Helpers
+        public static PanelTabPage PropsTab(PanelTabGroup tabGroup)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            //d.SetTitle("Props");
-            d.SetIcon(AddressableAssets.Sprites.Items);
-            BuildItemsList(items, tab);
+            d.SetTitle("Props");
             d.ForceRebuild();
             return tab;
         }
-        public static PanelTabPage WorldsTab(PanelTabGroup tabGroup, List<BasisDataStoreItemKeys.ItemKey> items)
+        public static PanelTabPage WorldsTab(PanelTabGroup tabGroup)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            //d.SetTitle("Worlds");
-            d.SetIcon(AddressableAssets.Sprites.Servers);
-            BuildItemsList(items, tab);
+            d.SetTitle("Worlds");
             d.ForceRebuild();
             return tab;
         }
-        public static PanelTabPage AvatarsTab(PanelTabGroup tabGroup, List<BasisDataStoreItemKeys.ItemKey> items)
+        public static PanelTabPage AvatarsTab(PanelTabGroup tabGroup)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-            //d.SetTitle("Avatars");
-            d.SetIcon(AddressableAssets.Sprites.Avatars);
-            BuildItemsList(items, tab);
+            d.SetTitle("Avatars");
             d.ForceRebuild();
             return tab;
         }
@@ -252,6 +278,77 @@ namespace Basis.BasisUI
             }
         }
 
+        private static void ClearTabContent(RectTransform container)
+        {
+            if (container == null) return;
+            // Destroy all child gameobjects under the content parent
+            for (int i = container.childCount - 1; i >= 0; i--)
+            {
+                var child = container.GetChild(i);
+                if (child != null && child.gameObject != null)
+                {
+                    UnityEngine.Object.Destroy(child.gameObject);
+                }
+            }
+        }
+
+        private static void RefreshTab(PanelTabPage tab, List<BasisDataStoreItemKeys.ItemKey> items)
+        {
+            if (tab == null) return;
+
+            var urls = items?.Select(x => x.Url ?? string.Empty).ToArray() ?? Array.Empty<string>();
+
+            if (_tabItemsCache.TryGetValue(tab, out var cached) && cached.SequenceEqual(urls))
+            {
+                // No change, skip rebuild
+                return;
+            }
+
+            // Clear and rebuild the tab content
+            ClearTabContent(tab.Descriptor.ContentParent);
+            BuildItemsList(items, tab);
+            tab.Descriptor.ForceRebuild();
+
+            // Update cache
+            _tabItemsCache[tab] = urls;
+        }
+
+        private static async void RefreshTabAsync(BundledContentHolder.Mode mode, PanelTabPage tab)
+        {
+            if (tab == null) return;
+
+            try
+            {
+                // Ensure keys are loaded (implementation may cache internally)
+                await BasisDataStoreItemKeys.LoadKeys();
+
+                // Only fetch keys matching the requested mode
+                var data = BasisDataStoreItemKeys.DisplayKeys()
+                    .Where(k => k.Mode == mode)
+                    .ToList();
+
+                var urls = data.Select(x => x.Url ?? string.Empty).ToArray();
+
+                if (_tabItemsCache.TryGetValue(tab, out var cached) && cached.SequenceEqual(urls))
+                {
+                    // No change, skip rebuild
+                    return;
+                }
+
+                // Clear and rebuild the tab content
+                ClearTabContent(tab.Descriptor.ContentParent);
+                BuildItemsList(data, tab);
+                tab.Descriptor.ForceRebuild();
+
+                // Update cache
+                _tabItemsCache[tab] = urls;
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError(e);
+            }
+        }
+
         private static async void CreateItemCard(BasisDataStoreItemKeys.ItemKey item, RectTransform container)
         {
             PanelButton buttonPanel = PanelButton.CreateNew(ButtonStyles.Prop, container);
@@ -261,7 +358,7 @@ namespace Basis.BasisUI
             var reportForMeta = new BasisProgressReport();
             Task<Sprite> Data = LoadItemMetaIntoGroup(wrapperForMeta, reportForMeta, CancellationToken.None, buttonPanel);
             Sprite sprite = await Data;
-            // NEW: clicking the item opens the info overlay
+            // clicking the item opens the info overlay
             buttonPanel.OnClicked += async () =>
             {
               await  ShowItemOverlay(item, sprite, wrapperForMeta);
@@ -502,5 +599,7 @@ namespace Basis.BasisUI
                 }
             };
         }
+   
+        #endregion
     }
 }
