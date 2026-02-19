@@ -65,7 +65,11 @@ public static class BasisLocalMicrophoneDriver
     private static bool inWarmup = false;
     private static float agcGainDb = 0f;
 
+    public const int ProcessFrameSize = 960;  // 20ms at 48kHz
+    public const int DenoiserFrameSize = 480; // 10ms at 48kHz
+
     private static float _agcHoldTimer = 0f;
+
     private static float[] _denoiseDry;
     private static float[] _tmp480;
 
@@ -448,17 +452,17 @@ public static class BasisLocalMicrophoneDriver
         }
 
         int dataLength = GetDataLength(bufferLength, head, posSnapshot);
-        while (dataLength >= SampleRate)
+        while (dataLength >= ProcessFrameSize)
         {
             int remain = bufferLength - head;
-            if (remain < SampleRate)
+            if (remain < ProcessFrameSize)
             {
                 Array.Copy(microphoneBufferArray, head, processBufferArray, 0, remain);
-                Array.Copy(microphoneBufferArray, 0, processBufferArray, remain, SampleRate - remain);
+                Array.Copy(microphoneBufferArray, 0, processBufferArray, remain, ProcessFrameSize - remain);
             }
             else
             {
-                Array.Copy(microphoneBufferArray, head, processBufferArray, 0, SampleRate);
+                Array.Copy(microphoneBufferArray, head, processBufferArray, 0, ProcessFrameSize);
             }
 
             // --- Optional AGC ---
@@ -470,7 +474,7 @@ public static class BasisLocalMicrophoneDriver
                 float agcAmp = DbToAmp(agcGainDb);
                 if (!Mathf.Approximately(agcAmp, 1f))
                 {
-                    for (int i = 0; i < SampleRate; i++)
+                    for (int i = 0; i < ProcessFrameSize; i++)
                         processBufferArray[i] *= agcAmp;
                 }
             }
@@ -498,8 +502,8 @@ public static class BasisLocalMicrophoneDriver
                 Interlocked.Exchange(ref _scheduleMainHasAudio, 0);
             }
 
-            head = (head + SampleRate) % bufferLength;
-            dataLength -= SampleRate;
+            head = (head + ProcessFrameSize) % bufferLength;
+            dataLength -= ProcessFrameSize;
         }
     }
 
@@ -518,12 +522,13 @@ public static class BasisLocalMicrophoneDriver
     public static float GetRMS()
     {
         double sum = 0.0;
-        for (int i = 0; i < SampleRate; i++)
+        int len = processBufferArray.Length;
+        for (int i = 0; i < len; i++)
         {
             float v = processBufferArray[i];
             sum += v * v;
         }
-        return Mathf.Sqrt((float)(sum / SampleRate));
+        return Mathf.Sqrt((float)(sum / len));
     }
 
     public static int GetDataLength(int len, int h, int pos)
@@ -550,27 +555,24 @@ public static class BasisLocalMicrophoneDriver
         if (_denoiseDry == null || _denoiseDry.Length != processBufferArray.Length)
             CreateOrResizeArray(processBufferArray.Length, ref _denoiseDry);
 
-        Array.Copy(processBufferArray, _denoiseDry, SampleRate);
+        Array.Copy(processBufferArray, _denoiseDry, ProcessFrameSize);
 
-        const int hop = 480;
-        if (SampleRate == hop)
-        {
-            Denoiser?.Denoise(processBufferArray);
-        }
-        else
-        {
-            if (_tmp480 == null || _tmp480.Length != hop) _tmp480 = new float[hop];
+        int offset = 0;
 
-            int o = 0;
-            while (o < SampleRate)
-            {
-                int n = Math.Min(hop, SampleRate - o);
-                Array.Clear(_tmp480, 0, hop);
-                Array.Copy(processBufferArray, o, _tmp480, 0, n);
-                Denoiser?.Denoise(_tmp480);
-                Array.Copy(_tmp480, 0, processBufferArray, o, n);
-                o += n;
-            }
+        while (offset < ProcessFrameSize)
+        {
+            // Copy from process buffer to denoiser buffer
+            // Todo: This is a little fragile since it relies on DenoiserFrameSize being 480
+            if (_tmp480 == null || _tmp480.Length != DenoiserFrameSize)
+                _tmp480 = new float[DenoiserFrameSize];
+
+            Array.Copy(processBufferArray, offset, _tmp480, 0, DenoiserFrameSize);
+
+            Denoiser?.Denoise(_tmp480);
+
+            Array.Copy(_tmp480, 0, processBufferArray, offset, DenoiserFrameSize);
+
+            offset += DenoiserFrameSize;
         }
 
         float makeup = DbToAmp(s.DenoiseMakeupDb);
@@ -578,7 +580,7 @@ public static class BasisLocalMicrophoneDriver
 
         if (!Mathf.Approximately(wet, 1f) || !Mathf.Approximately(s.DenoiseMakeupDb, 0f))
         {
-            for (int i = 0; i < SampleRate; i++)
+            for (int i = 0; i < ProcessFrameSize; i++)
             {
                 float den = processBufferArray[i] * makeup;
                 processBufferArray[i] = Mathf.Lerp(_denoiseDry[i], den, wet);
@@ -588,10 +590,21 @@ public static class BasisLocalMicrophoneDriver
 
     public static void RollingRMS()
     {
-        float rms = GetRMS();
-        rmsValues[rmsIndex] = rms;
+        double sumSq = 0.0;
+        int len = processBufferArray.Length;
+        for (int i = 0; i < len; i++)
+        {
+            float v = processBufferArray[i];
+            sumSq += v * v;
+        }
+        float currentMeanSq = (float)(sumSq / len);
+
+        rmsValues[rmsIndex] = currentMeanSq;
         rmsIndex = (rmsIndex + 1) % LocalOpusSettings.rmsWindowSize;
-        averageRms = rmsValues.Average();
+
+        float averagePower = rmsValues.Average();
+
+        averageRms = Mathf.Sqrt(averagePower);
     }
 
     public static bool IsTransmitWorthy()
