@@ -616,11 +616,14 @@ public static class BasisLocalMicrophoneDriver
 
     private static void UpdateAgc(float frameRms, float targetRms, float maxGainDb, float attack, float release)
     {
+        const float agcDecaySpeed = 0.020f; // ProcessFrameSize / 48000;
+        const float agcHoldTime   = 0.400f;
+
         if (frameRms <= 1e-6f) frameRms = 1e-6f;
 
-        if (_agcHoldTimer > 0f) _agcHoldTimer -= 0.02f;
+        if (_agcHoldTimer > 0f) _agcHoldTimer -= agcDecaySpeed;
 
-        // Skip updating gain if the sound is too quiet
+        // Skip updating gain if the sound is too quiet (below -50dB)
         if (frameRms < 0.003f) return;
 
         float neededDb = 20f * Mathf.Log10(Mathf.Max(1e-6f, targetRms) / frameRms);
@@ -630,7 +633,7 @@ public static class BasisLocalMicrophoneDriver
         if (neededDb < agcGainDb)
         {
             agcGainDb = Mathf.Lerp(agcGainDb, neededDb, Mathf.Clamp01(attack));
-            _agcHoldTimer = 0.4f;
+            _agcHoldTimer = agcHoldTime;
         }
         else
         {
