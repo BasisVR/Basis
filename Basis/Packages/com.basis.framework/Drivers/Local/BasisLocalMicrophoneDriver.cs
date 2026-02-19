@@ -64,6 +64,8 @@ public static class BasisLocalMicrophoneDriver
     private static int warmupSamples = 0;
     private static bool inWarmup = false;
     private static float agcGainDb = 0f;
+
+    private static float _agcHoldTimer = 0f;
     private static float[] _denoiseDry;
     private static float[] _tmp480;
 
@@ -603,11 +605,27 @@ public static class BasisLocalMicrophoneDriver
     {
         if (frameRms <= 1e-6f) frameRms = 1e-6f;
 
+        if (_agcHoldTimer > 0f) _agcHoldTimer -= 0.02f;
+
+        // Skip updating gain if the sound is too quiet
+        if (frameRms < 0.003f) return;
+
         float neededDb = 20f * Mathf.Log10(Mathf.Max(1e-6f, targetRms) / frameRms);
         neededDb = Mathf.Clamp(neededDb, -maxGainDb, maxGainDb);
 
-        float k = (neededDb > agcGainDb) ? Mathf.Clamp01(attack) : Mathf.Clamp01(release);
-        agcGainDb = Mathf.Lerp(agcGainDb, neededDb, k);
+        // The timer provides a cooldown period when the audio hits a new peak volume before applying additional correction.
+        if (neededDb < agcGainDb)
+        {
+            agcGainDb = Mathf.Lerp(agcGainDb, neededDb, Mathf.Clamp01(attack));
+            _agcHoldTimer = 0.4f;
+        }
+        else
+        {
+            if (_agcHoldTimer <= 0f)
+            {
+                agcGainDb = Mathf.Lerp(agcGainDb, neededDb, Mathf.Clamp01(release));
+            }
+        }
     }
 
     private static void CreateOrResizeArray(int length, ref float[] arr)
