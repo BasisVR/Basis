@@ -370,13 +370,19 @@ namespace Basis.Scripts.Drivers
                 MaterialCorrection(r, BundledContentHolder.Instance.UrpShader);
             }
         }
-        public static List<SkinnedMeshRenderer> LocalShadowClones = new List<SkinnedMeshRenderer>();
+        private struct ShadowCloneEntry
+        {
+            public SkinnedMeshRenderer Source;
+            public SkinnedMeshRenderer Clone;
+            public int BlendShapeCount;
+        }
+        private static readonly List<ShadowCloneEntry> LocalShadowClones = new();
         private static void RemoveOldShadowClones()
         {
             int count = LocalShadowClones.Count;
             for (int Index = 0; Index < count; Index++)
             {
-                SkinnedMeshRenderer Renderer = LocalShadowClones[Index];
+                SkinnedMeshRenderer Renderer = LocalShadowClones[Index].Clone;
                 if (Renderer != null)
                 {
                     GameObject.Destroy(Renderer.gameObject);
@@ -399,14 +405,19 @@ namespace Basis.Scripts.Drivers
                 cloneGO.layer = layer;
                 // Clone SMR setup
                 var LocalShadowClone = cloneGO.AddComponent<SkinnedMeshRenderer>();
-                LocalShadowClones.Add(LocalShadowClone);
                 // The whole point:
                 LocalShadowClone.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
                 LocalShadowClone.receiveShadows = false;
                 LocalShadowClone.lightProbeUsage = LightProbeUsage.Off;
+                int blendShapeCount = 0;
                 if (source.sharedMesh != null)
                 {
                     LocalShadowClone.sharedMesh = source.sharedMesh;
+                    blendShapeCount = source.sharedMesh.blendShapeCount;
+                    for (int i = 0; i < blendShapeCount; i++)
+                    {
+                        LocalShadowClone.SetBlendShapeWeight(i, source.GetBlendShapeWeight(i));
+                    }
                 }
                 if (source.sharedMaterials != null)
                 {
@@ -427,6 +438,29 @@ namespace Basis.Scripts.Drivers
                 LocalShadowClone.skinnedMotionVectors = false;
                 LocalShadowClone.localBounds = source.localBounds;
                 LocalShadowClone.forceMeshLod = -1;
+                LocalShadowClones.Add(new ShadowCloneEntry
+                {
+                    Source = source,
+                    Clone = LocalShadowClone,
+                    BlendShapeCount = blendShapeCount,
+                });
+            }
+        }
+
+        public static void SyncShadowCloneBlendshapes()
+        {
+            int count = LocalShadowClones.Count;
+            for (int cloneIndex = 0; cloneIndex < count; cloneIndex++)
+            {
+                ShadowCloneEntry entry = LocalShadowClones[cloneIndex];
+                if (entry.Source == null || entry.Clone == null)
+                {
+                    continue;
+                }
+                for (int i = 0; i < entry.BlendShapeCount; i++)
+                {
+                    entry.Clone.SetBlendShapeWeight(i, entry.Source.GetBlendShapeWeight(i));
+                }
             }
         }
 
