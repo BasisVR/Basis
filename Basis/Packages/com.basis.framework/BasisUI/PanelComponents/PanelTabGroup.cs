@@ -95,5 +95,14 @@ namespace Basis.BasisUI
             actionButton.OnClicked += onClicked;
             return actionButton;
         }
+
+        public PanelButton AddExtraAction(string actionName, Action onClicked, Vector2 size)
+        {
+            PanelButton actionButton = PanelButton.CreateNew(ExtrasContainer);
+            actionButton.SetSize(size);
+            actionButton.Descriptor.SetTitle(actionName);
+            actionButton.OnClicked += onClicked;
+            return actionButton;
+        }
     }
 }
