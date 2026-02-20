@@ -22,6 +22,7 @@ namespace Basis.BasisUI
             public static string Items = "Packages/com.basis.sdk/Textures/Runtime/items.png";
             public static string Library = "Packages/com.basis.sdk/Textures/Runtime/library-outline.png";
             public static string Search = "Packages/com.basis.sdk/Textures/Runtime/search.png";
+            public static string Add = "Packages/com.basis.sdk/Textures/Runtime/add.png";
         }
 
         public static Sprite GetSprite(string path)

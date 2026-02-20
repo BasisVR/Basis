@@ -27,6 +27,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0870e2b67a5121e4ebfeacb2276a0abd
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/add.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0a567d33a926609498ff7326c03a6e6b
     m_Address: Packages/com.basis.sdk/Textures/Runtime/calibrateWhite.png
     m_ReadOnly: 0
@@ -34,6 +39,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1176a1853ad8f87448d1b6d2965b5dea
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Avatar List Page.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 161903a8b4937bc4db9393d6c554ef3d
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry
+      No Title Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -109,6 +120,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 6c8cb0236290523498e52838883adc7c
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base -
+      Overlay For Library Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 75bd3bdc3bf3d5d4980a0c74358b93b9
     m_Address: Panel Elements/Overlay Panel.prefab
     m_ReadOnly: 0
@@ -171,6 +188,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ac2ae4c72e7aa9948a6c5fbe35cdbab1
     m_Address: Packages/com.basis.sdk/Textures/Runtime/Mirror.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b7c3a67f775f5e844aea38da04929735
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry
+      No Title Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -1,3 +1,6 @@
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
+using Basis.Scripts.Networking;
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections.Generic;
@@ -6,10 +9,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
+using Unity.Android.Gradle;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
 using static Basis.BasisUI.PanelButton;
+using static Basis.BasisUI.PanelTextField;
+using static SerializableBasis;
 
 namespace Basis.BasisUI
 {
@@ -29,19 +35,28 @@ namespace Basis.BasisUI
         public override bool Hidden => false;
         public static BasisMenuPanel panel;
 
-        // (Removed tab item cache - always rebuild tabs on selection)
-
         // reference to the search field
         public static PanelTextField searchField;
-        // Sorting/search state
-        private enum LibrarySortMode
+        
+        // current sort mode for the library, default to name sorting
+        private enum LibraryDateSortMode
         {
             Name,
             DateOldestToNewest,
             DateNewestToOldest
         }
+        private static LibraryDateSortMode _currentSort = LibraryDateSortMode.Name;
 
-        private static LibrarySortMode _currentSort = LibrarySortMode.Name;
+        // Network filter state for items
+        private enum LibraryNetworkFilter
+        {
+            All,
+            NetworkedOnly,
+            LocalOnly
+        }
+
+        private static LibraryNetworkFilter _currentNetworkFilter = LibraryNetworkFilter.All;
+
         private static string _currentSearchQuery = string.Empty;
         private static BundledContentHolder.Mode _currentMode = BundledContentHolder.Mode.Prop;
         private static PanelTabPage _currentTab;
@@ -93,54 +108,80 @@ namespace Basis.BasisUI
             // No cache initialization required
 
             // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
-            tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, () => RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab), propsTab);
-            tabGroup.AddTab("Worlds", AddressableAssets.Sprites.Servers, () => RefreshTabAsync(BundledContentHolder.Mode.World, worldsTab), worldsTab);
-            tabGroup.AddTab("Avatars",AddressableAssets.Sprites.Avatars, () => RefreshTabAsync(BundledContentHolder.Mode.Avatar, avatarsTab), avatarsTab);
+            tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab), propsTab);
+            tabGroup.AddTab("Worlds", AddressableAssets.Sprites.Servers, async () => await RefreshTabAsync(BundledContentHolder.Mode.World, worldsTab), worldsTab);
+            tabGroup.AddTab("Avatars",AddressableAssets.Sprites.Avatars, async () => await RefreshTabAsync(BundledContentHolder.Mode.Avatar, avatarsTab), avatarsTab);
 
             // create a search text field in the tab group extras area
-            searchField = PanelTextField.CreateNewEntry(tabGroup.ExtrasContainer);
-            searchField.Descriptor.SetTitle("Search:");
+            searchField = PanelTextField.CreateNew(TextFieldStyles.EntryWithNoTitle, tabGroup.ExtrasContainer);
+            //searchField.Descriptor.SetTitle("Search:");
             searchField.Descriptor.SetIcon(AddressableAssets.Sprites.Search);
             //searchField.Descriptor.SetDescription("Description Test 123");
+            //searchField.Descriptor.SetPlaceholder("Search...");
             searchField.Descriptor.SetSize(new Vector2(60, 80));
             // wire search field to refresh the current tab on change
-            searchField.OnValueChanged = (val) =>
+            //searchField._inputField.placeholder
+            searchField.OnValueChanged = async (val) =>
             {
                 _currentSearchQuery = val ?? string.Empty;
 
                 // refresh the current tab for any new changes
-                RefreshCurrentTab();
+                await RefreshCurrentTab();
             };
 
             // create a sorting dropdown in the tab group extras area
-            var sorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, tabGroup.ExtrasContainer);
-            string[] sortNames = Enum.GetNames(typeof(LibrarySortMode));
+            var dateSorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, tabGroup.ExtrasContainer);
+            string[] dateSortNames = Enum.GetNames(typeof(LibraryDateSortMode));
 
             // modify the names of the dropdown entries to be more user-friendly
             //var displayNames = sortNames.Select(n => $"{n}").ToList();
 
             //sorting.Descriptor.SetTitle("Sort");
-            sorting.Descriptor.SetSize(new Vector2(60, 80));
-            sorting.AssignEntries(sortNames.ToList());
-            sorting.SetValueWithoutNotify(LibrarySortMode.Name.ToString());
+            dateSorting.Descriptor.SetSize(new Vector2(60, 80));
+            dateSorting.AssignEntries(dateSortNames.ToList());
+            dateSorting.SetValueWithoutNotify(_currentSort.ToString());
             
             // when sorting changes, update and refresh
-            sorting.OnValueChanged = (val) =>
+            dateSorting.OnValueChanged = async (val) =>
             {
-                if (Enum.TryParse<LibrarySortMode>(val, out var parsed))
+                if (Enum.TryParse<LibraryDateSortMode>(val, out var parsed))
                 {
                     _currentSort = parsed;
 
                     // refresh the current tab for any new changes
-                    RefreshCurrentTab();
+                    await RefreshCurrentTab();
+                }
+            };
+
+            // create a sorting dropdown in the tab group extras area
+            var networkSorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, tabGroup.ExtrasContainer);
+            string[] networkSortNames = Enum.GetNames(typeof(LibraryNetworkFilter));
+
+            // modify the names of the dropdown entries to be more user-friendly
+            //var displayNames = sortNames.Select(n => $"{n}").ToList();
+
+            //sorting.Descriptor.SetTitle("Sort");
+            networkSorting.Descriptor.SetSize(new Vector2(60, 80));
+            networkSorting.AssignEntries(networkSortNames.ToList());
+            networkSorting.SetValueWithoutNotify(_currentNetworkFilter.ToString());
+            
+            // when sorting changes, update and refresh
+            networkSorting.OnValueChanged = async (val) =>
+            {
+                if (Enum.TryParse<LibraryNetworkFilter>(val, out var parsed))
+                {
+                    _currentNetworkFilter = parsed;
+
+                    // refresh the current tab for any new changes
+                    await RefreshCurrentTab();
                 }
             };
 
             // add our extra menu button items, this is the buttons below the panel content
-            tabGroup.AddExtraAction("Add New Content", AddNewItem);
+            // function overloading for one with size
+            tabGroup.AddExtraAction("Add New Content", AddNewItem, new Vector2( 70, 80 ));
 
-            // ensure the props tab is selected on open
-            RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab);
+            await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab); // default to props tab on first open
 
             panel.Descriptor.ForceRebuild();
         }
@@ -154,37 +195,85 @@ namespace Basis.BasisUI
 
         // If you need to prevent double-click spam.
         private static bool _isSubmitting;
+
+        public static PanelDropdown contentTypeDropDown;
+        public static PanelDropdown contentSyncModeDropDown;
+        public static PanelToggle contentPersistenceToggle;
         public static PanelPasswordField URL;
         public static PanelPasswordField Password;
+
+
         // Prefer Task-returning async methods over async void.
         public static void AddNewItem()
         {
             // Build overlay
+            // background blocks interaction with the underlying UI and can be a semi-transparent dark image
             _background = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Overlay, panel);
-            _descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.BaseOverlay, _background);
 
+            // the main descriptor is the actual content container for the overlay, it should be sized and positioned appropriately
+            _descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.LibraryEntryOverlay, _background);
             _descriptor.rectTransform.localPosition = Vector3.zero;
             _descriptor.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
             _descriptor.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
             _descriptor.rectTransform.anchoredPosition = Vector2.zero;
-            _descriptor.SetSize(new Vector2(700, 500));
-            _descriptor.SetTitle("Add New Item");
+            _descriptor.SetSize(new Vector2(930, 722));
+            _descriptor.SetTitle("Add New Content");
+            _descriptor.SetDescription("Provide the URL and password for your BEE file, then configure the type, sync behavior. Once everything is set, confirm your choices to include the item in your library.");
+            _descriptor.SetIcon(AddressableAssets.Sprites.Add);
 
-            var Mode = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
+            BundledContentHolder.NetworkType desiredNetType = BundledContentHolder.NetworkType.Local;
+
+            // the item type dropdown determines which library tab the new item will appear in.
+            contentTypeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
             string[] modeNames = Enum.GetNames(typeof(BundledContentHolder.Mode));
-            Mode.Descriptor.SetTitle("Item Type");
-            Mode.AssignEntries(modeNames.ToList());
-            Mode.SetValueWithoutNotify(BundledContentHolder.Mode.Avatar.ToString());
+            contentTypeDropDown.Descriptor.SetTitle("Item Type");
+            contentTypeDropDown.AssignEntries(modeNames.ToList());
+            
+            // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New Content"
+            contentTypeDropDown.SetValueWithoutNotify(_currentMode.ToString());
 
+            // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
+            contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
+            string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
+            contentSyncModeDropDown.Descriptor.SetTitle("Sync Mode");
+            contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
+            
+            // set to default to local
+            contentSyncModeDropDown.SetValueWithoutNotify(desiredNetType.ToString());
+            contentSyncModeDropDown.OnValueChanged = (val) =>
+            {
+                if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
+                {
+                    desiredNetType = selectedNetType;
+                    BasisDebug.Log($"Selected Network Type: {desiredNetType}");
+                }
+                else
+                {
+                    BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
+                }
+            };
+
+            // content persistence toggle determines weather
+            // contentPersistenceToggle = PanelToggle.CreateNew(_descriptor,PanelToggle.Styles.Entry);
+            // contentPersistenceToggle.Descriptor.SetTitle("Is Network Persistent?");
+            // contentPersistenceToggle.Descriptor.SetDescription("Can this Object Be Loaded by joining clients?");
+            //contentPersistenceToggle.Descriptor.SetSize(new Vector2(900, 80));
+
+            // BEE file URL field
             CreateText("Add your BEE File URL:", _descriptor);
             URL = PanelPasswordField.CreateNew(_descriptor);
             URL._placeholderField.text = "URL";
             URL._inputField.contentType = TMP_InputField.ContentType.Standard;
             URL.DisableIcons();
 
+            // BEE file password field
             CreateText("Add your generated BEE file password:", _descriptor);
             Password = PanelPasswordField.CreateNew(_descriptor);
             Password._placeholderField.text = "Enter password";
+
+
+
+            // Add and Cancel buttons
             PanelTabGroup acceptOrDenyPanel = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
 
             PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent);
@@ -199,20 +288,20 @@ namespace Basis.BasisUI
             yesPanel.Descriptor.SetHeight(60);
 
             // Cancel just closes.
-            noPanel.OnClicked += () =>
+            noPanel.OnClicked += async () =>
             {
-                CloseOverlayAndLoad(false, Mode.SelectedString, URL.Password, Password.Password);
+                await CloseOverlayAndLoad(false, contentTypeDropDown.SelectedString, URL.Password, Password.Password, desiredNetType);
             };
 
             // Add does the async work, then closes.
-            yesPanel.OnClicked += () =>
+            yesPanel.OnClicked += async () =>
             {
                 if (_isSubmitting) return;
                 _isSubmitting = true;
 
                 try
                 {
-                    CloseOverlayAndLoad(true, Mode.SelectedString, URL.Password, Password.Password);
+                    await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, URL.Password, Password.Password, desiredNetType);
                 }
                 catch (Exception ex)
                 {
@@ -240,7 +329,7 @@ namespace Basis.BasisUI
             return text;
         }
 
-        public static async void CloseOverlayAndLoad(bool doLoad, string Mode, string URL, string Password)
+        public static async Task CloseOverlayAndLoad(bool doLoad, string Mode, string URL, string Password, BundledContentHolder.NetworkType netType)
         {
             if (doLoad)
             {
@@ -250,21 +339,22 @@ namespace Basis.BasisUI
                     {
                         Pass = Password,
                         Url = URL,
-                        Mode = mode
+                        Mode = mode,
+                        NetworkType = netType,
                     };
 
                     await BasisDataStoreItemKeys.AddNewKey(key);
                 }
                 else
                 {
-                    CloseOverlay();
+                    await CloseOverlay();
                     BasisDebug.LogError("Coudnt Parse Mode!");
                 }
             }
-            CloseOverlay();
+            await CloseOverlay();
         }
 
-        public static void CloseOverlay()
+        public static async Task CloseOverlay()
         {
             _isSubmitting = false;
 
@@ -283,7 +373,7 @@ namespace Basis.BasisUI
             }
 
             // refresh the current tab for any new changes
-            RefreshCurrentTab();
+            await RefreshCurrentTab();
         }
 
         #endregion
@@ -341,7 +431,7 @@ namespace Basis.BasisUI
             }
         }
 
-        private static async void RefreshTabAsync(BundledContentHolder.Mode mode, PanelTabPage tab)
+        private static async Task RefreshTabAsync(BundledContentHolder.Mode mode, PanelTabPage tab)
         {
             if (tab == null) return;
 
@@ -398,42 +488,46 @@ namespace Basis.BasisUI
                 }
 
                 // Sorting must be synchronous and use cached metadata only.
-                try
+                switch (_currentSort)
                 {
-                    switch (_currentSort)
-                    {
-                        case LibrarySortMode.Name:
-                            data = data.OrderBy(k =>
-                            {
-                                var url = k.Url ?? string.Empty;
-                                if (_metaCache.TryGetValue(url, out var mm) && !string.IsNullOrEmpty(mm.Name))
-                                    return mm.Name;
-                                return url;
-                            }).ToList();
-                            break;
-                        case LibrarySortMode.DateOldestToNewest:
-                            data = data.OrderBy(k =>
-                            {
-                                var url = k.Url ?? string.Empty;
-                                if (_metaCache.TryGetValue(url, out var mm) && mm.Created.HasValue)
-                                    return mm.Created.Value;
-                                return DateTime.MaxValue;
-                            }).ToList();
-                            break;
-                        case LibrarySortMode.DateNewestToOldest:
-                            data = data.OrderByDescending(k =>
-                            {
-                                var url = k.Url ?? string.Empty;
-                                if (_metaCache.TryGetValue(url, out var mm) && mm.Created.HasValue)
-                                    return mm.Created.Value;
-                                return DateTime.MinValue;
-                            }).ToList();
-                            break;
-                    }
+                    case LibraryDateSortMode.Name:
+                        data = data.OrderBy(k =>
+                        {
+                            var url = k.Url ?? string.Empty;
+                            if (_metaCache.TryGetValue(url, out var mm) && !string.IsNullOrEmpty(mm.Name))
+                                return mm.Name;
+                            return url;
+                        }).ToList();
+                        break;
+                    case LibraryDateSortMode.DateOldestToNewest:
+                        data = data.OrderBy(k =>
+                        {
+                            var url = k.Url ?? string.Empty;
+                            if (_metaCache.TryGetValue(url, out var mm) && mm.Created.HasValue)
+                                return mm.Created.Value;
+                            return DateTime.MaxValue;
+                        }).ToList();
+                        break;
+                    case LibraryDateSortMode.DateNewestToOldest:
+                        data = data.OrderByDescending(k =>
+                        {
+                            var url = k.Url ?? string.Empty;
+                            if (_metaCache.TryGetValue(url, out var mm) && mm.Created.HasValue)
+                                return mm.Created.Value;
+                            return DateTime.MinValue;
+                        }).ToList();
+                        break;
                 }
-                catch (Exception ex)
+
+                // Apply network filter if present
+                switch (_currentNetworkFilter)
                 {
-                    BasisDebug.LogError(ex);
+                    case LibraryNetworkFilter.NetworkedOnly:
+                        data = data.Where(k => k.NetworkType == BundledContentHolder.NetworkType.Networked).ToList();
+                        break;
+                    case LibraryNetworkFilter.LocalOnly:
+                        data = data.Where(k => k.NetworkType == BundledContentHolder.NetworkType.Local).ToList();
+                        break;
                 }
 
                 // Clear and rebuild the tab content
@@ -448,11 +542,11 @@ namespace Basis.BasisUI
         }
 
         // used to refresh the current tab
-        private static async void RefreshCurrentTab()
+        private static async Task RefreshCurrentTab()
         {
             if (_currentTab != null)
             {
-                RefreshTabAsync(_currentMode, _currentTab);
+                await RefreshTabAsync(_currentMode, _currentTab);
             }
         }
 
@@ -667,7 +761,7 @@ namespace Basis.BasisUI
         public static async Task ShowItemOverlay(BasisDataStoreItemKeys.ItemKey item, Sprite Sprite, BasisTrackedBundleWrapper Wrapper)
         {
             // Prevent stacking overlays
-            CloseOverlay();
+            await CloseOverlay();
 
             var bundle = Wrapper.LoadableBundle;
 
@@ -681,7 +775,7 @@ namespace Basis.BasisUI
                 await BasisDataStoreItemKeys.RemoveKey(item);
 
                 // refresh the current tab for any new changes
-                RefreshCurrentTab();
+                await RefreshCurrentTab();
                 return;
             }
 
@@ -694,7 +788,7 @@ namespace Basis.BasisUI
             var button = PanelButton.CreateNew(PanelButton.ButtonStyles.ExitButtonOverlay, _descriptor.Header);
             button.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 125);
             button.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
-            button.OnClicked += () => CloseOverlay();
+            button.OnClicked += async () => await CloseOverlay();
 
             string creationDate = bundle.BasisBundleConnector.DateOfCreation;
             if (string.IsNullOrEmpty(creationDate))
@@ -724,7 +818,7 @@ namespace Basis.BasisUI
                 LayoutElement.minHeight = 50;
             }
 
-            Descriptor.SetDescription("\n<size=80%>Created: " + creationDate + "</size>");
+            Descriptor.SetDescription($"\nCreated: {creationDate}\nSync Mode: {item.NetworkType}");
 
             var IDField = PanelPasswordField.CreateNew(PanelPasswordField.PasswordFieldStyles.Entry, _descriptor);
             IDField._placeholderField.text = "";//Wrapper
@@ -804,18 +898,18 @@ namespace Basis.BasisUI
             DeleteBtn.OnClicked += async () =>
             {
                 await BasisDataStoreItemKeys.RemoveKey(item);
-                CloseOverlay();
+                await CloseOverlay();
             };
 
-            loadBtn.OnClicked += () =>
+            loadBtn.OnClicked += async () =>
             {
                 if (_isSubmitting) return;
                 _isSubmitting = true;
 
                 try
                 {
-                    Debug.Log($"Load Button Clicked for item: {item.Url}");
-                    //await LoadSelectedItem(item);
+                    BasisDebug.Log($"Load Button Clicked for item: {item.Url}");
+                    await LoadSelectedItem(item);
                 }
                 catch (Exception ex)
                 {
@@ -824,9 +918,114 @@ namespace Basis.BasisUI
                 finally
                 {
                     _isSubmitting = false;
-                    CloseOverlay();
+                    await CloseOverlay();
                 }
             };
+        }
+
+        private static async Task LoadSelectedItem(BasisDataStoreItemKeys.ItemKey item)
+        {
+            var wrapper = BuildWrapper(item);
+            var report = new BasisProgressReport();
+
+            // At this point the item should be fully loaded and ready to use. What happens next is up to you and your application needs.
+            // For example, you could raise an event that other parts of your app listen for, or directly instantiate the loaded content if it's a prefab.
+            BasisDebug.Log($"Attempting to Load Item: {item.Url}");
+
+            try
+            {
+                // networked spawn for everyone
+                string url = item.Url;
+                string pass = item.Pass ?? string.Empty;
+                //bool isNetworked = item.NetworkType == BundledContentHolder.NetworkType.Networked;
+
+                // object desired spawning stuff
+                // quick testing to grab the player pos and camera forward tbh we could just get camera forward and spawn in front of the camera
+                // then I discovered the player capsule does not face towards the camera forward.
+                Vector3 playerPosReference = BasisLocalPlayer.Instance.gameObject.transform.position;
+                Vector3 forward = BasisLocalCameraDriver.Instance.gameObject.transform.forward;
+
+                // final vector and rotation
+                Vector3 spawnPos = playerPosReference + new Vector3( 0, 1.5f, 0 ) + forward * 2; // spawn 2 units in front of player
+                Quaternion spawnRot = Quaternion.identity;
+
+                Vector3 spawnScale = Vector3.one;
+                bool persistent = false;
+                bool modifyScale = false;
+
+                switch(item.NetworkType)
+                {
+                    case BundledContentHolder.NetworkType.Local:
+
+                        if (_metaCache.TryGetValue(url, out var cached))
+                        {
+                            // Attach cached connector if present so callers (e.g., ShowItemOverlay)
+                            // can rely on wrapper having connector data.
+                            if (cached.cached_BasisBundleConnector != null)
+                            {
+                                wrapper.LoadableBundle.BasisBundleConnector = cached.cached_BasisBundleConnector;
+
+                                BasisProgressReport Report = new BasisProgressReport();
+                                CancellationToken Cancel = new CancellationToken();
+
+                                // oh dear
+                                var selector = item.Mode switch
+                                {
+                                    BundledContentHolder.Mode.Avatar => BundledContentHolder.Selector.Avatar,
+                                    BundledContentHolder.Mode.Prop => BundledContentHolder.Selector.Prop,
+                                    BundledContentHolder.Mode.World => BundledContentHolder.Selector.System,
+                                    _ => BundledContentHolder.Selector.Prop
+                                };
+
+                                GameObject CreatedObject = await BasisLoadHandler.LoadGameObjectBundle(wrapper.LoadableBundle, true, Report, Cancel, spawnPos, spawnRot, spawnScale, modifyScale, selector, BasisNetworkManagement.Instance.transform);
+
+                                if(CreatedObject != null)
+                                {
+                                    Debug.Log($"Library provider successfully created item {url} with networking: {item.NetworkType} at {CreatedObject.transform.position}.");
+                                }
+                                else
+                                {
+                                    Debug.LogError($"Library provider failed to create desired {item.NetworkType} with LoadSelectedItem of url {url} ");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            BasisDebug.LogError("LoadSelectedItem failed to find cached meta for url {url}, cannot load bundle without it!");
+                        }
+
+                        break;
+                    case BundledContentHolder.NetworkType.Networked:
+                        // For networked loads, request the network spawn and register the instance
+                        try
+                        {
+                            LocalLoadResource loadedProp;
+                            bool ok = BasisNetworkSpawnItem.RequestGameObjectLoad(pass, url, spawnPos, spawnRot, spawnScale, persistent, modifyScale, out loadedProp);
+                            if (ok && !string.IsNullOrEmpty(loadedProp.LoadedNetID))
+                            {
+                                Basis.BasisRuntimeSpawnRegistry.Add(url, loadedProp.LoadedNetID, persistent, out _);
+                                BasisDebug.Log($"Requested networked load for {url}, NetID={loadedProp.LoadedNetID}", BasisDebug.LogTag.Networking);
+                            }
+                            else
+                            {
+                                BasisDebug.LogError($"Failed to request networked load for {url}");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            BasisDebug.LogError(ex);
+                        }
+
+                        break;
+                    default:
+                        BasisDebug.LogError($"Load selected item {item.Url} was loaded with an unknown network of {item.NetworkType}! Nothing will happen.");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex);
+            }
         }
    
         #endregion

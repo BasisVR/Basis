@@ -14,6 +14,7 @@ namespace Basis.BasisUI
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown.prefab";
             public static string Entry => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry Variant.prefab";
             public static string OverlayEntry => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry Variant - Overlay.prefab";
+            public static string EntryNoLabel => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry No Title Variant.prefab";
         }
 
         public TMP_Dropdown DropdownComponent;

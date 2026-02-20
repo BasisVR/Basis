@@ -12,4 +12,12 @@ public partial class BundledContentHolder
         World = 1,
         Prop = 2,
     }
+    
+    // used to determine which item key stores are local or networked
+    // used as reference by the library provider to determine network type of item
+    public enum NetworkType
+    {
+        Local = 0,
+        Networked = 1,
+    }
 }
