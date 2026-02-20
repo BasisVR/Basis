@@ -75,6 +75,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1e3cf7bb70defad499977b24504926ea
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/list.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1fe4ba37c99a5bc4ab67846df4e71a1c
     m_Address: Packages/com.basis.sdk/Textures/Runtime/items.png
     m_ReadOnly: 0
@@ -97,6 +102,17 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 43284126c633608458d1a5b131afba65
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Label Field.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 480378e7e654e474ab5b4c564f62e8f1
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/network.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4dbce8e6d2d6f914d9285a25080c03ca
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Library
+      Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
