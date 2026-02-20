@@ -111,13 +111,13 @@ namespace Basis.BasisUI
             var propsTab = PropsTab(tabGroup);
             var worldsTab = WorldsTab(tabGroup);
             var avatarsTab = AvatarsTab(tabGroup);
-
-            // No cache initialization required
+            var instantiatedTab = AvatarsTab(tabGroup);
 
             // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
             tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab), propsTab);
             tabGroup.AddTab("Worlds", AddressableAssets.Sprites.Servers, async () => await RefreshTabAsync(BundledContentHolder.Mode.World, worldsTab), worldsTab);
             tabGroup.AddTab("Avatars",AddressableAssets.Sprites.Avatars, async () => await RefreshTabAsync(BundledContentHolder.Mode.Avatar, avatarsTab), avatarsTab);
+            tabGroup.AddTab("Instantiated", AddressableAssets.Sprites.List, null, instantiatedTab);
 
             // create a search text field in the tab group extras area
             searchField = PanelTextField.CreateNew(TextFieldStyles.EntryWithNoTitle, tabGroup.ExtrasContainer);
@@ -604,22 +604,44 @@ namespace Basis.BasisUI
         {
             if (items == null) return;
 
-            foreach (var item in items)
+            // foreach (var item in items)
+            // {
+            //     try
+            //     {
+            //         await PreloadMetaForItem(item);
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         BasisDebug.LogError(ex);
+            //     }
+            // }
+            
+            // parallel request preload metadata for items
+            try
             {
-                try
-                {
-                    await PreloadMetaForItem(item);
-                }
-                catch (Exception ex)
-                {
-                    BasisDebug.LogError(ex);
-                }
+                await Task.WhenAll(items.Select(PreloadMetaForItem));
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex);
             }
         }
 
         private static async void CreateItemCard(BasisDataStoreItemKeys.ItemKey item, RectTransform container)
         {
             PanelButton buttonPanel = PanelButton.CreateNew(ButtonStyles.Prop, container);
+
+            if(item.NetworkType == BundledContentHolder.NetworkType.Networked)
+            {
+                // create an image for the button network icon in the top right with an offset of -35, -35
+                PanelImage networkIcon = PanelImage.CreateNew(buttonPanel.Descriptor);
+                networkIcon.SetIcon(AddressableAssets.GetSprite(AddressableAssets.Sprites.Network), true);
+                networkIcon.rectTransform.anchorMin = new Vector2(1, 1);
+                networkIcon.rectTransform.anchorMax = new Vector2(1, 1);
+                networkIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                networkIcon.rectTransform.anchoredPosition = new Vector2(-35, -35);
+                networkIcon.rectTransform.sizeDelta = new Vector2(40, 40);
+            }
 
             var urlKey = item.Url ?? string.Empty;
             var desc = buttonPanel.Descriptor;
