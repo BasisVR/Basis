@@ -111,7 +111,7 @@ namespace Basis.BasisUI
             var propsTab = PropsTab(tabGroup);
             var worldsTab = WorldsTab(tabGroup);
             var avatarsTab = AvatarsTab(tabGroup);
-            var instantiatedTab = AvatarsTab(tabGroup);
+            var instantiatedTab = InstantiatedTab(tabGroup);
 
             // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
             tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab), propsTab);
@@ -413,6 +413,7 @@ namespace Basis.BasisUI
             d.ForceRebuild();
             return tab;
         }
+        
         private static void BuildItemsList(List<BasisDataStoreItemKeys.ItemKey> items, PanelTabPage tab)
         {
             RectTransform container = tab.Descriptor.ContentParent;
@@ -1076,6 +1077,27 @@ namespace Basis.BasisUI
             }
         }
    
+        #endregion
+
+        #region Instantiated Tab
+
+        public static PanelTabPage InstantiatedTab(PanelTabGroup tabGroup)
+        {
+            PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
+            tab.rectTransform.offsetMin = new Vector2(0, 0);
+            var d = tab.Descriptor;
+            d.SetTitle("Instantiated");
+            // d.SetDescription( "TO_BE_IMPLEMENTED" );
+            // d.SetIcon( AddressableAssets.Sprites.Calibrate );
+            d.ForceRebuild();
+
+            // now fow we put a text field saying to be implemented
+
+            
+
+            return tab;
+        }
+
         #endregion
     }
 }
