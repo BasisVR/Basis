@@ -65,19 +65,26 @@ namespace Basis.BasisUI
         {
             // Existing searchable/sortable fields
             public string Name;
+            public BundledContentHolder.NetworkType NetworkType;
             public DateTime? Created;
 
             // Additional cached bundle info (prefixed as requested)
-            public string cached_AssetBundleDescription;
-            public string cached_ImageBase64;
-            public string cached_DateOfCreation;
-            public string cached_UniqueVersion;
+            public string AssetBundleDescription;
+            public string ImageBase64;
+            public Sprite CachedSprite;
+            public string DateOfCreation;
+            public string UniqueVersion;
 
             // Full connector available for any other accessible info
-            public BasisBundleConnector cached_BasisBundleConnector;
+            public BasisBundleConnector BasisBundleConnector;
         }
 
         private static readonly Dictionary<string, CachedMeta> _metaCache = new();
+
+        private static bool TryGetMeta(string url, out CachedMeta meta)
+        {
+            return _metaCache.TryGetValue(url ?? string.Empty, out meta);
+        }
 
         public override async void RunAction()
         {
@@ -480,7 +487,7 @@ namespace Basis.BasisUI
                     data = data.Where(k =>
                     {
                         var url = k.Url ?? string.Empty;
-                        if (_metaCache.TryGetValue(url, out var mm) && !string.IsNullOrEmpty(mm.Name) && mm.Name.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        if (TryGetMeta(url, out var mm) && !string.IsNullOrEmpty(mm.Name) && mm.Name.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0)
                             return true;
 
                         return false;
@@ -494,7 +501,7 @@ namespace Basis.BasisUI
                         data = data.OrderBy(k =>
                         {
                             var url = k.Url ?? string.Empty;
-                            if (_metaCache.TryGetValue(url, out var mm) && !string.IsNullOrEmpty(mm.Name))
+                            if (TryGetMeta(url, out var mm) && !string.IsNullOrEmpty(mm.Name))
                                 return mm.Name;
                             return url;
                         }).ToList();
@@ -503,7 +510,7 @@ namespace Basis.BasisUI
                         data = data.OrderBy(k =>
                         {
                             var url = k.Url ?? string.Empty;
-                            if (_metaCache.TryGetValue(url, out var mm) && mm.Created.HasValue)
+                            if (TryGetMeta(url, out var mm) && mm.Created.HasValue)
                                 return mm.Created.Value;
                             return DateTime.MaxValue;
                         }).ToList();
@@ -512,7 +519,7 @@ namespace Basis.BasisUI
                         data = data.OrderByDescending(k =>
                         {
                             var url = k.Url ?? string.Empty;
-                            if (_metaCache.TryGetValue(url, out var mm) && mm.Created.HasValue)
+                            if (TryGetMeta(url, out var mm) && mm.Created.HasValue)
                                 return mm.Created.Value;
                             return DateTime.MinValue;
                         }).ToList();
@@ -570,11 +577,12 @@ namespace Basis.BasisUI
                 var cached = new CachedMeta
                 {
                     Name = connector?.BasisBundleDescription?.AssetBundleName ?? string.Empty,
-                    cached_AssetBundleDescription = connector?.BasisBundleDescription?.AssetBundleDescription,
-                    cached_ImageBase64 = connector?.ImageBase64,
-                    cached_DateOfCreation = connector?.DateOfCreation,
-                    cached_UniqueVersion = connector?.UniqueVersion,
-                    cached_BasisBundleConnector = connector
+                    NetworkType = item.NetworkType,
+                    AssetBundleDescription = connector?.BasisBundleDescription?.AssetBundleDescription,
+                    ImageBase64 = connector?.ImageBase64,
+                    DateOfCreation = connector?.DateOfCreation,
+                    UniqueVersion = connector?.UniqueVersion,
+                    BasisBundleConnector = connector
                 };
 
                 string dateStrCache = connector?.DateOfCreation;
@@ -613,69 +621,86 @@ namespace Basis.BasisUI
         {
             PanelButton buttonPanel = PanelButton.CreateNew(ButtonStyles.Prop, container);
 
-            // If we already have cached meta, use it synchronously to populate the UI.
             var urlKey = item.Url ?? string.Empty;
-            if (_metaCache.TryGetValue(urlKey, out var cached))
-            {
-                Sprite iconSprite = null;
-                if (!string.IsNullOrEmpty(cached.cached_ImageBase64))
-                {
-                    var tex = BasisTextureCompression.FromPngBytes(cached.cached_ImageBase64);
-                    if (tex != null)
-                    {
-                        iconSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
-                    }
-                }
+            var desc = buttonPanel.Descriptor;
 
-                buttonPanel.SetIcon(iconSprite, false);
-                var desc = buttonPanel.Descriptor;
-                desc.SetTitle(!string.IsNullOrEmpty(cached.Name) ? cached.Name : urlKey);
-                desc.SetDescription(urlKey);
-                desc.ForceRebuild();
+            // Try get cached meta once
+            TryGetMeta(urlKey, out var cachedMeta);
+
+            if (cachedMeta != null)
+            {
+                ApplyMetaToButton(buttonPanel, cachedMeta, urlKey);
             }
             else
             {
-                // Optionally set a placeholder while metadata is loaded in background
-                var desc = buttonPanel.Descriptor;
                 desc.SetTitle("Loading...");
                 desc.SetDescription(urlKey);
                 desc.ForceRebuild();
 
-                // Start background preload so that cache is populated for sorting/filtering and later clicks.
                 _ = PreloadMetaForItem(item);
             }
 
-            // clicking the item opens the info overlay — ensure meta is loaded before showing overlay
             buttonPanel.OnClicked += async () =>
             {
                 try
                 {
+                    // Ensure meta exists (only loads if not cached)
                     await PreloadMetaForItem(item);
+
+                    TryGetMeta(urlKey, out var meta);
+
+                    var wrapperForMeta = BuildWrapper(item);
+                    Sprite sprite = null;
+
+                    if (meta != null)
+                    {
+                        wrapperForMeta.LoadableBundle.BasisBundleConnector = meta.BasisBundleConnector;
+                        sprite = CreateSpriteFromMeta(meta);
+                    }
+
+                    await ShowItemOverlay(item, sprite, wrapperForMeta);
                 }
                 catch (Exception ex)
                 {
                     BasisDebug.LogError(ex);
                 }
-
-                var wrapperForMeta = BuildWrapper(item);
-                Sprite sprite = null;
-                if (_metaCache.TryGetValue(urlKey, out var cached2))
-                {
-                    wrapperForMeta.LoadableBundle.BasisBundleConnector = cached2.cached_BasisBundleConnector;
-
-                    if (!string.IsNullOrEmpty(cached2.cached_ImageBase64))
-                    {
-                        var tex = BasisTextureCompression.FromPngBytes(cached2.cached_ImageBase64);
-                        if (tex != null)
-                        {
-                            sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
-                        }
-                    }
-                }
-
-                await ShowItemOverlay(item, sprite, wrapperForMeta);
             };
         }
+
+        private static void ApplyMetaToButton(PanelButton buttonPanel, CachedMeta cachedMeta, string urlKey)
+        {
+            Sprite iconSprite = CreateSpriteFromMeta(cachedMeta);
+
+            buttonPanel.SetIcon(iconSprite, false);
+
+            var desc = buttonPanel.Descriptor;
+            desc.SetTitle(!string.IsNullOrEmpty(cachedMeta.Name) ? cachedMeta.Name : urlKey);
+            desc.SetDescription(urlKey);
+            desc.ForceRebuild();
+        }
+
+        // texture decode happens once per item here
+        private static Sprite CreateSpriteFromMeta(CachedMeta meta)
+        {
+            if (meta.CachedSprite != null)
+                return meta.CachedSprite;
+
+            if (string.IsNullOrEmpty(meta.ImageBase64))
+                return null;
+
+            var tex = BasisTextureCompression.FromPngBytes(meta.ImageBase64);
+            if (tex == null)
+                return null;
+
+            meta.CachedSprite = Sprite.Create(
+                tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f)
+            );
+
+            return meta.CachedSprite;
+        }
+
         private static BasisTrackedBundleWrapper BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
         {
             var wrapper = new BasisTrackedBundleWrapper();
@@ -691,60 +716,61 @@ namespace Basis.BasisUI
             return wrapper;
         }
         
-        private static async Task<Sprite> LoadItemMetaIntoGroup(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken, PanelButton Buttonpanel)
-        {
-            var descripter = Buttonpanel.Descriptor;
-            try
-            {
-                cancellationToken.ThrowIfCancellationRequested();
+        // private static async Task<Sprite> LoadItemMetaIntoGroup(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken, PanelButton Buttonpanel)
+        // {
+        //     var descripter = Buttonpanel.Descriptor;
+        //     try
+        //     {
+        //         cancellationToken.ThrowIfCancellationRequested();
 
-                // Only read from the metadata cache here. Meta loading should occur in the
-                // data/preload phase (PreloadMetaForItem / PreloadMetaForItems).
-                var urlKey = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation ?? string.Empty;
-                if (_metaCache.TryGetValue(urlKey, out var cached))
-                {
-                    Sprite iconSprite = null;
-                    if (!string.IsNullOrEmpty(cached.cached_ImageBase64))
-                    {
-                        var tex = BasisTextureCompression.FromPngBytes(cached.cached_ImageBase64);
-                        if (tex != null)
-                        {
-                            iconSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
-                        }
-                    }
+        //         // Only read from the metadata cache here. Meta loading should occur in the
+        //         // data/preload phase (PreloadMetaForItem / PreloadMetaForItems).
+        //         var urlKey = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation ?? string.Empty;
+        //         if (_metaCache.TryGetValue(urlKey, out var cached))
+        //         {
+        //             Sprite iconSprite = null;
+        //             if (!string.IsNullOrEmpty(cached.ImageBase64))
+        //             {
+        //                 var tex = BasisTextureCompression.FromPngBytes(cached.ImageBase64);
+        //                 if (tex != null)
+        //                 {
+        //                     iconSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        //                 }
+        //             }
 
-                    Buttonpanel.SetIcon(iconSprite, false);
-                    descripter.SetTitle(!string.IsNullOrEmpty(cached.Name) ? cached.Name : urlKey);
-                    descripter.SetDescription(urlKey);
-                    descripter.ForceRebuild();
+        //             Buttonpanel.SetIcon(iconSprite, false);
+        //             descripter.SetTitle(!string.IsNullOrEmpty(cached.Name) ? cached.Name : urlKey);
+        //             descripter.SetDescription(urlKey);
+        //             descripter.ForceRebuild();
 
-                    // Attach cached connector if present so callers (e.g., ShowItemOverlay)
-                    // can rely on wrapper having connector data.
-                    if (cached.cached_BasisBundleConnector != null)
-                    {
-                        wrapper.LoadableBundle.BasisBundleConnector = cached.cached_BasisBundleConnector;
-                    }
+        //             // Attach cached connector if present so callers (e.g., ShowItemOverlay)
+        //             // can rely on wrapper having connector data.
+        //             if (cached.BasisBundleConnector != null)
+        //             {
+        //                 wrapper.LoadableBundle.BasisBundleConnector = cached.BasisBundleConnector;
+        //             }
 
-                    return iconSprite;
-                }
+        //             return iconSprite;
+        //         }
 
-                // Nothing cached yet — leave UI in a loading state and return null.
-                descripter.SetTitle("Loading meta...");
-                descripter.SetDescription(urlKey);
-                descripter.ForceRebuild();
-                return null;
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError(e);
-                BasisLoadHandler.RemoveDiscInfo(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
+        //         // Nothing cached yet — leave UI in a loading state and return null.
+        //         descripter.SetTitle("Loading meta...");
+        //         descripter.SetDescription(urlKey);
+        //         descripter.ForceRebuild();
+        //         return null;
+        //     }
+        //     catch (Exception e)
+        //     {
+        //         BasisDebug.LogError(e);
+        //         BasisLoadHandler.RemoveDiscInfo(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
 
-                descripter.SetTitle("Failed to load meta");
-                descripter.SetDescription(e.Message);
-                descripter.ForceRebuild();
-                return null;
-            }
-        }
+        //         descripter.SetTitle("Failed to load meta");
+        //         descripter.SetDescription(e.Message);
+        //         descripter.ForceRebuild();
+        //         return null;
+        //     }
+        // }
+
         private static BasisDataStoreItemKeys.ItemKey _activeItem;
         public static PanelElementDescriptor CreateBaseOverlay(Vector2 Anchor, Vector2 Scale,string Name)//= new Vector2(0.5f, 0.5f) new Vector2(800, 720)
         {
@@ -957,13 +983,13 @@ namespace Basis.BasisUI
                 {
                     case BundledContentHolder.NetworkType.Local:
 
-                        if (_metaCache.TryGetValue(url, out var cached))
+                        if (TryGetMeta(url, out var cached))
                         {
                             // Attach cached connector if present so callers (e.g., ShowItemOverlay)
                             // can rely on wrapper having connector data.
-                            if (cached.cached_BasisBundleConnector != null)
+                            if (cached.BasisBundleConnector != null)
                             {
-                                wrapper.LoadableBundle.BasisBundleConnector = cached.cached_BasisBundleConnector;
+                                wrapper.LoadableBundle.BasisBundleConnector = cached.BasisBundleConnector;
 
                                 BasisProgressReport Report = new BasisProgressReport();
                                 CancellationToken Cancel = new CancellationToken();
