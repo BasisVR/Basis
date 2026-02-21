@@ -31,6 +31,8 @@ namespace Basis.BasisUI
 
             public static string Entry =>
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Entry Variant.prefab";
+            public static string EntryVertical =>
+                "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Vertical Entry Variant.prefab";
 
             public static string EntryLong => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field - Entry Variant - Long.prefab";
         }

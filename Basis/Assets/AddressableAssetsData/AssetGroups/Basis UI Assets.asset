@@ -95,6 +95,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 27fce9fb1805751468ee221a201b8b0d
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/padlock-locked.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 30ab3bcde2b3a7141b1e16d6add785f3
     m_Address: Packages/com.basis.sdk/Prefabs/Dialogue Panel.prefab
     m_ReadOnly: 0
@@ -147,6 +152,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 702d4f08a89177641a1eb7b464c97ca5
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field -
+      Vertical Entry Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 75bd3bdc3bf3d5d4980a0c74358b93b9
     m_Address: Panel Elements/Overlay Panel.prefab
     m_ReadOnly: 0
@@ -184,6 +195,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 8a8b0f71528d90844a3cba98cae2de72
     m_Address: Packages/com.basis.sdk/Textures/Runtime/Teleport.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8c49268f0eb85d744b8bd36ac472cc0a
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/padlock-unlocked.png
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -238,6 +254,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cc9d582b7d936ce439ff2de13769f48c
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/file-tray.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ce79cd386c49c7e45813375f1cf500c3
     m_Address: Packages/com.basis.sdk/Prefabs/Menu Panel - Page.prefab
     m_ReadOnly: 0
@@ -276,6 +297,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e33527f56f5a6c84c91195c63a1816a3
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ec63650a87f01494a9ebf018336a9825
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Vertical
+      Entry Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
