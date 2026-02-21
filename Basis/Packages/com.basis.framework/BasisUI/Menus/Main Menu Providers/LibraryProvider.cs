@@ -19,6 +19,124 @@ using static SerializableBasis;
 
 namespace Basis.BasisUI
 {
+    public static class CachedMetaData
+    {
+        // Represents a cached metadata entry for an item
+        public class CachedContent
+        {
+            public string Name;
+            public DateTime? Created;
+
+            public string AssetBundleDescription;
+            public string ImageBase64;
+            public Sprite CachedSprite;
+            public string DateOfCreation;
+            public string UniqueVersion;
+
+            public BasisBundleConnector BasisBundleConnector;
+        }
+
+        private static readonly Dictionary<string, CachedContent> _metaCache = new();
+
+        public static bool TryGetMeta(string url, out CachedContent meta)
+        {
+            return _metaCache.TryGetValue(url ?? string.Empty, out meta);
+        }
+
+        public static void SetMetaData(string url, CachedContent meta)
+        {
+            if (string.IsNullOrEmpty(url) || meta == null) return;
+            _metaCache[url] = meta;
+        }
+
+        public static bool ContainsMetaData(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+            return _metaCache.ContainsKey(url);
+        }
+
+        public static void ClearMetaDataCache()
+        {
+            _metaCache.Clear();
+        }
+
+        public static Sprite CreateSpriteFromMetaData(CachedContent meta)
+        {
+            if (meta == null) return null;
+
+            if (meta.CachedSprite != null)
+                return meta.CachedSprite;
+
+            if (string.IsNullOrEmpty(meta.ImageBase64))
+                return null;
+
+            var tex = BasisTextureCompression.FromPngBytes(meta.ImageBase64);
+            if (tex == null)
+                return null;
+
+            meta.CachedSprite = Sprite.Create(
+                tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f)
+            );
+
+            return meta.CachedSprite;
+        }
+
+        public static async Task PreloadMetaDataForItem(BasisDataStoreItemKeys.ItemKey item)
+        {
+            if (item == null) return;
+
+            var urlKey = item.Url ?? string.Empty;
+            if (ContainsMetaData(urlKey)) return;
+
+            try
+            {
+                var wrapper = LibraryProvider.BuildWrapper(item);
+                var report = new BasisProgressReport();
+                await BasisBeeManagement.HandleMetaOnlyLoad(wrapper, report, CancellationToken.None);
+
+                var connector = wrapper.LoadableBundle.BasisBundleConnector;
+
+                var cached = new CachedContent
+                {
+                    Name = connector?.BasisBundleDescription?.AssetBundleName ?? string.Empty,
+                    AssetBundleDescription = connector?.BasisBundleDescription?.AssetBundleDescription,
+                    ImageBase64 = connector?.ImageBase64,
+                    DateOfCreation = connector?.DateOfCreation,
+                    UniqueVersion = connector?.UniqueVersion,
+                    BasisBundleConnector = connector
+                };
+
+                string dateStrCache = connector?.DateOfCreation;
+                if (!string.IsNullOrEmpty(dateStrCache) && DateTime.TryParse(dateStrCache, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedDate))
+                {
+                    cached.Created = parsedDate;
+                }
+
+                SetMetaData(urlKey, cached);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex);
+            }
+        }
+
+        public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
+        {
+            if (items == null) return;
+
+            try
+            {
+                await Task.WhenAll(items.Select(PreloadMetaDataForItem));
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError(ex);
+            }
+        }
+    }
+    
     public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         # region Provider Setup
@@ -47,44 +165,21 @@ namespace Basis.BasisUI
         }
         private static LibraryDateSortMode _currentSort = LibraryDateSortMode.Name;
 
-        // Network filter state for items
-        private enum LibraryNetworkFilter
-        {
-            All,
-            NetworkedOnly,
-            LocalOnly
-        }
+        // // Network filter state for items
+        // private enum LibraryNetworkFilter
+        // {
+        //     All,
+        //     NetworkedOnly,
+        //     LocalOnly
+        // }
 
-        private static LibraryNetworkFilter _currentNetworkFilter = LibraryNetworkFilter.All;
+        // private static LibraryNetworkFilter _currentNetworkFilter = LibraryNetworkFilter.All;
 
         private static string _currentSearchQuery = string.Empty;
         private static BundledContentHolder.Mode _currentMode = BundledContentHolder.Mode.Prop;
         private static PanelTabPage _currentTab;
-        // Simple in-memory metadata cache keyed by item URL
-        private class CachedMeta
-        {
-            // Existing searchable/sortable fields
-            public string Name;
-            public BundledContentHolder.NetworkType NetworkType;
-            public DateTime? Created;
-
-            // Additional cached bundle info (prefixed as requested)
-            public string AssetBundleDescription;
-            public string ImageBase64;
-            public Sprite CachedSprite;
-            public string DateOfCreation;
-            public string UniqueVersion;
-
-            // Full connector available for any other accessible info
-            public BasisBundleConnector BasisBundleConnector;
-        }
-
-        private static readonly Dictionary<string, CachedMeta> _metaCache = new();
-
-        private static bool TryGetMeta(string url, out CachedMeta meta)
-        {
-            return _metaCache.TryGetValue(url ?? string.Empty, out meta);
-        }
+        
+        // moved metadata cache implementation to top-level CachedMetaData class
 
         public override async void RunAction()
         {
@@ -164,29 +259,29 @@ namespace Basis.BasisUI
                 }
             };
 
-            // create a sorting dropdown in the tab group extras area
-            var networkSorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, tabGroup.ExtrasContainer);
-            string[] networkSortNames = Enum.GetNames(typeof(LibraryNetworkFilter));
+            // // create a sorting dropdown in the tab group extras area
+            // var networkSorting = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.EntryNoLabel, tabGroup.ExtrasContainer);
+            // string[] networkSortNames = Enum.GetNames(typeof(LibraryNetworkFilter));
 
-            // modify the names of the dropdown entries to be more user-friendly
-            //var displayNames = sortNames.Select(n => $"{n}").ToList();
+            // // modify the names of the dropdown entries to be more user-friendly
+            // //var displayNames = sortNames.Select(n => $"{n}").ToList();
 
-            //sorting.Descriptor.SetTitle("Sort");
-            networkSorting.Descriptor.SetSize(new Vector2(60, 80));
-            networkSorting.AssignEntries(networkSortNames.ToList());
-            networkSorting.SetValueWithoutNotify(_currentNetworkFilter.ToString());
+            // //sorting.Descriptor.SetTitle("Sort");
+            // networkSorting.Descriptor.SetSize(new Vector2(60, 80));
+            // networkSorting.AssignEntries(networkSortNames.ToList());
+            // networkSorting.SetValueWithoutNotify(_currentNetworkFilter.ToString());
             
-            // when sorting changes, update and refresh
-            networkSorting.OnValueChanged = async (val) =>
-            {
-                if (Enum.TryParse<LibraryNetworkFilter>(val, out var parsed))
-                {
-                    _currentNetworkFilter = parsed;
+            // // when sorting changes, update and refresh
+            // networkSorting.OnValueChanged = async (val) =>
+            // {
+            //     if (Enum.TryParse<LibraryNetworkFilter>(val, out var parsed))
+            //     {
+            //         _currentNetworkFilter = parsed;
 
-                    // refresh the current tab for any new changes
-                    await RefreshCurrentTab();
-                }
-            };
+            //         // refresh the current tab for any new changes
+            //         await RefreshCurrentTab();
+            //     }
+            // };
 
             // add our extra menu button items, this is the buttons below the panel content
             // function overloading for one with size
@@ -264,7 +359,7 @@ namespace Basis.BasisUI
             _descriptor.SetDescription("Provide the URL and password for your BEE file, then configure the type, sync behavior. Once everything is set, confirm your choices to include the item in your library.");
             _descriptor.SetIcon(AddressableAssets.Sprites.Add);
 
-            BundledContentHolder.NetworkType desiredNetType = BundledContentHolder.NetworkType.Local;
+            //BundledContentHolder.NetworkType desiredNetType = BundledContentHolder.NetworkType.Local;
 
             // the item type dropdown determines which library tab the new item will appear in.
             contentTypeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
@@ -272,29 +367,29 @@ namespace Basis.BasisUI
             contentTypeDropDown.Descriptor.SetTitle("Item Type");
             contentTypeDropDown.AssignEntries(modeNames.ToList());
             
-            // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New Content"
+            // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
             contentTypeDropDown.SetValueWithoutNotify(_currentMode.ToString());
 
-            // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
-            contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
-            string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
-            contentSyncModeDropDown.Descriptor.SetTitle("Sync Mode");
-            contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
+            // // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
+            // contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
+            // string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
+            // contentSyncModeDropDown.Descriptor.SetTitle("Sync Mode");
+            // contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
             
-            // set to default to local
-            contentSyncModeDropDown.SetValueWithoutNotify(desiredNetType.ToString());
-            contentSyncModeDropDown.OnValueChanged = (val) =>
-            {
-                if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
-                {
-                    desiredNetType = selectedNetType;
-                    BasisDebug.Log($"Selected Network Type: {desiredNetType}");
-                }
-                else
-                {
-                    BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
-                }
-            };
+            // // set to default to local
+            // contentSyncModeDropDown.SetValueWithoutNotify(desiredNetType.ToString());
+            // contentSyncModeDropDown.OnValueChanged = (val) =>
+            // {
+            //     if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
+            //     {
+            //         desiredNetType = selectedNetType;
+            //         BasisDebug.Log($"Selected Network Type: {desiredNetType}");
+            //     }
+            //     else
+            //     {
+            //         BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
+            //     }
+            // };
 
             // content persistence toggle determines weather
             // contentPersistenceToggle = PanelToggle.CreateNew(_descriptor,PanelToggle.Styles.Entry);
@@ -333,7 +428,7 @@ namespace Basis.BasisUI
             // Cancel just closes.
             noPanel.OnClicked += async () =>
             {
-                await CloseOverlayAndLoad(false, contentTypeDropDown.SelectedString, URL.Password, Password.Password, desiredNetType);
+                await CloseOverlayAndLoad(false, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
             };
 
             // Add does the async work, then closes.
@@ -344,7 +439,7 @@ namespace Basis.BasisUI
 
                 try
                 {
-                    await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, URL.Password, Password.Password, desiredNetType);
+                    await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
                 }
                 catch (Exception ex)
                 {
@@ -372,7 +467,7 @@ namespace Basis.BasisUI
             return text;
         }
 
-        public static async Task CloseOverlayAndLoad(bool doLoad, string Mode, string URL, string Password, BundledContentHolder.NetworkType netType)
+        public static async Task CloseOverlayAndLoad(bool doLoad, string Mode, string URL, string Password)
         {
             if (doLoad)
             {
@@ -383,7 +478,6 @@ namespace Basis.BasisUI
                         Pass = Password,
                         Url = URL,
                         Mode = mode,
-                        NetworkType = netType,
                     };
 
                     await BasisDataStoreItemKeys.AddNewKey(key);
@@ -529,7 +623,7 @@ namespace Basis.BasisUI
                 // can use cached meta synchronously.
                 try
                 {
-                    await PreloadMetaForItems(data);
+                    await CachedMetaData.PreloadMetaForItems(data);
                 }
                 catch (Exception ex)
                 {
@@ -542,7 +636,7 @@ namespace Basis.BasisUI
                     data = data.Where(k =>
                     {
                         var url = k.Url ?? string.Empty;
-                        if (TryGetMeta(url, out var mm) && !string.IsNullOrEmpty(mm.Name) && mm.Name.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        if (CachedMetaData.TryGetMeta(url, out var mm) && !string.IsNullOrEmpty(mm.Name) && mm.Name.IndexOf(_currentSearchQuery, StringComparison.InvariantCultureIgnoreCase) >= 0)
                             return true;
 
                         return false;
@@ -556,7 +650,7 @@ namespace Basis.BasisUI
                         data = data.OrderBy(k =>
                         {
                             var url = k.Url ?? string.Empty;
-                            if (TryGetMeta(url, out var mm) && !string.IsNullOrEmpty(mm.Name))
+                            if (CachedMetaData.TryGetMeta(url, out var mm) && !string.IsNullOrEmpty(mm.Name))
                                 return mm.Name;
                             return url;
                         }).ToList();
@@ -565,7 +659,7 @@ namespace Basis.BasisUI
                         data = data.OrderBy(k =>
                         {
                             var url = k.Url ?? string.Empty;
-                            if (TryGetMeta(url, out var mm) && mm.Created.HasValue)
+                            if (CachedMetaData.TryGetMeta(url, out var mm) && mm.Created.HasValue)
                                 return mm.Created.Value;
                             return DateTime.MaxValue;
                         }).ToList();
@@ -574,23 +668,23 @@ namespace Basis.BasisUI
                         data = data.OrderByDescending(k =>
                         {
                             var url = k.Url ?? string.Empty;
-                            if (TryGetMeta(url, out var mm) && mm.Created.HasValue)
+                            if (CachedMetaData.TryGetMeta(url, out var mm) && mm.Created.HasValue)
                                 return mm.Created.Value;
                             return DateTime.MinValue;
                         }).ToList();
                         break;
                 }
 
-                // Apply network filter if present
-                switch (_currentNetworkFilter)
-                {
-                    case LibraryNetworkFilter.NetworkedOnly:
-                        data = data.Where(k => k.NetworkType == BundledContentHolder.NetworkType.Networked).ToList();
-                        break;
-                    case LibraryNetworkFilter.LocalOnly:
-                        data = data.Where(k => k.NetworkType == BundledContentHolder.NetworkType.Local).ToList();
-                        break;
-                }
+                // // Apply network filter if present
+                // switch (_currentNetworkFilter)
+                // {
+                //     case LibraryNetworkFilter.NetworkedOnly:
+                //         data = data.Where(k => k.NetworkType == BundledContentHolder.NetworkType.Networked).ToList();
+                //         break;
+                //     case LibraryNetworkFilter.LocalOnly:
+                //         data = data.Where(k => k.NetworkType == BundledContentHolder.NetworkType.Local).ToList();
+                //         break;
+                // }
 
                 // Clear and rebuild the tab content
                 ClearTabContent(tab.Descriptor.ContentParent);
@@ -613,100 +707,45 @@ namespace Basis.BasisUI
         }
 
         // Preload metadata for a single item and cache it in _metaCache.
-        private static async Task PreloadMetaForItem(BasisDataStoreItemKeys.ItemKey item)
+        private static async Task PreloadMetaDataForItem(BasisDataStoreItemKeys.ItemKey item)
         {
             if (item == null) return;
-
-            var urlKey = item.Url ?? string.Empty;
-            // If already cached, nothing to do.
-            if (_metaCache.ContainsKey(urlKey)) return;
-
-            try
-            {
-                var wrapper = BuildWrapper(item);
-                var report = new BasisProgressReport();
-                await BasisBeeManagement.HandleMetaOnlyLoad(wrapper, report, CancellationToken.None);
-
-                var connector = wrapper.LoadableBundle.BasisBundleConnector;
-
-                var cached = new CachedMeta
-                {
-                    Name = connector?.BasisBundleDescription?.AssetBundleName ?? string.Empty,
-                    NetworkType = item.NetworkType,
-                    AssetBundleDescription = connector?.BasisBundleDescription?.AssetBundleDescription,
-                    ImageBase64 = connector?.ImageBase64,
-                    DateOfCreation = connector?.DateOfCreation,
-                    UniqueVersion = connector?.UniqueVersion,
-                    BasisBundleConnector = connector
-                };
-
-                string dateStrCache = connector?.DateOfCreation;
-                if (!string.IsNullOrEmpty(dateStrCache) && DateTime.TryParse(dateStrCache, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsedDate))
-                {
-                    cached.Created = parsedDate;
-                }
-
-                _metaCache[urlKey] = cached;
-            }
-            catch (Exception ex)
-            {
-                BasisDebug.LogError(ex);
-            }
+            await CachedMetaData.PreloadMetaDataForItem(item);
         }
 
         // Preload metadata for multiple items sequentially.
         private static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
         {
             if (items == null) return;
-
-            // foreach (var item in items)
-            // {
-            //     try
-            //     {
-            //         await PreloadMetaForItem(item);
-            //     }
-            //     catch (Exception ex)
-            //     {
-            //         BasisDebug.LogError(ex);
-            //     }
-            // }
-            
-            // parallel request preload metadata for items
-            try
-            {
-                await Task.WhenAll(items.Select(PreloadMetaForItem));
-            }
-            catch (Exception ex)
-            {
-                BasisDebug.LogError(ex);
-            }
+            await CachedMetaData.PreloadMetaForItems(items);
         }
 
         private static async void CreateItemCard(BasisDataStoreItemKeys.ItemKey item, RectTransform container)
         {
             PanelButton buttonPanel = PanelButton.CreateNew(ButtonStyles.Prop, container);
 
-            if(item.NetworkType == BundledContentHolder.NetworkType.Networked)
-            {
-                // create an image for the button network icon in the top right with an offset of -35, -35
-                PanelImage networkIcon = PanelImage.CreateNew(buttonPanel.Descriptor);
-                networkIcon.SetIcon(AddressableAssets.GetSprite(AddressableAssets.Sprites.Network), true);
-                networkIcon.rectTransform.anchorMin = new Vector2(1, 1);
-                networkIcon.rectTransform.anchorMax = new Vector2(1, 1);
-                networkIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
-                networkIcon.rectTransform.anchoredPosition = new Vector2(-35, -35);
-                networkIcon.rectTransform.sizeDelta = new Vector2(40, 40);
-            }
+            // if(item.NetworkType == BundledContentHolder.NetworkType.Networked)
+            // {
+            //     // create an image for the button network icon in the top right with an offset of -35, -35
+            //     PanelImage networkIcon = PanelImage.CreateNew(buttonPanel.Descriptor);
+            //     networkIcon.SetIcon(AddressableAssets.GetSprite(AddressableAssets.Sprites.Network), true);
+            //     networkIcon.rectTransform.anchorMin = new Vector2(1, 1);
+            //     networkIcon.rectTransform.anchorMax = new Vector2(1, 1);
+            //     networkIcon.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            //     networkIcon.rectTransform.anchoredPosition = new Vector2(-35, -35);
+            //     networkIcon.rectTransform.sizeDelta = new Vector2(40, 40);
+            // }
 
             var urlKey = item.Url ?? string.Empty;
             var desc = buttonPanel.Descriptor;
 
             // Try get cached meta once
-            TryGetMeta(urlKey, out var cachedMeta);
+            CachedMetaData.CachedContent cachedMeta;
+            CachedMetaData.TryGetMeta(urlKey, out cachedMeta);
 
             if (cachedMeta != null)
             {
-                ApplyMetaToButton(buttonPanel, cachedMeta, urlKey);
+                ApplyMetaDataToButton(buttonPanel, cachedMeta, urlKey);
             }
             else
             {
@@ -714,7 +753,7 @@ namespace Basis.BasisUI
                 desc.SetDescription(urlKey);
                 desc.ForceRebuild();
 
-                _ = PreloadMetaForItem(item);
+                _ = CachedMetaData.PreloadMetaDataForItem(item);
             }
 
             buttonPanel.OnClicked += async () =>
@@ -722,9 +761,10 @@ namespace Basis.BasisUI
                 try
                 {
                     // Ensure meta exists (only loads if not cached)
-                    await PreloadMetaForItem(item);
+                    await CachedMetaData.PreloadMetaDataForItem(item);
 
-                    TryGetMeta(urlKey, out var meta);
+                    CachedMetaData.CachedContent meta;
+                    CachedMetaData.TryGetMeta(urlKey, out meta);
 
                     var wrapperForMeta = BuildWrapper(item);
                     Sprite sprite = null;
@@ -732,7 +772,7 @@ namespace Basis.BasisUI
                     if (meta != null)
                     {
                         wrapperForMeta.LoadableBundle.BasisBundleConnector = meta.BasisBundleConnector;
-                        sprite = CreateSpriteFromMeta(meta);
+                        sprite = CachedMetaData.CreateSpriteFromMetaData(meta);
                     }
 
                     await ShowItemOverlay(item, sprite, wrapperForMeta);
@@ -744,9 +784,9 @@ namespace Basis.BasisUI
             };
         }
 
-        private static void ApplyMetaToButton(PanelButton buttonPanel, CachedMeta cachedMeta, string urlKey)
+        private static void ApplyMetaDataToButton(PanelButton buttonPanel, CachedMetaData.CachedContent cachedMeta, string urlKey)
         {
-            Sprite iconSprite = CreateSpriteFromMeta(cachedMeta);
+            Sprite iconSprite = CachedMetaData.CreateSpriteFromMetaData(cachedMeta);
 
             buttonPanel.SetIcon(iconSprite, false);
 
@@ -757,28 +797,9 @@ namespace Basis.BasisUI
         }
 
         // texture decode happens once per item here
-        private static Sprite CreateSpriteFromMeta(CachedMeta meta)
-        {
-            if (meta.CachedSprite != null)
-                return meta.CachedSprite;
+        // now delegated to CachedMetaData
 
-            if (string.IsNullOrEmpty(meta.ImageBase64))
-                return null;
-
-            var tex = BasisTextureCompression.FromPngBytes(meta.ImageBase64);
-            if (tex == null)
-                return null;
-
-            meta.CachedSprite = Sprite.Create(
-                tex,
-                new Rect(0, 0, tex.width, tex.height),
-                new Vector2(0.5f, 0.5f)
-            );
-
-            return meta.CachedSprite;
-        }
-
-        private static BasisTrackedBundleWrapper BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
+        public static BasisTrackedBundleWrapper BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
         {
             var wrapper = new BasisTrackedBundleWrapper();
             var loadable = new BasisLoadableBundle
@@ -800,8 +821,8 @@ namespace Basis.BasisUI
         //     {
         //         cancellationToken.ThrowIfCancellationRequested();
 
-        //         // Only read from the metadata cache here. Meta loading should occur in the
-        //         // data/preload phase (PreloadMetaForItem / PreloadMetaForItems).
+        //         // Only read from the metadata cache here. CachedContent loading should occur in the
+        //         // data/preload phase (PreloadMetaDataForItem / PreloadMetaForItems).
         //         var urlKey = wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation ?? string.Empty;
         //         if (_metaCache.TryGetValue(urlKey, out var cached))
         //         {
@@ -861,6 +882,7 @@ namespace Basis.BasisUI
             _descriptor.SetTitle(Name);
             return _descriptor;
         }
+
         public static async Task ShowItemOverlay(BasisDataStoreItemKeys.ItemKey item, Sprite Sprite, BasisTrackedBundleWrapper Wrapper)
         {
             // Prevent stacking overlays
@@ -921,7 +943,7 @@ namespace Basis.BasisUI
                 LayoutElement.minHeight = 50;
             }
 
-            Descriptor.SetDescription($"\nCreated: {creationDate}\nSync Mode: {item.NetworkType}");
+            Descriptor.SetDescription($"\nCreated: {creationDate}");
 
             var IDField = PanelPasswordField.CreateNew(PanelPasswordField.PasswordFieldStyles.Entry, _descriptor);
             IDField._placeholderField.text = "";//Wrapper
@@ -1026,102 +1048,190 @@ namespace Basis.BasisUI
             };
         }
 
-        private static async Task LoadSelectedItem(BasisDataStoreItemKeys.ItemKey item)
+        #endregion
+
+        #region Spawn / Load Selected Item Functions
+
+        public static Vector3 GetSpawnPosition()
         {
-            var wrapper = BuildWrapper(item);
-            var report = new BasisProgressReport();
+            Vector3 playerPosReference = BasisLocalPlayer.Instance.gameObject.transform.position;
+            Vector3 forward = BasisLocalCameraDriver.Instance.gameObject.transform.forward;
+            return playerPosReference + new Vector3(0, 1.5f, 0) + forward * 2; // spawn 2 units in front of player
+        }
 
-            // At this point the item should be fully loaded and ready to use. What happens next is up to you and your application needs.
-            // For example, you could raise an event that other parts of your app listen for, or directly instantiate the loaded content if it's a prefab.
-            BasisDebug.Log($"Attempting to Load Item: {item.Url}");
+        public static Quaternion GetSpawnRotation()
+        {
+            return Quaternion.identity;
+        }
 
-            try
+        public static Vector3 GetSpawnScale()
+        {
+            return Vector3.one;
+        }
+
+        /// <summary>
+        /// Apply the current avatar onto the player.
+        /// </summary>
+        public static async Task LoadAvatar(BasisDataStoreItemKeys.ItemKey item, BasisTrackedBundleWrapper wrapper, BasisProgressReport report)
+        {
+            // if (SelectedAvatar == null)
+            // {
+            //     BasisDebug.LogError("No selected bundle.");
+            //     return;
+            // }
+
+            // if (BasisLocalPlayer.Instance)
+            // {
+            //     BasisLoadableBundle bundle = SelectedAvatar.Wrapper.LoadableBundle;
+
+            //     if (bundle.BasisBundleConnector.GetPlatform(out BasisBundleGenerated platformBundle))
+            //     {
+            //         string assetMode = platformBundle.AssetMode;
+            //         byte mode = !string.IsNullOrEmpty(assetMode) && byte.TryParse(assetMode, out byte result)
+            //             ? result
+            //             : (byte)0;
+            //         await BasisLocalPlayer.Instance.CreateAvatar(mode, bundle);
+            //     }
+            //     else
+            //     {
+            //         if (bundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
+            //         {
+            //             await BasisLocalPlayer.Instance.CreateAvatar(1, bundle);
+            //         }
+            //         else
+            //         {
+            //             BasisDebug.LogError("Missing Platform " + Application.platform);
+            //         }
+            //     }
+            // }
+            // else
+            // {
+            //     BasisDebug.LogError("Missing LocalPlayer!");
+            // }
+        }
+
+        /// <summary>
+        /// Spawn the selected prop into the world with the specified networking type.
+        /// </summary>
+        public static async Task LoadProp(BasisDataStoreItemKeys.ItemKey item, BasisTrackedBundleWrapper wrapper, BasisProgressReport report)
+        {
+
+            // grab the item url and pass
+            string url = item.Url;
+            string pass = item.Pass ?? string.Empty;
+
+            // get spawn information
+            Vector3 spawnPos = GetSpawnPosition();
+            Quaternion spawnRot = GetSpawnRotation();
+            Vector3 spawnScale = GetSpawnScale();
+
+            // this basically determines when the object should stay in the world for new joiners
+            // if a player joins an instance and this is true, they will load this into the instance
+            // if false only people in the instance will only see the object at the current time, not before or after
+            bool persistent = false; // should be on by default
+            bool modifyScale = false;
+
+            // spawn everything locally for now
+            BundledContentHolder.NetworkType desiredNetworkType = BundledContentHolder.NetworkType.Local;
+
+            switch(desiredNetworkType)
             {
-                // networked spawn for everyone
-                string url = item.Url;
-                string pass = item.Pass ?? string.Empty;
-                //bool isNetworked = item.NetworkType == BundledContentHolder.NetworkType.Networked;
+                case BundledContentHolder.NetworkType.Local:
 
-                // object desired spawning stuff
-                // quick testing to grab the player pos and camera forward tbh we could just get camera forward and spawn in front of the camera
-                // then I discovered the player capsule does not face towards the camera forward.
-                Vector3 playerPosReference = BasisLocalPlayer.Instance.gameObject.transform.position;
-                Vector3 forward = BasisLocalCameraDriver.Instance.gameObject.transform.forward;
-
-                // final vector and rotation
-                Vector3 spawnPos = playerPosReference + new Vector3( 0, 1.5f, 0 ) + forward * 2; // spawn 2 units in front of player
-                Quaternion spawnRot = Quaternion.identity;
-
-                Vector3 spawnScale = Vector3.one;
-                bool persistent = false;
-                bool modifyScale = false;
-
-                switch(item.NetworkType)
-                {
-                    case BundledContentHolder.NetworkType.Local:
-
-                        if (TryGetMeta(url, out var cached))
+                    if (CachedMetaData.TryGetMeta(url, out var cached))
+                    {
+                        // Attach cached connector if present so callers (e.g., ShowItemOverlay)
+                        // can rely on wrapper having connector data.
+                        if (cached.BasisBundleConnector != null)
                         {
-                            // Attach cached connector if present so callers (e.g., ShowItemOverlay)
-                            // can rely on wrapper having connector data.
-                            if (cached.BasisBundleConnector != null)
+                            wrapper.LoadableBundle.BasisBundleConnector = cached.BasisBundleConnector;
+
+                            BasisProgressReport Report = new BasisProgressReport();
+                            CancellationToken Cancel = new CancellationToken();
+
+                            // oh dear
+                            var selector = item.Mode switch
                             {
-                                wrapper.LoadableBundle.BasisBundleConnector = cached.BasisBundleConnector;
+                                BundledContentHolder.Mode.Avatar => BundledContentHolder.Selector.Avatar,
+                                BundledContentHolder.Mode.Prop => BundledContentHolder.Selector.Prop,
+                                BundledContentHolder.Mode.World => BundledContentHolder.Selector.System,
+                                _ => BundledContentHolder.Selector.Prop
+                            };
 
-                                BasisProgressReport Report = new BasisProgressReport();
-                                CancellationToken Cancel = new CancellationToken();
+                            GameObject CreatedObject = await BasisLoadHandler.LoadGameObjectBundle(wrapper.LoadableBundle, true, Report, Cancel, spawnPos, spawnRot, spawnScale, modifyScale, selector, BasisNetworkManagement.Instance.transform);
 
-                                // oh dear
-                                var selector = item.Mode switch
-                                {
-                                    BundledContentHolder.Mode.Avatar => BundledContentHolder.Selector.Avatar,
-                                    BundledContentHolder.Mode.Prop => BundledContentHolder.Selector.Prop,
-                                    BundledContentHolder.Mode.World => BundledContentHolder.Selector.System,
-                                    _ => BundledContentHolder.Selector.Prop
-                                };
-
-                                GameObject CreatedObject = await BasisLoadHandler.LoadGameObjectBundle(wrapper.LoadableBundle, true, Report, Cancel, spawnPos, spawnRot, spawnScale, modifyScale, selector, BasisNetworkManagement.Instance.transform);
-
-                                if(CreatedObject != null)
-                                {
-                                    Debug.Log($"Library provider successfully created item {url} with networking: {item.NetworkType} at {CreatedObject.transform.position}.");
-                                }
-                                else
-                                {
-                                    Debug.LogError($"Library provider failed to create desired {item.NetworkType} with LoadSelectedItem of url {url} ");
-                                }
-                            }
-                        }
-                        else
-                        {
-                            BasisDebug.LogError("LoadSelectedItem failed to find cached meta for url {url}, cannot load bundle without it!");
-                        }
-
-                        break;
-                    case BundledContentHolder.NetworkType.Networked:
-                        // For networked loads, request the network spawn and register the instance
-                        try
-                        {
-                            LocalLoadResource loadedProp;
-                            bool ok = BasisNetworkSpawnItem.RequestGameObjectLoad(pass, url, spawnPos, spawnRot, spawnScale, persistent, modifyScale, out loadedProp);
-                            if (ok && !string.IsNullOrEmpty(loadedProp.LoadedNetID))
+                            if(CreatedObject != null)
                             {
-                                Basis.BasisRuntimeSpawnRegistry.Add(url, loadedProp.LoadedNetID, persistent, out _);
-                                BasisDebug.Log($"Requested networked load for {url}, NetID={loadedProp.LoadedNetID}", BasisDebug.LogTag.Networking);
+                                Debug.Log($"Library provider successfully created item {url} with networking: {desiredNetworkType} at {CreatedObject.transform.position}.");
                             }
                             else
                             {
-                                BasisDebug.LogError($"Failed to request networked load for {url}");
+                                Debug.LogError($"Library provider failed to create desired with networking: {desiredNetworkType} with LoadSelectedItem of url {url} ");
                             }
                         }
-                        catch (Exception ex)
+                    }
+                    else
+                    {
+                        BasisDebug.LogError("LoadSelectedItem failed to find cached meta for url {url}, cannot load bundle without it!");
+                    }
+
+                    break;
+                case BundledContentHolder.NetworkType.Networked:
+                    // For networked loads, request the network spawn and register the instance
+                    try
+                    {
+                        LocalLoadResource loadedProp;
+                        bool ok = BasisNetworkSpawnItem.RequestGameObjectLoad(pass, url, spawnPos, spawnRot, spawnScale, persistent, modifyScale, out loadedProp);
+                        if (ok && !string.IsNullOrEmpty(loadedProp.LoadedNetID))
                         {
-                            BasisDebug.LogError(ex);
+                            Basis.BasisRuntimeSpawnRegistry.Add(url, loadedProp.LoadedNetID, persistent, out _);
+                            BasisDebug.Log($"Requested networked load for {url}, NetID={loadedProp.LoadedNetID}", BasisDebug.LogTag.Networking);
                         }
+                        else
+                        {
+                            BasisDebug.LogError($"Failed to request networked load for {url}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        BasisDebug.LogError(ex);
+                    }
+
+                    break;
+                default:
+                    BasisDebug.LogError($"Load selected item {item.Url} was loaded with an unknown network of {desiredNetworkType}! Nothing will happen.");
+                    break;
+            }
+        }
+
+        private static async Task LoadSelectedItem(BasisDataStoreItemKeys.ItemKey item)
+        {
+            BasisTrackedBundleWrapper wrapper = BuildWrapper(item);
+            BasisProgressReport report = new BasisProgressReport();
+
+            // At this point the item should be fully loaded and ready to use. What happens next is up to you and your application needs.
+            // For example, you could raise an event that other parts of your app listen for, or directly instantiate the loaded content if it's a prefab.
+            BasisDebug.Log($"Attempting to load selected item: {item.Url} item type {item.Mode}");
+
+            try
+            {
+                switch(item.Mode)
+                {
+                    case BundledContentHolder.Mode.Avatar:
+                        // For avatars we might want to apply them directly to the player instead of spawning in the world as a separate object
+                        //await LoadAvatar(item, wrapper, report);
+                        BasisDebug.LogWarning("Avatar loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadAvatar and uncomment this line to enable.");
+                        break;
+                    case BundledContentHolder.Mode.Prop:
+
+                        await LoadProp(item, wrapper, report);
 
                         break;
+                    case BundledContentHolder.Mode.World:
+                        // For props and worlds we will spawn them in the world, so we can break to continue with the spawn logic below
+                        break;
                     default:
-                        BasisDebug.LogError($"Load selected item {item.Url} was loaded with an unknown network of {item.NetworkType}! Nothing will happen.");
+                        BasisDebug.LogError($"LoadSelectedItem was given an item with an unknown mode of {item.Mode}, cannot determine how to load!");
                         break;
                 }
             }
@@ -1130,7 +1240,7 @@ namespace Basis.BasisUI
                 BasisDebug.LogError(ex);
             }
         }
-   
+
         #endregion
 
         #region Instantiated Tab
@@ -1147,11 +1257,10 @@ namespace Basis.BasisUI
 
             // now fow we put a text field saying to be implemented
 
-            
-
             return tab;
         }
 
         #endregion
+
     }
 }
