@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using TMPro;
 using Unity.Android.Gradle;
 using UnityEngine;
@@ -16,9 +17,15 @@ using UnityEngine.UI;
 using static Basis.BasisUI.PanelButton;
 using static Basis.BasisUI.PanelTextField;
 using static SerializableBasis;
+using System.Text;
 
 namespace Basis.BasisUI
 {
+
+    /// <summary>
+    /// this class handles cached metadata for items in the library, such as the name, thumbnail, and other info that can be retrieved from the BEE file without fully loading the content. 
+    /// This allows for faster filtering and sorting in the library UI without needing to load each item first.
+    /// </summary>
     public static class CachedMetaData
     {
         // Represents a cached metadata entry for an item
@@ -137,6 +144,154 @@ namespace Basis.BasisUI
         }
     }
     
+    /// <summary>
+    /// This static class provides utility methods for validating user input in the library provider, such as validating URLs and applying platform-specific conversions to shared links.
+    /// </summary>
+    public static class InputValidation
+    {
+
+        /// <summary>
+        /// enum to represent the result of validating a library entry
+        /// can be expanded with more specific error types as needed
+        /// </summary>
+        public enum EntryValidationResult
+        {
+            None = 0,
+
+            EmptyUrl,
+            InvalidUrlFormat,
+            InvalidUrlScheme,
+            EmptyPassword,
+            DuplicateEntry,
+
+            Success
+        }
+
+        public struct EntryValidationResponse
+        {
+            public EntryValidationResult Result;
+            public string ProcessedUrl;
+            public string Password;
+
+            public bool IsValid => Result == EntryValidationResult.Success;
+        }
+
+        // --------------------------------------------------------------------
+        // URL conversions (same behaviour as your avatar version)
+        // --------------------------------------------------------------------
+        public static bool ApplyPlatformConversionOfUrl(string sharedLink, out string convertedLink)
+        {
+            if (IsGoogleDriveLink(sharedLink))
+            {
+                BasisDebug.Log("Was a Google Drive Link Converting!");
+                string fileId = ExtractFileId(sharedLink);
+                if (!string.IsNullOrEmpty(fileId))
+                {
+                    convertedLink = $"https://drive.google.com/uc?export=download&id={fileId}";
+                    return true;
+                }
+                else
+                {
+                    BasisDebug.LogError("Could not extract File ID from the shared link. Was detected as a google drive", BasisDebug.LogTag.System);
+                }
+            }
+
+            convertedLink = string.Empty;
+            return false;
+        }
+
+        private static bool IsGoogleDriveLink(string url)
+        {
+            return Regex.IsMatch(url ?? string.Empty, @"^https:\/\/drive\.google\.com\/file\/d\/[a-zA-Z0-9_-]+\/");
+        }
+
+        private static string ExtractFileId(string url)
+        {
+            Match match = Regex.Match(url ?? string.Empty, @"\/file\/d\/([a-zA-Z0-9_-]+)");
+            return match.Success ? match.Groups[1].Value : null;
+        }
+
+        private static EntryValidationResponse Fail(EntryValidationResult result)
+        {
+            return new EntryValidationResponse
+            {
+                Result = result,
+                ProcessedUrl = null,
+                Password = null
+            };
+        }
+        
+        public static EntryValidationResponse ValidateEntry(
+            string rawUrl,
+            string rawPassword,
+            BasisDataStoreItemKeys.ItemKey[] activeKeys)
+        {
+            string url = (rawUrl ?? string.Empty).Trim();
+            string password = (rawPassword ?? string.Empty).Trim();
+
+            if (string.IsNullOrEmpty(url))
+                return Fail(EntryValidationResult.EmptyUrl);
+
+            // Extract fragment password
+            int hashIndex = url.IndexOf('#');
+            if (hashIndex >= 0)
+            {
+                string fragment = url.Substring(hashIndex + 1);
+                url = url.Substring(0, hashIndex);
+
+                if (!string.IsNullOrEmpty(fragment))
+                {
+                    try
+                    {
+                        password = Encoding.UTF8.GetString(
+                            Convert.FromBase64String(fragment));
+                    }
+                    catch
+                    {
+                        // ignore invalid base64
+                    }
+                }
+            }
+
+            // Platform conversion
+            if (ApplyPlatformConversionOfUrl(url, out string converted))
+                url = converted;
+
+            // Normalize URL
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+                return Fail(EntryValidationResult.InvalidUrlFormat);
+
+            if (uri.Scheme != Uri.UriSchemeHttp &&
+                uri.Scheme != Uri.UriSchemeHttps)
+                return Fail(EntryValidationResult.InvalidUrlScheme);
+
+            var builder = new UriBuilder(uri)
+            {
+                Host = uri.Host.ToLowerInvariant()
+            };
+
+            url = builder.Uri.ToString().TrimEnd('/');
+
+            if (string.IsNullOrEmpty(password))
+                return Fail(EntryValidationResult.EmptyPassword);
+
+            // Duplicate check
+            for (int i = 0; i < activeKeys.Length; i++)
+            {
+                var cur = activeKeys[i];
+                if (cur != null && cur.Url == url)
+                    return Fail(EntryValidationResult.DuplicateEntry);
+            }
+
+            return new EntryValidationResponse
+            {
+                Result = EntryValidationResult.Success,
+                ProcessedUrl = url,
+                Password = password
+            };
+        }
+    }
+
     public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         # region Provider Setup
@@ -373,8 +528,6 @@ namespace Basis.BasisUI
             Password = PanelPasswordField.CreateNew(_descriptor);
             Password._placeholderField.text = "Enter password";
 
-
-
             // Add and Cancel buttons
             PanelTabGroup acceptOrDenyPanel = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
 
@@ -392,7 +545,9 @@ namespace Basis.BasisUI
             // Cancel just closes.
             noPanel.OnClicked += async () =>
             {
-                await CloseOverlayAndLoad(false, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
+                // just close the overlay instead.
+                await CloseOverlay();
+                //await CloseOverlayAndLoad(false, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
             };
 
             // Add does the async work, then closes.
@@ -403,13 +558,67 @@ namespace Basis.BasisUI
 
                 try
                 {
-                    await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
+
+                    // perform input validation, pass our current url and password along with the existing library entries to check for duplicates
+                    InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Password, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
+
+                    // if(validationResponse.IsValid)
+                    // {
+                    InputValidation.EntryValidationResult validationResult = validationResponse.Result;
+
+                    // we now use the validation result to determine whether to proceed with adding the item or show an error message
+                    switch(validationResult)
+                    {
+                        case InputValidation.EntryValidationResult.Success:
+                            // if validation succeeded, proceed with adding the item
+                            await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, validationResponse.ProcessedUrl, validationResponse.Password);
+                            break;
+                        default:
+                            // if validation failed, show an error message and do not proceed
+                            string errorMessage = validationResult switch
+                            {
+                                InputValidation.EntryValidationResult.EmptyUrl => "URL cannot be empty.",
+                                InputValidation.EntryValidationResult.InvalidUrlFormat => "URL format is invalid.",
+                                InputValidation.EntryValidationResult.InvalidUrlScheme => "URL must start with http:// or https://",
+                                InputValidation.EntryValidationResult.EmptyPassword => "Password cannot be empty.",
+                                InputValidation.EntryValidationResult.DuplicateEntry => "An entry with this URL already exists in your library.",
+                                _ => "Unknown validation error."
+                            };
+
+                            // For simplicity, using Debug.LogError. In a real implementation, you would want to show this in the UI.
+                            BasisDebug.LogError(errorMessage);
+                            _isSubmitting = false;
+                            break;
+                    }
+                    // }
+                    // else
+                    // {
+
+                    // }
+
                 }
-                catch (Exception ex)
+                catch(Exception ex)
                 {
                     BasisDebug.LogError(ex);
                     _isSubmitting = false;
                 }
+
+
+                // if (InputValidation.ApplyPlatformConversionOfUrl(URL.Password, out var convertedUrl))
+                // {
+                //     URL.SetPassword(convertedUrl);
+                //     BasisDebug.Log("Applied platform-specific URL conversion.");
+                // }
+
+                // try
+                // {
+                //     await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
+                // }
+                // catch (Exception ex)
+                // {
+                //     BasisDebug.LogError(ex);
+                //     _isSubmitting = false;
+                // }
             };
         }
 
@@ -435,6 +644,13 @@ namespace Basis.BasisUI
         {
             if (doLoad)
             {
+                // // the url nad password are empty let stop and debug error
+                // if (string.IsNullOrEmpty(URL) || string.IsNullOrEmpty(Password))                {
+                //     //await CloseOverlay();
+                //     BasisDebug.LogError("URL or Password is empty!");
+                //     return;
+                // }
+
                 if (Enum.TryParse<BundledContentHolder.Mode>(Mode, out var mode))
                 {
                     var key = new BasisDataStoreItemKeys.ItemKey
@@ -452,6 +668,7 @@ namespace Basis.BasisUI
                     BasisDebug.LogError("Coudnt Parse Mode!");
                 }
             }
+
             await CloseOverlay();
         }
 
