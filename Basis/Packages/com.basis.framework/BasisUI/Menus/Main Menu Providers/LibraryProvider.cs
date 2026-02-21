@@ -167,18 +167,21 @@ namespace Basis.BasisUI
             Success
         }
 
+        /// <summary>
+        /// struct to represent the response from validating a library entry, including the validation result and any processed data such as a converted URL or extracted password.
+        /// </summary>
         public struct EntryValidationResponse
         {
             public EntryValidationResult Result;
             public string ProcessedUrl;
             public string Password;
 
-            public bool IsValid => Result == EntryValidationResult.Success;
+            //public bool IsValid => Result == EntryValidationResult.Success;
         }
 
-        // --------------------------------------------------------------------
-        // URL conversions (same behaviour as your avatar version)
-        // --------------------------------------------------------------------
+        /// <summary>
+        /// Applies platform-specific conversions to shared links, such as converting Google Drive links to direct download URLs.
+        /// </summary>
         public static bool ApplyPlatformConversionOfUrl(string sharedLink, out string convertedLink)
         {
             if (IsGoogleDriveLink(sharedLink))
@@ -200,17 +203,26 @@ namespace Basis.BasisUI
             return false;
         }
 
+        /// <summary>
+        /// Determines if a URL is a Google Drive link. using Regex
+        /// </summary>
         private static bool IsGoogleDriveLink(string url)
         {
             return Regex.IsMatch(url ?? string.Empty, @"^https:\/\/drive\.google\.com\/file\/d\/[a-zA-Z0-9_-]+\/");
         }
 
+        /// <summary>
+        /// Extracts the Google Drive file ID from a shared link.
+        /// </summary>
         private static string ExtractFileId(string url)
         {
             Match match = Regex.Match(url ?? string.Empty, @"\/file\/d\/([a-zA-Z0-9_-]+)");
             return match.Success ? match.Groups[1].Value : null;
         }
 
+        /// <summary>
+        /// Creates an EntryValidationResponse with a failure result and no processed data.
+        /// </summary>
         private static EntryValidationResponse Fail(EntryValidationResult result)
         {
             return new EntryValidationResponse
@@ -221,6 +233,13 @@ namespace Basis.BasisUI
             };
         }
         
+        /// <summary>
+        /// Validates a library entry and returns an EntryValidationResponse.
+        /// </summary>
+        /// <param name="rawUrl">raw url from user</param>
+        /// <param name="rawPassword">raw password from user</param>
+        /// <param name="activeKeys">basis items key store used for determining if the item we are adding already exists</param>
+        /// <returns></returns>
         public static EntryValidationResponse ValidateEntry(
             string rawUrl,
             string rawPassword,
