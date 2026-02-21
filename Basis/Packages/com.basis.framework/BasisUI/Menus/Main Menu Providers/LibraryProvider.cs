@@ -1433,7 +1433,7 @@ namespace Basis.BasisUI
                     case BundledContentHolder.Mode.Avatar:
                         // For avatars we might want to apply them directly to the player instead of spawning in the world as a separate object
                         //await LoadAvatar(item, wrapper, report);
-                        BasisDebug.LogWarning("Avatar loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadAvatar and uncomment this line to enable.");
+                        BasisDebug.LogWarning("Avatar loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadAvatar!");
                         break;
                     case BundledContentHolder.Mode.Prop:
 
@@ -1442,6 +1442,7 @@ namespace Basis.BasisUI
                         break;
                     case BundledContentHolder.Mode.World:
                         // For props and worlds we will spawn them in the world, so we can break to continue with the spawn logic below
+                        BasisDebug.LogWarning("World loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadWorld!");
                         break;
                     default:
                         BasisDebug.LogError($"LoadSelectedItem was given an item with an unknown mode of {item.Mode}, cannot determine how to load!");
