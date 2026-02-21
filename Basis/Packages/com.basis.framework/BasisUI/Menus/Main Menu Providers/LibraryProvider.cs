@@ -494,7 +494,7 @@ namespace Basis.BasisUI
             _descriptor.rectTransform.anchoredPosition = Vector2.zero;
             _descriptor.SetSize(new Vector2(930, 722));
             _descriptor.SetTitle("Add New Content");
-            _descriptor.SetDescription("Provide the URL and password for your BEE file, then configure the type, sync behavior. Once everything is set, confirm your choices to include the item in your library.");
+            _descriptor.SetDescription("Please specify the type of content you are adding and then provide the URL and password for your BEE file. Once everything is set, confirm your choices to include the item in your library.");
             _descriptor.SetIcon(AddressableAssets.Sprites.Add);
 
             //BundledContentHolder.NetworkType desiredNetType = BundledContentHolder.NetworkType.Local;
@@ -507,6 +507,9 @@ namespace Basis.BasisUI
             
             // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
             contentTypeDropDown.SetValueWithoutNotify(_currentMode.ToString());
+
+            contentTypeDropDown.Descriptor.SetHeight(100);
+            contentTypeDropDown.Descriptor.SetWidth(900);
 
             // // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
             // contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
@@ -542,13 +545,34 @@ namespace Basis.BasisUI
             URL._inputField.contentType = TMP_InputField.ContentType.Standard;
             URL.DisableIcons();
 
+            URL.Descriptor.SetHeight(50);
+            URL.Descriptor.SetWidth(900);
+
             // BEE file password field
             CreateText("Add your generated BEE file password:", _descriptor);
             Password = PanelPasswordField.CreateNew(_descriptor);
             Password._placeholderField.text = "Enter password";
 
+            Password.Descriptor.SetHeight(50);
+            Password.Descriptor.SetWidth(900);
+
+            // create a text field to show validation error messages, initially empty
+            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.LargeDefault, _descriptor);
+            validationMessageField.Descriptor.gameObject.SetActive(false);
+            validationMessageField._inputField.gameObject.SetActive(false); // disable the text input field box
+            validationMessageField.Descriptor.SetTitle("AWAITING_INPUT");
+            validationMessageField.Descriptor.SetDescription("AWAITING_INPUT");
+            validationMessageField.Descriptor.TitleLabel.color = Color.orange;
+            validationMessageField.Descriptor.DescriptionLabel.color = Color.orange;
+
+            validationMessageField.Descriptor.SetHeight(100);
+            validationMessageField.Descriptor.SetWidth(900);
+
             // Add and Cancel buttons
             PanelTabGroup acceptOrDenyPanel = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
+
+            acceptOrDenyPanel.Descriptor.SetHeight(100);
+            acceptOrDenyPanel.Descriptor.SetWidth(900);
 
             PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent);
             PanelButton noPanel = PanelButton.CreateNew(ButtonStyles.CancelButton, acceptOrDenyPanel.TabButtonParent);
@@ -556,9 +580,9 @@ namespace Basis.BasisUI
             noPanel.Descriptor.SetTitle("Cancel");
             yesPanel.Descriptor.SetTitle("Add");
 
-            noPanel.Descriptor.SetWidth(270);
+            noPanel.Descriptor.SetWidth(450);
             noPanel.Descriptor.SetHeight(60);
-            yesPanel.Descriptor.SetWidth(270);
+            yesPanel.Descriptor.SetWidth(450);
             yesPanel.Descriptor.SetHeight(60);
 
             // Cancel just closes.
@@ -590,6 +614,12 @@ namespace Basis.BasisUI
                     {
                         case InputValidation.EntryValidationResult.Success:
                             // if validation succeeded, proceed with adding the item
+                            
+                            if(validationMessageField.enabled)
+                            {
+                                validationMessageField.enabled = false; // hide any previous error message
+                            }
+
                             await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, validationResponse.ProcessedUrl, validationResponse.Password);
                             break;
                         default:
@@ -604,17 +634,18 @@ namespace Basis.BasisUI
                                 _ => "Unknown validation error."
                             };
 
+                            if(!validationMessageField.Descriptor.gameObject.activeSelf)
+                                validationMessageField.Descriptor.gameObject.SetActive(true);
+
+                            // setting the title and desc auto enables the game object anyway
+                            validationMessageField.Descriptor.SetTitle(validationResult.ToString());
+                            validationMessageField.Descriptor.SetDescription(errorMessage);
+
                             // For simplicity, using Debug.LogError. In a real implementation, you would want to show this in the UI.
                             BasisDebug.LogError(errorMessage);
                             _isSubmitting = false;
                             break;
                     }
-                    // }
-                    // else
-                    // {
-
-                    // }
-
                 }
                 catch(Exception ex)
                 {
