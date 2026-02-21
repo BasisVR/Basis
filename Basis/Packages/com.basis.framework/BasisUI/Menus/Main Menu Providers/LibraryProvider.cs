@@ -18,6 +18,7 @@ using static Basis.BasisUI.PanelButton;
 using static Basis.BasisUI.PanelTextField;
 using static SerializableBasis;
 using System.Text;
+using static Basis.BasisUI.PanelPasswordField;
 
 namespace Basis.BasisUI
 {
@@ -394,6 +395,7 @@ namespace Basis.BasisUI
 
             // create a search text field in the tab group extras area
             searchField = PanelTextField.CreateNew(TextFieldStyles.EntryWithNoTitle, tabGroup.ExtrasContainer);
+            searchField._placeholderLabel.text = "Search...";
             //searchField.Descriptor.SetTitle("Search:");
             searchField.Descriptor.SetIcon(AddressableAssets.Sprites.Search);
             //searchField.Descriptor.SetDescription("Description Test 123");
@@ -511,8 +513,8 @@ namespace Basis.BasisUI
         public static PanelDropdown contentTypeDropDown;
         public static PanelDropdown contentSyncModeDropDown;
         public static PanelToggle contentPersistenceToggle;
-        public static PanelPasswordField URL;
-        public static PanelPasswordField Password;
+        //public static PanelTextField URL;
+        //public static PanelPasswordField Password;
 
 
         // Prefer Task-returning async methods over async void.
@@ -538,13 +540,15 @@ namespace Basis.BasisUI
             // the item type dropdown determines which library tab the new item will appear in.
             contentTypeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
             string[] modeNames = Enum.GetNames(typeof(BundledContentHolder.Mode));
-            contentTypeDropDown.Descriptor.SetTitle("Item Type");
+            contentTypeDropDown.Descriptor.SetTitle("Content Type");
+            contentTypeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.FileTray);
+            contentTypeDropDown.Descriptor.SetDescription( "What content are you adding?" );
             contentTypeDropDown.AssignEntries(modeNames.ToList());
             
             // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
             contentTypeDropDown.SetValueWithoutNotify(_currentMode.ToString());
 
-            contentTypeDropDown.Descriptor.SetHeight(100);
+            contentTypeDropDown.Descriptor.SetHeight(50);
             contentTypeDropDown.Descriptor.SetWidth(900);
 
             // // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
@@ -575,25 +579,39 @@ namespace Basis.BasisUI
             //contentPersistenceToggle.Descriptor.SetSize(new Vector2(900, 80));
 
             // BEE file URL field
-            CreateText("Add your BEE File URL:", _descriptor);
-            URL = PanelPasswordField.CreateNew(_descriptor);
-            URL._placeholderField.text = "URL";
+            //CreateText("Add your BEE File URL:", _descriptor);
+            PanelTextField URL = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, _descriptor);
+            //URL = PanelPasswordField.CreateNew(_descriptor);
+            URL._placeholderLabel.text = "URL";
             URL._inputField.contentType = TMP_InputField.ContentType.Standard;
-            URL.DisableIcons();
+            //URL.DisableIcons();
 
-            URL.Descriptor.SetHeight(50);
+            URL.Descriptor.SetHeight(115);
             URL.Descriptor.SetWidth(900);
 
-            // BEE file password field
-            CreateText("Add your generated BEE file password:", _descriptor);
-            Password = PanelPasswordField.CreateNew(_descriptor);
-            Password._placeholderField.text = "Enter password";
+            URL.Descriptor.SetTitle("BEE File URL:");
+            URL.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
+            URL.Descriptor.SetDescription("This should be a direct link to your BEE file.");
 
-            Password.Descriptor.SetHeight(50);
+            // BEE file password field
+            // CreateText("Add your generated BEE file password:", _descriptor);
+            // Password = PanelPasswordField.CreateNew(_descriptor);
+            // Password._placeholderField.text = "Enter password";
+
+            // Password.Descriptor.SetHeight(50);
+            // Password.Descriptor.SetWidth(900);
+
+            PanelPasswordField Password = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, _descriptor);
+            Password._placeholderField.text = "Enter password";
+            Password.Descriptor.SetHeight(115);
             Password.Descriptor.SetWidth(900);
 
+            Password.Descriptor.SetTitle("BEE File Password:");
+            Password.Descriptor.SetIcon(AddressableAssets.Sprites.Unlocked);
+            Password.Descriptor.SetDescription("This is the password that was generated with you BEE file.");
+
             // create a text field to show validation error messages, initially empty
-            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.LargeDefault, _descriptor);
+            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.Entry, _descriptor);
             validationMessageField.Descriptor.gameObject.SetActive(false);
             validationMessageField._inputField.gameObject.SetActive(false); // disable the text input field box
             validationMessageField.Descriptor.SetTitle("AWAITING_INPUT");
@@ -601,13 +619,13 @@ namespace Basis.BasisUI
             validationMessageField.Descriptor.TitleLabel.color = Color.orange;
             validationMessageField.Descriptor.DescriptionLabel.color = Color.orange;
 
-            validationMessageField.Descriptor.SetHeight(100);
+            validationMessageField.Descriptor.SetHeight(50);
             validationMessageField.Descriptor.SetWidth(900);
 
             // Add and Cancel buttons
             PanelTabGroup acceptOrDenyPanel = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
 
-            acceptOrDenyPanel.Descriptor.SetHeight(100);
+            acceptOrDenyPanel.Descriptor.SetHeight(50);
             acceptOrDenyPanel.Descriptor.SetWidth(900);
 
             PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent);
@@ -639,7 +657,7 @@ namespace Basis.BasisUI
                 {
 
                     // perform input validation, pass our current url and password along with the existing library entries to check for duplicates
-                    InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Password, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
+                    InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Value, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
 
                     // if(validationResponse.IsValid)
                     // {
@@ -677,8 +695,8 @@ namespace Basis.BasisUI
                             validationMessageField.Descriptor.SetTitle(validationResult.ToString());
                             validationMessageField.Descriptor.SetDescription(errorMessage);
 
-                            // For simplicity, using Debug.LogError. In a real implementation, you would want to show this in the UI.
-                            BasisDebug.LogError(errorMessage);
+                            // For simplicity, using Debug.LogWarning. In a real implementation, you would want to show this in the UI.
+                            BasisDebug.LogWarning(errorMessage);
                             _isSubmitting = false;
                             break;
                     }
