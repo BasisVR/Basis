@@ -179,11 +179,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 861fed068fe3fd4449deba6697749c16
-    m_Address: UserNamePanel
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 89e24e73c6f0ae14e8c2fa711b96681a
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Prop Panel View.prefab
     m_ReadOnly: 0
@@ -266,11 +261,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ed07444dbf3e0f744a12b80ab0a8a2b7
     m_Address: Personal Mirror
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: edec16241d972bb47bf0210f7678d6ba
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/PlayerSelectionPanel.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
