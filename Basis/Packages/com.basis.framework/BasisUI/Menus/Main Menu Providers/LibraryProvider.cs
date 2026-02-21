@@ -388,7 +388,7 @@ namespace Basis.BasisUI
 
             // Attach per-tab refresh callbacks that only fetch and rebuild the associated tab when selected
             tabGroup.AddTab("Props", AddressableAssets.Sprites.Items, async () => await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab), propsTab);
-            tabGroup.AddTab("Worlds", AddressableAssets.Sprites.Servers, async () => await RefreshTabAsync(BundledContentHolder.Mode.World, worldsTab), worldsTab);
+            tabGroup.AddTab("Worlds", AddressableAssets.Sprites.World, async () => await RefreshTabAsync(BundledContentHolder.Mode.World, worldsTab), worldsTab);
             tabGroup.AddTab("Avatars",AddressableAssets.Sprites.Avatars, async () => await RefreshTabAsync(BundledContentHolder.Mode.Avatar, avatarsTab), avatarsTab);
             tabGroup.AddTab("Instantiated", AddressableAssets.Sprites.List, null, instantiatedTab);
 
