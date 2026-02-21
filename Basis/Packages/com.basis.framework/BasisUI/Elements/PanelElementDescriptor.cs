@@ -238,7 +238,9 @@ namespace Basis.BasisUI
             }
         }
         public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
-        public void SetWidth(float width) => SetSize(new Vector2(rectTransform.sizeDelta.x, width));
+        
+        // dang this might of caused you guys some headache, fixed it.
+        public void SetWidth(float width) => SetSize(new Vector2(width, rectTransform.sizeDelta.y)); 
 
         public void ForceRebuild()
         {
