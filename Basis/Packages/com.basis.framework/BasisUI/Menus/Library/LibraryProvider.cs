@@ -314,7 +314,7 @@ namespace Basis.BasisUI
 
     public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
-        # region Provider Setup
+        #region Provider Setup
 
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
@@ -393,7 +393,7 @@ namespace Basis.BasisUI
             searchField = PanelTextField.CreateNew(TextFieldStyles.EntryWithNoTitle, tabGroup.ExtrasContainer);
             searchField._placeholderLabel.text = "Search...";
             //searchField.Descriptor.SetTitle("Search:");
-            searchField.Descriptor.SetIcon(AddressableAssets.Sprites.Search);
+            //searchField.Descriptor.SetIcon(AddressableAssets.Sprites.Search);
             //searchField.Descriptor.SetDescription("Description Test 123");
             //searchField.Descriptor.SetPlaceholder("Search...");
             searchField.Descriptor.SetSize(new Vector2(60, 80));
@@ -457,7 +457,7 @@ namespace Basis.BasisUI
 
             // add our extra menu button items, this is the buttons below the panel content
             // function overloading for one with size
-            tabGroup.AddExtraAction("Add New Content", AddNewItem, new Vector2( 70, 80 ));
+            tabGroup.AddExtraAction("Add New Content", PromptUserForNewContent, new Vector2( 70, 80 ));
 
             await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab); // default to props tab on first open
 
@@ -466,305 +466,26 @@ namespace Basis.BasisUI
 
         #endregion
 
-        #region Add New Item Overlay
-        // Keep refs so you can close/destroy the UI you created.
-        private static PanelElementDescriptor _background;
-        private static PanelElementDescriptor _descriptor;
+        #region BasisTrackedBundleWrapper BuildWrapper<BasisDataStoreItemKeys.ItemKey>
 
-        // If you need to prevent double-click spam.
-        private static bool _isSubmitting;
-
-        public static PanelDropdown contentTypeDropDown;
-        public static PanelDropdown contentSyncModeDropDown;
-        public static PanelToggle contentPersistenceToggle;
-        //public static PanelTextField URL;
-        //public static PanelPasswordField Password;
-
-
-        // Prefer Task-returning async methods over async void.
-        public static void AddNewItem()
+        public static BasisTrackedBundleWrapper BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
         {
-            // Build overlay
-            // background blocks interaction with the underlying UI and can be a semi-transparent dark image
-            _background = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Overlay, panel);
-
-            // the main descriptor is the actual content container for the overlay, it should be sized and positioned appropriately
-            _descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.LibraryEntryOverlay, _background);
-            _descriptor.rectTransform.localPosition = Vector3.zero;
-            _descriptor.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            _descriptor.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            _descriptor.rectTransform.anchoredPosition = Vector2.zero;
-            _descriptor.SetSize(new Vector2(930, 722));
-            _descriptor.SetTitle("Add New Content");
-            _descriptor.SetDescription("Please specify the type of content you are adding and then provide the URL and password for your BEE file. Once everything is set, confirm your choices to include the item in your library.");
-            _descriptor.SetIcon(AddressableAssets.Sprites.Add);
-
-            //BundledContentHolder.NetworkType desiredNetType = BundledContentHolder.NetworkType.Local;
-
-            // the item type dropdown determines which library tab the new item will appear in.
-            contentTypeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
-            string[] modeNames = Enum.GetNames(typeof(BundledContentHolder.Mode));
-            contentTypeDropDown.Descriptor.SetTitle("Content Type");
-            contentTypeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.FileTray);
-            contentTypeDropDown.Descriptor.SetDescription( "What content are you adding?" );
-            contentTypeDropDown.AssignEntries(modeNames.ToList());
-            
-            // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
-            contentTypeDropDown.SetValueWithoutNotify(_currentMode.ToString());
-
-            contentTypeDropDown.Descriptor.SetHeight(50);
-            contentTypeDropDown.Descriptor.SetWidth(900);
-
-            // // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
-            // contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
-            // string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
-            // contentSyncModeDropDown.Descriptor.SetTitle("Sync Mode");
-            // contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
-            
-            // // set to default to local
-            // contentSyncModeDropDown.SetValueWithoutNotify(desiredNetType.ToString());
-            // contentSyncModeDropDown.OnValueChanged = (val) =>
-            // {
-            //     if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
-            //     {
-            //         desiredNetType = selectedNetType;
-            //         BasisDebug.Log($"Selected Network Type: {desiredNetType}");
-            //     }
-            //     else
-            //     {
-            //         BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
-            //     }
-            // };
-
-            // content persistence toggle determines weather
-            // contentPersistenceToggle = PanelToggle.CreateNew(_descriptor,PanelToggle.Styles.Entry);
-            // contentPersistenceToggle.Descriptor.SetTitle("Is Network Persistent?");
-            // contentPersistenceToggle.Descriptor.SetDescription("Can this Object Be Loaded by joining clients?");
-            //contentPersistenceToggle.Descriptor.SetSize(new Vector2(900, 80));
-
-            // BEE file URL field
-            //CreateText("Add your BEE File URL:", _descriptor);
-            PanelTextField URL = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, _descriptor);
-            //URL = PanelPasswordField.CreateNew(_descriptor);
-            URL._placeholderLabel.text = "URL";
-            URL._inputField.contentType = TMP_InputField.ContentType.Standard;
-            //URL.DisableIcons();
-
-            URL.Descriptor.SetHeight(115);
-            URL.Descriptor.SetWidth(900);
-
-            URL.Descriptor.SetTitle("BEE File URL:");
-            URL.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
-            URL.Descriptor.SetDescription("This should be a direct link to your BEE file.");
-
-            // BEE file password field
-            // CreateText("Add your generated BEE file password:", _descriptor);
-            // Password = PanelPasswordField.CreateNew(_descriptor);
-            // Password._placeholderField.text = "Enter password";
-
-            // Password.Descriptor.SetHeight(50);
-            // Password.Descriptor.SetWidth(900);
-
-            PanelPasswordField Password = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, _descriptor);
-            Password._placeholderField.text = "Enter password";
-            Password.Descriptor.SetHeight(115);
-            Password.Descriptor.SetWidth(900);
-
-            Password.Descriptor.SetTitle("BEE File Password:");
-            Password.Descriptor.SetIcon(AddressableAssets.Sprites.Unlocked);
-            Password.Descriptor.SetDescription("This is the password that was generated with you BEE file.");
-
-            // create a text field to show validation error messages, initially empty
-            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.Entry, _descriptor);
-            validationMessageField.Descriptor.gameObject.SetActive(false);
-            validationMessageField._inputField.gameObject.SetActive(false); // disable the text input field box
-            validationMessageField.Descriptor.SetTitle("AWAITING_INPUT");
-            validationMessageField.Descriptor.SetDescription("AWAITING_INPUT");
-            validationMessageField.Descriptor.TitleLabel.color = Color.orange;
-            validationMessageField.Descriptor.DescriptionLabel.color = Color.orange;
-
-            validationMessageField.Descriptor.SetHeight(50);
-            validationMessageField.Descriptor.SetWidth(900);
-
-            // Add and Cancel buttons
-            PanelTabGroup acceptOrDenyPanel = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
-
-            acceptOrDenyPanel.Descriptor.SetHeight(50);
-            acceptOrDenyPanel.Descriptor.SetWidth(900);
-
-            PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent);
-            PanelButton noPanel = PanelButton.CreateNew(ButtonStyles.CancelButton, acceptOrDenyPanel.TabButtonParent);
-
-            noPanel.Descriptor.SetTitle("Cancel");
-            yesPanel.Descriptor.SetTitle("Add");
-
-            noPanel.Descriptor.SetWidth(450);
-            noPanel.Descriptor.SetHeight(60);
-            yesPanel.Descriptor.SetWidth(450);
-            yesPanel.Descriptor.SetHeight(60);
-
-            // Cancel just closes.
-            noPanel.OnClicked += async () =>
+            var wrapper = new BasisTrackedBundleWrapper();
+            var loadable = new BasisLoadableBundle
             {
-                // just close the overlay instead.
-                await CloseOverlay();
-                //await CloseOverlayAndLoad(false, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
+                BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle(),
+                BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle(),
+                BasisBundleConnector = new BasisBundleConnector(),
+                UnlockPassword = item.Pass
             };
-
-            // Add does the async work, then closes.
-            yesPanel.OnClicked += async () =>
-            {
-                if (_isSubmitting) return;
-                _isSubmitting = true;
-
-                try
-                {
-
-                    // perform input validation, pass our current url and password along with the existing library entries to check for duplicates
-                    InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Value, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
-
-                    // if(validationResponse.IsValid)
-                    // {
-                    InputValidation.EntryValidationResult validationResult = validationResponse.Result;
-
-                    // we now use the validation result to determine whether to proceed with adding the item or show an error message
-                    switch(validationResult)
-                    {
-                        case InputValidation.EntryValidationResult.Success:
-                            // if validation succeeded, proceed with adding the item
-                            
-                            if(validationMessageField.enabled)
-                            {
-                                validationMessageField.enabled = false; // hide any previous error message
-                            }
-
-                            await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, validationResponse.ProcessedUrl, validationResponse.Password);
-                            break;
-                        default:
-                            // if validation failed, show an error message and do not proceed
-                            string errorMessage = validationResult switch
-                            {
-                                InputValidation.EntryValidationResult.EmptyUrl => "URL cannot be empty.",
-                                InputValidation.EntryValidationResult.InvalidUrlFormat => "URL format is invalid.",
-                                InputValidation.EntryValidationResult.InvalidUrlScheme => "URL must start with http:// or https://",
-                                InputValidation.EntryValidationResult.EmptyPassword => "Password cannot be empty.",
-                                InputValidation.EntryValidationResult.DuplicateEntry => "An entry with this URL already exists in your library.",
-                                _ => "Unknown validation error."
-                            };
-
-                            if(!validationMessageField.Descriptor.gameObject.activeSelf)
-                                validationMessageField.Descriptor.gameObject.SetActive(true);
-
-                            // setting the title and desc auto enables the game object anyway
-                            validationMessageField.Descriptor.SetTitle(validationResult.ToString());
-                            validationMessageField.Descriptor.SetDescription(errorMessage);
-
-                            // For simplicity, using Debug.LogWarning. In a real implementation, you would want to show this in the UI.
-                            BasisDebug.LogWarning(errorMessage);
-                            _isSubmitting = false;
-                            break;
-                    }
-                }
-                catch(Exception ex)
-                {
-                    BasisDebug.LogError(ex);
-                    _isSubmitting = false;
-                }
-
-
-                // if (InputValidation.ApplyPlatformConversionOfUrl(URL.Password, out var convertedUrl))
-                // {
-                //     URL.SetPassword(convertedUrl);
-                //     BasisDebug.Log("Applied platform-specific URL conversion.");
-                // }
-
-                // try
-                // {
-                //     await CloseOverlayAndLoad(true, contentTypeDropDown.SelectedString, URL.Password, Password.Password);
-                // }
-                // catch (Exception ex)
-                // {
-                //     BasisDebug.LogError(ex);
-                //     _isSubmitting = false;
-                // }
-            };
-        }
-
-        public static TMP_Text CreateText(string content, Component Parent)
-        {
-            GameObject go = new GameObject("RuntimeText");
-            go.transform.SetParent(Parent.transform, false);
-
-            var text = go.AddComponent<TextMeshProUGUI>();
-            text.text = content;
-            text.fontSize = 22;
-            text.color = Color.white;
-            text.alignment = TextAlignmentOptions.Center;
-
-            // Optional sizing
-            var rect = go.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(400, 100);
-
-            return text;
-        }
-
-        public static async Task CloseOverlayAndLoad(bool doLoad, string Mode, string URL, string Password)
-        {
-            if (doLoad)
-            {
-                // // the url nad password are empty let stop and debug error
-                // if (string.IsNullOrEmpty(URL) || string.IsNullOrEmpty(Password))                {
-                //     //await CloseOverlay();
-                //     BasisDebug.LogError("URL or Password is empty!");
-                //     return;
-                // }
-
-                if (Enum.TryParse<BundledContentHolder.Mode>(Mode, out var mode))
-                {
-                    var key = new BasisDataStoreItemKeys.ItemKey
-                    {
-                        Pass = Password,
-                        Url = URL,
-                        Mode = mode,
-                    };
-
-                    await BasisDataStoreItemKeys.AddNewKey(key);
-                }
-                else
-                {
-                    await CloseOverlay();
-                    BasisDebug.LogError("Coudnt Parse Mode!");
-                }
-            }
-
-            await CloseOverlay();
-        }
-
-        public static async Task CloseOverlay()
-        {
-            _isSubmitting = false;
-
-            // Destroy / hide whatever your UI framework expects.
-            // If PanelElementDescriptor has a Dispose/Destroy method, use that instead.
-            if (_descriptor != null)
-            {
-                UnityEngine.Object.Destroy(_descriptor.gameObject);
-                _descriptor = null;
-            }
-
-            if (_background != null)
-            {
-                UnityEngine.Object.Destroy(_background.gameObject);
-                _background = null;
-            }
-
-            // refresh the current tab for any new changes
-            await RefreshCurrentTab();
+            loadable.BasisRemoteBundleEncrypted.RemoteBeeFileLocation = item.Url;
+            wrapper.LoadableBundle = loadable;
+            return wrapper;
         }
 
         #endregion
 
-        #region Tab Content Builders and Helpers
+        #region PropsTab, WorldsTab, AvatarsTab, BuildItemsList, ClearTabContent, RefreshTabAsync, RefreshCurrentTab
         public static PanelTabPage PropsTab(PanelTabGroup tabGroup)
         {
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
@@ -792,7 +513,6 @@ namespace Basis.BasisUI
             d.ForceRebuild();
             return tab;
         }
-        
         private static void BuildItemsList(List<BasisDataStoreItemKeys.ItemKey> items, PanelTabPage tab)
         {
             RectTransform container = tab.Descriptor.ContentParent;
@@ -803,7 +523,6 @@ namespace Basis.BasisUI
                 CreateItemCard(item, container);
             }
         }
-
         private static void ClearTabContent(RectTransform container)
         {
             if (container == null) return;
@@ -817,7 +536,6 @@ namespace Basis.BasisUI
                 }
             }
         }
-
         private static async Task RefreshTabAsync(BundledContentHolder.Mode mode, PanelTabPage tab)
         {
             if (tab == null) return;
@@ -842,7 +560,7 @@ namespace Basis.BasisUI
 
             try
             {
-                // Ensure keys are loaded (implementation may cache internally)
+                // Ensure keys are loaded
                 await BasisDataStoreItemKeys.LoadKeys();
 
                 // Only fetch keys matching the requested mode, so if we only want props only grab props returned in data
@@ -927,7 +645,6 @@ namespace Basis.BasisUI
                 BasisDebug.LogError(e);
             }
         }
-
         // used to refresh the current tab
         private static async Task RefreshCurrentTab()
         {
@@ -936,21 +653,221 @@ namespace Basis.BasisUI
                 await RefreshTabAsync(_currentMode, _currentTab);
             }
         }
+        #endregion
 
-        // Preload metadata for a single item and cache it in _metaCache.
-        private static async Task PreloadMetaDataForItem(BasisDataStoreItemKeys.ItemKey item)
+        #region PromptUserForNewContent, AddNewNewItemKey
+
+        /// <summary>
+        /// Invoked on the add new content is pressed in the library provider menu, to prompt the user to enter new content with a dialog box
+        /// </summary>
+        public static void PromptUserForNewContent()
         {
-            if (item == null) return;
-            await CachedMetaData.PreloadMetaDataForItem(item);
+            // Build overlay using DialogBox helper
+            DialogBox newItemDialogBox = DialogBox.Create(panel, new Vector2(930, 722),
+                "Add New Content",
+                "Please specify the type of content you are adding and then provide the URL and password for your BEE file. Once everything is set, confirm your choices to include the item in your library.",
+                AddressableAssets.Sprites.Add);
+
+            //BundledContentHolder.NetworkType desiredNetType = BundledContentHolder.NetworkType.Local;
+
+            // the item type dropdown determines which library tab the new item will appear in.
+            PanelDropdown contentTypeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, newItemDialogBox.Descriptor);
+            string[] modeNames = Enum.GetNames(typeof(BundledContentHolder.Mode));
+            contentTypeDropDown.Descriptor.SetTitle("Content Type");
+            contentTypeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.FileTray);
+            contentTypeDropDown.Descriptor.SetDescription( "What content are you adding?" );
+            contentTypeDropDown.AssignEntries(modeNames.ToList());
+            
+            // derive the default selected mode from the currently active tab, so if the user is browsing avatars and clicks "Add New CachedContent"
+            contentTypeDropDown.SetValueWithoutNotify(_currentMode.ToString());
+
+            contentTypeDropDown.Descriptor.SetHeight(50);
+            contentTypeDropDown.Descriptor.SetWidth(900);
+
+            // // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
+            // contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
+            // string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
+            // contentSyncModeDropDown.Descriptor.SetTitle("Sync Mode");
+            // contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
+            
+            // // set to default to local
+            // contentSyncModeDropDown.SetValueWithoutNotify(desiredNetType.ToString());
+            // contentSyncModeDropDown.OnValueChanged = (val) =>
+            // {
+            //     if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
+            //     {
+            //         desiredNetType = selectedNetType;
+            //         BasisDebug.Log($"Selected Network Type: {desiredNetType}");
+            //     }
+            //     else
+            //     {
+            //         BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
+            //     }
+            // };
+
+            // content persistence toggle determines weather
+            // contentPersistenceToggle = PanelToggle.CreateNew(_descriptor,PanelToggle.Styles.Entry);
+            // contentPersistenceToggle.Descriptor.SetTitle("Is Network Persistent?");
+            // contentPersistenceToggle.Descriptor.SetDescription("Can this Object Be Loaded by joining clients?");
+            //contentPersistenceToggle.Descriptor.SetSize(new Vector2(900, 80));
+
+            // BEE file URL field
+            //CreateText("Add your BEE File URL:", _descriptor);
+            PanelTextField URL = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, newItemDialogBox.Descriptor);
+            //URL = PanelPasswordField.CreateNew(_descriptor);
+            URL._placeholderLabel.text = "URL";
+            URL._inputField.contentType = TMP_InputField.ContentType.Standard;
+            //URL.DisableIcons();
+
+            URL.Descriptor.SetHeight(115);
+            URL.Descriptor.SetWidth(900);
+
+            URL.Descriptor.SetTitle("BEE File URL:");
+            URL.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
+            URL.Descriptor.SetDescription("This should be a direct link to your BEE file.");
+
+            PanelPasswordField Password = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, newItemDialogBox.Descriptor);
+            Password._placeholderField.text = "Enter password";
+            Password.Descriptor.SetHeight(115);
+            Password.Descriptor.SetWidth(900);
+
+            Password.Descriptor.SetTitle("BEE File Password:");
+            Password.Descriptor.SetIcon(AddressableAssets.Sprites.Unlocked);
+            Password.Descriptor.SetDescription("This is the password that was generated with you BEE file.");
+
+            // create a text field to show validation error messages, initially empty
+            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.Entry, newItemDialogBox.Descriptor);
+            validationMessageField.Descriptor.gameObject.SetActive(false);
+            validationMessageField._inputField.gameObject.SetActive(false); // disable the text input field box
+            validationMessageField.Descriptor.SetTitle("AWAITING_INPUT");
+            validationMessageField.Descriptor.SetDescription("AWAITING_INPUT");
+            validationMessageField.Descriptor.TitleLabel.color = Color.orange;
+            validationMessageField.Descriptor.DescriptionLabel.color = Color.orange;
+
+            validationMessageField.Descriptor.SetHeight(50);
+            validationMessageField.Descriptor.SetWidth(900);
+
+            // Add and Cancel buttons
+            PanelTabGroup acceptOrDenyPanel = PanelTabGroup.CreateNew(newItemDialogBox.Descriptor, LayoutDirection.HorizontalNoBackground);
+
+            acceptOrDenyPanel.Descriptor.SetHeight(50);
+            acceptOrDenyPanel.Descriptor.SetWidth(900);
+
+            PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent);
+            PanelButton noPanel = PanelButton.CreateNew(ButtonStyles.CancelButton, acceptOrDenyPanel.TabButtonParent);
+
+            noPanel.Descriptor.SetTitle("Cancel");
+            yesPanel.Descriptor.SetTitle("Add");
+
+            noPanel.Descriptor.SetWidth(450);
+            noPanel.Descriptor.SetHeight(60);
+            yesPanel.Descriptor.SetWidth(450);
+            yesPanel.Descriptor.SetHeight(60);
+
+            // Cancel just closes.
+            noPanel.OnClicked += async () =>
+            {
+                // just close the overlay instead.
+                await newItemDialogBox.CloseAsync();
+            };
+
+            // Add does the async work, then closes.
+            yesPanel.OnClicked += async () =>
+            {
+                if (newItemDialogBox.IsBusy) return;
+                newItemDialogBox.IsBusy = true;
+
+                try
+                {
+
+                    // perform input validation, pass our current url and password along with the existing library entries to check for duplicates
+                    InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Value, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
+
+                    // if(validationResponse.IsValid)
+                    // {
+                    InputValidation.EntryValidationResult validationResult = validationResponse.Result;
+
+                    // we now use the validation result to determine whether to proceed with adding the item or show an error message
+                    switch(validationResult)
+                    {
+                        case InputValidation.EntryValidationResult.Success:
+                            // if validation succeeded, proceed with adding the item
+                            
+                            if(validationMessageField.enabled)
+                            {
+                                validationMessageField.enabled = false; // hide any previous error message
+                            }
+
+                            // add the item to the basis key store
+                            await AddNewNewItemKey(contentTypeDropDown.SelectedString, validationResponse.ProcessedUrl, validationResponse.Password);
+                            // just close the overlay
+                            await newItemDialogBox.CloseAsync();
+                            // refresh the current tab
+                            await RefreshCurrentTab();
+
+                            break;
+                        default:
+                            // if validation failed, show an error message and do not proceed
+                            string errorMessage = validationResult switch
+                            {
+                                InputValidation.EntryValidationResult.EmptyUrl => "URL cannot be empty.",
+                                InputValidation.EntryValidationResult.InvalidUrlFormat => "URL format is invalid.",
+                                InputValidation.EntryValidationResult.InvalidUrlScheme => "URL must start with http:// or https://",
+                                InputValidation.EntryValidationResult.EmptyPassword => "Password cannot be empty.",
+                                InputValidation.EntryValidationResult.DuplicateEntry => "An entry with this URL already exists in your library.",
+                                _ => "Unknown validation error."
+                            };
+
+                            if(!validationMessageField.Descriptor.gameObject.activeSelf)
+                                validationMessageField.Descriptor.gameObject.SetActive(true);
+
+                            // setting the title and desc auto enables the game object anyway
+                            validationMessageField.Descriptor.SetTitle(validationResult.ToString());
+                            validationMessageField.Descriptor.SetDescription(errorMessage);
+
+                            // For simplicity, using Debug.LogWarning. In a real implementation, you would want to show this in the UI.
+                            BasisDebug.LogWarning(errorMessage);
+                            newItemDialogBox.IsBusy = false;
+                            break;
+                    }
+                }
+                catch(Exception ex)
+                {
+                    BasisDebug.LogError(ex);
+                    newItemDialogBox.IsBusy = false;
+                }
+            };
         }
 
-        // Preload metadata for multiple items sequentially.
-        private static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
+        /// <summary>
+        /// Used with the add new item button to add a new item to the basis key store for items
+        /// </summary>
+        public static async Task AddNewNewItemKey(string Mode, string URL, string Password)
         {
-            if (items == null) return;
-            await CachedMetaData.PreloadMetaForItems(items);
+            if (Enum.TryParse<BundledContentHolder.Mode>(Mode, out var mode))
+            {
+                var key = new BasisDataStoreItemKeys.ItemKey
+                {
+                    Pass = Password,
+                    Url = URL,
+                    Mode = mode,
+                };
+
+                await BasisDataStoreItemKeys.AddNewKey(key);
+            }
+            else
+            {
+                BasisDebug.LogError($"Failed to parse mode to BundledContentHolder.Mode Enum with string {Mode}, unable to add new item to the BasisDataStoreItemsKey.");
+            }
         }
 
+        #endregion
+
+        #region CreateItemCard, ShowItemOverlay
+
+        /// <summary>
+        /// The item card displayed all around the library menu
+        /// </summary>
         private static async void CreateItemCard(BasisDataStoreItemKeys.ItemKey item, RectTransform container)
         {
             PanelButton buttonPanel = PanelButton.CreateNew(ButtonStyles.Prop, container);
@@ -1006,7 +923,7 @@ namespace Basis.BasisUI
                         sprite = CachedMetaData.CreateSpriteFromMetaData(meta);
                     }
 
-                    await ShowItemOverlay(item, sprite, wrapperForMeta);
+                    await ShowItemOverlay(meta, item, sprite, wrapperForMeta);
                 }
                 catch (Exception ex)
                 {
@@ -1014,6 +931,202 @@ namespace Basis.BasisUI
                 }
             };
         }
+
+        private static BasisDataStoreItemKeys.ItemKey _activeItem;
+
+        private static string ConvertItemKeyToAddressableSprite( BasisDataStoreItemKeys.ItemKey item )
+        {
+            switch(item.Mode)
+            {
+                case BundledContentHolder.Mode.Avatar:
+                    return AddressableAssets.Sprites.Avatars;
+                case BundledContentHolder.Mode.Prop:
+                    return AddressableAssets.Sprites.Items;
+                case BundledContentHolder.Mode.World:
+                    return AddressableAssets.Sprites.World;
+                default:
+                    BasisDebug.LogWarning($"ConvertItemKeyToAddressableSprite was given an item with an unknown mode of {item.Mode}, cannot determine icon defaulting to items icon!");
+                    return AddressableAssets.Sprites.Items;
+            }
+        }
+
+        public static async Task ShowItemOverlay(CachedMetaData.CachedContent metadata, BasisDataStoreItemKeys.ItemKey item, Sprite Sprite, BasisTrackedBundleWrapper Wrapper)
+        {
+            //BasisLoadableBundle bundle = Wrapper.LoadableBundle;
+
+            BasisDebug.Log($"{metadata}");
+
+            // TODO: actually validate the BEE file upon adding it rather than checking description for it to actually exists?
+            BasisBundleDescription description = metadata.BasisBundleConnector.BasisBundleDescription;
+
+            if (description == null)
+            {
+                BasisDebug.LogError($"Bundle Description on AvatarMenuItem {item} not found, auto removing.");
+                
+                // TODO: Remove this once input validation is in place to prevent invalid entries from being added. This is to ensure a clean user experience in the meantime.
+                // temp will remove invalid entries that failed to get meta data.
+                await BasisDataStoreItemKeys.RemoveKey(item);
+
+                // refresh the current tab for any new changes
+                await RefreshCurrentTab();
+                return;
+            }
+
+            // Not sure why we need this so lets to remove.
+            _activeItem = item;
+
+            // Build overlay using DialogBox helper
+            DialogBox existingItemDialog = DialogBox.Create(panel, new Vector2(930, 722),
+                $"{description.AssetBundleName}",
+                $"{(description.AssetBundleDescription.Length > 0 ? description.AssetBundleDescription : "N/A")}",
+                ConvertItemKeyToAddressableSprite(item));
+
+            // create the exit button for the dialog box
+            var button = PanelButton.CreateNew(ButtonStyles.ExitButtonOverlay, existingItemDialog.Descriptor.Header);
+            button.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 125);
+            button.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
+            button.OnClicked += async () => await existingItemDialog.CloseAsync();
+
+            // icon for the selected item
+            var itemIcon = PanelElementDescriptor.CreateNew(
+                PanelElementDescriptor.ElementStyles.GroupLargeIcon, existingItemDialog.Descriptor);
+
+            itemIcon.SetIcon(Sprite);
+
+            // string creationDate = bundle.BasisBundleConnector.DateOfCreation;
+            // if (string.IsNullOrEmpty(creationDate))
+            // {
+            //     creationDate = string.Empty;
+            // }
+            // else
+            // {
+            //     creationDate = DateTime
+            //         .Parse(creationDate, CultureInfo.InvariantCulture,
+            //                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal)
+            //         .ToString(CultureInfo.InvariantCulture);
+
+            //     creationDate += " UTC";
+            // }
+
+            // // Wrapper
+            // var Descriptor = PanelElementDescriptor.CreateNew(
+            //     PanelElementDescriptor.ElementStyles.GroupLargeIcon, _descriptor);
+
+            // Descriptor.SetIcon(Sprite);
+            // Descriptor.SetTitle(description.AssetBundleDescription);
+
+            // PanelTabGroup actionsSupportedPlatforms =  PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
+            // if (actionsSupportedPlatforms.TryGetComponent<LayoutElement>(out LayoutElement LayoutElement))
+            // {
+            //     LayoutElement.minHeight = 50;
+            // }
+
+            // Descriptor.SetDescription($"\nCreated: {creationDate}");
+
+            // var IDField = PanelPasswordField.CreateNew(PasswordFieldStyles.Entry, _descriptor);
+            // IDField._placeholderField.text = "";//Wrapper
+            // IDField.SetPassword(bundle.BasisBundleConnector.UniqueVersion);
+            // IDField._inputField.interactable = false;
+            // IDField.Descriptor.SetTitle("URL:");
+            // IDField.LayoutElement.minWidth = 500;
+
+            // var urlField = PanelPasswordField.CreateNew(PasswordFieldStyles.Entry, _descriptor);
+            // urlField._placeholderField.text = "";
+            // urlField.SetPassword(item.Url);
+            // urlField._inputField.interactable = false;
+            // urlField.Descriptor.SetTitle("URL:");
+            // urlField.LayoutElement.minWidth = 500;
+
+            // var passField = PanelPasswordField.CreateNew(PasswordFieldStyles.Entry, _descriptor);
+            // passField._placeholderField.text = "";
+            // passField.SetPassword(item.Pass); // if supported
+            // passField._inputField.interactable = false;
+            // passField.Descriptor.SetTitle("Password:");
+            // passField.LayoutElement.minWidth = 500;
+
+            // string[] platforms = bundle.BasisBundleConnector.BasisBundleGenerated
+            //     .Select(pair => pair.Platform)
+            //     .ToArray();
+
+            // foreach (string platform in platforms)
+            // {
+            //     string address = null;
+
+            //     switch (platform)
+            //     {
+            //         case "StandaloneWindows64":
+            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Windows.prefab";
+            //             break;
+
+            //         case "StandaloneOSX":
+            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Mac.prefab";
+            //             break;
+
+            //         case "StandaloneLinux64":
+            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Linux.prefab";
+            //             break;
+
+            //         case "Android":
+            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Android.prefab";
+            //             break;
+
+            //         case "iOS":
+            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - iOS.prefab";
+            //             break;
+            //     }
+
+            //     if (string.IsNullOrEmpty(address))
+            //     {
+            //         continue;
+            //     }
+
+            //     var handle = Addressables.LoadAssetAsync<GameObject>(address);
+            //     var prefab = await handle.Task;
+
+            //     GameObject.Instantiate(prefab, actionsSupportedPlatforms.TabButtonParent.transform);
+            // }
+
+            // // Buttons row
+            // PanelTabGroup actions = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
+
+            // PanelButton DeleteBtn = PanelButton.CreateNew(ButtonStyles.CancelButton, actions.TabButtonParent);
+            // PanelButton loadBtn = PanelButton.CreateNew(ButtonStyles.AcceptButton, actions.TabButtonParent);
+
+            // DeleteBtn.Descriptor.SetTitle("Delete");
+            // loadBtn.Descriptor.SetTitle("Load");
+
+            // DeleteBtn.SetSize(new Vector2(200, 60));
+            // loadBtn.SetSize(new Vector2(530, 60));
+
+            // DeleteBtn.OnClicked += async () =>
+            // {
+            //     await BasisDataStoreItemKeys.RemoveKey(item);
+            //     await CloseOverlay();
+            // };
+
+            // loadBtn.OnClicked += async () =>
+            // {
+            //     if (_isSubmitting) return;
+            //     _isSubmitting = true;
+
+            //     try
+            //     {
+            //         BasisDebug.Log($"Load Button Clicked for item: {item.Url}");
+            //         await LoadSelectedItem(item);
+            //     }
+            //     catch (Exception ex)
+            //     {
+            //         BasisDebug.LogError(ex);
+            //     }
+            //     finally
+            //     {
+            //         _isSubmitting = false;
+            //         await CloseOverlay();
+            //     }
+            // };
+        }
+
+        #endregion
 
         private static void ApplyMetaDataToButton(PanelButton buttonPanel, CachedMetaData.CachedContent cachedMeta, string urlKey)
         {
@@ -1029,21 +1142,6 @@ namespace Basis.BasisUI
 
         // texture decode happens once per item here
         // now delegated to CachedMetaData
-
-        public static BasisTrackedBundleWrapper BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
-        {
-            var wrapper = new BasisTrackedBundleWrapper();
-            var loadable = new BasisLoadableBundle
-            {
-                BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle(),
-                BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle(),
-                BasisBundleConnector = new BasisBundleConnector(),
-                UnlockPassword = item.Pass
-            };
-            loadable.BasisRemoteBundleEncrypted.RemoteBeeFileLocation = item.Url;
-            wrapper.LoadableBundle = loadable;
-            return wrapper;
-        }
         
         // private static async Task<Sprite> LoadItemMetaIntoGroup(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken, PanelButton Buttonpanel)
         // {
@@ -1100,186 +1198,20 @@ namespace Basis.BasisUI
         //     }
         // }
 
-        private static BasisDataStoreItemKeys.ItemKey _activeItem;
-        public static PanelElementDescriptor CreateBaseOverlay(Vector2 Anchor, Vector2 Scale,string Name)//= new Vector2(0.5f, 0.5f) new Vector2(800, 720)
-        {
-            PanelElementDescriptor _descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.BaseOverlay, _background);
+        
+        // public static PanelElementDescriptor CreateBaseOverlay(Vector2 Anchor, Vector2 Scale,string Name)//= new Vector2(0.5f, 0.5f) new Vector2(800, 720)
+        // {
+        //     PanelElementDescriptor _descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.BaseOverlay, _background);
 
-            _descriptor.rectTransform.localPosition = Vector3.zero;
-            _descriptor.rectTransform.anchorMin = Anchor;
-            _descriptor.rectTransform.anchorMax = Anchor;
-            _descriptor.rectTransform.anchoredPosition = Vector2.zero;
-            _descriptor.SetSize(Scale);
-            _descriptor.SetTitle(Name);
-            return _descriptor;
-        }
+        //     _descriptor.rectTransform.localPosition = Vector3.zero;
+        //     _descriptor.rectTransform.anchorMin = Anchor;
+        //     _descriptor.rectTransform.anchorMax = Anchor;
+        //     _descriptor.rectTransform.anchoredPosition = Vector2.zero;
+        //     _descriptor.SetSize(Scale);
+        //     _descriptor.SetTitle(Name);
+        //     return _descriptor;
+        // }
 
-        public static async Task ShowItemOverlay(BasisDataStoreItemKeys.ItemKey item, Sprite Sprite, BasisTrackedBundleWrapper Wrapper)
-        {
-            // Prevent stacking overlays
-            await CloseOverlay();
-
-            var bundle = Wrapper.LoadableBundle;
-
-            BasisBundleDescription description = bundle.BasisBundleConnector.BasisBundleDescription;
-            if (description == null)
-            {
-                BasisDebug.LogError($"Bundle Description on AvatarMenuItem {item} not found, auto removing.");
-                
-                // TODO: Remove this once input validation is in place to prevent invalid entries from being added. This is to ensure a clean user experience in the meantime.
-                // temp will remove invalid entries that failed to get meta data.
-                await BasisDataStoreItemKeys.RemoveKey(item);
-
-                // refresh the current tab for any new changes
-                await RefreshCurrentTab();
-                return;
-            }
-
-            _activeItem = item;
-
-            _background = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Overlay, panel);
-
-            _descriptor = CreateBaseOverlay(new Vector2(0.5f, 0.5f), new Vector2(800, 800), description.AssetBundleName);
-
-            var button = PanelButton.CreateNew(PanelButton.ButtonStyles.ExitButtonOverlay, _descriptor.Header);
-            button.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 125);
-            button.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 50);
-            button.OnClicked += async () => await CloseOverlay();
-
-            string creationDate = bundle.BasisBundleConnector.DateOfCreation;
-            if (string.IsNullOrEmpty(creationDate))
-            {
-                creationDate = string.Empty;
-            }
-            else
-            {
-                creationDate = DateTime
-                    .Parse(creationDate, CultureInfo.InvariantCulture,
-                           DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal)
-                    .ToString(CultureInfo.InvariantCulture);
-
-                creationDate += " UTC";
-            }
-
-            // Wrapper
-            var Descriptor = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.GroupLargeIcon, _descriptor);
-
-            Descriptor.SetIcon(Sprite);
-            Descriptor.SetTitle(description.AssetBundleDescription);
-
-            PanelTabGroup actionsSupportedPlatforms =  PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
-            if (actionsSupportedPlatforms.TryGetComponent<LayoutElement>(out LayoutElement LayoutElement))
-            {
-                LayoutElement.minHeight = 50;
-            }
-
-            Descriptor.SetDescription($"\nCreated: {creationDate}");
-
-            var IDField = PanelPasswordField.CreateNew(PanelPasswordField.PasswordFieldStyles.Entry, _descriptor);
-            IDField._placeholderField.text = "";//Wrapper
-            IDField.SetPassword(bundle.BasisBundleConnector.UniqueVersion);
-            IDField._inputField.interactable = false;
-            IDField.Descriptor.SetTitle("URL:");
-            IDField.LayoutElement.minWidth = 500;
-
-            var urlField = PanelPasswordField.CreateNew(PanelPasswordField.PasswordFieldStyles.Entry, _descriptor);
-            urlField._placeholderField.text = "";
-            urlField.SetPassword(item.Url);
-            urlField._inputField.interactable = false;
-            urlField.Descriptor.SetTitle("URL:");
-            urlField.LayoutElement.minWidth = 500;
-
-            var passField = PanelPasswordField.CreateNew(PanelPasswordField.PasswordFieldStyles.Entry, _descriptor);
-            passField._placeholderField.text = "";
-            passField.SetPassword(item.Pass); // if supported
-            passField._inputField.interactable = false;
-            passField.Descriptor.SetTitle("Password:");
-            passField.LayoutElement.minWidth = 500;
-
-            string[] platforms = bundle.BasisBundleConnector.BasisBundleGenerated
-                .Select(pair => pair.Platform)
-                .ToArray();
-
-            foreach (string platform in platforms)
-            {
-                string address = null;
-
-                switch (platform)
-                {
-                    case "StandaloneWindows64":
-                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Windows.prefab";
-                        break;
-
-                    case "StandaloneOSX":
-                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Mac.prefab";
-                        break;
-
-                    case "StandaloneLinux64":
-                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Linux.prefab";
-                        break;
-
-                    case "Android":
-                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Android.prefab";
-                        break;
-
-                    case "iOS":
-                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - iOS.prefab";
-                        break;
-                }
-
-                if (string.IsNullOrEmpty(address))
-                {
-                    continue;
-                }
-
-                var handle = Addressables.LoadAssetAsync<GameObject>(address);
-                var prefab = await handle.Task;
-
-                GameObject.Instantiate(prefab, actionsSupportedPlatforms.TabButtonParent.transform);
-            }
-
-            // Buttons row
-            PanelTabGroup actions = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
-
-            PanelButton DeleteBtn = PanelButton.CreateNew(ButtonStyles.CancelButton, actions.TabButtonParent);
-            PanelButton loadBtn = PanelButton.CreateNew(ButtonStyles.AcceptButton, actions.TabButtonParent);
-
-            DeleteBtn.Descriptor.SetTitle("Delete");
-            loadBtn.Descriptor.SetTitle("Load");
-
-            DeleteBtn.SetSize(new Vector2(200, 60));
-            loadBtn.SetSize(new Vector2(530, 60));
-
-            DeleteBtn.OnClicked += async () =>
-            {
-                await BasisDataStoreItemKeys.RemoveKey(item);
-                await CloseOverlay();
-            };
-
-            loadBtn.OnClicked += async () =>
-            {
-                if (_isSubmitting) return;
-                _isSubmitting = true;
-
-                try
-                {
-                    BasisDebug.Log($"Load Button Clicked for item: {item.Url}");
-                    await LoadSelectedItem(item);
-                }
-                catch (Exception ex)
-                {
-                    BasisDebug.LogError(ex);
-                }
-                finally
-                {
-                    _isSubmitting = false;
-                    await CloseOverlay();
-                }
-            };
-        }
-
-        #endregion
 
         #region Spawn / Load Selected Item Functions
 
@@ -1305,40 +1237,34 @@ namespace Basis.BasisUI
         /// </summary>
         public static async Task LoadAvatar(BasisDataStoreItemKeys.ItemKey item, BasisTrackedBundleWrapper wrapper, BasisProgressReport report)
         {
-            // if (SelectedAvatar == null)
-            // {
-            //     BasisDebug.LogError("No selected bundle.");
-            //     return;
-            // }
+            if (BasisLocalPlayer.Instance)
+            {
+                BasisLoadableBundle bundle = wrapper.LoadableBundle;
 
-            // if (BasisLocalPlayer.Instance)
-            // {
-            //     BasisLoadableBundle bundle = SelectedAvatar.Wrapper.LoadableBundle;
-
-            //     if (bundle.BasisBundleConnector.GetPlatform(out BasisBundleGenerated platformBundle))
-            //     {
-            //         string assetMode = platformBundle.AssetMode;
-            //         byte mode = !string.IsNullOrEmpty(assetMode) && byte.TryParse(assetMode, out byte result)
-            //             ? result
-            //             : (byte)0;
-            //         await BasisLocalPlayer.Instance.CreateAvatar(mode, bundle);
-            //     }
-            //     else
-            //     {
-            //         if (bundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
-            //         {
-            //             await BasisLocalPlayer.Instance.CreateAvatar(1, bundle);
-            //         }
-            //         else
-            //         {
-            //             BasisDebug.LogError("Missing Platform " + Application.platform);
-            //         }
-            //     }
-            // }
-            // else
-            // {
-            //     BasisDebug.LogError("Missing LocalPlayer!");
-            // }
+                if (bundle.BasisBundleConnector.GetPlatform(out BasisBundleGenerated platformBundle))
+                {
+                    string assetMode = platformBundle.AssetMode;
+                    byte mode = !string.IsNullOrEmpty(assetMode) && byte.TryParse(assetMode, out byte result)
+                        ? result
+                        : (byte)0;
+                    await BasisLocalPlayer.Instance.CreateAvatar(mode, bundle);
+                }
+                else
+                {
+                    if (bundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
+                    {
+                        await BasisLocalPlayer.Instance.CreateAvatar(1, bundle);
+                    }
+                    else
+                    {
+                        BasisDebug.LogError("LoadAvatar -> Missing Platform " + Application.platform);
+                    }
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Attempted to LoadAvatar without a BasisLocalPlayer.Instance, request denied.");
+            }
         }
 
         /// <summary>
@@ -1446,20 +1372,18 @@ namespace Basis.BasisUI
 
             try
             {
+                BasisDebug.Log($"Attempting to Load {item.Mode} {item.Url} From Library.");
+
                 switch(item.Mode)
                 {
                     case BundledContentHolder.Mode.Avatar:
                         // For avatars we might want to apply them directly to the player instead of spawning in the world as a separate object
-                        //await LoadAvatar(item, wrapper, report);
-                        BasisDebug.LogWarning("Avatar loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadAvatar!");
+                        await LoadAvatar(item, wrapper, report);
                         break;
                     case BundledContentHolder.Mode.Prop:
-
                         await LoadProp(item, wrapper, report);
-
                         break;
                     case BundledContentHolder.Mode.World:
-                        // For props and worlds we will spawn them in the world, so we can break to continue with the spawn logic below
                         BasisDebug.LogWarning("World loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadWorld!");
                         break;
                     default:
