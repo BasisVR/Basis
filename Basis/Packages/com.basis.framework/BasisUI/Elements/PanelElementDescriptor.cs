@@ -29,6 +29,7 @@ namespace Basis.BasisUI
             public static string BaseOverlay => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base - Overlay.prefab";
             public static string LibraryEntryOverlay => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base - Overlay For Library Variant.prefab";
             public static string GroupLargeIcon => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon.prefab";
+            public static string GroupLargeIconVertical => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon Vertical Stacked Content Variant.prefab";
         }
 
         public static PanelElementDescriptor CreateNew(string style, Component parent) =>

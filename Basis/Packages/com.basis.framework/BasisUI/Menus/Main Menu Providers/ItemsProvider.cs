@@ -18,7 +18,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            //BasisMenuBase<BasisMainMenu>.AddProvider(new ItemsProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new ItemsProvider());
         }
 
         public override string Title => "Items";

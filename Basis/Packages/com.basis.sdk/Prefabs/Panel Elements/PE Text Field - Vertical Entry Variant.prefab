@@ -883,6 +883,7 @@ GameObject:
   - component: {fileID: 3509809848397959654}
   - component: {fileID: 2088517470111798919}
   - component: {fileID: 4851109342751375635}
+  - component: {fileID: 3232926193272486379}
   m_Layer: 9
   m_Name: Text Field
   m_TagString: Untagged
@@ -947,7 +948,7 @@ MonoBehaviour:
   m_FillClockwise: 1
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
-  m_PixelsPerUnitMultiplier: 5
+  m_PixelsPerUnitMultiplier: 4
 --- !u!114 &2088517470111798919
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1069,6 +1070,19 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &3232926193272486379
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5053101822089950391}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b07434b547b6d144a23ceb11ba60a41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: BasisSDK::Basis.BasisUI.Styling.UiStyleImage
+  ColorStyle: Button Standard
 --- !u!1 &6114323062107934419
 GameObject:
   m_ObjectHideFlags: 0
