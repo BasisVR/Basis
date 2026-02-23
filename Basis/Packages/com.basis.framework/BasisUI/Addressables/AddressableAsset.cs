@@ -29,6 +29,8 @@ namespace Basis.BasisUI
             public static string Locked = "Packages/com.basis.sdk/Textures/Runtime/padlock-locked.png";
             public static string Unlocked = "Packages/com.basis.sdk/Textures/Runtime/padlock-unlocked.png";
             public static string FileTray = "Packages/com.basis.sdk/Textures/Runtime/file-tray.png";
+            public static string HourGlass = "Packages/com.basis.sdk/Textures/Runtime/hour-glass.png";
+            public static string Clock = "Packages/com.basis.sdk/Textures/Runtime/clock.png";
         }
 
         public static Sprite GetSprite(string path)

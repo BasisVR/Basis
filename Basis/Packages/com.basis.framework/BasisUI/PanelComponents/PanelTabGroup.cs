@@ -20,6 +20,8 @@ namespace Basis.BasisUI
 
             public static string HorizontalNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal - No Background.prefab";
             public static string VerticalNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical - No Background.prefab";
+            public static string VerticalStackedNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical Stacked - No Background Variant.prefab";
+            public static string HorizontalStackedNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal Stacked - No Background Variant.prefab";
         }
 
 

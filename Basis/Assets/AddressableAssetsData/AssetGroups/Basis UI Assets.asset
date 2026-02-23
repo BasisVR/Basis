@@ -37,6 +37,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c712053b0646c944bbbdae15b868b57
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry
+      Warning Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 1176a1853ad8f87448d1b6d2965b5dea
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Avatar List Page.prefab
     m_ReadOnly: 0
@@ -131,6 +137,12 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 51337b65df580d74fa0e73610dd1218e
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical Stacked
+      - No Background Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 528389918ed51d04ebb375283982ac07
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Single Select Entry.prefab
     m_ReadOnly: 0
@@ -160,6 +172,11 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 75bd3bdc3bf3d5d4980a0c74358b93b9
     m_Address: Panel Elements/Overlay Panel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7789be676b03fdd4f8d2e4b183e25858
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/clock.png
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -203,6 +220,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8e5748c95f06a7d429e4dd22ca8d9d35
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Button Standard Variant.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 91276a52d11f1e8439ad3e8d47d22865
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Event Field.prefab
     m_ReadOnly: 0
@@ -213,6 +235,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9e963a4d85d999c4da3fb497ef157a35
+    m_Address: Packages/com.basis.sdk/Textures/Runtime/hour-glass.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a2a8267391cd16d4fbbbeb830bd4ce2f
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Event Field Base.prefab
     m_ReadOnly: 0
@@ -220,6 +247,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: aa985c73014e27141bce7a998d1d18dc
     m_Address: Packages/com.basis.sdk/Sprites/Icons/Foldout Arrow.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ab662184b9a144941b2b7483ab55fe18
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal
+      Stacked - No Background Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -236,6 +269,12 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: b96b9b309a5689d45a3779b69f280f66
     m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Horizontal.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bfd486c714b419b4e9325e9ff2a0d243
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon
+      Vertical Stacked Content Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

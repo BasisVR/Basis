@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using TMPro;
-using Unity.Android.Gradle;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
@@ -19,6 +18,10 @@ using static Basis.BasisUI.PanelTextField;
 using static SerializableBasis;
 using System.Text;
 using static Basis.BasisUI.PanelPasswordField;
+using Basis.BasisUI.Styling;
+using UnityEngine.Events;
+using UnityEngine.InputSystem;
+using static Basis.BasisUI.LibraryProvider;
 
 namespace Basis.BasisUI
 {
@@ -41,6 +44,7 @@ namespace Basis.BasisUI
             public string DateOfCreation;
             public string UniqueVersion;
 
+            public BasisLoadableBundle BasisLoadableBundle;
             public BasisBundleConnector BasisBundleConnector;
         }
 
@@ -100,11 +104,11 @@ namespace Basis.BasisUI
 
             try
             {
-                var wrapper = LibraryProvider.BuildWrapper(item);
-                var report = new BasisProgressReport();
-                await BasisBeeManagement.HandleMetaOnlyLoad(wrapper, report, CancellationToken.None);
+                BasisLoadableBundleWrapper wrapper = await BuildWrapper(item);
+                //var report = new BasisProgressReport();
 
-                var connector = wrapper.LoadableBundle.BasisBundleConnector;
+                await BasisBeeManagement.HandleMetaOnlyLoad(wrapper.basisTrackedBundleWrapper, Report, CancellationSource.Token);
+                var connector = wrapper.BasisLoadableBundle.BasisBundleConnector; //wrapper.LoadableBundle.BasisBundleConnector;
 
                 var cached = new CachedContent
                 {
@@ -113,7 +117,8 @@ namespace Basis.BasisUI
                     ImageBase64 = connector?.ImageBase64,
                     DateOfCreation = connector?.DateOfCreation,
                     UniqueVersion = connector?.UniqueVersion,
-                    BasisBundleConnector = connector
+                    BasisBundleConnector = connector,
+                    BasisLoadableBundle = wrapper.BasisLoadableBundle,
                 };
 
                 string dateStrCache = connector?.DateOfCreation;
@@ -249,6 +254,8 @@ namespace Basis.BasisUI
             string url = (rawUrl ?? string.Empty).Trim();
             string password = (rawPassword ?? string.Empty).Trim();
 
+            //BasisDebug.Log($"started as password = {password}");
+
             if (string.IsNullOrEmpty(url))
                 return Fail(EntryValidationResult.EmptyUrl);
 
@@ -259,19 +266,26 @@ namespace Basis.BasisUI
                 string fragment = url.Substring(hashIndex + 1);
                 url = url.Substring(0, hashIndex);
 
+                //BasisDebug.Log("found # processing password");
                 if (!string.IsNullOrEmpty(fragment))
                 {
+                    BasisDebug.Log($"fragment = {fragment}");
                     try
                     {
-                        password = Encoding.UTF8.GetString(
-                            Convert.FromBase64String(fragment));
+                        // TODO: need some example test cases for this
+                        password = Encoding.UTF8.GetString(Convert.FromBase64String(fragment));
+
+                        //BasisDebug.Log($"setting password = {password}");
                     }
                     catch
                     {
                         // ignore invalid base64
+                        BasisDebug.LogWarning("InputValidation failure, failed to parse base64string fragment from url#pass entry.");
                     }
                 }
             }
+
+            //BasisDebug.Log($"password is now = {password}");
 
             // Platform conversion
             if (ApplyPlatformConversionOfUrl(url, out string converted))
@@ -315,6 +329,9 @@ namespace Basis.BasisUI
     public partial class LibraryProvider : BasisMenuActionProvider<BasisMainMenu>
     {
         #region Provider Setup
+
+        public static BasisProgressReport Report = new();
+        public static CancellationTokenSource CancellationSource = new();
 
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
@@ -504,18 +521,45 @@ namespace Basis.BasisUI
 
         #region BasisTrackedBundleWrapper BuildWrapper<BasisDataStoreItemKeys.ItemKey>
 
-        public static BasisTrackedBundleWrapper BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
+        [System.Serializable]
+        public class BasisLoadableBundleWrapper
         {
-            var wrapper = new BasisTrackedBundleWrapper();
-            var loadable = new BasisLoadableBundle
+            public bool ISEmbedded = false;
+            public BasisLoadableBundle BasisLoadableBundle;
+            public BasisTrackedBundleWrapper basisTrackedBundleWrapper;
+        }
+
+        public static async Task<BasisLoadableBundleWrapper> BuildWrapper(BasisDataStoreItemKeys.ItemKey item)
+        {
+            // If the metadata is missing on disk, remove the key and DO NOT attempt to create a bundle from it.
+            if (!BasisLoadHandler.IsMetaDataOnDisc(item.Url, out BasisBEEExtensionMeta info))
             {
-                BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle(),
-                BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle(),
-                BasisBundleConnector = new BasisBundleConnector(),
-                UnlockPassword = item.Pass
+                BasisDebug.Log($"Attempted to BuildWrapper({item.Url}) but IsMetaDataOnDisc returned false, removing item {item.Url}");
+                await BasisDataStoreItemKeys.RemoveKey(item); 
+                return null;
+            }
+
+            BasisLoadableBundleWrapper wrapper = new BasisLoadableBundleWrapper();
+            BasisLoadableBundle bundle = new()
+            {
+                BasisRemoteBundleEncrypted = info.StoredRemote,
+                BasisLocalEncryptedBundle = info.StoredLocal,
+                UnlockPassword = item.Pass,
+                BasisBundleConnector = new BasisBundleConnector()
+                {
+                    BasisBundleDescription = new BasisBundleDescription(),
+                    BasisBundleGenerated = new BasisBundleGenerated[]  {new() },
+                    UniqueVersion = info.UniqueVersion,
+                },
             };
-            loadable.BasisRemoteBundleEncrypted.RemoteBeeFileLocation = item.Url;
-            wrapper.LoadableBundle = loadable;
+            BasisTrackedBundleWrapper trackedWrapper = new()
+            {
+                LoadableBundle = bundle,
+            };
+            wrapper.BasisLoadableBundle = bundle;
+            wrapper.ISEmbedded = false;
+            wrapper.basisTrackedBundleWrapper = trackedWrapper;
+
             return wrapper;
         }
 
@@ -709,7 +753,22 @@ namespace Basis.BasisUI
         }
         #endregion
 
-        #region PromptUserForNewContent, AddNewNewItemKey
+        #region PromptUserForNewContent, AddNewNewItemKey, ChangeInputFieldStyle
+
+        private static void ChangeInputFieldStyle(GameObject inputFieldObject, bool isError)
+        {
+            if (inputFieldObject == null) return;
+
+            if (!inputFieldObject.TryGetComponent(out UiStyleImage styleImage))
+                return;
+
+            string newStyle = isError ? "Button Caution" : "Button Standard";
+
+            if (styleImage.ColorStyle == newStyle)
+                return;
+
+            styleImage.SetStyle(newStyle);
+        }
 
         /// <summary>
         /// Invoked on the add new content is pressed in the library provider menu, to prompt the user to enter new content with a dialog box
@@ -738,33 +797,6 @@ namespace Basis.BasisUI
             contentTypeDropDown.Descriptor.SetHeight(50);
             contentTypeDropDown.Descriptor.SetWidth(900);
 
-            // // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
-            // contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, _descriptor);
-            // string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
-            // contentSyncModeDropDown.Descriptor.SetTitle("Sync Mode");
-            // contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
-            
-            // // set to default to local
-            // contentSyncModeDropDown.SetValueWithoutNotify(desiredNetType.ToString());
-            // contentSyncModeDropDown.OnValueChanged = (val) =>
-            // {
-            //     if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
-            //     {
-            //         desiredNetType = selectedNetType;
-            //         BasisDebug.Log($"Selected Network Type: {desiredNetType}");
-            //     }
-            //     else
-            //     {
-            //         BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
-            //     }
-            // };
-
-            // content persistence toggle determines weather
-            // contentPersistenceToggle = PanelToggle.CreateNew(_descriptor,PanelToggle.Styles.Entry);
-            // contentPersistenceToggle.Descriptor.SetTitle("Is Network Persistent?");
-            // contentPersistenceToggle.Descriptor.SetDescription("Can this Object Be Loaded by joining clients?");
-            //contentPersistenceToggle.Descriptor.SetSize(new Vector2(900, 80));
-
             // BEE file URL field
             //CreateText("Add your BEE File URL:", _descriptor);
             PanelTextField URL = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, newItemDialogBox.Descriptor);
@@ -790,13 +822,13 @@ namespace Basis.BasisUI
             Password.Descriptor.SetDescription("This is the password that was generated with you BEE file.");
 
             // create a text field to show validation error messages, initially empty
-            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.Entry, newItemDialogBox.Descriptor);
+            PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.EntryWarning, newItemDialogBox.Descriptor);
             validationMessageField.Descriptor.gameObject.SetActive(false);
             validationMessageField._inputField.gameObject.SetActive(false); // disable the text input field box
             validationMessageField.Descriptor.SetTitle("AWAITING_INPUT");
             validationMessageField.Descriptor.SetDescription("AWAITING_INPUT");
-            validationMessageField.Descriptor.TitleLabel.color = Color.orange;
-            validationMessageField.Descriptor.DescriptionLabel.color = Color.orange;
+            validationMessageField.Descriptor.TitleLabel.color = Color.yellow;
+            validationMessageField.Descriptor.DescriptionLabel.color = Color.yellow;
 
             validationMessageField.Descriptor.SetHeight(50);
             validationMessageField.Descriptor.SetWidth(900);
@@ -807,15 +839,15 @@ namespace Basis.BasisUI
             acceptOrDenyPanel.Descriptor.SetHeight(50);
             acceptOrDenyPanel.Descriptor.SetWidth(900);
 
-            PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent);
-            PanelButton noPanel = PanelButton.CreateNew(ButtonStyles.CancelButton, acceptOrDenyPanel.TabButtonParent);
+            PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent); //ButtonStyles.Cancel
+            PanelButton noPanel = PanelButton.CreateNew(ButtonStyles.StandardButton, acceptOrDenyPanel.TabButtonParent);
 
             noPanel.Descriptor.SetTitle("Cancel");
             yesPanel.Descriptor.SetTitle("Add");
 
-            noPanel.Descriptor.SetWidth(450);
+            noPanel.Descriptor.SetWidth(420);
             noPanel.Descriptor.SetHeight(60);
-            yesPanel.Descriptor.SetWidth(450);
+            yesPanel.Descriptor.SetWidth(420);
             yesPanel.Descriptor.SetHeight(60);
 
             // Cancel just closes.
@@ -837,9 +869,20 @@ namespace Basis.BasisUI
                     // perform input validation, pass our current url and password along with the existing library entries to check for duplicates
                     InputValidation.EntryValidationResponse validationResponse = InputValidation.ValidateEntry(URL.Value, Password.Password, BasisDataStoreItemKeys.DisplayKeys());
 
+                    BasisDebug.Log( $"given url {URL.Value}, given password {Password.Password}" );
+                    BasisDebug.Log( $"processed url {validationResponse.ProcessedUrl} processed password {validationResponse.Password}" );
+
                     // if(validationResponse.IsValid)
                     // {
                     InputValidation.EntryValidationResult validationResult = validationResponse.Result;
+
+                    // EmptyUrl,
+                    // InvalidUrlFormat,
+                    // InvalidUrlScheme,
+                    // EmptyPassword,
+                    // DuplicateEntry,
+
+                    // Success
 
                     // we now use the validation result to determine whether to proceed with adding the item or show an error message
                     switch(validationResult)
@@ -852,6 +895,9 @@ namespace Basis.BasisUI
                                 validationMessageField.enabled = false; // hide any previous error message
                             }
 
+                            ChangeInputFieldStyle(URL._inputField.gameObject, false);
+                            ChangeInputFieldStyle(Password._inputField.gameObject, false);
+
                             // add the item to the basis key store
                             await AddNewNewItemKey(contentTypeDropDown.SelectedString, validationResponse.ProcessedUrl, validationResponse.Password);
                             // just close the overlay
@@ -859,31 +905,51 @@ namespace Basis.BasisUI
                             // refresh the current tab
                             await RefreshCurrentTab();
 
+                            return;
+                        case InputValidation.EntryValidationResult.EmptyUrl:
+                            ChangeInputFieldStyle(URL._inputField.gameObject, true);
+                            break;
+                        case InputValidation.EntryValidationResult.InvalidUrlFormat:
+                            ChangeInputFieldStyle(URL._inputField.gameObject, true);
+                            break;
+                        case InputValidation.EntryValidationResult.InvalidUrlScheme:
+                            ChangeInputFieldStyle(URL._inputField.gameObject, true);
+                            break;
+                        case InputValidation.EntryValidationResult.EmptyPassword:
+                            ChangeInputFieldStyle(URL._inputField.gameObject, false);
+                            ChangeInputFieldStyle(Password._inputField.gameObject, true);
+                            break;
+                        case InputValidation.EntryValidationResult.DuplicateEntry:
+                            ChangeInputFieldStyle(URL._inputField.gameObject, true);
+                            ChangeInputFieldStyle(Password._inputField.gameObject, true);
                             break;
                         default:
-                            // if validation failed, show an error message and do not proceed
-                            string errorMessage = validationResult switch
-                            {
-                                InputValidation.EntryValidationResult.EmptyUrl => "URL cannot be empty.",
-                                InputValidation.EntryValidationResult.InvalidUrlFormat => "URL format is invalid.",
-                                InputValidation.EntryValidationResult.InvalidUrlScheme => "URL must start with http:// or https://",
-                                InputValidation.EntryValidationResult.EmptyPassword => "Password cannot be empty.",
-                                InputValidation.EntryValidationResult.DuplicateEntry => "An entry with this URL already exists in your library.",
-                                _ => "Unknown validation error."
-                            };
-
-                            if(!validationMessageField.Descriptor.gameObject.activeSelf)
-                                validationMessageField.Descriptor.gameObject.SetActive(true);
-
-                            // setting the title and desc auto enables the game object anyway
-                            validationMessageField.Descriptor.SetTitle(validationResult.ToString());
-                            validationMessageField.Descriptor.SetDescription(errorMessage);
-
-                            // For simplicity, using Debug.LogWarning. In a real implementation, you would want to show this in the UI.
-                            BasisDebug.LogWarning(errorMessage);
-                            newItemDialogBox.IsBusy = false;
+                            BasisDebug.LogWarning("validation result returned unknown result unable to handle visual representation on UI.");
                             break;
                     }
+
+                    // if validation failed, show an error message and do not proceed
+                    string errorMessage = validationResult switch
+                    {
+                        InputValidation.EntryValidationResult.EmptyUrl => "URL cannot be empty.",
+                        InputValidation.EntryValidationResult.InvalidUrlFormat => "URL format is invalid.",
+                        InputValidation.EntryValidationResult.InvalidUrlScheme => "URL must start with http:// or https://",
+                        InputValidation.EntryValidationResult.EmptyPassword => "Password cannot be empty.",
+                        InputValidation.EntryValidationResult.DuplicateEntry => "An entry with this URL already exists in your library.",
+                        _ => "Unknown validation error."
+                    };
+
+                    if(!validationMessageField.Descriptor.gameObject.activeSelf)
+                        validationMessageField.Descriptor.gameObject.SetActive(true);
+
+                    // setting the title and desc auto enables the game object anyway
+                    validationMessageField.Descriptor.SetTitle(validationResult.ToString());
+                    validationMessageField.Descriptor.SetDescription(errorMessage);
+
+                    // For simplicity, using Debug.LogWarning. In a real implementation, you would want to show this in the UI.
+                    BasisDebug.LogWarning(errorMessage);
+                    newItemDialogBox.IsBusy = false;
+
                 }
                 catch(Exception ex)
                 {
@@ -962,22 +1028,9 @@ namespace Basis.BasisUI
             {
                 try
                 {
-                    // Ensure meta exists (only loads if not cached)
-                    await CachedMetaData.PreloadMetaDataForItem(item);
-
-                    CachedMetaData.CachedContent meta;
-                    CachedMetaData.TryGetMeta(urlKey, out meta);
-
-                    var wrapperForMeta = BuildWrapper(item);
-                    Sprite sprite = null;
-
-                    if (meta != null)
-                    {
-                        wrapperForMeta.LoadableBundle.BasisBundleConnector = meta.BasisBundleConnector;
-                        sprite = CachedMetaData.CreateSpriteFromMetaData(meta);
-                    }
-
-                    await ShowItemOverlay(meta, item, sprite, wrapperForMeta);
+                    // // Ensure meta exists (only loads if not cached)
+                    // await CachedMetaData.PreloadMetaDataForItem(item);
+                    await ShowItemOverlay(cachedMeta, item);
                 }
                 catch (Exception ex)
                 {
@@ -1004,11 +1057,11 @@ namespace Basis.BasisUI
             }
         }
 
-        public static async Task ShowItemOverlay(CachedMetaData.CachedContent metadata, BasisDataStoreItemKeys.ItemKey item, Sprite Sprite, BasisTrackedBundleWrapper Wrapper)
+        public static async Task ShowItemOverlay(CachedMetaData.CachedContent metadata, BasisDataStoreItemKeys.ItemKey item)
         {
             //BasisLoadableBundle bundle = Wrapper.LoadableBundle;
 
-            BasisDebug.Log($"{metadata}");
+            //BasisDebug.Log($"{metadata}");
 
             // TODO: actually validate the BEE file upon adding it rather than checking description for it to actually exists?
             BasisBundleDescription description = metadata.BasisBundleConnector.BasisBundleDescription;
@@ -1043,9 +1096,228 @@ namespace Basis.BasisUI
 
             // icon for the selected item
             var itemIcon = PanelElementDescriptor.CreateNew(
-                PanelElementDescriptor.ElementStyles.GroupLargeIcon, existingItemDialog.Descriptor);
+                PanelElementDescriptor.ElementStyles.GroupLargeIconVertical, existingItemDialog.Descriptor);
 
-            itemIcon.SetIcon(Sprite);
+            itemIcon.SetIcon(CachedMetaData.CreateSpriteFromMetaData(metadata));
+
+            // info about the item
+            PanelTabGroup itemMetaDataPanel = PanelTabGroup.CreateNew(PanelTabGroup.TabGroupStyles.VerticalStackedNoBackground, itemIcon.ContentParent);
+            // advancedActionsPanel.Descriptor.SetHeight(160);
+            // advancedActionsPanel.Descriptor.SetWidth(900);
+
+            #region CREATION DATE
+
+            // get the creation date of the basis bundle
+            string creationDate = metadata.BasisBundleConnector.DateOfCreation;
+
+            // determine what the creation date text is gonna say
+            if (string.IsNullOrEmpty(creationDate))
+            {
+                creationDate = "N/A";
+            }
+            else
+            {
+                creationDate = DateTime
+                    .Parse(creationDate, CultureInfo.InvariantCulture,
+                           DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal)
+                    .ToString(CultureInfo.InvariantCulture);
+
+                creationDate += " UTC";
+            }
+
+            
+
+            // creation date and time
+            PanelTextField createdInformationTextField = PanelTextField.CreateNew(TextFieldStyles.Entry, itemMetaDataPanel.TabButtonParent);
+            //validationMessageField.Descriptor.gameObject.SetActive(false);
+            createdInformationTextField._inputField.gameObject.SetActive(false); // disable the text input field box
+            createdInformationTextField.Descriptor.SetTitle("Creation Date");
+            createdInformationTextField.Descriptor.SetIcon(AddressableAssets.Sprites.Clock);
+            createdInformationTextField.Descriptor.SetDescription($"{creationDate}");
+            // validationMessageField.Descriptor.TitleLabel.color = Color.yellow;
+            // validationMessageField.Descriptor.DescriptionLabel.color = Color.yellow;
+
+            createdInformationTextField.Descriptor.SetHeight(50);
+            createdInformationTextField.Descriptor.SetWidth(400);
+
+            #endregion
+
+            #region PLATFORM ICONS
+
+            // create a text field to show validation error messages, initially empty
+            PanelTabGroup platformIconsPanel = PanelTabGroup.CreateNew(PanelTabGroup.TabGroupStyles.HorizontalStackedNoBackground, itemMetaDataPanel.TabButtonParent);
+            //validationMessageField.Descriptor.gameObject.SetActive(false);
+            //platformIconsPanel._inputField.gameObject.SetActive(false); // disable the text input field box
+            //platformIconsPanel.Descriptor.SetTitle("PLATFORM ICONS");
+            //platformIconsPanel.Descriptor.SetDescription("PLATFORM ICONS DESC");
+            // validationMessageField.Descriptor.TitleLabel.color = Color.yellow;
+            // validationMessageField.Descriptor.DescriptionLabel.color = Color.yellow;
+
+            platformIconsPanel.Descriptor.SetHeight(50);
+            platformIconsPanel.Descriptor.SetWidth(400);
+
+            string[] platforms = metadata.BasisBundleConnector.BasisBundleGenerated
+                .Select(pair => pair.Platform)
+                .ToArray();
+            
+            BasisDebug.Log($"item {item.Url} has platforms supported {platforms} {platforms.Length}");
+
+            foreach (string platform in platforms)
+            {
+                string address = null;
+
+                switch (platform)
+                {
+                    case "StandaloneWindows64":
+                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Windows.prefab";
+                        break;
+
+                    case "StandaloneOSX":
+                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Mac.prefab";
+                        break;
+
+                    case "StandaloneLinux64":
+                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Linux.prefab";
+                        break;
+
+                    case "Android":
+                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Android.prefab";
+                        break;
+
+                    case "iOS":
+                        address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - iOS.prefab";
+                        break;
+                }
+
+                if (string.IsNullOrEmpty(address))
+                {
+                    continue;
+                }
+
+                var handle = Addressables.LoadAssetAsync<GameObject>(address);
+                var prefab = await handle.Task;
+
+                GameObject.Instantiate(prefab, platformIconsPanel.TabButtonParent.transform);
+            }
+
+            #endregion
+
+            BundledContentHolder.NetworkType desiredNetworkType = BundledContentHolder.NetworkType.Local;
+            bool ephemeral = false;
+
+            switch(item.Mode)
+            {
+                case BundledContentHolder.Mode.Avatar:
+                    break;
+                case BundledContentHolder.Mode.Prop:
+
+                    // Advanced Settings
+                    PanelTabGroup advancedActionsPanel = PanelTabGroup.CreateNew(PanelTabGroup.TabGroupStyles.VerticalStackedNoBackground, existingItemDialog.Descriptor);
+                    advancedActionsPanel.Descriptor.SetHeight(160);
+                    advancedActionsPanel.Descriptor.SetWidth(900);
+
+                    // PanelTabPage tab = PanelTabPage.CreateGrid(advancedActionsPanel.Descriptor.ContentParent);
+                    // tab.rectTransform.offsetMin = new Vector2(0, 0);
+
+                    // content sync mode dropdown determines whether the new item is flagged as networked or local, which affects filtering and how the item is loaded later
+                    PanelDropdown contentSyncModeDropDown = PanelDropdown.CreateNew(PanelDropdown.DropdownStyles.OverlayEntry, advancedActionsPanel.TabButtonParent);
+                    string[] contentSyncModes = Enum.GetNames(typeof(BundledContentHolder.NetworkType));
+                    contentSyncModeDropDown.Descriptor.SetTitle("Network Type");
+                    contentSyncModeDropDown.Descriptor.SetDescription("Determines visibility.");
+                    contentSyncModeDropDown.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
+                    contentSyncModeDropDown.AssignEntries(contentSyncModes.ToList());
+                    contentSyncModeDropDown.Descriptor.SetSize(new Vector2(700, 80));
+                    
+                    // set the default network type
+                    contentSyncModeDropDown.SetValueWithoutNotify(desiredNetworkType.ToString());
+                    contentSyncModeDropDown.OnValueChanged = (val) =>
+                    {
+                        if (Enum.TryParse(contentSyncModeDropDown.SelectedString, out BundledContentHolder.NetworkType selectedNetType))
+                        {
+                            desiredNetworkType = selectedNetType;
+                            BasisDebug.Log($"Selected Network Type: {desiredNetworkType}");
+                        }
+                        else
+                        {
+                            BasisDebug.LogError("Coudnt Parse BundledContentHolder.NetworkType!");
+                        }
+                    };
+
+                    //content persistence toggle determines weather
+                    PanelToggle contentPersistenceToggle = PanelToggle.CreateNew(advancedActionsPanel.TabButtonParent, PanelToggle.Styles.Entry);
+                    contentPersistenceToggle.SetValueWithoutNotify(false);
+                    contentPersistenceToggle.Descriptor.SetTitle("Ephemeral Mode");
+                    contentPersistenceToggle.Descriptor.SetIcon(AddressableAssets.Sprites.HourGlass);
+                    contentPersistenceToggle.Descriptor.SetDescription("If enabled, this item will only be visible to people currently in the instance. Late joiners wont be able to see this.");
+                    contentPersistenceToggle.Descriptor.SetSize(new Vector2(700, 80));
+                    contentPersistenceToggle.OnValueChanged = (val) =>
+                    {
+                        ephemeral = val;
+                    };
+
+                    break;
+                case BundledContentHolder.Mode.World:
+                    break;
+                default:
+                    BasisDebug.Log( $"Unknown item.Mode {item.Mode} for item {item.Url}, unable to determine ShowItemOverlay layout" );
+                    break;
+
+            }
+
+
+            // Delete & Load Buttons
+            PanelTabGroup actionsPanel = PanelTabGroup.CreateNew(existingItemDialog.Descriptor, LayoutDirection.HorizontalNoBackground);
+
+            actionsPanel.Descriptor.SetHeight(50);
+            actionsPanel.Descriptor.SetWidth(900);
+
+            PanelButton deletePanelButton = PanelButton.CreateNew(ButtonStyles.CancelButton, actionsPanel.TabButtonParent); //ButtonStyles.Cancel
+            PanelButton loadPanelButton = PanelButton.CreateNew(ButtonStyles.AcceptButton, actionsPanel.TabButtonParent);
+
+            deletePanelButton.Descriptor.SetTitle("Delete");
+            loadPanelButton.Descriptor.SetTitle("Load");
+
+            deletePanelButton.Descriptor.SetWidth(220);
+            deletePanelButton.Descriptor.SetHeight(60);
+            loadPanelButton.Descriptor.SetWidth(620);
+            loadPanelButton.Descriptor.SetHeight(60);
+
+            // upon delete we do these actions
+            deletePanelButton.OnClicked += async () =>
+            {
+                if (existingItemDialog.IsBusy) return;
+                existingItemDialog.IsBusy = true;
+
+                // remove the item
+                await BasisDataStoreItemKeys.RemoveKey(item);
+                // just close the overlay instead.
+                await existingItemDialog.CloseAsync();
+                // refresh current tab
+                await RefreshCurrentTab();
+            };
+
+            // on load of a item we do these actions
+            loadPanelButton.OnClicked += async () =>
+            {
+                if (existingItemDialog.IsBusy) return;
+                existingItemDialog.IsBusy = true;
+
+                try
+                {
+                    BasisDebug.Log($"Load Button Clicked for item: {item.Url}");
+                    await LoadSelectedItem(item, desiredNetworkType, !ephemeral);
+                }
+                catch (Exception ex)
+                {
+                    BasisDebug.LogError(ex);
+                }
+                finally
+                {
+                    // just close the overlay instead.
+                    await existingItemDialog.CloseAsync();
+                }
+
+            };
 
             // string creationDate = bundle.BasisBundleConnector.DateOfCreation;
             // if (string.IsNullOrEmpty(creationDate))
@@ -1097,48 +1369,6 @@ namespace Basis.BasisUI
             // passField._inputField.interactable = false;
             // passField.Descriptor.SetTitle("Password:");
             // passField.LayoutElement.minWidth = 500;
-
-            // string[] platforms = bundle.BasisBundleConnector.BasisBundleGenerated
-            //     .Select(pair => pair.Platform)
-            //     .ToArray();
-
-            // foreach (string platform in platforms)
-            // {
-            //     string address = null;
-
-            //     switch (platform)
-            //     {
-            //         case "StandaloneWindows64":
-            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Windows.prefab";
-            //             break;
-
-            //         case "StandaloneOSX":
-            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Mac.prefab";
-            //             break;
-
-            //         case "StandaloneLinux64":
-            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Linux.prefab";
-            //             break;
-
-            //         case "Android":
-            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Android.prefab";
-            //             break;
-
-            //         case "iOS":
-            //             address = "Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - iOS.prefab";
-            //             break;
-            //     }
-
-            //     if (string.IsNullOrEmpty(address))
-            //     {
-            //         continue;
-            //     }
-
-            //     var handle = Addressables.LoadAssetAsync<GameObject>(address);
-            //     var prefab = await handle.Task;
-
-            //     GameObject.Instantiate(prefab, actionsSupportedPlatforms.TabButtonParent.transform);
-            // }
 
             // // Buttons row
             // PanelTabGroup actions = PanelTabGroup.CreateNew(_descriptor, LayoutDirection.HorizontalNoBackground);
@@ -1289,42 +1519,60 @@ namespace Basis.BasisUI
         /// <summary>
         /// Apply the current avatar onto the player.
         /// </summary>
-        public static async Task LoadAvatar(BasisDataStoreItemKeys.ItemKey item, BasisTrackedBundleWrapper wrapper, BasisProgressReport report)
+        public static async Task LoadAvatar(BasisDataStoreItemKeys.ItemKey item)
         {
             if (BasisLocalPlayer.Instance)
             {
-                BasisLoadableBundle bundle = wrapper.LoadableBundle;
+                // Try get cached meta once
+                CachedMetaData.CachedContent cachedMeta;
+                if(CachedMetaData.TryGetMeta(item.Url, out cachedMeta))
+                {
+                    //BasisLoadableBundleWrapper wrapper = await BuildWrapper(item);
+                    BasisLoadableBundle bundle = cachedMeta.BasisLoadableBundle;
+                    //BasisLoadableBundle bundle = wrapper.basisTrackedBundleWrapper.LoadableBundle;
 
-                if (bundle.BasisBundleConnector.GetPlatform(out BasisBundleGenerated platformBundle))
-                {
-                    string assetMode = platformBundle.AssetMode;
-                    byte mode = !string.IsNullOrEmpty(assetMode) && byte.TryParse(assetMode, out byte result)
-                        ? result
-                        : (byte)0;
-                    await BasisLocalPlayer.Instance.CreateAvatar(mode, bundle);
-                }
-                else
-                {
-                    if (bundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
+                    BasisDebug.Log($"LoadAvatar({item.Url}) -> bundle = {bundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName}");
+
+                    if (cachedMeta.BasisBundleConnector.GetPlatform(out BasisBundleGenerated platformBundle))
                     {
-                        await BasisLocalPlayer.Instance.CreateAvatar(1, bundle);
+                        string assetMode = platformBundle.AssetMode;
+                        byte mode = !string.IsNullOrEmpty(assetMode) && byte.TryParse(assetMode, out byte result)
+                            ? result
+                            : (byte)0;
+                        await BasisLocalPlayer.Instance.CreateAvatar(mode, bundle);
                     }
                     else
                     {
-                        BasisDebug.LogError("LoadAvatar -> Missing Platform " + Application.platform);
+                        if (bundle.UnlockPassword == BasisBeeConstants.DefaultAvatar)
+                        {
+                            await BasisLocalPlayer.Instance.CreateAvatar(1, bundle);
+                        }
+                        else
+                        {
+                            BasisDebug.LogError("LoadAvatar -> Missing Platform " + Application.platform);
+                        }
                     }
+                }
+                else
+                {
+                    BasisDebug.LogError($"LoadAvatar({item.Url}) -> failed to get cached meta");
                 }
             }
             else
             {
-                BasisDebug.LogError("Attempted to LoadAvatar without a BasisLocalPlayer.Instance, request denied.");
+                BasisDebug.LogError("Attempted to LoadAvatar without a BasisLocalPlayer.Instance.");
             }
         }
 
         /// <summary>
         /// Spawn the selected prop into the world with the specified networking type.
         /// </summary>
-        public static async Task LoadProp(BasisDataStoreItemKeys.ItemKey item, BasisTrackedBundleWrapper wrapper, BasisProgressReport report)
+        public static async Task LoadProp( 
+            BasisDataStoreItemKeys.ItemKey item, 
+            BundledContentHolder.NetworkType desiredNetworkType,
+            bool persistent = false,
+            bool modifyScale = false
+        )
         {
 
             // grab the item url and pass
@@ -1339,11 +1587,11 @@ namespace Basis.BasisUI
             // this basically determines when the object should stay in the world for new joiners
             // if a player joins an instance and this is true, they will load this into the instance
             // if false only people in the instance will only see the object at the current time, not before or after
-            bool persistent = false; // should be on by default
-            bool modifyScale = false;
+            //bool persistent = false; // should be on by default
+            //bool modifyScale = false;
 
             // spawn everything locally for now
-            BundledContentHolder.NetworkType desiredNetworkType = BundledContentHolder.NetworkType.Local;
+            //BundledContentHolder.NetworkType desiredNetworkType = BundledContentHolder.NetworkType.Local;
 
             switch(desiredNetworkType)
             {
@@ -1355,9 +1603,12 @@ namespace Basis.BasisUI
                         // can rely on wrapper having connector data.
                         if (cached.BasisBundleConnector != null)
                         {
-                            wrapper.LoadableBundle.BasisBundleConnector = cached.BasisBundleConnector;
+                            //wrapper.LoadableBundle.BasisBundleConnector = cached.BasisBundleConnector;
 
-                            BasisProgressReport Report = new BasisProgressReport();
+                            //BasisLoadableBundleWrapper wrapper = await BuildWrapper(item);
+                            BasisLoadableBundle bundle = cached.BasisLoadableBundle;//wrapper.BasisLoadableBundle;
+
+                            //BasisProgressReport Report = new BasisProgressReport();
                             CancellationToken Cancel = new CancellationToken();
 
                             // oh dear
@@ -1369,7 +1620,7 @@ namespace Basis.BasisUI
                                 _ => BundledContentHolder.Selector.Prop
                             };
 
-                            GameObject CreatedObject = await BasisLoadHandler.LoadGameObjectBundle(wrapper.LoadableBundle, true, Report, Cancel, spawnPos, spawnRot, spawnScale, modifyScale, selector, BasisNetworkManagement.Instance.transform);
+                            GameObject CreatedObject = await BasisLoadHandler.LoadGameObjectBundle(bundle, true, Report, Cancel, spawnPos, spawnRot, spawnScale, modifyScale, selector, BasisNetworkManagement.Instance.transform);
 
                             if(CreatedObject != null)
                             {
@@ -1415,27 +1666,29 @@ namespace Basis.BasisUI
             }
         }
 
-        private static async Task LoadSelectedItem(BasisDataStoreItemKeys.ItemKey item)
+        /// <summary>
+        /// used to load a target item from a BasisDataStoreItemKeys.ItemKey
+        /// items are branched with a switch statement depending on item mode
+        /// </summary>
+        /// <param name="item">The ItemKey desired to be loaded</param>
+        /// <param name="networkType">default local unless specified</param>
+        /// <returns></returns>
+        private static async Task LoadSelectedItem(BasisDataStoreItemKeys.ItemKey item, BundledContentHolder.NetworkType networkType = BundledContentHolder.NetworkType.Local, bool persistence = false, bool modifyScale = false)
         {
-            BasisTrackedBundleWrapper wrapper = BuildWrapper(item);
-            BasisProgressReport report = new BasisProgressReport();
-
             // At this point the item should be fully loaded and ready to use. What happens next is up to you and your application needs.
             // For example, you could raise an event that other parts of your app listen for, or directly instantiate the loaded content if it's a prefab.
-            BasisDebug.Log($"Attempting to load selected item: {item.Url} item type {item.Mode}");
+            BasisDebug.Log($"Attempting to load selected item: {item.Url} item type {item.Mode} with network type {networkType} persistent = {persistence} modifyScale = {modifyScale}");
 
             try
             {
-                BasisDebug.Log($"Attempting to Load {item.Mode} {item.Url} From Library.");
-
                 switch(item.Mode)
                 {
                     case BundledContentHolder.Mode.Avatar:
                         // For avatars we might want to apply them directly to the player instead of spawning in the world as a separate object
-                        await LoadAvatar(item, wrapper, report);
+                        await LoadAvatar(item);
                         break;
                     case BundledContentHolder.Mode.Prop:
-                        await LoadProp(item, wrapper, report);
+                        await LoadProp(item, networkType, persistence, modifyScale);
                         break;
                     case BundledContentHolder.Mode.World:
                         BasisDebug.LogWarning("World loading not implemented yet, breaking out of load logic to prevent errors. Implement LoadWorld!");

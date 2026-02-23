@@ -7,7 +7,7 @@ namespace Basis.BasisUI
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
-            //BasisMenuBase<BasisMainMenu>.AddProvider(new AvatarsProvider());
+            BasisMenuBase<BasisMainMenu>.AddProvider(new AvatarsProvider());
         }
 
         public override string Title => "Avatars";
