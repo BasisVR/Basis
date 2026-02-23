@@ -382,11 +382,8 @@ namespace Basis.BasisUI
                 BasisMenuPanel.PanelData.Standard(Title),
                 BasisMenuPanel.PanelStyles.Page);
 
-<<<<<<< HEAD
             // No tab cache to reset; tabs will be rebuilt on selection
 
-=======
->>>>>>> 4253a1450 (made layout changes to the horizontal layout to be used by the library menu)
             // this sets the title of our panel
             var titleLabel = panel.Descriptor.TitleLabel;
             titleLabel.text = Title;
@@ -397,7 +394,6 @@ namespace Basis.BasisUI
             // create a tab group to hold our content categories
             PanelTabGroup tabGroup = PanelTabGroup.CreateNew(panel.Descriptor.ContentParent, LayoutDirection.Horizontal);
 
-<<<<<<< HEAD
             // create our main tabs without preloading items; items will be loaded lazily on tab selection
             var propsTab = PropsTab(tabGroup);
             var worldsTab = WorldsTab(tabGroup);
@@ -481,38 +477,6 @@ namespace Basis.BasisUI
             tabGroup.AddExtraAction("Add New Content", PromptUserForNewContent, new Vector2( 70, 80 ));
 
             await RefreshTabAsync(BundledContentHolder.Mode.Prop, propsTab); // default to props tab on first open
-=======
-            PanelTabGroup tabGroup = PanelTabGroup.CreateNew(panel.Descriptor.ContentParent, LayoutDirection.Horizontal);
-
-            // await BasisDataStoreItemKeys.LoadKeys();
-            // BasisDataStoreItemKeys.ItemKey[] data = BasisDataStoreItemKeys.DisplayKeys();
-
-            List<BasisDataStoreItemKeys.ItemKey> props = new();
-            List<BasisDataStoreItemKeys.ItemKey> worlds = new();
-            List<BasisDataStoreItemKeys.ItemKey> avatars = new();
-            // BasisDebug.Log($"Stored Item Keys were {data.Length}");
-            // for (int i = 0; i < data.Length; i++)
-            // {
-            //     var k = data[i];
-            //     switch (k.Mode)
-            //     {
-            //         case BundledContentHolder.Mode.Prop: props.Add(k); break;
-            //         case BundledContentHolder.Mode.World: worlds.Add(k); break;
-            //         case BundledContentHolder.Mode.Avatar: avatars.Add(k); break;
-            //         default:
-            //             BasisDebug.LogError($"Mode Not Implented! {k.Mode}");
-            //             break;
-            //     }
-            // }
-
-            // create our main tabs
-            tabGroup.AddTab("Props", null, PropsTab(tabGroup, props));
-            tabGroup.AddTab("Worlds", null, WorldsTab(tabGroup, worlds));
-            tabGroup.AddTab("Avatars", null, AvatarsTab(tabGroup, avatars));
-
-            // add our extra menu button items, this is the buttons below the panel content
-            tabGroup.AddExtraAction("Add New Item", AddNewItem);
->>>>>>> 4253a1450 (made layout changes to the horizontal layout to be used by the library menu)
 
             panel.Descriptor.ForceRebuild();
         }
@@ -571,13 +535,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-<<<<<<< HEAD
             d.SetTitle("Props");
-=======
-            //d.SetTitle("Props");
-            d.SetIcon(AddressableAssets.Sprites.Items);
-            BuildItemsList(items, tab);
->>>>>>> 4253a1450 (made layout changes to the horizontal layout to be used by the library menu)
             d.ForceRebuild();
             return tab;
         }
@@ -586,13 +544,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-<<<<<<< HEAD
             d.SetTitle("Worlds");
-=======
-            //d.SetTitle("Worlds");
-            d.SetIcon(AddressableAssets.Sprites.Servers);
-            BuildItemsList(items, tab);
->>>>>>> 4253a1450 (made layout changes to the horizontal layout to be used by the library menu)
             d.ForceRebuild();
             return tab;
         }
@@ -601,13 +553,7 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateGrid(tabGroup.Descriptor.ContentParent);
             tab.rectTransform.offsetMin = new Vector2(0, 0);
             var d = tab.Descriptor;
-<<<<<<< HEAD
             d.SetTitle("Avatars");
-=======
-            //d.SetTitle("Avatars");
-            d.SetIcon(AddressableAssets.Sprites.Avatars);
-            BuildItemsList(items, tab);
->>>>>>> 4253a1450 (made layout changes to the horizontal layout to be used by the library menu)
             d.ForceRebuild();
             return tab;
         }

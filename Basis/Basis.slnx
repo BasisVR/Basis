@@ -15,6 +15,7 @@
   <Project Path="Unity.Collections.csproj" />
   <Project Path="UnityEngine.UI.csproj" />
   <Project Path="Unity.Addressables.Editor.csproj" />
+  <Project Path="Unity.MemoryProfiler.Editor.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.2D.Runtime.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.Editor.csproj" />
   <Project Path="Unity.PerformanceTesting.Editor.csproj" />
@@ -30,7 +31,6 @@
   <Project Path="Unity.VisualStudio.Editor.csproj" />
   <Project Path="Unity.Animation.Rigging.Editor.csproj" />
   <Project Path="Basis Framework.csproj" />
-  <Project Path="Unity.MemoryProfiler.Editor.csproj" />
   <Project Path="PPv2URPConverters.csproj" />
   <Project Path="SteamVR.csproj" />
   <Project Path="com.gator-dragon-games.jigglephysics.editor.csproj" />
