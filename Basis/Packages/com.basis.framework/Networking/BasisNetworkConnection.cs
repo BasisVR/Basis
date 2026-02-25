@@ -176,10 +176,10 @@ namespace Basis.Scripts.Networking
 
                     transmitter.Initialize();
 
+                    LocalPlayerIsConnected = true;
+
                     BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
                     BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
-
-                    LocalPlayerIsConnected = true;
                 }
                 catch (Exception ex)
                 {
