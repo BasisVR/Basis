@@ -24,6 +24,8 @@ namespace Cilbox
 			"Basis.IBasisImageDownload",
 			"Basis.BasisNetworkBehaviour",
 			"System.Delegate",
+			"BasisSDKMirror",
+			"BasisSDKMirror+MirrorClearFlags",
 
 			"UnityEngine.Texture2DArray",
 			"Basis.SafeUtil",
