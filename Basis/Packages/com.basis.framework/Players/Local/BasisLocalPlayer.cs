@@ -30,7 +30,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Singleton-like reference to the active local player instance.
         /// </summary>
-        public static BasisLocalPlayer Instance;
+        public static BasisLocalPlayer Instance { get; private set; }
 
         /// <summary>
         /// True when the local player has completed initialization and is ready for interaction.
@@ -276,6 +276,17 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisDebug.Log("failed to load last used : url was not found on disc", BasisDebug.LogTag.Avatar);
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
+        }
+
+        /// <summary>
+        /// Retrieves the current world position and rotation of the local player.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="rotation"></param>
+        public void GetPositionAndRotation(out Vector3 position, out Quaternion rotation)
+        {
+            position = this.transform.position;
+            rotation = this.transform.rotation;
         }
 
         /// <summary>

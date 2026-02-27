@@ -336,7 +336,7 @@ MonoBehaviour:
   - Basis.Scripts.Vehicles.Parts.BasisVehicleHoverThruster
   - ExampleMovingChair
   - ExampleRotatingChair
-  - Cilbox.CilboxScene
+  - Cilbox.CilboxPropBasis
   - BasisNetworkedVehicles
   - Basis.Scripts.Vehicles.Parts.BasisVehicleSteeringWheel
   - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
