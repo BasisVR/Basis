@@ -2,6 +2,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System.Collections.Generic;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Material = UnityEngine.Material;
@@ -370,25 +371,27 @@ namespace Basis.Scripts.Drivers
                 MaterialCorrection(r, BundledContentHolder.Instance.UrpShader);
             }
         }
-        private struct ShadowCloneEntry
+        private struct BasisShadowCloneEntry
         {
             public SkinnedMeshRenderer Source;
             public SkinnedMeshRenderer Clone;
             public int BlendShapeCount;
+            public float[] Values;
         }
-        private static readonly List<ShadowCloneEntry> LocalShadowClones = new();
+        private static List<BasisShadowCloneBlendshapeSync> ShadowCloneSyncs = new();
         private static void RemoveOldShadowClones()
         {
-            int count = LocalShadowClones.Count;
-            for (int Index = 0; Index < count; Index++)
+            for (int i = 0; i < ShadowCloneSyncs.Count; i++)
             {
-                SkinnedMeshRenderer Renderer = LocalShadowClones[Index].Clone;
-                if (Renderer != null)
+                ShadowCloneSyncs[i].Dispose();
+
+                var clone = ShadowCloneSyncs[i].Clone;
+                if (clone != null)
                 {
-                    GameObject.Destroy(Renderer.gameObject);
+                    GameObject.Destroy(clone.gameObject);
                 }
             }
-            LocalShadowClones.Clear();
+            ShadowCloneSyncs.Clear();
         }
         private static void EnsureShadowOnlyClone(SkinnedMeshRenderer source, int layer)
         {
@@ -438,32 +441,61 @@ namespace Basis.Scripts.Drivers
                 LocalShadowClone.skinnedMotionVectors = false;
                 LocalShadowClone.localBounds = source.localBounds;
                 LocalShadowClone.forceMeshLod = -1;
-                LocalShadowClones.Add(new ShadowCloneEntry
-                {
-                    Source = source,
-                    Clone = LocalShadowClone,
-                    BlendShapeCount = blendShapeCount,
-                });
+                ShadowCloneSyncs.Add(new BasisShadowCloneBlendshapeSync(source, LocalShadowClone, blendShapeCount));
             }
         }
-
-        public static void SyncShadowCloneBlendshapes()
+        public static void ScheduleReadBlendShapes(float epsilon = 0.001f)
         {
-            int count = LocalShadowClones.Count;
-            for (int cloneIndex = 0; cloneIndex < count; cloneIndex++)
+            for (int s = 0; s < ShadowCloneSyncs.Count; s++)
             {
-                ShadowCloneEntry entry = LocalShadowClones[cloneIndex];
-                if (entry.Source == null || entry.Clone == null)
+                var sync = ShadowCloneSyncs[s];
+
+                if (sync.Source == null || sync.Clone == null)
+                    continue;
+
+                int count = sync.Count;
+
+                for (int i = 0; i < count; i++)
+                {
+                    sync.Current[i] = sync.Source.GetBlendShapeWeight(i);
+                }
+
+                // Schedule job
+                var job = new BasisDiffBlendShapesJob
+                {
+                    Current = sync.Current,
+                    Previous = sync.Previous,
+                    ChangedMask = sync.ChangedMask,
+                    Epsilon = epsilon
+                };
+
+                // Batch size can be tuned; 32 is a decent start
+                sync.Handle = job.Schedule(count, 32);
+            }
+        }
+        public static void ApplyShadowCloneBlendShapes()
+        {
+            for (int s = 0; s < ShadowCloneSyncs.Count; s++)
+            {
+                var sync = ShadowCloneSyncs[s];
+
+                if (sync.Source == null || sync.Clone == null)
                 {
                     continue;
                 }
-                for (int i = 0; i < entry.BlendShapeCount; i++)
+
+                sync.Handle.Complete();
+
+                int count = sync.Count;
+                for (int i = 0; i < count; i++)
                 {
-                    entry.Clone.SetBlendShapeWeight(i, entry.Source.GetBlendShapeWeight(i));
+                    if (sync.ChangedMask[i] != 0)
+                    {
+                        sync.Clone.SetBlendShapeWeight(i, sync.Previous[i]);
+                    }
                 }
             }
         }
-
         private static bool TryGetFirstColor(Material mat, out Color value, out string foundProp)
         {
             for (int i = 0; i < ColorProps.Length; i++)
@@ -480,8 +512,7 @@ namespace Basis.Scripts.Drivers
             foundProp = string.Empty;
             return false;
         }
-
-        private static bool TryGetFirstTextureWithScaleAndOffset(Material mat, string[] props, out TexTransform result, out string foundProp)
+        private static bool TryGetFirstTextureWithScaleAndOffset(Material mat, string[] props, out BasisTexTransform result, out string foundProp)
         {
             for (int i = 0; i < props.Length; i++)
             {
@@ -496,7 +527,7 @@ namespace Basis.Scripts.Drivers
             foundProp = string.Empty;
             return false;
         }
-        public static bool TryGetTextureWithScaleAndOffset(Material mat, string propertyName, out TexTransform result)
+        public static bool TryGetTextureWithScaleAndOffset(Material mat, string propertyName, out BasisTexTransform result)
         {
             result = default;
 
@@ -514,10 +545,9 @@ namespace Basis.Scripts.Drivers
             Vector2 scale = mat.GetTextureScale(propertyName);
             Vector2 offset = mat.GetTextureOffset(propertyName);
 
-            result = new TexTransform(tex, scale, offset);
+            result = new BasisTexTransform(tex, scale, offset);
             return true;
         }
-
         public static void MaterialCorrection(SkinnedMeshRenderer renderer, Shader fallbackUrpShader)
         {
             if (renderer == null)
@@ -559,10 +589,10 @@ namespace Basis.Scripts.Drivers
                 {
                     continue;
                 }
-                bool hasAlbedo = TryGetFirstTextureWithScaleAndOffset(mat, AlbedoProps, out TexTransform albedo, out string albedoProp);
-                bool hasNormal = TryGetFirstTextureWithScaleAndOffset(mat, NormalProps, out TexTransform normal, out string normalProp);
-                bool hasMetal = TryGetFirstTextureWithScaleAndOffset(mat, MetallicProps, out TexTransform metal, out string metalProp);
-                bool hasOcc = TryGetFirstTextureWithScaleAndOffset(mat, OcclusionProps, out TexTransform occ, out string occProp);
+                bool hasAlbedo = TryGetFirstTextureWithScaleAndOffset(mat, AlbedoProps, out BasisTexTransform albedo, out string albedoProp);
+                bool hasNormal = TryGetFirstTextureWithScaleAndOffset(mat, NormalProps, out BasisTexTransform normal, out string normalProp);
+                bool hasMetal = TryGetFirstTextureWithScaleAndOffset(mat, MetallicProps, out BasisTexTransform metal, out string metalProp);
+                bool hasOcc = TryGetFirstTextureWithScaleAndOffset(mat, OcclusionProps, out BasisTexTransform occ, out string occProp);
                 bool hasColor = TryGetFirstColor(mat, out Color baseColor, out string colorProp);
                 var fixedMat = new Material(fallbackUrpShader)
                 {
@@ -609,18 +639,6 @@ namespace Basis.Scripts.Drivers
             if (anyChanged)
             {
                 renderer.sharedMaterials = materials;
-            }
-        }
-        public struct TexTransform
-        {
-            public Texture texture;
-            public Vector2 scale;
-            public Vector2 offset;
-            public TexTransform(Texture tex, Vector2 scale, Vector2 offset)
-            {
-                this.texture = tex;
-                this.scale = scale;
-                this.offset = offset;
             }
         }
     }

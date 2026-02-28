@@ -194,7 +194,7 @@ public class BasisEventDriver : MonoBehaviour
             BasisLocalPlayer.Instance.Simulate(DeltaTime);//update local player
             BasisLocalCameraDriver.Instance.Simulate();
         }
-        BasisAvatarDriver.SyncShadowCloneBlendshapes();
+        BasisAvatarDriver.ScheduleReadBlendShapes();
         // JigglePhysics: schedule/complete passes
         JigglePhysics.ScheduleSimulate(fixedTimeAsDouble, TimeAsDouble, fixedDeltaTime); //schedule jiggles
         // send out avatar
@@ -218,6 +218,7 @@ public class BasisEventDriver : MonoBehaviour
         }
         //doing main thread work before this call is ideal for best performance.
         JigglePhysics.CompletePose();
+        BasisAvatarDriver.ApplyShadowCloneBlendShapes();
 #if UNITY_SERVER
         OnBeforeRender();
 #endif
