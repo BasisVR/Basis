@@ -13,12 +13,10 @@ namespace Basis.BasisUI
             public static string Tab => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Tab Variant.prefab";
             public static string Hotbar => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Hotbar Variant.prefab";
             public static string Avatar => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Avatar Variant.prefab";
-
-            public static string Prop => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Avatar Variant.prefab";
+            public static string Prop => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Library Variant.prefab";
+            public static string StandardButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Button Standard Variant.prefab";
             public static string AcceptButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Button Yes Variant.prefab";
-
             public static string CancelButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Cancel Button Variant.prefab";
-
             public static string ExitButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Close Button.prefab";
             public static string ExitButtonOverlay => "Packages/com.basis.sdk/Prefabs/Panel Elements/Close Button - Modal.prefab";
         }

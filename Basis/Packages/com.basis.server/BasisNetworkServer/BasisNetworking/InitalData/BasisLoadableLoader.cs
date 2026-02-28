@@ -38,6 +38,7 @@ namespace BasisNetworking.InitalData
                     if(string.IsNullOrEmpty(LLR.LoadedNetID))
                     {
                         LLR.LoadedNetID = GenerateUniqueID();
+                        BNL.Log($"No Network Id Assigned Generated to be {LLR.LoadedNetID}");
                     }
                     BasisNetworkResourceManagement.LoadResource(LLR);
 

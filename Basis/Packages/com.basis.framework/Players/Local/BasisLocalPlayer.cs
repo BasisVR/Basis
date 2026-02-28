@@ -11,6 +11,7 @@ using System.Collections;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
 using static BasisHeightDriver;
 
 namespace Basis.Scripts.BasisSdk.Players
@@ -29,7 +30,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Singleton-like reference to the active local player instance.
         /// </summary>
-        public static BasisLocalPlayer Instance;
+        public static BasisLocalPlayer Instance { get; private set; }
 
         /// <summary>
         /// True when the local player has completed initialization and is ready for interaction.
@@ -249,20 +250,16 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisBEEExtensionMeta info))
             {
-                await BasisDataStoreAvatarKeys.LoadKeys();
-                BasisDataStoreAvatarKeys.AvatarKey[] activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
-                foreach (BasisDataStoreAvatarKeys.AvatarKey Key in activeKeys)
+                await BasisDataStoreItemKeys.LoadKeys();
+                ItemKey[] activeKeys = BasisDataStoreItemKeys.DisplayKeys();
+                foreach (ItemKey Key in activeKeys)
                 {
-                    if (Key.Url == LastUsedAvatar.UniqueID)
+                    if (Key.Mode == BundledContentHolder.Mode.Avatar && Key.Url == LastUsedAvatar.UniqueID)
                     {
                         BasisLoadableBundle bundle = new BasisLoadableBundle
                         {
                             BasisRemoteBundleEncrypted = info.StoredRemote,
-                            BasisBundleConnector = new BasisBundleConnector(
-                                "1",
-                                new BasisBundleDescription("Loading Avatar", "Loading Avatar"),
-                                new BasisBundleGenerated[] { new BasisBundleGenerated() },
-                                null),
+                            BasisBundleConnector = new BasisBundleConnector("1", new BasisBundleDescription("Loading Avatar", "Loading Avatar"), new BasisBundleGenerated[] { new BasisBundleGenerated() }, null, new BasisBounds(Vector3.zero, Vector3.one), new BasisBundleConnector.BasisMetaData()),
                             BasisLocalEncryptedBundle = info.StoredLocal,
                             UnlockPassword = Key.Pass
                         };
@@ -279,6 +276,17 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisDebug.Log("failed to load last used : url was not found on disc", BasisDebug.LogTag.Avatar);
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
+        }
+
+        /// <summary>
+        /// Retrieves the current world position and rotation of the local player.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="rotation"></param>
+        public void GetPositionAndRotation(out Vector3 position, out Quaternion rotation)
+        {
+            position = this.transform.position;
+            rotation = this.transform.rotation;
         }
 
         /// <summary>

@@ -1,7 +1,10 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
+using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -72,7 +75,7 @@ namespace Basis.BasisUI
             connectButton = PanelButton.CreateNew(container);
             connectButton.Descriptor.SetTitle("Connect");
             connectButton.Descriptor.SetHeight(80);
-            connectButton.OnClicked += () => _ = HasUserName();
+            connectButton.OnClicked += () => _ = OnConnectButton();
 
             ShowAdvancedSettings = PanelButton.CreateNew(container);
 
@@ -136,47 +139,99 @@ namespace Basis.BasisUI
             UseHostMode(hostModeToggle.Value);
         }
 
-        public async Task HasUserName()
+        public async Task OnConnectButton()
         {
-            // Set button to non-interactable immediately after clicking
             connectButton.ButtonComponent.interactable = false;
-            Info.SetTitle("Connecting");
-            Info.SetDescription("Initalizing...");
-            string UserName = usernameField._inputField.text;
-            if (!string.IsNullOrEmpty(UserName))
+
+            try
             {
+                Info.SetTitle("Connecting");
+                Info.SetDescription("Initializing...");
+
+                string userName = usernameField._inputField.text;
+                if (string.IsNullOrEmpty(userName))
+                {
+                    Info.SetTitle("Error");
+                    Info.SetDescription("Display Name Was Empty");
+                    return;
+                }
+                if (ushort.TryParse(portField.Value, out var port))
+                {
+
+                }
+                else
+                {
+                    BasisDebug.LogError($"Unable to pass Port! {portField.Value}");
+                }
+
+                // If currently connected, disconnect + wait for reboot completion
                 if (BasisNetworkConnection.LocalPlayerIsConnected)
                 {
-                    Info.SetTitle("Connecting");
+                    Info.SetTitle("Disconnecting");
                     Info.SetDescription("Disconnecting...");
+                    BasisDebug.Log("Disconnecting From Current Connection", BasisDebug.LogTag.Networking);
+
+                    // Start waiting BEFORE you trigger the chain that will raise the event.
+                    // (If it fires instantly, you won't miss it.)
+                    using var cts = new CancellationTokenSource(); // optionally store and cancel on UI close
+                    Task rebootWait = BasisNetworkConnection.WaitForRebootCompleteAsync(cts.Token);
+
                     await BasisNetworkLifeCycle.Destroy(BasisNetworkManagement.Instance);
+
+                    // Wait until HandleDisconnection -> RebootManagement -> OnRebootComplete happens
+                    await rebootWait;
+
+                    // Now safe to continue
                     BasisNetworkLifeCycle.Initalize(BasisNetworkManagement.Instance);
                 }
+
                 Info.SetTitle("Connecting");
                 Info.SetDescription("Preparing...");
-                BasisLocalPlayer.Instance.DisplayName = UserName;
+
+                BasisLocalPlayer.Instance.DisplayName = userName;
                 BasisLocalPlayer.Instance.SetSafeDisplayname();
                 BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, LoadFileName);
-                if (BasisNetworkManagement.Instance)
+
+                if (BasisNetworkManagement.Instance == null)
                 {
-                    Info.SetTitle("Connecting");
-                    Info.SetDescription("Loading Asset Bundle...");
-                    await CreateAssetBundle();
-                    BasisNetworkManagement.Instance.Ip = ipAddressField.Value;
-                    BasisNetworkManagement.Instance.Password = passwordField.Password;
-                    BasisNetworkManagement.Instance.IsHostMode = hostModeToggle.Value;
-                    ushort.TryParse(portField.Value, out BasisNetworkManagement.Instance.Port);
-                    Info.SetTitle("Connecting");
-                    Info.SetDescription("Staging...");
-                    BasisNetworkManagement.Instance.Connect();
-                    BasisMainMenu.Close();
+                    Info.SetTitle("Error");
+                    Info.SetDescription("Networking Layer was Not Created!");
+                    BasisDebug.LogError("Missing Networking layer!");
+                    return;
+                }
+
+                Info.SetTitle("Connecting");
+                Info.SetDescription("Loading Asset Bundle...");
+
+                BasisNetworkManagement.Instance.Port = port;
+                BasisNetworkManagement.Instance.Ip = ipAddressField.Value;
+                BasisNetworkManagement.Instance.Password = passwordField.Password;
+                BasisNetworkManagement.Instance.IsHostMode = hostModeToggle.Value;
+                BasisMainMenu.Close();//no ui from here
+                BasisCursorManagement.OnReset();
+                await CreateAssetBundle();
+                BasisNetworkManagement.Instance.Connect();
+                if (BasisDesktopEye.Instance != null)
+                {
+                    BasisDesktopEye.Instance.LockEye();
                 }
             }
-            else
+            catch (TimeoutException tex)
             {
                 Info.SetTitle("Error");
-                Info.SetDescription("Display Name Was Empty");
-                // Re-enable button interaction if username is empty
+                Info.SetDescription("Disconnect/reboot timed out.");
+                BasisDebug.LogError(tex.ToString());
+            }
+            catch (System.Exception ex)
+            {
+                Info.SetTitle("Error");
+                Info.SetDescription("Connection failed.");
+                BasisDebug.LogError(ex.ToString());
+            }
+            finally
+            {
+                // If you successfully connected and you don't want the button back, remove this.
+                // Otherwise it's nice for retry on failure.
                 connectButton.ButtonComponent.interactable = true;
             }
         }

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 401896220113419955}
   - component: {fileID: 9117071990022795960}
   - component: {fileID: 4027323447008904767}
-  m_Layer: 8
+  m_Layer: 10
   m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -88,6 +88,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6605923727707009212
 GameObject:
@@ -193,6 +194,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -207,7 +209,7 @@ MonoBehaviour:
   interactableEnabled: 1
   AutoHold: 1
   InputKey: 0
-  InteractRange: 1
+  InteractRange: 0.1
   KinematicWhileInteracting: 1
   CanSelfSteal: 1
   DesktopRotateSpeed: 0.1
@@ -219,7 +221,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 3054218223580752409}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 1028902784308609151
@@ -293,7 +294,7 @@ GameObject:
   - component: {fileID: 5992734656002742003}
   - component: {fileID: 8044598280321240969}
   - component: {fileID: 841565830627166434}
-  m_Layer: 8
+  m_Layer: 10
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -370,4 +371,5 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}

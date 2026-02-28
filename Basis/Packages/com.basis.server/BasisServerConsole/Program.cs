@@ -84,6 +84,7 @@ namespace Basis
                 BasisConsoleCommands.RegisterCommand("/shutdown", "Shuts down the server.", BasisConsoleCommands.HandleShutdown);
                 BasisConsoleCommands.RegisterCommand("/help", "Displays all available commands.", BasisConsoleCommands.HandleHelp);
                 BasisConsoleCommands.RegisterCommand("/clear", "Clears the console", BasisConsoleCommands.HandleClear);
+                BasisConsoleCommands.RegisterPermissionCommands();
                 BasisConsoleCommands.RegisterConfigurationCommands(config);
                 BasisConsoleCommands.StartConsoleListener();
             }

@@ -1,5 +1,4 @@
 using Basis.Network.Core;
-using Basis.Network.Core.Compression;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
 using BasisNetworkCore;
@@ -12,7 +11,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 using static Basis.Network.Core.Serializable.SerializableBasis;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static SerializableBasis;
@@ -218,7 +216,6 @@ namespace BasisServerHandle
                     IncreaseRate = Config.BSRSIncreaseRate,
                     SlowestSendRate = Config.BSRSlowestSendRate,
                 };
-
                 NetDataWriter Writer = new NetDataWriter(true, 4);
                 ServerMetaDataMessage.Serialize(Writer);
                 NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.metaDataChannel, DeliveryMethod.ReliableOrdered);

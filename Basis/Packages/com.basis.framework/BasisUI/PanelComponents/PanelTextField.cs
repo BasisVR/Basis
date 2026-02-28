@@ -16,7 +16,12 @@ namespace Basis.BasisUI
         {
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field.prefab";
             public static string Entry => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry Variant.prefab";
+            public static string EntryVertical => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Vertical Entry Variant.prefab";
+            public static string EntryWarning => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry Warning Variant.prefab";
             public static string LargeDefault => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Large Text Field.prefab";
+            public static string EntryWithNoTitle => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Entry No Title Variant.prefab";
+
+            public static string EntryVerticalHorizontalContent => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Text Field - Vertical Entry Variant With Horizontal Content.prefab";
         }
 
         public static PanelTextField CreateNew(Component parent)
@@ -26,6 +31,9 @@ namespace Basis.BasisUI
 
         public static PanelTextField CreateNewEntry(Component parent)
             => CreateNew<PanelTextField>(TextFieldStyles.Entry, parent);
+
+        public static PanelTextField CreateNew(string style, Component parent)
+            => CreateNew<PanelTextField>(style, parent);
 
 #if UNITY_EDITOR
         protected override void OnValidate()

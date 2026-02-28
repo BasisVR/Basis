@@ -273,7 +273,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         public void WasPressed(BasisInput input)
         {
-            if (BasisRemotePlayer != null && BasisIndividualPlayerSettings.Instance == null && BasisMainMenu.ActiveMenuTitle != IndividualPlayerProvider.StaticTitle)
+            if (BasisRemotePlayer != null && BasisMainMenu.ActiveMenuTitle != IndividualPlayerProvider.StaticTitle)
             {
                 BasisMainMenu.Close();
                 input.PlaySoundEffect("hover", SMModuleAudio.ActiveMenusVolume);

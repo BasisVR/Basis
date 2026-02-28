@@ -26,6 +26,15 @@ namespace Cilbox
 		public String initialLoadPath;
 
 		private bool proxyWasSetup = false;
+		private bool ShouldDebugLog()
+		{
+			return box != null && box.exportDebuggingData;
+		}
+
+		private void ProxyDebugLog( string message )
+		{
+				Debug.Log( $"[CilboxProxy:{gameObject.name}] {message}" );
+		}
 
 		public CilboxProxy() { }
 
@@ -63,7 +72,7 @@ namespace Cilbox
 
 				if( matchingInstanceNameID < 0 )
 				{
-					Debug.Log( $"Warning: Could not find macthing instance name for {f.Name}" );
+					Debug.Log( $"Warning: Could not find matching instance name for {f.Name}" );
 					continue;
 				}
 
@@ -171,13 +180,33 @@ namespace Cilbox
 #endif
 		void Awake()
 		{
-			// Tricky: Stuff really isn't even ready here :(  I don't know if we can try to get this going.
+			// You cannot do anything in Awake()  Box is not set yet.
 		}
 
 		public void RuntimeProxyLoad()
 		{
 			//Debug.Log( "Runtime Proxy Load " + proxyWasSetup + " " + transform.name + " " + className );
 			if( proxyWasSetup ) return;
+			if (box == null) return;
+			box.BoxInitialize(); // In case it is not yet initialized.
+
+#if UNITY_EDITOR
+			new ProfilerMarker( "Initialize " + className ).Auto();
+#endif
+
+			GameObject obj = gameObject;
+			initialLoadPath = "/" + obj.name;
+			while (obj.transform.parent != null)
+			{
+				obj = obj.transform.parent.gameObject;
+				initialLoadPath = "/" + obj.name + initialLoadPath;
+			}
+
+			if( string.IsNullOrEmpty( className ) )
+			{
+				Debug.LogError( $"[CilboxProxy:{gameObject.name}] RuntimeProxyLoad aborted: class {className} was not found in Cilbox assembly data." );
+				return;
+			}
 
 			cls = box.GetClass( className );
 
@@ -185,6 +214,13 @@ namespace Cilbox
 			for( int i = 0; i < fieldsObjects.Count; i++ )
 			{
 				UnityEngine.Object o = fieldsObjects[i];
+				if (o == null)
+				{
+					// This is hit when serialized data is expected but the object is null
+					// This can happen when a referenced object is missing by the time the scene is built/loaded but was present for serialization
+					Debug.LogWarning("[CilboxProxy] Null reference found in script " + className + " for field ID " + cls.instanceFieldNames[i]);
+					continue;
+				}
 				Type t = o.GetType();
 				if( t == typeof( CilboxProxy ) )
 				{
@@ -211,7 +247,6 @@ namespace Cilbox
 
 			Serializee [] d = new Serializee( Convert.FromBase64String( serializedObjectData ), Serializee.ElementType.Map ).AsArray();
 
-			bool [] fieldNeedsDefault = new bool[cls.instanceFieldNames.Length];
 			Serializee [] matchingSerializeeInstanceField = new Serializee[cls.instanceFieldNames.Length];
 			foreach( Serializee s in d )
 			{
@@ -221,43 +256,63 @@ namespace Cilbox
 				Serializee miid;
 				if( dict.TryGetValue( "t", out val ) && dict.TryGetValue( "miid", out miid ) )
 				{
-					String sT = val.AsString();
-					int nMIID = -1;
-					if( Int32.TryParse( miid.AsString(), out nMIID ) &&
-						nMIID < fieldNeedsDefault.Length )
+					UInt32 nMIID = UInt32.MaxValue;
+					if( UInt32.TryParse( miid.AsString(), out nMIID ) &&
+						nMIID < matchingSerializeeInstanceField.Length )
 					{
 						matchingSerializeeInstanceField[nMIID] = s;
-
-						if( sT[0] == 's' || sT[0] == 'e' )
-						{
-							fieldNeedsDefault[nMIID] = true;
-						}
 					}
 				}
 			}
 
-			// Preinitialize any default values needed.
+			// Preinitialize every field to its CLR default value so that non-serialized fields
+			// (especially UnityEngine.Object references) are not left as implicit StackType.Boolean.
 			for( int i = 0; i < cls.instanceFieldNames.Length; i++ )
 			{
-				if( fieldNeedsDefault[i] )
+				Type fieldType = cls.instanceFieldTypes[i];
+				if( fieldType == null )
 				{
-					StackType st;
-					if( StackElement.TypeToStackType.TryGetValue(cls.instanceFieldTypes[i].ToString(), out st ) )
+					fields[i].LoadObject( null );
+					continue;
+				}
+				StackType st = StackElement.StackTypeFromType( fieldType );
+				if( st < StackType.Object )
+				{
+					fields[i].type = st;
+					if (ShouldDebugLog())
+						ProxyDebugLog( $"Default field init {cls.instanceFieldNames[i]} <- default({fieldType})" );
+				}
+				else if( fieldType.IsValueType )
+				{
+					try
 					{
-						fields[i].type = st;
+						// We clean the fieldtype before https://github.com/cnlohr/cilbox/blob/fc608341d293186e0aacf519ea9f0beb43d42cee/Packages/com.cnlohr.cilbox/Cilbox.cs#L1389C40-L1389C67
+						object defaultValue = Activator.CreateInstance( fieldType );
+						fields[i].LoadObject( defaultValue );
+						if (ShouldDebugLog())
+							if (ShouldDebugLog())
+							ProxyDebugLog( $"Default field init {cls.instanceFieldNames[i]} <- default({fieldType}) [boxed]" );
 					}
-					else
+					catch( Exception e )
 					{
 						fields[i].LoadObject( null );
+						Debug.LogWarning( $"[CilboxProxy:{gameObject.name}] Failed to create default value for {cls.instanceFieldNames[i]} ({fieldType}): {e.Message}" );
 					}
 				}
-
+				else
+				{
+					fields[i].LoadObject( null );
+					if (ShouldDebugLog())
+						ProxyDebugLog( $"Default field init {cls.instanceFieldNames[i]} <- null" );
+					if (ShouldDebugLog())
+						ProxyDebugLog( $"Default field init {cls.instanceFieldNames[i]} <- null" );
+				}
 			}
 
 			// Call interpreted constructor.
 			box.InterpretIID( cls, this, ImportFunctionID.dotCtor, null );
-			box.InterpretIID( cls, this, ImportFunctionID.Awake, null ); // Does this go before or after initialized fields.
 
+			// load serialized fields.
 			for( int i = 0; i < cls.instanceFieldNames.Length; i++ )
 			{
 				Serializee s = matchingSerializeeInstanceField[i];
@@ -272,9 +327,9 @@ namespace Cilbox
 					fields[i].Load( o );
 			}
 
-			box.InterpretIID( cls, this, ImportFunctionID.Start, null );
 
 			proxyWasSetup = true;
+			Debug.Log( $"RuntimeProxyLoad complete for class {className}" );
 		}
 
 
@@ -309,10 +364,11 @@ namespace Cilbox
 
 							return true;
 						}
+						Debug.LogWarning( $"[CilboxProxy:{gameObject.name}] Object reference slot {iFO} for field {rootFieldName} is null/missing at load time." );
 					}
 					else
 					{
-						Debug.LogWarning( $"Failure to load object in field id:{rootFieldName} of {className}");
+						Debug.LogWarning( $"Failure to load object in field id:{rootFieldName} of {className} (slot parse failed or out of range, fieldsObjects count={fieldsObjects.Count})");
 					}
 				}
 				else if( sT[0] == 'a' )
@@ -326,8 +382,26 @@ namespace Cilbox
 						Int32.TryParse( seAL.AsString(), out aLen ) )
 					{
 						Type t = box.usage.GetNativeTypeFromSerializee( seAT );
+						bool isCilboxElementType = false;
 
-						if( !box.CheckTypeAllowed( t.ToString() ) )
+						if (t == null)
+						{
+							// Check the array to see if it is Cilboxed
+							Dictionary<String, Serializee> atMap = seAT.AsMap();
+							String elementTypeName = atMap["n"].AsString();
+							if (box.classes.ContainsKey(elementTypeName))
+							{
+								t = typeof(CilboxProxy);
+								isCilboxElementType = true;
+							}
+							else
+							{
+								oOut = null;
+								return true;
+							}
+						}
+
+						if( !isCilboxElementType && !box.CheckTypeAllowed( t.ToString() ) )
 						{
 							proxyWasSetup = false;
 							throw new Exception( "Contraband ARRAY found in script {className} { cls.instanceFieldNames[i] }" );
@@ -384,33 +458,19 @@ namespace Cilbox
 		}
 
 
-		void Start()  {
-			box.BoxInitialize(); // In case it is not yet initialized.
-
-#if UNITY_EDITOR
-			new ProfilerMarker( "Initialize " + className ).Auto();
-#endif
-			
-			GameObject obj = gameObject;
-			initialLoadPath = "/" + obj.name;
-			while (obj.transform.parent != null)
-			{
-				obj = obj.transform.parent.gameObject;
-				initialLoadPath = "/" + obj.name + initialLoadPath;
-			}
-
-			if( string.IsNullOrEmpty( className ) )
-			{
-				Debug.LogError( "Class name not set" );
-				return;
-			}
-
+		void Start() {
 			RuntimeProxyLoad();
+
+			// Call Awake after initialization.
+			box.InterpretIID( cls, this, ImportFunctionID.Awake, null );
+			box.InterpretIID( cls, this, ImportFunctionID.Start, null );
 		}
-		void Update() { if( box != null ) box.InterpretIID( cls, this, ImportFunctionID.Update, null ); }
-		void FixedUpdate() { if( box != null ) box.InterpretIID( cls, this, ImportFunctionID.FixedUpdate, null ); }
-		void OnTriggerEnter(Collider c) { if (box != null) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerEnter, new object[] { c }); }
-		void OnTriggerExit(Collider b) { if (box != null) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerExit, new object[] { b }); }
+		void OnEnable() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.OnEnable, null ); }
+		void OnDisable() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.OnDisable, null ); }
+		void Update() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.Update, null ); }
+		void FixedUpdate() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.FixedUpdate, null ); }
+		void OnTriggerEnter(Collider c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerEnter, new object[] { c }); }
+		void OnTriggerExit(Collider b) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerExit, new object[] { b }); }
 	}
 }
 

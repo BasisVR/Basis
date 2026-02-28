@@ -42,6 +42,8 @@ public static class BasisBundleLoadAsset
                             ChecksRequired.RemoveColliders = DestroyColliders;
                             GameObject CreatedCopy = ContentPoliceControl.ContentControl(loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent);
                             Incremented = BasisLoadableBundle.Increment();
+                            string InstanceID = BasisGenerateUniqueID.GenerateUniqueID();
+                            CreatedCopy.name = InstanceID + Incremented;
                             return CreatedCopy;
                         }
                     default:

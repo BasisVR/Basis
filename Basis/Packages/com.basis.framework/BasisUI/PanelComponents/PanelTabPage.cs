@@ -26,6 +26,15 @@ namespace Basis.BasisUI
             page.Descriptor.ContentParent = descriptor.ContentParent;
             return page;
         }
+
+        public static PanelTabPage CreateVerticalAlternate(Component component)
+        {
+            PanelTabPage page = CreateNew(component);
+            PanelElementDescriptor descriptor = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.ScrollViewVerticalLibrary, page.Descriptor.ContentParent);
+            page.Descriptor.ContentParent = descriptor.ContentParent;
+            return page;
+        }
+
         /// <summary>
         /// Create a TabPage with a Horizontal layout predefined for the content parent.
         /// </summary>

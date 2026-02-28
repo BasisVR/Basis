@@ -66,31 +66,11 @@ namespace Basis.Network
                 message.array = new byte[ClientManager.Size];
             }
             // Layout:
-            // [Position 12][Muscles muscleBytes][Scale 2][Rotation 16]
-
             int offset = 0;
 
             // Position (placeholder; will be overwritten each tick)
-            WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset); // +12
-
-            // Muscles bitstream (for console test: write zeros = neutral-ish)
-            int muscleBytes = BasisAvatarBitPacking.MuscleBytes(BitQuality.High);
-            Array.Clear(message.array, offset, muscleBytes);
-            offset += muscleBytes;
-
-            // Scale (2)
-            WriteUShort(CompressedScale, ref message.array, ref offset); // +2
-
-            // Rotation (16) last
-            WriteQuaternionToBytes(Rotation, ref message.array, ref offset); // +16
-
-            // Safety check: we should land exactly at payload size
-            if (offset != ClientManager.Size)
-            {
-                BNL.LogError($"[MovementSender] Payload build mismatch. Wrote {offset}");
-            }
+            WritePosition(Randomizer.GetRandomOffset(), ref message.array, ref offset);
         }
-
         public static void ProcessSingle(NetPeer peer, int index)
         {
             if (peer == null) return;

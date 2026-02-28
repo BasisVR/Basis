@@ -9,12 +9,12 @@ namespace Basis.BasisUI
         public static class ImageStyles
         {
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Image.prefab";
+            public static string SimpleSquare => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Image Simple Square.prefab";
         }
         public Image Image;
         private PanelImage() { }
 
         protected bool _iconIsAddressable;
-
 
         public static PanelImage CreateNew(Component parent)
             => CreateNew<PanelImage>(ImageStyles.Default, parent);
@@ -28,6 +28,11 @@ namespace Basis.BasisUI
             _iconIsAddressable = isAddressable;
             Image.enabled = icon;
             Image.sprite = icon;
+        }
+
+        public void SetIcon(string addressable)
+        {
+            SetIcon(AddressableAssets.GetSprite(addressable), true);
         }
 
         public override void OnCreateEvent()
@@ -59,7 +64,7 @@ namespace Basis.BasisUI
         }
 
         public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
-        public void SetWidth(float width) => SetSize(new Vector2(rectTransform.sizeDelta.x, width));
+        public void SetWidth(float width) => SetSize(new Vector2(width,  rectTransform.sizeDelta.y));
 
     }
 }

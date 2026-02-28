@@ -18,7 +18,7 @@ namespace Basis.BasisUI
 
         public override string Title => "Exit";
         public override string IconAddress => AddressableAssets.Sprites.Exit;
-        public override int Order => 100;
+        public override int Order => 9999;
 
         public override bool Hidden => false;
 

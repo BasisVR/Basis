@@ -8,6 +8,7 @@ using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
 using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using static SerializableBasis;
@@ -105,7 +106,7 @@ namespace Basis.Scripts.Networking
                         Encoding.UTF8.GetBytes(primitivePassword), serverConfig);
 
                     NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
-                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkEvents.PeerDisconnectedEvent;
+                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkConnection.HandleDisconnection;
                     NetworkClient.listener.NetworkReceiveEvent += BasisNetworkEvents.NetworkReceiveEvent;
 
                     if (LocalPlayerPeer != null)
@@ -175,32 +176,54 @@ namespace Basis.Scripts.Networking
 
                     transmitter.Initialize();
 
+                    LocalPlayerIsConnected = true;
+
                     BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
                     BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
-
-                    LocalPlayerIsConnected = true;
-                    if (BasisSetUserName.Instance != null)
-                    {
-                        BasisSetUserName.Instance.DestroyUserNamePanel();
-                    }
                 }
                 catch (Exception ex)
                 {
-                    if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
-                    {
-                        BasisSetUserName.Instance.Ready.interactable = true;
-                    }
                     BasisDebug.LogError($"Error setting up the local player: {ex.Message} {ex.StackTrace}");
                 }
             });
         }
+        public static Action OnRebootComplete;
         public static void HandleDisconnection(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
                 BasisNetworkAvatarCompressor.Dispose();
                 await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, true, peer, disconnectInfo);
+                OnRebootComplete?.Invoke();
             });
+        }
+        public static Task WaitForRebootCompleteAsync(CancellationToken ct = default)
+        {
+            // Run continuations asynchronously to avoid executing awaiting code inside the event invoke call stack.
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void Handler()
+            {
+                OnRebootComplete -= Handler;
+                tcs.TrySetResult(true);
+            }
+
+            OnRebootComplete += Handler;
+
+            // Cancellation support
+            CancellationTokenRegistration ctr = default;
+            if (ct.CanBeCanceled)
+            {
+                ctr = ct.Register(() =>
+                {
+                    OnRebootComplete -= Handler;
+                    tcs.TrySetCanceled(ct);
+                });
+            }
+            // No timeout; still dispose registration when done
+            _ = tcs.Task.ContinueWith(_ => ctr.Dispose(), TaskScheduler.Default);
+
+            return tcs.Task;
         }
     }
 }

@@ -29,6 +29,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public const string OnScreenControls = "OnScreenControls";
         public bool AlwaysSpawnHeadsUpControls;
         public GameObject Controls;
+        public BasisTouchInputDevice LeftInput;
+        public BasisTouchInputDevice RightInput;
+        public List<BasisTouchInputDevice> Inputs = new List<BasisTouchInputDevice>();
         /// <summary>
         /// Starts the Basis SDK for desktop mode.
         /// If no <see cref="BasisAvatarEyeInput"/> exists, it creates one and attaches it
@@ -68,10 +71,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             EnhancedTouchSupport.Enable();
             UnityEngine.InputSystem.EnhancedTouch.Touch.onFingerDown += OnFingerDown;
             UnityEngine.InputSystem.EnhancedTouch.Touch.onFingerUp += onFingerUp;
-            BasisCursorManagement.LockCursor(nameof(BasisAvatarEyeInput));
         }
-        public BasisTouchInputDevice LeftInput;
-        public BasisTouchInputDevice RightInput;
         private void OnFingerDown(Finger finger)
         {
             var pos = finger.currentTouch.screenPosition;
@@ -118,7 +118,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 RightInput.Finger = null;
             }
         }
-        public List<BasisTouchInputDevice> Inputs = new List<BasisTouchInputDevice>();
         public BasisTouchInputDevice CreateTouchInput(string UniqueID, string UnUniqueID, BasisBoneTrackedRole Role = BasisBoneTrackedRole.LeftHand, bool hasrole = false, string subSystems = "BasisTouchInput")
         {
             BasisDesktopEye.Instance.IsComputingRaycast = false;

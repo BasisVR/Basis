@@ -6,12 +6,15 @@ using BasisDidLink;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
+using BasisPermissions;
 using BasisServerHandle;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Net;
 using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
+using static BasisPermissions.PermissionManager;
 
 public static class NetworkServer
 {
@@ -56,6 +59,14 @@ public static class NetworkServer
 
         Auth = new PasswordAuth(Configuration.Password ?? string.Empty);
         AuthIdentity = new BasisDIDAuthIdentity();
+
+        // Keep permissions with other config files
+        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        string configDir = Path.Combine(baseDir, Configuration.ConfigFolderName);
+        Directory.CreateDirectory(configDir);
+
+        string xmlPath = Path.Combine(configDir, "permissions.xml");
+        PermissionIntegration.Init(xmlPath);
     }
 
     private static void SubscribeEvents()

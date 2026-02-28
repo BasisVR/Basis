@@ -233,7 +233,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.42573604, g: 0.41214734, b: 0.57232696, a: 1}
+  m_Color: {r: 0.42745098, g: 0.4117647, b: 0.57254905, a: 0.2}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -322,7 +322,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4b07434b547b6d144a23ceb11ba60a41, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.Styling.UiStyleImage
-  ColorStyle: Modal Window
+  ColorStyle: Menu Element
 --- !u!114 &113480404192910959
 MonoBehaviour:
   m_ObjectHideFlags: 0

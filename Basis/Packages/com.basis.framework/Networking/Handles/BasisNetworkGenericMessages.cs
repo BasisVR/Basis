@@ -99,7 +99,7 @@ public static class BasisNetworkGenericMessages
     {
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);
-        BasisNetworkPlayers.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID,out ushort OldPlayerID);
+        BasisNetworkPlayers.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID, out ushort OldPlayerID);
         BasisNetworkPlayer.OnOwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
     }
     public static void HandleOwnership(OwnershipTransferMessage OwnershipTransferMessage)
@@ -190,7 +190,7 @@ public static class BasisNetworkGenericMessages
             BasisDebug.Log("Missing Player For Message " + SADM.playerIdMessage.playerID);
         }
     }
-    public static void OnNetworkMessageSend(ushort messageIndex,byte[] buffer = null,DeliveryMethod deliveryMethod = DeliveryMethod.Unreliable,ushort[] recipients = null)
+    public static void OnNetworkMessageSend(ushort messageIndex, byte[] buffer = null, DeliveryMethod deliveryMethod = DeliveryMethod.Unreliable, ushort[] recipients = null)
     {
         NetDataWriter netDataWriter = threadLocalWriter.Value;
         netDataWriter.Reset(); // clear previous data
@@ -243,26 +243,33 @@ public static class BasisNetworkGenericMessages
             case 1:
                 await BasisNetworkSpawnItem.SpawnScene(LocalLoadResource);
                 break;
+            case 2:
+                await BasisNetworkSpawnItem.SpawnGameObject(LocalLoadResource, BundledContentHolder.Selector.Avatar);
+                break;
             default:
                 BNL.LogError($"tried to Load Mode {LocalLoadResource.Mode}");
                 break;
         }
     }
-    public static void UnloadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
+    public static async Task UnloadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
     {
         UnLoadResource UnLoadResource = new UnLoadResource();
         UnLoadResource.Deserialize(reader);
         switch (UnLoadResource.Mode)
         {
             case 0:
-                BasisNetworkSpawnItem.DestroyGameobject(UnLoadResource);
+                await BasisNetworkSpawnItem.DestroyGameobject(UnLoadResource);
                 break;
             case 1:
-                BasisNetworkSpawnItem.DestroyScene(UnLoadResource);
+                await BasisNetworkSpawnItem.DestroyScene(UnLoadResource);
+                break;
+            case 02:
+              await  BasisNetworkSpawnItem.DestroyGameobject(UnLoadResource);
                 break;
             default:
                 BNL.LogError($"tried to removed Mode {UnLoadResource.Mode}");
                 break;
         }
+       // Basis.BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(UnLoadResource.LoadedNetID, out var data);
     }
 }

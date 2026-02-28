@@ -96,8 +96,8 @@ public static class BasisBeeManagement
     /// <param name="wrapper"></param>
     /// <param name="report"></param>
     /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public static async Task HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
+    /// <returns>Task bool, this bool is true if we read the BundleArray, false if we received an output message</returns>
+    public static async Task<bool> HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
     {
         bool IsMetaOnDisc = BasisLoadHandler.IsMetaDataOnDisc(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisBEEExtensionMeta MetaInfo);
         (BasisBundleConnector Connector, string ErrorMessage) output;
@@ -114,7 +114,7 @@ public static class BasisBeeManagement
         if (!string.IsNullOrEmpty(output.ErrorMessage))
         {
             BasisDebug.LogError($"Missing BundleArray {output.ErrorMessage}");
-            return;
+            return false;
         }
         if (IsMetaOnDisc == false)
         {
@@ -127,5 +127,7 @@ public static class BasisBeeManagement
 
             await BasisLoadHandler.AddDiscInfo(newDiscInfo);
         }
+
+        return true;
     }
 }

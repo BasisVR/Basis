@@ -218,6 +218,28 @@ namespace BasisNetworkServer.Security
             SaveBannedPlayers();
             return true;
         }
+        public static void CheckIsAdmin(NetPeer peer)
+        {
+            bool IsPeerAdmin = false;
+            if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string UUID))
+            {
+                if (NetworkServer.AuthIdentity.IsNetPeerAdmin(UUID))
+                {
+                    IsPeerAdmin = true;
+                }
+                else
+                {
+                    IsPeerAdmin = false;
+                }
+            }
+            else
+            {
+                IsPeerAdmin = false;
+            }
+            NetDataWriter Writer = new NetDataWriter(true, 4);
+            Writer.Put(IsPeerAdmin);
+            NetworkServer.TrySend(peer, Writer, BasisNetworkCommons.ServerIsAdminChannel, DeliveryMethod.ReliableOrdered);
+        }
         public static void OnAdminMessage(NetPeer peer, NetPacketReader reader)
         {
             if (!NetworkServer.AuthIdentity.NetIDToUUID(peer, out string UUID))

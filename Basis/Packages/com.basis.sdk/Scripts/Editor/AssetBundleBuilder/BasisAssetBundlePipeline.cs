@@ -24,21 +24,35 @@ public static class BasisAssetBundlePipeline
     public static BeforeBuildSceneHandler OnBeforeBuildScene;
     public static AfterBuildHandler OnAfterBuildScene;
     public static BuildErrorHandler OnBuildErrorScene;
-    public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))> BuildAssetBundle(GameObject originalPrefab, BasisAssetBundleObject settings, string Password, BuildTarget Target)
+
+    public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>
+    BuildAssetBundle(GameObject originalPrefab, BasisAssetBundleObject settings, string Password, BuildTarget Target, string buildId)
     {
-        return await BuildAssetBundle(false, originalPrefab, new Scene(), settings, Password, Target);
+        return await BuildAssetBundle(false, originalPrefab, new Scene(), settings, Password, Target, buildId);
     }
-    public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))> BuildAssetBundle(Scene scene, BasisAssetBundleObject settings, string Password, BuildTarget Target)
+
+    public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>
+    BuildAssetBundle(Scene scene, BasisAssetBundleObject settings, string Password, BuildTarget Target, string buildId)
     {
-        return await BuildAssetBundle(true, null, scene, settings, Password, Target);
+        return await BuildAssetBundle(true, null, scene, settings, Password, Target, buildId);
     }
-    public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))> BuildAssetBundle(bool isScene, GameObject asset, Scene scene, BasisAssetBundleObject settings, string Password, BuildTarget Target)
+    public static async Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>
+  BuildAssetBundle(
+      bool isScene,
+      GameObject asset,
+      Scene scene,
+      BasisAssetBundleObject settings,
+      string Password,
+      BuildTarget Target,
+      string Folder)
     {
         if (EditorUserBuildSettings.activeBuildTarget != Target)
         {
             EditorUserBuildSettings.SwitchActiveBuildTarget(BuildPipeline.GetBuildTargetGroup(Target), Target);
         }
-        string targetDirectory = Path.Combine(settings.AssetBundleDirectory, Target.ToString());
+        string uncombinedRoot = BasisBundleBuild.PathConversion(settings.AssetBundleUnCombined);
+        string targetDirectory = Path.Combine(uncombinedRoot, Folder, Target.ToString());
+
         TemporaryStorageHandler.ClearTemporaryStorage(targetDirectory);
         TemporaryStorageHandler.EnsureDirectoryExists(targetDirectory);
 
@@ -46,6 +60,7 @@ public static class BasisAssetBundlePipeline
         string assetPath = null;
         string uniqueID = null;
         GameObject prefab = null;
+
         try
         {
             if (isScene)
@@ -61,8 +76,8 @@ public static class BasisAssetBundlePipeline
                         StaticOcclusionCulling.Clear();
                     }
                 }
-                OnBeforeBuildScene?.Invoke(scene, settings);
 
+                OnBeforeBuildScene?.Invoke(scene, settings);
                 assetPath = TemporaryStorageHandler.SaveScene(scene, settings, out uniqueID);
             }
             else
@@ -71,6 +86,7 @@ public static class BasisAssetBundlePipeline
                 DestroyEditorOnlyInAvatar(prefab);
                 OnBeforeBuildPrefab?.Invoke(prefab, settings);
                 PostProcessAvatar(prefab);
+
                 assetPath = TemporaryStorageHandler.SavePrefabToTemporaryStorage(prefab, settings, ref wasModified, out uniqueID);
 
                 if (prefab != null)
@@ -78,21 +94,32 @@ public static class BasisAssetBundlePipeline
                     GameObject.DestroyImmediate(prefab);
                 }
             }
-            AssetBundleBuild Build = new AssetBundleBuild() { assetBundleName = uniqueID, assetNames = new string[] { assetPath } };
+
+            AssetBundleBuild Build = new AssetBundleBuild()
+            {
+                assetBundleName = uniqueID,
+                assetNames = new string[] { assetPath }
+            };
+
             AssetBundleBuild[] Builds = new AssetBundleBuild[] { Build };
-            (BasisBundleGenerated, AssetBundleBuilder.InformationHash) value = await AssetBundleBuilder.BuildAssetBundle(Builds, targetDirectory, settings, uniqueID, isScene ? "Scene" : "GameObject", Password, Target);
+
+            (BasisBundleGenerated, AssetBundleBuilder.InformationHash) value =
+                await AssetBundleBuilder.BuildAssetBundle(
+                    Builds,
+                    targetDirectory,
+                    settings,
+                    uniqueID,
+                    isScene ? "Scene" : "GameObject",
+                    Password,
+                    Target);
+
             TemporaryStorageHandler.ClearTemporaryStorage(settings.TemporaryStorage);
             AssetDatabase.Refresh();
 
-            if (isScene)
-            {
-                OnAfterBuildScene?.Invoke(uniqueID);
-            }
-            else
-            {
-                OnAfterBuildPrefab?.Invoke(uniqueID);
-            }
+            if (isScene) OnAfterBuildScene?.Invoke(uniqueID);
+            else OnAfterBuildPrefab?.Invoke(uniqueID);
 
+            // keep your original backend reset logic
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
@@ -100,6 +127,7 @@ public static class BasisAssetBundlePipeline
             {
                 PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.Mono2x);
             }
+
             return new(true, value);
         }
         catch (Exception ex)
@@ -115,6 +143,7 @@ public static class BasisAssetBundlePipeline
                 BasisBundleErrorHandler.HandleBuildError(ex, asset, wasModified, settings.TemporaryStorage);
                 EditorUtility.DisplayDialog("Failed To Build", "Please check the console for the full issue: " + ex, "Will do");
             }
+
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
             BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(buildTarget);
             var namedBuildTarget = UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(targetGroup);
@@ -122,6 +151,7 @@ public static class BasisAssetBundlePipeline
             {
                 PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.Mono2x);
             }
+
             return new(false, (null, new AssetBundleBuilder.InformationHash()));
         }
     }

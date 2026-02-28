@@ -15,7 +15,7 @@ namespace Basis.Network.Core
         /// when adding a new message we need to increase this
         /// will function up to 64
         /// </summary>
-        public const byte TotalChannels = 26;
+        public const byte TotalChannels = 27;
         /// <summary>
         /// channel zero is only used for unreliable methods
         /// we fall it through to stop bugs
@@ -122,5 +122,9 @@ namespace Basis.Network.Core
         /// Server Statistics Channel
         /// </summary>
         public const byte ServerStatisticsChannel = 25;
+        /// <summary>
+        /// request is admin from client
+        /// </summary>
+        public const byte ServerIsAdminChannel = 26;
     }
 }

@@ -1,5 +1,7 @@
+using Basis;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.UI.UI_Panels;
@@ -140,7 +142,8 @@ public static class BasisNetworkSpawnItem
         Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
         BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
         SceneTraverseNetIdAssign(scene, localLoadResource);
-        SpawnedScenes.TryAdd(localLoadResource.LoadedNetID, scene);
+
+        BasisRuntimeSpawnRegistry.AddScene(localLoadResource.CombinedURL, localLoadResource.LoadedNetID, scene, localLoadResource.Persist, BasisRuntimeSpawnRegistry.SpawnMethod.Network, out var created);
         BasisDebug.Log($"Scene Load From Server Complete ", BasisDebug.LogTag.Networking);
         return scene;
     }
@@ -196,80 +199,32 @@ public static class BasisNetworkSpawnItem
         {
             BasisDebug.LogWarning($"Gameobject Did not have a class deriving from {nameof(BasisNetworkContentBase)} on it!");
         }
-        if (SpawnedGameobjects.TryAdd(localLoadResource.LoadedNetID, reference))
-        {
-
-        }
-        else
-        {
-            BasisDebug.LogError("Already has Spawned Gameobject with this ID!!");
-        }
+        BasisRuntimeSpawnRegistry.AddGameObject(localLoadResource.CombinedURL, localLoadResource.LoadedNetID, reference, localLoadResource.Persist, BasisRuntimeSpawnRegistry.SpawnMethod.Network, out var data);
         BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
         return reference;
     }
-    public static void DestroyScene(UnLoadResource resource)
+    public static async Task DestroyScene(UnLoadResource resource)
     {
         if (string.IsNullOrEmpty(resource.LoadedNetID))
         {
             BasisDebug.Log("Invalid resource for destroying scene.", BasisDebug.LogTag.Networking);
             return;
         }
-
-        if (SpawnedScenes.TryRemove(resource.LoadedNetID, out Scene value))
-        {
-            SceneManager.UnloadSceneAsync(value);
-        }
+      await  BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(resource.LoadedNetID);
     }
 
-    public static void DestroyGameobject(UnLoadResource resource)
+    public static async Task DestroyGameobject(UnLoadResource resource)
     {
         if (string.IsNullOrEmpty(resource.LoadedNetID))
         {
             BasisDebug.Log("Invalid resource for destroying GameObject.", BasisDebug.LogTag.Networking);
             return;
         }
-
-        if (SpawnedGameobjects.TryRemove(resource.LoadedNetID, out GameObject value))
-        {
-            if (value != null)
-                GameObject.Destroy(value);
-        }
+      await  BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(resource.LoadedNetID);
     }
 
     public static async Task Reset()
     {
-        if (SpawnedScenes != null)
-        {
-            foreach (var reference in SpawnedScenes.Values)
-            {
-                if (reference != null && reference.IsValid())
-                {
-                    try
-                    {
-                        await SceneManager.UnloadSceneAsync(reference);
-                    }
-                    catch (Exception ex)
-                    {
-                        //bad dooly silent error
-                         BasisDebug.Log($"Reset If Spawn Item {ex.Message}");
-                    }
-                }
-            }
-        }
-        if (SpawnedGameobjects != null)
-        {
-            foreach (var reference in SpawnedGameobjects.Values)
-            {
-                if (reference != null)
-                {
-                    GameObject.Destroy(reference);
-                }
-            }
-        }
-        SpawnedGameobjects.Clear();
-        SpawnedScenes.Clear();
-        BasisDebug.Log("All spawned objects and scenes have been cleared.", BasisDebug.LogTag.Networking);
+     await   BasisRuntimeSpawnRegistry.ClearAllNetworking();
     }
-    public static ConcurrentDictionary<string, GameObject> SpawnedGameobjects = new ConcurrentDictionary<string, GameObject>();
-    public static ConcurrentDictionary<string, Scene> SpawnedScenes = new ConcurrentDictionary<string, Scene>();
 }

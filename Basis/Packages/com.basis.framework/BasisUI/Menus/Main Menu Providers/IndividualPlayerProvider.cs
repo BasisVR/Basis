@@ -201,7 +201,7 @@ namespace Basis.BasisUI
             descriptor.SetTitle("General Settings");
 
             TextMeshProUGUI titleLabel = panel.Descriptor.TitleLabel;
-            if (titleLabel != null) titleLabel.text = "Player Settings";
+            if (titleLabel != null) titleLabel.text = target.DisplayName;
 
             var root = tab.Descriptor.ContentParent;
             var infoGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);

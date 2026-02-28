@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.Collections;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
+using System.Text;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -34,6 +35,7 @@ namespace Cilbox
 		Double,
 		Object,
 		Address,
+		NativeHandle,
 	}
 
 	[StructLayout(LayoutKind.Explicit)]
@@ -49,7 +51,7 @@ namespace Cilbox
 		[FieldOffset(8)]public ulong e;
 		[FieldOffset(16)]public object o;
 
-		static public StackElement nil;
+		public static StackElement nil;
 
 		public static readonly Dictionary< String, StackType > TypeToStackType = new Dictionary<String, StackType>(){
 			{ "System.Boolean", StackType.Boolean },
@@ -69,39 +71,39 @@ namespace Cilbox
 		{
 			switch( o )
 			{
-			case sbyte t0: i = (sbyte)o;	type = StackType.Sbyte; break;
-			case byte  t1: i = (byte)o;		type = StackType.Byte; break;
-			case short t2: i = (short)o;	type = StackType.Short; break;
-			case ushort t3: i = (ushort)o;	type = StackType.Ushort; break;
-			case int t4: i = (int)o;		type = StackType.Int; break;
-			case uint t5: u = (uint)o;		type = StackType.Uint; break;
-			case long t6: l = (long)o;		type = StackType.Long; break;
-			case ulong t7: e = (ulong)o;	type = StackType.Ulong; break;
-			case float t8: f = (float)o;	type = StackType.Float; break;
-			case double t9: d = (double)o;	type = StackType.Double; break;
-			case bool ta0: i = ((bool)o) ? 1 : 0; type = StackType.Boolean; break;
+			case sbyte t0: i = t0;	type = StackType.Sbyte; break;
+			case byte  t1: i = t1;	type = StackType.Byte; break;
+			case short t2: i = t2;	type = StackType.Short; break;
+			case ushort t3: i = t3;	type = StackType.Ushort; break;
+			case int t4: i = t4;	type = StackType.Int; break;
+			case uint t5: u = t5;	type = StackType.Uint; break;
+			case long t6: l = t6;	type = StackType.Long; break;
+			case ulong t7: e = t7;	type = StackType.Ulong; break;
+			case float t8: f = t8;	type = StackType.Float; break;
+			case double t9: d = t9;	type = StackType.Double; break;
+			case bool ta0: i = ta0 ? 1 : 0; type = StackType.Boolean; break;
 			default: this.o = o; type = StackType.Object; break;
 			}
 			return this;
 		}
 
-		static public StackElement LoadAsStatic( object o )
+		public static StackElement LoadAsStatic( object o )
 		{
 			StackElement ret = new StackElement();
 			ret.i = 0; ret.o = null;
 			switch( o )
 			{
-			case sbyte t0: ret.i = (sbyte)o;	ret.type = StackType.Sbyte; break;
-			case byte  t1: ret.i = (byte)o;		ret.type = StackType.Byte; break;
-			case short t2: ret.i = (short)o;	ret.type = StackType.Short; break;
-			case ushort t3: ret.i = (ushort)o;	ret.type = StackType.Ushort; break;
-			case int t4: ret.i = (int)o;		ret.type = StackType.Int; break;
-			case uint t5: ret.u = (uint)o;		ret.type = StackType.Uint; break;
-			case long t6: ret.l = (long)o;		ret.type = StackType.Long; break;
-			case ulong t7: ret.e = (ulong)o;	ret.type = StackType.Ulong; break;
-			case float t8: ret.f = (float)o;	ret.type = StackType.Float; break;
-			case double t9: ret.d = (double)o;	ret.type = StackType.Double; break;
-			case bool ta0: ret.i = ((bool)o) ? 1 : 0; ret.type = StackType.Boolean; break;
+			case sbyte t0: ret.i = t0;	ret.type = StackType.Sbyte; break;
+			case byte  t1: ret.i = t1;	ret.type = StackType.Byte; break;
+			case short t2: ret.i = t2;	ret.type = StackType.Short; break;
+			case ushort t3: ret.i = t3;	ret.type = StackType.Ushort; break;
+			case int t4: ret.i = t4;	ret.type = StackType.Int; break;
+			case uint t5: ret.u = t5;	ret.type = StackType.Uint; break;
+			case long t6: ret.l = t6;	ret.type = StackType.Long; break;
+			case ulong t7: ret.e = t7;	ret.type = StackType.Ulong; break;
+			case float t8: ret.f = t8;	ret.type = StackType.Float; break;
+			case double t9: ret.d = t9;	ret.type = StackType.Double; break;
+			case bool ta0: ret.i = ta0 ? 1 : 0; ret.type = StackType.Boolean; break;
 			default: ret.o = o; ret.type = StackType.Object; break;
 			}
 			return ret;
@@ -151,52 +153,32 @@ namespace Cilbox
 			}
 		}
 
-		public object AsObject()
+		public object AsObject(Cilbox? box = null)
 		{
-			switch( type )
+			return type switch
 			{
-			case StackType.Sbyte: return (sbyte)i;
-			case StackType.Byte: return (byte)i;
-			case StackType.Short: return (short)i;
-			case StackType.Ushort: return (ushort)i;
-			case StackType.Int: return (int)i;
-			case StackType.Uint: return (uint)u;
-			case StackType.Long: return (long)l;
-			case StackType.Ulong: return (ulong)e;
-			case StackType.Float: return (float)f;
-			case StackType.Double: return (double)d;
-			case StackType.Boolean: return (bool)b;
-			case StackType.Address: return Dereference();
-			default: return o;
-			}
-		}
-
-		public int AsInt()
-		{
-			switch( type )
-			{
-			case StackType.Sbyte:
-			case StackType.Byte:
-			case StackType.Short:
-			case StackType.Ushort:
-			case StackType.Int:
-			case StackType.Uint:
-			case StackType.Long:
-			case StackType.Ulong:
-				return (int)i;
-			case StackType.Float: return (int)f;
-			case StackType.Double: return (int)d;
-			case StackType.Boolean: return b ? 1 : 0;
-			case StackType.Address: return (int)Dereference();
-			default: return (int)o;
-			}
+				StackType.Sbyte => (sbyte)i,
+				StackType.Byte => (byte)i,
+				StackType.Short => (short)i,
+				StackType.Ushort => (ushort)i,
+				StackType.Int => i,
+				StackType.Uint => u,
+				StackType.Long => l,
+				StackType.Ulong => e,
+				StackType.Float => f,
+				StackType.Double => d,
+				StackType.Boolean => b,
+				StackType.Address => DereferenceAddress(),
+				StackType.NativeHandle => DereferenceNativeHandle(box),
+				_ => o
+			};
 		}
 
 		public object CoerceToObject( Type t )
 		{
 			StackType rt = StackTypeFromType( t );
 
-			if( type < StackType.Float ) 
+			if( type < StackType.Float )
 			{
 				switch( rt )
 				{
@@ -287,7 +269,7 @@ namespace Cilbox
 			throw new Exception( "Erorr invalid type conversion from " + type + " to " + t );
 		}
 
-		public object Dereference()
+		public object DereferenceAddress()
 		{
 			if( o.GetType() == typeof(StackElement[]) )
 				return ((StackElement[])o)[i].AsObject();
@@ -295,8 +277,13 @@ namespace Cilbox
 				return ((Array)o).GetValue(i);
 		}
 
+		public object DereferenceNativeHandle(Cilbox box)
+		{
+			return box.metadatas[u].nativeField.GetValue(o);
+		}
+
 		// Mostly like a Dereference.
-		static public StackElement ResolveToStackElement( StackElement tr )
+		public static StackElement ResolveToStackElement( StackElement tr )
 		{
 			if( tr.type == StackType.Address )
 			{
@@ -312,7 +299,7 @@ namespace Cilbox
 		}
 
 		// XXX RISKY - generally copy this in-place.
-		public void DereferenceLoad( object overwrite )
+		public void DereferenceLoadAddress( object overwrite )
 		{
 			if( o.GetType() == typeof(StackElement[]) )
 				((StackElement[])o)[i].Load( overwrite );
@@ -320,7 +307,12 @@ namespace Cilbox
 				((Array)o).SetValue(overwrite, i);
 		}
 
-		static public StackElement CreateReference( Array array, uint index )
+		public void DereferenceLoadNativeHandle( Cilbox box, object overwrite )
+		{
+			box.metadatas[u].nativeField.SetValue(o, overwrite);
+		}
+
+		public static StackElement CreateAddressReference( Array array, uint index )
 		{
 			StackElement ret = new StackElement();
 			ret.type = StackType.Address;
@@ -329,8 +321,17 @@ namespace Cilbox
 			return ret;
 		}
 
+		public static StackElement CreateNativeHandleReference( object o, uint index )
+		{
+			StackElement ret = new StackElement();
+			ret.type = StackType.NativeHandle;
+			ret.u = index;
+			ret.o = o;
+			return ret;
+		}
+
 		// This logic is probably incorrect.
-		static public StackType StackTypeMaxPromote( StackType a, StackType b )
+		public static StackType StackTypeMaxPromote( StackType a, StackType b )
 		{
 			if( a < StackType.Int ) a = StackType.Int;
 			if( b < StackType.Int ) b = StackType.Int;
@@ -352,23 +353,69 @@ namespace Cilbox
 
 		public static StackType StackTypeFromType( Type t )
 		{
-			switch( t )
+			return Type.GetTypeCode(t) switch
 			{
-				case Type _ when t == typeof(sbyte): return StackType.Sbyte;
-				case Type _ when t == typeof(byte): return StackType.Byte;
-				case Type _ when t == typeof(short): return StackType.Short;
-				case Type _ when t == typeof(ushort): return StackType.Ushort;
-				case Type _ when t == typeof(int): return StackType.Int;
-				case Type _ when t == typeof(uint): return StackType.Uint;
-				case Type _ when t == typeof(long): return StackType.Long;
-				case Type _ when t == typeof(ulong): return StackType.Ulong;
-				case Type _ when t == typeof(float): return StackType.Float;
-				case Type _ when t == typeof(double): return StackType.Double;
-				case Type _ when t == typeof(bool): return StackType.Boolean;
-				default: return StackType.Object;
-			}
+				TypeCode.Boolean => StackType.Boolean,
+				TypeCode.SByte => StackType.Sbyte,
+				TypeCode.Byte => StackType.Byte,
+				TypeCode.Int16 => StackType.Short,
+				TypeCode.UInt16 => StackType.Ushort,
+				TypeCode.Int32 => StackType.Int,
+				TypeCode.UInt32 => StackType.Uint,
+				TypeCode.Int64 => StackType.Long,
+				TypeCode.UInt64 => StackType.Ulong,
+				TypeCode.Single => StackType.Float,
+				TypeCode.Double => StackType.Double,
+				_ => StackType.Object
+			};
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//  EXCEPTIONS  ///////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////
+
+	public class CilboxException : Exception
+	{
+		public CilboxException(string msg) : base(msg)
+		{
 		}
 
+		public CilboxException(string msg, Exception inner) : base(msg, inner)
+		{
+		}
+	}
+
+	public class CilboxInterpreterRuntimeException : CilboxException
+	{
+		public readonly string ClassName;
+		public readonly string MethodName;
+		public readonly int PC;
+
+		public CilboxInterpreterRuntimeException(string msg, string className, string methodName, int pc)
+			: base($"{msg} @ ({className}.{methodName}, PC: {pc})")
+		{
+			ClassName = className;
+			MethodName = methodName;
+			PC = pc;
+		}
+
+		public CilboxInterpreterRuntimeException(string msg, Exception inner, string className, string methodName,
+			int pc)
+			: base($"{msg} @ ({className}.{methodName}, PC: {pc})", inner)
+		{
+			ClassName = className;
+			MethodName = methodName;
+			PC = pc;
+		}
+	}
+
+	public class CilboxInterpreterTimeoutException : CilboxInterpreterRuntimeException
+	{
+		public CilboxInterpreterTimeoutException(string msg, string className, string methodName, int pc)
+			: base(msg, className, methodName, pc)
+		{
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -411,7 +458,7 @@ namespace Cilbox
 			e = ElementType.String;
 		}
 
-		static public Serializee CreateFromBlob( byte [] bytes ) // For serialization
+		public static Serializee CreateFromBlob( byte [] bytes ) // For serialization
 		{
 			int len = bytes.Length;
 			byte lenBytes = ComputeLengthBytes( len );
@@ -605,7 +652,7 @@ namespace Cilbox
 			//Debug.Log( ToString() );
 			Span<byte> sb = b.Span;
 			int iStart = i;
-			if( buffer.Length <= 0 ) new Serializee( null, ElementType.Invalid );
+			if( buffer.Length <= 0 ) return new Serializee( null, ElementType.Invalid );
 			byte bl = sb[i++]; // info byte
 			int len = 0;
 			int blct = bl & 0x7;
@@ -619,18 +666,18 @@ namespace Cilbox
 			return new Serializee( b.Slice( iStart, i - iStart ), (ElementType)len );
 		}
 	}
-	
+
 
 	public static class CilboxUtil
 	{
 		// Used both in Cilbox + CilboxProxy for getting strings of fields into objects.
-		static public object DeserializeDataForProxyField( Type t, String sInitialize )
+		public static object DeserializeDataForProxyField( Type t, String sInitialize )
 		{
 			if( sInitialize != null && sInitialize.Length > 0 )
 				return TypeDescriptor.GetConverter(t).ConvertFrom(sInitialize);
 			else
 			{
-				if( !t.IsPrimitive ) 
+				if( !t.IsPrimitive )
 					return null;
 				else
 					return Activator.CreateInstance(t);
@@ -952,7 +999,7 @@ namespace Cilbox
 		{
 			List<MonoBehaviour> ret = new List<MonoBehaviour>();
 
-			object[] objToCheck = GameObject.FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+			object[] objToCheck = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
 			foreach (object o in objToCheck)
 			{
 				GameObject g = (GameObject) o;
@@ -980,8 +1027,31 @@ namespace Cilbox
 			ret["a"] = new Serializee( t.Assembly.GetName().Name );
 			if( t.IsGenericType )
 			{
-				String [] sn = t.FullName.Split( "`" );
-				ret["n"] = new Serializee( sn[0] );
+				String genericDefName = t.GetGenericTypeDefinition().FullName;
+				StringBuilder typeNameBuilder = new StringBuilder();
+
+				// The following section strips out arity (`1, `2, etc) from the generic type definition name.
+				// This way we do not need to whitelist each generic arity of a type; We just need to whitelist the base name.
+				// Extreme example: Namespace.Outer`1+Middle`2+Inner`1 would be stripped to Namespace.Outer+Middle+Inner
+				for (int i = 0; i < genericDefName.Length; i++)
+				{
+					if (genericDefName[i] != '`')
+					{
+						typeNameBuilder.Append(genericDefName[i]);
+						continue;
+					}
+
+					int j = i + 1;
+					while (j < genericDefName.Length && char.IsDigit(genericDefName[j]))
+						j++;
+
+					if (j == genericDefName.Length || genericDefName[j] == '+' || genericDefName[j] == '[')
+						i = j - 1;
+				}
+				string baseName = typeNameBuilder.ToString();
+
+				ret["n"] = new Serializee( baseName );
+				ret["gn"] = new Serializee( genericDefName ); // Store the generic name so it does not have to be rebuilt
 				Type [] ta = t.GenericTypeArguments;
 				Serializee [] sg = new Serializee[ta.Length];
 				for( int i = 0; i < ta.Length; i++ )

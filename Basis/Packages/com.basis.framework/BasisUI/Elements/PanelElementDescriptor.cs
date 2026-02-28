@@ -15,19 +15,27 @@ namespace Basis.BasisUI
 
         public static class ElementStyles
         {
-            public static string ScrollViewGrid =>
-    "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Vertical - Grid Variant.prefab";
+            public static string ScrollViewGrid => "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Vertical - Grid Variant.prefab";
+            public static string ScrollViewGridLibrary => "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Vertical - Grid Variant For Library.prefab";
             public static string ScrollViewVertical =>
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Vertical.prefab";
+            public static string ScrollViewVerticalLibrary => "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Vertical For Library Variant.prefab";
+            public static string ScrollViewVerticalLibraryParentContentSize => "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Vertical For Library Variant Use Parent For Content Size.prefab";
             public static string ScrollViewHorizontal =>
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/Scroll View Horizontal.prefab";
             public static string Group =>
                 "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base.prefab";
 
             public static string Overlay => "Panel Elements/Overlay Panel.prefab";
+            public static string OverlayLessOpacity => "Packages/com.basis.sdk/Prefabs/Panel Elements/Overlay Panel - Less Opacity Variant.prefab";
 
             public static string BaseOverlay => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base - Overlay.prefab";
+            public static string LibraryEntryOverlay => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base - Overlay For Library Variant.prefab";
             public static string GroupLargeIcon => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon.prefab";
+            public static string GroupLargeIconVertical => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon Vertical Stacked Content Variant.prefab";
+
+
+            public static string GroupLargeIconHorizontol => "Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon Horizontal Stacked Content Variant.prefab";
         }
 
         public static PanelElementDescriptor CreateNew(string style, Component parent) =>
@@ -237,7 +245,9 @@ namespace Basis.BasisUI
             }
         }
         public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
-        public void SetWidth(float width) => SetSize(new Vector2(rectTransform.sizeDelta.x, width));
+        
+        // dang this might of caused you guys some headache, fixed it.
+        public void SetWidth(float width) => SetSize(new Vector2(width, rectTransform.sizeDelta.y)); 
 
         public void ForceRebuild()
         {

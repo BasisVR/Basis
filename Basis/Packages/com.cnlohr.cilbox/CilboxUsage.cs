@@ -152,7 +152,7 @@ namespace Cilbox
 			{
 				Component c;
 				ret.Load( ((GameObject)o).TryGetComponent(t, out c) );
-				parameters[1].DereferenceLoad( c );
+				parameters[1].DereferenceLoadAddress( c );
 			}
 			return ret;
 		}
@@ -177,7 +177,7 @@ namespace Cilbox
 					if( p.className == compName && parameters[1].type == StackType.Address )
 					{
 						ret.Load( true );
-						parameters[1].DereferenceLoad( p );
+						parameters[1].DereferenceLoadAddress( p );
 						break;
 					}
 				}
@@ -282,6 +282,12 @@ namespace Cilbox
 				typeName = typeof(byte[]).FullName;
 			}
 
+			// Perform check by removing "&" from the end of ref types
+			// This happens when the type is a reference to a specific type
+			// But for security purposes, we just want to check the base type
+			//  i.e.  System.byte& ===> System.byte  /  &
+			String refSuffix = ""; // store the ref suffix ("&") to add back on after the check
+			if( typeName.EndsWith('&') ) { refSuffix = "&"; typeName = typeName[..^1]; }
 			// Perform check without array[]
 			//  i.e.  System.byte[][] ===> System.byte  /  [][]
 			String [] vTypeNameNoArray = typeName.Split( "[" );
@@ -289,7 +295,7 @@ namespace Cilbox
 			String arrayEnding = typeName.Substring( typeNameNoArray.Length );
 			typeNameNoArray = CheckTypeSecurity( typeNameNoArray  );
 			if( typeNameNoArray == null ) return null;
-			return typeNameNoArray + arrayEnding;
+			return typeNameNoArray + arrayEnding + refSuffix;
 		}
 
 		Type CheckTypeSecurityRecursive( Type t )
@@ -297,6 +303,11 @@ namespace Cilbox
 			TypeInfo typeInfo = t.GetTypeInfo();
 			if( typeInfo == null ) return null;
 			String typeName = typeInfo.ToString();
+			// Perform check by removing "&" from the end of ref types
+			// This happens when the type is a reference to a specific type
+			// But for security purposes, we just want to check the base type
+			//  i.e.  System.byte& ===> System.byte
+			if( typeName.EndsWith('&') ) typeName = typeName[..^1];
 			String [] vTypeNameNoArray = typeName.Split( "[" );
 			typeName = ( vTypeNameNoArray.Length > 0 ) ? vTypeNameNoArray[0] : typeName;
 			String [] vTypeNameNoGenerics = typeName.Split( "`" );
@@ -314,12 +325,29 @@ namespace Cilbox
 		// INTERNAL CHECKING ///////////////////////////////////////////////////////////////
 		////////////////////////////////////////////////////////////////////////////////////
 
+		// Strip array suffixes and nested type suffixes to check if the base type is Cilboxable
+		public bool IsCilboxInternalType( String typeName )
+		{
+			if( box.classes.ContainsKey( typeName ) ) return true;
+
+			// Strip array suffix: "Foo.Bar[]" or "Foo.Bar[][]" -> "Foo.Bar"
+			int bracket = typeName.IndexOf( '[' );
+			String baseName = bracket >= 0 ? typeName.Substring( 0, bracket ) : typeName;
+
+			// Strip "&" for ref types: "Foo.Bar&" -> "Foo.Bar"
+			if( baseName.EndsWith('&') ) baseName = baseName.Substring( 0, baseName.Length - 1 );
+
+			if( box.classes.ContainsKey( baseName ) ) return true;
+
+			return false;
+		}
+
 		public Type GetNativeTypeFromSerializee( Serializee s )
 		{
 			Dictionary< String, Serializee > ses = s.AsMap();
 			String typeName = ses["n"].AsString();
 			String assemblyName = ses["a"].AsString();
-			if( box.classes.ContainsKey( typeName ) ) return null;
+			if( IsCilboxInternalType( typeName ) ) return null;
 			typeName = CheckReplaceTypeNotRecursive( typeName );
 			if( typeName == null ) return null;
 
@@ -327,11 +355,13 @@ namespace Cilbox
 			Type [] ga = null;
 			if( ses.TryGetValue( "g", out g ) )
 			{
+				// If there are generics (stored in g) then use the serialized generic name instead of stripped type name
+				// n = Namespace.Outer+Middle+Inner		gn = Namespace.Outer`1+Middle`2+Inner`1
+				typeName = ses["gn"].AsString();
 				Serializee [] gs = g.AsArray();
 				ga = new Type[gs.Length];
 				for( int i = 0; i < gs.Length; i++ )
 					ga[i] = GetNativeTypeFromSerializee( gs[i] );
-				typeName += "`" + gs.Length;
 			}
 
 			Type ret = null;
@@ -366,7 +396,7 @@ namespace Cilbox
 		{
 			Dictionary< String, Serializee > ses = s.AsMap();
 			String typeName = ses["n"].AsString();
-			if( box.classes.ContainsKey( typeName ) ) return typeName;
+			if( IsCilboxInternalType( typeName ) ) return typeName;
 			typeName = CheckReplaceTypeNotRecursive( typeName );
 			if( typeName == null ) return null;
 
@@ -396,20 +426,20 @@ namespace Cilbox
 
 		public MethodBase InternalGetNativeMethodFromTypeAndNameNoSecurity( Type declaringType, String name, Type [] parameters, Type [] genericArguments, String fullSignature )
 		{
-			MethodBase m;
-
-			// Can we combine Constructor + Method?
-			m = declaringType.GetMethod(
-				name,
-				genericArguments.Length,
-				/*BindingFlags.NonPublic | */ BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static,
-				null,
-				CallingConventions.Any,
-				parameters,
-				null ); // TODO I don't ... think? we need parameter modifiers? "To be only used when calling through COM interop, and only parameters that are passed by reference are handled. The default binder does not process this parameter."
-
-			if( m == null )
+			if (genericArguments.Length == 0)
 			{
+				// Can we combine Constructor + Method?
+				MethodBase m = declaringType.GetMethod(
+					name,
+					genericArguments.Length,
+					/*BindingFlags.NonPublic | */ BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static,
+					null,
+					CallingConventions.Any,
+					parameters,
+					null ); // TODO I don't ... think? we need parameter modifiers? "To be only used when calling through COM interop, and only parameters that are passed by reference are handled. The default binder does not process this parameter."
+
+				if (m != null) { return m; }
+
 				// Can't use GetConstructor, because somethings have .ctor or .cctor
 				ConstructorInfo[] cts = declaringType.GetConstructors(
 					/*BindingFlags.NonPublic | */ BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static );
@@ -423,20 +453,60 @@ namespace Cilbox
 						break;
 					}
 				}
+				if (m != null) { return m; }
+			}
+
+			if (genericArguments.Length > 0)
+			{
+				foreach (MethodInfo mi in declaringType.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
+				{
+					if (mi.Name != name) continue;
+					if (!mi.IsGenericMethodDefinition) continue;
+					if (mi.GetGenericArguments().Length != genericArguments.Length) continue;
+					if (mi.GetParameters().Length != parameters.Length) continue;
+
+					// Need to verify the parameters actually match
+					try
+					{
+						MethodInfo closed = mi.MakeGenericMethod(genericArguments);
+						ParameterInfo[] closedPars = closed.GetParameters();
+						bool match = true;
+						for (int i = 0; i < parameters.Length; i++)
+						{
+							if (closedPars[i].ParameterType != parameters[i])
+							{
+								match = false;
+								break;
+							}
+						}
+
+						if (match)
+						{
+							return closed;
+						}
+					}
+					catch
+					{
+						// Continue checking the rest of the methods to see if there is another match
+						// (maybe there could be one with the same signature but wrong constraints that would cause MakeGenericMethod to fail)
+						continue;
+					}
+				}
 			}
 
 			// If we really can't find the method, search through all types of matching assembly names.
 			// This is needed for sometimes when we have AsmDef.<PirvateImplementationDetails>.ComputeStringHash()
-			if( m == null )
+			System.Reflection.Assembly [] assys = AppDomain.CurrentDomain.GetAssemblies();
+			foreach( System.Reflection.Assembly proxyAssembly in assys )
 			{
-				System.Reflection.Assembly [] assys = AppDomain.CurrentDomain.GetAssemblies();
-				foreach( System.Reflection.Assembly proxyAssembly in assys )
+				foreach (Type type in proxyAssembly.GetTypes())
 				{
-					foreach (Type type in proxyAssembly.GetTypes())
+					if( type.Name == declaringType.Name )
 					{
-						if( type.Name == declaringType.Name )
+						try
 						{
-							m = type.GetMethod(
+							// I don't think there is any case where this would be needed for a type with a constructor.
+							MethodBase m = type.GetMethod(
 								name,
 								genericArguments.Length,
 								BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static,
@@ -444,23 +514,26 @@ namespace Cilbox
 								CallingConventions.Any,
 								parameters,
 								null );
-							if( m != null ) Debug.Log( type.Name + " == " + declaringType.Name + " == " + proxyAssembly.GetName().Name + " >> " + m.Name );
-
-							if( m != null ) break;
-							// I don't think there is any case where this would be needed for a type with a constructor.
+							if( m != null )
+							{
+								Debug.Log(type.Name + " == " + declaringType.Name + " == " + proxyAssembly.GetName().Name + " >> " + m.Name);
+								return m;
+							}
 						}
+						catch (Exception e)
+						{
+							Debug.LogWarning(e.ToString());
+							Debug.LogWarning("Failed to find method " + name + " on type " + type.FullName + " with parameters " + string.Join(", ", (object[])parameters) + " and generic arguments " + string.Join(", ", (object[])genericArguments) + " in assembly " + proxyAssembly.GetName().Name);
+							// Continue searching the rest of the assemblies to see if there is another match
+							continue;
+						}
+
 					}
-					if( m != null ) break;
 				}
 			}
 
-			if( m != null && m is MethodInfo && genericArguments.Length > 0 )
-			{
-		    	m = ((MethodInfo)m).MakeGenericMethod( genericArguments );
-			}
-
-
-			return m;
+			// If we reach here, no appropriate method was found.
+			return null;
 		}
 
 	}

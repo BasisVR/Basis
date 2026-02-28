@@ -1,3 +1,10 @@
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Threading.Tasks;
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Command_Line_Args;
@@ -6,16 +13,12 @@ using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders;
 using Basis.Scripts.TransformBinders.BoneControl;
-using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Threading.Tasks;
+using Basis.Scripts.UI.UI_Panels;
 using uLipSync;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
-
+using static Basis.Scripts.UI.UI_Panels.BasisDataStoreAvatarKeys;
+using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
 namespace Basis.Scripts.Device_Management
 {
     /// <summary>
@@ -227,6 +230,31 @@ namespace Basis.Scripts.Device_Management
             BasisXRManagement.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
             BasisUlipSyncDriver.Initialize(BasisDeviceManagement.Instance.LipSyncProfile);
+
+            //legacy!!! delete in a few months!
+            if (File.Exists(BasisDataStoreAvatarKeys.FilePath))
+            {
+                //lets try finding old avatars and then nuke there old data.
+                await BasisDataStoreAvatarKeys.LoadKeys();
+                await BasisDataStoreItemKeys.LoadKeys();
+
+                AvatarKey[] activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
+                foreach (AvatarKey Key in activeKeys)
+                {
+                    ItemKey ItemKey = new ItemKey
+                    {
+                        Url = Key.Url,
+                        Pass = Key.Pass,
+                        Mode = BundledContentHolder.Mode.Avatar,
+                        EmbeddedSettings = EmbeddedSettings.Default
+                    };
+
+                    await BasisDataStoreItemKeys.AddNewKey(ItemKey);
+                }
+
+                File.Delete(BasisDataStoreAvatarKeys.FilePath);
+            }
+
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
             StartAllStartIfPermanentlyExists();
             await SwitchSetModeToDefault();

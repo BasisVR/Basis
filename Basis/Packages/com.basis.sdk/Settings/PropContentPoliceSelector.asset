@@ -336,8 +336,19 @@ MonoBehaviour:
   - Basis.Scripts.Vehicles.Parts.BasisVehicleHoverThruster
   - ExampleMovingChair
   - ExampleRotatingChair
-  - Cilbox.CilboxScene
+  - Cilbox.CilboxPropBasis
   - BasisNetworkedVehicles
   - Basis.Scripts.Vehicles.Parts.BasisVehicleSteeringWheel
   - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
   - Basis.Network.Vehicles.BasisNetworkedVehicle
+  - Prism.PrismPlayer
+  - Prism.PrismVideoPlayer
+  - Prism.Native.Windows.WindowsWebRTCPlayer
+  - Prism.Native.Windows.WindowsMediaPlayer
+  - Prism.Native.Windows.WindowsMediaEnginePlayer
+  - Prism.Native.Windows.WindowsLivePlayer
+  - Prism.UnityMainThreadDispatcher
+  - Prism.Audio.SurroundSpeakerSetup
+  - Prism.Audio.SpeakerAudioFilter
+  - Prism.UI.VideoPlayerUI
+  - Basis.Scripts.UI.UI_Panels.BasisUIComponent

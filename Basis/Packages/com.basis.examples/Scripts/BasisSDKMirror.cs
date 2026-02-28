@@ -15,10 +15,21 @@ using UnityEditor;
 
 public class BasisSDKMirror : MonoBehaviour
 {
+    public enum MirrorClearFlags
+    {
+        FromReferenceCamera = 0,
+        Skybox = 1,
+        Color = 2,
+        Depth = 3,
+        Nothing = 4,
+    }
+
     [Header("Main Settings")]
     public Renderer Renderer;
     public Material MirrorsMaterial;
     [SerializeField] private LayerMask ReflectingLayers;
+    [SerializeField] private MirrorClearFlags clearFlags = MirrorClearFlags.FromReferenceCamera;
+    [SerializeField] private Color clearColor = Color.black;
     public float ClipPlaneOffset = 0.001f;
     public float nearClipLimit = 0.01f;
     public float FarClipPlane = 25f;
@@ -47,6 +58,43 @@ public class BasisSDKMirror : MonoBehaviour
     // Keep original event name (typo preserved) to avoid breaking external subscriptions.
     public Action OnCamerasRenderering;
     public Action OnCamerasFinished;
+
+    public LayerMask ReflectionLayers
+    {
+        get => ReflectingLayers;
+        set
+        {
+            ReflectingLayers = value;
+            if (LeftCamera) LeftCamera.cullingMask = ReflectingLayers;
+            if (RightCamera) RightCamera.cullingMask = ReflectingLayers;
+        }
+    }
+
+    public MirrorClearFlags ClearFlags
+    {
+        get => clearFlags;
+        set
+        {
+            clearFlags = value;
+            Camera refCamera = BasisLocalCameraDriver.Instance.Camera;
+            if (LeftCamera) updateCameraClearFlags(LeftCamera, refCamera);
+            if (RightCamera) updateCameraClearFlags(RightCamera, refCamera);
+        }
+    }
+
+    public Color ClearColor
+    {
+        get => clearColor;
+        set
+        {
+            clearColor = value;
+            if (clearFlags == MirrorClearFlags.Color)
+            {
+                if (LeftCamera) LeftCamera.backgroundColor = clearColor;
+                if (RightCamera) RightCamera.backgroundColor = clearColor;
+            }
+        }
+    }
 
     private BasisMeshRendererCheck basisMeshRendererCheck;
     private Vector3 thisPosition;
@@ -375,6 +423,7 @@ public class BasisSDKMirror : MonoBehaviour
         newCamera.farClipPlane = FarClipPlane;
         newCamera.cullingMask = ReflectingLayers;
         newCamera.useOcclusionCulling = OcclusionCulling;
+        updateCameraClearFlags(newCamera, sourceCamera);
 
         if (newCamera.TryGetComponent(out UniversalAdditionalCameraData cameraData))
         {
@@ -387,5 +436,34 @@ public class BasisSDKMirror : MonoBehaviour
     private void VisibilityFlag(bool isVisible)
     {
         IsAbleToRender = isVisible;
+    }
+
+    private void updateCameraClearFlags(Camera camera, Camera refCamera)
+    {
+        switch (clearFlags)
+        {
+            case MirrorClearFlags.Skybox:
+                camera.clearFlags = CameraClearFlags.Skybox;
+                break;
+            case MirrorClearFlags.Color:
+                camera.backgroundColor = clearColor;
+                camera.clearFlags = CameraClearFlags.Color;
+                break;
+            case MirrorClearFlags.Depth:
+                camera.clearFlags = CameraClearFlags.Depth;
+                break;
+            case MirrorClearFlags.Nothing:
+                camera.clearFlags = CameraClearFlags.Nothing;
+                break;
+            case MirrorClearFlags.FromReferenceCamera:
+            default:
+                if (refCamera == null)
+                {
+                    return;
+                }
+                camera.backgroundColor = refCamera.backgroundColor;
+                camera.clearFlags = refCamera.clearFlags;
+                break;
+        }
     }
 }

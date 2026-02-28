@@ -1,3 +1,4 @@
+using Basis;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -98,12 +99,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// <summary>Pooled CPU-side texture for async GPU readbacks.</summary>
     private Texture2D pooledScreenshot;
 
-    /// <summary>Target preview frame interval (dynamic, approx. 30 FPS by default).</summary>
-    private float previewUpdateInterval = 1f / 30f;
-
-    /// <summary>Running preview coroutine handle.</summary>
-    private Coroutine previewRoutine;
-
     /// <summary>Bitmask for the UI layer toggle in <see cref="Nameplates"/>.</summary>
     private int uiLayerMask;
 
@@ -148,8 +143,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
         captureCamera.targetTexture = renderTexture;
         captureCamera.gameObject.SetActive(true);
-
-        StartPreviewLoop();
         BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
     }
     public void InitalizeVolumetrics()
@@ -167,14 +160,19 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     /// </summary>
     public new async void OnDestroy()
     {
-        StopPreviewLoop();
+        string myLoadedNetId = gameObject.name;
+        UnRegisterLoadedNetID(myLoadedNetId);
+
         UnsubscribeMeshRendererCheck();
         ReleaseRenderTexture();
 
         if (HandHeld != null)
         {
+            HandHeld.ReleaseUILock(); // we should release locks if for whatever reason we get destroyed
             await HandHeld.SaveSettings();
+        
         }
+        
 
         BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
         OnPickupUse -= OnPickupUseCapture;
@@ -190,7 +188,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
         BasisDebug.Log($"[HandHeldCamera] Preview reset to {PreviewCaptureWidth}x{PreviewCaptureHeight} @ {AntialiasingQuality.Low}");
         captureCamera.targetTexture = renderTexture;
-        StartPreviewLoop();
     }
 
     /// <summary>Initializes base camera properties (HDR, MSAA, physical cam, targets).</summary>
@@ -395,46 +392,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
             pooledScreenshot = new Texture2D(width, height, format, false);
         }
     }
-
-    /// <summary>Lightweight preview loop that re-renders at a dynamic interval.</summary>
-    private IEnumerator PreviewRenderLoop()
-    {
-        while (true)
-        {
-            if (captureCamera != null && captureCamera.targetTexture != null && captureCamera.enabled)
-            {
-                captureCamera.Render();
-            }
-            yield return new WaitForSecondsRealtime(previewUpdateInterval);
-        }
-    }
-
-    /// <summary>Starts (or restarts) the preview loop at a fps based on current frame time.</summary>
-    private void StartPreviewLoop()
-    {
-        float currentFPS = 1f / Mathf.Max(Time.unscaledDeltaTime, 0.001f);
-        float halvedFPS = currentFPS * 0.5f;
-        float roundedFPS = Mathf.Clamp(Mathf.Round(halvedFPS / 5f) * 5f, 5f, 60f);
-
-        previewUpdateInterval = 1f / roundedFPS;
-        BasisDebug.Log($"Camera Preview FPS: {roundedFPS}");
-
-        if (previewRoutine == null)
-        {
-            previewRoutine = StartCoroutine(PreviewRenderLoop());
-        }
-    }
-
-    /// <summary>Stops the preview coroutine if it’s running.</summary>
-    private void StopPreviewLoop()
-    {
-        if (previewRoutine != null)
-        {
-            StopCoroutine(previewRoutine);
-            previewRoutine = null;
-        }
-    }
-
     /// <summary>Starts a 5-second countdown and triggers a capture at the end.</summary>
     public void Timer()
     {
@@ -507,25 +464,41 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
 
         StartCoroutine(TakeScreenshot(format, renderFormat));
     }
-
+    bool IsOverridingDesktopView = false;
+    public void LateUpdate()
+    {
+        if (IsOverridingDesktopView)
+        {
+            actualMaterial.mainTexture = CopyCameraColorToStaticRTFeature.OutputRT;
+            actualMaterial.SetTexture("_MainTex", CopyCameraColorToStaticRTFeature.OutputRT);
+        }
+    }
     /// <summary>
     /// When enabled and not on desktop, renders to the main display instead of the RT
     /// (and fills the RT with black). Otherwise restores RT output.
     /// </summary>
     public void OverrideDesktopOutput()
     {
-        if (enableRecordingView && !BasisDeviceManagement.IsUserInDesktop())
+        IsOverridingDesktopView = enableRecordingView && !BasisDeviceManagement.IsUserInDesktop();
+        if (IsOverridingDesktopView)
         {
             captureCamera.targetTexture = null;
             captureCamera.depth = 1;
             captureCamera.targetDisplay = 0;
-            FillRenderTextureWithColor(renderTexture, Color.black);
+            if(CopyCameraColorToStaticRTFeature.OutputRT == null)
+            {
+                BasisDebug.LogError("Missing RT Copy From Cam");
+            }
+            actualMaterial.mainTexture = CopyCameraColorToStaticRTFeature.OutputRT;
+            actualMaterial.SetTexture("_MainTex", CopyCameraColorToStaticRTFeature.OutputRT);
         }
         else
         {
             captureCamera.depth = -1;
-            captureCamera.targetDisplay = 1;
+            captureCamera.targetDisplay = 0;
             captureCamera.targetTexture = renderTexture;
+            actualMaterial.mainTexture = renderTexture;
+            actualMaterial.SetTexture("_MainTex", renderTexture);
         }
     }
 
@@ -535,19 +508,6 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
         enableRecordingView = !enableRecordingView;
         OverrideDesktopOutput();
     }
-
-    /// <summary>Clears a render texture to a solid color using an Unlit/Color blit.</summary>
-    private void FillRenderTextureWithColor(RenderTexture rt, Color color)
-    {
-        if (clearMaterial == null)
-        {
-            BasisDebug.LogWarning("Clear material not initialized");
-            return;
-        }
-        clearMaterial.color = color;
-        Graphics.Blit(null, rt, clearMaterial);
-    }
-
     /// <summary>
     /// Encodes and writes the screenshot to disk asynchronously using the selected format.
     /// </summary>
@@ -627,6 +587,25 @@ public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
     {
         if (renderTexture != null)
             renderTexture.Release();
+    }
+
+    private async void UnRegisterLoadedNetID(string myLoadedNetId)
+    {
+        if (string.IsNullOrEmpty(myLoadedNetId))
+            return;
+
+        if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(myLoadedNetId, out var go) && go)
+        {
+            bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(myLoadedNetId);
+            if (success)
+            {
+                BasisDebug.Log($"successfully removed item = {myLoadedNetId} from registry");
+            }
+            else
+            {
+                BasisDebug.LogError($"failed to remove item = {myLoadedNetId} from registry");
+            }
+        }
     }
 
     /// <summary>

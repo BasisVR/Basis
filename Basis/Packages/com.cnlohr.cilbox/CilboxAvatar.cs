@@ -65,6 +65,12 @@ namespace Cilbox
 			"UnityEngine.Vector3",
 		};
 
+		static HashSet<String> whiteListFields = new HashSet<String>(){
+			"UnityEngine.Vector3.x",
+			"UnityEngine.Vector3.y",
+			"UnityEngine.Vector3.z",
+		};
+
 		public CilboxAvatar()
 		{
 			timeoutLengthUs = 5000; // Limit avatars to 5ms.
@@ -77,6 +83,14 @@ namespace Cilbox
 		override public bool CheckTypeAllowed( String sType )
 		{
 			return whiteListType.Contains( sType );
+		}
+
+		override public bool CheckFieldAllowed( String sType, String sFieldName )
+		{
+			if( !CheckTypeAllowed( sType ) ) return false;
+			if( sType.Length < 1 || sFieldName.Length < 1 ) return false;
+			if( !whiteListFields.Contains( sType + "." + sFieldName ) ) return false;
+			return true;
 		}
 
 		// After a type is allowed, this is called to see if the specific method is OK.

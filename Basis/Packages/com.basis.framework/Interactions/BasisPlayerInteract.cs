@@ -314,56 +314,41 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
             return null;
         }
-
         private void UpdatePickupState(BasisInteractableObject hitInteractable, ref BasisInteractInput interactInput)
         {
-            // Handy context for logs
-            string inputId = interactInput.input != null ? interactInput.input.ToString() : "null";
-            int hitId = hitInteractable != null ? hitInteractable.GetInstanceID() : -1;
+            bool isSameTarget =
+                interactInput.lastTarget != null &&
+                interactInput.lastTarget.GetInstanceID() == hitInteractable.GetInstanceID();
 
-            // Hit a different target than last time
-            if (interactInput.lastTarget != null && interactInput.lastTarget.GetInstanceID() != hitInteractable.GetInstanceID())
+            // -----------------------------
+            // Different target than last time
+            // -----------------------------
+            if (!isSameTarget && interactInput.lastTarget != null)
             {
-                //  Debug.Log($"[Pickup] Branch: Different target. LastTarget={interactInput.lastTarget.name}({interactInput.lastTarget.GetInstanceID()}), NewHit={hitInteractable.name}({hitId}), Input={inputId}");
-
                 bool holdDropTriggered = interactInput.lastTarget.IsHoldDropTriggered(interactInput.input);
-                //  Debug.Log($"[Pickup] holdDropTriggered for lastTarget={holdDropTriggered}");
 
-                // Holding Logic:
-                // last target had input trigger
+                // If we're holding the last target (trigger pressed)
                 if (interactInput.lastTarget.IsInteractTriggered(interactInput.input))
                 {
-                    //  Debug.Log("[Pickup] Different target: lastTarget had interact trigger.");
-
                     // Clear hover of last
                     if (interactInput.lastTarget.IsHoveredBy(interactInput.input))
                     {
-                        //  Debug.Log($"[Pickup] Ending hover on lastTarget '{interactInput.lastTarget.name}' due to new interact.");
                         interactInput.lastTarget.OnHoverEnd(interactInput.input, false);
                     }
 
                     bool shouldHold = hitInteractable.AutoHold == BasisAutoHold.Yes;
-                    //  Debug.Log($"[Pickup] shouldHold on new hit: {shouldHold}");
 
-                    // Interacted with new hit since last frame & we aren't holding (in which case do nothing)
+                    // Start interaction on new hit if allowed
                     if (hitInteractable.CanInteract(interactInput.input) &&
                         (!interactInput.lastTarget.IsInteractingWith(interactInput.input) || shouldHold))
                     {
-                        //  Debug.Log($"[Pickup] Starting interaction on NEW hit '{hitInteractable.name}' from lastTarget branch. shouldHold={shouldHold}");
                         hitInteractable.OnInteractStart(interactInput.input);
                         interactInput.lastTarget = hitInteractable;
                     }
-                    else
-                    {
-                        //   Debug.Log("[Pickup] Did NOT start interaction on new hit (CanInteract or hold conditions failed).");
-                    }
                 }
-                // No primary trigger
-                // auto hold & remove
                 else
                 {
-                    //   Debug.Log("[Pickup] Different target: lastTarget does NOT have interact trigger (no primary trigger).");
-
+                    // Not pressing interact: clear states from last target (if needed), then consider hover on new target.
                     bool removeTarget = false;
 
                     bool autoHoldDropped = true;
@@ -372,126 +357,136 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         autoHoldDropped =
                             interactInput.lastTarget.AutoHold != BasisAutoHold.Yes ||
                             (interactInput.lastTarget.AutoHold == BasisAutoHold.Yes && holdDropTriggered);
-
-                        //     Debug.Log($"[Pickup] DesktopCenterEye: autoHoldDropped={autoHoldDropped}, lastTarget.AutoHold={interactInput.lastTarget.AutoHold}, holdDropTriggered={holdDropTriggered}");
                     }
 
-                    // End interact of hit (unlikely since we just hit it this update)
-                    if (hitInteractable.IsInteractingWith(interactInput.input))
-                    {
-                        //   Debug.Log($"[Pickup] Ending interaction on NEW hit '{hitInteractable.name}' (unexpected ongoing interact).");
-                        hitInteractable.OnInteractEnd(interactInput.input);
-                    }
-
-                    // End interact of previous object
+                    // If last target is interacting and we should drop, end interaction
                     if (interactInput.lastTarget.IsInteractingWith(interactInput.input) && autoHoldDropped)
                     {
-                        //   Debug.Log($"[Pickup] Ending interaction on LAST target '{interactInput.lastTarget.name}' due to autoHoldDropped.");
                         interactInput.lastTarget.OnInteractEnd(interactInput.input);
                         removeTarget = true;
                     }
 
-                    // Hover missed previous object
+                    // End hover on last target (we're on a new target now)
                     if (interactInput.lastTarget.IsHoveredBy(interactInput.input))
                     {
-                        // Debug.Log($"[Pickup] Ending hover on LAST target '{interactInput.lastTarget.name}' (hover missed).");
                         interactInput.lastTarget.OnHoverEnd(interactInput.input, false);
                         removeTarget = true;
                     }
 
                     if (removeTarget)
                     {
-                        //    Debug.Log("[Pickup] Clearing lastTarget reference.");
                         interactInput.lastTarget = null;
                     }
 
-                    // Try hovering new interactable
-                    if (hitInteractable.CanHover(interactInput.input) && autoHoldDropped)
+                    // Try hovering new target (only if we’re allowed to start a hover)
+                    if (autoHoldDropped && hitInteractable.CanHover(interactInput.input))
                     {
-                        //  Debug.Log($"Was able to hover");
                         hitInteractable.OnHoverStart(interactInput.input);
                         interactInput.lastTarget = hitInteractable;
                     }
-                    else
+                }
+
+                return;
+            }
+
+            // -----------------------------
+            // Same target (or lastTarget is null)
+            // -----------------------------
+            if (hitInteractable.IsInteractTriggered(interactInput.input))
+            {
+                // If currently hovered, end hover before interaction
+                if (hitInteractable.IsHoveredBy(interactInput.input))
+                {
+                    bool canInteractNow = hitInteractable.CanInteract(interactInput.input);
+                    hitInteractable.OnHoverEnd(interactInput.input, canInteractNow);
+                }
+
+                bool shouldHold = hitInteractable.AutoHold == BasisAutoHold.Yes;
+
+                if (hitInteractable.CanInteract(interactInput.input))
+                {
+                    if (!hitInteractable.IsInteractingWith(interactInput.input) || shouldHold)
                     {
-                        //     Debug.Log($"Was not able to hover {hitInteractable.CanHover(interactInput.input)} && {autoHoldDropped}");
+                        hitInteractable.OnInteractStart(interactInput.input);
+                        interactInput.lastTarget = hitInteractable;
                     }
                 }
+
+                return;
             }
-            // Hitting same interactable
-            else
+
+            // Not interacting this frame
+            bool autoHoldDroppedSameTarget = true;
+            if (IsDesktopCenterEye(interactInput.input))
             {
-                // Debug.Log($"[Pickup] Branch: Same target OR no lastTarget. Hit={hitInteractable.name}({hitId}), LastTarget={(interactInput.lastTarget ? interactInput.lastTarget.name : "null")}, Input={inputId}");
+                autoHoldDroppedSameTarget =
+                    hitInteractable.AutoHold != BasisAutoHold.Yes ||
+                    (hitInteractable.AutoHold == BasisAutoHold.Yes &&
+                     hitInteractable.IsHoldDropTriggered(interactInput.input));
+            }
 
-                if (hitInteractable.IsInteractTriggered(interactInput.input))
+            // End interaction if we’re not holding and we should drop
+            if (hitInteractable.IsInteractingWith(interactInput.input) && autoHoldDroppedSameTarget)
+            {
+                hitInteractable.OnInteractEnd(interactInput.input);
+            }
+
+            // ✅ Key part: Hover maintenance vs hover start
+            bool isHoveredNow = hitInteractable.IsHoveredBy(interactInput.input);
+
+            if (isHoveredNow)
+            {
+                // Maintain hover only if still valid (range/UI/enabled/etc)
+                if (!HoverStillValid(hitInteractable, interactInput.input))
                 {
-                    //  Debug.Log("[Pickup] Same target: interact TRIGGERED.");
+                    hitInteractable.OnHoverEnd(interactInput.input, false);
 
-                    // First clear hover
-                    if (hitInteractable.IsHoveredBy(interactInput.input))
+                    // If we’re not interacting (or auto-hold allows drop), clear lastTarget to avoid “sticky”
+                    if (!hitInteractable.IsInteractingWith(interactInput.input) || autoHoldDroppedSameTarget)
                     {
-                        bool canInteractNow = hitInteractable.CanInteract(interactInput.input);
-                        //   Debug.Log($"[Pickup] Ending hover on '{hitInteractable.name}' before interact. canInteractNow={canInteractNow}");
-                        hitInteractable.OnHoverEnd(interactInput.input, canInteractNow);
-                    }
-
-                    // Then try to interact
-                    bool shouldHold = hitInteractable.AutoHold == BasisAutoHold.Yes; // || interactInput.input.isHeld
-                                                                                     //   Debug.Log($"[Pickup] shouldHold (same target)={shouldHold}");
-
-                    if (hitInteractable.CanInteract(interactInput.input))
-                    {
-                        if (!hitInteractable.IsInteractingWith(interactInput.input) || shouldHold)
-                        {
-                            //    Debug.Log($"[Pickup] Starting interaction on SAME target '{hitInteractable.name}'. shouldHold={shouldHold}");
-                            hitInteractable.OnInteractStart(interactInput.input);
-                            interactInput.lastTarget = hitInteractable;
-                        }
-                        else
-                        {
-                            //  Debug.Log("[Pickup] Interact trigger ignored: already interacting and !shouldHold.");
-                        }
-                    }
-                    else
-                    {
-                        //    Debug.Log("[Pickup] Interact trigger but CanInteract returned false.");
+                        interactInput.lastTarget = null;
                     }
                 }
                 else
                 {
-                    //   Debug.Log("[Pickup] Same target: interact NOT triggered (no primary trigger).");
-
-                    bool autoHoldDropped = true;
-                    if (IsDesktopCenterEye(interactInput.input))
+                    interactInput.lastTarget = hitInteractable;
+                }
+            }
+            else
+            {
+                // Not currently hovered: only then use CanHover() to START hover
+                if (hitInteractable.CanHover(interactInput.input))
+                {
+                    hitInteractable.OnHoverStart(interactInput.input);
+                    interactInput.lastTarget = hitInteractable;
+                }
+                else
+                {
+                    // If we can’t hover and we’re not interacting, don’t keep lastTarget stuck
+                    if (!hitInteractable.IsInteractingWith(interactInput.input) || autoHoldDroppedSameTarget)
                     {
-                        autoHoldDropped =
-                            hitInteractable.AutoHold != BasisAutoHold.Yes ||
-                            (hitInteractable.AutoHold == BasisAutoHold.Yes &&
-                             hitInteractable.IsHoldDropTriggered(interactInput.input));
-
-                        //   Debug.Log($"[Pickup] DesktopCenterEye (same target): autoHoldDropped={autoHoldDropped}, AutoHold={hitInteractable.AutoHold}");
-                    }
-
-                    // End interact if not holding and we're still interacting
-                    if (hitInteractable.IsInteractingWith(interactInput.input) && autoHoldDropped)
-                    {
-                        //  Debug.Log($"[Pickup] Ending interaction on SAME target '{hitInteractable.name}' due to autoHoldDropped.");
-                        hitInteractable.OnInteractEnd(interactInput.input);
-                    }
-
-                    // Hover logic
-                    if (hitInteractable.CanHover(interactInput.input))
-                    {
-                        //   Debug.Log($"[Pickup] Starting/maintaining hover on SAME target '{hitInteractable.name}'.");
-                        hitInteractable.OnHoverStart(interactInput.input);
-                        interactInput.lastTarget = hitInteractable;
-                    }
-                    else
-                    {
-                        //  Debug.Log($"[Pickup] Cannot hover SAME target '{hitInteractable.name}'. CanHover returned false.");
+                        interactInput.lastTarget = null;
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Checks whether an existing hover should remain active.
+        /// IMPORTANT: This is NOT the same as CanHover(), which is “can we start hovering?”
+        /// </summary>
+        private static bool HoverStillValid(BasisInteractableObject obj, BasisInput input)
+        {
+            if (!obj.InteractableEnabled) return false;
+            if (input.BasisUIRaycast.HadRaycastUITarget) return false;
+            if (!obj.Inputs.IsInputAdded(input)) return false;
+            if (!input.TryGetRole(out BasisBoneTrackedRole role)) return false;
+            if (!obj.Inputs.TryGetByRole(role, out BasisInputWrapper wrapper)) return false;
+
+            // We only use this function to validate an EXISTING hover
+            if (wrapper.GetState() != BasisInteractInputState.Hovering) return false;
+
+            return obj.IsWithinRange(wrapper.BoneControl.OutgoingWorldData.position, obj.InteractRange);
         }
 
         private void RemoveInput(string uid)

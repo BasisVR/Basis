@@ -25,6 +25,7 @@ public class BasisAssetBundleObject : ScriptableObject
     public BuildTarget BuildTarget = BuildTarget.StandaloneWindows;
     public BuildAssetBundleOptions BuildAssetBundleOptions;
     public string AssetBundleDirectory = "./AssetBundles";
+    public string AssetBundleUnCombined = "./AssetCache";
     [SerializeField]
     public List<BuildTarget> selectedTargets = new List<BuildTarget>();
 

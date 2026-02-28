@@ -18,19 +18,36 @@ public static class BasisCursorManagement
         return Cursor.visible;
     }
 
+#if UNITY_EDITOR
+    /// <summary>
+    /// Editor-only debug view of active lock request owners.
+    /// </summary>
+    public static IReadOnlyList<string> CursorLockRequestsDebug => cursorLockRequests;
+#endif
     /// <summary>
     /// Locks the cursor to the center of the screen and hides it.
     /// Adds a request to lock the cursor.
     /// </summary>
     public static void LockCursor(string requestName)
     {
-        if (ShouldIgnoreCursorRequests()) return;
+        if (ShouldIgnoreCursorRequests())
+        {
+            return;
+        }
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        // BasisDebug.Log("Cursor Locked");
-        cursorLockRequests.Add(requestName);
-        OnCursorStateChange?.Invoke(CursorLockMode.Locked, false);
+        if (cursorLockRequests.Contains(requestName) == false)
+        {
+
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            // BasisDebug.Log("Cursor Locked");
+            cursorLockRequests.Add(requestName);
+            OnCursorStateChange?.Invoke(CursorLockMode.Locked, false);
+        }
+        else
+        {
+            BasisDebug.LogError("already Has Cursor Lock Request");
+        }
     }
 
     /// <summary>
@@ -39,7 +56,10 @@ public static class BasisCursorManagement
     /// </summary>
     public static void UnlockCursor(string requestName, bool FireCursorStateChange = true)
     {
-        if (ShouldIgnoreCursorRequests()) return;
+        if (ShouldIgnoreCursorRequests())
+        {
+            return;
+        }
 
         InternalUnlockCursor(requestName, FireCursorStateChange);
     }
@@ -70,7 +90,10 @@ public static class BasisCursorManagement
     /// </summary>
     public static void ConfineCursor(string requestName)
     {
-        if (ShouldIgnoreCursorRequests()) return;
+        if (ShouldIgnoreCursorRequests())
+        {
+            return;
+        }
 
         Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
@@ -79,10 +102,9 @@ public static class BasisCursorManagement
     }
     private static bool ShouldIgnoreCursorRequests()
     {
-        var isUserInVR = !BasisDeviceManagement.IsUserInDesktop();
         // When in VR mode, all cursor lock requests are must be ignored,
         // so that cursor control is not taken away from other external desktop overlay applications.
-        return isUserInVR;
+        return BasisDeviceManagement.IsCurrentModeVR();
     }
     public static void OnReset()
     {

@@ -4,7 +4,7 @@
 QualitySettings:
   m_ObjectHideFlags: 0
   serializedVersion: 5
-  m_CurrentQuality: 1
+  m_CurrentQuality: 0
   m_QualitySettings:
   - serializedVersion: 5
     name: DESKTOP
@@ -29,17 +29,17 @@ QualitySettings:
     billboardsFaceCameraPosition: 1
     useLegacyDetailDistribution: 0
     adaptiveVsync: 0
-    vSyncCount: 0
+    vSyncCount: 1
     realtimeGICPUUsage: 100
     adaptiveVsyncExtraA: 0
     adaptiveVsyncExtraB: 0
     lodBias: 2
-    meshLodThreshold: 1
+    meshLodThreshold: 0.01
     maximumLODLevel: 0
     enableLODCrossFade: 1
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 24326
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -85,17 +85,17 @@ QualitySettings:
     billboardsFaceCameraPosition: 1
     useLegacyDetailDistribution: 0
     adaptiveVsync: 0
-    vSyncCount: 0
+    vSyncCount: 1
     realtimeGICPUUsage: 100
     adaptiveVsyncExtraA: 0
     adaptiveVsyncExtraB: 0
     lodBias: 2
-    meshLodThreshold: 1
+    meshLodThreshold: 0.01
     maximumLODLevel: 0
     enableLODCrossFade: 0
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 24326
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -141,17 +141,17 @@ QualitySettings:
     billboardsFaceCameraPosition: 1
     useLegacyDetailDistribution: 0
     adaptiveVsync: 0
-    vSyncCount: 0
+    vSyncCount: 1
     realtimeGICPUUsage: 100
     adaptiveVsyncExtraA: 0
     adaptiveVsyncExtraB: 0
     lodBias: 2
-    meshLodThreshold: 1
+    meshLodThreshold: 0.01
     maximumLODLevel: 0
     enableLODCrossFade: 0
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 24326
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -197,17 +197,17 @@ QualitySettings:
     billboardsFaceCameraPosition: 1
     useLegacyDetailDistribution: 0
     adaptiveVsync: 0
-    vSyncCount: 0
+    vSyncCount: 1
     realtimeGICPUUsage: 100
     adaptiveVsyncExtraA: 0
     adaptiveVsyncExtraB: 0
     lodBias: 2
-    meshLodThreshold: 1
+    meshLodThreshold: 0.01
     maximumLODLevel: 0
     enableLODCrossFade: 0
     streamingMipmapsActive: 1
     streamingMipmapsAddAllCameras: 1
-    streamingMipmapsMemoryBudget: 24138
+    streamingMipmapsMemoryBudget: 24326
     streamingMipmapsRenderersPerFrame: 512
     streamingMipmapsMaxLevelReduction: 4
     streamingMipmapsMaxFileIORequests: 512
@@ -229,8 +229,8 @@ QualitySettings:
     excludedTargetPlatforms:
     - Android
     - Server
-    - iPhone
     - Standalone
+    - iPhone
   m_TextureMipmapLimitGroupNames: []
   m_PerPlatformDefaultQuality:
     Android: 0

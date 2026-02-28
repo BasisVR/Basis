@@ -116,6 +116,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisVirtualSpine.Initialize();
                 HasEyeEvents = true;
             }
+            LockEye();
+        }
+        public void LockEye()
+        {
+            LookRotationLock.Clear();
+            BasisCursorManagement.LockCursor(nameof(BasisDesktopEye));
         }
 
         /// <summary>

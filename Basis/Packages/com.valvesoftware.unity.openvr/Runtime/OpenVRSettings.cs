@@ -1,9 +1,12 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using UnityEngine;
 
 #if UNITY_XR_MANAGEMENT
@@ -187,8 +190,27 @@ namespace Unity.XR.OpenVR
             if (newPath != oldPath)
             {
                 ActionManifestFileRelativeFilePath = newPath;
-                UnityEditor.EditorUtility.SetDirty(this);
-                UnityEditor.AssetDatabase.SaveAssets();
+
+#if UNITY_EDITOR
+                EditorUtility.SetDirty(this);
+
+                // SaveAssets is not allowed during asset importing.
+                // Delay the save until the editor is idle.
+                EditorApplication.delayCall += () =>
+                {
+                    // Double-guard: only save when Unity is not importing/updating assets.
+                    if (!EditorApplication.isUpdating && !AssetDatabase.IsAssetImportWorkerProcess())
+                    {
+                        AssetDatabase.SaveAssets();
+                    }
+                    else
+                    {
+                        // If we're still importing/updating, try again later.
+                        EditorApplication.delayCall += () => AssetDatabase.SaveAssets();
+                    }
+                };
+#endif
+
                 return true;
             }
 #endif

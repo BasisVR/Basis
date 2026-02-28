@@ -88,6 +88,7 @@ public static class BasisSceneFactory
         Camera RealCamera = BasisLocalCameraDriver.Instance.Camera;
         RealCamera.useOcclusionCulling = Camera.useOcclusionCulling;
         RealCamera.backgroundColor = Camera.backgroundColor;
+        RealCamera.clearFlags = Camera.clearFlags;
         RealCamera.barrelClipping = Camera.barrelClipping;
         RealCamera.usePhysicalProperties = Camera.usePhysicalProperties;
         // Note that these are limited by the player's size in BasisLocalCameraDriver.UpdateCameraScale().
