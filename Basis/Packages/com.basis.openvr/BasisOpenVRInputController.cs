@@ -64,7 +64,22 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         public override void LateDoPollData()
         {
-            
+            if (!SteamVR.active)
+            {
+                return;
+            }
+
+            // Poll input state here so InputUpdate() sees fresh data after LastUpdatePlayerControl()
+            CurrentInputState.GripButton = SteamVR_Actions._default.Grip.GetState(inputSource);
+            CurrentInputState.SystemOrMenuButton = SteamVR_Actions._default.System.GetState(inputSource);
+            CurrentInputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
+            CurrentInputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
+            CurrentInputState.Primary2DAxisClick = SteamVR_Actions._default.JoyStickClick.GetState(inputSource);
+            CurrentInputState.Primary2DAxisRaw = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
+            CurrentInputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);
+            CurrentInputState.SecondaryTrigger = SteamVR_Actions._default.HandTrigger.GetAxis(inputSource);
+            CurrentInputState.Secondary2DAxisRaw = SteamVR_Actions._default.TrackPad.GetAxis(inputSource);
+            CurrentInputState.Secondary2DAxisClick = SteamVR_Actions._default.TrackPadTouched.GetState(inputSource);
         }
         public override void RenderPollData()
         {

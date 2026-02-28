@@ -115,6 +115,15 @@ public class BasisOpenXRHandInput : BasisInputController
     }
     public override void LateDoPollData()
     {
+        // Poll input state here so InputUpdate() sees fresh data after LastUpdatePlayerControl()
+        CurrentInputState.Primary2DAxisRaw = Primary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.Secondary2DAxisRaw = Secondary2DAxis.action?.ReadValue<Vector2>() ?? Vector2.zero;
+        CurrentInputState.GripButton = Grip.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryTrigger = Grip.action?.ReadValue<float>() ?? 0f;
+        CurrentInputState.SystemOrMenuButton = MenuButton.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.PrimaryButtonGetState = PrimaryButton.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.SecondaryButtonGetState = SecondaryButton.action?.ReadValue<float>() > TriggerDownAmount;
+        CurrentInputState.Trigger = Trigger.action?.ReadValue<float>() ?? 0f;
     }
     public override void RenderPollData()
     {
