@@ -143,7 +143,7 @@ namespace Cilbox
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Device_Management.Devices.BasisInput), new HashSet<string> { } },
-			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ nameof(GameObject.SetActive), nameof(GameObject.GetComponents) } },
+			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ nameof(GameObject.SetActive), nameof(GameObject.GetComponents), typeof(GameObject).GetProperty(nameof(GameObject.transform)).GetGetMethod().Name } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
 		};
 
