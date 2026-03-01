@@ -43,6 +43,7 @@ namespace Cilbox
 			"System.Byte",
 			"System.Char",
 			"System.Collections.Generic.Dictionary",
+			"System.Collections.Generic.List",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DayOfWeek",
@@ -91,6 +92,7 @@ namespace Cilbox
 			"UnityEngine.Time",
 			"UnityEngine.Transform",
 			"UnityEngine.Quaternion",
+			"UnityEngine.Rigidbody",
 			"UnityEngine.UI.Button",
 			"UnityEngine.UI.Button+ButtonClickedEvent",
 			"UnityEngine.UI.InputField",
