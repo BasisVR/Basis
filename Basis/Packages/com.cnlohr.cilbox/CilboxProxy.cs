@@ -477,7 +477,9 @@ namespace Cilbox
 		void Update() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.Update, null ); }
 		void FixedUpdate() { if( proxyWasSetup ) box.InterpretIID( cls, this, ImportFunctionID.FixedUpdate, null ); }
 		void OnTriggerEnter(Collider c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerEnter, new object[] { c }); }
-		void OnTriggerExit(Collider b) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerExit, new object[] { b }); }
+		void OnTriggerExit(Collider c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnTriggerExit, new object[] { c }); }
+		void OnCollisionEnter(Collision c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnCollisionEnter, new object[] { c }); }
+		void OnCollisionExit(Collision c) { if (proxyWasSetup) box.InterpretIID(cls, this, ImportFunctionID.OnCollisionExit, new object[] { c }); }
 	}
 }
 

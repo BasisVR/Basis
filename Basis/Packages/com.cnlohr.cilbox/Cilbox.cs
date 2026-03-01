@@ -2875,6 +2875,8 @@ spiperf.End();
 		OnTriggerExit,
 		OnEnable,
 		OnDisable,
+		OnCollisionEnter,
+		OnCollisionExit
 	}
 }
 

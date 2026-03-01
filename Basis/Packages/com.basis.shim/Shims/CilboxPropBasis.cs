@@ -14,6 +14,10 @@ namespace Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			// Basis types
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
+			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -53,6 +57,8 @@ namespace Cilbox
 			"UnityEngine.AudioSource",
 			"UnityEngine.Color",
 			"UnityEngine.Component",
+			"UnityEngine.Collider",
+			"UnityEngine.Collision",
 			"UnityEngine.Debug",
 			"UnityEngine.Events.UnityAction",
 			"UnityEngine.Events.UnityEvent",
@@ -70,6 +76,7 @@ namespace Cilbox
 			"UnityEngine.Texture2D",
 			"UnityEngine.Time",
 			"UnityEngine.Transform",
+			"UnityEngine.Quaternion",
 			"UnityEngine.UI.Button",
 			"UnityEngine.UI.Button+ButtonClickedEvent",
 			"UnityEngine.UI.InputField",
@@ -80,11 +87,6 @@ namespace Cilbox
 			"UnityEngine.UI.Text",
 			"UnityEngine.Vector3",
 			"UnityEngine.Vector4",
-
-			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
-			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
-			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
-			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject",
 		};
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
@@ -92,9 +94,11 @@ namespace Cilbox
 			"UnityEngine.Vector3.x",
 			"UnityEngine.Vector3.y",
 			"UnityEngine.Vector3.z",
+
+			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
-             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
+            "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
         };
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
