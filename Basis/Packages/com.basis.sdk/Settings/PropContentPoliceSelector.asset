@@ -352,3 +352,4 @@ MonoBehaviour:
   - Prism.Audio.SpeakerAudioFilter
   - Prism.UI.VideoPlayerUI
   - Basis.Scripts.UI.UI_Panels.BasisUIComponent
+  - Cilbox.CilboxProxy
