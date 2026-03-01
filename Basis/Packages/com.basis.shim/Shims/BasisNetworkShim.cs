@@ -18,7 +18,7 @@ namespace Basis
 
 		public NetworkReadyEvent             NetworkReady { set; get; }
 		public OwnershipTransferEvent        OwnershipTransfer { set; get; }
-		public ServerOwnershipDestroyedEvent ServerOwnershipDestroyedE { set; get; }
+		public ServerOwnershipDestroyedEvent ServerOwnershipDestroyed { set; get; }
 		public NetworkMessageEvent           NetworkMessageReceived { set; get; }
 		public PlayerLeftEvent               PlayerLeft { set; get; }
 		public PlayerJoinedEvent             PlayerJoined { set; get; }
@@ -27,9 +27,9 @@ namespace Basis
         {
 			NetworkReady?.Invoke();
         }
-        public override void ServerOwnershipDestroyed()
+        public override void OnServerOwnershipDestroyed()
         {
-			ServerOwnershipDestroyedE?.Invoke();
+			ServerOwnershipDestroyed?.Invoke();
         }
         public override void OnOwnershipTransfer(BasisNetworkPlayer NetNewOwner)
         {
