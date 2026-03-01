@@ -17,7 +17,21 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
-			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject",
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
+			"Basis.BasisInteractableShim",
+			"Basis.BasisInteractableShim+ClickEvent",
+			"Basis.BasisNetworkBehaviour",
+			"Basis.BasisNetworkShim",
+			"Basis.BasisNetworkShim+NetworkMessageEvent",
+			"Basis.BasisNetworkShim+NetworkReadyEvent",
+			"Basis.BasisNetworkShim+OwnershipTransferEvent",
+			"Basis.BasisNetworkShim+PlayerJoinedEvent",
+			"Basis.BasisNetworkShim+PlayerLeftEvent",
+			"Basis.BasisNetworkShim+ServerOwnershipDestroyedEvent",
+			"Basis.Network.Core.DeliveryMethod",
+			"Basis.SafeUtil",
+			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
+			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -99,6 +113,8 @@ namespace Cilbox
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
+			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
+			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
         };
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
@@ -125,6 +141,7 @@ namespace Cilbox
 			{ typeof(UnityEngine.MonoBehaviour),       new HashSet<string>{ ".ctor" } },
 			{ typeof(UnityEngine.Events.UnityAction),  new HashSet<string>{ ".ctor" } },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable), new HashSet<string> { } },
+			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Device_Management.Devices.BasisInput), new HashSet<string> { } },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ nameof(GameObject.SetActive), nameof(GameObject.GetComponents) } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
