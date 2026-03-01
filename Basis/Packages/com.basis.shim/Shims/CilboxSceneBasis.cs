@@ -32,6 +32,7 @@ namespace Cilbox
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
+			"BasisNetworkCommon+EventTiming",
 			"BasisSDKMirror",
 			"BasisSDKMirror+MirrorClearFlags",
 
@@ -46,6 +47,7 @@ namespace Cilbox
 			"System.Byte",
 			"System.Char",
 			"System.Collections.Generic.Dictionary",
+			"System.Collections.Generic.List",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DayOfWeek",
@@ -53,6 +55,7 @@ namespace Cilbox
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
+			"System.Guid",
 			"System.IDisposable",
 			"System.Int16",
 			"System.Int32",
@@ -64,6 +67,7 @@ namespace Cilbox
 			"System.Math",
 			"System.MathF",
 			"System.Object",
+			"System.Random",
 			"System.Single",
 			"System.String",
 			"System.TimeSpan",
@@ -74,10 +78,18 @@ namespace Cilbox
 			"System.Void",
 			"<PrivateImplementationDetails>", // Probably remove me? But we need a way to handle string hashing.  We can do it with our own function but that's slower.
 
+			// TMPro types
+			"TMPro.TextMeshPro",
+			"TMPro.TextMeshProUGUI",
+			"TMPro.TMP_Text",
+
 			// Unity types
 			"UnityEngine.AudioClip",
 			"UnityEngine.AudioSource",
 			"UnityEngine.Behaviour",
+			"UnityEngine.BoxCollider",
+			"UnityEngine.CapsuleCollider",
+			"UnityEngine.Collider",
 			"UnityEngine.Color",
 			"UnityEngine.Component",
 			"UnityEngine.CustomRenderTexture",
@@ -85,15 +97,23 @@ namespace Cilbox
 			"UnityEngine.DynamicGI",
 			"UnityEngine.Events.UnityAction",
 			"UnityEngine.Events.UnityEvent",
+			"UnityEngine.EventSystems.BaseEventData",
+			"UnityEngine.EventSystems.EventTrigger",
+			"UnityEngine.EventSystems.EventTrigger+Entry",
+			"UnityEngine.EventSystems.EventTrigger+TriggerEvent",
+			"UnityEngine.EventSystems.EventTriggerType",
 			"UnityEngine.GameObject",     // Hyper restrictive.
 			"UnityEngine.Gradient",
+			"UnityEngine.LayerMask",
 			"UnityEngine.Light",
 			"UnityEngine.Material",
 			"UnityEngine.MaterialPropertyBlock",
 			"UnityEngine.Mathf",
+			"UnityEngine.MeshCollider",
 			"UnityEngine.MeshRenderer",
 			"UnityEngine.MonoBehaviour",   // Note this is needed for the 'ctor, but we can be very restrictive.
 			"UnityEngine.Object",
+			"UnityEngine.ParticleSystem",
 			"UnityEngine.Quaternion",
 			"UnityEngine.Random",
 			"UnityEngine.Renderer",
@@ -110,20 +130,35 @@ namespace Cilbox
 			"UnityEngine.UI.Button+ButtonClickedEvent",
 			"UnityEngine.UI.InputField",
 			"UnityEngine.UI.InputField+OnChangeEvent",
+			"UnityEngine.UI.RawImage",
 			"UnityEngine.UI.Scrollbar",
 			"UnityEngine.UI.Selectable",
 			"UnityEngine.UI.Slider",
 			"UnityEngine.UI.Text",
+			"UnityEngine.UI.Toggle",
+			"UnityEngine.UI.Toggle+ToggleEvent",
 			"UnityEngine.Vector2",
 			"UnityEngine.Vector3",
 			"UnityEngine.Vector4",
         };
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
+			// Basis fields
+			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
+			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
+
 			// Unity fields
+			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
+			"UnityEngine.EventSystems.EventTrigger+Entry.callback",
+			"UnityEngine.UI.Toggle.onValueChanged",
 			"UnityEngine.Vector3.x",
 			"UnityEngine.Vector3.y",
 			"UnityEngine.Vector3.z",
+			"UnityEngine.Vector4.x",
+			"UnityEngine.Vector4.y",
+			"UnityEngine.Vector4.z",
+			"UnityEngine.Vector4.w",
 		};
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
