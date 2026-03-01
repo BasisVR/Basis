@@ -118,7 +118,7 @@ namespace Basis
         {
             if (uniqueEntityID == clientIdentifier)
             {
-                ServerOwnershipDestroyed();
+                OnServerOwnershipDestroyed();
             }
         }
         private void LowLevelOwnershipTransfer(string uniqueEntityID, ushort NetIdNewOwner, bool isOwner)
@@ -276,7 +276,7 @@ namespace Basis
         /// <summary>
         /// back to no one owning it, (item no longer exists for example)
         /// </summary>
-        public virtual void ServerOwnershipDestroyed()
+        public virtual void OnServerOwnershipDestroyed()
         {
 
         }
