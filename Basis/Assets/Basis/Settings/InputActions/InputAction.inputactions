@@ -278,7 +278,7 @@
                     "id": "c1f7a91b-d0fd-4a62-997e-7fb9b69bf235",
                     "path": "<Gamepad>/rightStick",
                     "interactions": "",
-                    "processors": "ScaleVector2(x=25,y=25),StickDeadzone",
+                    "processors": "StickDeadzone",
                     "groups": ";Gamepad;All",
                     "action": "Look Delta",
                     "isComposite": false,
