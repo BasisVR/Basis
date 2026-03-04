@@ -32,17 +32,19 @@ namespace BasisNetworkCore
                 // Log that we are assigning a new ID
                 BNL.Log($"No existing ID found for {UniqueStringID}. Assigning a new ID.");
 
-                // Check if we can assign a new ID
-                if (counter >= ushort.MaxValue)
+                // Generate a new unique ushort ID (thread-safe increment)
+                int newCounter = Interlocked.Increment(ref counter);
+
+                // Check if we exceeded the ushort range
+                if (newCounter > ushort.MaxValue)
                 {
-                    // Log and throw an error
+                    Interlocked.Decrement(ref counter); // Roll back
                     string errorMessage = $"Error: Cannot assign a new NetID for {UniqueStringID}. Maximum ID limit of {ushort.MaxValue} reached.";
                     BNL.Log(errorMessage);
                     throw new InvalidOperationException(errorMessage);
                 }
 
-                // Generate a new unique ushort ID
-                ushort newID = (ushort)Interlocked.Increment(ref counter); // Thread-safe increment
+                ushort newID = (ushort)newCounter;
 
                 // Add to the database
                 UshortNetworkDatabase[UniqueStringID] = newID;

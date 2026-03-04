@@ -322,8 +322,7 @@ namespace BasisServerHandle
 
             audioSegment.playerIdMessage = new PlayerIdMessage
             {
-                playerID = (ushort)sender.Id,
-                AdditionalData = 0
+                playerID = (ushort)sender.Id
             };
 
             var writer = new NetDataWriter(true, 3);
@@ -411,7 +410,7 @@ namespace BasisServerHandle
         {
             try
             {
-                // Fetch all peers into an array (up to 1024)
+                // Fetch all peers into an array
                 NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
                 NetDataWriter writer = new NetDataWriter(true, 2);
                 foreach (var peer in peers)
@@ -507,7 +506,7 @@ namespace BasisServerHandle
             ServerUniqueIDMessage.Deserialize(Reader);
             Reader.Recycle();
             //returns a message with the ushort back to the client, or it sends it to everyone if its new.
-            BasisNetworkIDDatabase.AddOrFindNetworkID(Peer, ServerUniqueIDMessage.UniqueID);
+            BasisNetworkIDDatabase.AddOrFindNetworkID(Peer, ServerUniqueIDMessage.playerID);
             //we need to convert the string int a  ushort.
         }
         public static void LoadResource(NetPacketReader Reader, NetPeer Peer,string UUID)

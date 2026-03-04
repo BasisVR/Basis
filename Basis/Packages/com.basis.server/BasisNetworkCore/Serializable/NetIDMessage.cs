@@ -6,14 +6,14 @@ namespace BasisNetworkCore.Serializable
     {
         public struct NetIDMessage
         {
-            public string UniqueID;
+            public string playerID;
 
             public void Deserialize(NetDataReader reader)
             {
                 int bytes = reader.AvailableBytes;
                 if (bytes != 0)
                 {
-                    UniqueID = reader.GetString();
+                    playerID = reader.GetString();
                 }
                 else
                 {
@@ -23,9 +23,9 @@ namespace BasisNetworkCore.Serializable
 
             public void Serialize(NetDataWriter writer)
             {
-                if (!string.IsNullOrEmpty(UniqueID))
+                if (!string.IsNullOrEmpty(playerID))
                 {
-                    writer.Put(UniqueID);
+                    writer.Put(playerID);
                 }
                 else
                 {

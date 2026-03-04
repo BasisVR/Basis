@@ -40,7 +40,7 @@ public static class BasisNetworkIdResolver
         try
         {
             NetDataWriter writer = new NetDataWriter();
-            NetIDMessage requestMessage = new NetIDMessage { UniqueID = stringId };
+            NetIDMessage requestMessage = new NetIDMessage { playerID = stringId };
             requestMessage.Serialize(writer);
 
             BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.netIDAssignChannel, DeliveryMethod.ReliableOrdered);
@@ -84,7 +84,7 @@ public static class BasisNetworkIdResolver
 
     public static void CompleteMessageDelegation(ServerNetIDMessage serverMessage)
     {
-        string stringId = serverMessage.NetIDMessage.UniqueID;
+        string stringId = serverMessage.NetIDMessage.playerID;
         ushort resolvedId = serverMessage.UshortUniqueIDMessage.UniqueIDUshort;
 
         if (string.IsNullOrEmpty(stringId))

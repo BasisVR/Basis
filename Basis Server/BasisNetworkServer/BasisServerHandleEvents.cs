@@ -410,7 +410,7 @@ namespace BasisServerHandle
         {
             try
             {
-                // Fetch all peers into an array (up to 1024)
+                // Fetch all peers into an array
                 NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
                 NetDataWriter writer = new NetDataWriter(true, 2);
                 foreach (var peer in peers)
