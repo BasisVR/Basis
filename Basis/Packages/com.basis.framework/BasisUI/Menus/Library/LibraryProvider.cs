@@ -1788,7 +1788,7 @@ namespace Basis.BasisUI
 
                             case BasisRuntimeSpawnRegistry.SpawnMode.Scene:
 
-                                if(BasisRuntimeSpawnRegistry.SpawnedScenes.TryGetValue(itemKey.LoadedNetID, out Scene scene) && scene != null)
+                                if(BasisRuntimeSpawnRegistry.SpawnedScenes.TryGetValue(itemKey.LoadedNetID, out Scene scene) && scene.IsValid())
                                 {
                                     bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(itemKey.LoadedNetID);
                                     if(success)

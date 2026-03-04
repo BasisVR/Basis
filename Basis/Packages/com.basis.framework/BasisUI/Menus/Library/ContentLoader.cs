@@ -346,11 +346,9 @@ namespace Basis.BasisUI
                             );
 
 
-                            if(scene != null)
+                            if(scene.IsValid())
                             {
-                                string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
-
-                                BasisDebug.Log($"Library provider successfully created scene {item.Url} with networking: {desiredNetworkType} with UID = {UniqueID}");
+                                BasisDebug.Log($"Library provider successfully created scene {item.Url} with networking: {desiredNetworkType}");
 
                                 BasisRuntimeSpawnRegistry.AddScene(
                                     item.Url,
@@ -369,6 +367,10 @@ namespace Basis.BasisUI
                                 BasisDebug.LogError($"Library provider failed to create desired scene with networking: {desiredNetworkType} with of url {item.Url}");
                             }
 
+                        }
+                        else
+                        {
+                            BasisDebug.LogError($"LoadWorld local: BasisBundleConnector is null for {item.Url}");
                         }
 
                     break;
@@ -391,6 +393,9 @@ namespace Basis.BasisUI
                             BasisDebug.LogError(ex);
                         }
                     break;
+                    default:
+                        BasisDebug.LogError($"LoadWorld {item.Url} was loaded with an unknown network type of {desiredNetworkType}!");
+                    break;
                 }
             }
             else
@@ -398,7 +403,6 @@ namespace Basis.BasisUI
                 BasisDebug.LogError( $"LoadWorld failed to find the cached meta for url {item.Url}" );
             }
 
-            await Task.CompletedTask;
         }
     }
 }
