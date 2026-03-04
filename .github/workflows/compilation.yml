@@ -60,7 +60,7 @@ jobs:
           docker-images: false
           swap-storage: false
       - name: "Checkout repository"
-        timeout-minutes: 5
+        timeout-minutes: 10
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -191,7 +191,7 @@ jobs:
           - win-x64
     steps:
       - name: "Checkout repository"
-        timeout-minutes: 5
+        timeout-minutes: 10
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -201,7 +201,7 @@ jobs:
         with:
           dotnet-version: "10.0.x"
       - name: "Build server"
-        timeout-minutes: 2
+        timeout-minutes: 10
         run: "dotnet publish '${{ matrix.projectPath }}' -f net10.0 --self-contained --runtime '${{ matrix.runtimes }}' -o build -c Release"
       - name: "Upload server artifact"
         timeout-minutes: 2
