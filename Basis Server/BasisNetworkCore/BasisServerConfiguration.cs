@@ -10,7 +10,7 @@ public class Configuration
     public const string ConfigFolderName = "config";
     public const string LogsFolderName = "logs";
     public const string InitialResourcesFolderName = "initialresources";
-    public int PeerLimit = 1024;
+    public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
     public bool UseNativeSockets = true;
     public bool NatPunchEnabled = true;

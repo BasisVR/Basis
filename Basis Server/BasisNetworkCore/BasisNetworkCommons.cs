@@ -5,7 +5,7 @@ namespace Basis.Network.Core
         /// <summary>
         /// this is the maximum Connections that can occur under the hood.
         /// </summary>
-        public const int MaxConnections = 1024;
+        public const int MaxConnections = ushort.MaxValue;
 
         public const int NetworkIntervalPoll = 2;
         public const int PingInterval = 1500;

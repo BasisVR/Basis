@@ -45,7 +45,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
     public partial class BasisServerReductionSystemEvents
     {
         private static readonly CancellationTokenSource cts = new();
-        private static readonly int MaxConcurrentPlayers = 1024;
+        private static readonly int MaxConcurrentPlayers = ushort.MaxValue;
 
         private static readonly ParallelOptions parallelOptions = new()
         {

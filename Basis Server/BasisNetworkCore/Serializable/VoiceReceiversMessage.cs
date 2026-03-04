@@ -6,7 +6,7 @@ public static partial class SerializableBasis
     public struct VoiceReceiversMessage
     {
         // Hard cap to avoid giant allocations if data is corrupted
-        private const int MaxUsers = 1024;
+        private const int MaxUsers = ushort.MaxValue;
 
         public ushort[] Users;
 
