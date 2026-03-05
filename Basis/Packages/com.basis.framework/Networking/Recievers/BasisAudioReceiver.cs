@@ -508,11 +508,10 @@ namespace Basis.Scripts.Networking.Receivers
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = _inputScratch[f];
+                float sample = FastClamp(_inputScratch[f]);
                 for (int c = 0; c < channels; c++)
                 {
-                    float v = data[idx] * sample;
-                    data[idx++] = FastClamp(v);
+                    data[idx++] = sample;
                 }
             }
 
@@ -566,11 +565,10 @@ namespace Basis.Scripts.Networking.Receivers
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = _resampleScratch[f];
+                float sample = FastClamp(_resampleScratch[f]);
                 for (int c = 0; c < channels; c++)
                 {
-                    float v = data[idx] * sample;
-                    data[idx++] = FastClamp(v);
+                    data[idx++] = sample;
                 }
             }
 
