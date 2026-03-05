@@ -209,7 +209,7 @@ MonoBehaviour:
   transmissionHigh: 1
   maxTransmissionSurfaces: 4
   directMixLevel: 1
-  reflections: 1
+  reflections: 0
   reflectionsType: 0
   useDistanceCurveForReflections: 1
   currentBakedSource: {fileID: 0}
