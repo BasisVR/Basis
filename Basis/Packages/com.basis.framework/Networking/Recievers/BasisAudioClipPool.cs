@@ -27,7 +27,8 @@ public static class BasisAudioClipPool
         }
         else
         {
-            return AudioClip.Create($"player [{LinkedPlayer}]", RemoteOpusSettings.FrameSize * (2 * 2), RemoteOpusSettings.Channels, AudioSettings.outputSampleRate, false, (buf) =>
+            int clipFrames = Mathf.CeilToInt(SharedOpusSettings.DesiredDurationInSeconds * 4 * AudioSettings.outputSampleRate);
+            return AudioClip.Create($"player [{LinkedPlayer}]", clipFrames, RemoteOpusSettings.Channels, AudioSettings.outputSampleRate, false, (buf) =>
             {
                 Array.Fill(buf, 1.0f);
             });
