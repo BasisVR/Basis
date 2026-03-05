@@ -56,9 +56,8 @@ namespace Basis.Scripts.Networking.Transmitters
             );
 #endif
 
-            // Example: Configure Opus encoder here (optional)
-            // int complexity = 5;
-            // encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, ref complexity);
+            encoder.Ctl(EncoderCTL.OPUS_SET_BITRATE, 32000);
+            encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, 5);
         }
 
         private void AttachMicrophoneEvents()
