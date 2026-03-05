@@ -133,8 +133,17 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 0.194
       inSlope: 0
+      outSlope: -0.194
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: -0.194
       outSlope: 0
       tangentMode: 0
       weightedMode: 0
@@ -189,7 +198,7 @@ MonoBehaviour:
   occlusion: 1
   occlusionInput: 0
   occlusionType: 1
-  occlusionRadius: 1
+  occlusionRadius: 0.15
   occlusionSamples: 16
   occlusionValue: 1
   transmission: 1
@@ -200,7 +209,7 @@ MonoBehaviour:
   transmissionHigh: 1
   maxTransmissionSurfaces: 4
   directMixLevel: 1
-  reflections: 0
+  reflections: 1
   reflectionsType: 0
   useDistanceCurveForReflections: 1
   currentBakedSource: {fileID: 0}
