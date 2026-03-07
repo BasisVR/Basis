@@ -38,6 +38,13 @@ namespace Cilbox
 		public string? CatchTypeName;
 	}
 
+	public class CilboxHeapInstance
+	{
+		public string className;
+		public CilboxClass cls;
+		public StackElement[] fields;
+	}
+
 	public class CilboxMethod
 	{
 		public CilboxClass parentClass;
@@ -46,6 +53,7 @@ namespace Cilbox
 		public String fullSignature;
 		public String[] methodLocals;
 		public bool isStatic;
+		public bool isConstructor;
 		public Type[] typeLocals;
 		public byte[] byteCode;
 		public bool isVoid;
@@ -83,6 +91,15 @@ namespace Cilbox
 			isVoid = Convert.ToInt32((methodProps["isVoid"].AsString())) != 0;
 			isStatic = Convert.ToInt32((methodProps["isStatic"].AsString())) != 0;
 			fullSignature = methodProps["fullSignature"].AsString();
+			if( methodProps.TryGetValue("isCtor", out Serializee isCtorSer) )
+			{
+				isConstructor = Convert.ToInt32(isCtorSer.AsString()) != 0;
+			}
+			else
+			{
+				// Backward compatibility for payloads generated before isCtor existed.
+				isConstructor = methodName == ".ctor" || methodName == ".cctor" || fullSignature.StartsWith("Void .ctor(") || fullSignature.StartsWith("Void .cctor(");
+			}
 
 			Serializee [] od = methodProps["parameters"].AsArray();
 			signatureParameters = new String[od.Length];
@@ -317,11 +334,14 @@ spiperf.Begin();
 					case 0x73: //newobj
 					case 0x6F: //callvirt
 					{
+						int currentInstruction = pc - 1;
 						uint bc = (b == 0x29) ? stackBuffer[sp--].u : BytecodeAsU32( ref pc );
 						object iko = null; // Returned value.
 						CilMetadataTokenInfo dt = box.metadatas[bc];
 						bool isVoid = false;
 						MethodBase st;
+						bool isNewObj = b == 0x73;
+						bool isJmp = b == 0x27;
 
 						if( !dt.isValid )
 						{
@@ -347,7 +367,6 @@ spiperf.Begin();
 									stackBuffer[++sp] = dt.shim( dt, stackBufferIn.Slice( nextStackHead ), stackBufferIn.Slice( nextParameterStart, numParams + staticOffset ) );
 								else
 									dt.shim( dt, stackBufferIn.Slice( nextStackHead ), stackBufferIn.Slice( nextParameterStart, numParams + staticOffset ) );
-
 							}
 							else
 							{
@@ -355,31 +374,90 @@ spiperf.Begin();
 								// interpretiveMethodClass
 								CilboxClass targetClass = box.classesList[dt.interpretiveMethodClass];
 								CilboxMethod targetMethod = targetClass.methods[dt.interpretiveMethod];
-								isVoid = targetMethod.isVoid;
 								if( targetMethod == null )
 									throw new CilboxInterpreterRuntimeException($"Function {dt.Name} not found", parentClass.className, methodName, pc);
 
+								isVoid = targetMethod.isVoid;
 								int staticOffset = (targetMethod.isStatic?0:1);
 								int numParams = targetMethod.signatureParameters.Length;
-
 								int nextParameterStart = stackContinues;
 								int nextStackHead = nextParameterStart + numParams + staticOffset;
 
 								for( int i = numParams - 1; i >= 0; i-- )
 									stackBuffer[nextParameterStart+i+staticOffset] = stackBuffer[sp--];
 
-								if( !targetMethod.isStatic )
-									stackBuffer[nextParameterStart] = stackBuffer[sp--];
+								bool ctorAsNewObj = targetMethod.isConstructor && isNewObj;
+								bool ctorAsCall = targetMethod.isConstructor && !isNewObj;
 
-								if( !isVoid )
-									stackBuffer[++sp] = targetMethod.InterpretInner( stackBufferIn.Slice( nextStackHead ), stackBufferIn.Slice( nextParameterStart, numParams + staticOffset ) );
+								if( ctorAsNewObj )
+								{
+									CilboxHeapInstance newObj = new CilboxHeapInstance();
+									newObj.className = targetClass.className;
+									newObj.cls = targetClass;
+									newObj.fields = new StackElement[targetClass.instanceFieldNames.Length];
+									for( int i = 0; i < targetClass.instanceFieldNames.Length; i++ )
+									{
+										Type fieldType = targetClass.instanceFieldTypes[i];
+										if( fieldType == null )
+										{
+											newObj.fields[i].LoadObject( null );
+											continue;
+										}
+
+										StackType fieldStackType = StackElement.StackTypeFromType( fieldType );
+										if( fieldStackType < StackType.Object )
+										{
+											newObj.fields[i].type = fieldStackType;
+										}
+										else if( fieldType.IsValueType )
+										{
+											try
+											{
+												newObj.fields[i].LoadObject( Activator.CreateInstance( fieldType ) );
+											}
+											catch
+											{
+												newObj.fields[i].LoadObject( null );
+											}
+										}
+										else
+										{
+											newObj.fields[i].LoadObject( null );
+										}
+									}
+									stackBuffer[nextParameterStart].LoadObject( newObj );
+									try
+									{
+										targetMethod.InterpretInner(stackBufferIn.Slice(nextStackHead), stackBufferIn.Slice(nextParameterStart, numParams + staticOffset));
+									}
+									catch (CilboxUnhandledInterpretedException e)
+									{
+										interpretedThrow(currentInstruction, e.Throwee);
+									}
+									stackBuffer[++sp].LoadObject( newObj );
+								}
 								else
-									targetMethod.InterpretInner( stackBufferIn.Slice( nextStackHead ), stackBufferIn.Slice( nextParameterStart, numParams + staticOffset ) );
+								{
+									if( !targetMethod.isStatic )
+										stackBuffer[nextParameterStart] = stackBuffer[sp--];
 
-								if( b == 0x27 )
+									try
+									{
+										if (!isVoid && !ctorAsCall)
+											stackBuffer[++sp] = targetMethod.InterpretInner(stackBufferIn.Slice(nextStackHead), stackBufferIn.Slice(nextParameterStart, numParams + staticOffset));
+										else
+											targetMethod.InterpretInner(stackBufferIn.Slice(nextStackHead), stackBufferIn.Slice(nextParameterStart, numParams + staticOffset));
+									}
+									catch (CilboxUnhandledInterpretedException e)
+									{
+										interpretedThrow(currentInstruction, e.Throwee);
+									}
+								}
+
+								if( isJmp )
 								{
 									// This is returning from a jump, so immediately abort.
-									if( isVoid ) stackBuffer[++sp] = StackElement.nil; /// ?? Please check me! If wrong, fix above, too.
+									if( isVoid || ctorAsCall ) stackBuffer[++sp] = StackElement.nil; /// ?? Please check me! If wrong, fix above, too.
 									cont = false;
 								}
 							}
@@ -394,7 +472,6 @@ spiperf.Begin();
 							int numFields = pa.Length;
 							object callthis = null;
 							object [] callpar = new object[numFields];
-							StackElement callthis_se = new StackElement{};
 							StackElement [] callpar_se = new StackElement[numFields];
 							int ik;
 							for( ik = 0; ik < numFields; ik++ )
@@ -429,11 +506,33 @@ spiperf.Begin();
 							}
 							if( st.IsConstructor )
 							{
-								// TRICKY: This generally can only be arrived at when scripts run their own constructors.
-								if( st.DeclaringType == typeof( MonoBehaviour ) )
-									iko = this;
-								else // Otherwise it's normal.
-									iko = ((ConstructorInfo)st).Invoke( callpar );
+								ConstructorInfo ctor = (ConstructorInfo)st;
+								if( isNewObj )
+								{
+									iko = ctor.Invoke( callpar );
+									isVoid = false; // newobj always pushes a reference/value.
+								}
+								else
+								{
+									StackElement ctorThisSe = stackBuffer[sp--];
+									object ctorThis = ctorThisSe.AsObject(box);
+									if (ctorThis == null)
+									{
+										interpretedThrow(pc - 1, new NullReferenceException());
+										break;
+									}
+
+									Type ctorDeclaringType = ctor.DeclaringType;
+									if( ctorDeclaringType == null || ( ctorDeclaringType != typeof(object) && ctorDeclaringType != typeof(MonoBehaviour) ) )
+									{
+										throw new CilboxInterpreterRuntimeException(
+											$"Unsupported native constructor call on existing instance: {ctor.DeclaringType?.FullName}",
+											parentClass.className, methodName, pc);
+									}
+
+									// Base constructors for Object/MonoBehaviour are no-ops in interpreter mode.
+									isVoid = true;
+								}
 							}
 							else if( !st.IsStatic )
 							{
@@ -503,7 +602,7 @@ spiperf.Begin();
 							{
 								stackBuffer[++sp].Load( iko );
 							}
-							if( b == 0x27 )
+							if( isJmp )
 							{
 								// This is returning from a jump, so immediately abort.
 								if( isVoid ) stackBuffer[++sp] = StackElement.nil; /// ?? Please check me! If wrong, fix above, too.
@@ -870,20 +969,19 @@ spiperf.Begin();
 						object oRet = null;
 						if( ti.nativeTypeIsCilboxProxy )
 						{
-							if( se.o is CilboxProxy )
+							if( TryGetInternalObjectData( se.o, out string seClassName, out _ ) )
 							{
-								// Both are proxies. Check name.
-								if( ((CilboxProxy)(se.o)).className == ti.Name )
+								if( seClassName == ti.Name )
 									oRet = se.o;
 							}
 						}
 						else if( ti.nativeTypeIsStackType )
 						{
-							if( ti.nativeTypeStackType == StackElement.TypeToStackType[ti.Name] )
-								stackBuffer[++sp] = se;
+							if( StackElement.TypeToStackType.TryGetValue( ti.Name, out StackType stackType ) && ti.nativeTypeStackType == stackType )
+								oRet = se.AsObject();
 						}
-						else if( se.o.GetType() == ti.nativeType )
-							stackBuffer[++sp].LoadObject( se.o );
+						else if( se.o != null && se.o.GetType() == ti.nativeType )
+							oRet = se.o;
 
 						stackBuffer[++sp].LoadObject( oRet );
 
@@ -912,9 +1010,9 @@ spiperf.Begin();
 							break;
 						}
 
-						if( opths is CilboxProxy proxy )
+						if( TryGetInternalObjectData( opths, out _, out StackElement[] internalFields ) )
 						{
-							stackBuffer[++sp] = proxy.fields[box.metadatas[bc].fieldIndex];
+							stackBuffer[++sp] = internalFields[box.metadatas[bc].fieldIndex];
 							break;
 						}
 
@@ -943,9 +1041,9 @@ spiperf.Begin();
 							break;
 						}
 
-						if( opths is CilboxProxy proxy )
+						if( TryGetInternalObjectData( opths, out _, out StackElement[] internalFields ) )
 						{
-							stackBuffer[++sp] = StackElement.CreateAddressReference((Array)(proxy.fields), (uint)box.metadatas[bc].fieldIndex);
+							stackBuffer[++sp] = StackElement.CreateAddressReference((Array)(internalFields), (uint)box.metadatas[bc].fieldIndex);
 							break;
 						}
 
@@ -963,9 +1061,9 @@ spiperf.Begin();
 							break;
 						}
 
-						if( opths is CilboxProxy proxy )
+						if( TryGetInternalObjectData( opths, out _, out StackElement[] internalFields ) )
 						{
-							proxy.fields[box.metadatas[bc].fieldIndex] = se;
+							internalFields[box.metadatas[bc].fieldIndex] = se;
 							//Debug.Log( "Type: " + ((CilboxProxy)opths).fields[box.metadatas[bc].fieldIndex].type );
 							break;
 						}
@@ -1435,6 +1533,11 @@ spiperf.End();
 				}
 				while( cont );
 			}
+			catch (CilboxUnhandledInterpretedException)
+			{
+				// don't break program flow for interpreted exceptions; we want to pass flow back to the outer call.
+				throw;
+			}
 			catch( Exception e )
 			{
 				string fullError = $"Breakwarn: {e.ToString()} Class: {parentClass.className}, Function: {methodName}, Bytecode: {pc}";
@@ -1464,8 +1567,7 @@ spiperf.End();
 				exceptionRegister = new StackElement() { type = StackType.Object, o = thrownObj };
 				if (!hasExceptionClauses)
 				{
-					// todo: figure out how to re-throw to outer interpreter.
-					throw new CilboxInterpreterRuntimeException("Exception thrown with no handlers: " + thrownObj.ToString(), parentClass.className, methodName, currentInstruction);
+					throw new CilboxUnhandledInterpretedException("Exception thrown with no handlers: " + thrownObj.ToString(), thrownObj, parentClass.className, methodName, currentInstruction);
 				}
 
 				CilboxExceptionHandlingClause found = null;
@@ -1504,7 +1606,7 @@ spiperf.End();
 					{
 						// Cilboxable type match
 						// todo: it isn't actually possible to throw a Cilboxable type (yet?)
-						if (!(thrownObj is CilboxProxy && ((CilboxProxy)thrownObj).className == c.CatchTypeName))
+						if (!IsInternalObjectInstanceOf(thrownObj, c.CatchTypeName))
 						{
 							continue;
 						}
@@ -1520,8 +1622,7 @@ spiperf.End();
 
 				if (found == null)
 				{
-					// how do I handle this?
-					throw new CilboxInterpreterRuntimeException("No handlers matched exception: " + thrownObj.ToString(), parentClass.className, methodName, currentInstruction);
+					throw new CilboxUnhandledInterpretedException("No handlers matched exception: " + thrownObj.ToString(), thrownObj, parentClass.className, methodName, currentInstruction);
 				}
 
 				leaveRegionEnqueueFinallys(currentInstruction, found.HandlerOffset, true);
@@ -1592,6 +1693,32 @@ spiperf.End();
 				}
 			}
 		}
+
+		private static bool TryGetInternalObjectData( object candidate, out string className, out StackElement[] fields )
+		{
+			if( candidate is CilboxProxy proxy )
+			{
+				className = proxy.className;
+				fields = proxy.fields;
+				return true;
+			}
+			if( candidate is CilboxHeapInstance heap )
+			{
+				className = heap.className;
+				fields = heap.fields;
+				return true;
+			}
+
+			className = string.Empty;
+			fields = Array.Empty<StackElement>();
+			return false;
+		}
+
+		private static bool IsInternalObjectInstanceOf( object candidate, string className )
+		{
+			return TryGetInternalObjectData( candidate, out string candidateClassName, out _ ) && candidateClassName == className;
+		}
+
 
 		uint BytecodeAs16( ref int i )
 		{
@@ -2226,7 +2353,7 @@ spiperf.End();
 		public void OnProcessScene( UnityEngine.SceneManagement.Scene scene, UnityEditor.Build.Reporting.BuildReport report)
 		{
 			//Debug.Log( "IProcessSceneWithReport" );
-			CilboxScenePostprocessor.OnPostprocessScene();
+			CilboxScenePostprocessor.OnPostprocessScene(scene);
 		}
 	}
 
@@ -2235,6 +2362,7 @@ spiperf.End();
 		public int callbackOrder { get { return 0; } }
 		public void OnPreprocessBuild(UnityEditor.Build.Reporting.BuildReport report)
 		{
+			UnityEngine.SceneManagement.Scene activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
 			MonoBehaviour [] allBehavioursThatNeedCilboxing = CilboxUtil.GetAllBehavioursThatNeedCilboxing();
 
 			if( allBehavioursThatNeedCilboxing.Length == 0 )
@@ -2249,13 +2377,13 @@ spiperf.End();
 			dirtier.hideFlags = HideFlags.HideInHierarchy;
 			dirtier.transform.position = new Vector3(UnityEngine.Random.Range(-100,100),UnityEngine.Random.Range(-100,100),UnityEngine.Random.Range(-100,100));
 			UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(
-				UnityEngine.SceneManagement.SceneManager.GetActiveScene() );
-			UnityEditor.SceneManagement.EditorSceneManager.SaveScene( UnityEngine.SceneManagement.SceneManager.GetActiveScene() );
+				activeScene );
+			UnityEditor.SceneManagement.EditorSceneManager.SaveScene( activeScene );
 		}
 	}
 	public class CilboxScenePostprocessor {
 		//[PostProcessSceneAttribute (2)] This is actually called by IProcessSceneWithReport
-		public static void OnPostprocessScene() {
+		public static void OnPostprocessScene(UnityEngine.SceneManagement.Scene scene) {
 
 			ProfilerMarker perf = new ProfilerMarker("Initial Setup"); perf.Begin();
 
@@ -2267,7 +2395,9 @@ spiperf.End();
 
 			Dictionary< String, Serializee > assemblyMetadata = new Dictionary< String, Serializee >();
 			Dictionary< uint, String > originalMetaToFriendlyName = new Dictionary< uint, String >();
-			Dictionary< int, uint> assemblyMetadataReverseOriginal = new Dictionary< int, uint >();
+			// This is used for remapping tokens in the bytecode to point to our own metadata.
+			// Since tokens are per-assembly, we need prevent collisions by keying per assembly as well.
+			Dictionary< (System.Reflection.Assembly, int), uint> assemblyMetadataReverseOriginal = new Dictionary< (System.Reflection.Assembly, int), uint >();
 
 			uint mdcount = 1; // token 0 is invalid.
 			int bytecodeLength = 0;
@@ -2276,15 +2406,16 @@ spiperf.End();
 
 			perf.End(); perf = new ProfilerMarker( "Main Getting Types" ); perf.Begin();
 
-			// Make sure the cilbox script is in use in the scene.
-			HashSet<System.Type> TypesInUseInScene = null;
+			// Make sure the cilbox script is in use in the scene or we have no scene loaded.
+			List<System.Type> TypesInUseInSceneList = new List<System.Type>();
+			HashSet<System.Type> TypesInUseInScene = new HashSet<System.Type>();;
 
-			UnityEngine.SceneManagement.Scene activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
 
-			if( activeScene != null )
+			System.Reflection.Assembly [] assys = AppDomain.CurrentDomain.GetAssemblies();
+
+			if( scene != null )
 			{
-				TypesInUseInScene = new HashSet<System.Type>();
-				GameObject[] rootObjects = activeScene.GetRootGameObjects();
+				GameObject[] rootObjects = scene.GetRootGameObjects();
 				foreach (GameObject root in rootObjects)
 				{
 					MonoBehaviour[] components = root.GetComponentsInChildren<MonoBehaviour>(true);
@@ -2296,7 +2427,8 @@ spiperf.End();
 							Type t = component.GetType();
 							if( !TypesInUseInScene.Contains( t ) )
 							{
-								TypesInUseInScene.Add( t);
+								TypesInUseInScene.Add( t );
+								TypesInUseInSceneList.Add( t );
 							}
 						}
 					}
@@ -2304,23 +2436,31 @@ spiperf.End();
 			}
 			else
 			{
-				Debug.LogWarning( "No scene loaded. Converting ALL Cilboxable scripts." );
+				// Collect ALL cilboxable classes if no scene active.
+
+				foreach( System.Reflection.Assembly proxyAssembly in assys )
+				{
+					foreach (Type t in proxyAssembly.GetTypes())
+					{
+						if( CilboxUtil.HasCilboxableAttribute( t ) && !TypesInUseInScene.Contains( t ) )
+						{
+							TypesInUseInScene.Add( t );
+							TypesInUseInSceneList.Add( t );
+						}
+					}
+				}
 			}
 
-			System.Reflection.Assembly [] assys = AppDomain.CurrentDomain.GetAssemblies();
-			foreach( System.Reflection.Assembly proxyAssembly in assys )
 			{
-				assemblyMetadataReverseOriginal.Clear();
-
-				foreach (Type type in proxyAssembly.GetTypes())
+				for( int typeIndex = 0; typeIndex < TypesInUseInSceneList.Count; typeIndex++ )
 				{
+					Type type = TypesInUseInSceneList[typeIndex];
+					System.Reflection.Assembly proxyAssembly = type.Assembly;
+
 					if( !CilboxUtil.HasCilboxableAttribute( type ) )
 						continue;
 					if( type.IsEnum )
 						continue;
-
-					// Cilbox is not in use... But do ALL cilboxes if no scene is loaded.
-					if( TypesInUseInScene != null && !TypesInUseInScene.Contains( type ) ) continue;
 
 					ProfilerMarker perfType = new ProfilerMarker(type.ToString()); perfType.Begin();
 
@@ -2408,7 +2548,7 @@ spiperf.End();
 											switch( operand>>24 )
 											{
 											case 0x04: // Special case handling for constant initializers.
-												if( !assemblyMetadataReverseOriginal.TryGetValue( (int)operand, out writebackToken ) )
+												if( !assemblyMetadataReverseOriginal.TryGetValue( (proxyAssembly, (int)operand), out writebackToken ) )
 												{
 													writebackToken = mdcount;
 													// Special <PrivateImplementationDetails>+__StaticArrayInitTypeSize=24 instance.
@@ -2428,7 +2568,7 @@ spiperf.End();
 												break;
 										/*
 											case 0x02: // Inline Token for Type (typically used with typeof())
-												if( !assemblyMetadataReverseOriginal.TryGetValue( (int)operand, out writebackToken ) )
+												if( !assemblyMetadataReverseOriginal.TryGetValue( (proxyAssembly, (int)operand), out writebackToken ) )
 												{
 													// TODO: Actually investigate this.  See if we really need it.
 													writebackToken = mdcount;
@@ -2452,7 +2592,7 @@ spiperf.End();
 										}
 										else if( ot == CilboxUtil.OpCodes.OperandType.InlineString )
 										{
-											if( !assemblyMetadataReverseOriginal.TryGetValue( (int)operand, out writebackToken ) )
+											if( !assemblyMetadataReverseOriginal.TryGetValue( (proxyAssembly, (int)operand), out writebackToken ) )
 											{
 												writebackToken = mdcount;
 												Dictionary< String, String > thisMeta = new Dictionary< String, String >();
@@ -2465,7 +2605,7 @@ spiperf.End();
 										}
 										else if( ot == CilboxUtil.OpCodes.OperandType.InlineMethod )
 										{
-											if( !assemblyMetadataReverseOriginal.TryGetValue( (int)operand, out writebackToken ) )
+											if( !assemblyMetadataReverseOriginal.TryGetValue( (proxyAssembly, (int)operand), out writebackToken ) )
 											{
 												writebackToken = mdcount;
 												MethodBase tmb = proxyAssembly.ManifestModule.ResolveMethod( (int)operand );
@@ -2483,6 +2623,14 @@ spiperf.End();
 															argtypes[a] = CilboxUtil.GetSerializeeFromNativeType( templateArguments[a] );
 														methodProps["ga"] = new Serializee( argtypes );
 													}
+												}
+
+												// If we are using another type here, make sure it gets in our list.
+												// We only need to do this here, because either the script is in-use or we are creating it.
+												if( !TypesInUseInScene.Contains( tmb.DeclaringType ) )
+												{
+													TypesInUseInScene.Add( tmb.DeclaringType );
+													TypesInUseInSceneList.Add( tmb.DeclaringType );
 												}
 
 												methodProps["dt"] = CilboxUtil.GetSerializeeFromNativeType( tmb.DeclaringType );
@@ -2509,7 +2657,7 @@ spiperf.End();
 										}
 										else if( ot == CilboxUtil.OpCodes.OperandType.InlineField )
 										{
-											if( !assemblyMetadataReverseOriginal.TryGetValue( (int)operand, out writebackToken ) )
+											if( !assemblyMetadataReverseOriginal.TryGetValue( (proxyAssembly, (int)operand), out writebackToken ) )
 											{
 												writebackToken = mdcount;
 												FieldInfo rf = proxyAssembly.ManifestModule.ResolveField( (int)operand );
@@ -2526,11 +2674,10 @@ spiperf.End();
 										}
 										else if( ot == CilboxUtil.OpCodes.OperandType.InlineType )
 										{
-											if( !assemblyMetadataReverseOriginal.TryGetValue( (int)operand, out writebackToken ) )
+											if( !assemblyMetadataReverseOriginal.TryGetValue( (proxyAssembly, (int)operand), out writebackToken ) )
 											{
 												writebackToken = mdcount;
 												Type ty = proxyAssembly.ManifestModule.ResolveType( (int)operand );
-
 												Dictionary<String, Serializee> fieldProps = new Dictionary<String, Serializee>();
 												fieldProps["mt"] = new Serializee( ((int)MetaTokenType.mtType).ToString() );
 												fieldProps["dt"] = CilboxUtil.GetSerializeeFromNativeType( ty );
@@ -2544,7 +2691,7 @@ spiperf.End();
 										if( changeOperand )
 										{
 											i = backupi;
-											assemblyMetadataReverseOriginal[(int)operand] = writebackToken;
+											assemblyMetadataReverseOriginal[(proxyAssembly, (int)operand)] = writebackToken;
 											CilboxUtil.BytecodeReplaceLiteral( ref byteCode, ref i, opLen, writebackToken );
 										}
 										if( i >= byteCode.Length ) break;
@@ -2606,7 +2753,9 @@ spiperf.End();
 							}
 							MethodProps["parameters"] = new Serializee( parameterList );
 							MethodProps["maxStack"] = new Serializee( mb.MaxStackSize.ToString() );
-							MethodProps["isVoid"] = new Serializee( (m is MethodInfo)?(((MethodInfo)m).ReturnType == typeof(void) ? "1" : "0" ): "0" );
+							bool isCtor = m.IsConstructor;
+							MethodProps["isVoid"] = new Serializee( (m is MethodInfo)?(((MethodInfo)m).ReturnType == typeof(void) ? "1" : "0" ): (isCtor ? "1" : "0") );
+							MethodProps["isCtor"] = new Serializee( isCtor ? "1" : "0" );
 							MethodProps["isStatic"] = new Serializee( m.IsStatic ? "1" : "0" );
 							MethodProps["fullSignature"] = new Serializee( m.ToString() );
 
@@ -2618,14 +2767,19 @@ spiperf.End();
 					allClassMethods[type.FullName] = new Serializee( methods );
 					perfType.End();
 				}
+			}
 
-				perf.End(); perf = new ProfilerMarker( "Secondary Getting Types" ); perf.Begin();
 
-				// Now that we've iterated through all classes, and collected all possible uses of field IDs,
-				// go through the classes again, collecting the fields themselves.
+			perf.End(); perf = new ProfilerMarker( "Secondary Getting Types" ); perf.Begin();
 
-				foreach (Type type in proxyAssembly.GetTypes())
+			// Now that we've iterated through all classes, and collected all possible uses of field IDs,
+			// go through the classes again, collecting the fields themselves.
+
+			{
+				for( int typeIndex = 0; typeIndex < TypesInUseInSceneList.Count; typeIndex++ )
 				{
+					Type type = TypesInUseInSceneList[typeIndex];
+
 					if( !CilboxUtil.HasCilboxableAttribute( type ) )
 						continue;
 					if( type.IsEnum )
@@ -2656,7 +2810,7 @@ spiperf.End();
 
 							// Fill in our metadata with a class-specific field ID, if this field ID was used in code anywhere.
 							uint mdid;
-							if( assemblyMetadataReverseOriginal.TryGetValue(f.MetadataToken, out mdid) )
+							if( assemblyMetadataReverseOriginal.TryGetValue((type.Assembly, f.MetadataToken), out mdid) )
 							{
 								Serializee sOpen = assemblyMetadata[mdid.ToString()];
 								Dictionary< String, Serializee > m = sOpen.AsMap();
@@ -2879,4 +3033,3 @@ spiperf.End();
 		OnCollisionExit
 	}
 }
-
