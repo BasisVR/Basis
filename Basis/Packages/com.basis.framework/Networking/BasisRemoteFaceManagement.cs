@@ -90,7 +90,7 @@ public static class BasisRemoteFaceManagement
             blinkOut = blinkOut,
         };
 
-        handle = job.Schedule(count, BatchSize);
+        handle = job.Schedule(count, BatchSize, handle);
     }
 
     public static void Apply()
