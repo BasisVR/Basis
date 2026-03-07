@@ -82,7 +82,7 @@ public class BasisCilboxBuildHook
                 return Task.CompletedTask;
             }
 
-            CilboxScenePostprocessor.OnPostprocessScene();
+            CilboxScenePostprocessor.OnPostprocessScene(temporaryScene);
             EnsureTemporarySceneHasAssemblyData(temporarySceneCilbox, cilboxAssemblySnapshot);
             RebindProxiesToTemporarySceneCilbox(contentRoot, temporarySceneCilbox);
             RestoreExternalCilboxAssemblyData(cilboxAssemblySnapshot, temporaryScene);

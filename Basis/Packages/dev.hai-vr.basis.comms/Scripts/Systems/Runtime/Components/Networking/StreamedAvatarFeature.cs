@@ -40,9 +40,7 @@ namespace HVR.Basis.Comms
 
         private void Awake()
         {
-            previous ??= new float[valueArraySize];
-            target ??= new float[valueArraySize];
-            current ??= new float[valueArraySize];
+            EnsureBuffers();
         }
 
         private void OnDisable()
@@ -52,6 +50,7 @@ namespace HVR.Basis.Comms
 
         public void Store(int index, float value)
         {
+            EnsureBuffers();
             current[index] = value;
             if (PrioritizeLargeChanges && isWearer)
             {
@@ -63,6 +62,20 @@ namespace HVR.Basis.Comms
                 {
                     target[index] = value;
                 }
+            }
+        }
+
+        public void InitializeNormalizedValues(IReadOnlyList<float> normalizedValues)
+        {
+            EnsureBuffers();
+
+            int count = Mathf.Min(valueArraySize, normalizedValues?.Count ?? 0);
+            for (int i = 0; i < count; i++)
+            {
+                float clamped = Mathf.Clamp01(normalizedValues[i]);
+                current[i] = clamped;
+                previous[i] = clamped;
+                target[i] = clamped;
             }
         }
 
@@ -260,6 +273,13 @@ namespace HVR.Basis.Comms
                 DeltaTime = DeltaTimeUsedForResyncs,
                 FloatValues = current
             }, whoAsked);
+        }
+
+        private void EnsureBuffers()
+        {
+            previous ??= new float[valueArraySize];
+            target ??= new float[valueArraySize];
+            current ??= new float[valueArraySize];
         }
     }
     public class StreamedAvatarFeaturePayload
