@@ -549,9 +549,8 @@ namespace SteamAudio
             EnsureSourceCapacity(CurrentArraySource);
             EnsureListenerCapacity(CurrentArrayListener);
 
-            JobHandle priorHandle = combined;
-            JobHandle sourcesHandle = priorHandle;
-            JobHandle listenersHandle = priorHandle;
+            JobHandle sourcesHandle = default;
+            JobHandle listenersHandle = default;
 
             if (CurrentArraySource > 0 && mSourceTransforms.isCreated)
             {
@@ -559,7 +558,7 @@ namespace SteamAudio
                 {
                     PoseData = mSourceGathers,
                 };
-                sourcesHandle = job.Schedule(mSourceTransforms, priorHandle);
+                sourcesHandle = job.Schedule(mSourceTransforms);
             }
 
             if (CurrentArrayListener > 0 && mListenerTransforms.isCreated)
@@ -568,17 +567,13 @@ namespace SteamAudio
                 {
                     PoseData = mListenerGathers,
                 };
-                listenersHandle = job.Schedule(mListenerTransforms, priorHandle);
+                listenersHandle = job.Schedule(mListenerTransforms);
             }
-
             combined = JobHandle.CombineDependencies(sourcesHandle, listenersHandle);
         }
         public JobHandle combined;
         private void ApplyInstance()
         {
-            // Always complete pose gather jobs even when later early-returns skip simulation work.
-            combined.Complete();
-
             if (mAudioEngineState == null)
                 return;
 
@@ -625,6 +620,10 @@ namespace SteamAudio
             sharedInputs.pathingUserData = IntPtr.Zero;
 
             mSimulator.SetSharedInputs(SimulationFlags.Direct, sharedInputs);
+
+
+            // Complete before calling into Steam Audio (main-thread plugin calls)
+            combined.Complete();
 
             // --- Direct inputs from cached pose arrays ---
             for (int i = 0; i < CurrentArraySource; i++)
@@ -1012,8 +1011,7 @@ namespace SteamAudio
             int newCap = (mSourceCapacity <= 0) ? 8 : mSourceCapacity * 2;
             if (newCap < required) newCap = required;
 
-            // Dispose old arrays if created. Ensure no gather jobs are still using them.
-            combined.Complete();
+            // Dispose old arrays if created
             if (mSourceGathers.IsCreated) mSourceGathers.Dispose();
 
             mSourceGathers = new NativeArray<GatheredData>(newCap, Allocator.Persistent);
@@ -1029,7 +1027,6 @@ namespace SteamAudio
             int newCap = (mListenerCapacity <= 0) ? 4 : mListenerCapacity * 2;
             if (newCap < required) newCap = required;
 
-            combined.Complete();
             if (mListenerGathers.IsCreated) mListenerGathers.Dispose();
 
             mListenerGathers = new NativeArray<GatheredData>(newCap, Allocator.Persistent);
@@ -1052,9 +1049,8 @@ namespace SteamAudio
             if (mSourceTransforms.isCreated) mSourceTransforms.Dispose();
             if (mListenerTransforms.isCreated) mListenerTransforms.Dispose();
 
-            combined.Complete();
-
             if (mSourceGathers.IsCreated) mSourceGathers.Dispose();
+
             if (mListenerGathers.IsCreated) mListenerGathers.Dispose();
 
             mSourceCapacity = 0;
