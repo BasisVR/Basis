@@ -55,6 +55,10 @@ public static class BasisRemoteFaceManagement
     {
         snapshot = BasisNetworkPlayers.ReceiversSnapshot;
         count = BasisNetworkPlayers.ReceiverCount;
+
+        // Keep job lifecycle simple: finish prior frame work before scheduling again.
+        handle.Complete();
+
         if (count <= 0)
         {
             return;
@@ -90,7 +94,7 @@ public static class BasisRemoteFaceManagement
             blinkOut = blinkOut,
         };
 
-        handle = job.Schedule(count, BatchSize, handle);
+        handle = job.Schedule(count, BatchSize);
     }
 
     public static void Apply()

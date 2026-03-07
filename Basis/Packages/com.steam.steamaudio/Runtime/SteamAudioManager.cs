@@ -549,9 +549,11 @@ namespace SteamAudio
             EnsureSourceCapacity(CurrentArraySource);
             EnsureListenerCapacity(CurrentArrayListener);
 
-            JobHandle priorHandle = combined;
-            JobHandle sourcesHandle = priorHandle;
-            JobHandle listenersHandle = priorHandle;
+            // Keep job lifecycle simple: finish prior frame work before scheduling again.
+            combined.Complete();
+
+            JobHandle sourcesHandle = default;
+            JobHandle listenersHandle = default;
 
             if (CurrentArraySource > 0 && mSourceTransforms.isCreated)
             {
@@ -559,7 +561,7 @@ namespace SteamAudio
                 {
                     PoseData = mSourceGathers,
                 };
-                sourcesHandle = job.Schedule(mSourceTransforms, priorHandle);
+                sourcesHandle = job.Schedule(mSourceTransforms);
             }
 
             if (CurrentArrayListener > 0 && mListenerTransforms.isCreated)
@@ -568,7 +570,7 @@ namespace SteamAudio
                 {
                     PoseData = mListenerGathers,
                 };
-                listenersHandle = job.Schedule(mListenerTransforms, priorHandle);
+                listenersHandle = job.Schedule(mListenerTransforms);
             }
 
             combined = JobHandle.CombineDependencies(sourcesHandle, listenersHandle);
