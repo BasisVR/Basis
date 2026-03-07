@@ -114,6 +114,10 @@ namespace HVR.Basis.Comms
 
         private void OnEnable()
         {
+            if (_trackingActive && _eyeFollowDriverApplicable)
+            {
+                SetBuiltInEyeFollowDriverOverriden(true);
+            }
             BasisNetworkTransmitter.AfterAvatarChanges += ForceUpdate;
         }
 
