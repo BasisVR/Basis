@@ -52,6 +52,7 @@ public unsafe class BasisUlipSync
     BasisDctPlan _dctPlan;
 
     float[] _lastApplied;
+    readonly object _bufferSwapLock = new object();
 
     public struct BlendMap
     {
@@ -142,6 +143,13 @@ public unsafe class BasisUlipSync
 
     public void Simulate(float DeltaTime)
     {
+        if (HasJob)
+        {
+            _jobHandle.Complete();
+            _jobHandle = default;
+            HasJob = false;
+        }
+
         if (Interlocked.Exchange(ref _isDataReceived, 0) != 1) return;
         if (!_allocated) return;
 
@@ -149,16 +157,23 @@ public unsafe class BasisUlipSync
         if (!BasisUlipSyncDriver.IsInitialized)
             return;
 
-        int oldActive = _activeInputBuffer;
-        int newActive = oldActive ^ 1;
+        int oldActive;
+        int frozenStartIndex;
+        NativeArray<float> frozenInput;
 
-        Volatile.Write(ref _activeInputBuffer, newActive);
+        lock (_bufferSwapLock)
+        {
+            oldActive = _activeInputBuffer;
+            int newActive = oldActive ^ 1;
 
-        int frozenStartIndex = oldActive == 0
-            ? Volatile.Read(ref _writeIndexA)
-            : Volatile.Read(ref _writeIndexB);
+            Volatile.Write(ref _activeInputBuffer, newActive);
 
-        NativeArray<float> frozenInput = oldActive == 0 ? _inputA : _inputB;
+            frozenStartIndex = oldActive == 0
+                ? Volatile.Read(ref _writeIndexA)
+                : Volatile.Read(ref _writeIndexB);
+
+            frozenInput = oldActive == 0 ? _inputA : _inputB;
+        }
 
         byte normalizeScores = (byte)0;
 
@@ -236,6 +251,7 @@ public unsafe class BasisUlipSync
 
         HasJob = false;
         _jobHandle.Complete();
+        _jobHandle = default;
 
         if (_mfccForOther.IsCreated && _mfcc.IsCreated)
         {
@@ -441,24 +457,27 @@ public unsafe class BasisUlipSync
 
         int ch = math.max(channels, 1);
 
-        int buf = Volatile.Read(ref _activeInputBuffer);
-        NativeArray<float> dstArr = (buf == 0) ? _inputA : _inputB;
-
-        float* dst = (float*)NativeArrayUnsafeUtility.GetUnsafePtr(dstArr);
-
-        fixed (float* src = input)
+        lock (_bufferSwapLock)
         {
-            int w = (buf == 0) ? Volatile.Read(ref _writeIndexA) : Volatile.Read(ref _writeIndexB);
+            int buf = Volatile.Read(ref _activeInputBuffer);
+            NativeArray<float> dstArr = (buf == 0) ? _inputA : _inputB;
 
-            for (int s = 0; s < length; s += ch)
+            float* dst = (float*)NativeArrayUnsafeUtility.GetUnsafePtr(dstArr);
+
+            fixed (float* src = input)
             {
-                dst[w] = src[s];
-                w++;
-                if (w == cap) w = 0;
-            }
+                int w = (buf == 0) ? Volatile.Read(ref _writeIndexA) : Volatile.Read(ref _writeIndexB);
 
-            if (buf == 0) Volatile.Write(ref _writeIndexA, w);
-            else Volatile.Write(ref _writeIndexB, w);
+                for (int s = 0; s < length; s += ch)
+                {
+                    dst[w] = src[s];
+                    w++;
+                    if (w == cap) w = 0;
+                }
+
+                if (buf == 0) Volatile.Write(ref _writeIndexA, w);
+                else Volatile.Write(ref _writeIndexB, w);
+            }
         }
 
         Interlocked.Exchange(ref _isDataReceived, 1);

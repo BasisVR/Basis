@@ -230,10 +230,12 @@ public class BasisEventDriver : MonoBehaviour
     /// </summary>
     private void OnBeforeRender()
     {
+        // Ensure remote face jobs are completed/applied even before local player is ready.
+        BasisRemoteFaceManagement.Apply(); //apply blendshapes
+
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisLocalPlayer.Instance.SimulateOnRender();
-            BasisRemoteFaceManagement.Apply(); //apply blendshapes
             BasisLocalCameraDriver.Instance.microphoneIconDriver.Simulate(DeltaTime); //update microphone icon
         }
     }
@@ -275,3 +277,4 @@ public class BasisEventDriver : MonoBehaviour
 #endif
     }
 }
+

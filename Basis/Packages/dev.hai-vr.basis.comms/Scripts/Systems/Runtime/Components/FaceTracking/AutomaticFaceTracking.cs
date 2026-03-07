@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -35,6 +35,7 @@ namespace HVR.Basis.Comms
         [NonSerialized] internal OSCAcquisition oscAcquisition;
         [NonSerialized] internal BlendshapeActuation blendshapeActuation;
         [NonSerialized] internal EyeTrackingBoneActuation eyeTrackingBoneActuation;
+        [NonSerialized] internal FaceTrackingActivityRelay faceTrackingActivityRelay;
 
         private bool _isWearer;
 
@@ -119,6 +120,9 @@ namespace HVR.Basis.Comms
         private void SetupFaceTracking(BlendshapeActuationDefinitionFile[] definitionFiles, List<SkinnedMeshRenderer> smrs)
         {
             renderers = smrs;
+            faceTrackingActivityRelay = FaceTrackingActivityRelay.GetOrCreate(_avatar);
+            faceTrackingActivityRelay.OnHVRAvatarReady(_isWearer);
+
             if (_isWearer)
             {
                 oscAcquisition = CreateOSCAcquisitionIfNotExists();
