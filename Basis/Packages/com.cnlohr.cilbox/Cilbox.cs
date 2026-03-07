@@ -197,9 +197,20 @@ namespace Cilbox
 			try
 			{
 				ret = InterpretInner( stackBuffer, parameters ).AsObject();
-			} catch( Exception e )
+			}
+			catch( Exception e )
 			{
 				parentClass.box.InterpreterExit();
+
+				if (e is CilboxUnhandledInterpretedException uhe)
+				{
+					// strip the throwee just in case, and re-throw a normal runtime exception
+					string exceptionTypeName = uhe.Throwee?.GetType().FullName ?? "null";
+					string reason = $"Exception of type {exceptionTypeName} was unhandled in interpreted code";
+					parentClass.box.DisableWithReason(reason); // CilboxUnhandledInterpretedException bypasses the box disable
+					throw new CilboxInterpreterRuntimeException(reason, uhe.ClassName, uhe.MethodName, uhe.PC);
+				}
+
 				Debug.Log( e.ToString() );
 				throw;
 			}
@@ -1541,10 +1552,7 @@ spiperf.End();
 			catch( Exception e )
 			{
 				string fullError = $"Breakwarn: {e.ToString()} Class: {parentClass.className}, Function: {methodName}, Bytecode: {pc}";
-				Debug.LogError( fullError );
-				box.disabledReason = fullError;
-				box.disabled = true;
-				//box.InterpreterExit();
+				box.DisableWithReason(fullError);
 
 				if (e is CilboxInterpreterRuntimeException)
 				{
@@ -2328,6 +2336,14 @@ spiperf.End();
 		{
 			usSpentLastFrame = Interlocked.Exchange( ref interpreterAccountingCumulitiveTicks, 0 ) / interpreterTicksInUs;
 		}
+
+		internal void DisableWithReason(string reason)
+		{
+			Debug.LogError( reason );
+			this.disabledReason = reason;
+			this.disabled = true;
+			//this.InterpreterExit();
+		}
 	}
 
 
@@ -3025,10 +3041,11 @@ spiperf.End();
 		Update,
 		Start,
 		Awake,
-		OnTriggerEnter,
-		OnTriggerExit,
 		OnEnable,
 		OnDisable,
+		OnDestroy,
+		OnTriggerEnter,
+		OnTriggerExit,
 		OnCollisionEnter,
 		OnCollisionExit
 	}
