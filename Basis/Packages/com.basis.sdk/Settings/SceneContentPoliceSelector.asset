@@ -359,7 +359,7 @@ MonoBehaviour:
   - BasisLoadInGameobjectAddressable
   - Basis.Scripts.BasisSdk.Interactions.BasisPlayerInteract
   - UnityEngine.Rendering.Universal.UniversalAdditionalLightData
-  - Cilbox.CilboxScene
+  - Cilbox.CilboxSceneBasis
   - VolumetricAdditionalLight
   - GatorDragonGames.JigglePhysics.JiggleRig
   - GatorDragonGames.JigglePhysics.JiggleUpdateExample
@@ -390,3 +390,5 @@ MonoBehaviour:
   - UnityEngine.Rendering.Universal.CompositeShadowCaster2D
   - UnityEngine.Rendering.Universal.ShadowCaster2D
   - Basis.Media.BasisPrismVideoPlayerNetworked
+  - Basis.BasisInteractableShim
+  - Basis.BasisNetworkShim
