@@ -6,6 +6,7 @@
 		<Configurations>Debug;Release</Configurations>
 		<BaseOutputPath>$(ProjectDir)..\..\Basis Server Export\$(MSBuildProjectName)\bin\</BaseOutputPath>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<LangVersion>13</LangVersion>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Debug'">

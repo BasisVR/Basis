@@ -1,4 +1,5 @@
 using System;
+using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.Compression;
 using Xunit;
 
