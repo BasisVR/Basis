@@ -114,8 +114,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// Flag indicating whether this object requires an update loop
         /// while being influenced by inputs.
         /// </summary>
-        [NonSerialized]
-        internal bool RequiresUpdateLoop = false;
+        public bool RequiresUpdateLoop { get; protected set; } = false;
 
         #region Interaction Events
 
