@@ -204,6 +204,19 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         }
                     }
 
+
+                    // Clear stale per-player tracking data for the removed ID across all remaining players.
+                    // Without this, when a new player reuses this ID, other players LastSeenGeneration
+                    // would still hold the old (high) generation value, causing the new-data check
+                    // (senderGen > seenGens[jId]) to fail -- no data would be sent for the new player.
+                    foreach (var kvp in playerStates)
+                    {
+                        var otherState = kvp.Value;
+                        if (id < otherState.LastSeenGeneration.Length)
+                            otherState.LastSeenGeneration[id] = 0;
+                        if (id < otherState.LastSentTimes.Length)
+                            otherState.LastSentTimes[id] = 0;
+                    }
                     BNL.Log($"Player {id} removed and cleaned up.");
                 }
                 else
