@@ -351,8 +351,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     // Not pressing interact: clear states from last target (if needed), then consider hover on new target.
                     bool removeTarget = false;
 
+                    bool lastTargetIsHeld = interactInput.lastTarget.IsInteractingWith(interactInput.input);
                     bool autoHoldDropped = true;
-                    if (IsDesktopCenterEye(interactInput.input))
+                    if (lastTargetIsHeld && IsDesktopCenterEye(interactInput.input))
                     {
                         autoHoldDropped =
                             interactInput.lastTarget.AutoHold != BasisAutoHold.Yes ||
