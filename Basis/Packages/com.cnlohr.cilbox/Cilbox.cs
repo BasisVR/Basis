@@ -2409,14 +2409,14 @@ spiperf.End();
 	}
 	public class CilboxScenePostprocessor {
 		//[PostProcessSceneAttribute (2)] This is actually called by IProcessSceneWithReport
-		public static void OnPostprocessScene(UnityEngine.SceneManagement.Scene scene) {
+		public static void OnPostprocessScene(UnityEngine.SceneManagement.Scene? scene) {
 
 			ProfilerMarker perf = new ProfilerMarker("Initial Setup"); perf.Begin();
 
-			MonoBehaviour [] allBehavioursThatNeedCilboxing = CilboxUtil.GetAllBehavioursThatNeedCilboxing();
-
+			MonoBehaviour [] allBehavioursThatNeedCilboxing = CilboxUtil.GetAllBehavioursThatNeedCilboxing(scene);
 			Debug.Log( $"Postprocessing scene. Cilbox scripts to do: {allBehavioursThatNeedCilboxing.Length}" );
-			if( allBehavioursThatNeedCilboxing.Length == 0 ) return;
+			if( allBehavioursThatNeedCilboxing.Length == 0 )
+					return;
 
 
 			Dictionary< String, Serializee > assemblyMetadata = new Dictionary< String, Serializee >();
@@ -2441,7 +2441,7 @@ spiperf.End();
 
 			if( scene != null )
 			{
-				GameObject[] rootObjects = scene.GetRootGameObjects();
+				GameObject[] rootObjects =((UnityEngine.SceneManagement.Scene) scene).GetRootGameObjects();
 				foreach (GameObject root in rootObjects)
 				{
 					MonoBehaviour[] components = root.GetComponentsInChildren<MonoBehaviour>(true);
@@ -2463,7 +2463,6 @@ spiperf.End();
 			else
 			{
 				// Collect ALL cilboxable classes if no scene active.
-
 				foreach( System.Reflection.Assembly proxyAssembly in assys )
 				{
 					foreach (Type t in proxyAssembly.GetTypes())
@@ -2476,7 +2475,6 @@ spiperf.End();
 					}
 				}
 			}
-
 			{
 				for( int typeIndex = 0; typeIndex < TypesInUseInSceneList.Count; typeIndex++ )
 				{
@@ -3003,24 +3001,19 @@ spiperf.End();
 			perf.End(); perf = new ProfilerMarker( "Updating Game Objects" ); perf.Begin();
 
 			// Iterate over all GameObjects, and find the ones that have Cilboxable scripts.
-			object[] obj = GameObject.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-			foreach (object o in obj)
+			foreach (MonoBehaviour m in allBehavioursThatNeedCilboxing)
 			{
-				GameObject g = (GameObject) o;
-				MonoBehaviour [] scripts = g.GetComponents<MonoBehaviour>();
-				foreach (MonoBehaviour m in scripts )
-				{
-					// Skip null objects.
-					if (m == null)
-						continue;
-					if( !CilboxUtil.HasCilboxableAttribute( m.GetType() ) )
-						continue;
+				GameObject g = m.gameObject;
+				// Skip null objects.
+				if (m == null)
+					continue;
+				if( !CilboxUtil.HasCilboxableAttribute( m.GetType() ) )
+					continue;
 
-					CilboxProxy p = g.AddComponent<CilboxProxy>();
-					refProxies.Add( p );
-					refProxiesOrig.Add( m );
-					refToProxyMap[m] = p;
-				}
+				CilboxProxy p = g.AddComponent<CilboxProxy>();
+				refProxies.Add( p );
+				refProxiesOrig.Add( m );
+				refToProxyMap[m] = p;
 			}
 			perf.End(); perf = new ProfilerMarker( "Setting Up Proxies" ); perf.Begin();
 
