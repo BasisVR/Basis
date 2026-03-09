@@ -33,6 +33,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference CrouchAction;
         public InputActionReference RunButton;
         public InputActionReference Escape;
+        public InputActionReference Tab;
         public InputActionReference PrimaryButtonGetState;
         public InputActionReference PointerAction;
 
@@ -68,6 +69,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         #endregion
 
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+
+        private const string FreeCursorMode = nameof(FreeCursorMode);
+
+        /// <summary>Whether the free-cursor mode (Tab held) is active.</summary>
+        public bool IsFreeCursor { get; private set; }
+
         /// <summary>Whether crouch is currently held down.</summary>
         public bool IsJumpHeld { get; private set; }
 
@@ -166,6 +173,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             CrouchAction.action.Enable();
             RunButton.action.Enable();
             Escape.action.Enable();
+            Tab.action.Enable();
             PrimaryButtonGetState.action.Enable();
             LeftMousePressed.action.Enable();
             RightMousePressed.action.Enable();
@@ -186,6 +194,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             CrouchAction.action.Disable();
             RunButton.action.Disable();
             Escape.action.Disable();
+            Tab.action.Disable();
             PrimaryButtonGetState.action.Disable();
             LeftMousePressed.action.Disable();
             RightMousePressed.action.Disable();
@@ -218,6 +227,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             Escape.action.performed += OnEscapePerformed;
             Escape.action.canceled += OnEscapeCancelled;
 
+            Tab.action.performed += OnTabPerformed;
+            Tab.action.canceled += OnTabCancelled;
+
             PrimaryButtonGetState.action.performed += OnPrimaryGet;
             PrimaryButtonGetState.action.canceled += OnCancelPrimaryGet;
 
@@ -238,6 +250,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
+
+            BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
         }
 
         private void RemoveCallbacks()
@@ -264,6 +278,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             Escape.action.performed -= OnEscapePerformed;
             Escape.action.canceled -= OnEscapeCancelled;
 
+            Tab.action.performed -= OnTabPerformed;
+            Tab.action.canceled -= OnTabCancelled;
+
             PrimaryButtonGetState.action.performed -= OnPrimaryGet;
             PrimaryButtonGetState.action.canceled -= OnCancelPrimaryGet;
 
@@ -284,6 +301,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed -= OnSwitchOpenVR;
             XRSwitch.action.performed -= OnSwitchOpenXR;
+
+            BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
         #endregion
 
@@ -410,6 +429,18 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx) { }
 
+        public void OnTabPerformed(InputAction.CallbackContext ctx)
+        {
+            IsFreeCursor = true;
+            BasisCursorManagement.UnlockCursor(FreeCursorMode);
+        }
+
+        public void OnTabCancelled(InputAction.CallbackContext ctx)
+        {
+            IsFreeCursor = false;
+            BasisCursorManagement.LockCursor(FreeCursorMode);
+        }
+
         public void OnPrimaryGet(InputAction.CallbackContext ctx) => InputState.PrimaryButtonGetState = true;
         public void OnCancelPrimaryGet(InputAction.CallbackContext ctx) => InputState.PrimaryButtonGetState = false;
 
@@ -437,6 +468,15 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnMouseScrollClick(InputAction.CallbackContext ctx) => InputState.Secondary2DAxisClick = ctx.ReadValue<float>() == 1;
 
         #endregion
+
+        private void OnCursorStateChanged(CursorLockMode lockMode, bool visible)
+        {
+            // When the cursor lock state changes, the cursor is already set to the center of the screen,
+            // but the input event is not triggered. This means that the previous hover position is kept, even
+            // when the cursor changes position. To ensure that the hover position is correct when altering the cursor state,
+            // manually set the position to the center of the screen.
+            Pointer = new Vector2(Screen.width / 2f, Screen.height / 2f);
+        }
 
         #region Helpers
 

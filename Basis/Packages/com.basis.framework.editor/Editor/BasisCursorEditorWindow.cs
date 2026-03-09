@@ -73,11 +73,9 @@ public class BasisCursorEditorWindow : EditorWindow
     {
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {
-            EditorGUILayout.LabelField("Active Cursor Lock Requests", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Active Cursor Unlock Requests", EditorStyles.boldLabel);
 
-            // This assumes you added an editor-safe debug accessor to BasisCursorManagement:
-            // public static IReadOnlyList<string> CursorLockRequestsDebug => cursorLockRequests;
-            IReadOnlyList<string> requests = BasisCursorManagement.CursorLockRequestsDebug;
+            IReadOnlyList<string> requests = BasisCursorManagement.CursorUnlockRequestsDebug;
 
             if (requests == null || requests.Count == 0)
             {

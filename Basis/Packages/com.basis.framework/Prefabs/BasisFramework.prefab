@@ -541,6 +541,7 @@ MonoBehaviour:
   CrouchAction: {fileID: 4281027790913896788, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   RunButton: {fileID: 4166653571123788975, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   Escape: {fileID: -8104914591799447859, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  Tab: {fileID: 4302437416140599907, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   PrimaryButtonGetState: {fileID: 647096541409930546, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   PointerAction: {fileID: -5417877143265962151, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   DesktopSwitch: {fileID: -1278911692722073990, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}

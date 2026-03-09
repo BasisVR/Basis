@@ -799,6 +799,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
             flyCamera.OnDestroy();
         }
 
+        BasisCursorManagement.LockCursor(nameof(BasisHandHeldCamera));
         base.OnDestroy();
     }
 }

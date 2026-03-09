@@ -5,8 +5,8 @@ using Basis.Scripts.Device_Management;
 
 public static class BasisCursorManagement
 {
-    // A list to keep track of cursor lock requests
-    private static List<string> cursorLockRequests = new List<string>();
+    // A list of unique requests to unlock the cursor.
+    private static List<string> cursorUnlockRequests = new List<string>();
     // Event that gets triggered whenever the cursor state changes
     public static event Action<CursorLockMode, bool> OnCursorStateChange;
     public static CursorLockMode ActiveLockState()
@@ -20,13 +20,13 @@ public static class BasisCursorManagement
 
 #if UNITY_EDITOR
     /// <summary>
-    /// Editor-only debug view of active lock request owners.
+    /// Editor-only debug view of active unlock requests.
     /// </summary>
-    public static IReadOnlyList<string> CursorLockRequestsDebug => cursorLockRequests;
+    public static IReadOnlyList<string> CursorUnlockRequestsDebug => cursorUnlockRequests;
 #endif
     /// <summary>
-    /// Locks the cursor to the center of the screen and hides it.
-    /// Adds a request to lock the cursor.
+    /// Removes this unlock request.
+    /// If there are no remaining unlock requests, locks the cursor and makes it invisible.
     /// </summary>
     public static void LockCursor(string requestName)
     {
@@ -36,24 +36,18 @@ public static class BasisCursorManagement
             return;
         }
 
-        if (cursorLockRequests.Contains(requestName) == false)
+        cursorUnlockRequests.Remove(requestName);
+        if (cursorUnlockRequests.Count == 0)
         {
-
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
-            // BasisDebug.Log("Cursor Locked");
-            cursorLockRequests.Add(requestName);
             OnCursorStateChange?.Invoke(CursorLockMode.Locked, false);
-        }
-        else
-        {
-            BasisDebug.LogError("already Has Cursor Lock Request");
         }
     }
 
     /// <summary>
     /// Unlocks the cursor and makes it visible.
-    /// Removes a request to lock the cursor.
+    /// Adds an unlock request, which prevents the cursor from being locked until this request is removed with LockCursor.
     /// </summary>
     public static void UnlockCursor(string requestName, bool FireCursorStateChange = true)
     {
@@ -76,10 +70,16 @@ public static class BasisCursorManagement
 
     private static void InternalUnlockCursor(string requestName, bool FireCursorStateChange)
     {
+        if (!cursorUnlockRequests.Contains(requestName))
+        {
+            cursorUnlockRequests.Add(requestName);
+        }
+        if (Cursor.lockState == CursorLockMode.None)
+        {
+            return;
+        }
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        //  BasisDebug.Log("Cursor Unlocked");
-        cursorLockRequests.Remove(requestName);
         if (FireCursorStateChange)
         {
             OnCursorStateChange?.Invoke(CursorLockMode.None, true);
@@ -110,7 +110,7 @@ public static class BasisCursorManagement
     }
     public static void OnReset()
     {
-        cursorLockRequests.Clear();
+        cursorUnlockRequests.Clear();
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         OnCursorStateChange?.Invoke(CursorLockMode.None, true);
