@@ -1,6 +1,7 @@
 //#define PER_INSTRUCTION_PROFILING
 
 using UnityEngine;
+using UnityEngine.Serialization;
 using System.Collections.Generic;
 using System;
 using System.Collections.Specialized;
@@ -197,9 +198,20 @@ namespace Cilbox
 			try
 			{
 				ret = InterpretInner( stackBuffer, parameters ).AsObject();
-			} catch( Exception e )
+			}
+			catch( Exception e )
 			{
 				parentClass.box.InterpreterExit();
+
+				if (e is CilboxUnhandledInterpretedException uhe)
+				{
+					// strip the throwee just in case, and re-throw a normal runtime exception
+					string exceptionTypeName = uhe.Throwee?.GetType().FullName ?? "null";
+					string reason = $"Exception of type {exceptionTypeName} was unhandled in interpreted code";
+					parentClass.box.DisableWithReason(reason); // CilboxUnhandledInterpretedException bypasses the box disable
+					throw new CilboxInterpreterRuntimeException(reason, uhe.ClassName, uhe.MethodName, uhe.PC);
+				}
+
 				Debug.Log( e.ToString() );
 				throw;
 			}
@@ -1541,10 +1553,7 @@ spiperf.End();
 			catch( Exception e )
 			{
 				string fullError = $"Breakwarn: {e.ToString()} Class: {parentClass.className}, Function: {methodName}, Bytecode: {pc}";
-				Debug.LogError( fullError );
-				box.disabledReason = fullError;
-				box.disabled = true;
-				//box.InterpreterExit();
+				box.DisableWithReason(fullError);
 
 				if (e is CilboxInterpreterRuntimeException)
 				{
@@ -1936,7 +1945,15 @@ spiperf.End();
 		public String disabledReason = "";
 		public bool disabled = false;
 
-		public long timeoutLengthUs = 500000; // 500ms Can be changed by specific Cilbox application.
+		[SerializeField][FormerlySerializedAs("timeoutLengthUs")] private long desiredTimeoutLengthUs = 500000; // 500ms Can be changed by specific Cilbox instance.
+		public long timeoutLengthUs
+		{
+			get => desiredTimeoutLengthUs;
+			set => desiredTimeoutLengthUs = Math.Min(value, MaxTimeoutLengthUs);
+		}
+
+		public virtual long MaxTimeoutLengthUs => 1000000; // 1 second. Can be overridden by specific Cilbox application.
+
 		[HideInInspector] public uint interpreterAccountingDepth = 0;
 		[HideInInspector] public long interpreterAccountingDropDead = 0;
 		[HideInInspector] public long interpreterAccountingCumulitiveTicks = 0;
@@ -1970,6 +1987,7 @@ spiperf.End();
 			if( initialized ) return;
 			initialized = true;
 			//Debug.Log( "Cilbox Initialize Metadata:" + assemblyData.Length );
+			timeoutLengthUs = desiredTimeoutLengthUs; // make sure min is applied once.
 
 			Dictionary< String, Serializee > assemblyRoot = new Serializee( Convert.FromBase64String( assemblyData ), Serializee.ElementType.Map ).AsMap();
 			Dictionary< String, Serializee > classData = assemblyRoot["classes"].AsMap();
@@ -2327,6 +2345,14 @@ spiperf.End();
 		void Update()
 		{
 			usSpentLastFrame = Interlocked.Exchange( ref interpreterAccountingCumulitiveTicks, 0 ) / interpreterTicksInUs;
+		}
+
+		internal void DisableWithReason(string reason)
+		{
+			Debug.LogError( reason );
+			this.disabledReason = reason;
+			this.disabled = true;
+			//this.InterpreterExit();
 		}
 	}
 
@@ -3025,10 +3051,11 @@ spiperf.End();
 		Update,
 		Start,
 		Awake,
-		OnTriggerEnter,
-		OnTriggerExit,
 		OnEnable,
 		OnDisable,
+		OnDestroy,
+		OnTriggerEnter,
+		OnTriggerExit,
 		OnCollisionEnter,
 		OnCollisionExit
 	}

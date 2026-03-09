@@ -11,6 +11,8 @@ namespace Cilbox
 	[CilboxTarget]
 	public class CilboxScene : Cilbox
 	{
+		public override long MaxTimeoutLengthUs => 10000000; // 10 seconds. Let scenes go crazy.
+
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			"Cilbox.CilboxPublicUtils",
 			"System.Array",

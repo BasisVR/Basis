@@ -11,6 +11,8 @@ namespace Cilbox
 	[CilboxTarget]
 	public class CilboxAvatar : Cilbox
 	{
+		public override long MaxTimeoutLengthUs => 5000; // 5ms. Avatas need to be restrictive.
+
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			"Cilbox.CilboxPublicUtils",
 			"System.Array",
@@ -70,11 +72,6 @@ namespace Cilbox
 			"UnityEngine.Vector3.y",
 			"UnityEngine.Vector3.z",
 		};
-
-		public CilboxAvatar()
-		{
-			timeoutLengthUs = 5000; // Limit avatars to 5ms.
-		}
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
 
