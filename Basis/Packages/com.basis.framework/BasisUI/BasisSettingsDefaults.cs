@@ -145,6 +145,8 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<string> MicrophoneMode => new("microphonemode", new BasisPlatformDefault<string>("onactivation"));
 
+        public static BasisSettingsBinding<string> MicStartBehavior => new("micstartbehavior", new BasisPlatformDefault<string>(BasisLocalMicrophoneDriver.SettingStartOff));
+
         public static BasisSettingsBinding<bool> UseAutomaticGain => new("automaticgainenabled", new BasisPlatformDefault<bool>
         {
             windows = true,
@@ -461,6 +463,7 @@ namespace Basis.BasisUI
             HearingRange.LoadBindingValue();
             MicrophoneDenoiser.LoadBindingValue();
             MicrophoneMode.LoadBindingValue();
+            MicStartBehavior.LoadBindingValue();
             UseAutomaticGain.LoadBindingValue();
             DenoiseMakeupDb.LoadBindingValue();
             DenoiseWet.LoadBindingValue();

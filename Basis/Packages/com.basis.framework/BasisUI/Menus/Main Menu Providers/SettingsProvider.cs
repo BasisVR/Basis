@@ -402,6 +402,17 @@ namespace Basis.BasisUI
             });
             dropdownMicrophoneIcon.AssignBinding(BasisSettingsDefaults.MicrophoneIcon);
 
+            // Mic Start Behavior dropdown
+            PanelDropdown dropdownMicStartBehavior = PanelDropdown.CreateNewEntry(microphoneGroup);
+            dropdownMicStartBehavior.Descriptor.SetTitle("Mic Start Behavior");
+            dropdownMicStartBehavior.AssignEntries(new List<string>
+            {
+                BasisLocalMicrophoneDriver.SettingStartOff,
+                BasisLocalMicrophoneDriver.SettingStartOn,
+                BasisLocalMicrophoneDriver.SettingStartRememberLast,
+            });
+            dropdownMicStartBehavior.AssignBinding(BasisSettingsDefaults.MicStartBehavior);
+
             // -------------------- DSP SETTINGS --------------------
 
             // Limiter

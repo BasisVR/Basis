@@ -16,6 +16,7 @@ public static class BasisLocalMicrophoneDriver
     public static int PacketSize;
 
     public static Action<bool> OnPausedAction;
+    public static Action<bool> OnInitializedAction;
 
     private static bool MicrophoneIsStarted = false;
     private static Thread processingThread;
@@ -28,6 +29,9 @@ public static class BasisLocalMicrophoneDriver
     private static JobHandle handle;
 
     public const string MicrophoneState = "MicrophoneState";
+    public const string SettingStartOff = "Muted";
+    public const string SettingStartOn = "Unmuted";
+    public const string SettingStartRememberLast = "Remember Last State";
 
     public static Action OnHasAudio;
     public static Action OnHasSilence;
@@ -110,11 +114,27 @@ public static class BasisLocalMicrophoneDriver
         }
     }
 
+    public static bool ResolvePausedFromSettings()
+    {
+        string behavior = Basis.BasisUI.BasisSettingsDefaults.MicStartBehavior.RawValue;
+        switch (behavior)
+        {
+            case SettingStartOn:
+                return false;
+            case SettingStartRememberLast:
+                return PlayerPrefs.GetInt(MicrophoneState, 1) == 1;
+            case SettingStartOff:
+            default:
+                return true;
+        }
+    }
+
     public static bool Initialize()
     {
         if (IsInitialize) return true;
         try
         {
+            isPaused = ResolvePausedFromSettings();
             RegisterEvents();
 
             // Load emits one change event; ApplyMicSettings reacts.
@@ -122,6 +142,7 @@ public static class BasisLocalMicrophoneDriver
 
             StartProcessingThread();
             IsInitialize = true;
+            OnInitializedAction?.Invoke(true);
             return true;
         }
         catch (Exception ex)
@@ -158,6 +179,7 @@ public static class BasisLocalMicrophoneDriver
 
         channels = 1;
         IsInitialize = false;
+        OnInitializedAction?.Invoke(false);
         BasisDebug.Log("Microphone Driver Deinitialized.");
     }
 

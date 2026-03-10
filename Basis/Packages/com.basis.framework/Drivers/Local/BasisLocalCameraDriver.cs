@@ -202,8 +202,8 @@ namespace Basis.Scripts.Drivers
             }
 
 #if !BASIS_DISABLE_MICROPHONE
-            microphoneIconDriver.Initalize(this);
-            microphoneIconDriver.UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
+            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(false);
+            BasisLocalMicrophoneDriver.OnInitializedAction += OnMicrophoneDriverInitialized;
 #endif
 
 #if STEAMAUDIO_ENABLED
@@ -211,12 +211,6 @@ namespace Basis.Scripts.Drivers
             {
                 SteamAudioManager.NotifyAudioListenerChanged();
             }
-#endif
-#if !BASIS_DISABLE_MICROPHONE
-            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(true);
-
-            // Cache icon half-size in camera-local RU for layout
-            microphoneIconDriver.iconHalfRU = microphoneIconDriver.GetIconHalfSizeRUInCameraSpace(Camera, ParentOfUI);
 #endif
         }
 
@@ -272,6 +266,24 @@ namespace Basis.Scripts.Drivers
             }
             UpdateCameraScale(BasisHeightDriver.HeightModeChange.OnTpose);
         }
+
+#if !BASIS_DISABLE_MICROPHONE
+        /// <summary>
+        /// Initializes microphone icon visibility and layout when the microphone driver signals it is ready.
+        /// </summary>
+        /// <param name="initialized"></param>
+        private void OnMicrophoneDriverInitialized(bool initialized)
+        {
+            if (initialized)
+            {
+                microphoneIconDriver.Initalize(this);
+                // Cache icon half-size in camera-local RU for layout
+                microphoneIconDriver.iconHalfRU = microphoneIconDriver.GetIconHalfSizeRUInCameraSpace(Camera, ParentOfUI);
+                microphoneIconDriver.UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
+            }
+            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(initialized);
+        }
+#endif
 
         /// <summary>
         /// Gets world-space camera transform or returns zero/identity when no instance exists.
