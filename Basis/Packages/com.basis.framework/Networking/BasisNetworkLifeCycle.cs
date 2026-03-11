@@ -40,15 +40,14 @@ public static class BasisNetworkLifeCycle
         BasisNetworkManagement.OnEnableInstanceCreate?.Invoke();
         BasisNetworkManagement.NetworkRunning = true;
     }
-    public static bool GoingThroughReboot = false;
+    private static int _rebootGuard = 0;
     /// <summary>
     /// allows us to reset before continuing on the operation.
     /// </summary>
     public static async Task RebootManagement(BasisNetworkManagement Management, bool DisplayReason, NetPeer peer, DisconnectInfo disconnectInfo)
     {
-        if (GoingThroughReboot == false)
+        if (System.Threading.Interlocked.CompareExchange(ref _rebootGuard, 1, 0) == 0)
         {
-            GoingThroughReboot = true;
             BasisDebug.Log($"Rebooting Network Connection", BasisDebug.LogTag.Networking);
             if (BasisNetworkConnection.LocalPlayerPeer != null && BasisNetworkPlayers.Players.TryGetValue((ushort)BasisNetworkConnection.LocalPlayerPeer.RemoteId, out var networkedPlayer))
             {
@@ -80,7 +79,7 @@ public static class BasisNetworkLifeCycle
                 BasisDebug.Log($"Client disconnected from server [{peer?.RemoteId}] [{disconnectInfo.Reason}]");
                 BasisNetworkEvents.HandleDisconnectionReason(disconnectInfo);
             }
-            GoingThroughReboot = false;
+            System.Threading.Interlocked.Exchange(ref _rebootGuard, 0);
         }
     }
     /// <summary>
