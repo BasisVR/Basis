@@ -17,7 +17,7 @@ namespace Basis.Scripts.Networking
         // --- Collections (thread-safe) -------------------------------------
         public static readonly ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new();
         public static readonly ConcurrentDictionary<ushort, BasisNetworkReceiver> RemotePlayers = new();
-        public static readonly List<ushort> JoiningPlayers = new(); // used as a set
+        public static readonly ConcurrentDictionary<ushort, byte> JoiningPlayers = new(); // used as a concurrent set
         public static readonly ConcurrentDictionary<string, ushort> OwnershipPairing = new();
 
         // Receiver snapshot for multi-threaded compute/apply phases.
@@ -155,7 +155,7 @@ namespace Basis.Scripts.Networking
                 return true;
             }
 
-            if (JoiningPlayers.Contains(id))
+            if (JoiningPlayers.ContainsKey(id))
                 BasisDebug.LogError("Player was still connecting when this was called!");
             else
                 BasisDebug.LogError("Player was not found, including joining list; something is very wrong!");
