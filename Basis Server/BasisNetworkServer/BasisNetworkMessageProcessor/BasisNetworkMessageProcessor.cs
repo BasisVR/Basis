@@ -193,9 +193,8 @@ public static class BasisNetworkMessageProcessor
             else
             {
                 BNL.LogError($"FallChannel redirection failed, no data remains: {reader.AvailableBytes}");
+                reader.Recycle();
             }
-
-            reader.Recycle();
             return true;
         }
 
