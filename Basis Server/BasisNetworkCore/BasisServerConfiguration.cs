@@ -139,19 +139,14 @@ public class Configuration
                 }
                 else if (field.FieldType == typeof(bool))
                 {
-                    if (value == "true")
+                    if (bool.TryParse(value, out bool boolResult))
                     {
-                        field.SetValue(config, true);
-                    }
-                    else if (value == "false")
-                    {
-                        field.SetValue(config, false);
+                        field.SetValue(config, boolResult);
                     }
                     else
                     {
-                        BNL.LogWarning("Boolean field was not a true or false string. Failed Override");
+                        BNL.LogWarning($"Could not parse '{value}' as bool for field {field.Name}. Failed Override");
                     }
-
                 }
                 else
                 {
