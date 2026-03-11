@@ -28,6 +28,7 @@ public class NetworkClient
             AuthBytes.Serialize(Writer, AuthenticationMessage);
             ReadyMessage.Serialize(Writer);
             peer = client.Connect(IP, port, Writer);
+            IsInUse = true;
             return peer;
         }
         else
