@@ -302,11 +302,18 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     // Bounds check — grow arrays if needed (rare, only when IDs exceed capacity)
                     if (jId >= sentTimes.Length)
                     {
-                        int newLen = Math.Max(sentTimes.Length * 2, jId + 1);
-                        Array.Resize(ref stateI.LastSentTimes, newLen);
-                        sentTimes = stateI.LastSentTimes;
-                        Array.Resize(ref stateI.LastSeenGeneration, newLen);
-                        seenGens = stateI.LastSeenGeneration;
+                        lock (stateI)
+                        {
+                            // Re-check after acquiring lock
+                            if (jId >= stateI.LastSentTimes.Length)
+                            {
+                                int newLen = Math.Max(stateI.LastSentTimes.Length * 2, jId + 1);
+                                Array.Resize(ref stateI.LastSentTimes, newLen);
+                                Array.Resize(ref stateI.LastSeenGeneration, newLen);
+                            }
+                            sentTimes = stateI.LastSentTimes;
+                            seenGens = stateI.LastSeenGeneration;
+                        }
                     }
 
                     float distSq = DistanceSquared(stateI.Position, stateJ.Position);
