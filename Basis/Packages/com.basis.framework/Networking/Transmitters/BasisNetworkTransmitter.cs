@@ -66,6 +66,7 @@ namespace Basis.Scripts.Networking.Transmitters
         }
 
         public static NetDataWriter AvatarChangeWriter = new NetDataWriter();
+        private static readonly object AvatarChangeWriterLock = new object();
         public void SendOutAvatarChange()
         {
             LastLinkedAvatarIndex = (byte)((LastLinkedAvatarIndex + 1) % (byte.MaxValue + 1));
@@ -76,10 +77,13 @@ namespace Basis.Scripts.Networking.Transmitters
                 loadMode = Player.AvatarLoadMode,
                 LocalAvatarIndex = LastLinkedAvatarIndex,
             };
-            AvatarChangeWriter.Reset();
-            ClientAvatarChangeMessage.Serialize(AvatarChangeWriter);
-            BasisNetworkConnection.LocalPlayerPeer.Send(AvatarChangeWriter, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarChange, AvatarChangeWriter.Length);
+            lock (AvatarChangeWriterLock)
+            {
+                AvatarChangeWriter.Reset();
+                ClientAvatarChangeMessage.Serialize(AvatarChangeWriter);
+                BasisNetworkConnection.LocalPlayerPeer.Send(AvatarChangeWriter, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarChange, AvatarChangeWriter.Length);
+            }
         }
     }
 }
