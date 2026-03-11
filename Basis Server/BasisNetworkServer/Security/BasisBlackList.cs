@@ -13,7 +13,24 @@ namespace BasisNetworkServer.Security
         public BasisBlackList(string path = "BasisBlackList.txt")
         {
             filePath = path;
-            _ = LoadBlacklistAsync(); // Fire and forget
+            LoadBlacklist();
+        }
+
+        private void LoadBlacklist()
+        {
+            blacklistedPlayers.Clear();
+            if (File.Exists(filePath))
+            {
+                string[] lines = File.ReadAllLines(filePath);
+                foreach (string line in lines)
+                {
+                    string trimmedLine = line.Trim();
+                    if (!string.IsNullOrEmpty(trimmedLine))
+                    {
+                        blacklistedPlayers.TryAdd(trimmedLine, 0);
+                    }
+                }
+            }
         }
 
         private async Task LoadBlacklistAsync()
