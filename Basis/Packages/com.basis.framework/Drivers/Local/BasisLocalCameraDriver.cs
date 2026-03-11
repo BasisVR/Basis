@@ -202,7 +202,7 @@ namespace Basis.Scripts.Drivers
             }
 
 #if !BASIS_DISABLE_MICROPHONE
-            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(false);
+            microphoneIconDriver.HardEnableVisuals(false);
             BasisLocalMicrophoneDriver.OnInitializedAction += OnMicrophoneDriverInitialized;
 #endif
 
@@ -277,11 +277,8 @@ namespace Basis.Scripts.Drivers
             if (initialized)
             {
                 microphoneIconDriver.Initalize(this);
-                // Cache icon half-size in camera-local RU for layout
-                microphoneIconDriver.iconHalfRU = microphoneIconDriver.GetIconHalfSizeRUInCameraSpace(Camera, ParentOfUI);
-                microphoneIconDriver.UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
             }
-            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(initialized);
+            microphoneIconDriver.HardEnableVisuals(initialized);
         }
 #endif
 

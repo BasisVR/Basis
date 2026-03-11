@@ -26,7 +26,7 @@ namespace Basis.Scripts.Drivers
         [Range(0f, 0.2f)]
         public float VRextraViewportPad = 0.022f;
 
-        public Vector2 iconHalfRU;
+        private Vector2 iconHalfRU;
         private readonly Vector3[] corners = new Vector3[4];
         private Rect FrustumRequest = new Rect(0, 0, 1, 1);
 
@@ -71,6 +71,7 @@ namespace Basis.Scripts.Drivers
             this.CameraDriver = CameraDriver;
 
             halfDuration = duration / 2f;
+            iconHalfRU = GetIconHalfSizeRUInCameraSpace(CameraDriver.Camera, CameraDriver.ParentOfUI);
 
             if (SpriteRendererIcon != null)
             {
@@ -79,9 +80,21 @@ namespace Basis.Scripts.Drivers
                 largerScale = StartingScale * 1.2f;
             }
 
+            UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
+
             // Seed intents (no renderer writes here)
             RecomputeVisibilityIntent();
             RecomputeColorIntent();
+        }
+
+        // This is different from the user's setting of requestedVisual, which enables or disables the component.
+        // This is used in the initialization stage to force hide the visual until it is ready to be shown.
+        public void HardEnableVisuals(bool enabled)
+        {
+            if (SpriteRendererIcon != null)
+            {
+                SpriteRendererIcon.gameObject.SetActive(enabled);
+            }
         }
 
         // ---------------- Layout Helpers ----------------
