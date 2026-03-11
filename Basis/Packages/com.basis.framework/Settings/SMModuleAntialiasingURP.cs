@@ -38,8 +38,8 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
                 {
                     Camera.TryGetComponent<UniversalAdditionalCameraData>(out Data);
                 }
-            }
 #endif
+            }
         }
         if (Camera == null || Data == null)
         {
