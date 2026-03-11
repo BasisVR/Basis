@@ -52,8 +52,11 @@ namespace Basis.Scripts.Drivers
         }
         public void OnDestroy()
         {
-            BasisAudioAndVisemeDriver.OnDestroy();
-            Drivers.Remove(BasisAudioAndVisemeDriver);
+            if (BasisAudioAndVisemeDriver != null)
+            {
+                BasisAudioAndVisemeDriver.OnDestroy();
+                Drivers.Remove(BasisAudioAndVisemeDriver);
+            }
         }
         /// <summary>
         /// Initializes the driver with a viseme processor and marks it ready.
