@@ -26,18 +26,21 @@ namespace BasisDidLink
         internal readonly DidAuthentication DidAuth;
         public ConcurrentDictionary<int, OnAuth> AuthIdentity = new ConcurrentDictionary<int, OnAuth>();
         private readonly ConcurrentDictionary<NetPeer, CancellationTokenSource> _timeouts = new ConcurrentDictionary<NetPeer, CancellationTokenSource>();
-        public List<string> Admins = new List<string>();
+        public ConcurrentDictionary<string, byte> Admins = new ConcurrentDictionary<string, byte>();
         public static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "admins.xml");
         public BasisDIDAuthIdentity()
         {
             string[] LoadedAdmins = LoadAdmins(FilePath);
             if (LoadedAdmins != null)
             {
-                Admins = LoadedAdmins.ToList();
+                foreach (var admin in LoadedAdmins)
+                {
+                    Admins.TryAdd(admin, 0);
+                }
             }
             else
             {
-                Admins = new List<string>();
+                Admins = new ConcurrentDictionary<string, byte>();
             }
             string adminsList = string.Join(", ", Admins);
             BNL.Log($"Loaded Admins {Admins.Count} {adminsList}");
@@ -226,7 +229,7 @@ namespace BasisDidLink
         }
         public bool IsNetPeerAdmin(string UUID)
         {
-            if (Admins.Contains(UUID))
+            if (Admins.ContainsKey(UUID))
             {
                 return true;
             }
@@ -246,8 +249,8 @@ namespace BasisDidLink
             else
             {
                 BNL.Log($"AddNetPeerAsAdmin {UUID}");
-                Admins.Add(UUID);
-                SaveAdmins(Admins.ToArray(), FilePath);
+                Admins.TryAdd(UUID, 0);
+                SaveAdmins(Admins.Keys.ToArray(), FilePath);
                 return true;
             }
         }
@@ -289,9 +292,8 @@ namespace BasisDidLink
                     }
                     catch (Exception ex)
                     {
-                        BNL.LogError($"Error loading admins (possibly corrupted file) deleting and trying again: {ex.Message} {ex.StackTrace}");
+                        BNL.LogError($"Error loading admins (possibly corrupted file), deleting and recreating: {ex.Message}");
                         File.Delete(filePath);
-                        LoadAdmins(filePath);
                     }
                 }
 
@@ -337,9 +339,9 @@ namespace BasisDidLink
         public bool RemoveNetPeerAsAdmin(string UUID)
         {
             BNL.Log($"RemoveNetPeerAsAdmin {UUID}");
-            if (Admins.Remove(UUID))
+            if (Admins.TryRemove(UUID, out _))
             {
-                SaveAdmins(Admins.ToArray(), FilePath);
+                SaveAdmins(Admins.Keys.ToArray(), FilePath);
                 return true;
             }
             else
