@@ -104,14 +104,7 @@ public static class BasisNetworkGenericMessages
     }
     public static void HandleOwnership(OwnershipTransferMessage OwnershipTransferMessage)
     {
-        if (BasisNetworkPlayers.OwnershipPairing.ContainsKey(OwnershipTransferMessage.ownershipID))
-        {
-            BasisNetworkPlayers.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
-        }
-        else
-        {
-            BasisNetworkPlayers.OwnershipPairing.TryAdd(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID);
-        }
+        BasisNetworkPlayers.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
         if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort Id))
         {
             bool isLocalOwner = OwnershipTransferMessage.playerIdMessage.playerID == Id;
@@ -143,7 +136,7 @@ public static class BasisNetworkGenericMessages
             {
                 RemoteAvatarDataMessage output = SADM.avatarDataMessage;
 
-                if (player.NetworkBehaviours.Length >= output.messageIndex)
+                if (player.NetworkBehaviours.Length > output.messageIndex)
                 {
                     bool isDifferentAvatar = output.AvatarLinkIndex != player.LastLinkedAvatarIndex;
 
