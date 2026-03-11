@@ -140,7 +140,7 @@ namespace BasisDidLink
             catch (Exception e)
             {
                 BNL.Log($"Error processing connection: {e.Message} {e.StackTrace}");
-                BasisServerHandleEvents.RejectWithReason(newPeer, $"{e.Message} {e.StackTrace}");
+                BasisServerHandleEvents.RejectWithReason(newPeer, "Authentication failed");
             }
         }
         public async Task TimeOut(NetPeer newPeer, string UUID, CancellationTokenSource cts)
@@ -201,7 +201,7 @@ namespace BasisDidLink
             catch (Exception e)
             {
                 BNL.Log($"Error during authentication: {e.Message} {e.StackTrace}");
-                BasisServerHandleEvents.RejectWithReason(newPeer, $"{e.Message} {e.StackTrace}");
+                BasisServerHandleEvents.RejectWithReason(newPeer, "Authentication failed");
             }
         }
         public Challenge MakeChallenge(Did ChallengingDID)
