@@ -54,9 +54,12 @@ public static class BasisNetworkHandleVoice
     public static async Task HandleAudioUpdate(NetPacketReader Reader)
     {
         // Cancel any ongoing task so we prefer the newest audio data.
-        cancellationTokenSource.Cancel();
-        cancellationTokenSource = new CancellationTokenSource();
-        var cancellationToken = cancellationTokenSource.Token;
+        // Use Interlocked.Exchange to atomically swap the CTS and avoid race conditions.
+        var newCts = new CancellationTokenSource();
+        var oldCts = Interlocked.Exchange(ref cancellationTokenSource, newCts);
+        oldCts.Cancel();
+        oldCts.Dispose();
+        var cancellationToken = newCts.Token;
 
         try
         {
@@ -107,10 +110,6 @@ public static class BasisNetworkHandleVoice
             catch (Exception ex) when (!(ex is OperationCanceledException))
             {
                 BasisDebug.LogError($"Error in HandleAudioUpdate: {ex.Message} {ex.StackTrace}");
-                if (Reader.IsNull == false)
-                {
-                    Reader.Recycle();
-                }
             }
             finally
             {
@@ -124,10 +123,6 @@ public static class BasisNetworkHandleVoice
         catch (OperationCanceledException)
         {
             BasisDebug.LogError("HandleAudioUpdate task canceled.");
-            if (Reader.IsNull == false)
-            {
-                Reader.Recycle();
-            }
         }
     }
 }
