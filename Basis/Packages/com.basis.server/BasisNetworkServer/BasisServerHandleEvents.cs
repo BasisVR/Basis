@@ -122,7 +122,7 @@ namespace BasisServerHandle
             NetDataWriter writer = NetworkServer.RentWriter();
             writer.Put(reason);
             NetworkServer.AuthenticatedPeers.TryRemove(Id, out _);
-            request.Disconnect();
+            request.Disconnect(writer);
             NetworkServer.ReturnWriter(writer);
             BNL.LogError($"Rejected after accept with reason: {reason}");
         }
