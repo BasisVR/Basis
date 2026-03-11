@@ -64,6 +64,13 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
 
         UniversalRenderPipelineAsset asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
 
+#if UNITY_SERVER
+        if (asset == null)
+        {
+            BasisDebug.LogWarning("SMModuleRenderResolutionURP: No URP pipeline asset assigned. Skipping render scale changes.");
+            return;
+        }
+#endif
         // the system allows us to scale the render resolution correctly,
         // however gpu culling does not know about this
         if (asset.renderScale != RenderScale)
@@ -113,3 +120,4 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
         BasisDebug.Log($"foveatedRenderingLevel was set to {value}");
     }
 }
+

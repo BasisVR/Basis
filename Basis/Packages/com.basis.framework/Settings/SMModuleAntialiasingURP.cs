@@ -16,6 +16,13 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
             return;
         }
         UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
+#if UNITY_SERVER
+        if (Asset == null)
+        {
+            BasisDebug.LogWarning("SMModuleAntialiasingURP: No URP pipeline asset assigned. Skipping antialiasing changes.");
+            return;
+        }
+#endif
         if (Camera == null)
         {
             if (BasisLocalCameraDriver.Instance != null)
@@ -26,8 +33,13 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
             if (Camera == null)
             {
                 Camera = Camera.main;
-                Camera.TryGetComponent<UniversalAdditionalCameraData>(out Data);
+#if UNITY_SERVER
+                if (Camera != null)
+                {
+                    Camera.TryGetComponent<UniversalAdditionalCameraData>(out Data);
+                }
             }
+#endif
         }
         if (Camera == null || Data == null)
         {
@@ -95,3 +107,4 @@ public class SMModuleAntialiasingURP : BasisSettingsBase
     {
     }
 }
+
