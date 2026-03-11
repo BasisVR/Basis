@@ -555,7 +555,7 @@ namespace BasisServerHandle
         #endregion
         public static void HandleStoreDatabase(NetPacketReader reader, NetPeer peer)
         {
-            if (NetworkServer.Configuration.DisableReadUnlessAdminPersistentFlag)
+            if (NetworkServer.Configuration.DisableWriteUnlessAdminPersistentFlag)
             {
                 if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) == false)
                 {
@@ -579,7 +579,7 @@ namespace BasisServerHandle
 
         public static void HandleRequestStoreDatabase(NetPacketReader reader, NetPeer peer)
         {
-            if(NetworkServer.Configuration.DisableWriteUnlessAdminPersistentFlag)
+            if(NetworkServer.Configuration.DisableReadUnlessAdminPersistentFlag)
             {
                 if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) == false)
                 {
