@@ -61,7 +61,7 @@ namespace Basis.Network.Server.Auth
             }
             else
             {
-                BNL.LogError($"Passwords do not match: ServerPassword [{serverPassword.V}], UserPassword [{userPassword.V}]");
+                BNL.LogError("Passwords do not match, user is rejected");
                 return false;
             }
         }
