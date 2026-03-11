@@ -2,7 +2,7 @@ using UnityEditor;
 using UnityEngine;
 using Basis.Scripts.Networking;
 
-public class AvatarLoaderEditorWindow : EditorWindow
+public class BasisAvatarLoaderEditorWindow : EditorWindow
 {
     private byte loadMode = 1;
     private string password = "";
@@ -11,7 +11,7 @@ public class AvatarLoaderEditorWindow : EditorWindow
     [MenuItem("Basis/Editor/Load Forced Avatar Window")]
     public static void ShowWindow()
     {
-        GetWindow<AvatarLoaderEditorWindow>("Forced Avatar Loader");
+        GetWindow<BasisAvatarLoaderEditorWindow>("Forced Avatar Loader");
     }
 
     private void OnGUI()

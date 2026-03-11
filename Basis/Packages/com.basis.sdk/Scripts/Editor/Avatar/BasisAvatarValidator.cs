@@ -612,7 +612,7 @@ public class BasisAvatarValidator
             if (!string.IsNullOrEmpty(assetPath))
             {
                 ModelImporter modelImporter = AssetImporter.GetAtPath(assetPath) as ModelImporter;
-                if (modelImporter != null && !ModelImporterExtensions.IsLegacyBlendShapeNormalsEnabled(modelImporter))
+                if (modelImporter != null && !BasisModelImporterExtensions.IsLegacyBlendShapeNormalsEnabled(modelImporter))
                     Warnings.Add(new BasisValidationIssue(
                         $"{assetPath} does not have legacy blendshapes enabled, which may increase file size.",
                         ValidationCategory.GameObject, null));

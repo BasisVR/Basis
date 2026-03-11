@@ -12,7 +12,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-public class BuildReportViewerWindow : EditorWindow
+public class BasisBuildReportViewerWindow : EditorWindow
 {
     private Dictionary<BuildTarget, SerializableBuildReport> platformReports = new();
     private List<string> reportPaths = new();
@@ -29,7 +29,7 @@ public class BuildReportViewerWindow : EditorWindow
 
     public static async void GenerateWindow()
     {
-        BuildReportViewerWindow wnd = GetWindow<BuildReportViewerWindow>("Basis Bundle Report");
+        BasisBuildReportViewerWindow wnd = GetWindow<BasisBuildReportViewerWindow>("Basis Bundle Report");
         wnd.titleContent = new GUIContent("Basis Build Report Viewer");
         wnd.minSize = new Vector2(600, 400);
       await  wnd.GenerateReportUI();

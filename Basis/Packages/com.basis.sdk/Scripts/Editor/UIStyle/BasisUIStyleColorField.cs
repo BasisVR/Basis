@@ -6,12 +6,12 @@ using UnityEngine.UIElements;
 namespace Basis.BasisUI.Styling
 {
     [CustomPropertyDrawer(typeof(UiStyleColor))]
-    public class UiStyleColorField : PropertyDrawer
+    public class BasisUIStyleColorField : PropertyDrawer
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             VisualElement root = new VisualElement();
-            VisualTreeAsset uxml = Resources.Load<VisualTreeAsset>(nameof(UiStyleColorField));
+            VisualTreeAsset uxml = Resources.Load<VisualTreeAsset>("UiStyleColorField");
             uxml.CloneTree(root);
 
             Label label = root.Q<Label>();

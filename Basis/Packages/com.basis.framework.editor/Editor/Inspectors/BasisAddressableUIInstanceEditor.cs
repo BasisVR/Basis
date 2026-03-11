@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 namespace Basis.BasisUI.Editor
 {
     [CustomEditor(typeof(AddressableUIInstanceBase), true)]
-    public class AddressableUIInstanceBaseEditor : UnityEditor.Editor
+    public class BasisAddressableUIInstanceEditor : UnityEditor.Editor
     {
         public override VisualElement CreateInspectorGUI()
         {

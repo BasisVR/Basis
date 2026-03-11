@@ -5,16 +5,16 @@ namespace Basis.Scripts.Boot_Sequence
     using UnityEngine;
 
     [DefaultExecutionOrder(-51)]
-    public class BootManagerEditor : EditorWindow
+    public class BasisBootManagerEditor : EditorWindow
     {
         private static bool isBootSequenceEnabled;
 
         [MenuItem("Basis/Boot Sequence/Toggle Basis Booting")]
-        public static void ShowWindow() => GetWindow<BootManagerEditor>("Boot Sequence Toggle");
+        public static void ShowWindow() => GetWindow<BasisBootManagerEditor>("Boot Sequence Toggle");
 
         private void OnEnable()
         {
-            isBootSequenceEnabled = EditorPrefs.GetBool(BootManager.BootSequenceKey, true);
+            isBootSequenceEnabled = EditorPrefs.GetBool(BasisBootManager.BootSequenceKey, true);
         }
 
         private void OnGUI()
@@ -26,16 +26,16 @@ namespace Basis.Scripts.Boot_Sequence
             if (newVal != isBootSequenceEnabled)
             {
                 isBootSequenceEnabled = newVal;
-                EditorPrefs.SetBool(BootManager.BootSequenceKey, isBootSequenceEnabled);
+                EditorPrefs.SetBool(BasisBootManager.BootSequenceKey, isBootSequenceEnabled);
                 // keep PlayerPrefs in sync for play-in-editor behavior parity (optional)
-                PlayerPrefs.SetInt(BootManager.BootSequenceKey, isBootSequenceEnabled ? 1 : 0);
+                PlayerPrefs.SetInt(BasisBootManager.BootSequenceKey, isBootSequenceEnabled ? 1 : 0);
             }
         }
     }
 #endif
 
     [DefaultExecutionOrder(-51)]
-    public static class BootManager
+    public static class BasisBootManager
     {
         public const string BootSequenceKey = "BootSequenceEnabled";
 

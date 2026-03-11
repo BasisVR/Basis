@@ -27,7 +27,7 @@ public partial class BasisAvatarSDKInspector : Editor
     public bool AvatarEyePositionState = false;
     public bool AvatarMouthPositionState = false;
     public VisualElement rootElement;
-    public AvatarSDKVisemes AvatarSDKVisemes = new AvatarSDKVisemes();
+    public BasisAvatarSDKVisemes AvatarSDKVisemes = new BasisAvatarSDKVisemes();
     public Button EventCallbackAvatarBundleButton { get; private set; }
     private Label resultLabel; // Store the result label for later clearing
     public string Error;
@@ -131,10 +131,10 @@ public partial class BasisAvatarSDKInspector : Editor
         SkinnedMeshRenderer Renderer = Avatar.FaceVisemeMesh;
         Undo.RecordObject(Avatar, "Automatically Find Visemes");
         Avatar.FaceVisemeMovement = new int[] { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
-        List<string> Names = AvatarHelper.FindAllNames(Renderer);
-        foreach (KeyValuePair<string, int> Value in AvatarHelper.SearchForVisemeIndex)
+        List<string> Names = BasisAvatarHelper.FindAllNames(Renderer);
+        foreach (KeyValuePair<string, int> Value in BasisAvatarHelper.SearchForVisemeIndex)
         {
-            if (AvatarHelper.GetBlendShapes(Names, Value.Key, out int OnMeshIndex))
+            if (BasisAvatarHelper.GetBlendShapes(Names, Value.Key, out int OnMeshIndex))
             {
                 Avatar.FaceVisemeMovement[Value.Value] = OnMeshIndex;
             }
@@ -148,11 +148,11 @@ public partial class BasisAvatarSDKInspector : Editor
         SkinnedMeshRenderer Renderer = Avatar.FaceBlinkMesh;
         Undo.RecordObject(Avatar, "Automatically Find Blinking");
         Avatar.BlinkViseme = new int[] { };
-        List<string> Names = AvatarHelper.FindAllNames(Renderer);
+        List<string> Names = BasisAvatarHelper.FindAllNames(Renderer);
         int[] Ints = new int[] { -1 };
-        foreach (string Name in AvatarHelper.SearchForBlinkIndex)
+        foreach (string Name in BasisAvatarHelper.SearchForBlinkIndex)
         {
-            if (AvatarHelper.GetBlendShapes(Names, Name, out int BlendShapeIndex))
+            if (BasisAvatarHelper.GetBlendShapes(Names, Name, out int BlendShapeIndex))
             {
                 Ints[0] = BlendShapeIndex;
                 break;
@@ -167,7 +167,7 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         Undo.RecordObject(Avatar, "Toggle Eye Position Gizmo");
         AvatarEyePositionState = !AvatarEyePositionState;
-        Button.text = "Eye Position Gizmo " + AvatarHelper.BoolToText(AvatarEyePositionState);
+        Button.text = "Eye Position Gizmo " + BasisAvatarHelper.BoolToText(AvatarEyePositionState);
         EditorUtility.SetDirty(Avatar);
         ButtonClicked?.Invoke();
     }
@@ -175,7 +175,7 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         Undo.RecordObject(Avatar, "Toggle Mouth Position Gizmo");
         AvatarMouthPositionState = !AvatarMouthPositionState;
-        Button.text = "Mouth Position Gizmo " + AvatarHelper.BoolToText(AvatarMouthPositionState);
+        Button.text = "Mouth Position Gizmo " + BasisAvatarHelper.BoolToText(AvatarMouthPositionState);
         EditorUtility.SetDirty(Avatar);
         ButtonClicked?.Invoke();
     }
@@ -300,8 +300,8 @@ public partial class BasisAvatarSDKInspector : Editor
         faceVisemeMeshField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(evt => EventCallbackFaceVisemeMesh(evt, ref Avatar.FaceVisemeMesh));
 
         // Update Button Text
-        avatarEyePositionClick.text = "Eye Position Gizmo " + AvatarHelper.BoolToText(AvatarEyePositionState);
-        avatarMouthPositionClick.text = "Mouth Position Gizmo " + AvatarHelper.BoolToText(AvatarMouthPositionState);
+        avatarEyePositionClick.text = "Eye Position Gizmo " + BasisAvatarHelper.BoolToText(AvatarEyePositionState);
+        avatarMouthPositionClick.text = "Mouth Position Gizmo " + BasisAvatarHelper.BoolToText(AvatarMouthPositionState);
     }
 
     private void OnIconFieldChanged(ChangeEvent<UnityEngine.Object> evt)
@@ -395,7 +395,7 @@ public partial class BasisAvatarSDKInspector : Editor
 
             // Add the result label to the UI
             uiElementsRoot.Add(resultLabel);
-            //  BuildReportViewerWindow.ShowWindow();
+            //  BasisBuildReportViewerWindow.ShowWindow();
         }
         else
         {

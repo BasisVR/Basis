@@ -491,7 +491,7 @@ public partial class BasisProjectSetup : EditorWindow
             {
                 if (GUILayout.Button("Open Boot Sequence Toggle"))
                 {
-                    var t = FindTypeByName("Basis.Scripts.Boot_Sequence.BootManagerEditor");
+                    var t = FindTypeByName("Basis.Scripts.Boot_Sequence.BasisBootManagerEditor");
                     if (t != null)
                     {
                         t.GetMethod("ShowWindow", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
@@ -500,7 +500,7 @@ public partial class BasisProjectSetup : EditorWindow
                     {
                         EditorUtility.DisplayDialog(
                             "Boot Sequence",
-                            "Couldn’t find BootManagerEditor. Make sure it’s in an Editor assembly.",
+                            "Couldn’t find BasisBootManagerEditor. Make sure it’s in an Editor assembly.",
                             "OK");
                     }
                 }

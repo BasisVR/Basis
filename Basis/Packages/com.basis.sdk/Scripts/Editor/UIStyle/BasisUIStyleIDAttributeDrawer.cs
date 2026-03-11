@@ -12,7 +12,7 @@ namespace Basis.BasisUI.Styling
     /// Drawer for displaying a custom dropdown of Styles associated with the Style Type.
     /// </summary>
     [CustomPropertyDrawer(typeof(UiStyleIDAttribute))]
-    public class UiStyleIDAttributeDrawer : PropertyDrawer
+    public class BasisUIStyleIDAttributeDrawer : PropertyDrawer
     {
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {

@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(ContentPoliceSelector))]
-public class BasisContentPoliceSelectorEditor : Editor
+public class BasisContentPolicySelectorEditor : Editor
 {
     public List<Type> monoBehaviourTypes;
     public string[] typeNames;

@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(quest_stuff))]
-public class quest_stuff_inspector : Editor
+public class BasisQuestStuffInspector : Editor
 {
    public override void OnInspectorGUI()
    {

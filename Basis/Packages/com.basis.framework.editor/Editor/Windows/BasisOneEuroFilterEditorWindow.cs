@@ -5,7 +5,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
-public class OneEuroFilterEditorWindow : EditorWindow
+public class BasisOneEuroFilterEditorWindow : EditorWindow
 {
     // --- UI state ---
     private float _minCutoff = 1.0f;
@@ -33,7 +33,7 @@ public class OneEuroFilterEditorWindow : EditorWindow
     [MenuItem("Basis/Remote One Euro Filter Settings")]
     public static void ShowWindow()
     {
-        var wnd = GetWindow<OneEuroFilterEditorWindow>();
+        var wnd = GetWindow<BasisOneEuroFilterEditorWindow>();
         wnd.titleContent = new GUIContent("Basis One Euro Filter");
         wnd.minSize = new Vector2(420, 320);
         wnd.Show();

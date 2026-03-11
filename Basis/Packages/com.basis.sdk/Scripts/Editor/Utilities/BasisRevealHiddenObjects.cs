@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 
-public class RevealHiddenObjects : Editor
+public class BasisRevealHiddenObjects : Editor
 {
     [MenuItem("Tools/Reveal Hidden Objects in Hierarchy")]
     private static void RevealHiddenObjectsInHierarchy()

@@ -1,7 +1,7 @@
 using UnityEditor;
 using System.Reflection;
 
-public static class ModelImporterExtensions
+public static class BasisModelImporterExtensions
 {
     /// <summary>
     /// Checks if the internal Legacy Blend Shape Normals flag is enabled on the given ModelImporter.

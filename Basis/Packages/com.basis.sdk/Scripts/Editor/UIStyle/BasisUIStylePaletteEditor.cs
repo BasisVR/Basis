@@ -7,7 +7,7 @@ namespace Basis.BasisUI.Styling
 {
     [CanEditMultipleObjects]
     [CustomEditor(typeof(UiStylePalette))]
-    public class UiStylePaletteEditor : UnityEditor.Editor
+    public class BasisUIStylePaletteEditor : UnityEditor.Editor
     {
         public override VisualElement CreateInspectorGUI()
         {
@@ -27,7 +27,7 @@ namespace Basis.BasisUI.Styling
 
     [CanEditMultipleObjects]
     [CustomEditor(typeof(UiStyleLibrary))]
-    public class UiStyleLibraryEditor : UnityEditor.Editor
+    public class BasisUIStyleLibraryEditor : UnityEditor.Editor
     {
         public override VisualElement CreateInspectorGUI()
         {

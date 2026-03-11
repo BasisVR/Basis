@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-public static class RemoveMissingScriptsEditor
+public static class BasisRemoveMissingScriptsEditor
 {
     [MenuItem("GameObject/Editor Extensions/Remove Missing Scripts")]
     private static void FindAndRemoveMissingInSelected()

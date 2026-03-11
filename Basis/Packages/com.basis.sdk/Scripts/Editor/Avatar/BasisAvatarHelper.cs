@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public static class AvatarHelper
+public static class BasisAvatarHelper
 {
     public static Dictionary<string, int> SearchForVisemeIndex = new Dictionary<string, int>
     {

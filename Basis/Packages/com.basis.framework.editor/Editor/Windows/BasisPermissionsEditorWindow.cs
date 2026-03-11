@@ -6,7 +6,7 @@ using UnityEngine;
 using BasisPermissions;
 using static BasisPermissions.PermissionManager;
 
-public sealed class PermissionsEditorWindow : EditorWindow
+public sealed class BasisPermissionsEditorWindow : EditorWindow
 {
     // -------- UI state --------
     private Vector2 _leftScroll;
@@ -47,7 +47,7 @@ public sealed class PermissionsEditorWindow : EditorWindow
     [MenuItem("Basis/Permissions Editor")]
     public static void Open()
     {
-        var w = GetWindow<PermissionsEditorWindow>("Permissions");
+        var w = GetWindow<BasisPermissionsEditorWindow>("Permissions");
         w.minSize = new Vector2(920, 520);
         w.Show();
     }

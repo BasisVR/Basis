@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class AvatarSDKVisemes
+public class BasisAvatarSDKVisemes
 {
     public BasisAvatarSDKInspector BasisAvatarSDKInspector;
     public VisualElement rowContainer;
@@ -46,7 +46,7 @@ public class AvatarSDKVisemes
                 basisAvatarSDKInspector.Avatar.FaceVisemeMovement = new int[] { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
             }
             // Get the list of blend shape names from the Avatar
-            List<string> MouthNames = AvatarHelper.FindAllNames(basisAvatarSDKInspector.Avatar.FaceVisemeMesh);
+            List<string> MouthNames = BasisAvatarHelper.FindAllNames(basisAvatarSDKInspector.Avatar.FaceVisemeMesh);
             // Add "None" to the list of names to represent the -1 case
             MouthNames.Insert(0, "None");
 
@@ -107,7 +107,7 @@ public class AvatarSDKVisemes
 
             manualassignBlinkDetection.Clear();
             // Get the list of blend shape names from the Avatar
-            List<string> BlinkNames = AvatarHelper.FindAllNames(basisAvatarSDKInspector.Avatar.FaceBlinkMesh);
+            List<string> BlinkNames = BasisAvatarHelper.FindAllNames(basisAvatarSDKInspector.Avatar.FaceBlinkMesh);
             // Add "None" to the list of names to represent the -1 case
             BlinkNames.Insert(0, "None");
 

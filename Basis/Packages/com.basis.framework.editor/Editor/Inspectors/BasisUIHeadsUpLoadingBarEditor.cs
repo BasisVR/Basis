@@ -2,15 +2,15 @@ using Basis.Scripts.UI.UI_Panels;
 using UnityEditor;
 using UnityEngine;
 
-public class BasisUIHeadsUpLoadingbarEditor : EditorWindow
+public class BasisUIHeadsUpLoadingBarEditor : EditorWindow
 {
-    private BasisUIHeadsUpLoadingbarEditor targetScript;
+    private BasisUIHeadsUpLoadingBarEditor targetScript;
     public string UniqueId = "UniqueIDOutput";
     // Create a menu item to open the window
     [MenuItem("Basis/Tests/Loading Bar Tests")]
     public static void ShowWindow()
     {
-        GetWindow<BasisUIHeadsUpLoadingbarEditor>("Custom Editor Window");
+        GetWindow<BasisUIHeadsUpLoadingBarEditor>("Custom Editor Window");
     }
     public bool IsRunning = false;
     private void OnGUI()

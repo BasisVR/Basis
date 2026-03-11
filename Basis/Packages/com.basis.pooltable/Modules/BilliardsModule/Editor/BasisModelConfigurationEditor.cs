@@ -2,7 +2,7 @@
 using UnityEditor;
 
 [CustomEditor(typeof(ModelConfiguration))]
-public class ModelConfigurationEditor : Editor
+public class BasisModelConfigurationEditor : Editor
 {
     bool bShowCollisionModel = true;
     static GUIStyle styleHeader;
