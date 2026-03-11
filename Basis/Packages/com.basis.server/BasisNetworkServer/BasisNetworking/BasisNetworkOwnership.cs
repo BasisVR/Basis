@@ -108,6 +108,7 @@ namespace Basis.Network.Server.Ownership
                 //the goal here is to make it so ownership understanding has to be requested.
                 //once a ownership has been requested there good for life or when a ownership switch happens.
                 NetworkRequestNewOrExisting(ownershipTransferMessage, out ushort currentOwner);
+                ownershipTransferMessage.playerIdMessage.playerID = currentOwner;
                 ownershipTransferMessage.Serialize(Writer);
                 NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
             }
