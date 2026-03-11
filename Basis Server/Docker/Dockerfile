@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
-COPY ["../", "Server/"]
+COPY ["./", "Server/"]
 
 WORKDIR "/src/Server/BasisServerConsole"
 
