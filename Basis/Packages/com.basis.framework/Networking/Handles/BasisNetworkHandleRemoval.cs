@@ -23,7 +23,7 @@ public static class BasisNetworkHandleRemoval
 
     public static void HandleDisconnectId(ushort disconnectedID)
     {
-        if (disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
+        if (BasisNetworkPlayer.LocalPlayer != null && disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
         {
             BasisDebug.LogError("LocalPlayer Matched Disconnected ID returning early");
             return;
@@ -38,7 +38,7 @@ public static class BasisNetworkHandleRemoval
 
     public static void HandleDisconnectIdImmediate(ushort disconnectedID)
     {
-        if (disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
+        if (BasisNetworkPlayer.LocalPlayer != null && disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
         {
            // BasisDebug.LogError("LocalPlayer Matched Disconnected ID returning early");
             return;
