@@ -15,7 +15,7 @@ namespace BasisNetworkServer.Security
     public static class BasisPlayerModeration
     {
         private static readonly ConcurrentDictionary<string, BannedPlayer> BannedPlayers = new ConcurrentDictionary<string, BannedPlayer>();
-        private static readonly HashSet<string> BannedUUIDs = new();
+        private static readonly ConcurrentDictionary<string, byte> BannedUUIDs = new();
         private static readonly string BanFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "banned_players.xml");
         public static bool UseFileOnDisc = true;
         public class BannedPlayer
@@ -83,7 +83,7 @@ namespace BasisNetworkServer.Security
                 foreach (var player in loadedList)
                 {
                     BannedPlayers[player.UUID] = player;
-                    BannedUUIDs.Add(player.UUID);
+                    BannedUUIDs.TryAdd(player.UUID, 0);
                 }
             }
             catch (Exception ex)
@@ -103,13 +103,16 @@ namespace BasisNetworkServer.Security
             {
                 return $"[Error] Unable to find player: {UUID}";
             }
-            NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
+            if (!NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers) || peers == null)
+            {
+                return $"[Error] Peer not found for player: {UUID}";
+            }
 
             peers.Disconnect(Encoding.UTF8.GetBytes(reason));
 
-            if (BannedUUIDs.Contains(UUID))
+            if (BannedUUIDs.ContainsKey(UUID))
             {
-                BannedUUIDs.Remove(UUID);
+                BannedUUIDs.TryRemove(UUID, out _);
             }
 
             BannedPlayer bannedPlayer = new BannedPlayer
@@ -122,7 +125,7 @@ namespace BasisNetworkServer.Security
             };
 
             BannedPlayers[UUID] = bannedPlayer;
-            BannedUUIDs.Add(UUID);
+            BannedUUIDs.TryAdd(UUID, 0);
             SaveBannedPlayers();
 
             return $"Player {UUID} banned successfully for reason: {reason}";
@@ -138,12 +141,15 @@ namespace BasisNetworkServer.Security
             if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
                 return $"[Error] Unable to find player: {UUID}";
 
-            NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
+            if (!NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers) || peers == null)
+            {
+                return $"[Error] Peer not found for player: {UUID}";
+            }
 
             peers.Disconnect(Encoding.UTF8.GetBytes(reason));
             string ip = peers.Address.ToString();
 
-            if (BannedUUIDs.Contains(UUID))
+            if (BannedUUIDs.ContainsKey(UUID))
                 return $"[Info] Player {UUID} is already banned.";
 
             BannedPlayer bannedPlayer = new BannedPlayer
@@ -156,7 +162,7 @@ namespace BasisNetworkServer.Security
             };
 
             BannedPlayers[UUID] = bannedPlayer;
-            BannedUUIDs.Add(UUID);
+            BannedUUIDs.TryAdd(UUID, 0);
             SaveBannedPlayers();
 
             return $"Player {UUID} and IP {ip} banned successfully for reason: {reason}";
@@ -172,7 +178,10 @@ namespace BasisNetworkServer.Security
             if (!NetworkServer.AuthIdentity.UUIDToNetID(UUID, out int peer))
                 return $"[Error] Unable to find player: {UUID}";
 
-            NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers);
+            if (!NetworkServer.AuthenticatedPeers.TryGetValue(peer, out var peers) || peers == null)
+            {
+                return $"[Error] Peer not found for player: {UUID}";
+            }
 
             peers.Disconnect(Encoding.UTF8.GetBytes(reason));
             return $"Player {UUID} kicked successfully.";
@@ -183,7 +192,7 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(UUID))
                 throw new ArgumentException("[Error] UUID cannot be null or empty.");
 
-            return BannedUUIDs.Contains(UUID);
+            return BannedUUIDs.ContainsKey(UUID);
         }
 
         public static bool Unban(string UUID)
@@ -191,11 +200,11 @@ namespace BasisNetworkServer.Security
             if (string.IsNullOrEmpty(UUID))
                 throw new ArgumentException("[Error] UUID cannot be null or empty.");
 
-            if (!BannedUUIDs.Contains(UUID))
+            if (!BannedUUIDs.ContainsKey(UUID))
                 return false;
 
             BannedPlayers.TryRemove(UUID, out _);
-            BannedUUIDs.Remove(UUID);
+            BannedUUIDs.TryRemove(UUID, out _);
             SaveBannedPlayers();
             return true;
         }
@@ -212,7 +221,7 @@ namespace BasisNetworkServer.Security
             foreach (var player in toRemoveList)
             {
                 BannedPlayers.TryRemove(player.UUID, out _);
-                BannedUUIDs.Remove(player.UUID);
+                BannedUUIDs.TryRemove(player.UUID, out _);
             }
 
             SaveBannedPlayers();
