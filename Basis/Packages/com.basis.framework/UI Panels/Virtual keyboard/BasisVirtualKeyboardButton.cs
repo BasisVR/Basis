@@ -13,6 +13,6 @@ public struct BasisVirtualKeyboardButton
 }
 public enum BasisVirtualKeyboardSpecialKey
 {
-   NotSpecial, IsDeleteKey, IsCaseSwitchKey,IsEnterKey,IsCloseKey,IsPasteKey,IsCopyKey
+   NotSpecial, IsDeleteKey, IsCaseSwitchKey, IsEnterKey, IsCloseKey, IsPasteKey, IsCopyKey, IsSymbolKey, IsSpaceKey
 }
 }

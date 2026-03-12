@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using static Basis.Scripts.Virtual_keyboard.KeyboardLayoutData;
 namespace Basis.Scripts.Virtual_keyboard
@@ -7,27 +7,29 @@ public class BasisVirtualRow
 {
     public List<BasisVirtualKeyboardButton> RowButtons = new List<BasisVirtualKeyboardButton>();
     public GameObject RowObject;
-    public bool SetupButton(BasisVirtualKeyboardButton button, List<SpecialKeySizes> SpecialKeys, float ScaleSize,out SpecialKeySizes SpecialKeySizes)
+    public bool SetupButton(BasisVirtualKeyboardButton button, List<SpecialKeySizes> SpecialKeys, float ScaleSize, out SpecialKeySizes SpecialKeySizes)
     {
-        SetScale(button, ScaleSize); // default size;
-        foreach (var SpecialKey in SpecialKeys)
+        SetScale(button, ScaleSize); // default size
+        if (SpecialKeys != null)
         {
-            if (button.Text.text.ToLower() == SpecialKey.Match.ToLower())
+            foreach (var SpecialKey in SpecialKeys)
             {
-                SetScale(button, SpecialKey.WidthSize);//check for special
-                button.Button.colors = SpecialKey.ColorBlock;
-                SpecialKeySizes = SpecialKey;
-                return true;
+                if (button.Text.text.Equals(SpecialKey.Match, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    SetScale(button, SpecialKey.WidthSize);
+                    button.Button.colors = SpecialKey.ColorBlock;
+                    SpecialKeySizes = SpecialKey;
+                    return true;
+                }
             }
         }
         SpecialKeySizes = new SpecialKeySizes();
         return false;
     }
 
-
     public void SetScale(BasisVirtualKeyboardButton button, float width)
     {
-        button.ButtonRect.sizeDelta = new Vector2(width, button.ButtonRect.sizeDelta.y); // Adjust the width multiplier as needed
+        button.ButtonRect.sizeDelta = new Vector2(width, button.ButtonRect.sizeDelta.y);
     }
 }
 }
