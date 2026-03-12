@@ -103,7 +103,7 @@ namespace Basis.Network
             writer.Reset();
             msg.Serialize(writer, BitQuality.High);
 
-            peer.Send(writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Sequenced);
+            peer.Send(writer, BasisNetworkCommons.PlayerAvatarChannel, DeliveryMethod.Unreliable);
 
             ActivePlayerData[index].Message = msg;
         }
