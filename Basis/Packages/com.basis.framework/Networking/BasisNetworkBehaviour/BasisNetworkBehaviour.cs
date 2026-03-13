@@ -99,8 +99,11 @@ namespace Basis
                 //convert GUID into Ushort for network transport.
                 BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
                 var InitalOwnershipStatus = await output;
-                CurrentOwnerId = InitalOwnershipStatus.PlayerId;
-                BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
+                if (InitalOwnershipStatus.Success)
+                {
+                    CurrentOwnerId = InitalOwnershipStatus.PlayerId;
+                    BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
+                }
                 HasNetworkID = IDResolverResult.Success;
                 NetworkID = IDResolverResult.Id;
                 if (HasNetworkID)
