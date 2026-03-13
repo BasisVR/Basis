@@ -15,7 +15,6 @@ public class BasisSceneSDKInspector : Editor
     public VisualElement rootElement;
     public VisualElement uiElementsRoot;
     private Label resultLabel;
-    public static Texture2D Icon;
     public BasisSceneValidator BasisSceneValidator;
     public bool SpawnPointGizmoState = false;
 
@@ -70,7 +69,7 @@ public class BasisSceneSDKInspector : Editor
             ObjectField SceneIconField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.SceneIcon);
             SceneIconField.objectType = typeof(Texture2D);
             SceneIconField.allowSceneObjects = true;
-            SceneIconField.value = Icon;
+            SceneIconField.value = BasisScene.BasisBundleDescription.AssetBundleIcon;
             SceneIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnIconFieldChanged);
 
             // Spawn point field
@@ -116,7 +115,7 @@ public class BasisSceneSDKInspector : Editor
             Button buildButton = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.BuildButton);
 
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            buildButton.clicked += () => Build(assetBundleObject.selectedTargets, Icon);
+            buildButton.clicked += () => Build(assetBundleObject.selectedTargets, BasisScene.BasisBundleDescription.AssetBundleIcon);
         }
         else
         {
@@ -128,8 +127,9 @@ public class BasisSceneSDKInspector : Editor
 
     private void OnIconFieldChanged(ChangeEvent<UnityEngine.Object> evt)
     {
-        Icon = evt.newValue as Texture2D;
-        BasisDebug.Log($"Setting to {Icon}");
+        BasisScene.BasisBundleDescription.AssetBundleIcon = evt.newValue as Texture2D;
+        EditorUtility.SetDirty(BasisScene);
+        BasisDebug.Log($"Setting to {BasisScene.BasisBundleDescription.AssetBundleIcon}");
     }
 
     private void SceneNameChanged(ChangeEvent<string> evt)

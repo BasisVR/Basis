@@ -109,14 +109,16 @@ public class BasisBundleDescription
 {
     public string AssetBundleName;//user friendly name of this asset.
     public string AssetBundleDescription;//the description of this asset
+    public Texture2D AssetBundleIcon;//icon for this asset
     public BasisBundleDescription()
     {
 
     }
-    public BasisBundleDescription(string assetBundleName, string assetBundleDescription)
+    public BasisBundleDescription(string assetBundleName, string assetBundleDescription, Texture2D assetBundleIcon = null)
     {
         AssetBundleName = assetBundleName ?? throw new ArgumentNullException(nameof(assetBundleName));
         AssetBundleDescription = assetBundleDescription ?? throw new ArgumentNullException(nameof(assetBundleDescription));
+        AssetBundleIcon = assetBundleIcon;
     }
 }
 [System.Serializable]

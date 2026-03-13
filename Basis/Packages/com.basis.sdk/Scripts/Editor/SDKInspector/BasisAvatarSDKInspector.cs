@@ -265,7 +265,7 @@ public partial class BasisAvatarSDKInspector : Editor
         animatorField.value = Avatar.Animator;
         faceBlinkMeshField.value = Avatar.FaceBlinkMesh;
         faceVisemeMeshField.value = Avatar.FaceVisemeMesh;
-        AvatarIconField.value = Icon;
+        AvatarIconField.value = Avatar.BasisBundleDescription.AssetBundleIcon;
 
         AvatarNameField.value = Avatar.BasisBundleDescription.AssetBundleName;
         AvatarDescriptionField.value = Avatar.BasisBundleDescription.AssetBundleDescription;
@@ -289,7 +289,7 @@ public partial class BasisAvatarSDKInspector : Editor
         BasisSDKCommonInspector.CreateBuildOptionsDropdown(uiElementsRoot);
         BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
         AvatarIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnIconFieldChanged);
-        avatarBundleButton.clicked += () => EventCallbackAvatarBundle(assetBundleObject.selectedTargets, Icon);
+        avatarBundleButton.clicked += () => EventCallbackAvatarBundle(assetBundleObject.selectedTargets, Avatar.BasisBundleDescription.AssetBundleIcon);
 
 
         // Register Animator field change event
@@ -306,11 +306,10 @@ public partial class BasisAvatarSDKInspector : Editor
 
     private void OnIconFieldChanged(ChangeEvent<UnityEngine.Object> evt)
     {
-        Icon = evt.newValue as Texture2D;
-        BasisDebug.Log($"Setting to {Icon}");
+        Avatar.BasisBundleDescription.AssetBundleIcon = evt.newValue as Texture2D;
+        EditorUtility.SetDirty(Avatar);
+        BasisDebug.Log($"Setting to {Avatar.BasisBundleDescription.AssetBundleIcon}");
     }
-
-    public static Texture2D Icon;
     private async void EventCallbackAvatarBundle(List<BuildTarget> targets, Texture2D Image)
     {
         if (targets == null || targets.Count == 0)

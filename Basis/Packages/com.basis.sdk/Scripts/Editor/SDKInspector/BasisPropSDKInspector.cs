@@ -15,7 +15,6 @@ public class BasisPropSDKInspector : Editor
     public VisualElement uiElementsRoot;
     private Label resultLabel;
     public BasisAssetBundleObject assetBundleObject;
-    public static Texture2D Icon;
     public BasisPropValidator BasisPropValidator;
 
     public void OnEnable()
@@ -69,7 +68,7 @@ public class BasisPropSDKInspector : Editor
             ObjectField PropIconField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.PropIcon);
             PropIconField.objectType = typeof(Texture2D);
             PropIconField.allowSceneObjects = true;
-            PropIconField.value = Icon;
+            PropIconField.value = BasisProp.BasisBundleDescription.AssetBundleIcon;
             PropIconField.RegisterCallback<ChangeEvent<UnityEngine.Object>>(OnIconFieldChanged);
 
             // Build options
@@ -78,7 +77,7 @@ public class BasisPropSDKInspector : Editor
 
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
             Button BuildButton = BasisHelpersGizmo.Button(uiElementsRoot, BasisSDKConstants.BuildButton);
-            BuildButton.clicked += () => Build(BuildButton, assetBundleObject.selectedTargets, Icon);
+            BuildButton.clicked += () => Build(BuildButton, assetBundleObject.selectedTargets, BasisProp.BasisBundleDescription.AssetBundleIcon);
         }
         else
         {
@@ -90,8 +89,9 @@ public class BasisPropSDKInspector : Editor
 
     private void OnIconFieldChanged(ChangeEvent<UnityEngine.Object> evt)
     {
-        Icon = evt.newValue as Texture2D;
-        BasisDebug.Log($"Setting to {Icon}");
+        BasisProp.BasisBundleDescription.AssetBundleIcon = evt.newValue as Texture2D;
+        EditorUtility.SetDirty(BasisProp);
+        BasisDebug.Log($"Setting to {BasisProp.BasisBundleDescription.AssetBundleIcon}");
     }
 
     private void PropNameChanged(ChangeEvent<string> evt)
