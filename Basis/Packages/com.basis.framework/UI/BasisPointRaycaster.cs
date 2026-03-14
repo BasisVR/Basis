@@ -129,7 +129,17 @@ namespace Basis.Scripts.UI
 
         public void UpdateRay()
         {
-            ray = new Ray(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation * Vector3.forward);
+            ray = GetUpdatedRay();
+        }
+
+        public Ray GetUpdatedRay()
+        {
+            if (UseWorldPosition)
+            {
+                return new Ray(BasisInput.RaycastCoord.position, BasisInput.RaycastCoord.rotation * Vector3.forward);
+            }
+            var Camera = BasisLocalCameraDriver.Instance.Camera;
+            return Camera.ScreenPointToRay(ScreenPoint, Camera.stereoActiveEye);
         }
 
         /// <summary>
@@ -138,15 +148,7 @@ namespace Basis.Scripts.UI
         /// </summary>
         public void UpdateRaycast()
         {
-            if (UseWorldPosition)
-            {
-                UpdateRay();
-            }
-            else
-            {
-                var Camera = BasisLocalCameraDriver.Instance.Camera;
-                ray = Camera.ScreenPointToRay(ScreenPoint, Camera.stereoActiveEye);
-            }
+            UpdateRay();
 
             PhysicHitCount = Physics.RaycastNonAlloc(
                 ray,
