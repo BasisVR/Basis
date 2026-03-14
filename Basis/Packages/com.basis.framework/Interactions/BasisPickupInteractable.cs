@@ -10,6 +10,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections;
+using Basis.Scripts.BasisSdk.Players;
 using Unity.Mathematics;
 
 namespace Basis.Scripts.BasisSdk.Interactions
@@ -35,6 +36,12 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         [Tooltip("Enables the ability to self-steal")]
         public bool CanSelfSteal = true;
+
+        /// <summary>
+        /// If <see langword="true"/>, the object will smoothly interpolate to the hand position/rotation on pickup.
+        /// </summary>
+        [Tooltip("The object will move to the player's hand instead of keeping its offset on pickup")]
+        public bool LerpToHandOnPickup = true;
 
         /// <summary>
         /// Show Highlight on haver. does not effect on hover exit.
@@ -260,6 +267,22 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private Coroutine _autoReturnCoroutine;
         # endregion
 
+        private const float lerpToHandDuration = 0.05f;
+        private float _lerpElapsed;
+        private bool _lerping;
+
+        private Vector3 magicNumberHandOffsetRight = new(0.26f, -0.14f, 0.24f); // right, down, forward
+        private Quaternion magicNumberHandRotationRight = Quaternion.Euler(00, 010, -100);
+        private Vector3 magicNumberHandOffsetLeft = new(-0.26f, -0.14f, 0.24f); // left, down, forward
+        private Quaternion magicNumberHandRotationLeft = Quaternion.Euler(0, -10, -80);
+        private Vector3 magicNumberItemDeltaRight = new(-.05f, .025f, .05f); // slightly inward from right hand
+        private Vector3 magicNumberItemDeltaLeft = new(.05f, .025f, .05f);   // slightly inward from left hand
+
+        private BasisLocalBoneControl useHandBoneControl;
+        private Vector3 useMagicNumberHandOffset;
+        private Quaternion useMagicNumberHandRotation;
+        private Vector3 useMagicNumberItemDelta;
+
         private float _previousDistance = 0;
         /// <summary>
         /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
@@ -306,6 +329,23 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
             OnInteractStartEvent.AddListener(OnInteractionEventFired);
+        }
+
+        private void OnEnable()
+        {
+            BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+        }
+
+        private void OnDisable()
+        {
+            BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+            Drop();
+        }
+
+        private void OnBootModeChanged(string mode)
+        {
+            BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+            Drop();
         }
 
         internal void OnInteractionEventFired(BasisInput input)
@@ -458,8 +498,26 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     transform.GetPositionAndRotation(out Vector3 ActivePosition, out Quaternion ActiveRotation);
 
-                    var offsetPos = Quaternion.Inverse(inRot) * (ActivePosition - inPos);
-                    var offsetRot = Quaternion.Inverse(inRot) * ActiveRotation;
+                    Vector3 offsetPos;
+                    if (BasisDeviceManagement.IsUserInDesktop())
+                    {
+                        EnableDesktopHandTracking();
+                    }
+
+                    if (LerpToHandOnPickup)
+                    {
+                        offsetPos = Vector3.zero;
+                        InputConstraint.GlobalWeight = 0f;
+                        _lerpElapsed = 0f;
+                        _lerping = true;
+                        InputConstraint.GlobalWeight = 1f;
+                    }
+                    else
+                    {
+                        offsetPos = Quaternion.Inverse(inRot) * (ActivePosition - inPos);
+                    }
+
+                    Quaternion offsetRot = Quaternion.Inverse(inRot) * ActiveRotation;
 
                     InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
 
@@ -514,6 +572,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
 
                     InputConstraint.Enabled = false;
+                    _lerping = false;
                     InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
 
                     if (RigidRef != null)
@@ -533,6 +592,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         }
                     }
                     BasisDebug.Log($"OnInteractEnd", BasisDebug.LogTag.Pickups);
+
+                    if (BasisDeviceManagement.IsUserInDesktop())
+                    {
+                        DisableDesktopHandTracking();
+                    }
 
                     OnInteractEndEvent?.Invoke(input);
                 }
@@ -611,9 +675,27 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
 
-            Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
+            if (_lerping)
+            {
+                _lerpElapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(_lerpElapsed / lerpToHandDuration);
+                InputConstraint.GlobalWeight = t * t;
+                if (t >= 1f)
+                    _lerping = false;
+            }
+
+            Vector3 inPos;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
 
+            if (LerpToHandOnPickup)
+            {
+                inPos = useHandBoneControl.OutgoingWorldData.position
+                        + interactingInput.BoneControl.OutgoingWorldData.rotation * useMagicNumberItemDelta * BasisHeightDriver.ScaledToMatchValue;
+            }
+            else
+            {
+                inPos = interactingInput.BoneControl.OutgoingWorldData.position;
+            }
 
             if (BasisDeviceManagement.IsUserInDesktop())
             {
@@ -979,6 +1061,41 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 #endif
+
+        private void EnableDesktopHandTracking()
+        {
+            UpdateDominantHandValues();
+            BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+            BasisLocalPlayer.Instance.OnLatePollData += OverrideDesktopHandTarget;
+            useHandBoneControl.HasTracked = BasisHasTracked.HasTracker;
+            useHandBoneControl.HasRigLayer = BasisHasRigLayer.HasRigLayer;
+        }
+
+        private void DisableDesktopHandTracking()
+        {
+            useHandBoneControl.HasTracked = BasisHasTracked.HasNoTracker;
+            useHandBoneControl.HasRigLayer = BasisHasRigLayer.HasNoRigLayer;
+            BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+        }
+
+        private void OverrideDesktopHandTarget()
+        {
+            BasisLocalBoneControl eye = BasisLocalBoneDriver.EyeControl;
+            BasisLocalBoneControl hand = useHandBoneControl;
+
+            Vector3 offset = useMagicNumberHandOffset * BasisHeightDriver.ScaledToMatchValue;
+
+            hand.IncomingData.position = eye.IncomingData.position + eye.IncomingData.rotation * offset;
+            hand.IncomingData.rotation = eye.IncomingData.rotation * useMagicNumberHandRotation;
+        }
+
+        private void UpdateDominantHandValues()
+        {
+            useHandBoneControl = BasisDominantHand.IsLeftHanded ? BasisLocalBoneDriver.LeftHandControl : BasisLocalBoneDriver.RightHandControl;
+            useMagicNumberHandOffset = BasisDominantHand.IsLeftHanded ? magicNumberHandOffsetLeft : magicNumberHandOffsetRight;
+            useMagicNumberHandRotation = BasisDominantHand.IsLeftHanded ? magicNumberHandRotationLeft : magicNumberHandRotationRight;
+            useMagicNumberItemDelta = BasisDominantHand.IsLeftHanded ? magicNumberItemDeltaLeft : magicNumberItemDeltaRight;
+        }
 
         /// <summary>
         /// Convenience method to force a drop by clearing all influencers.
