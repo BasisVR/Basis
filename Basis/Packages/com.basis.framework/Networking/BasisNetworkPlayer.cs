@@ -62,7 +62,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-        public ushort playerId;
+        public ushort playerId {get; protected set; }
         public Dictionary<byte, ServerAvatarDataMessageQueue> NextMessages = new Dictionary<byte, ServerAvatarDataMessageQueue>();
         public struct ServerAvatarDataMessageQueue
         {

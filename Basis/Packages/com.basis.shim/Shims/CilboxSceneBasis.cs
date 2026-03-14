@@ -186,6 +186,9 @@ namespace Cilbox
 			{ typeof(UnityEngine.Events.UnityAction),  new HashSet<string>{ ".ctor" } },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ nameof(GameObject.SetActive), nameof(GameObject.GetComponents) } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
+			{ typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer), new HashSet<string> {
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty("playerId").GetGetMethod().Name
+				} },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{ nameof(BasisLocalPlayer.GetPositionAndRotation),
 				nameof(BasisLocalPlayer.Teleport),
 				nameof(BasisLocalPlayer.Respawn),
