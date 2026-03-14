@@ -267,6 +267,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private Coroutine _autoReturnCoroutine;
         # endregion
 
+        public bool CanSelfStealResolved => CanSelfSteal && !BasisDeviceManagement.IsUserInDesktop();
+
         private const float lerpToHandDuration = 0.05f;
         private float _lerpElapsed;
         private bool _lerping;
@@ -379,7 +381,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             // NOTE: see CanInteract note
             return InteractableEnabled &&
-                (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
+                (!Inputs.AnyInteracting() || CanSelfStealResolved) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
@@ -395,7 +397,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // NOTE: Injected checks must be called at the end so that we can safely assume that at the time this was invoked, everything was valid.
             //       Important for net sync: pending steal requests shouldn't re-invoke with stale data.
             return InteractableEnabled &&
-                (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
+                (!Inputs.AnyInteracting() || CanSelfStealResolved) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
@@ -409,7 +411,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public override bool CanDirectGrab(BasisInput input)
         {
             if (!base.CanDirectGrab(input)) return false;
-            if (Inputs.AnyInteracting() && !CanSelfSteal) return false;
+            if (Inputs.AnyInteracting() && !CanSelfStealResolved) return false;
             return CanInteractInjected.AllTrue(input);
         }
 
@@ -469,7 +471,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Clean up interacting ourselves (system won't do this for us) when self-steal is allowed.
-            if (CanSelfSteal)
+            if (CanSelfStealResolved)
                 Inputs.ForEachWithState(OnInteractEnd, BasisInteractInputState.Interacting);
 
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
@@ -520,11 +522,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         InputConstraint.GlobalWeight = 0f;
                         _lerpElapsed = 0f;
                         _lerping = true;
-                        InputConstraint.GlobalWeight = 1f;
                     }
                     else
                     {
                         offsetPos = Quaternion.Inverse(inRot) * (ActivePosition - inPos);
+                        InputConstraint.GlobalWeight = 1f;
                     }
 
                     Quaternion offsetRot = Quaternion.Inverse(inRot) * ActiveRotation;
@@ -546,7 +548,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Clean up hovers if self-steal is disabled.
-            if (!CanSelfSteal)
+            if (!CanSelfStealResolved)
                 Inputs.ForEachWithState(i => OnHoverEnd(i, false), BasisInteractInputState.Hovering);
         }
 
@@ -696,8 +698,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             Vector3 inPos;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
+            bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
 
-            if (LerpToHandOnPickup)
+            if (inDesktop && LerpToHandOnPickup)
             {
                 inPos = useHandBoneControl.OutgoingWorldData.position
                         + interactingInput.BoneControl.OutgoingWorldData.rotation * useMagicNumberItemDelta * BasisHeightDriver.ScaledToMatchValue;
@@ -707,7 +710,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
             }
 
-            if (BasisDeviceManagement.IsUserInDesktop())
+            if (inDesktop)
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
             }
@@ -1016,7 +1019,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // special case for desktop (right-click)
                 input.TryGetRole(out var role) &&
                 role == BasisBoneTrackedRole.CenterEye &&
-                input.CurrentInputState.SecondaryTrigger == 1; ;
+                input.CurrentInputState.SecondaryTrigger > .8f;
         }
 
         private IEnumerator MoveAfterDelayCoroutine() {

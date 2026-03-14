@@ -207,9 +207,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     {
                         // Implementation could allow for hovering and holding of the same object, clear independently
                         bool autoHold = BasisDeviceManagement.IsUserInDesktop() && interactInput.lastTarget.AutoHold == BasisAutoHold.Yes;
+                        bool holdDropTriggered = interactInput.lastTarget.IsHoldDropTriggered(interactInput.input);
 
-                        // Drop logic: only drop when not triggered
-                        if (!interactInput.lastTarget.IsInteractTriggered(interactInput.input) && interactInput.lastTarget.IsInteractingWith(interactInput.input) && !autoHold)
+                        // Drop logic: drop when not triggered, or when autohold drop is pressed
+                        if (!interactInput.lastTarget.IsInteractTriggered(interactInput.input) && interactInput.lastTarget.IsInteractingWith(interactInput.input) && (!autoHold || holdDropTriggered))
                         {
                             interactInput.lastTarget.OnInteractEnd(interactInput.input);
                         }
