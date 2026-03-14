@@ -59,6 +59,7 @@ namespace Cilbox
 			"System.Single",
 			"System.String",
 			"System.TimeSpan",
+			"System.Text.Encoding",
 			"System.UInt16",
 			"System.UInt32",
 			"System.UInt64",
@@ -94,6 +95,7 @@ namespace Cilbox
 			"UnityEngine.Transform",
 			"UnityEngine.Quaternion",
 			"UnityEngine.Rigidbody",
+			"UnityEngine.RenderTexture",
 			"UnityEngine.UI.Button",
 			"UnityEngine.UI.Button+ButtonClickedEvent",
 			"UnityEngine.UI.InputField",
@@ -104,6 +106,7 @@ namespace Cilbox
 			"UnityEngine.UI.Text",
 			"UnityEngine.Vector3",
 			"UnityEngine.Vector4",
+			"UnityEngine.Video.VideoPlayer"
 		};
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
