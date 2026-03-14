@@ -15,31 +15,21 @@ public class BasisCilboxBuildHook
     private static void Initialize()
     {
         //Debug.Log("BasisCilboxBuildHook initialized.");
-        BasisBundleBuild.PreBuildBundleEvents -= HandlePreBuildBundle;
-        BasisBundleBuild.PreBuildBundleEvents += HandlePreBuildBundle;
+        BasisAssetBundlePipeline.OnBeforeBuildPrefab -= HandleBeforeBuildPrefab;
+        BasisAssetBundlePipeline.OnBeforeBuildPrefab += HandleBeforeBuildPrefab;
     }
 
-    private static Task HandlePreBuildBundle(BasisContentBase basisContentBase, List<BuildTarget> targets)
+    private static void HandleBeforeBuildPrefab(GameObject prefabRoot, BasisAssetBundleObject settings)
     {
-        Debug.Log("BasisCilboxBuildHook prebuild callback invoked.");
-        GameObject contentRoot = basisContentBase != null ? basisContentBase.gameObject : null;
-        bool contentHasCilboxable = HasCilboxableComponents(contentRoot);
-        if (!contentHasCilboxable)
+        if (prefabRoot == null || !HasCilboxableComponents(prefabRoot))
         {
-            Debug.Log("BasisCilboxBuildHook: no Cilboxable scripts found on bundle root, skipping.");
-            return Task.CompletedTask;
+            return;
         }
 
-        if (contentRoot == null)
-        {
-            Debug.LogWarning("BasisCilboxBuildHook: bundle root was null, skipping.");
-            return Task.CompletedTask;
-        }
-
-        Debug.Log("Basis build prehook: generating Cilbox assembly data in an isolated temporary scene.");
-        Scene originalScene = contentRoot.scene;
-        Transform originalParent = contentRoot.transform.parent;
-        int originalSiblingIndex = originalParent != null ? contentRoot.transform.GetSiblingIndex() : -1;
+        Debug.Log("Basis build prehook: generating Cilbox assembly data on the isolated build clone.");
+        Scene originalScene = prefabRoot.scene;
+        Transform originalParent = prefabRoot.transform.parent;
+        int originalSiblingIndex = originalParent != null ? prefabRoot.transform.GetSiblingIndex() : -1;
         Dictionary<int, string> cilboxAssemblySnapshot = CaptureCilboxAssemblySnapshot();
         List<GameObject> temporarilyDisabledRoots = new List<GameObject>();
         Scene temporaryScene = default;
@@ -51,11 +41,11 @@ public class BasisCilboxBuildHook
             temporaryScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             if (originalParent != null)
             {
-                contentRoot.transform.SetParent(null, true);
+                prefabRoot.transform.SetParent(null, true);
                 detachedFromParent = true;
             }
 
-            SceneManager.MoveGameObjectToScene(contentRoot, temporaryScene);
+            SceneManager.MoveGameObjectToScene(prefabRoot, temporaryScene);
             SceneManager.SetActiveScene(temporaryScene);
 
             DeactivateOtherSceneRoots(temporaryScene, temporarilyDisabledRoots);
@@ -79,30 +69,28 @@ public class BasisCilboxBuildHook
             if (temporarySceneCilbox == null)
             {
                 Debug.LogWarning("Basis build detected Cilboxable scripts, but no Cilbox component was found. Skipping Cilbox prebuild assembly.");
-                return Task.CompletedTask;
+                return;
             }
 
             CilboxScenePostprocessor.OnPostprocessScene(temporaryScene);
             EnsureTemporarySceneHasAssemblyData(temporarySceneCilbox, cilboxAssemblySnapshot);
-            RebindProxiesToTemporarySceneCilbox(contentRoot, temporarySceneCilbox);
+            RebindProxiesToTemporarySceneCilbox(prefabRoot, temporarySceneCilbox);
             RestoreExternalCilboxAssemblyData(cilboxAssemblySnapshot, temporaryScene);
-            EditorUtility.SetDirty(contentRoot);
-            AssetDatabase.SaveAssets();
         }
         finally
         {
             RestoreDisabledRoots(temporarilyDisabledRoots);
 
-            if (originalScene.IsValid() && originalScene.isLoaded && contentRoot != null && contentRoot.scene.IsValid() && contentRoot.scene == temporaryScene)
+            if (originalScene.IsValid() && originalScene.isLoaded && prefabRoot != null && prefabRoot.scene.IsValid() && prefabRoot.scene == temporaryScene)
             {
-                SceneManager.MoveGameObjectToScene(contentRoot, originalScene);
+                SceneManager.MoveGameObjectToScene(prefabRoot, originalScene);
             }
 
-            if (detachedFromParent && contentRoot != null && originalParent != null && contentRoot.scene.IsValid() && contentRoot.scene == originalScene)
+            if (detachedFromParent && prefabRoot != null && originalParent != null && prefabRoot.scene.IsValid() && prefabRoot.scene == originalScene)
             {
-                contentRoot.transform.SetParent(originalParent, true);
+                prefabRoot.transform.SetParent(originalParent, true);
                 int siblingIndex = Mathf.Clamp(originalSiblingIndex, 0, originalParent.childCount - 1);
-                contentRoot.transform.SetSiblingIndex(siblingIndex);
+                prefabRoot.transform.SetSiblingIndex(siblingIndex);
             }
 
             if (temporaryCilboxHost != null)
@@ -110,7 +98,7 @@ public class BasisCilboxBuildHook
                 UnityEngine.Object.DestroyImmediate(temporaryCilboxHost);
             }
 
-            if (temporaryScene.IsValid() && temporaryScene.isLoaded && (contentRoot == null || contentRoot.scene != temporaryScene))
+            if (temporaryScene.IsValid() && temporaryScene.isLoaded && (prefabRoot == null || prefabRoot.scene != temporaryScene))
             {
                 EditorSceneManager.CloseScene(temporaryScene, true);
             }
@@ -120,7 +108,6 @@ public class BasisCilboxBuildHook
                 SceneManager.SetActiveScene(originalScene);
             }
         }
-        return Task.CompletedTask;
     }
 
     private static void CleanupStaleCilboxHelpers()
