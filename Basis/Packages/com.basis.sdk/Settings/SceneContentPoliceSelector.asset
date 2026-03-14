@@ -392,3 +392,4 @@ MonoBehaviour:
   - Basis.Media.BasisPrismVideoPlayerNetworked
   - Basis.BasisInteractableShim
   - Basis.BasisNetworkShim
+  - BasisInteractableButton

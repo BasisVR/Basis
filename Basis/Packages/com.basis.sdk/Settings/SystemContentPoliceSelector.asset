@@ -178,3 +178,4 @@ MonoBehaviour:
   - UnityEngine.WheelJoint2D
   - Basis.Network.Vehicles.BasisNetworkedVehicle
   - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
+  - BasisInteractableButton
