@@ -344,7 +344,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         private void OnBootModeChanged(string mode)
         {
-            BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+            if (BasisLocalPlayer.Instance != null)
+            {
+                BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+            }
+
             Drop();
         }
 
@@ -499,14 +503,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     transform.GetPositionAndRotation(out Vector3 ActivePosition, out Quaternion ActiveRotation);
 
                     Vector3 offsetPos;
-                    if (BasisDeviceManagement.IsUserInDesktop())
+                    bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
+                    if (inDesktop)
                     {
                         EnableDesktopHandTracking();
                     }
 
                     if (LerpToHandOnPickup)
                     {
-                        offsetPos = Vector3.zero;
+                        Vector3 lerpTarget = inPos;
+                        if (inDesktop)
+                        {
+                            lerpTarget = inPos + inRot * (useMagicNumberHandOffset * BasisHeightDriver.ScaledToMatchValue);
+                        }
+                        offsetPos = ComputeClosestBoundsOffset(lerpTarget, inRot, ActivePosition);
                         InputConstraint.GlobalWeight = 0f;
                         _lerpElapsed = 0f;
                         _lerping = true;
@@ -1095,6 +1105,32 @@ namespace Basis.Scripts.BasisSdk.Interactions
             useMagicNumberHandOffset = BasisDominantHand.IsLeftHanded ? magicNumberHandOffsetLeft : magicNumberHandOffsetRight;
             useMagicNumberHandRotation = BasisDominantHand.IsLeftHanded ? magicNumberHandRotationLeft : magicNumberHandRotationRight;
             useMagicNumberItemDelta = BasisDominantHand.IsLeftHanded ? magicNumberItemDeltaLeft : magicNumberItemDeltaRight;
+        }
+
+        /// <summary>
+        /// Computes a constraint offset so that the closest point on the object's collider bounds
+        /// aligns with the hand, rather than the object center.
+        /// </summary>
+        private Vector3 ComputeClosestBoundsOffset(Vector3 inPos, Quaternion handRot, Vector3 objectPos)
+        {
+            Collider[] colliders = GetColliders();
+            if (colliders == null || colliders.Length == 0)
+                return Vector3.zero;
+
+            Vector3 bestPoint = objectPos;
+            float bestDistSq = float.MaxValue;
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                if (colliders[i] == null) continue;
+                Vector3 point = colliders[i].ClosestPoint(inPos);
+                float distSq = (point - inPos).sqrMagnitude;
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    bestPoint = point;
+                }
+            }
+            return Quaternion.Inverse(handRot) * (objectPos - bestPoint);
         }
 
         /// <summary>
