@@ -83,7 +83,7 @@ jobs:
         run: rm -rf ${projectPath}/Packages/com.meta.xr.sdk.core
       - name: "Build Unity project"
         timeout-minutes: 100
-        uses: kitlith/unity-builder@linux-extension
+        uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
