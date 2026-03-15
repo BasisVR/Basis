@@ -6,6 +6,7 @@ using System.Collections;
 using System.Runtime.InteropServices;
 using System.Reflection;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Cilbox;
 
 namespace Cilbox
@@ -186,8 +187,9 @@ namespace Cilbox
 			{ typeof(UnityEngine.Events.UnityAction),  new HashSet<string>{ ".ctor" } },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ nameof(GameObject.SetActive), nameof(GameObject.GetComponents) } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
-			{ typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer), new HashSet<string> {
-				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty("playerId").GetGetMethod().Name
+			{ typeof(BasisNetworkPlayer), new HashSet<string> {
+				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.playerId)).GetGetMethod().Name,
+				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
 				} },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{ nameof(BasisLocalPlayer.GetPositionAndRotation),
 				nameof(BasisLocalPlayer.Teleport),
