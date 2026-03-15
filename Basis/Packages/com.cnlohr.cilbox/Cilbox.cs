@@ -1971,6 +1971,7 @@ spiperf.End();
 		abstract public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, Serializee [] parametersIn, Serializee [] genericArgumentsIn, String fullSignature );
 		abstract public bool CheckTypeAllowed( String sType );
 		abstract public bool CheckFieldAllowed( String sType, String sFieldName );
+		abstract public bool GetComponentTypeOverride( String sType, out Type t );
 
 		public void ForceReinit()
 		{

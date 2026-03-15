@@ -106,5 +106,11 @@ namespace Cilbox
 			if( name.Contains( "Invoke" ) ) return false;
 			return true;
 		}
+
+        public override bool GetComponentTypeOverride(string sType, out Type t)
+        {
+			t = null;
+            return false;
+        }
 	}
 }

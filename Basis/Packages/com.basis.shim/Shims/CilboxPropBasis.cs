@@ -32,6 +32,7 @@ namespace Cilbox
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
+			"Basis.VideoPlayerShim",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -106,7 +107,6 @@ namespace Cilbox
 			"UnityEngine.UI.Text",
 			"UnityEngine.Vector3",
 			"UnityEngine.Vector4",
-			"UnityEngine.Video.VideoPlayer"
 		};
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
@@ -177,5 +177,18 @@ namespace Cilbox
 
 			return true;
 		}
+
+        public override bool GetComponentTypeOverride(string sType, out Type t)
+        {
+			switch(sType)
+			{
+				case "UnityEngine.Video.VideoPlayer":
+					t = typeof(Basis.VideoPlayerShim);
+					return true;
+				default:
+					t = null;
+					return false;
+			}
+        }
 	}
 }

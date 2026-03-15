@@ -42,6 +42,8 @@ using System.Reflection;
 
 namespace Cilbox
 {
+    public abstract class CilboxShim : MonoBehaviour {}
+
 	public class CilboxUsage
 	{
 		private Cilbox box;
@@ -104,9 +106,24 @@ namespace Cilbox
 
 			Type t = (Type)ths.opaque;
 			object o = parameters[0].AsObject();
-			if( o is GameObject )
+			if( o is GameObject || o is Component )
 			{
-				ret.Load( ((GameObject)o).GetComponent(t) );
+				GameObject gameObject = (o is GameObject) ? (GameObject)o : ((Component)o).gameObject;
+				Component component;
+				if(typeof(CilboxShim).IsAssignableFrom(t))
+				{
+					Debug.Log($"OverrideGetComponentT: Overriding {t.FullName} with a CilboxShim component because it is abstract and assignable from CilboxShim" );
+					if(gameObject.TryGetComponent(t, out Component c)) {
+						component = c;
+					} else
+					{
+						component = gameObject.AddComponent(t);
+					}
+				} else
+				{
+					component = gameObject.GetComponent(t);
+				}
+				ret.Load( component );
 			}
 			return ret;
 		}
@@ -148,11 +165,25 @@ namespace Cilbox
 
 			Type t = (Type)ths.opaque;
 			object o = parameters[0].AsObject();
-			if( o is GameObject && parameters[1].type == StackType.Address )
+			if( (o is GameObject || o is Component) && parameters[1].type == StackType.Address )
 			{
-				Component c;
-				ret.Load( ((GameObject)o).TryGetComponent(t, out c) );
-				parameters[1].DereferenceLoadAddress( c );
+				GameObject gameObject = (o is GameObject) ? (GameObject)o : ((Component)o).gameObject;
+				Component component;
+				if(typeof(CilboxShim).IsAssignableFrom(t))
+				{
+					Debug.Log($"OverrideTryGetComponentT: Overriding {t.FullName} with a CilboxShim component because it is abstract and assignable from CilboxShim" );
+					if(gameObject.TryGetComponent(t, out Component c)) {
+						component = c;
+					} else
+					{
+						component = gameObject.AddComponent(t);
+					}
+				} else
+				{
+					component = gameObject.GetComponent(t);
+				}
+				ret.Load( component != null );
+				parameters[1].DereferenceLoadAddress( component );
 			}
 			return ret;
 		}
@@ -214,7 +245,7 @@ namespace Cilbox
 
 			// We want to allow GetComponent and TryGetComponent.
 
-			if( typeName == "UnityEngine.GameObject" && name == "GetComponent" && genericArguments.Length == 1 )
+			if( (typeName == "UnityEngine.GameObject" || typeName == "UnityEngine.Component") && name == "GetComponent" && genericArguments.Length == 1 )
 			{
 				Type tTemplate = GetNativeTypeFromSerializee( genericArguments[0] );
 				Dictionary< String, Serializee > gatype = genericArguments[0].AsMap();
@@ -240,7 +271,7 @@ namespace Cilbox
 					Debug.LogWarning( "GetComponent Type Illegal" );
 				}
 			}
-			if( typeName == "UnityEngine.GameObject" && name == "TryGetComponent" && genericArguments.Length == 1 )
+			if( (typeName == "UnityEngine.GameObject" || typeName == "UnityEngine.Component") && name == "TryGetComponent" && genericArguments.Length == 1 )
 			{
 				Type tTemplate = GetNativeTypeFromSerializee( genericArguments[0] );
 				Dictionary< String, Serializee > gatype = genericArguments[0].AsMap();
@@ -352,6 +383,11 @@ namespace Cilbox
 			String typeName = ses["n"].AsString();
 			String assemblyName = ses["a"].AsString();
 			if( IsCilboxInternalType( typeName ) ) return null;
+			if(box.GetComponentTypeOverride( typeName, out Type overrideType )) {
+				Debug.Log( $"GetNativeTypeFromSerializee: Override {typeName} with {overrideType.FullName}" );
+				typeName = overrideType.FullName;
+				assemblyName = overrideType.Assembly.GetName().Name;
+			}
 			typeName = CheckReplaceTypeNotRecursive( typeName );
 			if( typeName == null ) return null;
 
@@ -403,6 +439,10 @@ namespace Cilbox
 			if( ses.TryGetValue( "ut", out utSer ) ) return GetNativeTypeNameFromSerializee( utSer );
 			String typeName = ses["n"].AsString();
 			if( IsCilboxInternalType( typeName ) ) return typeName;
+			if(box.GetComponentTypeOverride( typeName, out Type overrideType )) {
+				Debug.Log( $"GetNativeTypeFromSerializee: Override {typeName} with {overrideType.FullName}" );
+				typeName = overrideType.FullName;
+			}
 			typeName = CheckReplaceTypeNotRecursive( typeName );
 			if( typeName == null ) return null;
 
