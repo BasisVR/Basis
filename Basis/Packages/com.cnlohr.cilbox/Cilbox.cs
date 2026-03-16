@@ -965,6 +965,7 @@ spiperf.Begin();
 					case 0x6E: { StackElement se = stackBuffer[sp]; stackBuffer[sp].LoadUlong( ( se.type <= StackType.Int ? (ulong)se.i   : se.type == StackType.Uint ? (ulong)se.u  : se.type == StackType.Long ? (ulong)se.l  : se.type == StackType.Ulong ? (ulong)se.e  : (ulong)se.CoerceToObject(typeof(ulong)))); break; } // conv.u8
 					case 0xD1: { StackElement se = stackBuffer[sp]; stackBuffer[sp].LoadUshort(((se.type < StackType.Float) ? (ushort)se.u : (ushort)se.CoerceToObject(typeof(ushort)))); break; } // conv.u2
 					case 0xD2: { StackElement se = stackBuffer[sp]; stackBuffer[sp].LoadByte(  ((se.type < StackType.Float) ? (byte)se.u   : (byte)se.CoerceToObject(typeof(byte)))    ); break; } // conv.u1
+					case 0xD3: { StackElement se = stackBuffer[sp]; stackBuffer[sp].LoadNint(  ( se.type <= StackType.Int ? (nint)se.i    : se.type == StackType.Uint ? (nint)se.u   : se.type == StackType.Long ? (nint)se.l  : se.type == StackType.Ulong ? (nint)se.e  : (nint)Convert.ToInt64(se.CoerceToObject(typeof(long)))) ); break; } // conv.i
 
 					case 0x72:
 					{
@@ -1374,8 +1375,20 @@ spiperf.Begin();
 						{
 						case 0: asArr.SetValue( (nint)valSE.l, index ); break; // stelem.i
 						case 1: asArr.SetValue( (byte)(SByte)valSE.i, index ); break; // stelem.i1
-						case 2: asArr.SetValue( (short)valSE.i, index ); break; // stelem.i2
-						case 3: asArr.SetValue( valSE.i, index ); break; // stelem.i4
+						case 2: // stelem.i2 (used for Int16/UInt16/Char element arrays)
+							if( arrSE.o is ushort[] ushortArr )
+								ushortArr[index] = (ushort)valSE.u;
+							else if( arrSE.o is char[] charArr )
+								charArr[index] = (char)valSE.u;
+							else
+								asArr.SetValue( (short)valSE.i, index );
+							break;
+						case 3: // stelem.i4 (used for Int32/UInt32 element arrays)
+							if( arrSE.o is uint[] uintArr )
+								uintArr[index] = valSE.u;
+							else
+								asArr.SetValue( valSE.i, index );
+							break;
 						case 4: asArr.SetValue( valSE.l, index ); break; // stelem.i8
 						case 5: ((float[])arrSE.AsObject())[index] = valSE.f; break; // stelem.r4
 						case 6: ((double[])arrSE.AsObject())[index] = valSE.d; break; // stelem.r8
@@ -1973,6 +1986,10 @@ spiperf.End();
 		abstract public bool CheckFieldAllowed( String sType, String sFieldName );
 		abstract public bool GetComponentTypeOverride( String sType, out Type t );
 
+		public delegate void CilboxDisabledEvent( Cilbox box, string reason );
+
+		public static CilboxDisabledEvent OnCilboxDisabled;
+
 		public void ForceReinit()
 		{
 			initialized = false;
@@ -2354,6 +2371,7 @@ spiperf.End();
 			this.disabledReason = reason;
 			this.disabled = true;
 			//this.InterpreterExit();
+			OnCilboxDisabled?.Invoke(this, reason);
 		}
 	}
 
