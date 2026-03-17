@@ -19,12 +19,12 @@ namespace Basis
                 string url = value;
 
                 if(url == videoPlayer.url) return;
+                if(!url.StartsWith("https://")) return;
 
                 Debug.Log($"[VideoPlayerShim] Setting URL to {url}");
 
-                if(!url.StartsWith("https://")) return;
-
-                Basis.BasisUI.BasisMainMenu.Instance.OpenDialogue(
+                BasisUI.BasisMainMenu.Open();
+                BasisUI.BasisMainMenu.Instance.OpenDialogue(
                     "Video Player URL",
                     $"Do you want to load this video?\n{url}",
                     "Accept",
