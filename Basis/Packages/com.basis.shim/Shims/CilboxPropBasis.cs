@@ -45,6 +45,7 @@ namespace Cilbox
 			"System.Char",
 			"System.Collections.Generic.Dictionary",
 			"System.Collections.Generic.List",
+			"System.Collections.Generic.IEnumerable",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DayOfWeek",
