@@ -18,6 +18,8 @@ namespace Basis
             set {
                 string url = value;
 
+                if(url == videoPlayer.url) return;
+
                 Debug.Log($"[VideoPlayerShim] Setting URL to {url}");
 
                 if(!url.StartsWith("https://")) return;
