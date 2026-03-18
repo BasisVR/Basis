@@ -52,6 +52,8 @@ namespace Cilbox
 		// This is after the type has been fully de-arrayed and de-templated.
 		String CheckTypeSecurity( String sType )
 		{
+			// Types defined inside this cilbox are serialized and interpreted locally,
+			// so they should not be forced through the native whitelist.
 			if( box.CheckTypeAllowed( sType ) == true ) return sType;
 
 			Debug.LogError( $"TYPE FAILED CHECK: {sType}" );

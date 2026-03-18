@@ -229,11 +229,27 @@ namespace Cilbox
 					continue;
 				}
 				Type t = o.GetType();
+				if(box.GetComponentTypeOverride( t.FullName, out Type overrideType )) {
+					Debug.Log( $"RuntimeProxyLoad: Override {t.FullName} with {overrideType.FullName}" );
+					t = overrideType;
+					if(typeof(CilboxShim).IsAssignableFrom(t) && fieldsObjects[i] is Component gameObjectComponent)
+					{
+						GameObject gameObject = gameObjectComponent.gameObject;
+						Component component;
+						if(gameObject.TryGetComponent(t, out Component c)) {
+							component = c;
+						} else
+						{
+							component = gameObject.AddComponent(t);
+						}
+						fieldsObjects[i] = component;
+					}
+				}
 				if( t == typeof( CilboxProxy ) )
 				{
 					// If it's another cilbox proxy, it's OK.
 				}
-				else if( !box.CheckTypeAllowed( o.GetType().ToString() ) )
+				else if( !box.CheckTypeAllowed( t.FullName ) )
 				{
 					Debug.LogWarning( $"Contraband found in script {className} field ID {i}: {o.GetType()}" );
 					fieldsObjects[i] = null;
@@ -268,6 +284,7 @@ namespace Cilbox
 			for( int i = 0; i < cls.instanceFieldNames.Length; i++ )
 			{
 				Type fieldType = cls.instanceFieldTypes[i];
+				// Maybe need to GetComponentTypeOverride here as well?  Maybe not, since that should only be for actual UnityEngine.Objects, which should be null at this point if they are contraband.
 				if( fieldType == null )
 				{
 					fields[i].LoadObject( null );
