@@ -59,6 +59,7 @@ namespace Cilbox
 			"System.Object",
 			"System.Single",
 			"System.String",
+			"System.StringComparison",
 			"System.TimeSpan",
 			"System.Text.Encoding",
 			"System.UInt16",
@@ -97,6 +98,7 @@ namespace Cilbox
 			"UnityEngine.Quaternion",
 			"UnityEngine.Rigidbody",
 			"UnityEngine.RenderTexture",
+			"UnityEngine.RenderTextureFormat",
 			"UnityEngine.UI.Button",
 			"UnityEngine.UI.Button+ButtonClickedEvent",
 			"UnityEngine.UI.InputField",
@@ -150,7 +152,10 @@ namespace Cilbox
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Device_Management.Devices.BasisInput), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer), new HashSet<string> {
-				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty("playerId").GetGetMethod().Name
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId)).GetGetMethod().Name,
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.Player)).GetGetMethod().Name,
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.displayName)).GetGetMethod().Name,
 				} },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ 
 				nameof(GameObject.SetActive), 
