@@ -41,6 +41,7 @@ namespace Cilbox
 			"System.Array",
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
+			"System.Buffer",
 			"System.Byte",
 			"System.Char",
 			"System.Collections.Generic.Dictionary",
@@ -117,6 +118,8 @@ namespace Cilbox
 			"UnityEngine.Vector3.x",
 			"UnityEngine.Vector3.y",
 			"UnityEngine.Vector3.z",
+			"System.String.Empty",
+			"System.Array.Empty",
 
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
@@ -166,6 +169,7 @@ namespace Cilbox
 				typeof(GameObject).GetProperty(nameof(GameObject.activeInHierarchy)).GetGetMethod().Name,
 				typeof(GameObject).GetProperty(nameof(GameObject.layer)).GetGetMethod().Name,
 				} },
+			{ typeof(Buffer), new HashSet<string>{ "BlockCopy" } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
 		};
 

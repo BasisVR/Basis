@@ -46,6 +46,7 @@ namespace Cilbox
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
 			"System.Byte",
+			"System.Buffer",
 			"System.Char",
 			"System.Collections.Generic.Dictionary",
 			"System.Collections.Generic.List",
@@ -150,6 +151,8 @@ namespace Cilbox
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
+			"System.String.Empty",
+			"System.Array.Empty",
 
 			// Unity fields
 			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
@@ -199,6 +202,9 @@ namespace Cilbox
 				nameof(BasisLocalPlayer.Teleport),
 				nameof(BasisLocalPlayer.Respawn),
 				$"get_{nameof(BasisLocalPlayer.Instance)}", }},
+			{ typeof(Buffer), new HashSet<string>{ "BlockCopy" } },
+			{ typeof(BitConverter), new HashSet<string>{ "GetBytes", "ToInt32", "ToUInt32" } },
+			{ typeof(Convert), new HashSet<string>{ "ToInt32", "ToUInt32", "ToSingle", "ToDouble", "ToString" ,"ToBase64String", "FromBase64String"} },
 		};
 
 		// After a type is allowed, this is called to see if the specific method is OK.
