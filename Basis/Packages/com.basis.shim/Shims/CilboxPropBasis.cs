@@ -109,17 +109,27 @@ namespace Cilbox
 			"UnityEngine.UI.Selectable",
 			"UnityEngine.UI.Slider",
 			"UnityEngine.UI.Text",
+			"UnityEngine.Vector2",
 			"UnityEngine.Vector3",
 			"UnityEngine.Vector4",
 		};
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
 			// Unity fields
+			"UnityEngine.Vector2.x",
+			"UnityEngine.Vector2.y",
 			"UnityEngine.Vector3.x",
 			"UnityEngine.Vector3.y",
 			"UnityEngine.Vector3.z",
-			"System.String.Empty",
+			"UnityEngine.Vector4.x",
+			"UnityEngine.Vector4.y",
+			"UnityEngine.Vector4.z",
+			"UnityEngine.Vector4.w",
+
+			// System fields
 			"System.Array.Empty",
+			"System.String.Empty",
+			
 
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",

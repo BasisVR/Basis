@@ -151,13 +151,13 @@ namespace Cilbox
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
-			"System.String.Empty",
-			"System.Array.Empty",
 
 			// Unity fields
 			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
 			"UnityEngine.EventSystems.EventTrigger+Entry.callback",
 			"UnityEngine.UI.Toggle.onValueChanged",
+			"UnityEngine.Vector2.x",
+			"UnityEngine.Vector2.y",
 			"UnityEngine.Vector3.x",
 			"UnityEngine.Vector3.y",
 			"UnityEngine.Vector3.z",
@@ -165,6 +165,10 @@ namespace Cilbox
 			"UnityEngine.Vector4.y",
 			"UnityEngine.Vector4.z",
 			"UnityEngine.Vector4.w",
+
+			// System fields
+			"System.Array.Empty",
+			"System.String.Empty",
 		};
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
