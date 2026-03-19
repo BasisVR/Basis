@@ -1,25 +1,179 @@
 using UnityEngine;
 using Cilbox;
+using UnityEngine.Video;
 
 namespace Basis
 {
     public class VideoPlayerShim : CilboxShim
     {
-        private UnityEngine.Video.VideoPlayer videoPlayer;
+        private VideoPlayer videoPlayer;
         public void Awake()
         {
-            videoPlayer = gameObject.GetComponent<UnityEngine.Video.VideoPlayer>();
+            videoPlayer = gameObject.GetComponent<VideoPlayer>();
             if (videoPlayer == null)
-                videoPlayer = gameObject.AddComponent<UnityEngine.Video.VideoPlayer>();
+                videoPlayer = gameObject.AddComponent<VideoPlayer>();
+            videoPlayer.clockResyncOccurred += OnClockResyncOccurred;
+            videoPlayer.errorReceived += OnErrorReceived;
+            videoPlayer.frameDropped += OnFrameDropped;
+            videoPlayer.frameReady += OnFrameReady;
+            videoPlayer.loopPointReached += OnLoopPointReached;
+            videoPlayer.prepareCompleted += OnPrepareCompleted;
+            videoPlayer.seekCompleted += OnSeekCompleted;
+            videoPlayer.started += OnStarted;
         }
 
-        public string url { 
-            get { return videoPlayer.url; } 
-            set {
+        public void OnDestroy()
+        {
+            if (videoPlayer == null) return;
+            videoPlayer.clockResyncOccurred -= OnClockResyncOccurred;
+            videoPlayer.errorReceived -= OnErrorReceived;
+            videoPlayer.frameDropped -= OnFrameDropped;
+            videoPlayer.frameReady -= OnFrameReady;
+            videoPlayer.loopPointReached -= OnLoopPointReached;
+            videoPlayer.prepareCompleted -= OnPrepareCompleted;
+            videoPlayer.seekCompleted -= OnSeekCompleted;
+            videoPlayer.started -= OnStarted;
+        }
+
+        //
+        // Properties
+        //
+        public static ushort controlledAudioTrackMaxCount = 32;
+        public VideoAspectRatio aspectRatio
+        {
+            get { return videoPlayer.aspectRatio; }
+            set { videoPlayer.aspectRatio = value; }
+        }
+        public VideoAudioOutputMode audioOutputMode
+        {
+            get { return videoPlayer.audioOutputMode; }
+            set { videoPlayer.audioOutputMode = value; }
+        }
+        public ushort audioTrackCount { get { return videoPlayer.audioTrackCount; } }
+        public bool canSetDirectAudioVolume { get { return videoPlayer.canSetDirectAudioVolume; } }
+        public bool canSetPlaybackSpeed { get { return videoPlayer.canSetPlaybackSpeed; } }
+        public bool canSetSkipOnDrop { get { return videoPlayer.canSetSkipOnDrop; } }
+        public bool canSetTime { get { return videoPlayer.canSetTime; } }
+        public bool canSetTimeUpdateMode { get { return videoPlayer.canSetTimeUpdateMode; } }
+        public bool canStep { get { return videoPlayer.canStep; } }
+        public VideoClip clip
+        {
+            get { return videoPlayer.clip; }
+            set { videoPlayer.clip = value; }
+        }
+        public double clockTime { get { return videoPlayer.clockTime; } }
+        public ushort controlledAudioTrackCount { get { return videoPlayer.controlledAudioTrackCount; } }
+        public double externalReferenceTime
+        {
+            get { return videoPlayer.externalReferenceTime; }
+            set { videoPlayer.externalReferenceTime = value; }
+        }
+        public long frame { get { return videoPlayer.frame; } }
+        public ulong frameCount { get { return videoPlayer.frameCount; } }
+        public float frameRate { get { return videoPlayer.frameRate; } }
+        public uint height { get { return videoPlayer.height; } }
+        public bool isLooping
+        {
+            get { return videoPlayer.isLooping; }
+            set { videoPlayer.isLooping = value; }
+        }
+        public bool isPaused { get { return videoPlayer.isPaused; } }
+        public bool isPlaying { get { return videoPlayer.isPlaying; } }
+        public bool isPrepared { get { return videoPlayer.isPrepared; } }
+        public double length { get { return videoPlayer.length; } }
+        public uint pixelAspectRatioDenominator
+        {
+            get { return videoPlayer.pixelAspectRatioDenominator; }
+        }
+        public uint pixelAspectRatioNumerator
+        {
+            get { return videoPlayer.pixelAspectRatioNumerator; }
+        }
+        public float playbackSpeed
+        {
+            get { return videoPlayer.playbackSpeed; }
+            set { videoPlayer.playbackSpeed = value; }
+        }
+        public bool playOnAwake
+        {
+            get { return videoPlayer.playOnAwake; }
+            set { videoPlayer.playOnAwake = value; }
+        }
+        public VideoRenderMode renderMode
+        {
+            get { return videoPlayer.renderMode; }
+            set { videoPlayer.renderMode = value; }
+        }
+        public bool sendFrameReadyEvents
+        {
+            get { return videoPlayer.sendFrameReadyEvents; }
+            set { videoPlayer.sendFrameReadyEvents = value; }
+        }
+        public bool skipOnDrop
+        {
+            get { return videoPlayer.skipOnDrop; }
+            set { videoPlayer.skipOnDrop = value; }
+        }
+        public VideoSource source
+        {
+            get { return videoPlayer.source; }
+            set { videoPlayer.source = value; }
+        }
+        public Camera targetCamera
+        {
+            get { return videoPlayer.targetCamera; }
+            set { videoPlayer.targetCamera = value; }
+        }
+        public Video3DLayout targetCamera3DLayout
+        {
+            get { return videoPlayer.targetCamera3DLayout; }
+            set { videoPlayer.targetCamera3DLayout = value; }
+        }
+        public float targetCameraAlpha
+        {
+            get { return videoPlayer.targetCameraAlpha; }
+            set { videoPlayer.targetCameraAlpha = value; }
+        }
+        public string targetMaterialProperty
+        {
+            get { return videoPlayer.targetMaterialProperty; }
+            set { videoPlayer.targetMaterialProperty = value; }
+        }
+        public Renderer targetMaterialRenderer
+        {
+            get { return videoPlayer.targetMaterialRenderer; }
+            set { videoPlayer.targetMaterialRenderer = value; }
+        }
+        public RenderTexture targetTexture
+        {
+            get { return videoPlayer.targetTexture; }
+            set { videoPlayer.targetTexture = value; }
+        }
+        public Texture texture { get { return videoPlayer.texture; } }
+        public double time
+        {
+            get { return videoPlayer.time; }
+            set { videoPlayer.time = value; }
+        }
+        public VideoTimeReference timeReference
+        {
+            get { return videoPlayer.timeReference; }
+            set { videoPlayer.timeReference = value; }
+        }
+        public VideoTimeUpdateMode timeUpdateMode
+        {
+            get { return videoPlayer.timeUpdateMode; }
+            set { videoPlayer.timeUpdateMode = value; }
+        }
+        public string url
+        {
+            get { return videoPlayer.url; }
+            set
+            {
                 string url = value;
 
-                if(url == videoPlayer.url) return;
-                if(!url.StartsWith("https://")) return;
+                if (url == videoPlayer.url) return;
+                if (!url.StartsWith("https://")) return;
 
                 Debug.Log($"[VideoPlayerShim] Setting URL to {url}");
 
@@ -29,26 +183,91 @@ namespace Basis
                     $"Do you want to load this video?\n{url}",
                     "Accept",
                     "Decline",
-                    value => {
+                    value =>
+                    {
                         if (!value) return;
                         videoPlayer.url = url;
                     }
                 );
-            } 
+            }
         }
-        public RenderTexture targetTexture { 
-            get { return videoPlayer.targetTexture; } 
-            set { videoPlayer.targetTexture = value; } 
+        public bool waitForFirstFrame
+        {
+            get { return videoPlayer.waitForFirstFrame; }
+            set { videoPlayer.waitForFirstFrame = value; }
         }
-        public bool isPlaying { get { return videoPlayer.isPlaying; } }
-        public double time { 
-            get { return videoPlayer.time; } 
-            set { videoPlayer.time = value; } 
-        }
-
-        public void Play() { videoPlayer.Play(); }
+        public uint width { get { return videoPlayer.width; } }
+        //
+        // Methods
+        //
+        public void EnableAudioTrack(ushort trackIndex, bool enabled) { videoPlayer.EnableAudioTrack(trackIndex, enabled); }
+        public ushort GetAudioChannelCount(ushort trackIndex) { return videoPlayer.GetAudioChannelCount(trackIndex); }
+        public string GetAudioLanguageCode(ushort trackIndex) { return videoPlayer.GetAudioLanguageCode(trackIndex); }
+        public uint GetAudioSampleRate(ushort trackIndex) { return videoPlayer.GetAudioSampleRate(trackIndex); }
+        public bool GetDirectAudioMute(ushort trackIndex) { return videoPlayer.GetDirectAudioMute(trackIndex); }
+        public float GetDirectAudioVolume(ushort trackIndex) { return videoPlayer.GetDirectAudioVolume(trackIndex); }
+        public AudioSource GetTargetAudioSource(ushort trackIndex) { return videoPlayer.GetTargetAudioSource(trackIndex); }
+        public bool IsAudioTrackEnabled(ushort trackIndex) { return videoPlayer.IsAudioTrackEnabled(trackIndex); }
         public void Pause() { videoPlayer.Pause(); }
-        public void Stop() { videoPlayer.Stop(); }
+        public void Play() { videoPlayer.Play(); }
         public void Prepare() { videoPlayer.Prepare(); }
+        public void SetDirectAudioMute(ushort trackIndex, bool mute) { videoPlayer.SetDirectAudioMute(trackIndex, mute); }
+        public void SetDirectAudioVolume(ushort trackIndex, float volume) { videoPlayer.SetDirectAudioVolume(trackIndex, volume); }
+        public void SetTargetAudioSource(ushort trackIndex, AudioSource source) { videoPlayer.SetTargetAudioSource(trackIndex, source); }
+        public void StepForward() { videoPlayer.StepForward(); }
+        public void Stop() { videoPlayer.Stop(); }
+        //
+        // Events
+        //
+        public event TimeEventHandlerShim clockResyncOccurred;
+        public event ErrorEventHandlerShim errorReceived;
+        public event EventHandlerShim frameDropped;
+        public event FrameReadyEventHandlerShim frameReady;
+        public event EventHandlerShim loopPointReached;
+        public event EventHandlerShim prepareCompleted;
+        public event EventHandlerShim seekCompleted;
+        public event EventHandlerShim started;
+        //
+        // Delegates
+        //
+        public delegate void ErrorEventHandlerShim(VideoPlayerShim source, string message);
+        public delegate void EventHandlerShim(VideoPlayerShim source);
+        public delegate void FrameReadyEventHandlerShim(VideoPlayerShim source, long frameIndex);
+        public delegate void TimeEventHandlerShim(VideoPlayerShim source, double seconds);
+        //
+        // Event Invokers
+        //
+        private void OnClockResyncOccurred(VideoPlayer source, double seconds)
+        {
+            clockResyncOccurred?.Invoke(this, seconds);
+        }
+        private void OnErrorReceived(VideoPlayer source, string message)
+        {
+            errorReceived?.Invoke(this, message);
+        }
+        private void OnFrameDropped(VideoPlayer source)
+        {
+            frameDropped?.Invoke(this);
+        }
+        private void OnFrameReady(VideoPlayer source, long frameIndex)
+        {
+            frameReady?.Invoke(this, frameIndex);
+        }
+        private void OnLoopPointReached(VideoPlayer source)
+        {
+            loopPointReached?.Invoke(this);
+        }
+        private void OnPrepareCompleted(VideoPlayer source)
+        {
+            prepareCompleted?.Invoke(this);
+        }
+        private void OnSeekCompleted(VideoPlayer source)
+        {
+            seekCompleted?.Invoke(this);
+        }
+        private void OnStarted(VideoPlayer source)
+        {
+            started?.Invoke(this);
+        }
     }
 }
