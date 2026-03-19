@@ -4,6 +4,7 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
 using System;
 using System.Collections;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
@@ -229,20 +230,21 @@ namespace Basis
         }
         public static string LowLevelGetHierarchyPath(BasisNetworkContentBase obj)
         {
+            StringBuilder pathBuilder = new StringBuilder();
             // Get the index of the component on the GameObject
             Component[] components = obj.gameObject.GetComponents(obj.GetType());
             int index = System.Array.IndexOf(components, obj);
 
-            string path = obj.gameObject.name + obj.GetType() + index;
+            pathBuilder.Append($"{obj.gameObject.name}[{obj.transform.GetSiblingIndex()}]_{obj.GetType().FullName}_{index}");
             Transform current = obj.transform.parent;
 
             while (current != null)
             {
-                path = current.name + "/" + path;
+                pathBuilder.Insert(0, $"{current.name}[{current.GetSiblingIndex()}]/");
                 current = current.parent;
             }
 
-            return path;
+            return pathBuilder.ToString();
         }
         public async void TakeOwnership()
         {
