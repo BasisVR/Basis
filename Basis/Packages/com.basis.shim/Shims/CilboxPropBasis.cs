@@ -18,21 +18,14 @@ namespace Cilbox
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
-			"Basis.BasisInteractableShim",
-			"Basis.BasisInteractableShim+ClickEvent",
+			"Basis.BasisInteractableShim*",
 			"Basis.BasisNetworkBehaviour",
-			"Basis.BasisNetworkShim",
-			"Basis.BasisNetworkShim+NetworkMessageEvent",
-			"Basis.BasisNetworkShim+NetworkReadyEvent",
-			"Basis.BasisNetworkShim+OwnershipTransferEvent",
-			"Basis.BasisNetworkShim+PlayerJoinedEvent",
-			"Basis.BasisNetworkShim+PlayerLeftEvent",
-			"Basis.BasisNetworkShim+ServerOwnershipDestroyedEvent",
+			"Basis.BasisNetworkShim*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
-			"Basis.VideoPlayerShim",
+			"Basis.VideoPlayerShim*",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -44,18 +37,14 @@ namespace Cilbox
 			"System.Buffer",
 			"System.Byte",
 			"System.Char",
-			"System.Collections.Generic.Dictionary",
-			"System.Collections.Generic.List",
-			"System.Collections.Generic.IEnumerable",
+			"System.Collections.Generic.*",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DayOfWeek",
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
-			"System.Int16",
-			"System.Int32",
-			"System.Int64",
+			"System.Int*",
 			"System.Math",
 			"System.MathF",
 			"System.Object",
@@ -66,9 +55,7 @@ namespace Cilbox
 			"System.Text.Encoding",
 			"System.UInt16",
 			"System.UInt32",
-			"System.UInt64",
-			"System.ValueTuple",
-			"System.Void",
+			"System.UInt*",
 			"<PrivateImplementationDetails>", // Probably remove me? But we need a way to handle string hashing.  We can do it with our own function but that's slower.
 
 			// Unity types
@@ -101,8 +88,8 @@ namespace Cilbox
 			"UnityEngine.Rigidbody",
 			"UnityEngine.RenderTexture",
 			"UnityEngine.RenderTextureFormat",
-			"UnityEngine.UI.Button",
-			"UnityEngine.UI.Button+ButtonClickedEvent",
+			"UnityEngine.UI.*",
+			"UnityEngine.Vector*",
 			"UnityEngine.UI.InputField",
 			"UnityEngine.UI.InputField+OnChangeEvent",
 			"UnityEngine.UI.Scrollbar",
@@ -116,19 +103,14 @@ namespace Cilbox
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
 			// Unity fields
-			"UnityEngine.Vector2.x",
-			"UnityEngine.Vector2.y",
-			"UnityEngine.Vector3.x",
-			"UnityEngine.Vector3.y",
-			"UnityEngine.Vector3.z",
-			"UnityEngine.Vector4.x",
-			"UnityEngine.Vector4.y",
-			"UnityEngine.Vector4.z",
-			"UnityEngine.Vector4.w",
+			"UnityEngine.Vector*.x",
+			"UnityEngine.Vector*.y",
+			"UnityEngine.Vector*.z",
+			"UnityEngine.Vector*.w",
 
 			// System fields
-			"System.Array.Empty",
-			"System.String.Empty",
+			"System.Array.*",
+			"System.String.*",
 			
 
 			// Basis types
@@ -145,15 +127,33 @@ namespace Cilbox
 		// If a type is allowed, by defalt it is all allowed.
 		override public bool CheckTypeAllowed( String sType )
 		{
-			return whiteListType.Contains( sType );
+			if( whiteListType.Contains( sType ) ) return true;
+
+			foreach( string allowedType in whiteListType )
+			{
+				if( !allowedType.Contains( '*' ) ) continue;
+
+				string[] allowedPrefix = allowedType.Split( '*' );
+				if( sType.StartsWith( allowedPrefix[0], StringComparison.Ordinal ) && sType.EndsWith( allowedPrefix[1], StringComparison.Ordinal ) ) return true;
+			}
+
+			return false;
 		}
 
 		override public bool CheckFieldAllowed( String sType, String sFieldName )
 		{
 			if( !CheckTypeAllowed( sType ) ) return false;
-			if( sType.Length < 1 || sFieldName.Length < 1 ) return false;
-			if( !whiteListFields.Contains( sType + "." + sFieldName ) ) return false;
-			return true;
+			string fullField = sType + "." + sFieldName;
+			if( whiteListFields.Contains( fullField ) ) return true;
+			foreach( string allowedType in whiteListFields )
+			{
+				if( !allowedType.Contains( '*' ) ) continue;
+
+				string[] allowedPrefix = allowedType.Split( '*' );
+				if( fullField.StartsWith( allowedPrefix[0], StringComparison.Ordinal ) && fullField.EndsWith( allowedPrefix[1], StringComparison.Ordinal ) ) return true;
+			}
+			
+			return false;
 		}
 
 		// Whitelist methods on native types.
