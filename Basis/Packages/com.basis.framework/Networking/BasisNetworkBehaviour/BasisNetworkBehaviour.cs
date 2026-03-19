@@ -235,7 +235,7 @@ namespace Basis
             Component[] components = obj.gameObject.GetComponents(obj.GetType());
             int index = System.Array.IndexOf(components, obj);
 
-            pathBuilder.Append($"{obj.gameObject.name}[{obj.transform.GetSiblingIndex()}]_{obj.GetType().FullName}_{index}");
+            string path = obj.gameObject.name + ":" + obj.GetType() + index;
             Transform current = obj.transform.parent;
 
             while (current != null)
@@ -243,8 +243,7 @@ namespace Basis
                 pathBuilder.Insert(0, $"{current.name}[{current.GetSiblingIndex()}]/");
                 current = current.parent;
             }
-
-            return pathBuilder.ToString();
+            return "/" + path;
         }
         public async void TakeOwnership()
         {

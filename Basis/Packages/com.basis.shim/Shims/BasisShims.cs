@@ -40,8 +40,8 @@ namespace Basis
 			bi = mb.gameObject.AddComponent<BasisNetworkShim>();
 			string setGUID = BasisNetworkBehaviour.LowLevelGetHierarchyPath(bi);
 
-			bi.AssignNetworkGUIDIdentifier(setGUID);
-			Debug.Log( $"ADDING ASSIGN: {bi} {setGUID}");
+			/* bi.AssignNetworkGUIDIdentifier(setGUID);
+			Debug.Log( $"ADDING ASSIGN: {bi} {setGUID}"); */
 
 			return bi;
 		}
