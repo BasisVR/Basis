@@ -20,14 +20,6 @@ namespace Basis
         private bool prepareRequestedForPendingUrl;
         private int pendingConfirmedUrlRequestId;
         private Coroutine pendingUrlTimeoutCoroutine;
-        private ShimEventHandler _prepareCompleted;
-        private ShimEventHandler _loopPointReached;
-        private ShimEventHandler _started;
-        private ShimEventHandler _frameDropped;
-        private ShimErrorEventHandler _errorReceived;
-        private ShimEventHandler _seekCompleted;
-        private ShimTimeEventHandler _clockResyncOccurred;
-        private ShimFrameReadyEventHandler _frameReady;
 
         public void Awake()
         {
@@ -72,14 +64,16 @@ namespace Basis
             videoPlayer.frameReady -= OnFrameReady;
         }
 
-        public string url { 
-            get { return videoPlayer.url; } 
-            set {
+        public string url
+        {
+            get { return videoPlayer.url; }
+            set
+            {
                 string url = value;
 
-                if(url == videoPlayer.url) return;
-                if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
-                if(!url.StartsWith("https://")) return;
+                if (url == videoPlayer.url) return;
+                if (hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
+                if (!url.StartsWith("https://")) return;
 
                 Debug.Log($"[VideoPlayerShim] Setting URL to {url}");
                 pendingConfirmedUrl = url;
@@ -101,7 +95,8 @@ namespace Basis
                     $"Do you want to load this video?\n{url}",
                     "Accept",
                     "Decline",
-                    accepted => {
+                    accepted =>
+                    {
                         if (!hasPendingConfirmedUrl || pendingConfirmedUrl != url || pendingConfirmedUrlRequestId != requestId)
                         {
                             return;
@@ -129,11 +124,12 @@ namespace Basis
                         }
                     }
                 );
-            } 
+            }
         }
-        public RenderTexture targetTexture { 
-            get { return videoPlayer.targetTexture; } 
-            set { videoPlayer.targetTexture = value; } 
+        public RenderTexture targetTexture
+        {
+            get { return videoPlayer.targetTexture; }
+            set { videoPlayer.targetTexture = value; }
         }
         public bool isPlaying { get { return videoPlayer.isPlaying; } }
         public bool isPrepared { get { return videoPlayer.isPrepared; } }
@@ -143,22 +139,23 @@ namespace Basis
         public bool isLooping { get { return videoPlayer.isLooping; } set { videoPlayer.isLooping = value; } }
         public bool sendFrameReadyEvents { get { return videoPlayer.sendFrameReadyEvents; } set { videoPlayer.sendFrameReadyEvents = value; } }
         public long frame { get { return (long)videoPlayer.frame; } set { videoPlayer.frame = value; } }
-        public double time { 
-            get { return videoPlayer.time; } 
-            set { videoPlayer.time = value; } 
+        public double time
+        {
+            get { return videoPlayer.time; }
+            set { videoPlayer.time = value; }
         }
         public float playbackSpeed { get { return videoPlayer.playbackSpeed; } set { videoPlayer.playbackSpeed = value; } }
         public ulong frameCount { get { return videoPlayer.frameCount; } }
         public double length { get { return videoPlayer.length; } }
 
-        public ShimEventHandler prepareCompleted { get { return _prepareCompleted; } set { _prepareCompleted = value; } }
-        public ShimEventHandler loopPointReached { get { return _loopPointReached; } set { _loopPointReached = value; } }
-        public ShimEventHandler started { get { return _started; } set { _started = value; } }
-        public ShimEventHandler frameDropped { get { return _frameDropped; } set { _frameDropped = value; } }
-        public ShimErrorEventHandler errorReceived { get { return _errorReceived; } set { _errorReceived = value; } }
-        public ShimEventHandler seekCompleted { get { return _seekCompleted; } set { _seekCompleted = value; } }
-        public ShimTimeEventHandler clockResyncOccurred { get { return _clockResyncOccurred; } set { _clockResyncOccurred = value; } }
-        public ShimFrameReadyEventHandler frameReady { get { return _frameReady; } set { _frameReady = value; } }
+        public event ShimEventHandler prepareCompleted;
+        public event ShimEventHandler loopPointReached;
+        public event ShimEventHandler started;
+        public event ShimEventHandler frameDropped;
+        public event ShimErrorEventHandler errorReceived;
+        public event ShimEventHandler seekCompleted;
+        public event ShimTimeEventHandler clockResyncOccurred;
+        public event ShimFrameReadyEventHandler frameReady;
 
         public void Play() { videoPlayer.Play(); }
         public void Pause() { videoPlayer.Pause(); }
@@ -230,42 +227,42 @@ namespace Basis
 
         private void OnPrepareCompleted(UnityEngine.Video.VideoPlayer source)
         {
-            _prepareCompleted?.Invoke(this);
+            prepareCompleted?.Invoke(this);
         }
 
         private void OnLoopPointReached(UnityEngine.Video.VideoPlayer source)
         {
-            _loopPointReached?.Invoke(this);
+            loopPointReached?.Invoke(this);
         }
 
         private void OnStarted(UnityEngine.Video.VideoPlayer source)
         {
-            _started?.Invoke(this);
+            started?.Invoke(this);
         }
 
         private void OnFrameDropped(UnityEngine.Video.VideoPlayer source)
         {
-            _frameDropped?.Invoke(this);
+            frameDropped?.Invoke(this);
         }
 
         private void OnErrorReceived(UnityEngine.Video.VideoPlayer source, string message)
         {
-            _errorReceived?.Invoke(this, message);
+            errorReceived?.Invoke(this, message);
         }
 
         private void OnSeekCompleted(UnityEngine.Video.VideoPlayer source)
         {
-            _seekCompleted?.Invoke(this);
+            seekCompleted?.Invoke(this);
         }
 
         private void OnClockResyncOccurred(UnityEngine.Video.VideoPlayer source, double seconds)
         {
-            _clockResyncOccurred?.Invoke(this, seconds);
+            clockResyncOccurred?.Invoke(this, seconds);
         }
 
         private void OnFrameReady(UnityEngine.Video.VideoPlayer source, long frameIndex)
         {
-            _frameReady?.Invoke(this, frameIndex);
+            frameReady?.Invoke(this, frameIndex);
         }
     }
 }
