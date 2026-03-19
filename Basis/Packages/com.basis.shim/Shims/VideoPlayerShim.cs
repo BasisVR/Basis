@@ -1,12 +1,23 @@
 using UnityEngine;
 using Cilbox;
 using UnityEngine.Video;
+using Basis.BasisUI;
+using System.Collections;
 
 namespace Basis
 {
     public class VideoPlayerShim : CilboxShim
     {
+        private const float PendingUrlTimeoutSeconds = 20f;
+
         private VideoPlayer videoPlayer;
+        private string pendingConfirmedUrl = string.Empty;
+        private bool hasPendingConfirmedUrl;
+        private bool playRequestedForPendingUrl;
+        private bool prepareRequestedForPendingUrl;
+        private int pendingConfirmedUrlRequestId;
+        private Coroutine pendingUrlTimeoutCoroutine;
+
         public void Awake()
         {
             videoPlayer = gameObject.GetComponent<VideoPlayer>();
@@ -173,20 +184,53 @@ namespace Basis
                 string url = value;
 
                 if (url == videoPlayer.url) return;
+                if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
                 if (!url.StartsWith("https://")) return;
 
-                Debug.Log($"[VideoPlayerShim] Setting URL to {url}");
+                Debug.Log($"[VideoPlayerShim] Requesting URL \"{url}\"");
 
-                BasisUI.BasisMainMenu.Open();
-                BasisUI.BasisMainMenu.Instance.OpenDialogue(
+                AutoDenyPendingUrlRequest();
+                pendingConfirmedUrl = url;
+                hasPendingConfirmedUrl = true;
+                pendingConfirmedUrlRequestId++;
+                int requestId = pendingConfirmedUrlRequestId;
+                pendingUrlTimeoutCoroutine = StartCoroutine(ExpirePendingUrlRequest(requestId));
+                BasisMainMenu.Open();
+                BasisMainMenu.Instance.OpenDialogue(
                     "Video Player URL",
                     $"Do you want to load this video?\n{url}",
                     "Accept",
                     "Decline",
-                    value =>
+                    accepted =>
                     {
-                        if (!value) return;
+                        if (!hasPendingConfirmedUrl || pendingConfirmedUrl != url || pendingConfirmedUrlRequestId != requestId)
+                        {
+                            return;
+                        }
+                        if (!accepted)
+                        {
+                            ClearPendingUrlRequest();
+                            return;
+                        }
+                        Debug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"");
                         videoPlayer.url = url;
+                        hasPendingConfirmedUrl = false;
+                        pendingConfirmedUrl = string.Empty;
+                        if (pendingUrlTimeoutCoroutine != null)
+                        {
+                            StopCoroutine(pendingUrlTimeoutCoroutine);
+                            pendingUrlTimeoutCoroutine = null;
+                        }
+                        if (playRequestedForPendingUrl)
+                        {
+                            playRequestedForPendingUrl = false;
+                            videoPlayer.Play();
+                        }
+                        if (prepareRequestedForPendingUrl)
+                        {
+                            prepareRequestedForPendingUrl = false;
+                            videoPlayer.Prepare();
+                        }
                     }
                 );
             }
@@ -209,8 +253,28 @@ namespace Basis
         public AudioSource GetTargetAudioSource(ushort trackIndex) { return videoPlayer.GetTargetAudioSource(trackIndex); }
         public bool IsAudioTrackEnabled(ushort trackIndex) { return videoPlayer.IsAudioTrackEnabled(trackIndex); }
         public void Pause() { videoPlayer.Pause(); }
-        public void Play() { videoPlayer.Play(); }
-        public void Prepare() { videoPlayer.Prepare(); }
+        public void Play()
+        {
+            if (hasPendingConfirmedUrl)
+            {
+                playRequestedForPendingUrl = true;
+                return;
+            }
+
+            playRequestedForPendingUrl = false;
+            videoPlayer.Play();
+        }
+        public void Prepare()
+        {
+            if (hasPendingConfirmedUrl)
+            {
+                prepareRequestedForPendingUrl = true;
+                return;
+            }
+
+            prepareRequestedForPendingUrl = false;
+            videoPlayer.Prepare();
+        }
         public void SetDirectAudioMute(ushort trackIndex, bool mute) { videoPlayer.SetDirectAudioMute(trackIndex, mute); }
         public void SetDirectAudioVolume(ushort trackIndex, float volume) { videoPlayer.SetDirectAudioVolume(trackIndex, volume); }
         public void SetTargetAudioSource(ushort trackIndex, AudioSource source) { videoPlayer.SetTargetAudioSource(trackIndex, source); }
@@ -268,6 +332,52 @@ namespace Basis
         private void OnStarted(VideoPlayer source)
         {
             started?.Invoke(this);
+        }
+        //
+        // URL Confirmation Logic
+        //
+        private void ClearPendingUrlRequest()
+        {
+            hasPendingConfirmedUrl = false;
+            pendingConfirmedUrl = string.Empty;
+            prepareRequestedForPendingUrl = false;
+            playRequestedForPendingUrl = false;
+            if (pendingUrlTimeoutCoroutine != null)
+            {
+                StopCoroutine(pendingUrlTimeoutCoroutine);
+                pendingUrlTimeoutCoroutine = null;
+            }
+        }
+
+        private IEnumerator ExpirePendingUrlRequest(int requestId)
+        {
+            yield return new WaitForSecondsRealtime(PendingUrlTimeoutSeconds);
+
+            pendingUrlTimeoutCoroutine = null;
+
+            if (!hasPendingConfirmedUrl || pendingConfirmedUrlRequestId != requestId)
+            {
+                yield break;
+            }
+
+            Debug.Log($"[VideoPlayerShim] Timed out waiting for approval: {pendingConfirmedUrl}");
+            AutoDenyPendingUrlRequest();
+        }
+
+        private void AutoDenyPendingUrlRequest()
+        {
+            string url = pendingConfirmedUrl;
+            BasisMenuDialoguePanel dialogue = BasisMainMenu.Instance != null ? BasisMainMenu.Instance.Dialogue : null;
+            if (dialogue != null &&
+                dialogue.Title == "Video Player URL" &&
+                !string.IsNullOrEmpty(dialogue.Description) &&
+                dialogue.Description.Contains(url))
+            {
+                dialogue.Callback?.Invoke(false);
+                BasisMainMenu.Instance.Dialogue = null;
+                dialogue.ReleaseInstance();
+            }
+            ClearPendingUrlRequest();
         }
     }
 }
