@@ -47,5 +47,10 @@ namespace Basis
         {
 			PlayerJoined?.Invoke( player );
         }
+
+        public void RequestOwnershipIfNone()
+        {
+	        RequestWhoIsOwnershipAsync();
+        }
 	}
 }
