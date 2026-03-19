@@ -235,16 +235,44 @@ namespace Basis
             Component[] components = obj.gameObject.GetComponents(obj.GetType());
             int index = System.Array.IndexOf(components, obj);
 
-            pathBuilder.Append($"{obj.gameObject.name}[{obj.transform.GetSiblingIndex()}]_{obj.GetType().FullName}_{index}");
+            pathBuilder.Append($"{obj.gameObject.name}{SiblingIndexIfNeeded(obj.transform)}:{obj.GetType().FullName}_{index}");
             Transform current = obj.transform.parent;
 
             while (current != null)
             {
-                pathBuilder.Insert(0, $"{current.name}[{current.GetSiblingIndex()}]/");
+                pathBuilder.Insert(0, $"{current.name}{SiblingIndexIfNeeded(current)}/");
                 current = current.parent;
             }
 
             return pathBuilder.ToString();
+        }
+        private static string SiblingIndexIfNeeded(Transform t)
+        {
+            Transform parent = t.parent;
+            string name = t.name;
+            if (parent == null)
+            {
+                foreach (var go in t.gameObject.scene.GetRootGameObjects())
+                {
+                    if (go != t.gameObject && go.name == name)
+                    {
+                        return $"[{t.GetSiblingIndex()}]";
+                    }
+                }
+            }
+            else
+            {
+                int childCount = parent.childCount;
+                for (int i = 0; i < childCount; i++)
+                {
+                    Transform sibling = parent.GetChild(i);
+                    if (sibling != t && sibling.name == name)
+                    {
+                        return $"[{t.GetSiblingIndex()}]";
+                    }
+                }
+            }
+            return string.Empty;
         }
         public async void TakeOwnership()
         {

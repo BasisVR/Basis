@@ -22,28 +22,20 @@ namespace Basis
 
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
-			if (o is not MonoBehaviour)
+			if (o is not MonoBehaviour behaviour)
 			{
 				Debug.LogError( $"Object {o} is not a MonoBehaviour and cannot be made networkable." );
 				return null;
 			}
 
-			return MakeNetworkable( (MonoBehaviour)o );
+			return MakeNetworkable( behaviour );
 		}
 
 		public static BasisNetworkShim MakeNetworkable( MonoBehaviour mb )
 		{
-			BasisNetworkShim bi;
+			if( mb.gameObject.TryGetComponent<BasisNetworkShim>( out BasisNetworkShim bi ) ) return bi;
 
-			if( mb.gameObject.TryGetComponent<BasisNetworkShim>( out bi ) ) return bi;
-
-			bi = mb.gameObject.AddComponent<BasisNetworkShim>();
-			string setGUID = BasisNetworkBehaviour.LowLevelGetHierarchyPath(bi);
-
-			bi.AssignNetworkGUIDIdentifier(setGUID);
-			Debug.Log( $"ADDING ASSIGN: {bi} {setGUID}");
-
-			return bi;
+			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
 
 		public static BasisInteractableShim MakeInteractable( object o )
