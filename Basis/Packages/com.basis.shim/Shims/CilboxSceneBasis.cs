@@ -17,16 +17,9 @@ namespace Cilbox
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			// Basis types
 			"Basis.BasisImageDownloader",
-			"Basis.BasisInteractableShim",
-			"Basis.BasisInteractableShim+ClickEvent",
+			"Basis.BasisInteractableShim*",
 			"Basis.BasisNetworkBehaviour",
-			"Basis.BasisNetworkShim",
-			"Basis.BasisNetworkShim+NetworkMessageEvent",
-			"Basis.BasisNetworkShim+NetworkReadyEvent",
-			"Basis.BasisNetworkShim+OwnershipTransferEvent",
-			"Basis.BasisNetworkShim+PlayerJoinedEvent",
-			"Basis.BasisNetworkShim+PlayerLeftEvent",
-			"Basis.BasisNetworkShim+ServerOwnershipDestroyedEvent",
+			"Basis.BasisNetworkShim*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
@@ -46,9 +39,9 @@ namespace Cilbox
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
 			"System.Byte",
+			"System.Buffer",
 			"System.Char",
-			"System.Collections.Generic.Dictionary",
-			"System.Collections.Generic.List",
+			"System.Collections.Generic.*",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DayOfWeek",
@@ -58,9 +51,7 @@ namespace Cilbox
 			"System.Exception",
 			"System.Guid",
 			"System.IDisposable",
-			"System.Int16",
-			"System.Int32",
-			"System.Int64",
+			"System.Int*",
 			"System.IO.BinaryReader",
 			"System.IO.BinaryWriter",
 			"System.IO.MemoryStream",
@@ -71,10 +62,9 @@ namespace Cilbox
 			"System.Random",
 			"System.Single",
 			"System.String",
+			"System.StringComparison",
 			"System.TimeSpan",
-			"System.UInt16",
-			"System.UInt32",
-			"System.UInt64",
+			"System.UInt*",
 			"System.ValueTuple",
 			"System.Void",
 			"<PrivateImplementationDetails>", // Probably remove me? But we need a way to handle string hashing.  We can do it with our own function but that's slower.
@@ -118,6 +108,7 @@ namespace Cilbox
 			"UnityEngine.Quaternion",
 			"UnityEngine.Random",
 			"UnityEngine.Renderer",
+			"UnityEngine.RenderTextureFormat",
 			"UnityEngine.Rendering.AmbientMode",
 			"UnityEngine.RenderSettings",
 			"UnityEngine.Shader",
@@ -127,20 +118,8 @@ namespace Cilbox
 			"UnityEngine.Texture2DArray",
 			"UnityEngine.Time",
 			"UnityEngine.Transform",
-			"UnityEngine.UI.Button",
-			"UnityEngine.UI.Button+ButtonClickedEvent",
-			"UnityEngine.UI.InputField",
-			"UnityEngine.UI.InputField+OnChangeEvent",
-			"UnityEngine.UI.RawImage",
-			"UnityEngine.UI.Scrollbar",
-			"UnityEngine.UI.Selectable",
-			"UnityEngine.UI.Slider",
-			"UnityEngine.UI.Text",
-			"UnityEngine.UI.Toggle",
-			"UnityEngine.UI.Toggle+ToggleEvent",
-			"UnityEngine.Vector2",
-			"UnityEngine.Vector3",
-			"UnityEngine.Vector4",
+			"UnityEngine.UI.*",
+			"UnityEngine.Vector*",
         };
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
@@ -150,16 +129,14 @@ namespace Cilbox
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 
 			// Unity fields
-			"UnityEngine.EventSystems.EventTrigger+Entry.eventID",
-			"UnityEngine.EventSystems.EventTrigger+Entry.callback",
-			"UnityEngine.UI.Toggle.onValueChanged",
-			"UnityEngine.Vector3.x",
-			"UnityEngine.Vector3.y",
-			"UnityEngine.Vector3.z",
-			"UnityEngine.Vector4.x",
-			"UnityEngine.Vector4.y",
-			"UnityEngine.Vector4.z",
-			"UnityEngine.Vector4.w",
+			"UnityEngine.Vector*.x",
+			"UnityEngine.Vector*.y",
+			"UnityEngine.Vector*.z",
+			"UnityEngine.Vector*.w",
+
+			// System fields
+			"System.Array.*",
+			"System.String.*",
 		};
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
@@ -168,15 +145,33 @@ namespace Cilbox
 		// If a type is allowed, by defalt it is all allowed.
 		override public bool CheckTypeAllowed( String sType )
 		{
-			return whiteListType.Contains( sType );
+			if( whiteListType.Contains( sType ) ) return true;
+
+			foreach( string allowedType in whiteListType )
+			{
+				if( !allowedType.Contains( '*' ) ) continue;
+
+				string[] allowedPrefix = allowedType.Split( '*' );
+				if( sType.StartsWith( allowedPrefix[0], StringComparison.Ordinal ) && sType.EndsWith( allowedPrefix[1], StringComparison.Ordinal ) ) return true;
+			}
+
+			return false;
 		}
 
 		override public bool CheckFieldAllowed( String sType, String sFieldName )
 		{
 			if( !CheckTypeAllowed( sType ) ) return false;
-			if( sType.Length < 1 || sFieldName.Length < 1 ) return false;
-			if( !whiteListFields.Contains( sType + "." + sFieldName ) ) return false;
-			return true;
+			string fullField = sType + "." + sFieldName;
+			if( whiteListFields.Contains( fullField ) ) return true;
+			foreach( string allowedType in whiteListFields )
+			{
+				if( !allowedType.Contains( '*' ) ) continue;
+
+				string[] allowedPrefix = allowedType.Split( '*' );
+				if( fullField.StartsWith( allowedPrefix[0], StringComparison.Ordinal ) && fullField.EndsWith( allowedPrefix[1], StringComparison.Ordinal ) ) return true;
+			}
+			
+			return false;
 		}
 
 		// Whitelist methods on native types.
@@ -190,11 +185,16 @@ namespace Cilbox
 			{ typeof(BasisNetworkPlayer), new HashSet<string> {
 				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.playerId)).GetGetMethod().Name,
 				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
+				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.Player)).GetGetMethod().Name,
+				typeof(BasisNetworkPlayer).GetProperty(nameof(BasisNetworkPlayer.displayName)).GetGetMethod().Name,
 				} },
 			{ typeof(BasisLocalPlayer), new HashSet<string>{ nameof(BasisLocalPlayer.GetPositionAndRotation),
 				nameof(BasisLocalPlayer.Teleport),
 				nameof(BasisLocalPlayer.Respawn),
 				$"get_{nameof(BasisLocalPlayer.Instance)}", }},
+			{ typeof(Buffer), new HashSet<string>{ "BlockCopy" } },
+			{ typeof(BitConverter), new HashSet<string>{ "GetBytes", "ToInt32", "ToUInt32" } },
+			{ typeof(Convert), new HashSet<string>{ "ToInt32", "ToUInt32", "ToSingle", "ToDouble", "ToString" ,"ToBase64String", "FromBase64String"} },
 		};
 
 		// After a type is allowed, this is called to see if the specific method is OK.
@@ -214,8 +214,27 @@ namespace Cilbox
 
         public override bool GetComponentTypeOverride(string sType, out Type t)
         {
-			t = null;
-            return false;
+			switch(sType)
+			{
+				case "UnityEngine.Video.VideoPlayer":
+					t = typeof(Basis.VideoPlayerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
+					t = typeof(Basis.VideoPlayerShim.ErrorEventHandlerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+EventHandler":
+					t = typeof(Basis.VideoPlayerShim.EventHandlerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
+					t = typeof(Basis.VideoPlayerShim.FrameReadyEventHandlerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
+					t = typeof(Basis.VideoPlayerShim.TimeEventHandlerShim);
+					return true;
+				default:
+					t = null;
+					return false;
+			}
         }
 	}
 }

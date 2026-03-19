@@ -18,21 +18,14 @@ namespace Cilbox
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
-			"Basis.BasisInteractableShim",
-			"Basis.BasisInteractableShim+ClickEvent",
+			"Basis.BasisInteractableShim*",
 			"Basis.BasisNetworkBehaviour",
-			"Basis.BasisNetworkShim",
-			"Basis.BasisNetworkShim+NetworkMessageEvent",
-			"Basis.BasisNetworkShim+NetworkReadyEvent",
-			"Basis.BasisNetworkShim+OwnershipTransferEvent",
-			"Basis.BasisNetworkShim+PlayerJoinedEvent",
-			"Basis.BasisNetworkShim+PlayerLeftEvent",
-			"Basis.BasisNetworkShim+ServerOwnershipDestroyedEvent",
+			"Basis.BasisNetworkShim*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
-			"Basis.VideoPlayerShim",
+			"Basis.VideoPlayerShim*",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -41,31 +34,28 @@ namespace Cilbox
 			"System.Array",
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
+			"System.Buffer",
 			"System.Byte",
 			"System.Char",
-			"System.Collections.Generic.Dictionary",
-			"System.Collections.Generic.List",
-			"System.Collections.Generic.IEnumerable",
+			"System.Collections.Generic.*",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
 			"System.DayOfWeek",
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
-			"System.Int16",
-			"System.Int32",
-			"System.Int64",
+			"System.Int*",
 			"System.Math",
 			"System.MathF",
 			"System.Object",
 			"System.Single",
 			"System.String",
+			"System.StringComparison",
 			"System.TimeSpan",
 			"System.Text.Encoding",
 			"System.UInt16",
 			"System.UInt32",
-			"System.UInt64",
-			"System.ValueTuple",
+			"System.UInt*",
 			"System.Void",
 			"<PrivateImplementationDetails>", // Probably remove me? But we need a way to handle string hashing.  We can do it with our own function but that's slower.
 
@@ -98,23 +88,31 @@ namespace Cilbox
 			"UnityEngine.Quaternion",
 			"UnityEngine.Rigidbody",
 			"UnityEngine.RenderTexture",
-			"UnityEngine.UI.Button",
-			"UnityEngine.UI.Button+ButtonClickedEvent",
+			"UnityEngine.RenderTextureFormat",
+			"UnityEngine.UI.*",
+			"UnityEngine.Vector*",
 			"UnityEngine.UI.InputField",
 			"UnityEngine.UI.InputField+OnChangeEvent",
 			"UnityEngine.UI.Scrollbar",
 			"UnityEngine.UI.Selectable",
 			"UnityEngine.UI.Slider",
 			"UnityEngine.UI.Text",
+			"UnityEngine.Vector2",
 			"UnityEngine.Vector3",
 			"UnityEngine.Vector4",
 		};
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
 			// Unity fields
-			"UnityEngine.Vector3.x",
-			"UnityEngine.Vector3.y",
-			"UnityEngine.Vector3.z",
+			"UnityEngine.Vector*.x",
+			"UnityEngine.Vector*.y",
+			"UnityEngine.Vector*.z",
+			"UnityEngine.Vector*.w",
+
+			// System fields
+			"System.Array.*",
+			"System.String.*",
+			
 
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
@@ -130,15 +128,33 @@ namespace Cilbox
 		// If a type is allowed, by defalt it is all allowed.
 		override public bool CheckTypeAllowed( String sType )
 		{
-			return whiteListType.Contains( sType );
+			if( whiteListType.Contains( sType ) ) return true;
+
+			foreach( string allowedType in whiteListType )
+			{
+				if( !allowedType.Contains( '*' ) ) continue;
+
+				string[] allowedPrefix = allowedType.Split( '*' );
+				if( sType.StartsWith( allowedPrefix[0], StringComparison.Ordinal ) && sType.EndsWith( allowedPrefix[1], StringComparison.Ordinal ) ) return true;
+			}
+
+			return false;
 		}
 
 		override public bool CheckFieldAllowed( String sType, String sFieldName )
 		{
 			if( !CheckTypeAllowed( sType ) ) return false;
-			if( sType.Length < 1 || sFieldName.Length < 1 ) return false;
-			if( !whiteListFields.Contains( sType + "." + sFieldName ) ) return false;
-			return true;
+			string fullField = sType + "." + sFieldName;
+			if( whiteListFields.Contains( fullField ) ) return true;
+			foreach( string allowedType in whiteListFields )
+			{
+				if( !allowedType.Contains( '*' ) ) continue;
+
+				string[] allowedPrefix = allowedType.Split( '*' );
+				if( fullField.StartsWith( allowedPrefix[0], StringComparison.Ordinal ) && fullField.EndsWith( allowedPrefix[1], StringComparison.Ordinal ) ) return true;
+			}
+			
+			return false;
 		}
 
 		// Whitelist methods on native types.
@@ -151,7 +167,10 @@ namespace Cilbox
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Device_Management.Devices.BasisInput), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer), new HashSet<string> {
-				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty("playerId").GetGetMethod().Name
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId)).GetGetMethod().Name,
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.Player)).GetGetMethod().Name,
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.LocalPlayer)).GetGetMethod().Name,
+				typeof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer).GetProperty(nameof(Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.displayName)).GetGetMethod().Name,
 				} },
 			{ typeof(UnityEngine.GameObject),          new HashSet<string>{ 
 				nameof(GameObject.SetActive), 
@@ -161,6 +180,7 @@ namespace Cilbox
 				typeof(GameObject).GetProperty(nameof(GameObject.activeInHierarchy)).GetGetMethod().Name,
 				typeof(GameObject).GetProperty(nameof(GameObject.layer)).GetGetMethod().Name,
 				} },
+			{ typeof(Buffer), new HashSet<string>{ "BlockCopy" } },
 			{ typeof(System.Type),                     new HashSet<string>() }, // nothing allowed
 		};
 
@@ -185,6 +205,18 @@ namespace Cilbox
 			{
 				case "UnityEngine.Video.VideoPlayer":
 					t = typeof(Basis.VideoPlayerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
+					t = typeof(Basis.VideoPlayerShim.ErrorEventHandlerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+EventHandler":
+					t = typeof(Basis.VideoPlayerShim.EventHandlerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
+					t = typeof(Basis.VideoPlayerShim.FrameReadyEventHandlerShim);
+					return true;
+				case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
+					t = typeof(Basis.VideoPlayerShim.TimeEventHandlerShim);
 					return true;
 				default:
 					t = null;
