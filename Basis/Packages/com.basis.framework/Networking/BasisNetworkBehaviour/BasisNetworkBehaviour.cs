@@ -240,7 +240,7 @@ namespace Basis
 
             while (current != null)
             {
-                pathBuilder.Insert(0, $"{current.name}[{current.GetSiblingIndex()}]/");
+                path = current.name + "/" + path;
                 current = current.parent;
             }
             return "/" + path;
