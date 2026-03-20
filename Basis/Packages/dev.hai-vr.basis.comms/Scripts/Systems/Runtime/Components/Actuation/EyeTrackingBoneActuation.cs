@@ -305,7 +305,7 @@ namespace HVR.Basis.Comms
                         var cal = BasisLocalEyeDriver.calLeft;
                         quaternion rigOffset = math.mul(math.mul(cal.basis, canonical), cal.invBasis);
                         BasisLocalEyeDriver.leftEyeTransform.localRotation =
-                            math.mul(BasisLocalEyeDriver.leftEyeInitialRotation, rigOffset);
+                            math.mul(cal.initialRotation, rigOffset);
                         break;
                     }
                     case EyeSide.Right:
@@ -313,7 +313,7 @@ namespace HVR.Basis.Comms
                         var cal = BasisLocalEyeDriver.calRight;
                         quaternion rigOffset = math.mul(math.mul(cal.basis, canonical), cal.invBasis);
                         BasisLocalEyeDriver.rightEyeTransform.localRotation =
-                            math.mul(BasisLocalEyeDriver.rightEyeInitialRotation, rigOffset);
+                            math.mul(cal.initialRotation, rigOffset);
                         break;
                     }
                     default:
