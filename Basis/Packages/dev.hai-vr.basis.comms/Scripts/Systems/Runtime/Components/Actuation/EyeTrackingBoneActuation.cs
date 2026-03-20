@@ -161,7 +161,7 @@ namespace HVR.Basis.Comms
 
         private void Update()
         {
-            if (!IsLocal || !_trackingActive || !_eyeTrackingParametersActive)
+            if (!_eyeFollowDriverApplicable || !_trackingActive || !_eyeTrackingParametersActive)
             {
                 return;
             }
@@ -200,7 +200,7 @@ namespace HVR.Basis.Comms
                     return;
             }
 
-            if (IsLocal)
+            if (_eyeFollowDriverApplicable)
             {
                 _lastEyeParameterSampleTime = Time.unscaledTime;
                 if (!_eyeTrackingParametersActive)
@@ -225,20 +225,20 @@ namespace HVR.Basis.Comms
             }
 
             _trackingActive = isTrackingActive;
-            if (IsLocal && !_trackingActive)
+            if (_eyeFollowDriverApplicable && !_trackingActive)
             {
                 SetLocalEyeParameterState(false);
             }
 
             bool shouldApplyEyeTracking = ShouldApplyEyeTracking();
-            if (IsLocal)
+            if (_eyeFollowDriverApplicable)
             {
                 SetBuiltInEyeFollowDriverOverriden(shouldApplyEyeTracking);
             }
 
             if (_trackingActive)
             {
-                if (IsLocal)
+                if (_eyeFollowDriverApplicable)
                 {
                     if (shouldApplyEyeTracking)
                     {
@@ -259,7 +259,7 @@ namespace HVR.Basis.Comms
             ResetEyeValuesToZero();
             _eyeTrackingParametersActive = false;
 
-            if (IsLocal)
+            if (_eyeFollowDriverApplicable)
             {
                 SubmitNeutralEyesToNetwork();
             }
