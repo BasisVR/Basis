@@ -288,19 +288,34 @@ namespace HVR.Basis.Comms
 
             if (_eyeFollowDriverApplicable)
             {
-                var xDeg = Mathf.Asin(x) * Mathf.Rad2Deg * multiplyX;
-                var yDeg = Mathf.Asin(-y) * Mathf.Rad2Deg * multiplyY;
-                Quaternion Euler = Quaternion.Euler(yDeg, xDeg, 0);
+
+                // Uses EyeCalibration from BasisLocalEyeDriver to handle arbitrary eye bone orientations for local player.
+                // Retaining Hai's original FIXME: This could/should be replaced by a WIP normalized muscle system
+
+                float xRad = Mathf.Asin(x) * multiplyX;
+                float yRad = Mathf.Asin(-y) * multiplyY;
+                quaternion yaw = quaternion.AxisAngle(new float3(0, 1, 0), xRad);
+                quaternion pitch = quaternion.AxisAngle(new float3(1, 0, 0), yRad);
+                quaternion canonical = math.mul(yaw, pitch);
+
                 switch (side)
                 {
-                    // FIXME: This wrongly assumes that eye bone transforms are oriented the same.
-                    // This needs to be fixed later by using the work-in-progress normalized muscle system instead.
                     case EyeSide.Left:
-                        BasisLocalEyeDriver.leftEyeTransform.localRotation = math.mul(BasisLocalEyeDriver.leftEyeInitialRotation, Euler);
+                    {
+                        var cal = BasisLocalEyeDriver.calLeft;
+                        quaternion rigOffset = math.mul(math.mul(cal.basis, canonical), cal.invBasis);
+                        BasisLocalEyeDriver.leftEyeTransform.localRotation =
+                            math.mul(BasisLocalEyeDriver.leftEyeInitialRotation, rigOffset);
                         break;
+                    }
                     case EyeSide.Right:
-                        BasisLocalEyeDriver.rightEyeTransform.localRotation = math.mul(BasisLocalEyeDriver.rightEyeInitialRotation, Euler);
+                    {
+                        var cal = BasisLocalEyeDriver.calRight;
+                        quaternion rigOffset = math.mul(math.mul(cal.basis, canonical), cal.invBasis);
+                        BasisLocalEyeDriver.rightEyeTransform.localRotation =
+                            math.mul(BasisLocalEyeDriver.rightEyeInitialRotation, rigOffset);
                         break;
+                    }
                     default:
                         throw new ArgumentOutOfRangeException(nameof(side), side, null);
                 }

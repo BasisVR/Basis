@@ -42,8 +42,8 @@ public class BasisLocalEyeDriver
 
     public static Transform leftEyeTransform, rightEyeTransform;
     private static Transform _headRef;     // used for calibration reference
-    private static EyeCalibration _calLeft;
-    private static EyeCalibration _calRight;
+    public static EyeCalibration calLeft;
+    public static EyeCalibration calRight;
 
     private static NativeArray<EyeState> _state;
 
@@ -51,7 +51,7 @@ public class BasisLocalEyeDriver
     public static bool Override = false;
     public static bool IsEnabled = false;
 
-    public static Quaternion leftEyeInitialRotation;
+    public static quaternion leftEyeInitialRotation;
     public static quaternion rightEyeInitialRotation;
     public static void Initalize()
     {
@@ -70,8 +70,8 @@ public class BasisLocalEyeDriver
 
         _state = new NativeArray<EyeState>(1, Allocator.Persistent);
         _state[0] = EyeState.Create((uint)UnityEngine.Random.Range(1, int.MaxValue));
-        leftEyeInitialRotation = leftEyeTransform.rotation;
-        rightEyeInitialRotation = rightEyeTransform.rotation;
+        leftEyeInitialRotation = leftEyeTransform.localRotation;
+        rightEyeInitialRotation = rightEyeTransform.localRotation;
         CalibrateEyes();
         IsEnabled = true;
 
@@ -107,10 +107,10 @@ public class BasisLocalEyeDriver
                 perEyeVarRad = perEyeVarianceDeg,
                 occasionalCenterReturn = occasionalCenterReturn,
 
-                calLeftBasis = _calLeft.basis,
-                calLeftInvBasis = _calLeft.invBasis,
-                calRightBasis = _calRight.basis,
-                calRightInvBasis = _calRight.invBasis,
+                calLeftBasis = calLeft.basis,
+                calLeftInvBasis = calLeft.invBasis,
+                calRightBasis = calRight.basis,
+                calRightInvBasis = calRight.invBasis,
                 rightBase = rightEyeTransform.localRotation,
                 leftBase = leftEyeTransform.localRotation,
 
@@ -138,8 +138,8 @@ public class BasisLocalEyeDriver
     private static void CalibrateEyes()
     {
         // Per-eye calibration against head reference directions
-        _calLeft = CalibrateOneEye(leftEyeTransform, _headRef);
-        _calRight = CalibrateOneEye(rightEyeTransform, _headRef);
+        calLeft = CalibrateOneEye(leftEyeTransform, _headRef);
+        calRight = CalibrateOneEye(rightEyeTransform, _headRef);
     }
 
     [System.Serializable]
