@@ -7,5 +7,8 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "_fingerprint": "477ad687ad74ce1eba5672f4e3393e001669c53c"
+  "_fingerprint": "477ad687ad74ce1eba5672f4e3393e001669c53c",
+  "dependencies": {
+    "com.unity.xr.openxr": "1.16.1"
+  }
 }

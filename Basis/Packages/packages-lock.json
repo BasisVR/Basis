@@ -64,7 +64,9 @@
       "version": "file:com.basis.openxr",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.unity.xr.openxr": "1.16.1"
+      }
     },
     "com.basis.pooltable": {
       "version": "file:com.basis.pooltable",
@@ -456,6 +458,15 @@
       },
       "url": "https://packages.unity.com"
     },
+    "com.unity.toolchain.linux-x86_64-linux": {
+      "version": "1.0.2",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.sysroot.base": "1.0.2"
+      },
+      "url": "https://packages.unity.com"
+    },
     "com.unity.toolchain.win-x86_64-linux": {
       "version": "1.0.2",
       "depth": 0,
@@ -528,7 +539,7 @@
     },
     "com.unity.xr.openxr": {
       "version": "1.16.1",
-      "depth": 0,
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.inputsystem": "1.6.3",
