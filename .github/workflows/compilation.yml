@@ -77,7 +77,8 @@ jobs:
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: "Remove OpenXR when building for Linux"
         if: matrix.targetPlatform == 'StandaloneLinux64'
-        run: jq 'del(.dependencies ["com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
+        run: rm -rf ${projectPath}/Packages/com.basis.openxr
+        # run: jq 'del(.dependencies ["com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
       - name: "Remove Meta XR Core when building for Linux"
         if: matrix.targetPlatform == 'StandaloneLinux64'
         run: rm -rf ${projectPath}/Packages/com.meta.xr.sdk.core
