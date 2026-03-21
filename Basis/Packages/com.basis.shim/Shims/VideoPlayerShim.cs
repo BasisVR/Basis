@@ -4,7 +4,7 @@ using UnityEngine.Video;
 using Basis.BasisUI;
 using System.Collections;
 
-namespace Basis
+namespace Basis.Shims
 {
     public class VideoPlayerShim : CilboxShim
     {
@@ -187,7 +187,7 @@ namespace Basis
                 if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
                 if (!url.StartsWith("https://")) return;
 
-                Debug.Log($"[VideoPlayerShim] Requesting URL \"{url}\"");
+                BasisDebug.Log($"[VideoPlayerShim] Requesting URL \"{url}\"", BasisDebug.LogTag.Shims);
 
                 AutoDenyPendingUrlRequest();
                 pendingConfirmedUrl = url;
@@ -212,7 +212,7 @@ namespace Basis
                             ClearPendingUrlRequest();
                             return;
                         }
-                        Debug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"");
+                        BasisDebug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"", BasisDebug.LogTag.Shims);
                         videoPlayer.url = url;
                         hasPendingConfirmedUrl = false;
                         pendingConfirmedUrl = string.Empty;
@@ -360,7 +360,7 @@ namespace Basis
                 yield break;
             }
 
-            Debug.Log($"[VideoPlayerShim] Timed out waiting for approval: {pendingConfirmedUrl}");
+            BasisDebug.Log($"[VideoPlayerShim] Timed out waiting for approval: {pendingConfirmedUrl}", BasisDebug.LogTag.Shims);
             AutoDenyPendingUrlRequest();
         }
 

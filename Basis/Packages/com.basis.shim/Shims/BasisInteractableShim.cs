@@ -5,7 +5,7 @@ using UnityEngine;
 
 // This is temporarily a clone of ExampleButtonInteractable.
 
-namespace Basis
+namespace Basis.Shims
 {
 	public class BasisInteractableShim : BasisInteractableObject
 	{

@@ -5,7 +5,7 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
 using System;
 
-namespace Basis
+namespace Basis.Shims
 {
     public class BasisNetworkShim : BasisNetworkBehaviour
 	{

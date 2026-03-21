@@ -66,6 +66,8 @@ public static class BasisDebug
             LogTag.Local => "#20B2AA",        // Light Sea Green
             LogTag.Remote => "#DC143C",       // Crimson
             LogTag.Video => "#00ffff",        // Cyan
+            LogTag.Shims => "#FF00FF",        // Magenta
+            LogTag.Props => "#FFB6C1",        // Light Pink
             _ => "#FFFFFF"                    // Default White
         };
     }
@@ -111,7 +113,9 @@ public static class BasisDebug
         Mirror,
         Local,
         Remote,
-        Video
+        Video,
+        Shims,
+        Props
     }
 
     public enum MessageType

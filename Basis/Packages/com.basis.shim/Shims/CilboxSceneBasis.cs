@@ -17,9 +17,7 @@ namespace Cilbox
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			// Basis types
 			"Basis.BasisImageDownloader",
-			"Basis.BasisInteractableShim*",
 			"Basis.BasisNetworkBehaviour",
-			"Basis.BasisNetworkShim*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
@@ -29,6 +27,7 @@ namespace Cilbox
 			"BasisNetworkCommon+EventTiming",
 			"BasisSDKMirror",
 			"BasisSDKMirror+MirrorClearFlags",
+			"Basis.Shims.*",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -217,19 +216,19 @@ namespace Cilbox
 			switch(sType)
 			{
 				case "UnityEngine.Video.VideoPlayer":
-					t = typeof(Basis.VideoPlayerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
-					t = typeof(Basis.VideoPlayerShim.ErrorEventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.ErrorEventHandlerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+EventHandler":
-					t = typeof(Basis.VideoPlayerShim.EventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.EventHandlerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
-					t = typeof(Basis.VideoPlayerShim.FrameReadyEventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.FrameReadyEventHandlerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
-					t = typeof(Basis.VideoPlayerShim.TimeEventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.TimeEventHandlerShim);
 					return true;
 				default:
 					t = null;

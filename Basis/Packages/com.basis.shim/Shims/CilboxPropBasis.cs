@@ -18,14 +18,12 @@ namespace Cilbox
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
-			"Basis.BasisInteractableShim*",
 			"Basis.BasisNetworkBehaviour",
-			"Basis.BasisNetworkShim*",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
-			"Basis.VideoPlayerShim*",
+			"Basis.Shims.*",
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
@@ -68,7 +66,6 @@ namespace Cilbox
 			"UnityEngine.Component",
 			"UnityEngine.Collider",
 			"UnityEngine.Collision",
-			"UnityEngine.Debug",
 			"UnityEngine.Events.UnityAction",
 			"UnityEngine.Events.UnityEvent",
 			"UnityEngine.GameObject",     // Hyper restrictive.
@@ -203,20 +200,24 @@ namespace Cilbox
         {
 			switch(sType)
 			{
+				
 				case "UnityEngine.Video.VideoPlayer":
-					t = typeof(Basis.VideoPlayerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
-					t = typeof(Basis.VideoPlayerShim.ErrorEventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.ErrorEventHandlerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+EventHandler":
-					t = typeof(Basis.VideoPlayerShim.EventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.EventHandlerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
-					t = typeof(Basis.VideoPlayerShim.FrameReadyEventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.FrameReadyEventHandlerShim);
 					return true;
 				case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
-					t = typeof(Basis.VideoPlayerShim.TimeEventHandlerShim);
+					t = typeof(Basis.Shims.VideoPlayerShim.TimeEventHandlerShim);
+					return true;
+				case "UnityEngine.Debug":
+					t = typeof(Basis.Shims.BasisDebugPropsShim);
 					return true;
 				default:
 					t = null;
