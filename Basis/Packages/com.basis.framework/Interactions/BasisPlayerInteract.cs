@@ -266,7 +266,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                         if (input.input.InteractionLineRenderer != null)
                         {
-                            Vector3 endPos = input.lastTarget.GetClosestPoint(origin);
+                            Vector3 endPos = input.lastTarget.GetClosestPoint(start);
                             input.input.InteractionLineRenderer.SetPosition(0, start);
                             input.input.InteractionLineRenderer.SetPosition(1, endPos);
                             input.input.InteractionLineRenderer.enabled = true;
