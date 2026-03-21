@@ -58,7 +58,9 @@
       "version": "file:com.basis.openvr",
       "depth": 0,
       "source": "embedded",
-      "dependencies": {}
+      "dependencies": {
+        "com.valvesoftware.unity.openvr": "1.0.0"
+      }
     },
     "com.basis.openxr": {
       "version": "file:com.basis.openxr",
