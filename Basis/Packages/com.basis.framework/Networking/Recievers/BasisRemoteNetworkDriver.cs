@@ -331,6 +331,15 @@ public static class BasisRemoteNetworkDriver
         int eyesAndMouthOffsetFloats,
         int eyesAndMouthCountBytes)
     {
+        if (!_initialized)
+        {
+            // Silent return if driver uninitialized (expected during shutdown/reconnect)
+            outScale = false;
+            outRot = quaternion.identity;
+            BodyPosition = float3.zero;
+            return;
+        }
+
         outScale = _HasScaleChange[index];
         outRot = _filteredRotations[index];
         BodyPosition = _scaledBodyPositions[index];
