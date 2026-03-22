@@ -357,3 +357,4 @@ MonoBehaviour:
   - VolumetricAdditionalLight
   - UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   - BasisInteractableButton
+  - GatorDragonGames.JigglePhysics.JiggleRig
