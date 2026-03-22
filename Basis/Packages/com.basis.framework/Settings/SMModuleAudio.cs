@@ -38,6 +38,7 @@ public class SMModuleAudio : BasisSettingsBase
     private static string K_PROP_VOLUME => BasisSettingsDefaults.PropVolume.BindingKey;
 
     // If your mixer parameter names differ, change these strings.
+    private const string MIXER_MASTER = "Master";
     private const string MIXER_MENU = "menu";
     private const string MIXER_WORLD = "world";
     private const string MIXER_VOICE = "player";
@@ -58,12 +59,9 @@ public class SMModuleAudio : BasisSettingsBase
                 {
                     if (SliderReadOption(optionValue, out float newMain))
                     {
-                        ActiveMainVolume = Mathf.Clamp01(newMain / 100f);
                         BasisDebug.Log($"setting main volume to {newMain}");
+                        ActiveMainVolume = ChangeVolume(newMain, MIXER_MASTER);
                         MainVolume?.Invoke(ActiveMainVolume);
-
-                        // Main is global listener volume (not mixer)
-                        AudioListener.volume = ActiveMainVolume;
                     }
                     break;
                 }
