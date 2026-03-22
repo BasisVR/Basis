@@ -38,6 +38,7 @@ namespace Cilbox
 			"System.Collections.Generic.*",
 			"System.Convert", // HMMMMMMMMM SUSSY
 			"System.DateTime",
+			"System.DateTimeOffset",
 			"System.DayOfWeek",
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
