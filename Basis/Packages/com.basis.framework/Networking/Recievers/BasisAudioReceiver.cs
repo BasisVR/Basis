@@ -579,10 +579,11 @@ namespace Basis.Scripts.Networking.Receivers
             Buffer.BlockCopy(segment, 0, _inputScratch, 0, frames * sizeof(float));
 
             float dampen = DirectionalDampeningMultiplier;
+            float listenerVolume = AudioListener.volume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = FastClamp(_inputScratch[f]) * dampen;
+                float sample = FastClamp(_inputScratch[f] * dampen * listenerVolume);
                 for (int c = 0; c < channels; c++)
                 {
                     data[idx++] = sample;
@@ -637,10 +638,11 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             float dampen = DirectionalDampeningMultiplier;
+            float listenerVolume = AudioListener.volume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = FastClamp(_resampleScratch[f]) * dampen;
+                float sample = FastClamp(_resampleScratch[f] * dampen * listenerVolume);
                 for (int c = 0; c < channels; c++)
                 {
                     data[idx++] = sample;
