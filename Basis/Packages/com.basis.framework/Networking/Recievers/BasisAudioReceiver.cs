@@ -579,7 +579,7 @@ namespace Basis.Scripts.Networking.Receivers
             Buffer.BlockCopy(segment, 0, _inputScratch, 0, frames * sizeof(float));
 
             float dampen = DirectionalDampeningMultiplier;
-            float listenerVolume = AudioListener.volume;
+            float listenerVolume = SMModuleAudio.ActiveMainVolume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
@@ -638,7 +638,7 @@ namespace Basis.Scripts.Networking.Receivers
             }
 
             float dampen = DirectionalDampeningMultiplier;
-            float listenerVolume = AudioListener.volume;
+            float listenerVolume = SMModuleAudio.ActiveMainVolume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
