@@ -61,6 +61,7 @@ namespace Cilbox
 			// Unity types
 			"UnityEngine.Animator",
 			"UnityEngine.AnimatorStateInfo",
+			"UnityEngine.AnimatorTransitionInfo",
             "UnityEngine.AudioClip",
 			"UnityEngine.AudioSource",
 			"UnityEngine.Color",
