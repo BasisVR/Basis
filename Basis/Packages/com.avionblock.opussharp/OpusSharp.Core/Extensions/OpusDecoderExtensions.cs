@@ -15,7 +15,7 @@ namespace OpusSharp.Core.Extensions
         /// <param name="gain">The gain to set.</param>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public static void SetGain(this OpusDecoder decoder, int gain)
+        public static void SetGain(this OpusDecoder decoder, short gain)
         {
             decoder.Ctl(DecoderCTL.OPUS_SET_GAIN, gain);
         }

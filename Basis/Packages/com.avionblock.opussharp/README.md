@@ -1,10 +1,12 @@
 # OpusSharp
-OpusSharp aims to be a cross platform, pure and ported C# compatible version of the native opus codec/library. The core library uses the native compiled DLL's/binaries. Currently, Windows, Android and Linux binaries are available. iOS and MacOS are in the works. OpusSharp compiles the opus binaries using a github actions file which is available [here](.github/workflows/OpusCompile.yml).
+
+OpusSharp aims to be a cross-platform, pure and ported C# compatible version of the native opus codec/library. The core library uses the native compiled DLL's/binaries. Windows, Android, Linux, macOS and iOS are supported. OpusSharp compiles the opus binaries using a github actions file which is available [here](.github/workflows/OpusCompile.yml).
 
 > [!NOTE]
 > While OpusSharp.Core contains minimal pre-made decoder and encoder handlers, you can create your own as all the SafeHandlers and NativeOpus functions are exposed and fully documented. However to get a minimal setup working, check the example below.
 
 ## Encoder Example
+
 ```cs
 using OpusSharp.Core;
 
@@ -22,6 +24,7 @@ var encodedBytes = encoder.Encode(someAudioData, samplesPerFrame, encodedAudio, 
 ```
 
 ## Decoder Example
+
 ```cs
 using OpusSharp.Core;
 
@@ -36,7 +39,17 @@ var decoded = new byte[1920]; //We get 1920 bytes from doing this calculation be
 var decodedSamples = decoder.Decode(someEncodedAudio, someEncodedAudio.Length, decoded, samplesPerFrame, false);
 ```
 
+## Static Usage Example
+
+```csharp
+// On iOS OpusSharp switches to StaticNativeOpus automatically.
+// You can still force the same behavior manually with use_static: true.
+var encoder = new OpusEncoder(sampleRate, channels, OpusPredefinedValues.OPUS_APPLICATION_VOIP, use_static: true);
+var encoder = new OpusDecoder(sampleRate, channels, use_static: true);
+```
+
 ## Basic NAudio Example
+
 ```cs
 using NAudio.Wave;
 using OpusSharp.Core;
@@ -80,6 +93,7 @@ Console.WriteLine(encoder.GetComplexity());
 ```
 
 ## CTL Example
+
 ```cs
 using OpusSharp.Core;
 
@@ -101,20 +115,26 @@ encoder.Ctl<int>(EncoderCTL.OPUS_SET_VBR, 1); //OpusSharp already checks if an e
 - ❗ Not yet available.
 - ❌ Not planned, Not supported.
 
-|Device     |x64|x86|arm32|arm64|
-|-----------|---|---|-----|-----|
-|Linux      |✅ |✅ |✅   |✅   |
-|Android    |✅ |✅ |✅   |✅   |
-|Windows    |✅ |✅ |✅   |✅   |
-|iOS        |❗ |❗ |❗   |❗   |
-|MacOS      |✅ |❌ |❌   |✅   |
-|WASM       |✅ |❗ |❗   |❗   |
+| Device  | x64 | x86 | arm32 | arm64 |
+| ------- | --- | --- | ----- | ----- |
+| Linux   | ✅  | ✅  | ✅    | ✅    |
+| Android | ✅  | ✅  | ✅    | ✅    |
+| Windows | ✅  | ✅  | ✅    | ✅    |
+| iOS     | ❌  | ❌  | ❌    | ✅    |
+| MacOS   | ✅  | ❌  | ❌    | ✅    |
+| WASM    | ✅  | ❗  | ❗    | ❗    |
 
 ## Installation
+
 Please check [QuickStart](https://avionblock.github.io/OpusSharp/quick-start/index.html) OR [Nuget](https://www.nuget.org/packages/OpusSharp)
+For the default cross-platform experience, install [OpusSharp](https://www.nuget.org/packages/OpusSharp). It brings in both `OpusSharp.Core` and the prebuilt native assets, including automatic iOS linking through `OpusSharp.Natives`.
+
+If you want to manage native binaries yourself, install only `OpusSharp.Core`.
 
 ## API Documentation
+
 https://avionblock.github.io/OpusSharp/api/OpusSharp.Core.html
 
 ## Opus License
+
 https://opus-codec.org/license/

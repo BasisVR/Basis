@@ -53,7 +53,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Cached during ProcessMessage to avoid dereference chain in the inner send loop.
         public bool HasAdditionalData;
 
-        // Cached per-quality payloads (payload bytes only, plus DataQualityLevel)
+        // Cached per-quality payloads (payload bytes only, plus DataQualityLevel).
+        // AvatarHigh owns its own byte[] — never shares with the QueuedMessagePool.
+        // This prevents pool reuse from silently corrupting the muscle-change comparison.
         public LocalAvatarSyncMessage AvatarHigh;
         public LocalAvatarSyncMessage AvatarMedium;
         public LocalAvatarSyncMessage AvatarLow;
@@ -171,14 +173,15 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 return;
             }
 
-            // Overwrite any pending message for this peer. Return the old one to the pool.
-            // Safe: AddMessage and the drain loop (TryRemove) run sequentially within the same
-            // background tick (TriggerUpdate fires after drain+process), so no concurrent contention.
-            currentMessages.AddOrUpdate(fromPeer.Id, message, (_, prev) =>
-            {
-                QueuedMessagePool.Return(prev);
-                return message;
-            });
+            // Overwrite any pending message for this peer.
+            // Do NOT return prev to the pool here — Interlocked.Exchange in the drain phase
+            // may have already captured prev into _messagesSnapshot.  Returning it in this
+            // factory would double-return the same QueuedMessage, letting two future Rent()
+            // calls receive the same object and corrupt each other's data.
+            // The orphaned prev (if any) is collected by the GC; this only occurs when two
+            // messages for the same peer arrive within the same tick AND the Exchange races
+            // with this AddOrUpdate — negligible allocation cost.
+            currentMessages.AddOrUpdate(fromPeer.Id, message, (_, prev) => message);
         }
 
         public static void AddMessage(NetPeer fromPeer, LocalAvatarSyncMessage localMessage, byte sequence)
@@ -188,11 +191,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             message.Sequence = sequence;
             message.AvatarMessage = localMessage;
 
-            currentMessages.AddOrUpdate(fromPeer.Id, message, (_, prev) =>
-            {
-                QueuedMessagePool.Return(prev);
-                return message;
-            });
+            // Same double-return avoidance as HandleAvatarMovement — see comment there.
+            currentMessages.AddOrUpdate(fromPeer.Id, message, (_, prev) => message);
         }
 
         private static async Task StartBackgroundProcessingAsync()
@@ -626,16 +626,16 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             int id = message.FromPeer.Id;
             byte inboundSeq = message.Sequence;
 
-            var high = message.AvatarMessage;
+            var poolMsg = message.AvatarMessage;
 
-            if (high.array == null)
+            if (poolMsg.array == null)
             {
                 BNL.LogError($"[ProcessMessage] Avatar array is null for peer {id}");
                 QueuedMessagePool.Return(message);
                 return;
             }
 
-            var incomingQuality = (BitQuality)high.DataQualityLevel;
+            var incomingQuality = (BitQuality)poolMsg.DataQualityLevel;
             bool isHighQuality = incomingQuality == BitQuality.High;
 
             if (!BasisAvatarBitPacking.IsValidQuality(incomingQuality))
@@ -645,13 +645,31 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             }
 
             int expectedPayloadSize = BasisAvatarBitPacking.ConvertToSize(incomingQuality);
-            if (high.array.Length < expectedPayloadSize)
+            if (poolMsg.array.Length < expectedPayloadSize)
             {
                 QueuedMessagePool.Return(message);
                 return;
             }
 
-            var pos = BasisNetworkCompressionExtensions.ReadPosition(ref high.array);
+            var pos = BasisNetworkCompressionExtensions.ReadPosition(ref poolMsg.array);
+
+            // Deep-copy the avatar payload so state.AvatarHigh owns its own buffer.
+            // Without this copy, QueuedMessagePool.Return() preserves the byte[] and
+            // re-rents it for other peers — silently overwriting state.AvatarHigh.array.
+            // This corrupts the prevArray muscle comparison on the next tick, causing
+            // intermittent missed repacks where lower-quality receivers get stale muscles.
+            // A fresh allocation (~150 bytes) per player per tick is negligible and
+            // preserves the position-only fast path (prevArray stays a distinct object
+            // with the previous tick's data).
+            var high = new LocalAvatarSyncMessage
+            {
+                DataQualityLevel = poolMsg.DataQualityLevel,
+                AdditionalAvatarDatas = poolMsg.AdditionalAvatarDatas,
+                AdditionalAvatarDataSize = poolMsg.AdditionalAvatarDataSize,
+                LinkedAvatarIndex = poolMsg.LinkedAvatarIndex,
+                array = new byte[poolMsg.array.Length],
+            };
+            Buffer.BlockCopy(poolMsg.array, 0, high.array, 0, poolMsg.array.Length);
 
             if (!playerStates.TryGetValue(id, out var state))
             {
@@ -682,16 +700,22 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     catch (Exception ex)
                     {
                         BNL.LogError($"[ProcessMessage] Repack failed: {ex}");
-                        state.AvatarMedium = high;
-                        state.AvatarLow = high;
-                        state.AvatarVeryLow = high;
+                        // Don't alias high into lower slots — that sends High-packed muscle
+                        // data on lower-quality channels, causing bit-width mismatches.
+                        // Null the arrays so PreSerializeAll skips them; the repacker's
+                        // EnsureBuffer and the position-only fast path both handle null safely.
+                        state.AvatarMedium.array = null;
+                        state.AvatarLow.array = null;
+                        state.AvatarVeryLow.array = null;
                     }
                 }
                 else
                 {
-                    state.AvatarMedium = high;
-                    state.AvatarLow = high;
-                    state.AvatarVeryLow = high;
+                    // Non-High quality: can't repack downward. Null lower slots to
+                    // avoid sending mismatched quality data on wrong channels.
+                    state.AvatarMedium.array = null;
+                    state.AvatarLow.array = null;
+                    state.AvatarVeryLow.array = null;
                 }
 
                 // Propagate additional avatar data (e.g. blendshapes) to quality variants.
@@ -744,10 +768,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 if (isHighQuality)
                 {
                     // Check if muscles+tail changed (skip expensive bit repacking if only position moved).
-                    // ReferenceEquals guard: QueuedMessagePool preserves byte arrays for reuse,
-                    // so prevArray and high.array can be the same object (pool handed back the
-                    // same buffer). Comparing an array with itself always yields "equal", which
-                    // would permanently freeze rotation+muscles in lower quality buffers.
+                    // ReferenceEquals guard (defense-in-depth): with the deep-copy above, prevArray
+                    // and high.array should always be distinct objects. The guard remains as a safety
+                    // net in case future changes reintroduce buffer sharing.
                     int muscleAndTailBytes = HighMuscleAndTailBytes;
                     bool musclesOrTailChanged = prevArray == null
                         || ReferenceEquals(prevArray, high.array)
@@ -755,7 +778,14 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         || !high.array.AsSpan(WritePosition, muscleAndTailBytes)
                             .SequenceEqual(prevArray.AsSpan(WritePosition, muscleAndTailBytes));
 
-                    if (musclesOrTailChanged)
+                    // Force a full repack when any lower quality array is null (e.g. after a
+                    // previous repack failure).  Without this, the position-only fast path would
+                    // skip the null arrays indefinitely and far receivers would never see the player.
+                    bool needsRecovery = state.AvatarMedium.array == null
+                        || state.AvatarLow.array == null
+                        || state.AvatarVeryLow.array == null;
+
+                    if (musclesOrTailChanged || needsRecovery)
                     {
                         try
                         {
@@ -764,9 +794,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         catch (Exception ex)
                         {
                             BNL.LogError($"[ProcessMessage] Repack failed: {ex}");
-                            state.AvatarMedium = high;
-                            state.AvatarLow = high;
-                            state.AvatarVeryLow = high;
+                            state.AvatarMedium.array = null;
+                            state.AvatarLow.array = null;
+                            state.AvatarVeryLow.array = null;
                         }
                     }
                     else
@@ -789,9 +819,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 }
                 else
                 {
-                    state.AvatarMedium = high;
-                    state.AvatarLow = high;
-                    state.AvatarVeryLow = high;
+                    // Non-High quality: can't repack downward safely.
+                    state.AvatarMedium.array = null;
+                    state.AvatarLow.array = null;
+                    state.AvatarVeryLow.array = null;
                 }
 
                 // Propagate additional avatar data to quality variants

@@ -48,6 +48,7 @@
     <assembly fullname="SteamAudioUnity" preserve="all" />
     <assembly fullname="SteamVR" preserve="all" />
     <assembly fullname="SteamVR_Actions" preserve="all" />
+    <assembly fullname="System" preserve="all" />
     <assembly fullname="TrueAudioNext" preserve="all" />
     <assembly fullname="UdonSharp.Lib" preserve="all" />
     <assembly fullname="UdonSharp.Runtime" preserve="all" />
@@ -109,6 +110,7 @@
     <assembly fullname="Unity.XR.OpenXR.Features.OculusQuestSupport" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.Features.RuntimeDebugger" preserve="all" />
     <assembly fullname="Unity.XR.OpenXR.TestTooling" preserve="all" />
+    <assembly fullname="UnityEngine.CoreModule" preserve="all" />
     <assembly fullname="UnityEngine.SpatialTracking" preserve="all" />
     <assembly fullname="UnityEngine.UI" preserve="all" />
     <assembly fullname="UnityEngine.XR.LegacyInputHelpers" preserve="all" />
@@ -117,6 +119,7 @@
     <assembly fullname="audioplugin_phonon" preserve="all" />
     <assembly fullname="com.cqf.urpvolumetricfog.runtime" preserve="all" />
     <assembly fullname="com.gator-dragon-games.jigglephysics" preserve="all" />
+    <assembly fullname="mscorlib" preserve="all" />
     <assembly fullname="openvr_api" preserve="all" />
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />

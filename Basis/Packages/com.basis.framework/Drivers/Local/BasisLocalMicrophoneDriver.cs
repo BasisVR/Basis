@@ -74,6 +74,7 @@ public static class BasisLocalMicrophoneDriver
     public const int DenoiserFrameSize = 480; // 10ms at 48kHz
 
     private static float _agcHoldTimer = 0f;
+    private static float _noiseGateGain = 0f; // 0 = closed, 1 = open
 
     private static float[] _denoiseDry;
     private static float[] _tmp480;
@@ -369,6 +370,7 @@ public static class BasisLocalMicrophoneDriver
         position = 0;
         inWarmup = false;
         warmupSamples = 0;
+        _noiseGateGain = 0f;
 
         if (_micInterleaved != null) Array.Clear(_micInterleaved, 0, _micInterleaved.Length);
         if (microphoneBufferArray != null) Array.Clear(microphoneBufferArray, 0, microphoneBufferArray.Length);
@@ -599,6 +601,11 @@ public static class BasisLocalMicrophoneDriver
                 ApplyDeNoise(s);
             }
 
+            if (s.UseNoiseGate)
+            {
+                ApplyNoiseGate(s);
+            }
+
             RollingRMS();
 
             if (IsTransmitWorthy())
@@ -696,6 +703,42 @@ public static class BasisLocalMicrophoneDriver
             {
                 float den = processBufferArray[i] * makeup;
                 processBufferArray[i] = Mathf.Lerp(_denoiseDry[i], den, wet);
+            }
+        }
+    }
+
+    public static void ApplyNoiseGate(SMDMicrophone.MicSettings s)
+    {
+        // Compute frame RMS
+        double sum = 0.0;
+        for (int i = 0; i < ProcessFrameSize; i++)
+        {
+            float v = processBufferArray[i];
+            sum += v * v;
+        }
+        float frameRms = Mathf.Sqrt((float)(sum / ProcessFrameSize));
+
+        // Smoothing coefficients per frame (20ms frames)
+        float attackCoeff = Mathf.Clamp01(s.NoiseGateAttack);
+        float releaseCoeff = Mathf.Clamp01(s.NoiseGateRelease);
+
+        if (frameRms > s.NoiseGateThreshold)
+        {
+            // Open gate
+            _noiseGateGain = Mathf.Lerp(_noiseGateGain, 1f, attackCoeff);
+        }
+        else
+        {
+            // Close gate
+            _noiseGateGain = Mathf.Lerp(_noiseGateGain, 0f, releaseCoeff);
+        }
+
+        // Apply gate gain to samples
+        if (_noiseGateGain < 0.999f)
+        {
+            for (int i = 0; i < ProcessFrameSize; i++)
+            {
+                processBufferArray[i] *= _noiseGateGain;
             }
         }
     }

@@ -208,7 +208,7 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 try
                 {
-                    pcmLength = decoder.Decode(Span<byte>.Empty, 0, new Span<float>(pcmBuffer), RemoteOpusSettings.FrameSize, false);
+                    pcmLength = decoder.Decode(null, 0, pcmBuffer, RemoteOpusSettings.FrameSize, false);
                     InOrderRead.Add(pcmBuffer, pcmLength, true);
                 }
                 catch
@@ -474,17 +474,17 @@ namespace Basis.Scripts.Networking.Receivers
             audioSource.spatialBlend = Mathf.Clamp01(spatialBlend);
             audioSource.dopplerLevel = Mathf.Max(0f, dopplerLevel);
 
-            int gain;
+            short gain;
             if (volume <= 0f)
             {
                 // Effectively silence
-                gain = (int)(-96f * 256f);
+                gain = (short)(-96f * 256f);
                 audioSource.volume = 0f;
             }
             else
             {
                 float db = 20f * Mathf.Log10(volume);
-                gain = (int)(db * 256f);
+                gain = (short)(db * 256f);
                 audioSource.volume = 1;
             }
             if (decoder != null)

@@ -95,7 +95,10 @@ public static class BasisRemoteFaceManagement
 
     public static void Apply()
     {
-        if (count <= 0) return;
+        if (count <= 0)
+        {
+            return;
+        }
 
         handle.Complete();
 
