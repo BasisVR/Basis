@@ -173,6 +173,11 @@ public class BasisNetworkHeadlessDriver : BasisNetworkBehaviour
                     BasisLocalPlayer.Instance.Teleport(Position, Rotation);
                     await BasisLocalPlayer.Instance.CreateAvatar(0, data);
 
+                    if (BasisHeadlessInput.Instance != null)
+                    {
+                        BasisHeadlessInput.Instance.ResumeMovement();
+                    }
+
                     BasisDebug.Log($"[HeadlessDriver] Teleported player {playerID} to transform[{index}] at {Position}.", BasisDebug.LogTag.Remote);
                     break;
                 }

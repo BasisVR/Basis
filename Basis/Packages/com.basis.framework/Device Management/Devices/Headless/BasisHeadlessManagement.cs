@@ -3,6 +3,7 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Headless;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -124,24 +125,85 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public static void LoadOrCreateConfigXml()
     {
         string filePath = Path.Combine(Application.dataPath, "config.xml");
-        if (!File.Exists(filePath))
+        string defaultPassword = Password;
+        string defaultIp = Ip;
+        int defaultPort = Port;
+        string envPassword = ReadEnvironmentString("Password");
+        string envIp = ReadEnvironmentString("Ip");
+        int? envPort = ReadEnvironmentInt("Port");
+
+        if (envPassword != null && envIp != null && envPort.HasValue)
         {
-            var defaultConfig = new XElement("Configuration",
-                new XElement("Password", Password),
-                new XElement("Ip", Ip),
-                new XElement("Port", Port)
-            );
-            new XDocument(defaultConfig).Save(filePath);
+            Password = envPassword;
+            Ip = envIp;
+            Port = envPort.Value;
             return;
         }
 
-        var doc = XDocument.Load(filePath);
-        var root = doc.Element("Configuration");
-        if (root == null) return;
+        XElement root = null;
+        if (File.Exists(filePath))
+        {
+            var doc = XDocument.Load(filePath);
+            root = doc.Element("Configuration");
+        }
+        else
+        {
+            TryCreateDefaultConfigXml(filePath, defaultPassword, defaultIp, defaultPort);
+        }
 
-        Password = root.Element("Password")?.Value ?? Password;
-        Ip = root.Element("Ip")?.Value ?? Ip;
-        Port = int.TryParse(root.Element("Port")?.Value, out var p) ? p : Port;
+        Password = envPassword ?? root?.Element("Password")?.Value ?? defaultPassword;
+        Ip = envIp ?? root?.Element("Ip")?.Value ?? defaultIp;
+        Port = envPort ?? ReadXmlInt(root?.Element("Port")?.Value, defaultPort);
+    }
+
+    private static void TryCreateDefaultConfigXml(string filePath, string password, string ip, int port)
+    {
+        try
+        {
+            var defaultConfig = new XElement("Configuration",
+                new XElement("Password", password),
+                new XElement("Ip", ip),
+                new XElement("Port", port)
+            );
+            new XDocument(defaultConfig).Save(filePath);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"Unable to create default headless config at '{filePath}'. Continuing with environment/default values. {ex.Message}");
+        }
+    }
+
+    private static string ReadEnvironmentString(string envName)
+    {
+        string envValue = Environment.GetEnvironmentVariable(envName);
+        if (string.IsNullOrWhiteSpace(envValue))
+        {
+            return null;
+        }
+
+        return envValue;
+    }
+
+    private static int? ReadEnvironmentInt(string envName)
+    {
+        string envValue = Environment.GetEnvironmentVariable(envName);
+        if (string.IsNullOrWhiteSpace(envValue))
+        {
+            return null;
+        }
+
+        if (int.TryParse(envValue, out int parsed))
+        {
+            return parsed;
+        }
+
+        Debug.LogWarning($"Invalid headless environment variable '{envName}' value '{envValue}'. Falling back to config.xml/defaults.");
+        return null;
+    }
+
+    private static int ReadXmlInt(string value, int fallback)
+    {
+        return int.TryParse(value, out int parsed) ? parsed : fallback;
     }
 
     /// <summary>
@@ -183,16 +245,14 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public override void StartSDK()
     {
 #if UNITY_SERVER
-        if (BasisHeadlessInput == null)
+        if (BasisLocalPlayer.PlayerReady && BasisLocalPlayer.Instance != null)
         {
-            GameObject gameObject = new GameObject("Headless Eye");
-            if (BasisLocalPlayer.Instance != null)
-            {
-                gameObject.transform.parent = BasisLocalPlayer.Instance.transform;
-            }
-            BasisHeadlessInput = gameObject.AddComponent<BasisHeadlessInput>();
-            BasisHeadlessInput.Initialize("Desktop Eye", nameof(Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput));
-            BasisDeviceManagement.Instance.TryAdd(BasisHeadlessInput);
+            EnsureHeadlessInput();
+        }
+        else
+        {
+            BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
+            BasisLocalPlayer.OnLocalPlayerInitalized += OnLocalPlayerReadyForHeadless;
         }
         BasisDebug.Log(nameof(StartSDK), BasisDebug.LogTag.Device);
 
@@ -215,6 +275,42 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 #endif
         BasisDebug.Log(nameof(StartSDK), BasisDebug.LogTag.Device);
     }
+
+    private void OnDestroy()
+    {
+#if UNITY_SERVER
+        BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
+#endif
+    }
+
+#if UNITY_SERVER
+    private void OnLocalPlayerReadyForHeadless()
+    {
+        BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
+        EnsureHeadlessInput();
+    }
+
+    private void EnsureHeadlessInput()
+    {
+        if (BasisHeadlessInput != null)
+        {
+            return;
+        }
+
+        if (BasisLocalPlayer.Instance == null)
+        {
+            BasisDebug.LogWarning("Headless input creation delayed: LocalPlayer instance is null.", BasisDebug.LogTag.Device);
+            return;
+        }
+
+        GameObject gameObject = new GameObject("Headless Eye");
+        gameObject.transform.parent = BasisLocalPlayer.Instance.transform;
+
+        BasisHeadlessInput = gameObject.AddComponent<BasisHeadlessInput>();
+        BasisHeadlessInput.Initialize("Desktop Eye", nameof(Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput));
+        BasisDeviceManagement.Instance.TryAdd(BasisHeadlessInput);
+    }
+#endif
 
     /// <inheritdoc/>
     public override void StopSDK()
