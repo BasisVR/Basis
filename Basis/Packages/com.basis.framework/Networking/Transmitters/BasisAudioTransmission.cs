@@ -2,7 +2,9 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
+#if !UNITY_SERVER
 using OpusSharp.Core;
+#endif
 using static SerializableBasis;
 
 namespace Basis.Scripts.Networking.Transmitters
@@ -10,7 +12,9 @@ namespace Basis.Scripts.Networking.Transmitters
     [System.Serializable]
     public class BasisAudioTransmission
     {
+#if !UNITY_SERVER
         public OpusEncoder encoder;
+#endif
         public BasisNetworkPlayer NetworkedPlayer;
         public BasisLocalPlayer Local;
         public bool HasEvents = false;
@@ -28,6 +32,9 @@ namespace Basis.Scripts.Networking.Transmitters
             NetworkedPlayer = networkedPlayer;
             Local = (BasisLocalPlayer)networkedPlayer.Player;
 
+#if UNITY_SERVER
+            return;
+#endif
             InitializeEncoder();
             AttachMicrophoneEvents();
             InitializeBuffers();
@@ -35,6 +42,9 @@ namespace Basis.Scripts.Networking.Transmitters
 
         public void DeInitialize()
         {
+#if UNITY_SERVER
+            return;
+#else
             if (HasEvents)
             {
                 DetachMicrophoneEvents();
@@ -42,8 +52,10 @@ namespace Basis.Scripts.Networking.Transmitters
 
             encoder?.Dispose();
             encoder = null;
+#endif
         }
 
+#if !UNITY_SERVER
         private void InitializeEncoder()
         {
 #if UNITY_IOS && !UNITY_EDITOR
@@ -65,6 +77,7 @@ namespace Basis.Scripts.Networking.Transmitters
             encoder.Ctl(EncoderCTL.OPUS_SET_BITRATE, 32000);
             encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, 5);
         }
+#endif
 
         private void AttachMicrophoneEvents()
         {
@@ -108,6 +121,9 @@ namespace Basis.Scripts.Networking.Transmitters
         }
         public void OnAudioReady()
         {
+#if UNITY_SERVER
+            return;
+#else
             // In shout mode we always send (everyone hears us).
             // In normal mode we only send if someone is in range.
             if (!IsInShoutMode && !NetworkedPlayer.HasReasonToSendAudio)
@@ -143,16 +159,21 @@ namespace Basis.Scripts.Networking.Transmitters
                 BasisLocalPlayer.Instance.AudioReceived?.Invoke();
             }
             SilentForHowLong = 0;
+#endif
         }
 
         private void SendSilenceOverNetwork()
         {
+#if UNITY_SERVER
+            return;
+#else
             if (!IsInShoutMode && !NetworkedPlayer.HasReasonToSendAudio)
             {
                 return;
             }
 
             SilentForHowLong++; //how long in sample size this way on the remote side
+#endif
         }
     }
 }
