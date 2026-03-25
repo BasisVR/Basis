@@ -1,4 +1,4 @@
-﻿using OpusSharp.Core.SafeHandlers;
+using OpusSharp.Core.SafeHandlers;
 using System;
 
 // ReSharper disable MemberCanBePrivate.Global
