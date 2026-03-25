@@ -146,9 +146,13 @@ public class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void FixedUpdate()
     {
+
         fixedDeltaTime = Time.fixedDeltaTime;
         fixedTimeAsDouble = Time.fixedTimeAsDouble;
-        BasisSceneFactory.Simulate(fixedDeltaTime);
+        if (BasisLocalPlayer.PlayerReady)
+        {
+            BasisSceneFactory.Simulate(fixedDeltaTime);
+        }
     }
 
     /// <summary>

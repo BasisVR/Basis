@@ -110,7 +110,7 @@ public static class BasisSceneFactory
         BasisScene.Group = SMModuleAudio.Instance.WorldDefaultMixer;
 
         // Get all active and inactive AudioSources in the scene
-        AudioSource[] sources = GameObject.FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        AudioSource[] sources = GameObject.FindObjectsByType<AudioSource>(FindObjectsInactive.Include);
         int AudioSourceCount = sources.Length;
         // Loop through each AudioSource and assign the mixer group if not already assigned
         for (int Index = 0; Index < AudioSourceCount; Index++)
@@ -131,16 +131,22 @@ public static class BasisSceneFactory
     public static void SpawnPlayer(BasisLocalPlayer localPlayer)
     {
         BasisDebug.Log("Spawning Player");
-        RequestSpawnPoint(out Vector3 position, out Quaternion rotation);
-        if (localPlayer != null)
+        if (RequestSpawnPoint(out Vector3 position, out Quaternion rotation))
         {
-            localPlayer.Teleport(position, rotation);
+            if (localPlayer != null)
+            {
+                localPlayer.Teleport(position, rotation);
+            }
+            else
+            {
+                BasisDebug.LogError("Missing Local Player!");
+            }
+            OnSpawnedEvent?.Invoke();
         }
         else
         {
-            BasisDebug.LogError("Missing Local Player!");
+            OnSpawnedEvent?.Invoke();
         }
-        OnSpawnedEvent?.Invoke();
     }
     public static void Simulate(float FixedDeltaTime)
     {
@@ -149,13 +155,13 @@ public static class BasisSceneFactory
         if (timeSinceLastCheck > RespawnCheckTimer)
         {
             timeSinceLastCheck = 0f; // Reset timer
-            if (BasisLocalPlayer != null && BasisLocalPlayer.PlayerSelf.position.y < RespawnHeight)
+            if (BasisLocalPlayer.PlayerSelf.position.y < RespawnHeight)
             {
                 SpawnPlayer(BasisLocalPlayer);
             }
         }
     }
-    public static void RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
+    public static bool RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
     {
         if (BasisScene != null)
         {
@@ -168,12 +174,14 @@ public static class BasisSceneFactory
             {
                 BasisScene.SpawnPoint.GetPositionAndRotation(out Position, out Rotation);
             }
+            return true;
         }
         else
         {
             BasisDebug.LogError("Missing BasisScene!");
             Position = Vector3.zero;
             Rotation = Quaternion.identity;
+            return false;
         }
     }
 }
