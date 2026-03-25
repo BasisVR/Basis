@@ -24,15 +24,15 @@ namespace OpusSharp.Core
         /// </summary>
         /// <param name="sample_rate">The sample rate, this must be one of 8000, 12000, 16000, 24000, or 48000.</param>
         /// <param name="channels">Number of channels, this must be 1 or 2.</param>
-        /// <param name="use_static">Whether to use a statically linked version of opus.</param>
+        /// <param name="use_static">Set to <see langword="true"/> to force static imports, <see langword="false"/> to force dynamic imports, or <see langword="null"/> to auto-select based on platform.</param>
         /// <param name="application">Coding mode (one of <see cref="OpusPredefinedValues.OPUS_APPLICATION_VOIP"/>, <see cref="OpusPredefinedValues.OPUS_APPLICATION_AUDIO"/> or <see cref="OpusPredefinedValues.OPUS_APPLICATION_RESTRICTED_LOWDELAY"/></param>
         /// <exception cref="OpusException" />
         public unsafe OpusEncoder(int sample_rate, int channels, OpusPredefinedValues application,
-            bool use_static = false)
+            bool? use_static = null)
         {
-            _useStatic = use_static;
+            _useStatic = OpusRuntime.ShouldUseStaticImports(use_static);
             var error = 0;
-            _handler = use_static
+            _handler = _useStatic
                 ? StaticNativeOpus.opus_encoder_create(sample_rate, channels, (int)application, &error)
                 : NativeOpus.opus_encoder_create(sample_rate, channels, (int)application, &error);
             CheckError(error);
@@ -45,7 +45,7 @@ namespace OpusSharp.Core
         {
             Dispose(false);
         }
-
+#if NETSTANDARD2_1_OR_GREATER || NET8_0_OR_GREATER
         /// <summary>
         /// Encodes a pcm frame.
         /// </summary>
@@ -141,6 +141,7 @@ namespace OpusSharp.Core
                 return result;
             }
         }
+#endif
 
         /// <summary>
         /// Encodes a pcm frame.
@@ -152,8 +153,19 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(byte[] input, int frame_size, byte[] output, int max_data_bytes) =>
-            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        public unsafe int Encode(byte[] input, int frame_size, byte[] output, int max_data_bytes)
+        {
+            ThrowIfDisposed();
+            fixed (byte* inputPtr = input)
+            fixed (byte* outputPtr = output)
+            {
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode(_handler, (short*)inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode(_handler, (short*)inputPtr, frame_size, outputPtr, max_data_bytes);
+                CheckError(result);
+                return result;
+            }
+        }
 
         /// <summary>
         /// Encodes a pcm frame.
@@ -165,9 +177,20 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(short[] input, int frame_size, byte[] output, int max_data_bytes) =>
-            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
-        
+        public unsafe int Encode(short[] input, int frame_size, byte[] output, int max_data_bytes)
+        {
+            ThrowIfDisposed();
+            fixed (short* inputPtr = input)
+            fixed (byte* outputPtr = output)
+            {
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode(_handler, inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
+                CheckError(result);
+                return result;
+            }
+        }
+
         /// <summary>
         /// Encodes a pcm frame.
         /// </summary>
@@ -178,8 +201,19 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(int[] input, int frame_size, byte[] output, int max_data_bytes) =>
-            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        public unsafe int Encode(int[] input, int frame_size, byte[] output, int max_data_bytes)
+        {
+            ThrowIfDisposed();
+            fixed (int* inputPtr = input)
+            fixed (byte* outputPtr = output)
+            {
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode24(_handler, inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode24(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
+                CheckError(result);
+                return result;
+            }
+        }
 
         /// <summary>
         /// Encodes a floating point pcm frame.
@@ -191,8 +225,19 @@ namespace OpusSharp.Core
         /// <returns>The length of the encoded packet (in bytes).</returns>
         /// <exception cref="OpusException" />
         /// <exception cref="ObjectDisposedException" />
-        public int Encode(float[] input, int frame_size, byte[] output, int max_data_bytes) =>
-            Encode(input.AsSpan(), frame_size, output.AsSpan(), max_data_bytes);
+        public unsafe int Encode(float[] input, int frame_size, byte[] output, int max_data_bytes)
+        {
+            ThrowIfDisposed();
+            fixed (float* inputPtr = input)
+            fixed (byte* outputPtr = output)
+            {
+                var result = _useStatic
+                    ? StaticNativeOpus.opus_encode_float(_handler, inputPtr, frame_size, outputPtr, max_data_bytes)
+                    : NativeOpus.opus_encode_float(_handler, inputPtr, frame_size, outputPtr, max_data_bytes);
+                CheckError(result);
+                return result;
+            }
+        }
 
         /// <summary>
         /// Performs a ctl request.
