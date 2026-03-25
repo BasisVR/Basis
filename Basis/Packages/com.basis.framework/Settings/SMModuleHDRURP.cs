@@ -12,6 +12,10 @@ public class SMModuleHDRURP : BasisSettingsBase
         // Only react to the HDR setting
         if (matchedSettingName != K_HDR_SUPPORT)
             return;
+#if UNITY_SERVER
+        BasisDebug.LogWarning("SMModuleHDRURP: Running on server build. HDR changes will not be applied.", BasisDebug.LogTag.Local);
+        return;
+#endif 
 
         UniversalRenderPipelineAsset asset =
             (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;

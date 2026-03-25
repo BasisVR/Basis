@@ -439,8 +439,39 @@ public static class BasisNetworkEvents
     }
     public static void HandleDisconnectionReason(DisconnectInfo disconnectInfo)
     {
+#if UNITY_SERVER
+        bool canShowMenu = !UnityEngine.Application.isBatchMode;
+#endif
+
         if (disconnectInfo.Reason == DisconnectReason.RemoteConnectionClose)
         {
+#if UNITY_SERVER
+            string reason = null;
+            if (disconnectInfo.AdditionalData != null &&
+                disconnectInfo.AdditionalData.TryGetString(out string parsedReason))
+            {
+                reason = parsedReason;
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                if (canShowMenu)
+                {
+                    BasisMainMenu.Open();
+                    if (BasisMainMenu.Instance != null)
+                    {
+                        BasisMainMenu.Instance.OpenDialogue("Server Connection", reason, "ok", value =>
+                        {
+                        });
+                    }
+                }
+                BasisDebug.LogError(reason);
+            }
+            else
+            {
+                BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
+            }
+#else
             if (disconnectInfo.AdditionalData.TryGetString(out string Reason))
             {
                 BasisMainMenu.Open();
@@ -453,15 +484,31 @@ public static class BasisNetworkEvents
             {
                 BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
+#endif
         }
         else
         {
+#if UNITY_SERVER
+            if (canShowMenu)
+            {
+                BasisMainMenu.Open();
+                if (BasisMainMenu.Instance != null)
+                {
+                    BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+                    {
+                    });
+                }
+            }
+
+            BasisDebug.LogError(disconnectInfo.Reason.ToString());
+#else
             BasisMainMenu.Open();
             BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
               {
               });
 
             BasisDebug.LogError(disconnectInfo.Reason.ToString());
+#endif
         }
     }
 }
