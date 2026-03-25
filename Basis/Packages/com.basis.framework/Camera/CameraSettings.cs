@@ -12,7 +12,7 @@ public partial class BasisHandHeldCameraUI
             apertureIndex = 0;
             shutterSpeedIndex = 0;
             isoIndex = 0;
-            fov = 60f;
+            fov = 40;
             focusDistance = 10f;
             sensorSizeX = 36f;
             sensorSizeY = 24f;

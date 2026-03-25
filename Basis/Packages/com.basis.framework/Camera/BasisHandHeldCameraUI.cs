@@ -540,7 +540,7 @@ public partial class BasisHandHeldCameraUI
         {
             resolutionIndex = currentResolutionIndex,
             formatIndex = GetFormatIndex(),
-            fov = FOVSlider != null ? FOVSlider.value : 60f,
+            fov = FOVSlider != null ? FOVSlider.value : 40f,
             bloomIntensity = BloomIntensitySlider != null ? BloomIntensitySlider.value : 0.5f,
             bloomThreshold = BloomThresholdSlider != null ? BloomThresholdSlider.value : 0.5f,
             contrast = ContrastSlider != null ? ContrastSlider.value : 1f,

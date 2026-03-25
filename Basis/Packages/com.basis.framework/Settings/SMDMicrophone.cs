@@ -31,6 +31,11 @@ public class SMDMicrophone : BasisSettingsBase
         public float AgcAttack;
         public float AgcRelease;
 
+        public bool UseNoiseGate;
+        public float NoiseGateThreshold;
+        public float NoiseGateAttack;
+        public float NoiseGateRelease;
+
         public BasisMicrophoneMode TalkMode;
     }
 
@@ -57,6 +62,10 @@ public class SMDMicrophone : BasisSettingsBase
     private const string K_AGC_MG = "AgcMaxGainDb";
     private const string K_AGC_AT = "AgcAttack";
     private const string K_AGC_RL = "AgcRelease";
+    private const string K_NG_ON = "UseNoiseGate";
+    private const string K_NG_TH = "NoiseGateThreshold";
+    private const string K_NG_AT = "NoiseGateAttack";
+    private const string K_NG_RL = "NoiseGateRelease";
     private const string K_TALK = "TalkMode";
 
     private static MicSettings Defaults()
@@ -76,6 +85,10 @@ public class SMDMicrophone : BasisSettingsBase
             AgcMaxGainDb = 8f,
             AgcAttack = 0.10f,
             AgcRelease = 0.01f,
+            UseNoiseGate = false,
+            NoiseGateThreshold = 0.01f,
+            NoiseGateAttack = 0.10f,
+            NoiseGateRelease = 0.05f,
             TalkMode = BasisMicrophoneMode.OnActivation
         };
     }
@@ -89,6 +102,9 @@ public class SMDMicrophone : BasisSettingsBase
         s.AgcTargetRms = Mathf.Max(1e-6f, s.AgcTargetRms);
         s.AgcAttack = Mathf.Clamp01(s.AgcAttack);
         s.AgcRelease = Mathf.Clamp01(s.AgcRelease);
+        s.NoiseGateThreshold = Mathf.Clamp(s.NoiseGateThreshold, 0f, 0.5f);
+        s.NoiseGateAttack = Mathf.Clamp01(s.NoiseGateAttack);
+        s.NoiseGateRelease = Mathf.Clamp01(s.NoiseGateRelease);
 
         // Validate mic exists
         if (MicrophoneDevices != null && MicrophoneDevices.Length > 0)
@@ -146,6 +162,11 @@ public class SMDMicrophone : BasisSettingsBase
         s.AgcAttack = PlayerPrefs.GetFloat(P(mode, K_AGC_AT), s.AgcAttack);
         s.AgcRelease = PlayerPrefs.GetFloat(P(mode, K_AGC_RL), s.AgcRelease);
 
+        s.UseNoiseGate = PlayerPrefs.GetInt(P(mode, K_NG_ON), s.UseNoiseGate ? 1 : 0) == 1;
+        s.NoiseGateThreshold = PlayerPrefs.GetFloat(P(mode, K_NG_TH), s.NoiseGateThreshold);
+        s.NoiseGateAttack = PlayerPrefs.GetFloat(P(mode, K_NG_AT), s.NoiseGateAttack);
+        s.NoiseGateRelease = PlayerPrefs.GetFloat(P(mode, K_NG_RL), s.NoiseGateRelease);
+
         s.TalkMode = (BasisMicrophoneMode)PlayerPrefs.GetInt(P(mode, K_TALK), (int)s.TalkMode);
 
         ClampAndValidate(ref s);
@@ -184,6 +205,11 @@ public class SMDMicrophone : BasisSettingsBase
         PlayerPrefs.SetFloat(P(mode, K_AGC_MG), s.AgcMaxGainDb);
         PlayerPrefs.SetFloat(P(mode, K_AGC_AT), s.AgcAttack);
         PlayerPrefs.SetFloat(P(mode, K_AGC_RL), s.AgcRelease);
+
+        PlayerPrefs.SetInt(P(mode, K_NG_ON), s.UseNoiseGate ? 1 : 0);
+        PlayerPrefs.SetFloat(P(mode, K_NG_TH), s.NoiseGateThreshold);
+        PlayerPrefs.SetFloat(P(mode, K_NG_AT), s.NoiseGateAttack);
+        PlayerPrefs.SetFloat(P(mode, K_NG_RL), s.NoiseGateRelease);
 
         PlayerPrefs.SetInt(P(mode, K_TALK), (int)s.TalkMode);
 
@@ -255,6 +281,24 @@ public class SMDMicrophone : BasisSettingsBase
         SaveCurrent();
     }
 
+    public static void SetNoiseGateEnabled(bool enabled)
+    {
+        var s = Current;
+        s.UseNoiseGate = enabled;
+        Current = s;
+        SaveCurrent();
+    }
+
+    public static void SetNoiseGateParams(float threshold, float attack, float release)
+    {
+        var s = Current;
+        s.NoiseGateThreshold = threshold;
+        s.NoiseGateAttack = attack;
+        s.NoiseGateRelease = release;
+        Current = s;
+        SaveCurrent();
+    }
+
     public static void SetTalkMode(BasisMicrophoneMode mode)
     {
         var s = Current;
@@ -274,6 +318,11 @@ public class SMDMicrophone : BasisSettingsBase
     private static string B_AGC_MAXGAIN => BasisSettingsDefaults.AgcMaxGainDb.BindingKey;
     private static string B_AGC_ATTACK => BasisSettingsDefaults.AgcAttack.BindingKey;
     private static string B_AGC_RELEASE => BasisSettingsDefaults.AgcRelease.BindingKey;
+
+    private static string B_NG => BasisSettingsDefaults.UseNoiseGate.BindingKey;
+    private static string B_NG_TH => BasisSettingsDefaults.NoiseGateThreshold.BindingKey;
+    private static string B_NG_AT => BasisSettingsDefaults.NoiseGateAttack.BindingKey;
+    private static string B_NG_RL => BasisSettingsDefaults.NoiseGateRelease.BindingKey;
 
     private static string B_DENOISER => BasisSettingsDefaults.MicrophoneDenoiser.BindingKey;
     private static string B_MIC_MODE => BasisSettingsDefaults.MicrophoneMode.BindingKey;
@@ -339,6 +388,25 @@ public class SMDMicrophone : BasisSettingsBase
                 case var s when s == B_AGC_RELEASE:
                     if (float.TryParse(optionValue, st, ci, out float rel))
                         SetAgcParams(Current.AgcTargetRms, Current.AgcMaxGainDb, Current.AgcAttack, rel);
+                    break;
+
+                case var s when s == B_NG:
+                    if (bool.TryParse(optionValue, out bool ngOn)) SetNoiseGateEnabled(ngOn);
+                    break;
+
+                case var s when s == B_NG_TH:
+                    if (float.TryParse(optionValue, st, ci, out float ngTh))
+                        SetNoiseGateParams(ngTh, Current.NoiseGateAttack, Current.NoiseGateRelease);
+                    break;
+
+                case var s when s == B_NG_AT:
+                    if (float.TryParse(optionValue, st, ci, out float ngAtt))
+                        SetNoiseGateParams(Current.NoiseGateThreshold, ngAtt, Current.NoiseGateRelease);
+                    break;
+
+                case var s when s == B_NG_RL:
+                    if (float.TryParse(optionValue, st, ci, out float ngRel))
+                        SetNoiseGateParams(Current.NoiseGateThreshold, Current.NoiseGateAttack, ngRel);
                     break;
 
                 case var s when s == B_MIC_MODE:
