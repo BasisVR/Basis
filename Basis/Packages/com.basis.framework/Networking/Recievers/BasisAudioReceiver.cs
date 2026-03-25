@@ -303,7 +303,7 @@ namespace Basis.Scripts.Networking.Receivers
         {
 #if UNITY_SERVER
             return;
-#endif
+#else
             outputSampleRate = AudioSettings.outputSampleRate;
 
             silentData ??= new float[RemoteOpusSettings.FrameSize];
@@ -315,6 +315,7 @@ namespace Basis.Scripts.Networking.Receivers
             decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
 #else
             decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+#endif
 #endif
         }
 

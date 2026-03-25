@@ -34,10 +34,11 @@ namespace Basis.Scripts.Networking.Transmitters
 
 #if UNITY_SERVER
             return;
-#endif
+#else
             InitializeEncoder();
             AttachMicrophoneEvents();
             InitializeBuffers();
+#endif
         }
 
         public void DeInitialize()
