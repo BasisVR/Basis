@@ -196,6 +196,24 @@ jobs:
         run: |
           sudo mv "build/${{ matrix.buildOutput }}/StandaloneLinux64" "build/${{ matrix.buildOutput }}/HeadlessLinux64"
           sudo chown -R "$(id -u):$(id -g)" "build/${{ matrix.buildOutput }}/HeadlessLinux64"
+      - name: "Write headless config.xml into artifact"
+        shell: bash
+        run: |
+          if [ "${{ matrix.targetPlatform }}" = "StandaloneWindows64" ]; then
+            data_dir="build/${{ matrix.buildOutput }}/HeadlessWindows64/HeadlessWindowsServer_Data"
+          else
+            data_dir="build/${{ matrix.buildOutput }}/HeadlessLinux64/HeadlessLinuxServer_Data"
+          fi
+
+          mkdir -p "$data_dir"
+          cat > "$data_dir/config.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <Configuration>
+            <Password>default_password</Password>
+            <Ip>server1.basisvr.org</Ip>
+            <Port>4296</Port>
+          </Configuration>
+          EOF
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
         if: always()
