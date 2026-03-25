@@ -10,11 +10,13 @@ PACKAGE_DIRS_TO_REMOVE = (
     "Packages/com.valvesoftware.unity.openvr",
     "Packages/com.basis.openvr",
     "Packages/com.basis.openxr",
+    "Packages/com.llealloo.audiolink",
     "Packages/com.basis.examples",
     "Packages/com.basis.pooltable",
 )
 
 PACKAGE_DEPENDENCIES_TO_REMOVE = (
+    "com.llealloo.audiolink",
     "com.unity.xr.openxr",
     "com.valvesoftware.unity.openvr",
 )
@@ -33,6 +35,10 @@ XR_CONFIG_OBJECT_KEYS_TO_REMOVE = (
 
 XR_ASSET_PATHS_TO_REMOVE = (
     "Assets/XR",
+)
+
+LINKER_ASSEMBLIES_TO_REMOVE = (
+    "AudioLink",
 )
 
 
@@ -141,6 +147,35 @@ def remove_project_paths(project_root: Path, relative_paths: tuple[str, ...]) ->
     return removed_paths
 
 
+def strip_linker_assemblies(project_root: Path) -> list[str]:
+    link_path = project_root / "Assets/Basis/link.xml"
+    if not link_path.exists():
+        return []
+
+    lines = link_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    output: list[str] = []
+    removed_assemblies: list[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        removed_name = None
+        for assembly_name in LINKER_ASSEMBLIES_TO_REMOVE:
+            if stripped == f'<assembly fullname="{assembly_name}" preserve="all" />':
+                removed_name = assembly_name
+                break
+
+        if removed_name is not None:
+            removed_assemblies.append(removed_name)
+            continue
+
+        output.append(line)
+
+    if removed_assemblies:
+        link_path.write_text("".join(output), encoding="utf-8")
+
+    return removed_assemblies
+
+
 def strip_addressable_entries(asset_path: Path, guid_to_asset_path: dict[str, str]) -> list[str]:
     lines = asset_path.read_text(encoding="utf-8").splitlines(keepends=True)
     output: list[str] = []
@@ -222,6 +257,12 @@ def main() -> int:
     removed_xr_paths = remove_project_paths(project_root, XR_ASSET_PATHS_TO_REMOVE)
     for path in removed_xr_paths:
         print(f"Removed XR path: {path}")
+
+    removed_linker_assemblies = strip_linker_assemblies(project_root)
+    if removed_linker_assemblies:
+        print(f"Removed {len(removed_linker_assemblies)} linker preserve entries from {project_root / 'Assets/Basis/link.xml'}")
+        for assembly_name in removed_linker_assemblies:
+            print(f"  - {assembly_name}")
 
     for relative_dir in PACKAGE_DIRS_TO_REMOVE:
         package_dir = project_root / relative_dir
