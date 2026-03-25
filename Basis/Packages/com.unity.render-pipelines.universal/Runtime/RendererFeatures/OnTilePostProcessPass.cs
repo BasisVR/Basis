@@ -183,7 +183,7 @@ public class OnTilePostProcessPass : ScriptableRenderPass
             }
             else
             {
-                builder.SetInputAttachment(source, 0, AccessFlags.Read);
+                builder.SetInputAttachment(source, 0);
                 // MSAA shader resolve keywords require global state modification
                 builder.AllowGlobalStateModification(true);
             }
@@ -199,7 +199,7 @@ public class OnTilePostProcessPass : ScriptableRenderPass
             }
 
             builder.SetRenderAttachment(destination, 0, AccessFlags.WriteAll);
-            builder.SetRenderFunc((PassData data, RasterGraphContext context) => ExecuteFBFetchPass(data, context));
+            builder.SetRenderFunc(static (PassData data, RasterGraphContext context) => ExecuteFBFetchPass(data, context));
 
             passData.useXRVisibilityMesh = false;
             passData.msaaSamples = (int)srcDesc.msaaSamples;

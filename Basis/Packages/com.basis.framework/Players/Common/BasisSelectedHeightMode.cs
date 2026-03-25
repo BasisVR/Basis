@@ -20,11 +20,5 @@ namespace Basis.Scripts.BasisSdk.Players
         /// eye position is tracked directly.
         /// </summary>
         EyeHeight,
-
-        /// <summary>
-        /// Height is provided explicitly by the player or developer. 
-        /// This mode allows manual customization of height values.
-        /// </summary>
-        Custom
     }
 }

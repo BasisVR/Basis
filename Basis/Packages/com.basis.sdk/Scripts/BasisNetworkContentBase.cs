@@ -7,11 +7,11 @@ using UnityEngine;
 public abstract class BasisNetworkContentBase : MonoBehaviour
 {
 
-    public string clientIdentifier { get; private set; } = string.Empty; // Represents the string used to look up the ushort on the server.
+    public virtual string clientIdentifier { get; protected set; } = string.Empty; // Represents the string used to look up the ushort on the server.
 
     public Action<string> OnClientIdentifierAssigned;
 
-    public bool IsClientIdentifierAssigned { get; private set; } = false;
+    public virtual bool IsClientIdentifierAssigned { get; protected set; } = false;
 
     /// <summary>
     /// Attempts to get the currently assigned GUID identifier.

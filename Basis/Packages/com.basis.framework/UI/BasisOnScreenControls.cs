@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.UI;
 
 public class BasisOnScreenControls : MonoBehaviour
@@ -19,16 +20,26 @@ public class BasisOnScreenControls : MonoBehaviour
     public Button V;
 
     public float DistanceFromCamera = 0.25f; // meters in front of camera (camera-space depth)
+    public float ActiveMovementRange = 100f;
+
+    float defaultMovementRange;
+    static Material overlayUIMaterial;
 
     void OnEnable()
     {
+        defaultMovementRange = LeftControl.movementRange;
+
         LeftControl.OnStickMove += OnStickMoveLeft;
         RightControl.OnStickMove += OnStickMoveRight;
+        LeftControl.OnStickActive += OnLeftStickActive;
+        LeftControl.OnStickReleased += OnLeftStickReleased;
 
         Space.onClick.AddListener(OnSpace);
         C.onClick.AddListener(OnC);
         Escape.onClick.AddListener(OnEscape);
         V.onClick.AddListener(OnV);
+
+        SetUIOverlayRendering();
     }
 
     void LateUpdate()
@@ -45,6 +56,8 @@ public class BasisOnScreenControls : MonoBehaviour
 
         LeftControl.OnStickMove -= OnStickMoveLeft;
         RightControl.OnStickMove -= OnStickMoveRight;
+        LeftControl.OnStickActive -= OnLeftStickActive;
+        LeftControl.OnStickReleased -= OnLeftStickReleased;
     }
     void PositionWorldCanvases()
     {
@@ -56,7 +69,9 @@ public class BasisOnScreenControls : MonoBehaviour
         // Match your scaling approach.
         float avatarScale = 1f;
         if (driver.LocalPlayer != null)
-            avatarScale = driver.LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+        {
+            avatarScale = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+        }
 
         PlaceWorldCanvasAtViewport(driver, cam, LeftUIJoystickCanvas, -0.5f, 0.2f, avatarScale);
         PlaceWorldCanvasAtViewport(driver, cam, RightUIJoystickCanvas, 1.5f, 0.2f, avatarScale);
@@ -79,11 +94,64 @@ public class BasisOnScreenControls : MonoBehaviour
         // 2) World -> camera-driver local space (same trick as your mic icon code)
         Vector3 localPos = driver.transform.InverseTransformPoint(worldPoint);
 
-        // 3) Apply avatar scale so it stays “correct” when the user changes height/avatar
+        // 3) Apply avatar scale so it stays "correct" when the user changes height/avatar
         t.localPosition = localPos * avatarScale;
     }
 
+    void OnLeftStickActive()
+    {
+        // Increase joystick range and hide buttons to free screen for two-hand control
+        LeftControl.movementRange = ActiveMovementRange;
+        SetButtonsVisible(false);
+    }
+
+    void OnLeftStickReleased()
+    {
+        LeftControl.movementRange = defaultMovementRange;
+        SetButtonsVisible(true);
+    }
+
+    void SetButtonsVisible(bool visible)
+    {
+        Space.gameObject.SetActive(visible);
+        C.gameObject.SetActive(visible);
+        Escape.gameObject.SetActive(visible);
+        V.gameObject.SetActive(visible);
+    }
+
+    /// <summary>
+    /// Ensures UI renders on top of 3D scene objects by using a material
+    /// with depth testing disabled (ZTest Always).
+    /// </summary>
+    void SetUIOverlayRendering()
+    {
+        if (overlayUIMaterial == null)
+        {
+            overlayUIMaterial = new Material(Shader.Find("UI/Default"));
+            overlayUIMaterial.SetInt("_ZTest", (int)CompareFunction.Always);
+        }
+
+        ApplyOverlayMaterial(LeftUIJoystickCanvas);
+        ApplyOverlayMaterial(RightUIJoystickCanvas);
+    }
+
+    void ApplyOverlayMaterial(Canvas canvas)
+    {
+        if (canvas == null) return;
+        canvas.overrideSorting = true;
+        canvas.sortingOrder = 30000;
+
+        foreach (var graphic in canvas.GetComponentsInChildren<Graphic>(true))
+        {
+            graphic.material = overlayUIMaterial;
+        }
+    }
+
+#if !BASIS_DISABLE_MICROPHONE
     void OnV() => BasisLocalMicrophoneDriver.ToggleIsPaused();
+#else
+    void OnV() { }
+#endif
     void OnEscape() => BasisMainMenu.Toggle();
     void OnC() => BasisLocalPlayer.Instance.LocalCharacterDriver.CrouchToggle();
     void OnSpace() => BasisLocalPlayer.Instance.LocalCharacterDriver.HandleJumpRequest();

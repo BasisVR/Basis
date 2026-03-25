@@ -44,17 +44,6 @@ namespace UnityEngine.Rendering.Universal
             destination?.Release();
         }
 
-#if URP_COMPATIBILITY_MODE
-        [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsoleteFrom2023_3)]
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            var cmd = renderingData.commandBuffer;
-            cmd.SetRenderTarget(destination);
-
-            ExecutePass(CommandBufferHelpers.GetRasterCommandBuffer(cmd), source);
-        }
-#endif
-
         private static void ExecutePass(RasterCommandBuffer cmd, RTHandle source)
         {
             using (new ProfilingScope(cmd, m_ExecuteProfilingSampler))
@@ -78,7 +67,7 @@ namespace UnityEngine.Rendering.Universal
 
                 builder.AllowPassCulling(false);
 
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
                     ExecutePass(context.cmd, data.source);
                 });

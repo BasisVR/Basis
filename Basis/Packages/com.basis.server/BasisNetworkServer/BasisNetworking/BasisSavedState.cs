@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using Basis.Network.Core;
 using static SerializableBasis;
 
@@ -10,6 +12,7 @@ namespace Basis.Network.Server.Generic
         private static readonly ConcurrentDictionary<int, ClientAvatarChangeMessage> avatarChangeStates = new();
         private static readonly ConcurrentDictionary<int, ClientMetaDataMessage> playerMetaDataMessages = new();
         private static readonly ConcurrentDictionary<int, VoiceReceiversMessage> voiceReceiversMessages = new();
+        private static readonly ConcurrentDictionary<int, bool> shoutModeStates = new();
 
         /// <summary>
         /// Removes all state data for a specific player.
@@ -19,6 +22,7 @@ namespace Basis.Network.Server.Generic
             avatarChangeStates.TryRemove(id, out _);
             playerMetaDataMessages.TryRemove(id, out _);
             voiceReceiversMessages.TryRemove(id, out _);
+            shoutModeStates.TryRemove(id, out _);
         }
 
         /// <summary>
@@ -72,6 +76,37 @@ namespace Basis.Network.Server.Generic
         public static bool GetLastVoiceReceivers(NetPeer client, out VoiceReceiversMessage message)
         {
             return voiceReceiversMessages.TryGetValue(client.Id, out message);
+        }
+
+        /// <summary>
+        /// Sets shout mode state for a player.
+        /// </summary>
+        public static void SetShoutMode(int peerId, bool enabled)
+        {
+            if (enabled)
+            {
+                shoutModeStates[peerId] = true;
+            }
+            else
+            {
+                shoutModeStates.TryRemove(peerId, out _);
+            }
+        }
+
+        /// <summary>
+        /// Returns true if the player is currently in shout mode.
+        /// </summary>
+        public static bool IsInShoutMode(int peerId)
+        {
+            return shoutModeStates.TryGetValue(peerId, out _);
+        }
+
+        /// <summary>
+        /// Returns all player IDs currently in shout mode.
+        /// </summary>
+        public static int[] GetAllShoutModePlayers()
+        {
+            return shoutModeStates.Keys.ToArray();
         }
     }
 }

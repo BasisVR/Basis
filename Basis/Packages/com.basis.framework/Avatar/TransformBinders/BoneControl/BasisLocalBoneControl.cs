@@ -55,18 +55,6 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         /// <summary>Scaled version of <see cref="Offset"/> (e.g., scaled by avatar height).</summary>
         public float3 ScaledOffset;
 
-        /// <summary>Handle/index for runtime gizmos, if used.</summary>
-        public int GizmoReference = -1;
-
-        /// <summary>True if a runtime gizmo exists for this bone.</summary>
-        public bool HasGizmo { get { return GizmoReference != -1; } }
-
-        /// <summary>Handle/index for T-pose gizmos.</summary>
-        public int TposeGizmoReference = -1;
-
-        /// <summary>True if a T-pose gizmo exists for this bone.</summary>
-        public bool TposeHasGizmo { get { return TposeGizmoReference != -1; } }
-
         /// <summary>True if a virtual override is driving this bone instead of tracking.</summary>
         public bool HasVirtualOverride;
 
@@ -100,7 +88,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
         }
 
         /// <summary>Raised when <see cref="HasRigLayer"/> changes.</summary>
-        public Action OnHasRigChanged;
+        public Action<bool> OnHasRigChanged;
 
         [SerializeField] private BasisHasRigLayer hasRigLayer = BasisHasRigLayer.HasNoRigLayer;
 
@@ -116,7 +104,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 if (hasRigLayer != value)
                 {
                     hasRigLayer = value;
-                    OnHasRigChanged?.Invoke();
+                    OnHasRigChanged?.Invoke(false);//means the ik does not detach
                 }
             }
         }

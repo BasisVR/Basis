@@ -57,7 +57,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 0.14901961}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -171,7 +171,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -366,6 +366,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelElement
   _clearOnAwake: 1
+  _useDefaultIconForNull: 0
   <DefaultIcon>k__BackingField: {fileID: 0}
   <DefaultTexture>k__BackingField: {fileID: 0}
   <DefaultTitle>k__BackingField: Page Title
@@ -375,6 +376,7 @@ MonoBehaviour:
   <IconBackground>k__BackingField: {fileID: 0}
   <TitleLabel>k__BackingField: {fileID: 0}
   <DescriptionLabel>k__BackingField: {fileID: 0}
+  <Header>k__BackingField: {fileID: 0}
   _contentParent: {fileID: 8175477522569772619}
 --- !u!1 &7543159582691833885
 GameObject:
@@ -433,7 +435,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1dede7ff96452464d9732cb7b1924cd0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.BasisImageBackground
-  m_Material: {fileID: 2100000, guid: f258cf434b9518b4c8f40bbbc03caf40, type: 2}
+  m_Material: {fileID: 2100000, guid: a3b96560e31609649acd1a707f86578e, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}

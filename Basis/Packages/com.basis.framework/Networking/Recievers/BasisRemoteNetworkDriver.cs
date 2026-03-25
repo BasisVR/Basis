@@ -1,3 +1,4 @@
+using Basis.Scripts.Networking;
 using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
@@ -6,71 +7,156 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Jobs;
+
+/// <summary>
+/// Remote network driver that:
+/// 1) Interpolates prev->target pose (pos/scale/rot) per remote player
+/// 2) 1€-filters pose position + rotation per player (packed state; job-safety friendly)
+/// 3) Interpolates muscles and 1€-filters them (existing behavior)
+/// 4) Computes scaled body position for HumanPose.bodyPosition
+/// </summary>
 public static class BasisRemoteNetworkDriver
 {
-    public const int FixedCapacity = 1024;
+    public const int FixedCapacity = ushort.MaxValue;
+
+    // ---------------- INPUTS (prev/target) ----------------
     static NativeArray<float3> _prevPositions;
     static NativeArray<float3> _targetPositions;
+
     static NativeArray<float3> _prevScales;
     static NativeArray<float3> _targetScales;
+
     static NativeArray<quaternion> _prevRotations;
     static NativeArray<quaternion> _targetRotations;
-    static NativeArray<float> _interpolationTimes;
+
+    // 0..1 interpolation factor per player
+    static NativeArray<double> _interpolationTimes;
+
+    // EFFECTIVE dt seconds per player (IMPORTANT: should include playback rate when catching up)
+    static NativeArray<double> _deltaTimes;
+
+    // ---------------- RAW INTERPOLATED OUTPUTS ----------------
     static NativeArray<float3> _outPositions;
     static NativeArray<float3> _outScales;
     static NativeArray<quaternion> _outRotations;
-    static NativeArray<float> _humanScales; 
+
+    // ---------------- FILTERED POSE OUTPUTS ----------------
+    static NativeArray<float3> _filteredPositions;
+    static NativeArray<quaternion> _filteredRotations;
+
+    // Seed flag per player to avoid "ease in from identity"
+    static NativeArray<byte> _poseFilterSeeded;
+
+    // Packed position 1€ state per player (ParallelFor-safe)
+    static NativeArray<float3> _posPrevRaw;
+    static NativeArray<float3> _posPrevFiltered;
+    static NativeArray<float3> _posPrevDerivFiltered;
+
+    // Packed rotation 1€ state per player
+    static NativeArray<quaternion> _rotPrevRaw;
+    static NativeArray<quaternion> _rotPrevFiltered;
+    static NativeArray<float2> _rotDerivFilter; // x=prevDerivRaw, y=prevDerivFiltered (scalar omega)
+
+    // ---------------- SCALED BODY ----------------
+    static NativeArray<float> _humanScales;
     static NativeArray<float3> _scaledBodyPositions;
-    // Muscles (flattened: players * muscles)
+
+    // ---------------- SCALE CHANGE ----------------
+    static NativeArray<bool> _HasScaleChange;
+
+    // ---------------- MUSCLES ----------------
     static NativeArray<float> _prevMuscles;
     static NativeArray<float> _targetMuscles;
     static NativeArray<float> _outMuscles;
-    // 1€ filter buffers (flattened: players * muscles)
+
+    // 1€ muscle filter buffers (flattened players * muscles)
     static NativeArray<float> euroValuesOutput;
     static NativeArray<float2> positionFilters;
     static NativeArray<float2> derivativeFilters;
+
     // State
     static int _muscleCount;
     static bool _initialized;
-    static int _activeCount; // highest index written + 1
     static Allocator _allocator = Allocator.Persistent;
+
     public static JobHandle oneEuroJob;
-    // Parameters for Euro filter
-    public static float MinCutoff = 0.05f;
-    public static float Beta = 0.01f;
-    public static float DerivativeCutoff = 1.0f;
-    /// <summary>Initialize the driver with a fixed capacity of 1024. Must be called before SetInputs/Compute/Apply/GetOutputs.</summary>
+
+    // ---------------- CACHED READ POINTERS (set once per frame in BeginRead) ----------------
+    static System.IntPtr _ptrScaleChange;
+    static System.IntPtr _ptrFilteredRotations;
+    static System.IntPtr _ptrScaledBodyPositions;
+    static System.IntPtr _ptrEuroValues;
+    static System.IntPtr _ptrOutScales;
+
+    // ---------------- FILTER RESET ----------------
+    static System.IntPtr _ptrPoseFilterSeeded;
+
+    // ---------------- CACHED WRITE POINTERS (set once per frame in BeginWrite) ----------------
+    static System.IntPtr _ptrInterpolationTimes;
+    static System.IntPtr _ptrDeltaTimes;
+    static System.IntPtr _ptrHumanScales;
+    static System.IntPtr _ptrPrevPositions;
+    static System.IntPtr _ptrTargetPositions;
+    static System.IntPtr _ptrPrevScales;
+    static System.IntPtr _ptrTargetScales;
+    static System.IntPtr _ptrPrevRotations;
+    static System.IntPtr _ptrTargetRotations;
+    static System.IntPtr _ptrPrevMuscles;
+    static System.IntPtr _ptrTargetMuscles;
+
+    // ---------------- TUNING ----------------
+    // Pose (position + rotation) smoothing: usually higher MinCutoff than muscles to reduce "floaty" lag.
+    public static float PoseMinCutoff = 3.0f;
+    public static float PoseBeta = 0.10f;
+    public static float PoseDerivativeCutoff = 1.0f;
+
+    /// <summary>Initialize the driver. Must be called before use.</summary>
     public static void Initialize(int muscleCount, Allocator allocator = Allocator.Persistent)
     {
-        if (_initialized)
-        {
-            return;
-        }
-
-        if (muscleCount <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(muscleCount));
-        }
+        if (_initialized) return;
+        if (muscleCount <= 0) throw new ArgumentOutOfRangeException(nameof(muscleCount));
 
         _allocator = allocator;
         _muscleCount = muscleCount;
-        _activeCount = 0;
 
         AllocateAll(FixedCapacity);
 
         // Seed defaults
-        for (int Index = 0; Index < FixedCapacity; Index++)
+        for (int i = 0; i < FixedCapacity; i++)
         {
-            _prevScales[Index] = new float3(1, 1, 1);
-            _targetScales[Index] = new float3(1, 1, 1);
-            _prevRotations[Index] = quaternion.identity;
-            _targetRotations[Index] = quaternion.identity;
-            _interpolationTimes[Index] = 0f;
+            _prevPositions[i] = float3.zero;
+            _targetPositions[i] = float3.zero;
 
-            // New: default human scale to 1
-            _humanScales[Index] = 1;
-            _scaledBodyPositions[Index] = float3.zero;
+            _prevScales[i] = new float3(1, 1, 1);
+            _targetScales[i] = new float3(1, 1, 1);
+
+            _prevRotations[i] = quaternion.identity;
+            _targetRotations[i] = quaternion.identity;
+
+            _interpolationTimes[i] = 0.0;
+            _deltaTimes[i] = 1.0 / 60.0;
+
+            _outPositions[i] = float3.zero;
+            _outScales[i] = new float3(1, 1, 1);
+            _outRotations[i] = quaternion.identity;
+
+            _filteredPositions[i] = float3.zero;
+            _filteredRotations[i] = quaternion.identity;
+
+            _poseFilterSeeded[i] = 0;
+
+            _posPrevRaw[i] = float3.zero;
+            _posPrevFiltered[i] = float3.zero;
+            _posPrevDerivFiltered[i] = float3.zero;
+
+            _rotPrevRaw[i] = quaternion.identity;
+            _rotPrevFiltered[i] = quaternion.identity;
+            _rotDerivFilter[i] = float2.zero;
+
+            _HasScaleChange[i] = false;
+
+            _humanScales[i] = 1f;
+            _scaledBodyPositions[i] = float3.zero;
         }
 
         // Seed muscles/filter state
@@ -80,6 +166,7 @@ public static class BasisRemoteNetworkDriver
             _prevMuscles[c] = 0f;
             _targetMuscles[c] = 0f;
             _outMuscles[c] = 0f;
+
             euroValuesOutput[c] = 0f;
             positionFilters[c] = float2.zero;
             derivativeFilters[c] = float2.zero;
@@ -88,186 +175,293 @@ public static class BasisRemoteNetworkDriver
         _initialized = true;
     }
 
-    /// <summary>Dispose all native allocations. Call on shutdown/domain unload.</summary>
     public static void Shutdown()
     {
-        if (!_initialized)
-        {
-            return;
-        }
+        if (!_initialized) return;
 
-        // Make sure no jobs are still using our arrays
-        if (!oneEuroJob.IsCompleted)
-        {
-            oneEuroJob.Complete();
-        }
+        // Complete all possibly in-flight jobs before disposing NativeArrays.
+        // Destroy() can be called mid-frame (e.g. from a UI button) after
+        // Compute() scheduled jobs but before Apply() completed them.
+        // Complete the combined tail handle which chains all intermediate jobs.
+        oneEuroJob.Complete();
 
         DisposeAll();
-        _activeCount = 0;
         _muscleCount = 0;
         _initialized = false;
     }
 
-    /// <summary>Write inputs for a given index (0..FixedCapacity-1) for this frame.</summary>
-    public static bool SetInputs( int index, float humanScale, float3 prevPos, float3 targetPos, float3 prevScale, float3 targetScale, quaternion prevRot, quaternion targetRot, float interpolationTime, NativeArray<float> prevMuscles, NativeArray<float> targetMuscles)
+    /// <summary>
+    /// Caches raw write pointers from NativeArrays once per frame.
+    /// Must be called before any SetFrameTiming/SetFrameInputs calls.
+    /// Eliminates per-receiver NativeArray safety checks on the write path.
+    /// </summary>
+    public static unsafe void BeginWrite()
     {
-        if ((uint)index >= FixedCapacity)
-        {
-            BasisDebug.LogError($"index {index} is out of range [0,{FixedCapacity - 1}]", BasisDebug.LogTag.Remote);
-            return false;
-        }
+        if (!_initialized) return;
+        _ptrInterpolationTimes = (System.IntPtr)_interpolationTimes.GetUnsafePtr();
+        _ptrDeltaTimes = (System.IntPtr)_deltaTimes.GetUnsafePtr();
+        _ptrHumanScales = (System.IntPtr)_humanScales.GetUnsafePtr();
+        _ptrPrevPositions = (System.IntPtr)_prevPositions.GetUnsafePtr();
+        _ptrTargetPositions = (System.IntPtr)_targetPositions.GetUnsafePtr();
+        _ptrPrevScales = (System.IntPtr)_prevScales.GetUnsafePtr();
+        _ptrTargetScales = (System.IntPtr)_targetScales.GetUnsafePtr();
+        _ptrPrevRotations = (System.IntPtr)_prevRotations.GetUnsafePtr();
+        _ptrTargetRotations = (System.IntPtr)_targetRotations.GetUnsafePtr();
+        _ptrPrevMuscles = (System.IntPtr)_prevMuscles.GetUnsafePtr();
+        _ptrTargetMuscles = (System.IntPtr)_targetMuscles.GetUnsafePtr();
+        _ptrPoseFilterSeeded = (System.IntPtr)_poseFilterSeeded.GetUnsafePtr();
+    }
 
-        _humanScales[index] = humanScale;
-        _prevPositions[index] = prevPos;
-        _targetPositions[index] = targetPos;
-        _prevScales[index] = prevScale;
-        _targetScales[index] = targetScale;
-        _prevRotations[index] = prevRot;
-        _targetRotations[index] = targetRot;
-        _interpolationTimes[index] = interpolationTime;
+    /// <summary>
+    /// Resets the 1€ pose filter for a receiver so it re-seeds with the next real position.
+    /// Call when: (1) first real data arrives (avoids filter anchored at origin),
+    /// (2) buffer cleanup drops frames (avoids smoothing across a position gap).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void ResetPoseFilter(int index)
+    {
+        if (!_initialized) return;
+        ((byte*)(void*)_ptrPoseFilterSeeded)[index] = 0;
+    }
 
-        // Flattened write: [index * MuscleCount .. (index+1) * MuscleCount)
-        int baseOffset = index * _muscleCount;
-        FastCopyMuscles(prevMuscles, 0, _prevMuscles, baseOffset, _muscleCount);
-        FastCopyMuscles(targetMuscles, 0, _targetMuscles, baseOffset, _muscleCount);
-
-        // Advance active count if needed
-        if (index + 1 > _activeCount)
-        {
-            _activeCount = index + 1;
-        }
-        return true;
+    /// <summary>
+    /// Write timing inputs for a given index (0..FixedCapacity-1).
+    /// Requires BeginWrite() called earlier this frame.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void SetFrameTiming(int index, double interpolationTime, double deltaTimeSeconds)
+    {
+        if (!_initialized) return;
+        ((double*)(void*)_ptrInterpolationTimes)[index] = interpolationTime;
+        ((double*)(void*)_ptrDeltaTimes)[index] = deltaTimeSeconds;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static unsafe void FastCopyMuscles(NativeArray<float> src, int srcStart, NativeArray<float> dst, int dstStart, int count)
+    public static unsafe void SetFrameInputs(
+        int index,
+        float humanScale,
+        float3 prevPos, float3 targetPos,
+        float3 prevScale, float3 targetScale,
+        quaternion prevRot, quaternion targetRot,
+        NativeArray<float> prevMuscles, NativeArray<float> targetMuscles)
     {
-        var bytes = (long)count * sizeof(float);
-        var srcPtr = (byte*)src.GetUnsafeReadOnlyPtr() + (long)srcStart * sizeof(float);
-        var dstPtr = (byte*)dst.GetUnsafePtr() + (long)dstStart * sizeof(float);
-        UnsafeUtility.MemCpy(dstPtr, srcPtr, bytes);
+        if (!_initialized) return;
+        ((float*)(void*)_ptrHumanScales)[index] = humanScale;
+        ((float3*)(void*)_ptrPrevPositions)[index] = prevPos;
+        ((float3*)(void*)_ptrTargetPositions)[index] = targetPos;
+        ((float3*)(void*)_ptrPrevScales)[index] = prevScale;
+        ((float3*)(void*)_ptrTargetScales)[index] = targetScale;
+        ((quaternion*)(void*)_ptrPrevRotations)[index] = prevRot;
+        ((quaternion*)(void*)_ptrTargetRotations)[index] = targetRot;
+
+        int bytes = _muscleCount * sizeof(float);
+        int baseOffset = index * _muscleCount;
+        float* srcPrev = (float*)prevMuscles.GetUnsafeReadOnlyPtr();
+        float* srcTarget = (float*)targetMuscles.GetUnsafeReadOnlyPtr();
+        UnsafeUtility.MemCpy((float*)(void*)_ptrPrevMuscles + baseOffset, srcPrev, bytes);
+        UnsafeUtility.MemCpy((float*)(void*)_ptrTargetMuscles + baseOffset, srcTarget, bytes);
     }
-    /// <summary>Run the batched jobs once for the current frame.</summary>
+
+    /// <summary>Schedule jobs for the current frame (does not complete them).</summary>
     public static void Compute()
     {
-        int num = _activeCount;
-        if (num <= 0)
-        {
-            return;
-        }
+        if (!_initialized) return;
+        if (BasisNetworkPlayers.ReceiverCount == 0) return;
 
+        int num = BasisNetworkPlayers.LargestNetworkReceiverID + 1;
+        num = math.clamp(num, 0, FixedCapacity);
+
+        // 1) Raw interpolation (pos/scale/rot)
         var avatarJob = new UpdateAllAvatarsJob
         {
             PreviousPositions = _prevPositions,
             TargetPositions = _targetPositions,
+
             PreviousScales = _prevScales,
             TargetScales = _targetScales,
+
             PreviousRotations = _prevRotations,
             TargetRotations = _targetRotations,
+
             InterpolationTimes = _interpolationTimes,
+
+            HasScaleChange = _HasScaleChange,
+
             OutputPositions = _outPositions,
             OutputScales = _outScales,
             OutputRotations = _outRotations
         }.Schedule(num, 128);
 
-        // Precompute scaled body position with guarded divide (Burst)
+        // 2) Pose filtering (position + rotation) per player (packed state => job-safety OK)
+        JobHandle poseFilterJob = new FilterPoseOneEuroJob
+        {
+            InputPositions = _outPositions,
+            InputRotations = _outRotations,
+
+            OutputPositions = _filteredPositions,
+            OutputRotations = _filteredRotations,
+
+            DeltaTimeSeconds = _deltaTimes,
+
+            PoseFilterSeeded = _poseFilterSeeded,
+
+            PosPrevRaw = _posPrevRaw,
+            PosPrevFiltered = _posPrevFiltered,
+            PosPrevDerivFiltered = _posPrevDerivFiltered,
+
+            RotPrevRaw = _rotPrevRaw,
+            RotPrevFiltered = _rotPrevFiltered,
+            RotDerivFilter = _rotDerivFilter,
+
+            MinCutoff = PoseMinCutoff,
+            Beta = PoseBeta,
+            DerivativeCutoff = PoseDerivativeCutoff
+        }.Schedule(num, 128, avatarJob);
+
+        // 3) Scaled body position uses FILTERED position
         var scaledBodyJob = new ComputeScaledBodyJob
         {
-            OutputPositions = _outPositions,
+            OutputPositions = _filteredPositions,
             OutputScales = _outScales,
             HumanScales = _humanScales,
             ScaledBodyPositions = _scaledBodyPositions
-        }.Schedule(num, 128, avatarJob);
+        }.Schedule(num, 128, poseFilterJob);
 
-        // Interpolate muscles across players * muscles (flattened)
+        // 4) Muscle interpolation (raw)
         JobHandle musclesJob = new UpdateAllAvatarMusclesJob
         {
             PreviousMuscles = _prevMuscles,
             TargetMuscles = _targetMuscles,
-            InterpolationTimes = _interpolationTimes, // index-based per "player"
+            InterpolationTimes = _interpolationTimes,
             OutputMuscles = _outMuscles,
             MuscleCountPerAvatar = _muscleCount
         }.Schedule(num * _muscleCount, 128, avatarJob);
 
-        // 1€ filter: read interpolated muscles, write filtered output
-        JobHandle euroJobHandle = new BasisOneEuroFilterParallelJob
+        // 5) Muscle 1€ filter (uses BasisNetworkManagement knobs)
+        JobHandle euroMusclesJob = new BasisOneEuroFilterParallelJob
         {
-            InputValues = _outMuscles,          // raw/interpolated input per (index,muscle)
-            OutputValues = euroValuesOutput,    // filtered output
-            DeltaTime = _interpolationTimes,    // per-index dt / interpolation t
-            MinCutoff = MinCutoff,
-            Beta = Beta,
-            DerivativeCutoff = DerivativeCutoff,
+            InputValues = _outMuscles,
+            OutputValues = euroValuesOutput,
+            DeltaTimeSeconds = _deltaTimes,
+            MinCutoff = BasisNetworkManagement.MinCutoff,
+            Beta = BasisNetworkManagement.Beta,
+            DerivativeCutoff = BasisNetworkManagement.DerivativeCutoff,
             PositionFilters = positionFilters,
             DerivativeFilters = derivativeFilters,
             MuscleCountPerAvatar = _muscleCount
         }.Schedule(num * _muscleCount, 128, musclesJob);
 
-        // Combine all deps so Apply() has a single fence
-        oneEuroJob = JobHandle.CombineDependencies(euroJobHandle, scaledBodyJob);
+        oneEuroJob = JobHandle.CombineDependencies(euroMusclesJob, scaledBodyJob);
     }
 
-    /// <summary>Completes all scheduled work for this frame.</summary>
+    /// <summary>Complete scheduled jobs for the current frame.</summary>
     public static void Apply()
+    {
+        if (!_initialized) return;
+        oneEuroJob.Complete();
+    }
+
+    /// <summary>
+    /// Caches raw read pointers from NativeArrays once per frame.
+    /// Must be called after Apply() (jobs complete) and before any GetMuscleArray/GetScaleOutput calls.
+    /// Eliminates per-receiver NativeArray safety checks and GetUnsafeReadOnlyPtr overhead.
+    /// </summary>
+    public static unsafe void BeginRead()
+    {
+        if (!_initialized) return;
+        _ptrScaleChange = (System.IntPtr)_HasScaleChange.GetUnsafeReadOnlyPtr();
+        _ptrFilteredRotations = (System.IntPtr)_filteredRotations.GetUnsafeReadOnlyPtr();
+        _ptrScaledBodyPositions = (System.IntPtr)_scaledBodyPositions.GetUnsafeReadOnlyPtr();
+        _ptrEuroValues = (System.IntPtr)euroValuesOutput.GetUnsafeReadOnlyPtr();
+        _ptrOutScales = (System.IntPtr)_outScales.GetUnsafeReadOnlyPtr();
+    }
+
+    // ---------------- OUTPUT GETTERS ----------------
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void GetPositionOutput(int index, out float3 outPos) => outPos = _filteredPositions[index];
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void GetScaleOutput(int index, out float3 outScale)
+    {
+        if (!_initialized) { outScale = new float3(1, 1, 1); return; }
+        outScale = ((float3*)(void*)_ptrOutScales)[index];
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void GetMuscleArray(
+        int index,
+        out bool outScale,
+        out quaternion outRot,
+        out float3 BodyPosition,
+        ref HumanPose poseData,
+        float[] eyesAndMouth,
+        int eyesAndMouthOffsetFloats,
+        int eyesAndMouthCountBytes)
     {
         if (!_initialized)
         {
+            outScale = false;
+            outRot = quaternion.identity;
+            BodyPosition = float3.zero;
             return;
         }
 
-        oneEuroJob.Complete(); // also fences scaledBody + transform jobs via combined deps
-    }
+        outScale = ((bool*)(void*)_ptrScaleChange)[index];
+        outRot = ((quaternion*)(void*)_ptrFilteredRotations)[index];
+        BodyPosition = ((float3*)(void*)_ptrScaledBodyPositions)[index];
 
-    /// <summary>Read back the computed outputs for an index after Apply().</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void GetOutputs_NoAlloc(int index,out float3 outPos,out float3 outScale,out quaternion outRot,out float3 BodyPosition,float[] outMuscles)
-    {
-        outPos = _outPositions[index];
-        outScale = _outScales[index];
-        outRot = _outRotations[index];
-
-        int baseOffset = index * _muscleCount;
-
-        unsafe
+        float* src = (float*)(void*)_ptrEuroValues + index * _muscleCount;
+        fixed (float* dst = poseData.muscles, em = eyesAndMouth)
         {
-            // source: NativeArray<float> (contiguous)
-            float* src = (float*)euroValuesOutput.GetUnsafeReadOnlyPtr() + baseOffset;
-
-            // dest: managed float[] pinned just for the copy
-            fixed (float* dst = outMuscles)
-            {
-                UnsafeUtility.MemCpy(dst, src, _muscleCount * sizeof(float));
-            }
+            UnsafeUtility.MemCpy(dst, src, _muscleCount * sizeof(float));
+            UnsafeUtility.MemCpy(dst + eyesAndMouthOffsetFloats, em, eyesAndMouthCountBytes);
         }
-        BodyPosition = _scaledBodyPositions[index];
     }
+
+    // ---------------- MEMORY ----------------
 
     static void AllocateAll(int capacity)
     {
-        // Transform data
         _prevPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+
         _prevScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+
         _prevRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _interpolationTimes = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+
+        _interpolationTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+        _deltaTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
 
         _outPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
 
-        // New: human scale + scaled body
+        _filteredPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _filteredRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+
+        _poseFilterSeeded = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+
+        _posPrevRaw = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _posPrevFiltered = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _posPrevDerivFiltered = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+
+        _rotPrevRaw = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _rotPrevFiltered = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _rotDerivFilter = new NativeArray<float2>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+
         _humanScales = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _scaledBodyPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
 
-        // Muscles (flattened)
+        _HasScaleChange = new NativeArray<bool>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+
         int flat = capacity * _muscleCount;
         _prevMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         _outMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
 
-        // Euro filter buffers (flattened)
         euroValuesOutput = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         positionFilters = new NativeArray<float2>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
         derivativeFilters = new NativeArray<float2>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
@@ -275,18 +469,34 @@ public static class BasisRemoteNetworkDriver
 
     static void DisposeAll()
     {
-        // Dispose safely
         if (_prevPositions.IsCreated) _prevPositions.Dispose();
         if (_targetPositions.IsCreated) _targetPositions.Dispose();
+
         if (_prevScales.IsCreated) _prevScales.Dispose();
         if (_targetScales.IsCreated) _targetScales.Dispose();
+
         if (_prevRotations.IsCreated) _prevRotations.Dispose();
         if (_targetRotations.IsCreated) _targetRotations.Dispose();
+
         if (_interpolationTimes.IsCreated) _interpolationTimes.Dispose();
+        if (_deltaTimes.IsCreated) _deltaTimes.Dispose();
 
         if (_outPositions.IsCreated) _outPositions.Dispose();
         if (_outScales.IsCreated) _outScales.Dispose();
         if (_outRotations.IsCreated) _outRotations.Dispose();
+
+        if (_filteredPositions.IsCreated) _filteredPositions.Dispose();
+        if (_filteredRotations.IsCreated) _filteredRotations.Dispose();
+
+        if (_poseFilterSeeded.IsCreated) _poseFilterSeeded.Dispose();
+
+        if (_posPrevRaw.IsCreated) _posPrevRaw.Dispose();
+        if (_posPrevFiltered.IsCreated) _posPrevFiltered.Dispose();
+        if (_posPrevDerivFiltered.IsCreated) _posPrevDerivFiltered.Dispose();
+
+        if (_rotPrevRaw.IsCreated) _rotPrevRaw.Dispose();
+        if (_rotPrevFiltered.IsCreated) _rotPrevFiltered.Dispose();
+        if (_rotDerivFilter.IsCreated) _rotDerivFilter.Dispose();
 
         if (_humanScales.IsCreated) _humanScales.Dispose();
         if (_scaledBodyPositions.IsCreated) _scaledBodyPositions.Dispose();
@@ -298,80 +508,11 @@ public static class BasisRemoteNetworkDriver
         if (euroValuesOutput.IsCreated) euroValuesOutput.Dispose();
         if (positionFilters.IsCreated) positionFilters.Dispose();
         if (derivativeFilters.IsCreated) derivativeFilters.Dispose();
+
+        if (_HasScaleChange.IsCreated) _HasScaleChange.Dispose();
     }
-    /*
- * BasicOneEuroFilterParallelJob.cs
- * Author: Dario Mazzanti (dario.mazzanti@iit.it), 2016
- *
- * This Unity C# utility is based on the C++ implementation of the OneEuroFilter algorithm by Nicolas Roussel (http://www.lifl.fr/~casiez/1euro/OneEuroFilter.cc)
- * More info on the 1€ filter by Géry Casiez at http://www.lifl.fr/~casiez/1euro/
- *
- */
-    [BurstCompile]
-    public struct BasisOneEuroFilterParallelJob : IJobParallelFor
-    {
-        // Input signal (flattened: players * muscles)
-        [ReadOnly] public NativeArray<float> InputValues;
 
-        // Output signal (flattened: players * muscles)
-        [WriteOnly]
-        public NativeArray<float> OutputValues;
-
-        // Per-player deltaTime (or sampling period proxy). Length == numPlayers
-        [ReadOnly]
-        public NativeArray<float> DeltaTime;
-
-        // Filter state per flattened channel (same length as OutputValues)
-        public NativeArray<float2> PositionFilters;   // x = previous input, y = previous output
-        public NativeArray<float2> DerivativeFilters; // x = previous derivative input, y = previous derivative output
-
-        // Parameters
-        public float MinCutoff;
-        public float Beta;
-        public float DerivativeCutoff;
-
-        // Stride to recover the player index from the flattened channel index
-        // i.e., the number of muscles per avatar
-        [ReadOnly]
-        public int MuscleCountPerAvatar;
-
-        public void Execute(int index)
-        {
-            int playerIndex = MuscleCountPerAvatar > 0 ? (index / MuscleCountPerAvatar) : 0;
-
-            float dt = DeltaTime[playerIndex];
-            if (dt <= 0f) dt = 1e-3f; // guard
-
-            float frequency = 1.0f / dt;
-            float inputValue = InputValues[index];
-
-            float prevFiltered = PositionFilters[index].y;
-            float prevRaw = PositionFilters[index].x;
-
-            float dValue = (inputValue - prevRaw) * frequency;
-
-            float alphaD = Alpha(DerivativeCutoff, frequency);
-            float prevDerivFiltered = DerivativeFilters[index].y;
-            float edValue = alphaD * dValue + (1.0f - alphaD) * prevDerivFiltered;
-
-            float cutoff = MinCutoff + Beta * Mathf.Abs(edValue);
-
-            float alphaX = Alpha(cutoff, frequency);
-            float filtered = alphaX * inputValue + (1.0f - alphaX) * prevFiltered;
-
-            OutputValues[index] = filtered;
-
-            PositionFilters[index] = new float2(inputValue, filtered);
-            DerivativeFilters[index] = new float2(dValue, edValue);
-        }
-
-        private static float Alpha(float cutoff, float frequency)
-        {
-            float te = 1f / frequency;
-            float tau = 1f / (2f * math.PI * math.max(cutoff, 1e-4f));
-            return 1f / (1f + tau / te);
-        }
-    }
+    // ---------------- JOBS ----------------
 
     [BurstCompile]
     public struct UpdateAllAvatarsJob : IJobParallelFor
@@ -385,40 +526,237 @@ public static class BasisRemoteNetworkDriver
         [ReadOnly] public NativeArray<quaternion> PreviousRotations;
         [ReadOnly] public NativeArray<quaternion> TargetRotations;
 
-        [ReadOnly] public NativeArray<float> InterpolationTimes;
+        [ReadOnly] public NativeArray<double> InterpolationTimes;
 
-        [WriteOnly]
-        public NativeArray<float3> OutputPositions;
-        [WriteOnly]
-        public NativeArray<float3> OutputScales;
-        [WriteOnly]
-        public NativeArray<quaternion> OutputRotations;
+        [WriteOnly] public NativeArray<float3> OutputPositions;
+        [WriteOnly] public NativeArray<float3> OutputScales;
+        [WriteOnly] public NativeArray<quaternion> OutputRotations;
+
+        [WriteOnly] public NativeArray<bool> HasScaleChange;
 
         public void Execute(int index)
         {
-            float t = InterpolationTimes[index];
+            float t = (float)InterpolationTimes[index];
+            if (!math.isfinite(t)) t = 0f;
+            t = math.clamp(t, 0f, 1f);
 
             OutputPositions[index] = math.lerp(PreviousPositions[index], TargetPositions[index], t);
             OutputScales[index] = math.lerp(PreviousScales[index], TargetScales[index], t);
-            OutputRotations[index] = math.slerp(PreviousRotations[index], TargetRotations[index], t);
+
+            // nlerp is cheap and fine for small deltas
+            OutputRotations[index] = math.normalize(math.nlerp(PreviousRotations[index], TargetRotations[index], t));
+
+            const float scaleEpsSq = 1e-10f;
+            float3 prevS = PreviousScales[index];
+            float3 targS = TargetScales[index];
+            HasScaleChange[index] = math.lengthsq(targS - prevS) > scaleEpsSq;
+        }
+    }
+
+    /// <summary>
+    /// 1€ filtering for pose position + rotation, using packed per-player state.
+    /// Job-safety friendly: every RW array is indexed ONLY by playerIndex.
+    /// </summary>
+    [BurstCompile]
+    public struct FilterPoseOneEuroJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<float3> InputPositions;
+        [ReadOnly] public NativeArray<quaternion> InputRotations;
+
+        [WriteOnly] public NativeArray<float3> OutputPositions;
+        [WriteOnly] public NativeArray<quaternion> OutputRotations;
+
+        [ReadOnly] public NativeArray<double> DeltaTimeSeconds;
+
+        public NativeArray<byte> PoseFilterSeeded;
+
+        public NativeArray<float3> PosPrevRaw;
+        public NativeArray<float3> PosPrevFiltered;
+        public NativeArray<float3> PosPrevDerivFiltered;
+
+        public NativeArray<quaternion> RotPrevRaw;
+        public NativeArray<quaternion> RotPrevFiltered;
+        public NativeArray<float2> RotDerivFilter; // scalar omega derivative filter state
+
+        public float MinCutoff;
+        public float Beta;
+        public float DerivativeCutoff;
+
+        public void Execute(int playerIndex)
+        {
+            double dt = math.max(DeltaTimeSeconds[playerIndex], 1e-3);
+            double freq = math.rcp(dt);
+
+            float3 rawPos = InputPositions[playerIndex];
+            quaternion rawRot = math.normalize(InputRotations[playerIndex]);
+
+            // Seed first sample to prevent "ease in from identity"
+            if (PoseFilterSeeded[playerIndex] == 0)
+            {
+                PoseFilterSeeded[playerIndex] = 1;
+
+                PosPrevRaw[playerIndex] = rawPos;
+                PosPrevFiltered[playerIndex] = rawPos;
+                PosPrevDerivFiltered[playerIndex] = float3.zero;
+
+                RotPrevRaw[playerIndex] = rawRot;
+                RotPrevFiltered[playerIndex] = rawRot;
+                RotDerivFilter[playerIndex] = float2.zero;
+
+                OutputPositions[playerIndex] = rawPos;
+                OutputRotations[playerIndex] = rawRot;
+                return;
+            }
+
+            // ---------------- POSITION 1€ (per-axis) ----------------
+            float3 prevRaw = PosPrevRaw[playerIndex];
+            float3 prevFiltered = PosPrevFiltered[playerIndex];
+            float3 prevDerivFiltered = PosPrevDerivFiltered[playerIndex];
+
+            float3 dValue = (rawPos - prevRaw) * (float)freq;
+
+            double alphaD = Alpha(DerivativeCutoff, freq);
+            float3 edValue = (float)alphaD * dValue + (1f - (float)alphaD) * prevDerivFiltered;
+
+            float3 cutoff = MinCutoff + Beta * math.abs(edValue);
+
+            float3 alphaX = new float3(
+                (float)Alpha(cutoff.x, freq),
+                (float)Alpha(cutoff.y, freq),
+                (float)Alpha(cutoff.z, freq)
+            );
+
+            float3 filteredPos = alphaX * rawPos + (new float3(1f) - alphaX) * prevFiltered;
+
+            PosPrevRaw[playerIndex] = rawPos;
+            PosPrevFiltered[playerIndex] = filteredPos;
+            PosPrevDerivFiltered[playerIndex] = edValue;
+
+            OutputPositions[playerIndex] = filteredPos;
+
+            // ---------------- ROTATION 1€ (alpha from angular speed) ----------------
+            quaternion prevRawQ = RotPrevRaw[playerIndex];
+            quaternion prevFiltQ = RotPrevFiltered[playerIndex];
+
+            // qDelta = raw * inverse(prevRaw)
+            quaternion qDelta = math.mul(rawRot, math.conjugate(prevRawQ));
+            // shortest path
+            if (qDelta.value.w < 0f) qDelta.value = -qDelta.value;
+
+            float w = math.clamp(qDelta.value.w, -1f, 1f);
+            float angle = 2f * math.acos(w);      // radians
+            double omega = (double)angle * freq;  // rad/s
+
+            float2 rdf = RotDerivFilter[playerIndex];
+            double alphaDR = Alpha(DerivativeCutoff, freq);
+            double edOmega = alphaDR * omega + (1.0 - alphaDR) * (double)rdf.y;
+
+            rdf.x = (float)omega;
+            rdf.y = (float)edOmega;
+            RotDerivFilter[playerIndex] = rdf;
+
+            double cutoffR = MinCutoff + Beta * math.abs(edOmega);
+            double alphaQ = Alpha(cutoffR, freq);
+
+            quaternion filtQ = math.normalize(math.nlerp(prevFiltQ, rawRot, (float)alphaQ));
+
+            OutputRotations[playerIndex] = filtQ;
+
+            RotPrevRaw[playerIndex] = rawRot;
+            RotPrevFiltered[playerIndex] = filtQ;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static double Alpha(double cutoff, double frequency)
+        {
+            double te = math.rcp(frequency);
+            double tau = math.rcp(2.0 * math.PI * math.max(cutoff, 1e-4));
+            return math.rcp(1.0 + tau / te);
         }
     }
 
     [BurstCompile]
     public struct UpdateAllAvatarMusclesJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<float> PreviousMuscles; // Flattened array
+        [ReadOnly] public NativeArray<float> PreviousMuscles;
         [ReadOnly] public NativeArray<float> TargetMuscles;
-        [ReadOnly] public NativeArray<float> InterpolationTimes;
-        [WriteOnly]
-        public NativeArray<float> OutputMuscles;
+        [ReadOnly] public NativeArray<double> InterpolationTimes;
+
+        [WriteOnly] public NativeArray<float> OutputMuscles;
+
         public int MuscleCountPerAvatar;
 
         public void Execute(int index)
         {
             int playerIndex = index / MuscleCountPerAvatar;
-            float t = InterpolationTimes[playerIndex];
-            OutputMuscles[index] = math.lerp(PreviousMuscles[index], TargetMuscles[index], t);
+            double t = InterpolationTimes[playerIndex];
+            t = math.clamp(t, 0f, 1f);
+            OutputMuscles[index] = (float)math.lerp(PreviousMuscles[index], TargetMuscles[index], t);
+        }
+    }
+
+    /*
+ * BasicOneEuroFilterParallelJob.cs
+ * Author: Dario Mazzanti (dario.mazzanti@iit.it), 2016
+ *
+ * This Unity C# utility is based on the C++ implementation of the OneEuroFilter algorithm by Nicolas Roussel (http://www.lifl.fr/~casiez/1euro/OneEuroFilter.cc)
+ * More info on the 1€ filter by Géry Casiez at http://www.lifl.fr/~casiez/1euro/
+ *
+ */
+
+    [BurstCompile]
+    public struct BasisOneEuroFilterParallelJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<float> InputValues;
+        [WriteOnly] public NativeArray<float> OutputValues;
+
+        // per-player dt
+        [ReadOnly] public NativeArray<double> DeltaTimeSeconds;
+
+        // per-value filter state
+        public NativeArray<float2> PositionFilters;   // x = previous input, y = previous output
+        public NativeArray<float2> DerivativeFilters; // x = previous derivative input, y = previous derivative output
+
+        public float MinCutoff;
+        public float Beta;
+        public float DerivativeCutoff;
+
+        [ReadOnly] public int MuscleCountPerAvatar;
+
+        public void Execute(int index)
+        {
+            int playerIndex = MuscleCountPerAvatar > 0 ? (index / MuscleCountPerAvatar) : 0;
+
+            double dt = math.max(DeltaTimeSeconds[playerIndex], 1e-3);
+            double frequency = math.rcp(dt);
+
+            float inputValue = InputValues[index];
+
+            float prevFiltered = PositionFilters[index].y;
+            float prevRaw = PositionFilters[index].x;
+
+            double dValue = ((inputValue - prevRaw) * frequency);
+
+            double alphaD = Alpha(DerivativeCutoff, frequency);
+            float prevDerivFiltered = DerivativeFilters[index].y;
+            double edValue = alphaD * dValue + (1.0 - alphaD) * (double)prevDerivFiltered;
+
+            double cutoff = MinCutoff + Beta * math.abs(edValue);
+            double alphaX = Alpha(cutoff, frequency);
+
+            double filtered = alphaX * (double)inputValue + (1.0 - alphaX) * (double)prevFiltered;
+
+            OutputValues[index] = (float)filtered;
+            PositionFilters[index] = new float2(inputValue, (float)filtered);
+            DerivativeFilters[index] = new float2((float)dValue, (float)edValue);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static double Alpha(double cutoff, double frequency)
+        {
+            double te = math.rcp(frequency);
+            double tau = math.rcp(2.0 * math.PI * math.max(cutoff, 1e-4));
+            return math.rcp(1.0 + tau / te);
         }
     }
 
@@ -426,9 +764,9 @@ public static class BasisRemoteNetworkDriver
     [BurstCompile]
     public struct ComputeScaledBodyJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<float3> OutputPositions; // from UpdateAllAvatarsJob
-        [ReadOnly] public NativeArray<float3> OutputScales;    // from UpdateAllAvatarsJob
-        [ReadOnly] public NativeArray<float> HumanScales;     // per avatar
+        [ReadOnly] public NativeArray<float3> OutputPositions;
+        [ReadOnly] public NativeArray<float3> OutputScales;
+        [ReadOnly] public NativeArray<float> HumanScales;
 
         [WriteOnly] public NativeArray<float3> ScaledBodyPositions;
 
@@ -437,24 +775,16 @@ public static class BasisRemoteNetworkDriver
             const float eps = 1e-6f;
 
             float3 applyScale = OutputScales[Index];
-
-            // Sanitize baseScale: avoid 0 / NaN / Inf before reciprocal
             float baseScale = HumanScales[Index];
+
             bool baseBad = !math.isfinite(baseScale) | (math.abs(baseScale) <= eps);
-            // If bad, fall back to 1.0; else use reciprocal
             float invBase = math.select(math.rcp(baseScale), 1f, baseBad);
 
-            // Use float3 everywhere (avoid Vector3 in Burst jobs)
-            float3 scale = new float3(invBase); // equivalent to 1 / baseScale if valid
-
-            // Per-component guard for applyScale (also handle NaN/Inf there)
+            // Per-component guard for applyScale
             bool3 validApply = math.isfinite(applyScale) & (math.abs(applyScale) > eps);
 
-            // If valid, divide; otherwise just use the base scale
-            float3 safeDiv = math.select(scale, scale / applyScale, validApply);
-
-            // Optional: clamp to avoid exploding values if inputs are extreme
-            // safeDiv = math.clamp(safeDiv, -1e6f, 1e6f);
+            float3 safe = new float3(invBase);
+            float3 safeDiv = math.select(safe, safe / applyScale, validApply);
 
             ScaledBodyPositions[Index] = OutputPositions[Index] * safeDiv;
         }

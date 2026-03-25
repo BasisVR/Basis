@@ -48,6 +48,15 @@ namespace Basis.Scripts.Player
         public static UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<GameObject> RemoteHandle;
 
         /// <summary>
+        /// Tpose Handle
+        /// </summary>
+        public static UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> TposeHandle;
+
+        public static RuntimeAnimatorController TposeController;
+
+        /// <summary>Addressable path to the T-Pose animator controller asset.</summary>
+        public const string TPose = "Assets/Animator/Animated TPose.controller";
+        /// <summary>
         /// Loads the local and remote player prefabs from Addressables and caches them for instantiation.
         /// </summary>
         /// <remarks>
@@ -61,6 +70,9 @@ namespace Basis.Scripts.Player
 
             RemoteHandle = Addressables.LoadAssetAsync<GameObject>(RemotePlayerId);
             RemotePlayerReadyToSpawn = RemoteHandle.WaitForCompletion();
+
+            TposeHandle = Addressables.LoadAssetAsync<RuntimeAnimatorController>(TPose);
+            TposeController = TposeHandle.WaitForCompletion();
         }
 
         /// <summary>
@@ -74,6 +86,7 @@ namespace Basis.Scripts.Player
         {
             Addressables.Release(LocalHandle);
             Addressables.Release(RemoteHandle);
+            Addressables.Release(TposeController);
         }
 
         /// <summary>

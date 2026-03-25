@@ -154,7 +154,8 @@ namespace Basis.Scripts.Drivers
         }
         public void SafeSetBlendShape(int idx,float blendWeight)
         {
-            if (idx >= 0 && idx < meshBlendShapeCount)
+            if (meshRenderer == null || meshRenderer.sharedMesh == null) return;
+            if (idx >= 0 && idx < meshRenderer.sharedMesh.blendShapeCount)
             {
                 meshRenderer.SetBlendShapeWeight(idx, blendWeight);
             }

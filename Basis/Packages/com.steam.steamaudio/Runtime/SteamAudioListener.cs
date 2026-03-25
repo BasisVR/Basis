@@ -132,34 +132,29 @@ namespace SteamAudio
 
         public BakedDataIdentifier GetBakedDataIdentifier()
         {
-            var identifier = new BakedDataIdentifier { };
-            identifier.type = BakedDataType.Reflections;
-            identifier.variation = BakedDataVariation.Reverb;
+            var identifier = new BakedDataIdentifier
+            {
+                type = BakedDataType.Reflections,
+                variation = BakedDataVariation.Reverb
+            };
             return identifier;
         }
 
-        public void SetInputs(SimulationFlags flags)
+        public void SetInputs(SimulationFlags flags, SteamAudioSettings settings, Vector3 origin, Vector3 ahead, Vector3 up, Vector3 right)
         {
-            // One native hop instead of 5+
-            transform.GetPositionAndRotation(out var pos, out var rot);
 
-            // Derive axes in managed code (cheap math, no extra native calls)
-            var ahead = rot * UnityEngine.Vector3.forward;
-            var up = rot * UnityEngine.Vector3.up;
-            var right = rot * UnityEngine.Vector3.right;
 
             // Build inputs
-            var settings = SteamAudioSettings.Singleton;
             bool baked = reverbType != ReverbType.Realtime;
 
             var inputs = new SimulationInputs
             {
                 source =
         {
-            origin = Common.ConvertVector(pos),
-            ahead  = Common.ConvertVector(ahead),
-            up     = Common.ConvertVector(up),
-            right  = Common.ConvertVector(right),
+            origin = origin,
+            ahead  = ahead,
+            up     = up,
+            right  = right,
         },
 
                 distanceAttenuationModel = { type = DistanceAttenuationModelType.Default },
@@ -179,16 +174,17 @@ namespace SteamAudio
             };
 
             if (baked && reverbType == ReverbType.Baked)
+            {
                 inputs.bakedDataIdentifier = GetBakedDataIdentifier();
+            }
 
             if (applyReverb)
+            {
                 inputs.flags |= SimulationFlags.Reflections;
+            }
 
             mSource.SetInputs(flags, inputs);
         }
-
-        public void UpdateOutputs(SimulationFlags flags)
-        {}
 
         private void OnDrawGizmosSelected()
         {

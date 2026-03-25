@@ -68,9 +68,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             SystemOrMenuButton = 8,
             GripButton = 9,
         }
-        public bool HasState(BasisInputState state)
+        public bool HasState(BasisInputState state, BasisInputKey Key)
         {
-            switch (InputKey)
+            switch (Key)
             {
                 case BasisInputKey.Trigger:
                     // Fire when main trigger is fully pressed
@@ -82,10 +82,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                 case BasisInputKey.Primary2DAxis:
                     // Axis has state if it's non-zero (already deadzoned in BasisInputState)
-                    return state.Primary2DAxis.sqrMagnitude > 0f;
+                    return state.Primary2DAxisDeadZoned.sqrMagnitude > 0f;
 
                 case BasisInputKey.Secondary2DAxis:
-                    return state.Secondary2DAxis.sqrMagnitude > 0f;
+                    return state.Secondary2DAxisDeadZoned.sqrMagnitude > 0f;
 
                 case BasisInputKey.Primary2DAxisClick:
                     return state.Primary2DAxisClick;
@@ -114,20 +114,19 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// Flag indicating whether this object requires an update loop
         /// while being influenced by inputs.
         /// </summary>
-        [NonSerialized]
-        internal bool RequiresUpdateLoop = false;
+        public bool RequiresUpdateLoop { get; protected set; } = false;
 
         #region Interaction Events
 
         /// <summary>
         /// Event triggered when interaction starts with an input.
         /// </summary>
-        public Action<BasisInput> OnInteractStartEvent;
+        public UnityEngine.Events.UnityEvent<BasisInput> OnInteractStartEvent;
 
         /// <summary>
         /// Event triggered when interaction ends with an input.
         /// </summary>
-        public Action<BasisInput> OnInteractEndEvent;
+        public UnityEngine.Events.UnityEvent<BasisInput> OnInteractEndEvent;
 
         /// <summary>
         /// Event triggered when hover starts from an input.
@@ -181,6 +180,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public float InteractRange = 1f;
 
+        [Header("Direct Grab")]
+        [Tooltip("Whether this object can be directly grabbed by hand proximity")]
+        public bool AllowDirectGrab = true;
+
+        [Tooltip("Radius around the hand for direct grab detection (meters)")]
+        public float GrabRadius = 0.15f;
+
         /// <summary>
         /// Called during object initialization.
         /// Sets up inputs when the local player is ready.
@@ -194,7 +200,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
             else
             {
-                BasisLocalPlayer.OnLocalPlayerCreatedAndReady += SetupInputs;
+                BasisLocalPlayer.OnLocalPlayerInitalized += SetupInputs;
             }
         }
 
@@ -274,7 +280,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             if (Device_Management.BasisDeviceManagement.IsUserInDesktop())
             {
                 // Adding half the player's height mimics a VR user's arm reach.
-                extraReach = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
+                extraReach = BasisHeightDriver.SelectedScaledPlayerHeight / 2;
             }
             return Vector3.Distance(GetClosestPoint(source), source) <= interactRange + extraReach;
         }
@@ -283,17 +289,30 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             float closestDistanceSqr = float.MaxValue;
             Vector3 closestPoint = transform.position;
+
             for (int i = 0; i < _colliderRefs.Length; i++)
             {
-                Collider childCollider = _colliderRefs[i];
-                Vector3 point = childCollider.ClosestPoint(source);
+                Collider col = _colliderRefs[i];
+                Vector3 point;
+
+                if (col is MeshCollider meshCol && !meshCol.convex)
+                {
+                    point = meshCol.bounds.ClosestPoint(source);
+                }
+                else
+                {
+                    point = col.ClosestPoint(source);
+                }
+
                 float distanceSqr = (point - source).sqrMagnitude;
+
                 if (distanceSqr < closestDistanceSqr)
                 {
                     closestDistanceSqr = distanceSqr;
                     closestPoint = point;
                 }
             }
+
             return closestPoint;
         }
 
@@ -488,6 +507,23 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public virtual bool IsInfluencable(BasisInput input)
         {
             return InteractableEnabled && (CanHover(input) || CanInteract(input));
+        }
+
+        /// <summary>
+        /// Determines if the input can directly grab this object via hand proximity.
+        /// Only applicable to hand inputs (LeftHand/RightHand).
+        /// </summary>
+        public virtual bool CanDirectGrab(BasisInput input)
+        {
+            if (!AllowDirectGrab || !InteractableEnabled) return false;
+            if (input.BasisUIRaycast != null && input.BasisUIRaycast.HadRaycastUITarget) return false;
+            if (!Inputs.IsInputAdded(input)) return false;
+            if (!input.TryGetRole(out TransformBinders.BoneControl.BasisBoneTrackedRole role)) return false;
+            if (role != TransformBinders.BoneControl.BasisBoneTrackedRole.LeftHand &&
+                role != TransformBinders.BoneControl.BasisBoneTrackedRole.RightHand) return false;
+            if (!Inputs.TryGetByRole(role, out BasisInputWrapper found)) return false;
+            var state = found.GetState();
+            return state == BasisInteractInputState.Ignored || state == BasisInteractInputState.Hovering;
         }
 
         private bool _interactGateOpen = true;

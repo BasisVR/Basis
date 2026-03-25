@@ -4,6 +4,7 @@ using Basis.Network.Core;
 using UnityEngine;
 public class BasisTestNetwork : BasisAvatarMonoBehaviour
 {
+    new public static bool VisibleInAvatarMenu = false;
     public bool Send = false;
     public ushort[] Players;
     public byte[] SendingOutBytes = new byte[3];

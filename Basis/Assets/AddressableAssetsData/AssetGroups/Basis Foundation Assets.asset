@@ -15,18 +15,34 @@ MonoBehaviour:
   m_GroupName: Basis Foundation Assets
   m_GUID: 37c75a6cf72db324eb01200602299fc8
   m_SerializeEntries:
+  - m_GUID: 00e81ac93a7373b4f840adeb3ab1a35b
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Password Field -
+      Entry Variant - Long.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 02557e153ce417740995e1aa0b218555
+    m_Address: Packages/com.basis.sdk/Prefabs/PropOrb.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 040c70d334425ce409edf84dd387a824
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Image.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 06748086c45b96944a4d4803ffc8a0d0
+    m_Address: Packages/com.basis.sdk/Prefabs/SpawnOutline.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 06b1965d0565c4444b4ce3ea5aa8e690
     m_Address: Packages/com.basis.tests/Mirror/BasisSDKMIrror.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0a567d33a926609498ff7326c03a6e6b
-    m_Address: Packages/com.basis.sdk/Textures/Runtime/calibrateWhite.png
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0c9ffb72ecdca914b875fc177d06dd61
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/Player Held Camera.prefab
+    m_Address: Photo Camera
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -40,18 +56,28 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 2ef52735e20e99c45ae63c674e0727cb
-    m_Address: BasisUIAvatarSelection
+  - m_GUID: 2c84803c5e0cef44f9e0152b5fba4f35
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Android.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 356a8bb117010ea4084b0dd6463d28b0
-    m_Address: BasisConsoleLogger
+  - m_GUID: 3090aa8bcb9ed2949ae1ad3b4bf2db36
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base Icon.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 36f8763dade09e141b33131d1ba97214
-    m_Address: MainMenu
+  - m_GUID: 3629a31210b28684491d8f47db512ab1
+    m_Address: Packages/com.basis.sdk/Sprites/HalfCircle 512 Right.png
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 37a8be7cf5a82a84683091646d70a7c5
+    m_Address: Packages/com.basis.sdk/Prefabs/UI/Camera Prefab/BasisCameraRemotePip.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 39dccb64fd465d0438a825b8ce81f738
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Close Button - Modal.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -85,8 +111,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 42ead3513149d52499d31b37cb1530ec
-    m_Address: BasisUIAddAvatar
+  - m_GUID: 44447e3f7d228264e9319ca5bc7c7872
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Button Yes Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -95,13 +121,34 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 45748bc469fa0a2419c17c39d0c614a1
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Dropdown - Entry
+      Variant - Overlay.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 49065ae954e7bbe4cb81a37c3c472b44
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Mac.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4b6d450b11ad8974e8c4ba0b1e0df50e
     m_Address: RemotePlayer
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5063ae403b85a6c4e8d99f33a85ca528
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Close Button.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 506f83456b9f93c40848e084d5684903
     m_Address: HVR.Basis.Comms.FaceTracking.DefaultARKitDefinitionFile
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5306d6c76f47eb047aed7126ad705ff5
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - iOS.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -120,13 +167,35 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 6339a6e83fe84c14d975b2a5a205b51a
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/Accept Deny Panel.prefab
+  - m_GUID: 686ea57ae89c1284e99d97afd5b30195
+    m_Address: Packages/com.basis.sdk/Prefabs/AvatarOrb.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 68c19bcf0d450994caac14b3bc546184
-    m_Address: BasisUIServers
+  - m_GUID: 6d6028608171cc34aa0cd1ee986fd9d8
+    m_Address: Packages/com.basis.sdk/Prefabs/WorldOrb.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 770e187d8cbf1084ab7ba6d59036b039
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Prop List Page.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 80bfab9c60f08a14899e90dece791054
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal
+      - No Background.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 81b3e830fd16aae4ab914a654371f2bf
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Panel Element Base -
+      Overlay.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8312725d834f7de40aa672d4d6d1bb58
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Windows.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -135,8 +204,8 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 861fed068fe3fd4449deba6697749c16
-    m_Address: UserNamePanel
+  - m_GUID: 89e24e73c6f0ae14e8c2fa711b96681a
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Prop Panel View.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -175,13 +244,13 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a67751b7d392b924e89b90084f01a19b
-    m_Address: Packages/com.basis.gizmos/GizmoLine.prefab
+  - m_GUID: a2f345806aa03f144bfb15aaa186ecf9
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/PE Large Text Field.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a6def01a1603e4447bdd668aab602f11
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/BasisUIAdminPanel.prefab
+  - m_GUID: a67751b7d392b924e89b90084f01a19b
+    m_Address: Packages/com.basis.gizmos/GizmoLine.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -195,38 +264,13 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c1e44be3809ebf446b1c38479ca9d1ed
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/ControllerConfig.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c65e15bc2eea6e24e8606a9091a4bf13
     m_Address: HVR.Basis.Comms.FaceTracking.DefaultUnifiedExpressionsDefinitionFile
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: c8641e85bc7395f4da039ce980f3dafe
-    m_Address: StylePalette
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: c92fd7b20eb8eaf4eb4a6e236e4ac620
     m_Address: Virtual Keyboard
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: dd1db054b177db7459cc81633b86e525
-    m_Address: Assets/Scenes/initialization.unity
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: e0f426c988eb0f84a8e32126d17abeb1
-    m_Address: StyleLibrary
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ea11d439c72d6a145a84a0b10f691e3c
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/BasisUINotification.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -236,12 +280,23 @@ MonoBehaviour:
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: ed07444dbf3e0f744a12b80ab0a8a2b7
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/Personal Mirror Prefab/PersonalMirror.prefab
+    m_Address: Personal Mirror
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: edec16241d972bb47bf0210f7678d6ba
-    m_Address: Packages/com.basis.sdk/Prefabs/UI/PlayerSelectionPanel.prefab
+  - m_GUID: f3e0631a93d0ade4d8aa6c53111ddf5e
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Platform Panel - Linux.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f50fe7d1576f16645bb5246612e15366
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical -
+      No Background.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f74a5011dbc9f044c90b4a657d1d5199
+    m_Address: Packages/com.basis.sdk/Prefabs/Panel Elements/Cancel Button Variant.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

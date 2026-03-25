@@ -1,5 +1,6 @@
 // Largely based on the work of https://easings.net/#
 
+using System;
 using UnityEngine;
 
 namespace Basis.BTween
@@ -48,110 +49,147 @@ namespace Basis.BTween
         public const float n1  = 7.5625f;
         public const float d1  = 2.75f;
 
-        public static float PerformEase(Easing ease, float x)
+        public static double PerformEase(Easing ease, double x)
         {
             switch (ease)
             {
                 case Easing.InSine:
-                    return 1 - Mathf.Cos((x * Mathf.PI) / 2);
+                    return 1 - Math.Cos((x * Math.PI) / 2);
+
                 case Easing.OutSine:
-                    return Mathf.Sin((x * Mathf.PI) / 2);
+                    return Math.Sin((x * Math.PI) / 2);
+
                 case Easing.InOutSine:
-                    return -(Mathf.Cos(Mathf.PI * x) - 1) / 2;
+                    return -(Math.Cos(Math.PI * x) - 1) / 2;
+
                 case Easing.InQuad:
                     return x * x;
+
                 case Easing.OutQuad:
                     return 1 - (1 - x) * (1 - x);
+
                 case Easing.InOutQuad:
-                    return x < 0.5 ? 2 * x * x : 1 - Mathf.Pow(-2 * x + 2, 2) / 2;
+                    return x < 0.5
+                        ? 2 * x * x
+                        : 1 - Math.Pow(-2 * x + 2, 2) / 2;
+
                 case Easing.InCubic:
                     return x * x * x;
+
                 case Easing.OutCubic:
-                    return 1 - Mathf.Pow(1 - x, 3);
+                    return 1 - Math.Pow(1 - x, 3);
+
                 case Easing.InOutCubic:
-                    return x < 0.5 ? 4 * x * x * x : 1 - Mathf.Pow(-2 * x + 2, 3) / 2;
+                    return x < 0.5
+                        ? 4 * x * x * x
+                        : 1 - Math.Pow(-2 * x + 2, 3) / 2;
+
                 case Easing.InQuart:
                     return x * x * x * x;
+
                 case Easing.OutQuart:
-                    return 1 - Mathf.Pow(1 - x, 4);
+                    return 1 - Math.Pow(1 - x, 4);
+
                 case Easing.InOutQuart:
-                    return x < 0.5 ? 8 * x * x * x * x : 1 - Mathf.Pow(-2 * x + 2, 4) / 2;
+                    return x < 0.5
+                        ? 8 * x * x * x * x
+                        : 1 - Math.Pow(-2 * x + 2, 4) / 2;
+
                 case Easing.InQuint:
                     return x * x * x * x * x;
+
                 case Easing.OutQuint:
-                    return 1 - Mathf.Pow(1 - x, 5);
+                    return 1 - Math.Pow(1 - x, 5);
+
                 case Easing.InOutQuint:
-                    return x < 0.5 ? 16 * x * x * x * x * x : 1 - Mathf.Pow(-2 * x + 2, 5) / 2;
+                    return x < 0.5
+                        ? 16 * x * x * x * x * x
+                        : 1 - Math.Pow(-2 * x + 2, 5) / 2;
+
                 case Easing.InExpo:
-                    return x == 0 ? 0 : Mathf.Pow(2, 10 * x - 10);
+                    return x == 0 ? 0 : Math.Pow(2, 10 * x - 10);
+
                 case Easing.OutExpo:
-                    return x == 1 ? 1 : 1 - Mathf.Pow(2, -10 * x);
+                    return x == 1 ? 1 : 1 - Math.Pow(2, -10 * x);
+
                 case Easing.InOutExpo:
                     return x == 0
                         ? 0
                         : x == 1
                             ? 1
                             : x < 0.5
-                                ? Mathf.Pow(2, 20 * x - 10) / 2
-                                : (2 - Mathf.Pow(2, -20 * x + 10)) / 2;
+                                ? Math.Pow(2, 20 * x - 10) / 2
+                                : (2 - Math.Pow(2, -20 * x + 10)) / 2;
+
                 case Easing.InCirc:
-                    return 1 - Mathf.Sqrt(1 - Mathf.Pow(x, 2));
+                    return 1 - Math.Sqrt(1 - Math.Pow(x, 2));
+
                 case Easing.OutCirc:
-                    return Mathf.Sqrt(1 - Mathf.Pow(x - 1, 2));
+                    return Math.Sqrt(1 - Math.Pow(x - 1, 2));
+
                 case Easing.InOutCirc:
                     return x < 0.5
-                        ? (1 - Mathf.Sqrt(1 - Mathf.Pow(2 * x, 2))) / 2
-                        : (Mathf.Sqrt(1 - Mathf.Pow(-2 * x + 2, 2)) + 1) / 2;
+                        ? (1 - Math.Sqrt(1 - Math.Pow(2 * x, 2))) / 2
+                        : (Math.Sqrt(1 - Math.Pow(-2 * x + 2, 2)) + 1) / 2;
+
                 case Easing.InBack:
                     return c3 * x * x * x - c1 * x * x;
+
                 case Easing.OutBack:
-                    return 1 + c3 * Mathf.Pow(x - 1, 3) + c1 * Mathf.Pow(x - 1, 2);
+                    return 1 + c3 * Math.Pow(x - 1, 3) + c1 * Math.Pow(x - 1, 2);
+
                 case Easing.InOutBack:
                     return x < 0.5
-                        ? (Mathf.Pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2
-                        : (Mathf.Pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2;
+                        ? (Math.Pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2
+                        : (Math.Pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2;
+
                 case Easing.InElastic:
                     return x == 0
                         ? 0
                         : x == 1
                             ? 1
-                            : -Mathf.Pow(2, 10 * x - 10) * Mathf.Sin((x * 10 - 10.75f) * c4);
+                            : -Math.Pow(2, 10 * x - 10) * Math.Sin((x * 10 - 10.75) * c4);
+
                 case Easing.OutElastic:
                     return x == 0
                         ? 0
                         : x == 1
                             ? 1
-                            : Mathf.Pow(2, -10 * x) * Mathf.Sin((x * 10 - 0.75f) * c4) + 1;
+                            : Math.Pow(2, -10 * x) * Math.Sin((x * 10 - 0.75) * c4) + 1;
+
                 case Easing.InOutElastic:
                     return x == 0
                         ? 0
                         : x == 1
                             ? 1
                             : x < 0.5
-                                ? -(Mathf.Pow(2, 20 * x - 10) * Mathf.Sin((20 * x - 11.125f) * c5)) / 2
-                                : (Mathf.Pow(2, -20 * x + 10) * Mathf.Sin((20 * x - 11.125f) * c5)) / 2 + 1;
+                                ? -(Math.Pow(2, 20 * x - 10) * Math.Sin((20 * x - 11.125) * c5)) / 2
+                                : (Math.Pow(2, -20 * x + 10) * Math.Sin((20 * x - 11.125) * c5)) / 2 + 1;
+
                 case Easing.InBounce:
                     return 1 - PerformEase(Easing.OutBounce, 1 - x);
+
                 case Easing.OutBounce:
                     if (x < 1 / d1)
                         return n1 * x * x;
 
                     if (x < 2 / d1)
-                        return n1 * (x -= 1.5f / d1) * x + 0.75f;
+                        return n1 * (x -= 1.5 / d1) * x + 0.75;
 
                     if (x < 2.5 / d1)
-                        return n1 * (x -= 2.25f / d1) * x + 0.9375f;
+                        return n1 * (x -= 2.25 / d1) * x + 0.9375;
 
-                    return n1 * (x -= 2.625f / d1) * x + 0.984375f;
+                    return n1 * (x -= 2.625 / d1) * x + 0.984375;
+
                 case Easing.InOutBounce:
                     return x < 0.5
-                        ? (1 - PerformEase(Easing.OutBounce,(1 - 2 * x))) / 2
-                        : (1 + PerformEase(Easing.OutBounce,(2 * x - 1))) / 2;
+                        ? (1 - PerformEase(Easing.OutBounce, 1 - 2 * x)) / 2
+                        : (1 + PerformEase(Easing.OutBounce, 2 * x - 1)) / 2;
+
                 default:
                     Debug.LogWarning($"Ease type {ease} not implemented.");
-                    break;
+                    return x;
             }
-            return x;
         }
     }
 }

@@ -16,23 +16,17 @@ namespace UnityEngine.Rendering.Universal
             internal RendererListHandle rendererList;
         }
 
-#if URP_COMPATIBILITY_MODE
-        [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsoleteFrom2023_3)]
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            throw new NotImplementedException();
-        }
-#endif
-
         private static void Execute(RasterCommandBuffer cmd, PassData passData)
         {
             cmd.DrawRendererList(passData.rendererList);
         }
 
-        public void Render(RenderGraph graph, ContextContainer frameData, Renderer2DData rendererData, ref LayerBatch layerBatch, int batchIndex)
+        public void Render(RenderGraph graph, ContextContainer frameData, int batchIndex)
         {
             Universal2DResourceData universal2DResourceData = frameData.Get<Universal2DResourceData>();
             CommonResourceData commonResourceData = frameData.Get<CommonResourceData>();
+            Renderer2DData rendererData = frameData.Get<Universal2DRenderingData>().renderingData;
+            var layerBatch = frameData.Get<Universal2DRenderingData>().layerBatches[batchIndex];
 
             if (!layerBatch.useNormals)
                 return;
@@ -41,9 +35,12 @@ namespace UnityEngine.Rendering.Universal
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
             UniversalLightData lightData = frameData.Get<UniversalLightData>();
 
-            using (var builder = graph.AddRasterRenderPass<PassData>(k_NormalPass, out var passData, m_ProfilingSampler))
+            var passName = k_NormalPass;
+            LayerDebug.FormatPassName(layerBatch, ref passName);
+
+            using (var builder = graph.AddRasterRenderPass<PassData>(passName, out var passData, LayerDebug.GetProfilingSampler(passName, m_ProfilingSampler)))
             {
-                LayerUtility.GetFilterSettings(rendererData, ref layerBatch, out var filterSettings);
+                LayerUtility.GetFilterSettings(rendererData, layerBatch, out var filterSettings);
 
                 var drawSettings = CreateDrawingSettings(k_NormalsRenderingPassName, renderingData, cameraData, lightData, SortingCriteria.CommonTransparent);
                 var sortSettings = drawSettings.sortingSettings;
@@ -65,7 +62,7 @@ namespace UnityEngine.Rendering.Universal
                 passData.rendererList = graph.CreateRendererList(param);
                 builder.UseRendererList(passData.rendererList);
 
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
                     Execute(context.cmd, data);
                 });

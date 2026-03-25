@@ -4,23 +4,19 @@ namespace BasisNetworkCore.Pooling
 {
     public static class ThreadSafeMessagePool<T> where T : new()
     {
-        private static readonly ConcurrentStack<T> pool = new ConcurrentStack<T>();
-        private static readonly int maxPoolSize = 500; // Maximum allowed size of the pool
+        private static readonly ConcurrentQueue<T> pool = new();
+        private const int MaxPoolSize = 500;
 
         public static T Rent()
         {
-            if (pool.TryPop(out T obj))
-            {
-                return obj;
-            }
-            return new T();
+            return pool.TryDequeue(out T obj) ? obj : new T();
         }
 
         public static void Return(T obj)
         {
-            if (pool.Count < maxPoolSize) // Check if the pool size is within the limit
+            if (pool.Count < MaxPoolSize)
             {
-                pool.Push(obj);
+                pool.Enqueue(obj);
             }
         }
     }

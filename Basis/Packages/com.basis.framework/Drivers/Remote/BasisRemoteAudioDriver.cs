@@ -1,5 +1,7 @@
 using Basis.Scripts.Networking.Receivers;
+using SteamAudio;
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Basis.Scripts.Drivers
@@ -48,7 +50,14 @@ namespace Basis.Scripts.Drivers
                 AudioData?.Invoke(data, channels);
             }
         }
-
+        public void OnDestroy()
+        {
+            if (BasisAudioAndVisemeDriver != null)
+            {
+                BasisAudioAndVisemeDriver.OnDestroy();
+                Drivers.Remove(BasisAudioAndVisemeDriver);
+            }
+        }
         /// <summary>
         /// Initializes the driver with a viseme processor and marks it ready.
         /// </summary>
@@ -56,7 +65,30 @@ namespace Basis.Scripts.Drivers
         public void Initalize(BasisAudioAndVisemeDriver basisVisemeDriver)
         {
             BasisAudioAndVisemeDriver = basisVisemeDriver;
+            if (Drivers.Contains(BasisAudioAndVisemeDriver) == false)
+            {
+                Drivers.Add(BasisAudioAndVisemeDriver);
+            }
             Initalized = true;
         }
+        public static void Simulate(float DeltaTime)
+        {
+            int count = Drivers.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                BasisAudioAndVisemeDriver VisemeDriver = Drivers[Index];
+                VisemeDriver.Simulate(DeltaTime);
+            }
+        }
+        public static void Apply()
+        {
+            int count = Drivers.Count;
+            for (int Index = 0; Index < count; Index++)
+            {
+                BasisAudioAndVisemeDriver VisemeDriver = Drivers[Index];
+                VisemeDriver.Apply();
+            }
+        }
+        public static List<BasisAudioAndVisemeDriver> Drivers = new List<BasisAudioAndVisemeDriver>();
     }
 }

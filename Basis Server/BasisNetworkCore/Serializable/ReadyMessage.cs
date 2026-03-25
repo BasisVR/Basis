@@ -16,7 +16,7 @@ public static partial class SerializableBasis
         {
             playerMetaDataMessage.Serialize(Writer);
             clientAvatarChangeMessage.Serialize(Writer);
-            localAvatarSyncMessage.Serialize(Writer);
+            localAvatarSyncMessage.Serialize(Writer, (Basis.Network.Core.Compression.BasisAvatarBitPacking.BitQuality)localAvatarSyncMessage.DataQualityLevel);
         }
         public bool WasDeserializedCorrectly()
         {

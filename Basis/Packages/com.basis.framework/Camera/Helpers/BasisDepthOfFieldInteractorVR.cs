@@ -34,7 +34,7 @@ public class BasisDepthOfFieldInteractorVR : MonoBehaviour
     public float interactThreshold = 0.9f;
 
     /// <summary>
-    /// Execution order priority when subscribing to <see cref="BasisLocalPlayer.AfterFinalMove"/>.
+    /// Execution order priority when subscribing to <see cref="BasisLocalPlayer.AfterSimulateOnLate"/>.
     /// </summary>
     private const int UpdateOrder = 210; // After PlayerInteract (201)
 
@@ -56,7 +56,7 @@ public class BasisDepthOfFieldInteractorVR : MonoBehaviour
     /// </summary>
     private void OnEnable()
     {
-        BasisLocalPlayer.AfterFinalMove.AddAction(UpdateOrder, PollInputs);
+        BasisLocalPlayer.AfterSimulateOnLate.AddAction(UpdateOrder, PollInputs);
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public class BasisDepthOfFieldInteractorVR : MonoBehaviour
     /// </summary>
     private void OnDisable()
     {
-        BasisLocalPlayer.AfterFinalMove.RemoveAction(UpdateOrder, PollInputs);
+        BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(UpdateOrder, PollInputs);
     }
 
     /// <summary>

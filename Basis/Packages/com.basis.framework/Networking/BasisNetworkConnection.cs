@@ -4,7 +4,6 @@ using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Transmitters;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
 using System;
@@ -78,7 +77,8 @@ namespace Basis.Scripts.Networking
                 playerMetaDataMessage = new ClientMetaDataMessage
                 {
                     playerUUID = basisLocalPlayer.UUID,
-                    playerDisplayName = basisLocalPlayer.DisplayName
+                    playerDisplayName = basisLocalPlayer.DisplayName,
+                    playerPlatform = basisLocalPlayer.PlayerPlatform,
                 }
             };
 
@@ -107,7 +107,7 @@ namespace Basis.Scripts.Networking
                         Encoding.UTF8.GetBytes(primitivePassword), serverConfig);
 
                     NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
-                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkEvents.PeerDisconnectedEvent;
+                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkConnection.HandleDisconnection;
                     NetworkClient.listener.NetworkReceiveEvent += BasisNetworkEvents.NetworkReceiveEvent;
 
                     if (LocalPlayerPeer != null)
@@ -152,7 +152,6 @@ namespace Basis.Scripts.Networking
                     BasisNetworkManagement.Instance.transform.GetPositionAndRotation(out Vector3 _, out Quaternion _);
 
                     var transmitter = new BasisNetworkTransmitter(localPlayerID);
-                    BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out transmitter.TransmissionResults.MouthBone, BasisBoneTrackedRole.Mouth);
                     BasisNetworkManagement.Transmitter = transmitter;
                     BasisNetworkManagement.Instance.LocalAccessTransmitter = transmitter;
                     transmitter.Player = BasisLocalPlayer.Instance;
@@ -178,32 +177,54 @@ namespace Basis.Scripts.Networking
 
                     transmitter.Initialize();
 
+                    LocalPlayerIsConnected = true;
+
                     BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
                     BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
-
-                    LocalPlayerIsConnected = true;
-                    if (BasisSetUserName.Instance != null)
-                    {
-                        BasisSetUserName.Instance.DestroyUserNamePanel();
-                    }
                 }
                 catch (Exception ex)
                 {
-                    if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
-                    {
-                        BasisSetUserName.Instance.Ready.interactable = true;
-                    }
                     BasisDebug.LogError($"Error setting up the local player: {ex.Message} {ex.StackTrace}");
                 }
             });
         }
+        public static Action OnRebootComplete;
         public static void HandleDisconnection(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
                 BasisNetworkAvatarCompressor.Dispose();
                 await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, true, peer, disconnectInfo);
+                OnRebootComplete?.Invoke();
             });
+        }
+        public static Task WaitForRebootCompleteAsync(CancellationToken ct = default)
+        {
+            // Run continuations asynchronously to avoid executing awaiting code inside the event invoke call stack.
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void Handler()
+            {
+                OnRebootComplete -= Handler;
+                tcs.TrySetResult(true);
+            }
+
+            OnRebootComplete += Handler;
+
+            // Cancellation support
+            CancellationTokenRegistration ctr = default;
+            if (ct.CanBeCanceled)
+            {
+                ctr = ct.Register(() =>
+                {
+                    OnRebootComplete -= Handler;
+                    tcs.TrySetCanceled(ct);
+                });
+            }
+            // No timeout; still dispose registration when done
+            _ = tcs.Task.ContinueWith(_ => ctr.Dispose(), TaskScheduler.Default);
+
+            return tcs.Task;
         }
     }
 }

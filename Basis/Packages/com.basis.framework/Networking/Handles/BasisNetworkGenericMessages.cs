@@ -99,24 +99,21 @@ public static class BasisNetworkGenericMessages
     {
         OwnershipTransferMessage OwnershipTransferMessage = new OwnershipTransferMessage();
         OwnershipTransferMessage.Deserialize(reader);
-        BasisNetworkPlayers.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID,out ushort OldPlayerID);
+        BasisNetworkPlayers.OwnershipPairing.Remove(OwnershipTransferMessage.ownershipID, out ushort OldPlayerID);
         BasisNetworkPlayer.OnOwnershipReleased?.Invoke(OwnershipTransferMessage.ownershipID);
     }
     public static void HandleOwnership(OwnershipTransferMessage OwnershipTransferMessage)
     {
-        if (BasisNetworkPlayers.OwnershipPairing.ContainsKey(OwnershipTransferMessage.ownershipID))
-        {
-            BasisNetworkPlayers.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
-        }
-        else
-        {
-            BasisNetworkPlayers.OwnershipPairing.TryAdd(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID);
-        }
+        BasisNetworkPlayers.OwnershipPairing[OwnershipTransferMessage.ownershipID] = OwnershipTransferMessage.playerIdMessage.playerID;
         if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort Id))
         {
             bool isLocalOwner = OwnershipTransferMessage.playerIdMessage.playerID == Id;
 
             BasisNetworkPlayer.OnOwnershipTransfer?.Invoke(OwnershipTransferMessage.ownershipID, OwnershipTransferMessage.playerIdMessage.playerID, isLocalOwner);
+        }
+        else
+        {
+            BasisDebug.LogError("NO Local PLayer ID Found");
         }
     }
     // Handler for server avatar data messages
@@ -139,7 +136,7 @@ public static class BasisNetworkGenericMessages
             {
                 RemoteAvatarDataMessage output = SADM.avatarDataMessage;
 
-                if (player.NetworkBehaviours.Length >= output.messageIndex)
+                if (player.NetworkBehaviours.Length > output.messageIndex)
                 {
                     bool isDifferentAvatar = output.AvatarLinkIndex != player.LastLinkedAvatarIndex;
 
@@ -190,7 +187,7 @@ public static class BasisNetworkGenericMessages
             BasisDebug.Log("Missing Player For Message " + SADM.playerIdMessage.playerID);
         }
     }
-    public static void OnNetworkMessageSend(ushort messageIndex,byte[] buffer = null,DeliveryMethod deliveryMethod = DeliveryMethod.Unreliable,ushort[] recipients = null)
+    public static void OnNetworkMessageSend(ushort messageIndex, byte[] buffer = null, DeliveryMethod deliveryMethod = DeliveryMethod.Unreliable, ushort[] recipients = null)
     {
         NetDataWriter netDataWriter = threadLocalWriter.Value;
         netDataWriter.Reset(); // clear previous data
@@ -202,17 +199,8 @@ public static class BasisNetworkGenericMessages
             recipients = recipients
         };
 
-        if (deliveryMethod == DeliveryMethod.Unreliable)
-        {
-            netDataWriter.Put(BasisNetworkCommons.SceneChannel);
-            sceneDataMessage.Serialize(netDataWriter);
-            BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, deliveryMethod);
-        }
-        else
-        {
-            sceneDataMessage.Serialize(netDataWriter);
-            BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.SceneChannel, deliveryMethod);
-        }
+        sceneDataMessage.Serialize(netDataWriter);
+        BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.SceneChannel, deliveryMethod);
 
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SceneData, netDataWriter.Length);
     }
@@ -231,10 +219,21 @@ public static class BasisNetworkGenericMessages
             BasisNetworkIdResolver.CompleteMessageDelegation(message);
         }
     }
+    
     public static async Task LoadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
     {
         LocalLoadResource LocalLoadResource = new LocalLoadResource();
         LocalLoadResource.Deserialize(reader);
+
+        // Check the load strategy before spawning
+        switch (LocalLoadResource.LoadStrategy)
+        {
+            case 2: // Synchronized - download, report readiness, wait for spawn signal
+                await BasisNetworkPreloadManager.HandleSynchronizedPreload(LocalLoadResource);
+                return;
+        }
+
+        // LoadStrategy 0 (Immediate) - existing behavior
         switch (LocalLoadResource.Mode)
         {
             case 0:
@@ -243,26 +242,44 @@ public static class BasisNetworkGenericMessages
             case 1:
                 await BasisNetworkSpawnItem.SpawnScene(LocalLoadResource);
                 break;
+            case 2:
+                await BasisNetworkSpawnItem.SpawnGameObject(LocalLoadResource, BundledContentHolder.Selector.Avatar);
+                break;
             default:
                 BNL.LogError($"tried to Load Mode {LocalLoadResource.Mode}");
                 break;
         }
     }
-    public static void UnloadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
+
+    /// <summary>
+    /// Handles the SpawnPreloaded message from the server, signaling that a
+    /// previously preloaded synchronized resource should now be spawned.
+    /// </summary>
+    public static async Task SpawnPreloadedMessage(NetPacketReader reader, DeliveryMethod Method)
+    {
+        SpawnPreloadedMessage spawnMsg = new SpawnPreloadedMessage();
+        spawnMsg.Deserialize(reader);
+        await BasisNetworkPreloadManager.HandleSpawnPreloaded(spawnMsg);
+    }
+    public static async Task UnloadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
     {
         UnLoadResource UnLoadResource = new UnLoadResource();
         UnLoadResource.Deserialize(reader);
         switch (UnLoadResource.Mode)
         {
             case 0:
-                BasisNetworkSpawnItem.DestroyGameobject(UnLoadResource);
+                await BasisNetworkSpawnItem.DestroyGameobject(UnLoadResource);
                 break;
             case 1:
-                BasisNetworkSpawnItem.DestroyScene(UnLoadResource);
+                await BasisNetworkSpawnItem.DestroyScene(UnLoadResource);
+                break;
+            case 02:
+              await  BasisNetworkSpawnItem.DestroyGameobject(UnLoadResource);
                 break;
             default:
                 BNL.LogError($"tried to removed Mode {UnLoadResource.Mode}");
                 break;
         }
+       // Basis.BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(UnLoadResource.LoadedNetID, out var data);
     }
 }

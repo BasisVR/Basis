@@ -3,5 +3,9 @@
   "displayName": "Basis Shims for CILBOX",
   "version": "0.0.1",
   "description": "Shims for the basis framework",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
   "hideInEditor": false
 }

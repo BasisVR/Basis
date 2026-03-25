@@ -191,8 +191,9 @@ namespace Basis.Scripts.Device_Management.Devices
             // Register simulation/apply loop hooks
             if (HasEvents == false)
             {
-                BasisLocalPlayer.Instance.OnPreSimulateBones += PollData;
-                BasisLocalPlayer.AfterFinalMove.AddAction(98, ApplyFinalMovement);
+                BasisLocalPlayer.Instance.OnLatePollData += LatePollData;
+                BasisLocalPlayer.Instance.OnRenderPollData += RenderPollData;
+                BasisLocalPlayer.AfterSimulateOnRender.AddAction(98, ApplyFinalMovement);
                 HasEvents = true;
             }
             else
@@ -217,8 +218,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// </summary>
         public void ComputeRaycastDirection(Vector3 Position, Quaternion rotation, Quaternion ActiveRaycastOffset)
         {
-            var parent = BasisLocalPlayer.Instance.transform;
-            Matrix4x4 parentMatrix = parent.localToWorldMatrix;
+            Matrix4x4 parentMatrix = BasisLocalPlayer.localToWorldMatrix;
             Quaternion OutGoingRotation = rotation * ActiveRaycastOffset;//HandFinal.rotation
 
             RaycastCoord.position = parentMatrix.MultiplyPoint3x4(Position);
@@ -413,8 +413,9 @@ namespace Basis.Scripts.Device_Management.Devices
             if (HasEvents)
             {
                 //deassign
-                BasisLocalPlayer.Instance.OnPreSimulateBones -= PollData;
-                BasisLocalPlayer.AfterFinalMove.RemoveAction(98, ApplyFinalMovement);
+                BasisLocalPlayer.Instance.OnLatePollData -= LatePollData;
+                BasisLocalPlayer.Instance.OnRenderPollData -= RenderPollData;
+                BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(98, ApplyFinalMovement);
                 HasEvents = false;
             }
         }
@@ -462,14 +463,20 @@ namespace Basis.Scripts.Device_Management.Devices
         }
 
         /// <summary>
-        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll.
+        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll. Late Update
         /// </summary>
-        public void PollData()
+        public void LatePollData()
         {
-            LastUpdatePlayerControl();
-            DoPollData();
+            LastUpdatePlayerControl();//stays here as late update is good for controller inputs not controller movement.
+            LateDoPollData();
         }
+        /// <summary>
+        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll. On Render Pass
+        /// </summary>
+        public virtual void RenderPollData()
+        {
 
+        }
         /// <summary>
         /// Pushes current input state to the action driver and updates raycasting/UI systems.
         /// Invokes <see cref="AfterControlApply"/> afterwards.
@@ -502,7 +509,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <param name="Volume">Playback volume.</param>
         public void PlaySoundEffectDefaultImplementation(string SoundEffectName, float Volume)
         {
-            BasisDebug.Log("Volume was " + Volume);
+         //   BasisDebug.Log("Volume was " + Volume);
             switch (SoundEffectName)
             {
                 case "hover":
@@ -510,6 +517,9 @@ namespace Basis.Scripts.Device_Management.Devices
                     break;
                 case "press":
                     AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    break;
+                case "chat":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.ChatNotificationUI, transform.position, Volume);
                     break;
             }
         }
@@ -580,13 +590,18 @@ namespace Basis.Scripts.Device_Management.Devices
                 LineRenderer.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
                 InteractionLineRenderer.enabled = false;
                 InteractionLineRenderer.material = BasisPlayerInteract.LineMaterial;
-                InteractionLineRenderer.startWidth = BasisPlayerInteract.interactLineWidth;
-                InteractionLineRenderer.endWidth = BasisPlayerInteract.interactLineWidth;
                 InteractionLineRenderer.useWorldSpace = true;
                 InteractionLineRenderer.textureMode = LineTextureMode.Tile;
                 InteractionLineRenderer.positionCount = 2;
-                InteractionLineRenderer.numCapVertices = 0;
+                InteractionLineRenderer.numCapVertices = 20;
+                InteractionLineRenderer.numCornerVertices = 20;
                 InteractionLineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                InteractionLineRenderer.widthMultiplier = 1;
+                InteractionLineRenderer.startWidth = 0.02f;
+                InteractionLineRenderer.endWidth = 0.02f;
+                InteractionLineRenderer.useWorldSpace = true;
+                InteractionLineRenderer.textureMode = LineTextureMode.Tile;
+                InteractionLineRenderer.applyActiveColorSpace = false;
             }
             HasRaycaster = true;
         }
@@ -622,19 +637,31 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisVisualTracker.Initialization(this);
             }
         }
-        public static BasisCalibratedCoords OffsetCoords = new BasisCalibratedCoords();
-        /// <summary>
-        /// Applies player scale to <see cref="UnscaledDeviceCoord"/> to produce <see cref="ScaledDeviceCoord"/>.
+        public static BasisCalibratedCoords OffsetCoords = new BasisCalibratedCoords(Vector3.zero,Quaternion.identity);
+        // <summary>
+        /// Applies player scale and OffsetCoords to UnscaledDeviceCoord to produce ScaledDeviceCoord.
+        /// OffsetCoords is treated as a rigid transform (R, t).
         /// </summary>
-        public void ConvertToScaledDeviceCoord(ref BasisCalibratedCoords UnscaledDeviceCoord,ref BasisCalibratedCoords ScaledDeviceCoord)
+        public void ConvertToScaledDeviceCoord(ref BasisCalibratedCoords unscaled, ref BasisCalibratedCoords scaled)
         {
-            ScaledDeviceCoord.position = OffsetCoords.position + (UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+            float s = BasisHeightDriver.DeviceScale;
+
+            Vector3 p = unscaled.position * s;
+            Quaternion r = unscaled.rotation;
+
+            scaled.position = OffsetCoords.position + (OffsetCoords.rotation * p);
+            scaled.rotation = OffsetCoords.rotation * r;
         }
+
         public void ConvertToScaledDeviceCoord()
         {
-            ScaledDeviceCoord.position = OffsetCoords.position + (UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+            float s = BasisHeightDriver.DeviceScale;
+
+            Vector3 p = UnscaledDeviceCoord.position * s;
+            Quaternion r = UnscaledDeviceCoord.rotation;
+
+            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * p);
+            ScaledDeviceCoord.rotation = OffsetCoords.rotation * r;
         }
 
         /// <summary>
@@ -681,7 +708,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// Device-specific poll implementation. Populate <see cref="UnscaledDeviceCoord"/> and/or
         /// <see cref="ScaledDeviceCoord"/> and call <see cref="UpdateInputEvents"/> at the end.
         /// </summary>
-        public abstract void DoPollData();
+        public abstract void LateDoPollData();
 
         /// <summary>
         /// Implementor should show a tracked visual (controller model) if appropriate.

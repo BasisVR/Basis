@@ -485,13 +485,12 @@ namespace Basis.Network.Core {
         {
             return new ReadOnlySpan<byte>(_data, _position, _dataSize - _position);
         }
-
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ReadOnlyMemory<byte> GetRemainingBytesMemory()
         {
             return new ReadOnlyMemory<byte>(_data, _position, _dataSize - _position);
         }
-
         public byte[] GetRemainingBytes()
         {
             byte[] outgoingData = new byte[AvailableBytes];

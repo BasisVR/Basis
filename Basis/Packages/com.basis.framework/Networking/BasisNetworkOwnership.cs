@@ -20,7 +20,6 @@ public static partial class BasisNetworkOwnership
             if (ownershipID == UniqueNetworkId)
             {
                 BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransferred;
-                cancellationTokenSource.Cancel(); // Stop timeout countdown
                 tcs.TrySetResult(new BasisOwnershipResult(true, playerID));
             }
         }
@@ -74,7 +73,6 @@ public static partial class BasisNetworkOwnership
             if (ownershipID == UniqueNetworkId && playerID == NewOwner)
             {
                 BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransferred;
-                cancellationTokenSource.Cancel(); // Stop timeout countdown
                 tcs.TrySetResult(new BasisOwnershipResult(true, playerID));
             }
         }
@@ -133,6 +131,12 @@ public static partial class BasisNetworkOwnership
     {
         if (BasisNetworkPlayers.OwnershipPairing.TryGetValue(UniqueNetworkId, out ushort Unique))
         {
+            if (BasisNetworkConnection.TryGetLocalPlayerID(out ushort LocalID))
+            {
+                bool isLocalOwner = Unique == LocalID;
+
+                BasisNetworkPlayer.OnOwnershipTransfer?.Invoke(UniqueNetworkId, Unique, isLocalOwner);
+            }
             return new BasisOwnershipResult(true, Unique);
         }
 
@@ -144,7 +148,6 @@ public static partial class BasisNetworkOwnership
             if (ownershipID == UniqueNetworkId)
             {
                 BasisNetworkPlayer.OnOwnershipTransfer -= OnOwnershipTransferred;
-                cancellationTokenSource.Cancel(); // Stop timeout countdown
                 tcs.TrySetResult(new BasisOwnershipResult(true, playerID));
             }
         }

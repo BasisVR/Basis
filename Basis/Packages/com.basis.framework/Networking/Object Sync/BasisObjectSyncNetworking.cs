@@ -4,12 +4,10 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.NetworkedAvatar;
-using BasisSerializer.OdinSerializer;
 using Basis.Network.Core;
 using UnityEngine;
 public class BasisObjectSyncNetworking : BasisNetworkBehaviour
 {
-    [PreviouslySerializedAs("InteractableObjects")]
     public BasisPickupInteractable BasisPickupInteractable;
     public bool CanNetworkSteal = true;
     [SerializeField]
@@ -31,7 +29,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisPickupInteractable.CanHoverInjected.Add(CanHover);
             BasisPickupInteractable.CanInteractInjected.Add(CanInteract);
-            BasisPickupInteractable.OnInteractStartEvent += OnInteractStartEvent;
+            BasisPickupInteractable.OnInteractStartEvent.AddListener(OnInteractStartEvent);
         }
         if (BasisPickupInteractable.RigidRef != null)
         {
@@ -48,7 +46,7 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisPickupInteractable.CanHoverInjected.Remove(CanHover);
             BasisPickupInteractable.CanInteractInjected.Remove(CanInteract);
-            BasisPickupInteractable.OnInteractStartEvent -= OnInteractStartEvent;
+            BasisPickupInteractable.OnInteractStartEvent.RemoveListener(OnInteractStartEvent);
         }
     }
     public override void OnDestroy()
@@ -78,16 +76,17 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             return true;
         }
-        // NOTE: this is called 2 times per frame on interact start, once to tell HoverEnd that it will be interacting, and again for the actual interact check
-        if (CanNetworkSteal && (pendingStealRequest == null || pendingStealRequest == input))
-        {
-            pendingStealRequest = input;
-            return true;
-        }
-        return false;
+        // Allow if stealing is enabled and no other input has a steal in progress
+        // NOTE: pendingStealRequest is only set in OnInteractStartEvent to avoid
+        // side effects when this is called speculatively (e.g. via IsInfluencable)
+        return CanNetworkSteal && (pendingStealRequest == null || pendingStealRequest == input);
     }
     private void OnInteractStartEvent(BasisInput input)
     {
+        if (!IsOwnedLocallyOnClient)
+        {
+            pendingStealRequest = input;
+        }
         CanInteractAsync(); // ControlState handles the ownership transfer logic here
     }
     private async void CanInteractAsync()
@@ -116,17 +115,37 @@ public class BasisObjectSyncNetworking : BasisNetworkBehaviour
         {
             BasisObjectSyncDriver.AddLocalOwner(this);
             BasisObjectSyncDriver.RemoveRemoteOwner(this);
-            // Delayed InteractStart when local user gets ownership
             if (pendingStealRequest != null)
             {
+                // Set non-kinematic before ForceSetInteracting so that OnInteractStart
+                // saves the correct _previousKinematicValue (false) for restore on drop
+                SetIsKinematicOnPickup(false);
                 BasisPlayerInteract.Instance.ForceSetInteracting(BasisPickupInteractable, pendingStealRequest);
-                // still reset the request, we dont care if we actually picked up
                 pendingStealRequest = null;
+                // ForceSetInteracting -> OnInteractStart re-applies isKinematic = true
+                // when KinematicWhileInteracting is enabled, so don't override after
             }
-            SetIsKinematicOnPickup(false);
+            else if (BasisPickupInteractable != null
+                && BasisPickupInteractable.KinematicWhileInteracting
+                && BasisPickupInteractable.RequiresUpdateLoop)
+            {
+                // Currently held with KinematicWhileInteracting - preserve kinematic state
+            }
+            else
+            {
+                SetIsKinematicOnPickup(false);
+            }
         }
         else
         {
+            // Initialize BTU from current transform so the lerp job doesn't
+            // snap the object back to origin before the first sync arrives
+            SelfTransform.GetLocalPositionAndRotation(out UnityEngine.Vector3 currentPos, out UnityEngine.Quaternion currentRot);
+            BTU.TargetPosition = currentPos;
+            BTU.TargetRotation = currentRot;
+            BTU.TargetScales = SelfTransform.localScale;
+            BTU.LerpMultipliers = CatchupLerp;
+
             BasisObjectSyncDriver.RemoveLocalOwner(this);
             BasisObjectSyncDriver.AddRemoteOwner(this);
             if (BasisPickupInteractable != null)

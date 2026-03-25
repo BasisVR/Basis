@@ -2,5 +2,9 @@
   "name": "com.basis.framework",
   "displayName": "Basis Framework",
   "version": "0.0.1",
-  "description": "Basis framework"
+  "description": "Basis framework",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  }
 }

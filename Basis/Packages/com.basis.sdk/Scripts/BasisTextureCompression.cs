@@ -13,7 +13,7 @@ public static class BasisTextureCompression
     /// Convert Texture2D to PNG bytes.
     /// Resizes if texture is larger than 512px.
     /// </summary>
-    public static byte[] ToPngBytes(Texture2D source)
+    public static string ToPngBytes(Texture2D source)
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
 
@@ -31,7 +31,10 @@ public static class BasisTextureCompression
         {
             Texture2D resized = EnforceMaxSize(tex);
 
-            if (madeCopy) UnityEngine.Object.Destroy(tex);
+            if (madeCopy)
+            {
+                UnityEngine.Object.Destroy(tex);
+            }
 
             tex = resized;
             madeCopy = true;
@@ -39,12 +42,14 @@ public static class BasisTextureCompression
 
         try
         {
-            return tex.EncodeToPNG();
+            return Convert.ToBase64String(tex.EncodeToPNG());
         }
         finally
         {
             if (madeCopy && tex != source)
+            {
                 UnityEngine.Object.Destroy(tex);
+            }
         }
     }
 
@@ -52,12 +57,12 @@ public static class BasisTextureCompression
     /// Convert PNG bytes back into a Texture2D.
     /// Result texture is clamped to 512px max.
     /// </summary>
-    public static Texture2D FromPngBytes(byte[] pngBytes)
+    public static Texture2D FromPngBytes(string pngBytes)
     {
         if (pngBytes == null) throw new ArgumentNullException(nameof(pngBytes));
 
         var tex = new Texture2D(2, 2, TextureFormat.RGBA32, true);
-        tex.LoadImage(pngBytes); // Unity auto-resizes
+        tex.LoadImage(Convert.FromBase64String(pngBytes)); // Unity auto-resizes
 
         return EnforceMaxSize(tex);
     }

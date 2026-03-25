@@ -80,9 +80,6 @@ namespace UnityEngine.Rendering.Universal
                 {
                     const string k_Name = nameof(ScriptableRenderer);
                     public static readonly ProfilingSampler setupCullingParameters = new ProfilingSampler($"{k_Name}.{nameof(ScriptableRenderer.SetupCullingParameters)}");
-#if URP_COMPATIBILITY_MODE
-                    public static readonly ProfilingSampler setup = new ProfilingSampler($"{k_Name}.{nameof(ScriptableRenderer.Setup)}");
-#endif
                 };
 
                 public static class Context
@@ -191,13 +188,14 @@ namespace UnityEngine.Rendering.Universal
         internal static RenderGraph s_RenderGraph;
         internal static RTHandleResourcePool s_RTHandlePool;
 
-#if URP_COMPATIBILITY_MODE
-        // internal for tests
-        internal static bool useRenderGraph;
-#endif
-
         // Store locally the value on the instance due as the Render Pipeline Asset data might change before the disposal of the asset, making some APV Resources leak.
         internal bool apvIsEnabled = false;
+
+        // Flag to check if offscreen UI cover prepass should be executed for the current frame.
+        internal static bool requireOffscreenUICoverPrepass;
+
+        // Flag to check if offscreen UI for HDR output is rendered in this frame at the first base camera.
+        internal static bool offscreenUIRenderedInCurrentFrame;
 
         // In some specific cases, we modify Screen.msaaSamples to reduce GPU bandwidth
         internal static bool canOptimizeScreenMSAASamples { get; private set; }
@@ -275,14 +273,6 @@ namespace UnityEngine.Rendering.Universal
             DecalProjector.defaultMaterial = asset.decalMaterial;
 
             s_RenderGraph = new RenderGraph("URPRenderGraph");
-#if URP_COMPATIBILITY_MODE
-            useRenderGraph = !GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode;
-
-#if !UNITY_EDITOR
-            Debug.Log($"RenderGraph is now {(useRenderGraph ? "enabled" : "disabled")}.");
-#endif
-#endif
-
             s_RTHandlePool = new RTHandleResourcePool();
 
             DebugManager.instance.RefreshEditor();
@@ -441,6 +431,10 @@ namespace UnityEngine.Rendering.Universal
             // For XR, HDR and no camera cases, UI Overlay ownership must be enforced
             AdjustUIOverlayOwnership(cameraCount);
 
+            // When HDR output is enabled, SRP renders the overlay UI per camera viewport, so any screen area not covered by viewports won’t display the UI.
+            // The offscreen UI cover prepass ensures the overlay UI covers the entire display by blitting UI to the screen first, even when the combined camera viewports do not fill the screen.
+            requireOffscreenUICoverPrepass = HDROutputForMainDisplayIsActive() && asset.supportsHDR && SupportedRenderingFeatures.active.rendersUIOverlay && !CoreUtils.IsScreenFullyCoveredByCameras(cameras);
+
             // Bandwidth optimization with Render Graph in some circumstances
             SetupScreenMSAASamplesState(cameraCount);
 
@@ -476,6 +470,8 @@ namespace UnityEngine.Rendering.Universal
 
                 SortCameras(cameras);
                 int lastBaseCameraIndex = GetLastBaseCameraIndex(cameras);
+                offscreenUIRenderedInCurrentFrame = false;
+
                 for (int i = 0; i < cameraCount; ++i)
                 {
                     // camera can be a base or an overlay camera
@@ -766,8 +762,6 @@ namespace UnityEngine.Rendering.Universal
             var cameraMetadata = CameraMetadataCache.GetCached(camera);
             using (new ProfilingScope(cmdScope, cameraMetadata.sampler)) // Enqueues a "BeginSample" command into the CommandBuffer cmd
             {
-                renderer.Clear(cameraData.renderType);
-
                 using (new ProfilingScope(Profiling.Pipeline.Renderer.setupCullingParameters))
                 {
                     var legacyCameraData = new CameraData(frameData);
@@ -868,28 +862,9 @@ namespace UnityEngine.Rendering.Universal
                 CreateShadowAtlasAndCullShadowCasters(lightData, shadowData, cameraData, ref data.cullResults, ref context);
 
                 renderer.AddRenderPasses(ref legacyRenderingData);
-
-#if URP_COMPATIBILITY_MODE
-                if (!useRenderGraph)
-                {
-                    // Disable obsolete warning for internal usage
-                    #pragma warning disable CS0618
-                    using (new ProfilingScope(Profiling.Pipeline.Renderer.setup))
-                    {
-                        renderer.Setup(context, ref legacyRenderingData);
-                    }
-
-                    // Timing scope inside
-                    renderer.Execute(context, ref legacyRenderingData);
-                    #pragma warning restore CS0618
-                }
-                else
-#endif
-                {
                     RenderTextureUVOriginStrategy uvOriginStrategy = UniversalRenderPipeline.renderTextureUVOriginStrategy;
                     RecordAndExecuteRenderGraph(s_RenderGraph, context, renderer, cmd, cameraData.camera, uvOriginStrategy);
                     renderer.FinishRenderGraphRendering(cmd);
-                }
             } // When ProfilingSample goes out of scope, an "EndSample" command is enqueued into CommandBuffer cmd
 
             context.ExecuteCommandBuffer(cmd); // Sends to ScriptableRenderContext all the commands enqueued since cmd.Clear, i.e the "EndSample" command
@@ -897,15 +872,6 @@ namespace UnityEngine.Rendering.Universal
 
             using (new ProfilingScope(Profiling.Pipeline.Context.submit))
             {
-#if URP_COMPATIBILITY_MODE
-                // Render Graph will do the validation by itself, so this is redundant in that case
-                if (!useRenderGraph && renderer.useRenderPassEnabled && !context.SubmitForRenderPassValidation())
-                {
-                    renderer.useRenderPassEnabled = false;
-                    cmd.SetKeyword(ShaderGlobalKeywords.RenderPassEnabled, false);
-                    Debug.LogWarning("Rendering command not supported inside a native RenderPass found. Falling back to non-RenderPass rendering path");
-                }
-#endif
                 context.Submit(); // Actually execute the commands that we previously sent to the ScriptableRenderContext context
             }
             ScriptableRenderer.current = null;
@@ -1101,6 +1067,13 @@ namespace UnityEngine.Rendering.Universal
                     // Update stack-related parameters
                     baseCameraData.stackAnyPostProcessingEnabled = stackAnyPostProcessingEnabled;
                     baseCameraData.stackLastCameraOutputToHDR = finalOutputHDR;
+
+                    // Render the offscreen overlay UI only in the first base camera.
+                    var rendersOffscreenUI = baseCameraData.rendersOverlayUI && finalOutputHDR && !offscreenUIRenderedInCurrentFrame;
+                    if (rendersOffscreenUI)
+                        offscreenUIRenderedInCurrentFrame = true;
+                    baseCameraData.rendersOffscreenUI = rendersOffscreenUI;
+                    baseCameraData.blitsOffscreenUICover = rendersOffscreenUI && requireOffscreenUICoverPrepass;
 
                     RenderSingleCamera(context, baseCameraData);
                 }
@@ -1487,13 +1460,7 @@ namespace UnityEngine.Rendering.Universal
             cameraData.renderScale = disableRenderScale ? 1.0f : settings.renderScale;
 
             // Convert the upscaling filter selection from the pipeline asset into an image upscaling filter
-            cameraData.upscalingFilter = ResolveUpscalingFilterSelection(new Vector2(cameraData.pixelWidth, cameraData.pixelHeight), cameraData.renderScale, settings.upscalingFilter,
-#if URP_COMPATIBILITY_MODE
-                GraphicsSettings.TryGetRenderPipelineSettings<RenderGraphSettings>(out var renderGraphSettings) && !renderGraphSettings.enableRenderCompatibilityMode
-#else
-                true
-#endif
-                );
+            cameraData.upscalingFilter = ResolveUpscalingFilterSelection(new Vector2(cameraData.pixelWidth, cameraData.pixelHeight), cameraData.renderScale, settings.upscalingFilter);
 
             bool upscalerSupportsTemporalAntiAliasing = cameraData.upscalingFilter == ImageUpscalingFilter.STP;
             bool upscalerSupportsSharpening = cameraData.upscalingFilter == ImageUpscalingFilter.FSR;
@@ -1703,15 +1670,6 @@ namespace UnityEngine.Rendering.Universal
             UniversalRenderingData data = frameData.Get<UniversalRenderingData>();
             data.supportsDynamicBatching = settings.supportsDynamicBatching;
             data.perObjectData = GetPerObjectLightFlags(universalLightData, settings, renderingMode);
-
-#if URP_COMPATIBILITY_MODE
-            // Render graph does not support RenderingData.commandBuffer as its execution timeline might break.
-            // RenderingData.commandBuffer is available only for the old non-RG execute code path.
-            if(useRenderGraph)
-                data.m_CommandBuffer = null;
-            else
-                data.m_CommandBuffer = cmd;
-#endif
 
             UniversalRenderer universalRenderer = renderer as UniversalRenderer;
             if (universalRenderer != null)
@@ -1945,18 +1903,6 @@ namespace UnityEngine.Rendering.Universal
             {
                 lightData.additionalLightsCount = 0;
                 lightData.maxPerObjectAdditionalLightsCount = 0;
-            }
-
-            if (settings.mainLightRenderingMode == LightRenderingMode.Disabled)
-            {
-                var mainLightIndex = GetBrightestDirectionalLightIndex(settings, visibleLights);
-                if (mainLightIndex != -1)
-                {
-                    // a visible main light was disabled, since it is still in the visible lights array we need to maintain
-                    // the mainLightIndex otherwise indexing in the lightloop goes wrong
-                    lightData.additionalLightsCount--;
-                    lightData.mainLightIndex = mainLightIndex;
-                }
             }
 
             lightData.supportsAdditionalLights = settings.additionalLightsRenderingMode != LightRenderingMode.Disabled;
@@ -2236,14 +2182,14 @@ namespace UnityEngine.Rendering.Universal
         /// <param name="renderScale">Scale being applied to the final image size</param>
         /// <param name="selection">Upscaling filter selected by the user</param>
         /// <returns>Either the original filter provided, or the best replacement available</returns>
-        static ImageUpscalingFilter ResolveUpscalingFilterSelection(Vector2 imageSize, float renderScale, UpscalingFilterSelection selection, bool enableRenderGraph)
+        static ImageUpscalingFilter ResolveUpscalingFilterSelection(Vector2 imageSize, float renderScale, UpscalingFilterSelection selection)
         {
             // By default we just use linear filtering since it's the most compatible choice
             ImageUpscalingFilter filter = ImageUpscalingFilter.Linear;
 
             // Fall back to the automatic filter if the selected filter isn't supported on the current platform or rendering environment
-            if (((selection == UpscalingFilterSelection.FSR) && (!FSRUtils.IsSupported()))
-                || ((selection == UpscalingFilterSelection.STP) && (!STP.IsSupported() || !enableRenderGraph))
+            if ((selection == UpscalingFilterSelection.FSR && !FSRUtils.IsSupported())
+                || (selection == UpscalingFilterSelection.STP && !STP.IsSupported())
             )
             {
                 selection = UpscalingFilterSelection.Auto;

@@ -1,4 +1,4 @@
-﻿using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -13,11 +13,13 @@ namespace HVR.Basis.Comms
 
         private OSCAcquisitionServer _acquisitionServer;
         private bool _alreadyInitialized;
+        private FaceTrackingActivityRelay _activityRelay;
 
         private void Awake()
         {
             if (avatar == null) avatar = HVRCommsUtil.GetAvatar(this);
             if (acquisitionService == null) acquisitionService = AcquisitionService.SceneInstance;
+            _activityRelay = FaceTrackingActivityRelay.GetOrCreate(avatar);
 
             avatar.OnAvatarReady -= OnAvatarReady;
             avatar.OnAvatarReady += OnAvatarReady;
@@ -55,6 +57,7 @@ namespace HVR.Basis.Comms
         {
             if (!isActiveAndEnabled) return;
 
+            _activityRelay?.NotifySourceSample();
             acquisitionService.Submit(HVRAddress.AddressToId(address), value);
         }
     }

@@ -16,7 +16,13 @@ namespace Basis.Scripts.Networking.Transmitters
         public bool HasEvents = false;
         public AudioSegmentDataMessage Segment = new AudioSegmentDataMessage();
         public NetDataWriter writer = new NetDataWriter();
+        public byte _sequenceNumber = 0;
         public int SilentForHowLong = 0;
+        /// <summary>
+        /// When true, voice is sent on ShoutVoiceChannel (channel 0) instead of VoiceChannel (channel 3).
+        /// Set by admin via BasisNetworkModeration when shout mode is granted to the local player.
+        /// </summary>
+        public static volatile bool IsInShoutMode = false;
         public void Initialize(BasisNetworkPlayer networkedPlayer)
         {
             NetworkedPlayer = networkedPlayer;
@@ -40,15 +46,24 @@ namespace Basis.Scripts.Networking.Transmitters
 
         private void InitializeEncoder()
         {
+#if UNITY_IOS && !UNITY_EDITOR
             encoder = new OpusEncoder(
                 LocalOpusSettings.MicrophoneSampleRate,
                 LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication
+                LocalOpusSettings.OpusApplication,
+                use_static: true
             );
+#else
+            encoder = new OpusEncoder(
+                LocalOpusSettings.MicrophoneSampleRate,
+                LocalOpusSettings.Channels,
+                LocalOpusSettings.OpusApplication,
+                use_static: false
+            );
+#endif
 
-            // Example: Configure Opus encoder here (optional)
-            // int complexity = 5;
-            // encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, ref complexity);
+            encoder.Ctl(EncoderCTL.OPUS_SET_BITRATE, 32000);
+            encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, 5);
         }
 
         private void AttachMicrophoneEvents()
@@ -58,23 +73,31 @@ namespace Basis.Scripts.Networking.Transmitters
                 return;
             }
 
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnHasAudio += OnAudioReady;
             BasisLocalMicrophoneDriver.OnHasSilence += SendSilenceOverNetwork;
+#endif
 
             HasEvents = true;
         }
 
         private void DetachMicrophoneEvents()
         {
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnHasAudio -= OnAudioReady;
             BasisLocalMicrophoneDriver.OnHasSilence -= SendSilenceOverNetwork;
+#endif
 
             HasEvents = false;
         }
 
         private void InitializeBuffers()
         {
+#if !BASIS_DISABLE_MICROPHONE
             int packetSize = BasisLocalMicrophoneDriver.PacketSize;
+#else
+            int packetSize = 0;
+#endif
 
             if (packetSize != Segment.TotalLength)
             {
@@ -85,7 +108,9 @@ namespace Basis.Scripts.Networking.Transmitters
         }
         public void OnAudioReady()
         {
-            if (!NetworkedPlayer.HasReasonToSendAudio)
+            // In shout mode we always send (everyone hears us).
+            // In normal mode we only send if someone is in range.
+            if (!IsInShoutMode && !NetworkedPlayer.HasReasonToSendAudio)
             {
                 return;
             }
@@ -94,7 +119,11 @@ namespace Basis.Scripts.Networking.Transmitters
 
             writer.Reset();
 
+#if !BASIS_DISABLE_MICROPHONE
             Segment.LengthUsed = encoder.Encode(BasisLocalMicrophoneDriver.processBufferArray,BasisLocalMicrophoneDriver.SampleRate,Segment.buffer,Segment.TotalLength);
+#endif
+
+            Segment.SequenceNumber = _sequenceNumber++;
 
             if(SilentForHowLong > 256)
             {
@@ -106,8 +135,9 @@ namespace Basis.Scripts.Networking.Transmitters
             }
             Segment.Serialize(writer);
 
+            byte channel = IsInShoutMode ? BasisNetworkCommons.ShoutVoiceChannel : BasisNetworkCommons.VoiceChannel;
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioSegmentData, Segment.LengthUsed);
-            BasisNetworkConnection.LocalPlayerPeer.Send(writer, BasisNetworkCommons.VoiceChannel, DeliveryMethod.Sequenced);
+            BasisNetworkConnection.LocalPlayerPeer.Send(writer, channel, DeliveryMethod.Unreliable);
             if (BasisLocalPlayer.Instance != null)
             {
                 BasisLocalPlayer.Instance.AudioReceived?.Invoke();
@@ -117,7 +147,7 @@ namespace Basis.Scripts.Networking.Transmitters
 
         private void SendSilenceOverNetwork()
         {
-            if (!NetworkedPlayer.HasReasonToSendAudio)
+            if (!IsInShoutMode && !NetworkedPlayer.HasReasonToSendAudio)
             {
                 return;
             }

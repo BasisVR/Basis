@@ -78,11 +78,12 @@ namespace Basis.Scripts.Drivers
             // Cache renderers and prep avatar layer/tpose
             SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
-            SetupAvatarLayers(Player, BasisLayerMapper.RemoteAvatarLayer);
             PutAvatarIntoTPose();
 
             RemotePlayer.BasisAvatar.HumanScale = RemotePlayer.BasisAvatar.Animator.humanScale;
-
+            RemotePlayer.BasisAvatar.Animator.applyRootMotion = false;
+            RemotePlayer.BasisAvatar.Animator.updateMode = AnimatorUpdateMode.Normal;
+            RemotePlayer.BasisAvatar.Animator.speed = 0;
             AvatarInitalScale = Player.BasisAvatar.transform.localScale;
 
             // Auto-detect bone refs and record TPose
@@ -91,17 +92,12 @@ namespace Basis.Scripts.Drivers
 
             // Initialize any jiggle rigs
             var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
-            foreach (JiggleRig Rig in JiggleRigs)
+            int length = JiggleRigs.Length;
+            for (int Index = 0; Index < length; Index++)
             {
+                JiggleRig Rig = JiggleRigs[Index];
                 JiggleRigData Data = Rig.GetJiggleRigData();
-                if (Data.jiggleTreeInputParameters.collisionToggle)
-                {
-                    Rig.HasAnimatedParameters = true;
-                }
-                else
-                {
-                    Rig.HasAnimatedParameters = false;
-                }
+                Rig.HasAnimatedParameters = false;
                 Rig.OnInitialize();
             }
 
@@ -130,7 +126,8 @@ namespace Basis.Scripts.Drivers
                 RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
             }
             // Renderer perf flags
-            UpdateWhenOffscreenAndDisableMatrixRecal(false);
+            RemoteRenderMeshSettings(BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer);
+
             RemotePlayer.BasisAvatar.Animator.logWarnings = false;
 
             // Ensure stale data is removed
@@ -158,7 +155,8 @@ namespace Basis.Scripts.Drivers
                 ),
                 NamePlate: RemotePlayer.RemoteNamePlate.Self,
                 AvatarScale: RemotePlayer.BasisAvatar.Animator.transform,
-                MouthTransform: RemotePlayer.MouthTransform
+                MouthTransform: RemotePlayer.MouthTransform,
+                TposedScale: RemotePlayer.RemoteAvatarDriver.AvatarInitalScale
             );
             InBoneDriver = true;
 
@@ -282,21 +280,6 @@ namespace Basis.Scripts.Drivers
             else
             {
                 return false;
-            }
-        }
-
-        /// <summary>
-        /// Bulk-sets <see cref="SkinnedMeshRenderer.updateWhenOffscreen"/> and disables
-        /// per-render matrix recalculation for all cached renderers.
-        /// </summary>
-        /// <param name="State">Desired <see cref="SkinnedMeshRenderer.updateWhenOffscreen"/> state.</param>
-        public void UpdateWhenOffscreenAndDisableMatrixRecal(bool State)
-        {
-            for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
-            {
-                SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
-                Render.updateWhenOffscreen = State;
-                Render.forceMatrixRecalculationPerRender = false;
             }
         }
     }

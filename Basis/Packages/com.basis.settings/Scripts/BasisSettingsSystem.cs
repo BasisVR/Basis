@@ -4,7 +4,7 @@ using System.IO;
 using System.Collections.Generic;
 using System;
 using System.Globalization;
-
+using System.Linq;
 [Serializable]
 public class KeyValue
 {
@@ -15,31 +15,44 @@ public class KeyValue
 [Serializable]
 public class SettingsData
 {
-    public string version;
+    //  public string version;
+    [SerializeField]
     public List<KeyValue> settingsList = new List<KeyValue>();
 
-    // Runtime helper dictionary (not serialized directly)
     [NonSerialized]
     public Dictionary<string, string> settings = new Dictionary<string, string>();
 
-    // Convert List -> Dictionary after loading
+    public SettingsData()
+    {
+        settings = new Dictionary<string, string>();
+        settingsList = new List<KeyValue>();
+    }
+
     public void RebuildDictionary()
     {
         settings.Clear();
-        foreach (var kv in settingsList)
+        for (int Index = 0; Index < settingsList.Count; Index++)
         {
-            if (!string.IsNullOrEmpty(kv?.key) && !settings.ContainsKey(kv.key))
-                settings[kv.key] = kv.value;
+            KeyValue kv = settingsList[Index];
+            if (kv == null)
+            {
+                continue;
+            }
+
+            settings[kv.key] = kv.value;
         }
     }
 
-    // Convert Dictionary -> List before saving
     public void RebuildList()
     {
         settingsList.Clear();
         foreach (var pair in settings)
         {
-            settingsList.Add(new KeyValue { key = pair.Key, value = pair.Value });
+            settingsList.Add(new KeyValue
+            {
+                key = pair.Key,
+                value = pair.Value
+            });
         }
     }
 }
@@ -48,40 +61,60 @@ public static class BasisSettingsSystem
 {
     public const string SettingsJson = "settingsConfig.json";
     private static readonly string filePath = Path.Combine(Application.persistentDataPath, SettingsJson);
-    private static readonly string currentVersion = Application.version;
+    // private static readonly string currentVersion = "2.0.5";
     private static SettingsData settingsData = new SettingsData();
 
-    // --- NEW: simple concurrency/reentrancy guards ---
-    private static readonly object ioLock = new object();
-    private static bool isLoading;
-    private static bool isSaving;
-    private static bool pendingSave; // request to save after a load finishes
-    private static bool suppressEvents; // avoid recursive SaveString from listeners during load
-
     /// <summary>
-    /// UniqueName,Optionvalue
+    /// UniqueName, OptionValue
     /// </summary>
     public static event Action<string, string> OnSettingChanged;
-
-    static BasisSettingsSystem()
+    public static event Action OnSettingsFinishedChanges;
+    public static void Initalize()
     {
-        LoadAllSettings();
+        BasisSettingsSystem.LoadAllSettings();
         SceneManager.sceneLoaded += OnSceneLoaded;
+
     }
 
     private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        LoadAllSettings();
-    }
+        if (settingsData.settings == null || settingsData.settings.Count == 0)
+        {
+            BasisDebug.LogError("Loading Scene Before Settings Exist!");
+        }
 
+        var settings = settingsData.settings;
+        if (settings != null)
+        {
+            KeyValuePair<string, string>[] array = settings.ToArray();
+            foreach (KeyValuePair<string, string> kv in array)
+            {
+                OnSettingChanged?.Invoke(kv.Key, kv.Value);
+            }
+        }
+
+        OnSettingsFinishedChanges?.Invoke();
+        ForceQualityRefresh();
+    }
+    /// <summary>
+    /// this forces unity to wake up for graphics changes.
+    /// </summary>
+    public static void ForceQualityRefresh()
+    {
+        QualitySettings.SetQualityLevel(QualitySettings.GetQualityLevel(), true);
+    }
+    public static bool HasSaveData(string uniqueSettingsName)
+    {
+        return settingsData.settings.TryGetValue(uniqueSettingsName, out var existing);
+    }
     public static void SaveString(string uniqueSettingsName, string value)
     {
         bool changed = false;
 
-        // In-memory update (no I/O yet)
-        if (settingsData.settings.ContainsKey(uniqueSettingsName))
+        if (settingsData.settings.TryGetValue(uniqueSettingsName, out var existing))
         {
-            if (settingsData.settings[uniqueSettingsName] != value)
+            // existing is already normalized
+            if (existing != value)
             {
                 settingsData.settings[uniqueSettingsName] = value;
                 changed = true;
@@ -93,180 +126,162 @@ public static class BasisSettingsSystem
             changed = true;
         }
 
-        // If we're in the middle of a load, defer the actual save.
         if (changed)
         {
-            if (isLoading)
-            {
-                // mark that we owe a save after load
-                pendingSave = true;
-            }
-            else
-            {
-                SaveAllSettings();
-            }
-
-            // Only notify listeners if not in a load-broadcast phase
-            if (!suppressEvents)
-                OnSettingChanged?.Invoke(uniqueSettingsName, value);
+            SaveAllSettings();
+            OnSettingChanged?.Invoke(uniqueSettingsName, value);
+            OnSettingsFinishedChanges?.Invoke();
+            ForceQualityRefresh();
         }
     }
 
-    public static string LoadString(string uniqueSettingsName, string defaultValue = "")
+    public static string LoadString(string uniqueSettingsName, string defaultValue)
     {
+
         if (settingsData.settings.TryGetValue(uniqueSettingsName, out string value))
+        {
+            // value should already be normalized, but normalize anyway for safety
             return value;
+        }
 
-        // record default but don't force a save if we're currently loading
+        // Store default so future loads see the key (normalized)
         settingsData.settings[uniqueSettingsName] = defaultValue;
-        if (!isLoading) SaveAllSettings(); else pendingSave = true;
-
+        SaveAllSettings();
         return defaultValue;
     }
 
     public static void LoadAllSettings()
     {
-        lock (ioLock)
+        // Default blank (will fill from file or remain empty)
+        settingsData.RebuildDictionary();
+
+        if (!File.Exists(filePath))
         {
-            if (isLoading) return;   // already loading
-            isLoading = true;
-            suppressEvents = true;   // avoid SaveString from listeners reentering
-
-            try
-            {
-                if (!File.Exists(filePath))
-                {
-                    BasisDebug.Log("Settings file not found, creating defaults.");
-                    ResetToDefault_Internal(); // internal to avoid double locking
-                }
-                else
-                {
-                    string json = File.ReadAllText(filePath);
-                    var loaded = JsonUtility.FromJson<SettingsData>(json);
-
-                    if (loaded == null || loaded.version != currentVersion)
-                    {
-                        BasisDebug.LogWarning("Settings version mismatch or corrupt file. Resetting.");
-                        ResetToDefault_Internal();
-                    }
-                    else
-                    {
-                        settingsData = loaded;
-                        settingsData.RebuildDictionary();
-                    }
-                }
-
-                // Notify listeners for all keys after load (outside of suppress once finished)
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError($"Failed to load settings: {e.Message}. Resetting.");
-                ResetToDefault_Internal();
-            }
-            finally
-            {
-                suppressEvents = false;
-                isLoading = false;
-            }
-        }
-
-        // Fire notifications outside the lock (safe: read-only iteration on our dictionary snapshot)
-        foreach (var kv in settingsData.settings)
-            OnSettingChanged?.Invoke(kv.Key, kv.Value);
-
-        // If anyone tried to save during the load, honor it now.
-        if (pendingSave)
-        {
-            pendingSave = false;
+            // First run: no file yet. Just create an empty file at current version.
+            BasisDebug.LogError("Settings file not found, creating new settings file.");
+            //create the file and then just load it once done
             SaveAllSettings();
         }
+
+        string json = null;
+        SettingsData loaded = null;
+
+        try
+        {
+            json = File.ReadAllText(filePath);
+            loaded = JsonUtility.FromJson<SettingsData>(json);
+        }
+        catch (Exception e)
+        {
+            BasisDebug.LogError($"Failed to read/parse settings file. Creating a fresh one. Exception: {e}");
+            // If parsing failed, we fall through to writing a fresh file.
+        }
+
+        if (loaded == null)
+        {
+            // Corrupt or unreadable file. OPTIONAL: backup the bad file for debugging.
+            try
+            {
+                string backupPath = filePath + ".corrupt_backup";
+                File.Copy(filePath, backupPath, true);
+            }
+            catch
+            {
+
+            }
+
+            BasisDebug.LogError("Settings file corrupt/unreadable. Rebuilding empty settings.");
+            settingsData = new SettingsData { };// version = currentVersion
+            settingsData.RebuildDictionary();
+
+            SaveAllSettings();
+            OnSettingsFinishedChanges?.Invoke();
+            ForceQualityRefresh();
+            return;
+        }
+
+        // Rebuild dictionary WITH normalization
+        loaded.RebuildDictionary();
+        // Assign and bump version
+        settingsData = loaded;
+        var settings = settingsData.settings;
+        KeyValuePair<string, string>[] array = settings.ToArray();
+        foreach (KeyValuePair<string, string> kv in array)
+        {
+            OnSettingChanged?.Invoke(kv.Key, kv.Value);
+        }
+
+        OnSettingsFinishedChanges?.Invoke();
+        // Persist rewritten version + normalized list/dict
+        SaveAllSettings();
+        ForceQualityRefresh();
     }
 
     public static void SaveAllSettings()
     {
-        lock (ioLock)
+        // Hard-normalize entire dictionary before writing (belt + suspenders)
+        var normalized = new Dictionary<string, string>();
+        foreach (var pair in settingsData.settings)
         {
-            if (isSaving) return;     // already saving
-            if (isLoading)            // don't save while loading; defer
+            string k = pair.Key;
+            if (string.IsNullOrEmpty(k))
             {
-                pendingSave = true;
-                return;
+                continue;
             }
 
-            isSaving = true;
-            try
-            {
-                settingsData.version = currentVersion;
-                settingsData.RebuildList();
-                string json = JsonUtility.ToJson(settingsData, true);
+            string v = pair.Value;
+            normalized[k] = v; // latest wins
+        }
+        settingsData.settings = normalized;
 
-                string dir = Path.GetDirectoryName(filePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
+        //  settingsData.version = currentVersion;
+        settingsData.RebuildList();
 
-                File.WriteAllText(filePath, json);
-            }
-            catch (Exception e)
-            {
-                BasisDebug.LogError($"Failed to save settings: {e.Message}");
-            }
-            finally
-            {
-                isSaving = false;
-            }
+        string json = JsonUtility.ToJson(settingsData, true);
+
+        string dir = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        File.WriteAllText(filePath, json);
+    }
+
+    public static int LoadInt(string key, int defaultValue)
+    {
+        // default is numeric, ToLowerInvariant doesn't change it
+        string val = LoadString(key, defaultValue.ToString(CultureInfo.InvariantCulture));
+        if (int.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
+        {
+            return result;
+        }
+        else
+        {
+            return defaultValue;
         }
     }
 
-    private static void ResetToDefault()
+    public static float LoadFloat(string key, float defaultValue)
     {
-        lock (ioLock)
+        string val = LoadString(key, defaultValue.ToString(CultureInfo.InvariantCulture));
+        if (float.TryParse(val, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out float result))
         {
-            ResetToDefault_Internal();
+            return (float)result;
         }
-        // After a reset, write immediately
-        SaveAllSettings();
+        else
+        {
+            return (float)defaultValue;
+        }
     }
-
-    // Internal version assumes ioLock is already held (or we're in a controlled path)
-    private static void ResetToDefault_Internal()
+    public static bool LoadBool(string key, bool defaultValue)
     {
-        settingsData = new SettingsData { version = currentVersion };
-        settingsData.RebuildDictionary();
+        // stored as "true"/"false" (lowercase) always
+        return LoadString(key, defaultValue ? "true" : "false") == "true";
     }
-
-    public static void NukeSettings()
-    {
-        BasisDebug.Log("Nuking settings file and resetting to defaults.");
-        ResetToDefault();
-    }
-
-    // -------------------------
-    // Strongly-typed accessors
-    // -------------------------
-
-    public static int LoadInt(string key, int defaultValue = 0)
-    {
-        string val = LoadString(key, defaultValue.ToString(CultureInfo.InvariantCulture));
-        return int.TryParse(val, NumberStyles.Integer, CultureInfo.InvariantCulture, out int result)
-            ? result
-            : defaultValue;
-    }
-
-    public static float LoadFloat(string key, float defaultValue = 0f)
-    {
-        string val = LoadString(key, defaultValue.ToString(CultureInfo.InvariantCulture));
-        return float.TryParse(val, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out float result)
-            ? result
-            : defaultValue;
-    }
-
-    public static bool LoadBool(string key, bool defaultValue = false)
-    {
-        string val = LoadString(key, defaultValue ? "true" : "false");
-        return val == "true" || string.Equals(val, "true", StringComparison.OrdinalIgnoreCase);
-    }
-
     public static void SaveInt(string key, int value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
+
     public static void SaveFloat(string key, float value) => SaveString(key, value.ToString(CultureInfo.InvariantCulture));
+
     public static void SaveBool(string key, bool value) => SaveString(key, value ? "true" : "false");
 }

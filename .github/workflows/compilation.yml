@@ -60,7 +60,7 @@ jobs:
           docker-images: false
           swap-storage: false
       - name: "Checkout repository"
-        timeout-minutes: 5
+        timeout-minutes: 10
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -77,13 +77,35 @@ jobs:
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
       - name: "Remove OpenXR when building for Linux"
         if: matrix.targetPlatform == 'StandaloneLinux64'
-        run: jq 'del(.dependencies ["com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
+        run: rm -rf ${projectPath}/Packages/com.basis.openxr
+        # run: jq 'del(.dependencies ["com.unity.xr.openxr"])' < ${projectPath}/Packages/manifest.json > manifest.json.tmp && mv manifest.json.tmp ${projectPath}/Packages/manifest.json
       - name: "Remove Meta XR Core when building for Linux"
         if: matrix.targetPlatform == 'StandaloneLinux64'
         run: rm -rf ${projectPath}/Packages/com.meta.xr.sdk.core
+      # Fix docker not ready on windows
+      - name: Ensure Docker service is running
+        if: matrix.buildPlatform == 'windows-2022'
+        shell: powershell
+        run: |
+          Start-Service docker
+      - name: Wait for Docker to be ready
+        if: matrix.buildPlatform == 'windows-2022'
+        shell: powershell
+        run: |
+          $maxAttempts = 40
+          for ($i=0; $i -lt $maxAttempts; $i++) {
+            docker info > $null 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Docker is ready"
+              exit 0
+            }
+            Write-Host "Waiting for Docker..."
+            Start-Sleep -Seconds 3
+          }
+          throw "Docker did not become ready in time"
       - name: "Build Unity project"
         timeout-minutes: 100
-        uses: kitlith/unity-builder@linux-extension
+        uses: BasisVR/unity-builder@main
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -177,7 +199,7 @@ jobs:
   build-server:
     name: Build server on Ubuntu
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -186,12 +208,12 @@ jobs:
         runtimes:
           - linux-x64
           - linux-musl-x64
-          - linux-musl-arm64 
+          - linux-musl-arm64
           - linux-arm64
           - win-x64
     steps:
       - name: "Checkout repository"
-        timeout-minutes: 5
+        timeout-minutes: 10
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -199,10 +221,10 @@ jobs:
         timeout-minutes: 2
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: "10.0.x"
       - name: "Build server"
-        timeout-minutes: 2
-        run: "dotnet publish '${{ matrix.projectPath }}' -f net9.0 --self-contained --runtime '${{ matrix.runtimes }}' -o build -c Release"
+        timeout-minutes: 10
+        run: "dotnet publish '${{ matrix.projectPath }}' -f net10.0 --self-contained --runtime '${{ matrix.runtimes }}' -o build -c Release"
       - name: "Upload server artifact"
         timeout-minutes: 2
         uses: actions/upload-artifact@v4
@@ -226,7 +248,7 @@ jobs:
   compile-unitypackages:
     name: Build .unitypackage files
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - name: "Checkout repository"
         timeout-minutes: 5

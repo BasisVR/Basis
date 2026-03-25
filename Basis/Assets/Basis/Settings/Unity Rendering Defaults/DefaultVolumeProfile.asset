@@ -176,12 +176,15 @@ MonoBehaviour:
   highQualityFiltering:
     m_OverrideState: 1
     m_Value: 1
+  filter:
+    m_OverrideState: 1
+    m_Value: 0
   downscale:
     m_OverrideState: 1
     m_Value: 0
   maxIterations:
     m_OverrideState: 1
-    m_Value: 8
+    m_Value: 6
   dirtTexture:
     m_OverrideState: 1
     m_Value: {fileID: 0}

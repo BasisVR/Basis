@@ -3,5 +3,9 @@
   "displayName": "Basis Common",
   "version": "0.0.1",
   "description": "Used by the framework as common useful data types and structs",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
   "_fingerprint": "477ad687ad74ce1eba5672f4e3393e001669c53c"
 }

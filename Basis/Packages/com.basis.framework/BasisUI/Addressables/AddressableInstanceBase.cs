@@ -49,7 +49,7 @@ namespace Basis.BasisUI
             }
             catch (Exception e)
             {
-                Debug.LogError($"Failed to load Addressable at path:\n{referencePath}");
+                Debug.LogError($"Failed to load Addressable at path:\n{referencePath} {e}");
                 return null;
             }
         }

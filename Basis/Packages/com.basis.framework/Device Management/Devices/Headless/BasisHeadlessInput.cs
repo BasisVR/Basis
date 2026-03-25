@@ -172,7 +172,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
         {
             BasisDebug.Log("Initializing Avatar Eye", BasisDebug.LogTag.Input);
 
-            float height = BasisLocalPlayer.Instance?.CurrentHeight.SelectedPlayerHeight ?? BasisLocalHeight.FallbackSizeInMeters;
+            float height = BasisHeightDriver.SelectedScaledPlayerHeight;
 
             ScaledDeviceCoord.position = new Vector3(0, height, 0);
             ScaledDeviceCoord.rotation = Quaternion.identity;
@@ -226,7 +226,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
         }
         public bool ForceJump = false;
-        public override void DoPollData()
+        public override void LateDoPollData()
         {
             if (!hasRoleAssigned) return;
 
@@ -255,14 +255,14 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
 
                 CurrentInputState.Trigger = 0f;
                 CurrentInputState.SecondaryTrigger = 0f;
-                CurrentInputState.Primary2DAxis = Vector2.zero;
-                CurrentInputState.Secondary2DAxis = Vector2.zero;
+                CurrentInputState.Primary2DAxisRaw = Vector2.zero;
+                CurrentInputState.Secondary2DAxisRaw = Vector2.zero;
 
                 // maintain current head rotation (no extra spin)
                 UnscaledDeviceCoord.rotation = currentRotation;
 
                 // maintain height with crouch compensation
-                float baseHeightLocked = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight;
+                float baseHeightLocked = BasisHeightDriver.SelectedScaledPlayerHeight;
                 Vector3 posLocked = new Vector3(0, baseHeightLocked, 0);
 
                 if (!BasisLocks.GetContext(BasisLocks.Crouching))
@@ -358,12 +358,12 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             // --- Input state: subtle/noisy but calmer ---
             CurrentInputState.Trigger = 0f;          // disable spammy triggers in headless
             CurrentInputState.SecondaryTrigger = 0f; // keep quiet unless you need them
-            CurrentInputState.Primary2DAxis = currentPrimary2DAxis;
-            CurrentInputState.Secondary2DAxis = currentSecondary2DAxis;
+            CurrentInputState.Primary2DAxisRaw = currentPrimary2DAxis;
+            CurrentInputState.Secondary2DAxisRaw = currentSecondary2DAxis;
 
             // --- Head pose at eye height with crouch compensation ---
             UnscaledDeviceCoord.rotation = currentRotation;
-            float baseHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight;
+            float baseHeight = BasisHeightDriver.SelectedScaledPlayerHeight;
             Vector3 pos = new Vector3(0, baseHeight, 0);
 
             if (!BasisLocks.GetContext(BasisLocks.Crouching))

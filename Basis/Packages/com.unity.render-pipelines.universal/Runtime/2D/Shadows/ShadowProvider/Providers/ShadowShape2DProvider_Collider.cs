@@ -342,13 +342,6 @@ namespace UnityEngine.Rendering.Universal
             visibleShapeIndices.Dispose();
         }
 
-        void Initialize()
-        {
-            m_ShadowStateHash = default;
-            m_ShadowCombinedShapeMinMaxBounds = default;
-            m_LastColliderSpace = Matrix4x4.identity;
-        }
-
         //============================================================================================================
         //                                                  Public
         //============================================================================================================
@@ -356,7 +349,9 @@ namespace UnityEngine.Rendering.Universal
 
         public override void OnPersistantDataCreated(Component sourceComponent, ShadowShape2D persistantShadowShapeData)
         {
-            Initialize();
+            m_ShadowStateHash = default;
+            m_ShadowCombinedShapeMinMaxBounds = default;
+            m_LastColliderSpace = Matrix4x4.identity;
         }
 
         public override void OnBeforeRender(Component sourceComponent, Bounds worldCullingBounds, ShadowShape2D persistantShadowShape)
@@ -364,12 +359,6 @@ namespace UnityEngine.Rendering.Universal
             Collider2D collider = (Collider2D)sourceComponent;
             CalculateShadows(collider, persistantShadowShape, worldCullingBounds);
         }
-
-        public override void Enabled(Component sourceComponent, ShadowShape2D persistantShadowShape)
-        {
-            Initialize();
-        }
-
     }
 }
 #endif

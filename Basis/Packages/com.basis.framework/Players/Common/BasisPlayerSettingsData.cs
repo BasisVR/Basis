@@ -35,16 +35,22 @@ public class BasisPlayerSettingsData
     public bool AvatarInteraction = true;
 
     /// <summary>
-    /// Version number of the settings schema. Used to upgrade old files gracefully.
-    /// Defaults to <c>2</c>.
+    /// Whether chat messages from this player are visible above their nameplate.
+    /// Defaults to <c>true</c>. Set to <c>false</c> to hide chat from this player.
     /// </summary>
-    public int Version = 2;
+    public bool ChatVisible = true;
 
     /// <summary>
-    /// A static default settings instance (volume 1.0, avatar visible, avatar interaction enabled).
+    /// Version number of the settings schema. Used to upgrade old files gracefully.
+    /// Defaults to <c>3</c>.
+    /// </summary>
+    public int Version = 3;
+
+    /// <summary>
+    /// A static default settings instance (volume 1.0, avatar visible, avatar interaction enabled, chat visible).
     /// Useful as a baseline when creating new profiles or repairing corrupted files.
     /// </summary>
-    public static readonly BasisPlayerSettingsData Default = new BasisPlayerSettingsData("", 1.0f, true, true);
+    public static readonly BasisPlayerSettingsData Default = new BasisPlayerSettingsData("", 1.0f, true, true, true);
 
     /// <summary>
     /// Creates a new player settings record with explicit values.
@@ -53,11 +59,13 @@ public class BasisPlayerSettingsData
     /// <param name="volumeLevel">Initial volume level.</param>
     /// <param name="avatarVisible">Whether the avatar should be visible.</param>
     /// <param name="avatarInteraction">Whether the avatar can be interacted with.</param>
-    public BasisPlayerSettingsData(string uuid, float volumeLevel, bool avatarVisible, bool avatarInteraction)
+    /// <param name="chatVisible">Whether chat messages from this player are visible.</param>
+    public BasisPlayerSettingsData(string uuid, float volumeLevel, bool avatarVisible, bool avatarInteraction, bool chatVisible = true)
     {
         UUID = uuid;
         VolumeLevel = volumeLevel;
         AvatarVisible = avatarVisible;
         AvatarInteraction = avatarInteraction;
+        ChatVisible = chatVisible;
     }
 }

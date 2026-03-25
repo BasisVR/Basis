@@ -133,8 +133,17 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 0.194
       inSlope: 0
+      outSlope: -0.194
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: -0.194
       outSlope: 0
       tangentMode: 0
       weightedMode: 0
@@ -189,7 +198,7 @@ MonoBehaviour:
   occlusion: 1
   occlusionInput: 0
   occlusionType: 1
-  occlusionRadius: 1
+  occlusionRadius: 0.15
   occlusionSamples: 16
   occlusionValue: 1
   transmission: 1
@@ -240,6 +249,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 1948872803205194439}
+  Transform: {fileID: 1810431766226541370}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!114 &7865084452988920708
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,39 +266,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   BasisAudioAndVisemeDriver:
-    smoothAmount: 70
-    HasViseme: 
-    BlendShapeCount: 0
-    Player: {fileID: 0}
-    Avatar: {fileID: 0}
-    uLipSync: {fileID: 0}
-    uLipSyncBlendShape: {fileID: 0}
-    phonemeBlendShapeTable: []
-    FirstTime: 0
-    WasSuccessful: 0
-    HashInstanceID: -1
-    uLipSyncEnabledState: 1
+    rid: -2
   BasisAudioReceiver:
-    BasisRemoteVisemeAudioDriver: {fileID: 0}
-    audioSource: {fileID: 0}
-    visemeDriver:
-      smoothAmount: 70
-      HasViseme: 
-      BlendShapeCount: 0
-      Player: {fileID: 0}
-      Avatar: {fileID: 0}
-      uLipSync: {fileID: 0}
-      uLipSyncBlendShape: {fileID: 0}
-      phonemeBlendShapeTable: []
-      FirstTime: 0
-      WasSuccessful: 0
-      HashInstanceID: -1
-      uLipSyncEnabledState: 1
-    IsPlaying: 0
-    pcmBuffer: []
-    pcmLength: 0
-    lastReadIndex: 0
-    AudioSourceTransform: {fileID: 0}
-    resampledSegment: []
-    HasTransform: 0
+    rid: -2
   Initalized: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }

@@ -420,7 +420,7 @@ namespace LiteNetLib.Utils
         private class IPEndPointSerializer<T> : FastCallSpecificAuto<T, IPEndPoint>
         {
             protected override void ElementWrite(NetDataWriter w, ref IPEndPoint prop) { w.Put(prop); }
-            protected override void ElementRead(NetDataReader r, out IPEndPoint prop) { prop = r.GetNetEndPoint(); }
+            protected override void ElementRead(NetDataReader r, out IPEndPoint prop) { prop = r.GetIPEndPoint(); }
         }
         
         private class GuidSerializer<T> : FastCallSpecificAuto<T, Guid>

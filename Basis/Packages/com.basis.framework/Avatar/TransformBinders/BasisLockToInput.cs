@@ -105,7 +105,6 @@ namespace Basis.Scripts.TransformBinders
                             BasisInput = Input;
                             this.transform.parent = BasisInput.transform;
                             this.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
-                            this.transform.localScale = Vector3.one * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
                             return;
                         }
                     }

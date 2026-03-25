@@ -1,126 +1,121 @@
-using System.Collections.Concurrent;
-using System.Collections.Generic;
+using System;
 
 [System.Serializable]
 public class BasisJitterBuffer
 {
-    public ConcurrentDictionary<byte, BasisSequencedVoiceData> voiceData = new ConcurrentDictionary<byte, BasisSequencedVoiceData>();
-
-    public void Insert(BasisSequencedVoiceData sequencedVoiceData, byte lastReadIndex)
+    private struct Slot
     {
-        if (voiceData.Count > 5)
-        {
-            voiceData.Clear();
-        }
-        // Insert the new data
-        voiceData[sequencedVoiceData.SequenceNumber] = sequencedVoiceData;
+        public bool Occupied;
+        public byte SequenceNumber;
+        public byte[] EncodedData;
+        public int EncodedLength;
+        public byte SilenceUnits;
     }
-    public bool DumpIndividual(out BasisSequencedVoiceData SequencedVoiceData, byte LastReadIndex)
+
+    private const int BufferSize = 64;
+    private const int BufferMask = BufferSize - 1;
+    private const int MaxAheadDistance = BufferSize / 2;
+
+    private readonly Slot[] _slots = new Slot[BufferSize];
+    private readonly object _lock = new object();
+
+    private byte _nextPlaybackSeq;
+    private byte _highestReceivedSeq;
+    private volatile bool _started;
+    private bool _hasHighest;
+    private int _bufferedCount;
+    private int _receivedSinceStart;
+
+    public int InitialBufferDepth => RemoteOpusSettings.JitterBufferSize;
+
+    public void Insert(byte sequenceNumber, byte[] data, int length, byte silenceUnits)
     {
-        while (voiceData.Count != 0)
+        lock (_lock)
         {
-            LastReadIndex += (byte)(LastReadIndex + 1);
-
-            if (LastReadIndex > 63)
+            if (!_started)
             {
-                LastReadIndex = 0;
+                _nextPlaybackSeq = sequenceNumber;
+                _started = true;
+                _bufferedCount = 0;
+                _receivedSinceStart = 0;
+                _hasHighest = false;
             }
-            if (voiceData.Remove(LastReadIndex, out SequencedVoiceData))
+            int distance = SequenceDistance(sequenceNumber, _nextPlaybackSeq);
+            if (distance < 0) return;
+            if (distance >= MaxAheadDistance)
             {
+                Reset();
+                _nextPlaybackSeq = sequenceNumber;
+                _started = true;
+                _receivedSinceStart = 0;
+                distance = 0;
+            }
+            if (!_hasHighest || SequenceDistance(sequenceNumber, _highestReceivedSeq) > 0)
+            {
+                _highestReceivedSeq = sequenceNumber;
+                _hasHighest = true;
+            }
+            int slotIndex = sequenceNumber & BufferMask;
+            if (!_slots[slotIndex].Occupied) _bufferedCount++;
+            if (_slots[slotIndex].EncodedData == null || _slots[slotIndex].EncodedData.Length < length)
+                _slots[slotIndex].EncodedData = new byte[length];
+            Buffer.BlockCopy(data, 0, _slots[slotIndex].EncodedData, 0, length);
+            _slots[slotIndex].EncodedLength = length;
+            _slots[slotIndex].SequenceNumber = sequenceNumber;
+            _slots[slotIndex].SilenceUnits = silenceUnits;
+            _slots[slotIndex].Occupied = true;
+            _receivedSinceStart++;
+        }
+    }
 
+    public bool TryConsume(out byte[] data, out int length, out byte silenceUnits, out bool isMissing)
+    {
+        data = null; length = 0; silenceUnits = 0; isMissing = false;
+        // Lock-free fast path: most players have no buffered audio, skip lock entirely
+        if (!_started) return false;
+        lock (_lock)
+        {
+            if (!_started) return false;
+            if (_receivedSinceStart < InitialBufferDepth) return false;
+            int slotIndex = _nextPlaybackSeq & BufferMask;
+            if (_slots[slotIndex].Occupied && _slots[slotIndex].SequenceNumber == _nextPlaybackSeq)
+            {
+                data = _slots[slotIndex].EncodedData;
+                length = _slots[slotIndex].EncodedLength;
+                silenceUnits = _slots[slotIndex].SilenceUnits;
+                isMissing = false;
+                _slots[slotIndex].Occupied = false;
+                _bufferedCount--;
+                _nextPlaybackSeq++;
                 return true;
             }
-        }
-        SequencedVoiceData = new BasisSequencedVoiceData(LastReadIndex, null, 0, true);
-        return false;
-    }
-    public bool IsBufferFull()
-    {
-        if (voiceData.Count >= RemoteOpusSettings.JitterBufferSize)
-        {
-            return true;
-        }
-        return false;
-    }
-    /*
-     *     public static bool IsAheadOf(byte current, byte next, out string Error)
-    {
-        // Calculate the difference with proper wraparound
-        int diff = (next - current + 64) % 64;
-
-        // Debugging output to help track the difference
-        //  Console.WriteLine($"current: {current}, next: {next}, diff: {diff}");
-
-        // Check if next is ahead of current and not too far ahead in the circular buffer
-        if (diff > 0 && diff <= 31)
-        {
-            Error = string.Empty;  // No error, next is ahead
-            return true;
-        }
-        else if (diff == 63)  // Allow diff == 63 as valid ahead (just before wrapping around)
-        {
-            Error = string.Empty;  // No error, next is ahead
-            return true;
-        }
-        else
-        {
-            // Determine why it is behind or too far ahead
-            if (diff == 0)
-            {
-                Error = "next is the same as current";
-            }
-            else if (diff > 31)
-            {
-                Error = "next is too far ahead (more than halfway around)";
-            }
             else
             {
-                Error = "next is behind current";
+                if (_hasHighest && SequenceDistance(_nextPlaybackSeq, _highestReceivedSeq) < 0)
+                {
+                    isMissing = true;
+                    _nextPlaybackSeq++;
+                    return true;
+                }
+                return false;
             }
-
-            return false;  // next is behind or too far ahead
         }
     }
-     *         public void OnDecode(byte SequenceNumber, byte[] data, int length)
-        {
-            byte[] CopiedData = new byte[length];
-            Array.Copy(data, CopiedData, length);
-            SequencedVoiceData Seq = new SequencedVoiceData(SequenceNumber, CopiedData, length, false);
 
-         //   BasisJitterBuffer.Insert(Seq, lastReadIndex);
-         //   CollectReadySamples();
-        }
-        public void OnDecodeSilence(byte SequenceNumber)
-        {
-            SequencedVoiceData Seq = new SequencedVoiceData(SequenceNumber, null, 0, true);
-           // BasisJitterBuffer.Insert(Seq, lastReadIndex);
-           // CollectReadySamples();
-        }
-     */
-    /*
-public void CollectReadySamples()
-{
-    if (BasisJitterBuffer.voiceData.Count >= 5)
+    private static int SequenceDistance(byte target, byte baseSeq)
     {
-        if (BasisJitterBuffer.DumpIndividual(out SequencedVoiceData SVD, lastReadIndex))
-        {
-            lastReadIndex = SVD.SequenceNumber;
-            if (SVD.IsInsertedSilence)
-            {
-                InOrderRead.Add(silentData, silentData.Length);
-            }
-            else
-            {
-                pcmLength = decoder.Decode(SVD.Array, SVD.Length, pcmBuffer, RemoteOpusSettings.NetworkSampleRate, false);
-                InOrderRead.Add(pcmBuffer, pcmLength);
-            }
-        }
-        else
-        {
-            InOrderRead.Add(silentData, silentData.Length);
+        return (sbyte)(target - baseSeq);
+    }
 
+    public void Reset()
+    {
+        lock (_lock)
+        {
+            for (int i = 0; i < BufferSize; i++) _slots[i].Occupied = false;
+            _started = false;
+            _hasHighest = false;
+            _bufferedCount = 0;
+            _receivedSinceStart = 0;
         }
     }
-}
-*/
 }

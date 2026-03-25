@@ -1,17 +1,26 @@
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.Receivers;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+
 /// <summary>
 /// Remote Face Management
-/// this is mulithreaded blink and eye positions
+/// Multithreaded blink + eye look-around.
+/// Key changes:
+/// - NaN/Inf sanitization happens INSIDE the Burst job.
+/// - Removes per-frame main-thread copy into eyeIn (job uses eyeOut as its running state).
+/// - Safer lerp factor (saturate) to avoid overshoot explosions.
 /// </summary>
 public static class BasisRemoteFaceManagement
 {
     public static NativeArray<EyeState> eyeStates;
     public static NativeArray<BlinkState> blinkStates;
-    public static NativeArray<EyeOutput> eyeIn, eyeOut;
-    public static NativeArray<BlinkOutput> blinkOut;
+
+    // eyeOut is now the authoritative per-remote eye state that the job updates.
+    public static NativeArray<EyeOutput> eyeOut;
+    public static NativeArray<float> blinkOut;
 
     public static int capacity;
 
@@ -24,64 +33,51 @@ public static class BasisRemoteFaceManagement
     public static float BlinkDuration = 0.2f;
     public static float OpenDuration = 0.05f;
 
-    /// <summary>
-    /// Minimum time (in seconds) between randomized look-around events.
-    /// </summary>
+    /// <summary>Minimum time (in seconds) between randomized look-around events.</summary>
     public const float MinLookAroundInterval = 1f;
 
-    /// <summary>
-    /// Maximum time (in seconds) between randomized look-around events.
-    /// </summary>
+    /// <summary>Maximum time (in seconds) between randomized look-around events.</summary>
     public const float MaxLookAroundInterval = 6f;
 
-    /// <summary>
-    /// Maximum horizontal offset (in normalized degrees) for random look targets.
-    /// </summary>
+    /// <summary>Maximum horizontal offset (in normalized degrees) for random look targets.</summary>
     public const float MaxHorizontalLook = 0.75f;
 
-    /// <summary>
-    /// Maximum vertical offset (in normalized degrees) for random look targets.
-    /// </summary>
+    /// <summary>Maximum vertical offset (in normalized degrees) for random look targets.</summary>
     public const float MaxVerticalLook = 0.75f;
 
-    /// <summary>
-    /// Speed multiplier controlling how quickly the eyes interpolate toward their target.
-    /// </summary>
+    /// <summary>Speed multiplier controlling how quickly the eyes interpolate toward their target.</summary>
     public const float LookSpeed = 15;
+
     public static JobHandle handle;
-    public static void Simulate(double t, float dt,int count, Basis.Scripts.Networking.Receivers.BasisNetworkReceiver[] snapshot)
+    public static BasisNetworkReceiver[] snapshot;
+    public static  int count;
+    public static void Simulate(double t,float dt)
     {
-        if (count <= 0) return;
-
-        EnsureArrays(count);
-
-        // MAIN THREAD: snapshot current eye values
-        for (int Index = 0; Index < count; Index++)
+        snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+        count = BasisNetworkPlayers.ReceiverCount;
+        if (count <= 0)
         {
-            var receiver = snapshot[Index];
-
-            // If this can ever be null/short, guard it:
-            var arr = receiver.EyesAndMouth;
-            eyeIn[Index] = new EyeOutput
-            {
-                vL = arr[0],
-                hL = arr[1],
-                vR = arr[2],
-                hR = arr[3]
-            };
+            return;
         }
-        float deltaSpeed = LookSpeed * dt;
+
+        EnsureArrays(count, t, snapshot);
+
+        // No per-frame main-thread copy into a NativeArray.
+        // The job will update eyeOut in-place (as state), and Apply() will write eyeOut back to receivers.
 
         var job = new RemoteAnimJob
         {
             time = t,
-            deltaSpeed = deltaSpeed,
+            dt = dt,
 
+            // Eye config
             minLookInterval = MinLookAroundInterval,
             maxLookInterval = MaxLookAroundInterval,
             maxHoriz = MaxHorizontalLook,
             maxVert = MaxVerticalLook,
+            lookSpeed = LookSpeed,
 
+            // Blink config
             minBlinkInterval = MinBlinkInterval,
             maxBlinkInterval = MaxBlinkInterval,
             blinkDuration = BlinkDuration,
@@ -89,14 +85,15 @@ public static class BasisRemoteFaceManagement
 
             eyeStates = eyeStates,
             blinkStates = blinkStates,
-            eyeIn = eyeIn,
+
             eyeOut = eyeOut,
             blinkOut = blinkOut,
         };
 
-         handle = job.Schedule(count, BatchSize);
+        handle = job.Schedule(count, BatchSize);
     }
-    public static void Apply(int count, Basis.Scripts.Networking.Receivers.BasisNetworkReceiver[] snapshot)
+
+    public static void Apply()
     {
         if (count <= 0) return;
 
@@ -106,23 +103,28 @@ public static class BasisRemoteFaceManagement
         {
             var receiver = snapshot[Index];
             var remote = receiver.RemotePlayer;
-
             var Face = remote.RemoteFaceDriver;
 
-            if (Face.OverrideEye == false)
+            if (!Face.OverrideEye)
             {
                 var e = eyeOut[Index];
-                float[] eyes = receiver.EyesAndMouth;
 
+                float[] eyes = receiver.EyesAndMouth;
                 eyes[0] = e.vL;
                 eyes[1] = e.hL;
                 eyes[2] = e.vR;
                 eyes[3] = e.hR;
-                receiver.EyesAndMouth = eyes;
             }
+
             if (Face.BlinkingEnabled && !Face.OverrideBlinking && Face.meshRenderer != null)
             {
-                float weight100 = blinkOut[Index].weight01 * 100f;
+                float w = blinkOut[Index];
+                if (!float.IsFinite(w)) w = 0f;
+
+                float weight100 = w * 100f;
+
+                // If all blendshapes get the same blink weight, this loop is unavoidable
+                // unless your driver has a "set all blink shapes" bulk method.
                 for (int b = 0; b < Face.blendShapeCount; b++)
                 {
                     Face.SafeSetBlendShape(Face.blendShapeIndices[b], weight100);
@@ -130,50 +132,100 @@ public static class BasisRemoteFaceManagement
             }
         }
     }
-   static void EnsureArrays(int requiredCount)
-    {
-        if (requiredCount <= capacity && eyeStates.IsCreated)
-            return;
 
-        // Resize strategy: grow to next power of two to reduce realloc churn
+    static void EnsureArrays(int requiredCount,double nowTime,BasisNetworkReceiver[] snapshot)
+    {
+        // Already sufficient
+        if (requiredCount <= capacity && eyeStates.IsCreated)
+        {
+            return;
+        }
+
+        // Never dispose/reallocate while a job might be using them.
+        handle.Complete();
+
+        int oldCap = capacity;
         int newCap = math.ceilpow2(math.max(16, requiredCount));
 
-        DisposeArrays();
+        var newEyeStates = new NativeArray<EyeState>(newCap, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        var newBlinkStates = new NativeArray<BlinkState>(newCap, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+
+        // ClearMemory prevents “uninitialized NaN” surprises.
+        var newEyeOut = new NativeArray<EyeOutput>(newCap, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+        var newBlinkOut = new NativeArray<float>(newCap, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+
+        // Copy old live data across if present
+        if (eyeStates.IsCreated)
+        {
+            int copyCount = math.min(oldCap, newCap);
+
+            NativeArray<EyeState>.Copy(eyeStates, newEyeStates, copyCount);
+            NativeArray<BlinkState>.Copy(blinkStates, newBlinkStates, copyCount);
+            NativeArray<EyeOutput>.Copy(eyeOut, newEyeOut, copyCount);
+            NativeArray<float>.Copy(blinkOut, newBlinkOut, copyCount);
+
+            DisposeArrays();
+        }
 
         capacity = newCap;
+        eyeStates = newEyeStates;
+        blinkStates = newBlinkStates;
+        eyeOut = newEyeOut;
+        blinkOut = newBlinkOut;
 
-        eyeStates = new NativeArray<EyeState>(capacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        blinkStates = new NativeArray<BlinkState>(capacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        eyeIn = new NativeArray<EyeOutput>(capacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        eyeOut = new NativeArray<EyeOutput>(capacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-        blinkOut = new NativeArray<BlinkOutput>(capacity, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
-
-        // Seed RNGs + initial timings
-        // Use a changing base seed so two instances don't behave identically.
+        // Seed RNGs + initialize ONLY the new slots
         uint baseSeed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
 
-        for (int i = 0; i < capacity; i++)
+        for (int i = oldCap; i < newCap; i++)
         {
             uint eyeSeed = HashToNonZero(baseSeed, (uint)(i * 2 + 1));
             uint blinkSeed = HashToNonZero(baseSeed, (uint)(i * 2 + 2));
 
+            // Start pose from snapshot if it exists
+            float2 startTarget = float2.zero;
+            EyeOutput startEye = default;
+
+            if (i < requiredCount && snapshot != null)
+            {
+                var arr = snapshot[i].EyesAndMouth;
+                if (arr != null && arr.Length >= 4)
+                {
+                    // Canonical mapping:
+                    // arr[0]=vL, arr[1]=hL, arr[2]=vR, arr[3]=hR
+                    float vL = float.IsFinite(arr[0]) ? arr[0] : 0f;
+                    float hL = float.IsFinite(arr[1]) ? arr[1] : 0f;
+                    float vR = float.IsFinite(arr[2]) ? arr[2] : 0f;
+                    float hR = float.IsFinite(arr[3]) ? arr[3] : 0f;
+
+                    // Job uses target.x = horiz, target.y = vert (use left eye as representative)
+                    startTarget = new float2(hL, vL);
+                    startEye = new EyeOutput { vL = vL, hL = hL, vR = vR, hR = hR };
+                }
+            }
+
             eyeStates[i] = new EyeState
             {
-                nextLookAroundTime = 0.0, // job will schedule on first tick
-                target = float2.zero,
+                nextLookAroundTime = nowTime + Unity.Mathematics.Random.CreateFromIndex(eyeSeed)
+                    .NextFloat(MinLookAroundInterval, MaxLookAroundInterval),
+                target = startTarget,
                 isLooking = 0,
-                rng = new Unity.Mathematics.Random(eyeSeed)
+                rng = new Unity.Mathematics.Random(eyeSeed),
             };
 
             blinkStates[i] = new BlinkState
             {
-                nextBlinkTime = 0.0, // job will schedule on first tick
+                nextBlinkTime = nowTime + Unity.Mathematics.Random.CreateFromIndex(blinkSeed)
+                    .NextFloat(MinBlinkInterval, MaxBlinkInterval),
                 blinkStartTime = 0.0,
                 openStartTime = 0.0,
                 isClosing = 0,
                 isOpening = 0,
-                rng = new Unity.Mathematics.Random(blinkSeed)
+                rng = new Unity.Mathematics.Random(blinkSeed),
             };
+
+            // Seed output so Apply has something sensible immediately
+            eyeOut[i] = startEye;
+            blinkOut[i] = 0f;
         }
     }
 
@@ -193,12 +245,13 @@ public static class BasisRemoteFaceManagement
     {
         if (eyeStates.IsCreated) eyeStates.Dispose();
         if (blinkStates.IsCreated) blinkStates.Dispose();
-        if (eyeIn.IsCreated) eyeIn.Dispose();
         if (eyeOut.IsCreated) eyeOut.Dispose();
         if (blinkOut.IsCreated) blinkOut.Dispose();
     }
+
     public static void Dispose()
     {
+        handle.Complete();
         DisposeArrays();
         capacity = 0;
     }
@@ -207,13 +260,14 @@ public static class BasisRemoteFaceManagement
     public struct RemoteAnimJob : IJobParallelFor
     {
         public double time;
-        public float deltaSpeed;
+        public float dt;
 
         // Eye config
         public float minLookInterval;
         public float maxLookInterval;
         public float maxHoriz;
         public float maxVert;
+        public float lookSpeed;
 
         // Blink config
         public float minBlinkInterval;
@@ -224,18 +278,21 @@ public static class BasisRemoteFaceManagement
         public NativeArray<EyeState> eyeStates;
         public NativeArray<BlinkState> blinkStates;
 
-        [ReadOnly] public NativeArray<EyeOutput> eyeIn;
+        // eyeOut is BOTH input and output state for eyes
         public NativeArray<EyeOutput> eyeOut;
 
-        public NativeArray<BlinkOutput> blinkOut;
+        public NativeArray<float> blinkOut;
 
         public void Execute(int Index)
         {
-            // --------------------
-            // EYES
-            // --------------------
             var es = eyeStates[Index];
-            var e = eyeIn[Index];
+            var e = eyeOut[Index];
+
+            // Sanitize current state so NaNs don’t propagate forever
+            e.vL = Sanitize(e.vL);
+            e.hL = Sanitize(e.hL);
+            e.vR = Sanitize(e.vR);
+            e.hR = Sanitize(e.hR);
 
             if (time >= es.nextLookAroundTime)
             {
@@ -252,15 +309,24 @@ public static class BasisRemoteFaceManagement
 
             if (es.isLooking != 0)
             {
-                e.vL = math.lerp(e.vL, es.target.y, deltaSpeed);
-                e.vR = math.lerp(e.vR, es.target.y, deltaSpeed);
+                // Use a stable 0..1 factor; avoids overshoot.
+                float t01 = math.saturate(lookSpeed * dt);
 
-                e.hL = math.lerp(e.hL, es.target.x, deltaSpeed);
-                e.hR = math.lerp(e.hR, -es.target.x, deltaSpeed);
+                e.vL = math.lerp(e.vL, es.target.y, t01);
+                e.vR = math.lerp(e.vR, es.target.y, t01);
+
+                e.hL = math.lerp(e.hL, es.target.x, t01);
+                e.hR = math.lerp(e.hR, -es.target.x, t01);
 
                 if (math.abs(e.vL - es.target.y) < 0.01f && math.abs(e.hL - es.target.x) < 0.01f)
                     es.isLooking = 0;
             }
+
+            // Clamp to your expected operating range (optional but robust)
+            e.vL = math.clamp(e.vL, -1f, 1f);
+            e.vR = math.clamp(e.vR, -1f, 1f);
+            e.hL = math.clamp(e.hL, -1f, 1f);
+            e.hR = math.clamp(e.hR, -1f, 1f);
 
             eyeStates[Index] = es;
             eyeOut[Index] = e;
@@ -271,7 +337,6 @@ public static class BasisRemoteFaceManagement
             var bs = blinkStates[Index];
             float w01;
 
-            // schedule next blink if needed
             if (bs.nextBlinkTime <= 0.0)
             {
                 bs.nextBlinkTime = time + bs.rng.NextFloat(minBlinkInterval, maxBlinkInterval);
@@ -312,8 +377,23 @@ public static class BasisRemoteFaceManagement
                 w01 = 0f;
             }
 
+            // Sanitize blink output too
+            w01 = Sanitize01(w01);
+
             blinkStates[Index] = bs;
-            blinkOut[Index] = new BlinkOutput { weight01 = w01 };
+            blinkOut[Index] = w01;
+        }
+
+        static float Sanitize(float x)
+        {
+            // Burst-friendly finite check
+            return math.isfinite(x) ? x : 0f;
+        }
+
+        static float Sanitize01(float x)
+        {
+            if (!math.isfinite(x)) return 0f;
+            return math.saturate(x);
         }
     }
 
@@ -338,10 +418,5 @@ public static class BasisRemoteFaceManagement
     public struct EyeOutput
     {
         public float vL, hL, vR, hR;
-    }
-
-    public struct BlinkOutput
-    {
-        public float weight01;
     }
 }

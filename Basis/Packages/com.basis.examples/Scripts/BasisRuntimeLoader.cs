@@ -24,6 +24,9 @@ public class BasisRuntimeLoader : MonoBehaviour
     [Tooltip("If enabled, the loaded content persists across scene changes on the client.")]
     [SerializeField] private bool persistent = false;
 
+    [Tooltip("If enabled, the loaded content can only be touched by admins.")]
+    [SerializeField] private bool admin = false;
+
     [Header("Spawn Settings (GameObject mode)")]
     [Tooltip("If enabled, spawns at this component's Transform position. If disabled, spawns at the local player's position (if available).")]
     [SerializeField] private bool useCustomSpawnPosition = false;
@@ -67,7 +70,7 @@ public class BasisRuntimeLoader : MonoBehaviour
 
         if (loadAsScene)
         {
-            BasisNetworkSpawnItem.RequestSceneLoad(password, BEEURL, persistent, out LoadedResource);
+            BasisNetworkSpawnItem.RequestSceneLoad(password, BEEURL, persistent, admin, out LoadedResource);
             return;
         }
 
@@ -85,7 +88,7 @@ public class BasisRuntimeLoader : MonoBehaviour
         }
 
         // Spawn request
-        BasisNetworkSpawnItem.RequestGameObjectLoad(password, BEEURL, spawnPosition, spawnRotation, applyCustomScale ? spawnScale : Vector3.one, persistent,  applyCustomScale, out LoadedResource);
+        BasisNetworkSpawnItem.RequestGameObjectLoad(password, BEEURL, spawnPosition, spawnRotation, applyCustomScale ? spawnScale : Vector3.one, persistent, admin,  applyCustomScale, out LoadedResource);
     }
 
     /// <summary>
@@ -163,10 +166,10 @@ public class BasisRuntimeLoader : MonoBehaviour
     }
 
     // Expose some setters with validation if desired.
-
     public void SetMetadataUrl(string url) => BEEURL = url;
     public void SetPassword(string pwd) => password = pwd;
     public void SetPersistent(bool isPersistent) => persistent = isPersistent;
+    public void SetAdmin(bool isAdmin) => admin = isAdmin;
     public void SetLoadAsScene(bool asScene) => loadAsScene = asScene;
     public void UseCustomSpawn(bool useCustom) => useCustomSpawnPosition = useCustom;
     public void SetSpawnTransform(Vector3 position, Quaternion rotation)

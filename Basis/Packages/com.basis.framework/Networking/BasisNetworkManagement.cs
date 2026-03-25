@@ -1,11 +1,14 @@
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.Networking.Receivers;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using static SerializableBasis;
@@ -48,6 +51,7 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static BasisNetworkManagement Instance;
 
+        public static Action OnIstanceCreated;
         /// <summary>
         /// Indicates whether the network is currently running.
         /// </summary>
@@ -74,6 +78,12 @@ namespace Basis.Scripts.Networking
         /// </summary>
         public static ServerMetaDataMessage ServerMetaDataMessage = new ServerMetaDataMessage();
 
+        /// <summary>
+        /// Local player's effective permissions decoded from the server metadata.
+        /// </summary>
+        public static HashSet<string> LocalPermissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        public static Action OnlocalPermissionsChanged;
         /// <summary>
         /// Event fired when an instance of this manager is enabled and initialized.
         /// </summary>
@@ -103,6 +113,7 @@ namespace Basis.Scripts.Networking
 
             Instance = this;
             BasisNetworkLifeCycle.Initalize(this);
+            OnIstanceCreated?.Invoke();
         }
 
         private async void OnDisable()
@@ -140,24 +151,54 @@ namespace Basis.Scripts.Networking
         /// Job handle for bone simulation tasks.
         /// </summary>
         public static JobHandle BoneJobSystem;
+        private static float _timer;
+        public static bool HasRequested;
 
+        // Parameters for Euro filter
+       // [Header(" Lower values → smoother output, more latency, Higher values → snappier output, more noise passes through")]
+        public static float MinCutoff = 0.05f;
+      //  [Header("This is the adaptivity knob. It controls how much the filter reacts to speed. Beta multiplies the filtered derivative magnitude:")]
+        public static float Beta = 2;
+     //   [Header("DerivativeCutoff This controls how noisy the speed estimate itself is.Before the filter adapts, it estimates velocity:")]
+        public static float DerivativeCutoff = 2;
         /// <summary>
         /// Simulates network computation step (state updates, bone drivers, profiler update).
         /// </summary>
         /// <param name="UnscaledDeltaTime">Delta time since last tick (unscaled).</param>
-        public static void SimulateNetworkCompute(float UnscaledDeltaTime)
+        public static void SimulateNetworkCompute(double UnscaledDeltaTime)
         {
-            if (!NetworkRunning) return;
-
-            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
-            BoneJobSystem = RemoteBoneJobSystem.Schedule(); // will always be a frame behind
-            for (int Index = 0; Index < snapshot.Length; Index++)
+            if (!NetworkRunning)
             {
-                snapshot[Index].Compute(UnscaledDeltaTime);
+                return;
+            }
+
+            BasisNetworkPlayers.PublishReceiversSnapshot();
+
+            UnscaledDeltaTime = Math.Max(UnscaledDeltaTime, 0f);
+            if (!math.isfinite(UnscaledDeltaTime))
+            {
+                UnscaledDeltaTime = 0;
+            }
+            if (BasisNetworkPlayers.ReceiverCount > BasisRemoteNetworkDriver.FixedCapacity)
+            {
+                BasisDebug.LogError($"Exceeded Fixed Capacity! {BasisNetworkPlayers.ReceiverCount} > {BasisRemoteNetworkDriver.FixedCapacity}", BasisDebug.LogTag.Networking);
+                return;
+            }
+
+            BasisRemoteNetworkDriver.BeginWrite();
+            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
+            {
+                var rec = BasisNetworkPlayers.ReceiversSnapshot[Index];
+                rec.Compute(UnscaledDeltaTime);
+                ushort id = rec.playerId;
+                if (id > BasisNetworkPlayers.LargestNetworkReceiverID)
+                {
+                    BasisNetworkPlayers.LargestNetworkReceiverID = id;
+                }
             }
             BasisRemoteNetworkDriver.Compute();
+            Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DrainAll();
             BasisNetworkProfiler.Update();
-            RemoteBoneJobSystem.Complete(BoneJobSystem);
 
             if (HasRequested)
             {
@@ -170,22 +211,26 @@ namespace Basis.Scripts.Networking
                 }
             }
         }
-        private static float _timer;
-        public static bool HasRequested;
         /// <summary>
         /// Applies networked state changes to receivers.
         /// </summary>
         public static void SimulateNetworkApply()
         {
-            if (!NetworkRunning) return;
+            if (!NetworkRunning)
+            {
+                return;
+            }
 
             BasisRemoteNetworkDriver.Apply();
-
-            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
-            for (int Index = 0; Index < snapshot.Length; Index++)
+            BasisRemoteNetworkDriver.BeginRead();
+            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
             {
-                snapshot[Index].Apply();
+                BasisNetworkPlayers.ReceiversSnapshot[Index].Apply();
             }
+
+            BoneJobSystem = RemoteBoneJobSystem.Schedule();
+
+            RemoteBoneJobSystem.Complete(BoneJobSystem);
         }
 
         #endregion

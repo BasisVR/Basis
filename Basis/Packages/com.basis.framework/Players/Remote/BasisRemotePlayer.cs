@@ -110,9 +110,10 @@ namespace Basis.Scripts.BasisSdk.Players
         public Transform MouthTransform;
 
         /// <summary>
-        /// The last computed mesh LOD value applied to this player's renderers. Defaults to <c>-1</c> (unset).
+        /// Stores the error message when the avatar fails to load or is not found.
+        /// Reset to null when a real avatar is successfully loaded.
         /// </summary>
-        public short LastComputedMeshLod = -1;
+        public string AvatarLoadErrorMessage;
 
         #endregion
 
@@ -155,6 +156,7 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             CACM = cACM;
             DisplayName = PlayerMetaDataMessage.playerDisplayName;
+            PlayerPlatform = PlayerMetaDataMessage.playerPlatform;
             SetSafeDisplayname();
             this.name = DisplayName;
             UUID = PlayerMetaDataMessage.playerUUID;
@@ -204,6 +206,7 @@ namespace Basis.Scripts.BasisSdk.Players
                 }
                 else
                 {
+                    AvatarLoadErrorMessage = "Invalid initial avatar data: failed to convert network bytes to loadable bundle";
                     BasisDebug.LogError("Invalid Inital Data");
                 }
             }
@@ -234,10 +237,14 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <returns>A task that completes when the avatar is loaded or a fallback is applied.</returns>
         public async Task CreateAvatar(byte Mode, BasisLoadableBundle BasisLoadableBundle)
         {
-            IsLoadingAnAvatar = true;
-            if (BasisLoadableBundle == null ||
-                string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
+            if (IsLoadingAnAvatar)
             {
+                BasisDebug.LogWarning("We Loaded a Avatar While a Existing Avatar was loading!!", BasisDebug.LogTag.Remote);
+            }
+            IsLoadingAnAvatar = true;
+            if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
+            {
+                AvatarLoadErrorMessage = "Avatar bundle was empty or null";
                 BasisDebug.LogError("trying to create Avatar with empty Bundle", BasisDebug.LogTag.Remote);
                 BasisLoadableBundle = BasisAvatarFactory.LoadingAvatar;
                 Mode = 0;
@@ -260,8 +267,6 @@ namespace Basis.Scripts.BasisSdk.Players
                     BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
                     Vector3.zero, Quaternion.identity);
             }
-
-            LastComputedMeshLod = -1;
             IsLoadingAnAvatar = false;
         }
 
@@ -298,34 +303,20 @@ namespace Basis.Scripts.BasisSdk.Players
         /// Computes and applies a mesh LOD level for all avatar renderers based on the
         /// distance to the local player and a reduction multiplier.
         /// </summary>
-        /// <param name="DistanceToPlayer">World-space distance to the local player.</param>
-        /// <param name="ReductionMultiplier">
         /// Multiplier applied to the distance before mapping to LOD levels.
         /// Higher values cause LODs to drop off sooner.
         /// </param>
-        /// <remarks>
-        /// Maps the normalized distance into four discrete levels [0..3] and writes
-        /// the result to <see cref="Renderer.forceMeshLod"/> for each renderer.
-        /// </remarks>
-        public void ChangeMeshLOD(float DistanceToPlayer, float ReductionMultiplier)
+        public void ChangeMeshLOD(short grid)
         {
             if (BasisAvatar != null && BasisAvatar.Renders != null)
             {
-                // Normalize distance into [0,1]
-                float normalized = DistanceToPlayer * ReductionMultiplier;
-
-                // Map evenly to 0–3 LOD (4 levels total)
-                short grid = (short)Mathf.Clamp(Mathf.FloorToInt(normalized * 4f), 0, 3);
-
-                if (LastComputedMeshLod != grid)
+                int length = BasisAvatar.Renders.Length;
+                for (int Index = 0; Index < length; Index++)
                 {
-                    LastComputedMeshLod = grid;
-                    foreach (Renderer renderer in BasisAvatar.Renders)
+                    Renderer renderer = BasisAvatar.Renders[Index];
+                    if (renderer != null)
                     {
-                        if (renderer != null)
-                        {
-                            renderer.forceMeshLod = grid;
-                        }
+                        renderer.forceMeshLod = grid;
                     }
                 }
             }

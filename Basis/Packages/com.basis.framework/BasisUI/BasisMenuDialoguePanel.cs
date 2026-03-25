@@ -1,4 +1,5 @@
 using System;
+using Basis.BTween;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -58,13 +59,21 @@ namespace Basis.BasisUI
             string deny,
             Action<bool> callback)
         {
-            if (!BasisMainMenu.Instance) return null;
+            if (!BasisMainMenu.Instance)
+            {
+                return null;
+            }
+
             Component parent = BasisMainMenu.Instance.MenuObjectInstance.PanelRoot;
 
             BasisMenuDialoguePanel panel = CreateNew<BasisMenuDialoguePanel>(DialogueStyles.Default, parent);
             panel.LoadData(DialoguePanelData);
             panel.Callback = callback;
             panel.FillDialogue(title, description, accept, deny);
+
+            // Pop-in animation for dialogues
+            UIAnimations.PopIn(panel);
+
             return panel;
         }
 
@@ -77,13 +86,21 @@ namespace Basis.BasisUI
             string accept,
             Action<bool> callback)
         {
-            if (!BasisMainMenu.Instance) return null;
+            if (!BasisMainMenu.Instance)
+            {
+                return null;
+            }
+
             Component parent = BasisMainMenu.Instance.MenuObjectInstance.PanelRoot;
 
             BasisMenuDialoguePanel panel = CreateNew<BasisMenuDialoguePanel>(DialogueStyles.Default, parent);
             panel.LoadData(DialoguePanelData);
             panel.Callback = callback;
             panel.FillDialogue(title, description, accept);
+
+            // Pop-in animation for dialogues
+            UIAnimations.PopIn(panel);
+
             return panel;
         }
 

@@ -127,8 +127,8 @@ Material:
     - _GlossyReflections: 0
     - _Intervals: 0.1
     - _Laser_Pre_Attenuation_Min: 0.001
-    - _Line_Attenuation: 0.56
-    - _Line_Falloff_Power: 1.9
+    - _Line_Attenuation: 0.2
+    - _Line_Falloff_Power: 5
     - _Metallic: 0
     - _MiniMultiplier: 59.2
     - _Mode: 0
@@ -158,7 +158,7 @@ Material:
     - _BaseColor: {r: 0.48365337, g: 0.33490568, b: 1, a: 1}
     - _BaseColorAddSubDiff: {r: 0, g: 0, b: 0, a: 0}
     - _CameraFadeParams: {r: 0, g: 0, b: 0, a: 0}
-    - _Color: {r: 0.48235294, g: 0.33333334, b: 1, a: 1}
+    - _Color: {r: 0.40999997, g: 0.2833333, b: 0.85, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SoftParticleFadeParams: {r: 0, g: 0, b: 0, a: 0}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}

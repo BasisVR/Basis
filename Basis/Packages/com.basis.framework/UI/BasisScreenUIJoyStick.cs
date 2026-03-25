@@ -7,11 +7,12 @@ using UnityEngine.EventSystems;
 public class BasisScreenUIJoyStick : MonoBehaviour,
     IPointerDownHandler,
     IPointerUpHandler,
-    IDragHandler,
-    IPointerExitHandler
+    IDragHandler
 {
     public float movementRange = 50f;
     public Action<Vector2> OnStickMove;
+    public Action OnStickActive;
+    public Action OnStickReleased;
 
     RectTransform rect;
     Canvas canvas;
@@ -32,7 +33,7 @@ public class BasisScreenUIJoyStick : MonoBehaviour,
     public void OnPointerDown(PointerEventData eventData)
     {
         isPressed = true;
-        // Snap immediately
+        OnStickActive?.Invoke();
         OnDrag(eventData);
     }
 
@@ -57,17 +58,10 @@ public class BasisScreenUIJoyStick : MonoBehaviour,
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        if (!isPressed) return;
         isPressed = false;
         rect.anchoredPosition = startPos;
         OnStickMove?.Invoke(Vector2.zero);
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        // If the finger leaves the control while pressed, treat it like a release
-        if (isPressed)
-        {
-            OnPointerUp(eventData);
-        }
+        OnStickReleased?.Invoke();
     }
 }

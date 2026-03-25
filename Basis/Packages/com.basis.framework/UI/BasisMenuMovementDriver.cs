@@ -4,6 +4,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Collections;
 using UnityEngine;
+using static BasisHeightDriver;
 namespace Basis.Scripts.UI.UI_Panels
 {
     public class BasisMenuMovementDriver : MonoBehaviour
@@ -34,24 +35,24 @@ namespace Basis.Scripts.UI.UI_Panels
             {
                 if (hasGeneratedAction == false)
                 {
-                    BasisLocalPlayer.OnLocalPlayerCreated += OnLocalPlayerGenerated;
+                    BasisLocalPlayer.OnLocalPlayerInitalized += OnLocalPlayerGenerated;
                     hasGeneratedAction = true;
                 }
             }
-            BasisLocalPlayer.AfterFinalMove.AddAction(105, UpdateUI);
+            BasisLocalPlayer.AfterSimulateOnLate.AddAction(105, UpdateUI);
         }
         private void OnDisable()
         {
             if (hasGeneratedAction)
             {
-                BasisLocalPlayer.OnLocalPlayerCreated -= OnLocalPlayerGenerated;
+                BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerGenerated;
                 hasGeneratedAction = false;
             }
 
             BasisLocalPlayer.OnLocalAvatarChanged -= UpdateDelayedSetUI;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateDelayedSetUI;
 
-            BasisLocalPlayer.AfterFinalMove.RemoveAction(101, UpdateUI);
+            BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(101, UpdateUI);
         }
         #endregion
         #region Player Change Callbacks
@@ -65,6 +66,10 @@ namespace Basis.Scripts.UI.UI_Panels
             }
         }
         private void UpdateDelayedSetUI()
+        {
+            StartCoroutine(DelaySetUI());
+        }
+        private void UpdateDelayedSetUI(HeightModeChange Mode)
         {
             StartCoroutine(DelaySetUI());
         }
@@ -109,7 +114,8 @@ namespace Basis.Scripts.UI.UI_Panels
                     Vector3 projectedPos = Vector3.ProjectOnPlane(newPos, LocalPlayer.transform.up).normalized;
 
                     // Calculate the base new position by considering the player's position, scale, and offset
-                    newPos = LocalPlayer.transform.position + (projectedPos * (0.5f * LocalPlayer.CurrentHeight.SelectedPlayerToDefaultScale));
+                    float d = 0.5f * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
+                    newPos = LocalPlayer.transform.position + projectedPos * d;
 
                     // Transform the relative offsets by the rotation to apply them correctly in world space
                     Vector3 rotatedOffsets = rotation * menuPosOffset;
@@ -126,8 +132,7 @@ namespace Basis.Scripts.UI.UI_Panels
                     {
                         position = hand.OutgoingWorldData.position;
                         rotation = hand.OutgoingWorldData.rotation;
-                        // Set new position and rotation
-                        transform.SetPositionAndRotation(position + (menuPosOffset * LocalPlayer.CurrentHeight.SelectedPlayerToDefaultScale), rotation * Quaternion.Euler(menuRotOffset));
+                        transform.SetPositionAndRotation(position + (menuPosOffset * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale), rotation * Quaternion.Euler(menuRotOffset));
                     }
                     else
                     {

@@ -19,13 +19,30 @@ namespace Basis.Network
             {
                 case BasisNetworkCommons.AuthIdentityChannel:
                     AuthIdentityMessage(peer, reader, channel);
-                    break;
+                    return; // already recycled inside
                 case BasisNetworkCommons.metaDataChannel:
-                    var message = new ServerMetaDataMessage();
-                    message.Deserialize(reader);
+                    break;
+                case BasisNetworkCommons.PlayerAvatarVeryLowChannel:
+                case BasisNetworkCommons.PlayerAvatarVeryLowAdditionalChannel:
+                case BasisNetworkCommons.PlayerAvatarLowChannel:
+                case BasisNetworkCommons.PlayerAvatarLowAdditionalChannel:
+                case BasisNetworkCommons.PlayerAvatarMediumChannel:
+                case BasisNetworkCommons.PlayerAvatarMediumAdditionalChannel:
+                case BasisNetworkCommons.PlayerAvatarHighChannel:
+                case BasisNetworkCommons.PlayerAvatarHighAdditionalChannel:
+                    // Full avatar update — just consume it
+                    break;
+                case BasisNetworkCommons.DisconnectionChannel:
+                    // Just consume disconnection messages
+                    break;
+                default:
+                    // Silently consume other channels
                     break;
             }
+
+            reader.Recycle();
         }
+
         public static void AuthIdentityMessage(NetPeer peer, NetPacketReader Reader, byte channel)
         {
             BNL.Log("Validated Size " + Reader.AvailableBytes);

@@ -3,5 +3,9 @@
   "displayName": "Basis Event Driver",
   "version": "0.0.1",
   "description": "This system drives the entire pipeline of basis events and timings",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
   "_fingerprint": "477ad687ad74ce1eba5672f4e3393e001669c53c"
 }

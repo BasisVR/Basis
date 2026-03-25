@@ -2,13 +2,44 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.UI;
 
 public static class BasisCursorManagement
 {
-    // A list to keep track of cursor lock requests
-    private static List<string> cursorLockRequests = new List<string>();
+    // A list of unique requests to unlock the cursor.
+    private static List<string> cursorUnlockRequests = new List<string>();
     // Event that gets triggered whenever the cursor state changes
     public static event Action<CursorLockMode, bool> OnCursorStateChange;
+
+    /// <summary>
+    /// The current logical cursor type based on what UI element is being hovered.
+    /// </summary>
+    public static BasisCursorType CurrentCursorType { get; private set; } = BasisCursorType.Default;
+
+    /// <summary>
+    /// Optional custom texture when CurrentCursorType is Custom.
+    /// </summary>
+    public static Texture2D CurrentCustomTexture { get; private set; }
+
+    /// <summary>
+    /// Fired when the cursor type changes. Parameters: (newType, customTexture).
+    /// </summary>
+    public static event Action<BasisCursorType, Texture2D> OnCursorTypeChanged;
+
+    /// <summary>
+    /// Sets the active cursor type. Called by the raycast system when hovering UI elements.
+    /// </summary>
+    public static void SetCursorType(BasisCursorType type, Texture2D customTexture = null)
+    {
+        if (CurrentCursorType == type && CurrentCustomTexture == customTexture)
+        {
+            return;
+        }
+        CurrentCursorType = type;
+        CurrentCustomTexture = customTexture;
+        OnCursorTypeChanged?.Invoke(type, customTexture);
+    }
+
     public static CursorLockMode ActiveLockState()
     {
         return Cursor.lockState;
@@ -18,28 +49,44 @@ public static class BasisCursorManagement
         return Cursor.visible;
     }
 
+#if UNITY_EDITOR
     /// <summary>
-    /// Locks the cursor to the center of the screen and hides it.
-    /// Adds a request to lock the cursor.
+    /// Editor-only debug view of active unlock requests.
+    /// </summary>
+    public static IReadOnlyList<string> CursorUnlockRequestsDebug => cursorUnlockRequests;
+#endif
+    /// <summary>
+    /// Removes this unlock request.
+    /// If there are no remaining unlock requests, locks the cursor and makes it invisible.
     /// </summary>
     public static void LockCursor(string requestName)
     {
-        if (ShouldIgnoreCursorRequests()) return;
+        if (ShouldIgnoreCursorRequests())
+        {
+            BasisDebug.Log("Skipping Lock Request", BasisDebug.LogTag.Local);
+            return;
+        }
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-        // BasisDebug.Log("Cursor Locked");
-        cursorLockRequests.Add(requestName);
-        OnCursorStateChange?.Invoke(CursorLockMode.Locked, false);
+        cursorUnlockRequests.Remove(requestName);
+        if (cursorUnlockRequests.Count == 0)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            OnCursorStateChange?.Invoke(CursorLockMode.Locked, false);
+        }
     }
 
     /// <summary>
     /// Unlocks the cursor and makes it visible.
-    /// Removes a request to lock the cursor.
+    /// Adds an unlock request, which prevents the cursor from being locked until this request is removed with LockCursor.
     /// </summary>
     public static void UnlockCursor(string requestName, bool FireCursorStateChange = true)
     {
-        if (ShouldIgnoreCursorRequests()) return;
+        if (ShouldIgnoreCursorRequests())
+        {
+            BasisDebug.Log("Skipping Unlock Request", BasisDebug.LogTag.Local);
+            return;
+        }
 
         InternalUnlockCursor(requestName, FireCursorStateChange);
     }
@@ -54,10 +101,16 @@ public static class BasisCursorManagement
 
     private static void InternalUnlockCursor(string requestName, bool FireCursorStateChange)
     {
+        if (!cursorUnlockRequests.Contains(requestName))
+        {
+            cursorUnlockRequests.Add(requestName);
+        }
+        if (Cursor.lockState == CursorLockMode.None)
+        {
+            return;
+        }
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        //  BasisDebug.Log("Cursor Unlocked");
-        cursorLockRequests.Remove(requestName);
         if (FireCursorStateChange)
         {
             OnCursorStateChange?.Invoke(CursorLockMode.None, true);
@@ -70,7 +123,10 @@ public static class BasisCursorManagement
     /// </summary>
     public static void ConfineCursor(string requestName)
     {
-        if (ShouldIgnoreCursorRequests()) return;
+        if (ShouldIgnoreCursorRequests())
+        {
+            return;
+        }
 
         Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
@@ -79,16 +135,16 @@ public static class BasisCursorManagement
     }
     private static bool ShouldIgnoreCursorRequests()
     {
-        var isUserInVR = !BasisDeviceManagement.IsUserInDesktop();
         // When in VR mode, all cursor lock requests are must be ignored,
         // so that cursor control is not taken away from other external desktop overlay applications.
-        return isUserInVR;
+        return BasisDeviceManagement.IsCurrentModeVR();
     }
     public static void OnReset()
     {
-        cursorLockRequests.Clear();
+        cursorUnlockRequests.Clear();
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         OnCursorStateChange?.Invoke(CursorLockMode.None, true);
+        SetCursorType(BasisCursorType.Default);
     }
 }

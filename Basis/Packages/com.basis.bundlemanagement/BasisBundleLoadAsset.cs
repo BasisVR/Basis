@@ -1,11 +1,11 @@
-using Basis.Scripts.BasisSdk;
 using System.Threading.Tasks;
+using Basis.Scripts.BasisSdk;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static BundledContentHolder;
 public static class BasisBundleLoadAsset
 {
-    public static async Task<GameObject> LoadFromWrapper(BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation,bool ModifyScale,Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false)
+    public static async Task<GameObject> LoadFromWrapper(GameObject DisabledGameobject,BasisTrackedBundleWrapper BasisLoadableBundle, bool UseContentRemoval, Vector3 Position, Quaternion Rotation, bool ModifyScale, Vector3 Scale, Selector Selector, Transform Parent = null, bool DestroyColliders = false,bool ChangeColidersToCorrectLayer = false)
     {
         bool Incremented = false;
         if (BasisLoadableBundle.AssetBundle != null)
@@ -19,7 +19,7 @@ public static class BasisBundleLoadAsset
                         {
                             string ReplacedName = Generated.AssetToLoadName.Replace(".bundle", ".prefab");
 
-                            AssetBundleRequest Request = BasisLoadableBundle.AssetBundle.LoadAssetAsync<GameObject>(ReplacedName);//assets/temporarystorage/19a260b00e5f474f8472fa9dea4ca2a920250227.prefab
+                            AssetBundleRequest Request = BasisLoadableBundle.AssetBundle.LoadAssetAsync<GameObject>(ReplacedName);
                             await Request;
                             GameObject loadedObject = Request.asset as GameObject;
                             if (loadedObject == null)
@@ -40,8 +40,11 @@ public static class BasisBundleLoadAsset
                             }
                             ChecksRequired.UseContentRemoval = UseContentRemoval;
                             ChecksRequired.RemoveColliders = DestroyColliders;
-                            GameObject CreatedCopy = ContentPoliceControl.ContentControl(loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent);
+                            ChecksRequired.ChangeCollidersToCorrectLayer = ChangeColidersToCorrectLayer;
+                            GameObject CreatedCopy = ContentPoliceControl.ContentControl(DisabledGameobject,loadedObject, ChecksRequired, Position, Rotation, ModifyScale, Scale, Selector, Parent, LayerMask.NameToLayer("IgnoredByInteractable"));
                             Incremented = BasisLoadableBundle.Increment();
+                            string InstanceID = BasisGenerateUniqueID.GenerateUniqueID();
+                            CreatedCopy.name = InstanceID + Incremented;
                             return CreatedCopy;
                         }
                     default:
@@ -51,7 +54,7 @@ public static class BasisBundleLoadAsset
             }
             else
             {
-                BasisDebug.LogError("Missing Platform Bundle! cant find : "+ Application.platform);
+                BasisDebug.LogError("Missing Platform Bundle! cant find : " + Application.platform);
             }
         }
         else
@@ -81,10 +84,11 @@ public static class BasisBundleLoadAsset
         {
             // Load the scene asynchronously
             AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(scenePaths[0], LoadSceneMode.Additive);
+            asyncLoad.allowSceneActivation = true;
             // Track scene loading progress
             while (!asyncLoad.isDone)
             {
-                progressCallback.ReportProgress(UniqueID,50 + asyncLoad.progress * 50, "loading scene"); // Progress from 50 to 100 during scene load
+                progressCallback.ReportProgress(UniqueID, 50 + asyncLoad.progress * 50, "loading scene"); // Progress from 50 to 100 during scene load
                 await Task.Yield();
             }
 
@@ -94,12 +98,16 @@ public static class BasisBundleLoadAsset
             // Set the loaded scene as the active scene
             if (loadedScene.IsValid())
             {
+                ChecksRequired ChecksRequired = new ChecksRequired();
+                ChecksRequired.UseContentRemoval = true;
+                ContentPoliceControl.ContentControl(ChecksRequired, Selector.World, loadedScene, true);
+                AssignedIncrement = bundle.Increment();
                 if (MakeActiveScene)
                 {
                     SceneManager.SetActiveScene(loadedScene);
-                    AssignedIncrement = bundle.Increment();
+                    BasisDebug.Log("Scene set as active: " + loadedScene.name);
                 }
-                BasisDebug.Log("Scene set as active: " + loadedScene.name);
+                BasisDebug.Log("Scene loaded: " + loadedScene.name + " (MakeActive=" + MakeActiveScene + ", Incremented=" + AssignedIncrement + ")");
                 progressCallback.ReportProgress(UniqueID, 100, "loading scene"); // Set progress to 100 when done
                 return loadedScene;
             }

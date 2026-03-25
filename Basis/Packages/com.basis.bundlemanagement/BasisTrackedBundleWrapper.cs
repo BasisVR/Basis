@@ -36,6 +36,11 @@ public class BasisTrackedBundleWrapper
         // You can implement your actual logic to check if the bundle is loaded here
         return AssetBundle != null; // Assuming AssetBundle being non-null means it's loaded
     }
+
+
+    // TODO: Bug in here
+    // when loading in mutliple same scenes and unloading one of them
+    // it will remove other duplicate scenes?
     public async Task<bool> UnloadIfReady()
     {
         if (AssetBundle == null)
@@ -71,7 +76,7 @@ public class BasisTrackedBundleWrapper
     public bool Increment()
     {
         Interlocked.Increment(ref _requestedTimes);
-      //  BasisDebug.Log($"Incremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.LocalConnectorPath}");
+     //   BasisDebug.Log($"Incremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}");
         return true;
     }
     public bool DeIncrement()
@@ -87,7 +92,7 @@ public class BasisTrackedBundleWrapper
             }
         } while (Interlocked.CompareExchange(ref _requestedTimes, current - 1, current) != current);
 
-       // BasisDebug.Log($"DeIncremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.LocalConnectorPath}");
+       // BasisDebug.Log($"DeIncremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}");
         return true;
     }
 }

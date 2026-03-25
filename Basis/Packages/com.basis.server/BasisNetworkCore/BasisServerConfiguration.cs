@@ -10,12 +10,12 @@ public class Configuration
     public const string ConfigFolderName = "config";
     public const string LogsFolderName = "logs";
     public const string InitialResourcesFolderName = "initialresources";
-    public int PeerLimit = 1024;
+    public int PeerLimit = ushort.MaxValue;
     public ushort SetPort = 4296;
     public bool UseNativeSockets = true;
-    public bool NatPunchEnabled = true;
+    public bool NatPunchEnabled = false;
     public int PingInterval = 1500;
-    public int DisconnectTimeout = 15000;
+    public int DisconnectTimeout = 6000;
     public bool SimulatePacketLoss = false;
     public bool SimulateLatency = false;
     public int SimulationPacketLossChance = 10;
@@ -28,7 +28,7 @@ public class Configuration
     public bool EnableStatistics = true;
     public bool IPv6Enabled = true;
     public int MtuOverride = 0;
-    public bool MtuDiscovery = false;
+    public bool MtuDiscovery = true;
     public bool DisconnectOnUnreachable = false;
     public bool AllowPeerAddressChange = true;
     public bool HasFileSupport = true;
@@ -39,6 +39,9 @@ public class Configuration
     public int BSRBaseMultiplier = 1;
     public float BSRSIncreaseRate = 0.005f;
     public float BSRSlowestSendRate = 2.55f;
+    public float HighQualityDistance = 3f;
+    public float MediumQualityDistance = 10f;
+    public float LowQualityDistance = 20f;
     public bool OverrideAutoDiscoveryOfIpv = false;
     public string IPv4Address = "0.0.0.0";
     public string IPv6Address = "::1";
@@ -51,6 +54,8 @@ public class Configuration
     public bool EnableConsole = true;
     public bool DisableWriteUnlessAdminPersistentFlag = true;
     public bool DisableReadUnlessAdminPersistentFlag = false;
+    public bool UseNetworkFinalCompression = false;
+    public bool EnableBSRProfiling = false;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>
@@ -138,19 +143,14 @@ public class Configuration
                 }
                 else if (field.FieldType == typeof(bool))
                 {
-                    if (value == "true")
+                    if (bool.TryParse(value, out bool boolResult))
                     {
-                        field.SetValue(config, true);
-                    }
-                    else if (value == "false")
-                    {
-                        field.SetValue(config, false);
+                        field.SetValue(config, boolResult);
                     }
                     else
                     {
-                        BNL.LogWarning("Boolean field was not a true or false string. Failed Override");
+                        BNL.LogWarning($"Could not parse '{value}' as bool for field {field.Name}. Failed Override");
                     }
-
                 }
                 else
                 {

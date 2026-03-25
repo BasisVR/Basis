@@ -37,6 +37,7 @@ ExportedObj/
 *.csproj
 *.unityproj
 *.sln
+*.slnx
 *.suo
 *.tmp
 *.user
@@ -52,6 +53,7 @@ ExportedObj/
 *.csproj.meta
 *.unityproj.meta
 *.sln.meta
+*.slnx.meta
 *.suo.meta
 *.tmp.meta
 *.user.meta

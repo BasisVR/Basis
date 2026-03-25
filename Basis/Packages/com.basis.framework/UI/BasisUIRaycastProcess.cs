@@ -60,7 +60,7 @@ namespace Basis.Scripts.UI
                     continue;
                 }
 
-                if (input.HasRaycaster && input.BasisUIRaycast.WasCorrectLayer)
+                if (input.HasRaycaster)
                 {
                     var eventData = input.BasisUIRaycast.CurrentEventData;
                     if (eventData == null)
@@ -68,10 +68,15 @@ namespace Basis.Scripts.UI
                         continue;
                     }
 
+                    bool hasActiveUITarget = input.BasisUIRaycast.WasCorrectLayer && input.BasisUIRaycast.HadRaycastUITarget;
+
                     bool isDownThisFrame = input.CurrentInputState.Trigger == 1;
 
                     // Track down-transition for deselection later
-                    EffectiveMouseAction |= !eventData.WasLastDown && isDownThisFrame;
+                    if (input.BasisUIRaycast.WasCorrectLayer)
+                    {
+                        EffectiveMouseAction |= !eventData.WasLastDown && isDownThisFrame;
+                    }
 
                     // Handle button UP transition, even if there is no UI hit this frame
                     if (eventData.WasLastDown && !isDownThisFrame)
@@ -80,7 +85,7 @@ namespace Basis.Scripts.UI
                         eventData.WasLastDown = false;
                     }
 
-                    if (input.BasisUIRaycast.HadRaycastUITarget)
+                    if (hasActiveUITarget)
                     {
                         List<BasisRaycastUIHitData> hitData = input.BasisUIRaycast.SortedGraphics;
                         List<RaycastResult> RaycastResults = input.BasisUIRaycast.SortedRays;
@@ -98,16 +103,23 @@ namespace Basis.Scripts.UI
                         }
                         else
                         {
-                            BasisDebug.LogWarning("[BasisUIRaycastProcess] Skipping raycast simulate — hit data or ray results missing.");
+                            BasisDebug.LogWarning(nameof(BasisUIRaycastProcess) + "Skipping raycast simulate — hit data or ray results missing.");
                         }
                     }
                     else
                     {
-                        // Lost UI hit: force “no target” and process movement so we get pointerExit events.
+                        // Lost UI hit (or moved to non-UI layer): send pointerExit events and clear selection.
                         if (eventData.pointerEnter != null || eventData.hovered.Count > 0)
                         {
                             eventData.pointerCurrentRaycast = new RaycastResult();
                             ProcessPointerMovement(eventData);
+
+                            // Clear EventSystem selection so UI elements (e.g. toggles/buttons)
+                            // don't stay stuck in the “Selected” highlight visual state.
+                            if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null)
+                            {
+                                EventSystem.current.SetSelectedGameObject(null, eventData);
+                            }
                         }
                     }
                 }
@@ -152,7 +164,7 @@ namespace Basis.Scripts.UI
             Vector2 previousPosition = currentEventData.position;
             currentEventData.delta = hit.screenPosition - previousPosition;
             currentEventData.position = hit.screenPosition;
-            currentEventData.scrollDelta = BaseInput.CurrentInputState.Secondary2DAxis;
+            currentEventData.scrollDelta = BaseInput.CurrentInputState.Secondary2DAxisDeadZoned;
 
             // Always keep latest raycast, so movement / scroll / hover use up-to-date info
             currentEventData.pointerCurrentRaycast = raycastResult;

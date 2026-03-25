@@ -1132,6 +1132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1158,7 +1159,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079664
@@ -1342,6 +1342,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &474088461840686293
 GameObject:
@@ -1565,6 +1566,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -1591,7 +1593,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079669
@@ -1884,6 +1885,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &731452850640541327
 GameObject:
@@ -2070,6 +2072,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -2096,7 +2099,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079662
@@ -2439,6 +2441,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -2465,7 +2468,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079668
@@ -3072,6 +3074,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1008741281030210008
 GameObject:
@@ -3220,6 +3223,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -3246,7 +3250,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079672
@@ -3385,6 +3388,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1129603883008725633
 GameObject:
@@ -3475,6 +3479,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1164508460883696940
 GameObject:
@@ -3565,6 +3570,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1175334596313598604
 GameObject:
@@ -3654,6 +3660,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1186808220251453855
 GameObject:
@@ -4682,6 +4689,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &7067234812162994961
 MeshCollider:
@@ -5122,6 +5130,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -5148,7 +5157,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079670
@@ -6062,6 +6070,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -6088,7 +6097,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079675
@@ -6528,6 +6536,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &1908141191791219488
 GameObject:
@@ -7001,6 +7010,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &5200407363932117986
 MeshFilter:
@@ -7652,6 +7662,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -7678,7 +7689,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079673
@@ -8208,6 +8218,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &2638484709903930570
 GameObject:
@@ -8721,6 +8732,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &2973439918979623351
 GameObject:
@@ -8810,6 +8822,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &2989119763046878429
 GameObject:
@@ -8927,6 +8940,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -8953,7 +8967,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079663
@@ -9174,6 +9187,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -9200,7 +9214,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079676
@@ -10034,6 +10047,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &3247918945509032059
 SphereCollider:
@@ -10107,6 +10121,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -10133,7 +10148,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 0
   minAngularVelocity: 0
   interactEndAngularVelocityMultiplier: 0
-  ColliderRef: {fileID: 3247918945509032059}
   RigidRef: {fileID: 3247918945509032056}
   InputConstraint:
     rid: 4390602043453079680
@@ -10323,6 +10337,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &3247918946102524188
 SphereCollider:
@@ -10396,6 +10411,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -10422,7 +10438,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 0
   minAngularVelocity: 0
   interactEndAngularVelocityMultiplier: 0
-  ColliderRef: {fileID: 3247918946102524188}
   RigidRef: {fileID: 3247918946102524186}
   InputConstraint:
     rid: 4390602043453079678
@@ -10639,6 +10654,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3482753859600012335
 GameObject:
@@ -10865,6 +10881,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3521685397355094513
 GameObject:
@@ -10954,6 +10971,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3649093336928750341
 GameObject:
@@ -11206,6 +11224,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &3777780165592104137
 GameObject:
@@ -11504,6 +11523,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &6841805233437094292
 MeshCollider:
@@ -12576,6 +12596,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4153113112568941728
 GameObject:
@@ -12834,6 +12855,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4358142668397788404
 GameObject:
@@ -13765,6 +13787,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4676026980332268010
 GameObject:
@@ -13882,6 +13905,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -13908,7 +13932,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079674
@@ -14561,6 +14584,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!222 &3240795357287825376
 CanvasRenderer:
@@ -15498,6 +15522,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -15524,7 +15549,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079671
@@ -15663,6 +15687,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5232869186677862587
 GameObject:
@@ -16408,6 +16433,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5478351985242798849
 GameObject:
@@ -16895,6 +16921,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &1434565237091366723
 MeshCollider:
@@ -17034,6 +17061,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -17060,7 +17088,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079666
@@ -17516,6 +17543,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5751392150901060255
 GameObject:
@@ -18522,6 +18550,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911173575828846
 SphereCollider:
@@ -18719,6 +18748,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911173677702904
 SphereCollider:
@@ -18947,7 +18977,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911173727914971
 GameObject:
   m_ObjectHideFlags: 0
@@ -19042,6 +19075,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911173727914972
 SphereCollider:
@@ -19270,7 +19304,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911173748581821
 GameObject:
   m_ObjectHideFlags: 0
@@ -19351,6 +19388,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &5951911173748581811
 MeshFilter:
@@ -19450,6 +19488,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5951911173773135742
 GameObject:
@@ -19545,6 +19584,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911173773135731
 SphereCollider:
@@ -19773,7 +19813,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911173913574609
 GameObject:
   m_ObjectHideFlags: 0
@@ -19868,6 +19911,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911173913574602
 SphereCollider:
@@ -20096,7 +20140,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174032423042
 GameObject:
   m_ObjectHideFlags: 0
@@ -20185,6 +20232,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5951911174151772999
 GameObject:
@@ -20280,6 +20328,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174151773048
 SphereCollider:
@@ -20508,7 +20557,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174183841439
 GameObject:
   m_ObjectHideFlags: 0
@@ -20603,6 +20655,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174183841424
 SphereCollider:
@@ -20831,7 +20884,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174204749402
 GameObject:
   m_ObjectHideFlags: 0
@@ -20926,6 +20982,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174204749407
 SphereCollider:
@@ -21154,7 +21211,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174225750889
 GameObject:
   m_ObjectHideFlags: 0
@@ -21333,6 +21393,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174322835363
 SphereCollider:
@@ -21561,7 +21622,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174491229341
 GameObject:
   m_ObjectHideFlags: 0
@@ -21651,6 +21715,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5951911174519442252
 GameObject:
@@ -21740,6 +21805,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5951911174558656967
 GameObject:
@@ -21822,6 +21888,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!33 &5951911174558656964
 MeshFilter:
@@ -22053,6 +22120,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174617438476
 SphereCollider:
@@ -22281,7 +22349,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174687399093
 GameObject:
   m_ObjectHideFlags: 0
@@ -22666,7 +22737,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174893688944
 GameObject:
   m_ObjectHideFlags: 0
@@ -22761,6 +22835,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174893688949
 SphereCollider:
@@ -22989,7 +23064,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911174975507057
 GameObject:
   m_ObjectHideFlags: 0
@@ -23084,6 +23162,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911174975507050
 SphereCollider:
@@ -23312,7 +23391,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911175017396171
 GameObject:
   m_ObjectHideFlags: 0
@@ -23407,6 +23489,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911175017396172
 SphereCollider:
@@ -23635,7 +23718,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911175086482525
 GameObject:
   m_ObjectHideFlags: 0
@@ -23756,6 +23842,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5951911175164350080
 GameObject:
@@ -23851,6 +23938,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911175164350085
 SphereCollider:
@@ -24079,7 +24167,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911175168643530
 GameObject:
   m_ObjectHideFlags: 0
@@ -24174,6 +24265,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911175168643535
 SphereCollider:
@@ -24402,7 +24494,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911175220450432
 GameObject:
   m_ObjectHideFlags: 0
@@ -24497,6 +24592,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911175220450437
 SphereCollider:
@@ -24725,7 +24821,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911175235130175
 GameObject:
   m_ObjectHideFlags: 0
@@ -24815,6 +24914,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &5951911175235130173
 MeshCollider:
@@ -24932,6 +25032,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5951911175507571885
 SphereCollider:
@@ -25160,7 +25261,10 @@ MonoBehaviour:
   - 0
   applyHRTFToPathing: 0
   pathingMixLevel: 1
+  mAudioSource: {fileID: 0}
   Transform: {fileID: 0}
+  IsUnityEngineUsed: 0
+  AllowsUpdateParameters: 0
 --- !u!1 &5951911175638380214
 GameObject:
   m_ObjectHideFlags: 0
@@ -25249,6 +25353,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &5952989828189068404
 GameObject:
@@ -25648,6 +25753,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6060617145961126383
 GameObject:
@@ -25765,6 +25871,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -25791,7 +25898,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079667
@@ -26231,6 +26337,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6297481748977004857
 GameObject:
@@ -26639,6 +26746,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6455550798363047332
 GameObject:
@@ -27215,6 +27323,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &66200067758312973
 SphereCollider:
@@ -27288,6 +27397,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -27314,7 +27424,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 0
   minAngularVelocity: 0
   interactEndAngularVelocityMultiplier: 0
-  ColliderRef: {fileID: 66200067758312973}
   RigidRef: {fileID: 6524798722430289606}
   InputConstraint:
     rid: 4390602043453079679
@@ -27644,6 +27753,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &4040072623255543558
 MeshCollider:
@@ -27831,6 +27941,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6825353327531151015
 GameObject:
@@ -28062,6 +28173,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -28088,7 +28200,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079665
@@ -28255,6 +28366,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -28281,7 +28393,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 0}
   RigidRef: {fileID: 0}
   InputConstraint:
     rid: 4390602043453079661
@@ -28625,6 +28736,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6990798722642454404
 GameObject:
@@ -28852,6 +28964,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &56764417656348721
 MeshCollider:
@@ -29101,6 +29214,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &7078786644357869215
 GameObject:
@@ -29372,6 +29486,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!135 &5449767030866320301
 SphereCollider:
@@ -29445,6 +29560,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -29471,7 +29587,6 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 0
   minAngularVelocity: 0
   interactEndAngularVelocityMultiplier: 0
-  ColliderRef: {fileID: 5449767030866320301}
   RigidRef: {fileID: 7876456815965063224}
   InputConstraint:
     rid: 4390602043453079677
@@ -31152,7 +31267,7 @@ Transform:
   m_GameObject: {fileID: 7839368378687396394}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 1, y: -1, z: 0}
+  m_LocalPosition: {x: 1, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -33178,6 +33293,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!64 &1448657014722195880
 MeshCollider:
@@ -33514,6 +33630,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!114 &7330875790631747510
 MonoBehaviour:

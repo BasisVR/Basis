@@ -139,6 +139,9 @@ MonoBehaviour:
   IsOwnedLocally: 0
   Renders:
   - {fileID: 8839165641088738499}
+  ProcessingAvatarOptions:
+    doNotAutoRenameBones: 0
+  HumanScale: 1
 --- !u!95 &7103285763428802826
 Animator:
   serializedVersion: 7

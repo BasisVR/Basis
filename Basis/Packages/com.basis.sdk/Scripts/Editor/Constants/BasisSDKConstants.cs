@@ -33,13 +33,33 @@ public class BasisSDKConstants
     public static readonly string AvatarAnimatorControllerPath = "Packages/com.basis.sdk/Animator/BasisLocomotion.controller";
 
     public static readonly string AvatarDoNotAutoRenameBonesField = "AvatarDoNotAutoRenameBonesField";
+    public static readonly string AvatarAutomaticallyRemoveBlendshapesField = "AvatarAutomaticallyRemoveBlendshapesField";
+
+    public static readonly string NetworkBehavioursFoldout = "NetworkBehavioursFoldout";
+    public static readonly string NetworkBehavioursAttached = "NetworkBehavioursAttached";
+    public static readonly string NetworkBehavioursAvailable = "NetworkBehavioursAvailable";
     #endregion
     #region Prop
     public static readonly string PropuxmlPath = $"{BasePath}{PropFile}";
+    public static readonly string PropIcon = "propicon";
+    public static readonly string PropName = "propnameinput";
+    public static readonly string PropDescription = "propdescriptioninput";
+    public static readonly string PropDocumentationURL = "https://docs.basisvr.org/docs/prop";
     #endregion
 
     #region Scene
     public static readonly string SceneuxmlPath = $"{BasePath}{SceneFile}";
+    public static readonly string SceneIcon = "sceneicon";
+    public static readonly string SceneName = "scenenameinput";
+    public static readonly string SceneDescription = "scenedescriptioninput";
+    public static readonly string SceneDocumentationURL = "https://docs.basisvr.org/docs/scene";
+    public static readonly string SpawnPointField = "spawnpointfield";
+    public static readonly string MainCameraField = "maincamerafield";
+    public static readonly string AudioMixerGroupField = "audiomixergroupfield";
+    public static readonly string IsReadyField = "isreadyfield";
+    public static readonly string RespawnHeightField = "respawnheightfield";
+    public static readonly string RespawnCheckTimerField = "respawnchecktimer";
+    public static readonly string SpawnPointGizmoButton = "SpawnPointGizmoButton";
     #endregion
     #region Shared
     public static readonly string ErrorMessage = "ErrorMessage";
@@ -48,6 +68,7 @@ public class BasisSDKConstants
     public static List<BuildTarget> allowedTargets = new List<BuildTarget>
     {
         BuildTarget.StandaloneWindows64,
+        BuildTarget.StandaloneOSX,
         BuildTarget.StandaloneLinux64,
         BuildTarget.Android,
         BuildTarget.iOS,
@@ -56,8 +77,15 @@ public class BasisSDKConstants
     public static Dictionary<BuildTarget, string> targetDisplayNames = new Dictionary<BuildTarget, string>
     {
         { BuildTarget.StandaloneWindows64, "Windows" },
+        { BuildTarget.StandaloneOSX, "Mac" },
         { BuildTarget.StandaloneLinux64, "Linux" },
         { BuildTarget.Android, "Android" },
         { BuildTarget.iOS, "IOS" },
+    };
+    public static List<BuildTarget> OcclusionCullingTargets = new List<BuildTarget>
+    {
+        BuildTarget.WebGL,
+        BuildTarget.Android,
+        BuildTarget.iOS,
     };
 }

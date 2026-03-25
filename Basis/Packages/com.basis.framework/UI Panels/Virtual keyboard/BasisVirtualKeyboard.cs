@@ -50,7 +50,7 @@ namespace Basis.Scripts.Virtual_keyboard
         }
         public override void InitalizeEvent()
         {
-            BasisCursorManagement.UnlockCursor(nameof(BasisHamburgerMenu));
+            BasisCursorManagement.UnlockCursor(nameof(BasisVirtualKeyboard));
         }
         public void ClearOutOldData()
         {
@@ -273,7 +273,7 @@ namespace Basis.Scripts.Virtual_keyboard
         }
         public override void DestroyEvent()
         {
-            BasisCursorManagement.LockCursor(nameof(BasisHamburgerMenu));
+            BasisCursorManagement.LockCursor(nameof(BasisVirtualKeyboard));
         }
     }
 }

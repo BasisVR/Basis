@@ -6,6 +6,7 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using static Basis.Scripts.Avatar.BasisAvatarIKStageCalibration;
 namespace Basis.Scripts.Avatar
 {
     /// <summary>
@@ -13,6 +14,13 @@ namespace Basis.Scripts.Avatar
     /// </summary>
     public static class BasisAvatarIKStageCalibration
     {
+        public static class BasisHintBiasStore
+        {
+            public static readonly Dictionary<BasisBoneTrackedRole, Vector3> LocalOffset = new();
+
+            public static void Set(BasisBoneTrackedRole role, Vector3 localOffset) => LocalOffset[role] = localOffset;
+            public static bool TryGet(BasisBoneTrackedRole role, out Vector3 localOffset) => LocalOffset.TryGetValue(role, out localOffset);
+        }
         /// <summary>
         /// If Any trackers are actively connected to the IK system
         /// </summary>
@@ -23,8 +31,8 @@ namespace Basis.Scripts.Avatar
         /// <returns></returns>
         private static List<BasisBoneTrackedRole> GetAllRolesDesired()
         {
-            List<BasisBoneTrackedRole> rolesToDiscover = new List<BasisBoneTrackedRole>();
-            foreach (BasisBoneTrackedRole role in Enum.GetValues(typeof(BasisBoneTrackedRole)))
+            List<BasisBoneTrackedRole> rolesToDiscover = new List<BasisBoneTrackedRole>(23);
+            foreach (BasisBoneTrackedRole role in desiredOrder)
             {
                 rolesToDiscover.Add(role);
             }
@@ -53,8 +61,8 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         public static void FullBodyCalibration()
         {
+            BasisHeightDriver.OnAvatarFBCalibration();//avatar height is good,player height is needed
             HasFBIKTrackers = false;
-            BasisHeightDriver.ChangeEyeHeightMode(BasisLocalPlayer.Instance, BasisSelectedHeightMode.EyeHeight);
             BasisDeviceManagement.UnassignFBTrackers();
             BasisLocalPlayer.Instance.LocalBoneDriver.SimulateAndApplyWithoutLerp(BasisLocalPlayer.Instance);
 
@@ -62,9 +70,14 @@ namespace Basis.Scripts.Avatar
             BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
             BasisLocalPlayer.Instance.DriveTpose();//update the avatars position.
 
-
+            Dictionary<BasisBoneTrackedRole, Transform> storedRoleTransforms = BasisLocalPlayer.Instance.LocalAvatarDriver.StoredRolesTransforms;
             List<BasisBoneTrackedRole> rolesToDiscover = GetAllRolesDesired();
-            List<BasisBoneTrackedRole> trackInputRoles = new List<BasisBoneTrackedRole>();
+            List<BasisBoneTrackedRole> trackInputRoles = new List<BasisBoneTrackedRole>(23);
+            List<BasisCalibrationData> connectors = new List<BasisCalibrationData>(23);
+            List<BasisTrackerMapping> boneTransformMappings = new List<BasisTrackerMapping>(23);
+            List<BasisBoneTrackedRole> roles = new List<BasisBoneTrackedRole>(23);
+            List<BasisInput> BasisInputs = new List<BasisInput>(23);
+
             int count = rolesToDiscover.Count;
             for (int Index = 0; Index < count; Index++)
             {
@@ -74,7 +87,6 @@ namespace Basis.Scripts.Avatar
                     trackInputRoles.Add(Role);
                 }
             }
-            List<BasisCalibrationData> connectors = new List<BasisCalibrationData>();
             int AllInputDevicesCount = BasisDeviceManagement.Instance.AllInputDevices.Count;
             for (int Index = 0; Index < AllInputDevicesCount; Index++)
             {
@@ -104,29 +116,31 @@ namespace Basis.Scripts.Avatar
                     connectors.Add(calibrationConnector);
                 }
             }
-            List<BasisTrackerMapping> boneTransformMappings = new List<BasisTrackerMapping>();
             int Count = trackInputRoles.Count;
-            Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms = GetAllRolesAsTransform();
+            Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms = BasisLocalPlayer.Instance.LocalAvatarDriver.StoredRolesTransforms;
             for (int Index = 0; Index < Count; Index++)
             {
                 BasisBoneTrackedRole role = trackInputRoles[Index];
                 if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role))
                 {
-                    float ScaledDistance = MaxDistanceBeforeTrackerIsIrrelivant(role) * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                    BasisDebug.Log("Using a scaler of  " + BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale + " leading to a scaled Distance of " + ScaledDistance);
+                    //0.3f * 1 * per-sphere user scale
+                    float ScaledDistance = MaxDistanceBeforeTrackerIsIrrelivant(role) * SMModuleCalibration.GetSphereScale(role) * BasisHeightDriver.ScaledToMatchValue;
                     if (StoredRolesTransforms.TryGetValue(role, out Transform Transform))
                     {
+                        //  BasisLocalPlayer.Instance.LocalBoneDriver.AddGizmo($"{control.name} IK Calibration with Scaler Distance {ScaledDistance}", Transform, ScaledDistance, control.Color, role);
                         BasisTrackerMapping mapping = new BasisTrackerMapping(control, Transform, role, connectors, ScaledDistance);
                         boneTransformMappings.Add(mapping);
+                    }
+                    else
+                    {
+                        BasisDebug.LogError($"Missing Mapping in Roles Transforms {role}");
                     }
                 }
                 else
                 {
-                    BasisDebug.LogError("Missing bone control for role " + role);
+                    BasisDebug.LogError($"Missing bone control for role {role}");
                 }
             }
-            List<BasisBoneTrackedRole> roles = new List<BasisBoneTrackedRole>();
-            List<BasisInput> BasisInputs = new List<BasisInput>();
             int cachedCount = boneTransformMappings.Count;
             // Find optimal matches
             for (int Index = 0; Index < cachedCount; Index++)
@@ -141,6 +155,12 @@ namespace Basis.Scripts.Avatar
                     BasisDebug.LogError("Missing Tracker for index " + Index + " with ID " + mapping);
                 }
             }
+
+
+            // 8) IMPORTANT: simulate once AFTER assignments so the bone controls reflect new tracker bindings.
+            BasisLocalPlayer.Instance.LocalBoneDriver.SimulateAndApplyWithoutLerp(BasisLocalPlayer.Instance);
+
+            ComputeHints(storedRoleTransforms);
 
             BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
             BasisLocalPlayer.Instance.LocalRigDriver.RigLayer.active = true;
@@ -190,7 +210,7 @@ namespace Basis.Scripts.Avatar
             }
 
             // Execute all stored calibration actions
-            int Count =  calibrationActions.Count;
+            int Count = calibrationActions.Count;
             for (int Index = 0; Index < Count; Index++)
             {
                 Action action = calibrationActions[Index];
@@ -203,35 +223,38 @@ namespace Basis.Scripts.Avatar
         /// <returns></returns>
         public static Dictionary<BasisBoneTrackedRole, Transform> GetAllRolesAsTransform()
         {
-            Common.BasisTransformMapping Mapping = BasisLocalAvatarDriver.References;
+            Common.BasisTransformMapping Mapping = BasisLocalAvatarDriver.Mapping;
             Dictionary<BasisBoneTrackedRole, Transform> transforms = new Dictionary<BasisBoneTrackedRole, Transform>
     {
         { BasisBoneTrackedRole.Hips,Mapping.Hips },
-        { BasisBoneTrackedRole.Spine, Mapping.spine },
+      //  { BasisBoneTrackedRole.Spine, Mapping.spine },
         { BasisBoneTrackedRole.Chest, Mapping.chest },
     //    { BasisBoneTrackedRole.Upperchest, BasisLocalPlayer.Instance.AvatarDriver.References.Upperchest },
-        { BasisBoneTrackedRole.Neck, Mapping.neck },
+      //  { BasisBoneTrackedRole.Neck, Mapping.neck },
         { BasisBoneTrackedRole.Head, Mapping.head },
        // { BasisBoneTrackedRole.CenterEye, LeftEye },
        // { BasisBoneTrackedRole.RightEye, RightEye },
 
         { BasisBoneTrackedRole.LeftShoulder, Mapping.leftShoulder },
-        { BasisBoneTrackedRole.LeftUpperArm, Mapping.leftUpperArm },
-        { BasisBoneTrackedRole.LeftLowerArm, Mapping.leftLowerArm },
-        { BasisBoneTrackedRole.LeftHand, Mapping.leftHand },
-
         { BasisBoneTrackedRole.RightShoulder, Mapping.RightShoulder },
-        { BasisBoneTrackedRole.RightUpperArm,Mapping. RightUpperArm },
+
+      // { BasisBoneTrackedRole.LeftUpperArm, Mapping.leftUpperArm },
+      // { BasisBoneTrackedRole.RightUpperArm,Mapping. RightUpperArm },
+
         { BasisBoneTrackedRole.RightLowerArm, Mapping.RightLowerArm },
+        { BasisBoneTrackedRole.LeftLowerArm, Mapping.leftLowerArm },
+
+        { BasisBoneTrackedRole.LeftHand, Mapping.leftHand },
         { BasisBoneTrackedRole.RightHand, Mapping.rightHand },
 
-        { BasisBoneTrackedRole.LeftUpperLeg,Mapping.LeftUpperLeg },
-        { BasisBoneTrackedRole.LeftLowerLeg,Mapping. LeftLowerLeg },
+      //  { BasisBoneTrackedRole.LeftUpperLeg,Mapping.LeftUpperLeg },
+       { BasisBoneTrackedRole.LeftLowerLeg,Mapping. LeftLowerLeg },
+      //  { BasisBoneTrackedRole.RightUpperLeg, Mapping.RightUpperLeg },
+        { BasisBoneTrackedRole.RightLowerLeg,Mapping. RightLowerLeg },
+
         { BasisBoneTrackedRole.LeftFoot, Mapping.leftFoot },
         { BasisBoneTrackedRole.LeftToes,Mapping. leftToe },
 
-        { BasisBoneTrackedRole.RightUpperLeg, Mapping.RightUpperLeg },
-        { BasisBoneTrackedRole.RightLowerLeg,Mapping. RightLowerLeg },
         { BasisBoneTrackedRole.RightFoot, Mapping.rightFoot },
         { BasisBoneTrackedRole.RightToes,Mapping. rightToe },
             };
@@ -246,8 +269,20 @@ namespace Basis.Scripts.Avatar
 
             switch (role)
             {
+                case BasisBoneTrackedRole.CenterEye:
+                    return 0;
+
+                case BasisBoneTrackedRole.Head:
+                    return 0;
+
+                case BasisBoneTrackedRole.Neck:
+                    return 0;
+                case BasisBoneTrackedRole.Mouth:
+                    return 0;
+                case BasisBoneTrackedRole.Spine:
+                    return 0;
                 case BasisBoneTrackedRole.Chest:
-                    return 0.45f;
+                    return 0.35f;
                 case BasisBoneTrackedRole.Hips:
                     return 0.45f;
 
@@ -257,29 +292,39 @@ namespace Basis.Scripts.Avatar
                     return 0.5f;
 
                 case BasisBoneTrackedRole.LeftFoot:
-                    return 0.5f;
+                    return 0.35f;
                 case BasisBoneTrackedRole.RightFoot:
-                    return 0.5f;
+                    return 0.35f;
 
                 case BasisBoneTrackedRole.LeftShoulder:
-                    return 0.4f;
+                    return 0.3f;
                 case BasisBoneTrackedRole.RightShoulder:
-                    return 0.4f;
+                    return 0.3f;
+
+                case BasisBoneTrackedRole.LeftUpperLeg:
+                    return 0.3f;
+                case BasisBoneTrackedRole.RightUpperLeg:
+                    return 0.3f;
 
                 case BasisBoneTrackedRole.LeftLowerArm:
-                    return 0.6f;
+                    return 0.4f;
                 case BasisBoneTrackedRole.RightLowerArm:
-                    return 0.6f;
+                    return 0.4f;
 
                 case BasisBoneTrackedRole.LeftHand:
-                    return 0.4f;
+                    return 0.2f;
                 case BasisBoneTrackedRole.RightHand:
-                    return 0.4f;
+                    return 0.2f;
 
                 case BasisBoneTrackedRole.LeftToes:
-                    return 0.4f;
+                    return 0.2f;
                 case BasisBoneTrackedRole.RightToes:
-                    return 0.4f;
+                    return 0.2f;
+
+                case BasisBoneTrackedRole.LeftUpperArm:
+                    return 0;
+                case BasisBoneTrackedRole.RightUpperArm:
+                    return 0;
                 default:
                     BasisDebug.LogError($"Unknown role {role}");
                     return 0;
@@ -293,16 +338,17 @@ namespace Basis.Scripts.Avatar
         BasisBoneTrackedRole.Hips,
         BasisBoneTrackedRole.RightFoot,
         BasisBoneTrackedRole.LeftFoot,
+
         BasisBoneTrackedRole.LeftLowerLeg,
         BasisBoneTrackedRole.RightLowerLeg,
         BasisBoneTrackedRole.LeftLowerArm,
         BasisBoneTrackedRole.RightLowerArm,
 
-        BasisBoneTrackedRole.CenterEye,
+    //    BasisBoneTrackedRole.CenterEye,
         BasisBoneTrackedRole.Chest,
 
-        BasisBoneTrackedRole.Head,
-        BasisBoneTrackedRole.Neck,
+       // BasisBoneTrackedRole.Head,
+       // BasisBoneTrackedRole.Neck,
 
         BasisBoneTrackedRole.LeftHand,
         BasisBoneTrackedRole.RightHand,
@@ -310,22 +356,134 @@ namespace Basis.Scripts.Avatar
         BasisBoneTrackedRole.LeftToes,
         BasisBoneTrackedRole.RightToes,
 
-        BasisBoneTrackedRole.LeftUpperArm,
-        BasisBoneTrackedRole.RightUpperArm,
-        BasisBoneTrackedRole.LeftUpperLeg,
-        BasisBoneTrackedRole.RightUpperLeg,
+      //  BasisBoneTrackedRole.LeftUpperArm,
+       // BasisBoneTrackedRole.RightUpperArm,
+      //  BasisBoneTrackedRole.LeftUpperLeg,
+       // BasisBoneTrackedRole.RightUpperLeg,
         BasisBoneTrackedRole.LeftShoulder,
         BasisBoneTrackedRole.RightShoulder,
         };
-    }
-    /// <summary>
-    /// data for ik calibration
-    /// </summary>
-    public class BasisCalibrationData
-    {
-        [SerializeField]
-        public BasisInput BasisInput;
-        public float Distance;
-    }
+        public static void ComputeHints(Dictionary<BasisBoneTrackedRole, Transform> storedRoleTransforms)
+        {
+            // 9) Bake "hint push up/out" offsets at calibration time
+            //    We store offsets in tracker-local space so they rotate with the tracker at runtime.
+            //    Then BasisLocalRigDriver applies: hintPos = rawPos + rawRot * localOffset;
 
+            // Grab reference rotations from the avatar in T-pose (stable)
+            Quaternion chestRefRot = Quaternion.identity;
+            Quaternion hipsRefRot = Quaternion.identity;
+
+            if (storedRoleTransforms.TryGetValue(BasisBoneTrackedRole.Chest, out var chestT) && chestT != null)
+            {
+                chestRefRot = chestT.rotation;
+            }
+
+            if (storedRoleTransforms.TryGetValue(BasisBoneTrackedRole.Hips, out var hipsT) && hipsT != null)
+            {
+                hipsRefRot = hipsT.rotation;
+            }
+
+            // Choose push magnitudes (tweakable)
+            float hs = BasisHeightDriver.ScaledToMatchValue;
+
+            float elbowPush = 0.12f * hs;
+            float kneePush = 0.10f * hs;
+            float headPush = 0.08f * hs;
+
+            // Optional clamp so calibration can never store insane offsets
+            float maxPush = 0.25f * hs;
+            // Chest-as-head-hint bias (push "up" in chest frame)
+            {
+                var chestCtrl = BasisLocalBoneDriver.ChestControl;
+                Quaternion trackerRot = chestCtrl.OutgoingWorldData.rotation;
+
+                Vector3 worldUp = chestRefRot * Vector3.up;
+                Vector3 localUp = Quaternion.Inverse(trackerRot) * worldUp;
+                Vector3 localOffset = (localUp.sqrMagnitude < 1e-8f ? Vector3.up : localUp.normalized) * headPush;
+                localOffset = Vector3.ClampMagnitude(localOffset, maxPush);
+
+                BasisHintBiasStore.Set(BasisBoneTrackedRole.Chest, localOffset);
+            }
+
+            // Elbow hints (lower arms)
+            {
+                {
+                    var lla = BasisLocalBoneDriver.LeftLowerArmControl;
+                    Quaternion trackerRot = lla.OutgoingWorldData.rotation;
+                    Vector3 localOffset = ComputeHintBiasLocal(trackerRot, chestRefRot, isLeft: true, distanceMeters: elbowPush, outWeight: 0.85f, upWeight: 0.35f, fwdWeight: 0.15f);
+                    localOffset = Vector3.ClampMagnitude(localOffset, maxPush);
+                    BasisHintBiasStore.Set(BasisBoneTrackedRole.LeftLowerArm, localOffset);
+                }
+                {
+                    var rla = BasisLocalBoneDriver.RightLowerArmControl;
+                    Quaternion trackerRot = rla.OutgoingWorldData.rotation;
+                    Vector3 localOffset = ComputeHintBiasLocal(trackerRot, chestRefRot, isLeft: false, distanceMeters: elbowPush, outWeight: 0.85f, upWeight: 0.35f, fwdWeight: 0.15f);
+                    localOffset = Vector3.ClampMagnitude(localOffset, maxPush);
+                    BasisHintBiasStore.Set(BasisBoneTrackedRole.RightLowerArm, localOffset);
+                }
+            }
+            // Knee hints (lower legs) — often better with a touch of forward
+            {
+                var lll = BasisLocalBoneDriver.LeftLowerLegControl;
+                {
+                    float fwdWeight = 1;
+                    if (lll.HasTracked == BasisHasTracked.HasTracker)
+                    {
+                        fwdWeight = 0.55f;
+                    }
+                    Quaternion trackerRot = lll.OutgoingWorldData.rotation;
+                    Vector3 localOffset = ComputeHintBiasLocal(trackerRot, hipsRefRot, isLeft: true, distanceMeters: kneePush, outWeight: 0, upWeight: 0.25f, fwdWeight);
+                    localOffset = Vector3.ClampMagnitude(localOffset, maxPush);
+                    BasisHintBiasStore.Set(BasisBoneTrackedRole.LeftLowerLeg, localOffset);
+                }
+
+                var rll = BasisLocalBoneDriver.RightLowerLegControl;
+                {
+                    float fwdWeight = 1;
+                    if (rll.HasTracked == BasisHasTracked.HasTracker)
+                    {
+                         fwdWeight = 0.55f;
+                    }
+                    Quaternion trackerRot = rll.OutgoingWorldData.rotation;
+                    Vector3 localOffset = ComputeHintBiasLocal(trackerRot, hipsRefRot, isLeft: false, distanceMeters: kneePush, outWeight: 0, upWeight: 0.25f, fwdWeight);
+                    localOffset = Vector3.ClampMagnitude(localOffset, maxPush);
+                    BasisHintBiasStore.Set(BasisBoneTrackedRole.RightLowerLeg, localOffset);
+                }
+            }
+        }
+        // Helper local function to compute a tracker-local offset vector that points "up and out"
+        static Vector3 ComputeHintBiasLocal(
+            Quaternion trackerWorldRot,
+            Quaternion referenceWorldRot,   // chest for arms, hips for legs
+            bool isLeft,
+            float distanceMeters,           // already scaled
+            float outWeight = 0.85f,
+            float upWeight = 0.35f,
+            float fwdWeight = 0.00f         // optional: add a bit of forward if you want knees/elbows forward
+        )
+        {
+            Vector3 up = referenceWorldRot * Vector3.up;
+            Vector3 outDir = referenceWorldRot * (isLeft ? Vector3.left : Vector3.right);
+            Vector3 fwd = referenceWorldRot * Vector3.forward;
+
+            Vector3 worldDir = (outDir * outWeight + up * upWeight + fwd * fwdWeight);
+            if (worldDir.sqrMagnitude < 1e-8f) worldDir = up;
+            worldDir.Normalize();
+
+            // Convert desired world push into tracker-local direction
+            Vector3 localDir = Quaternion.Inverse(trackerWorldRot) * worldDir;
+            if (localDir.sqrMagnitude < 1e-8f) localDir = Vector3.up;
+
+            return localDir.normalized * distanceMeters;
+        }
+        /// <summary>
+        /// data for ik calibration
+        /// </summary>
+        public class BasisCalibrationData
+        {
+            [SerializeField]
+            public BasisInput BasisInput;
+            public float Distance;
+        }
+    }
 }

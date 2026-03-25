@@ -251,33 +251,47 @@ public static class BasisIOManagement
     public static async Task<BeeResult<BeeReadResult>> ReadBEEFileEx(string filePath, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(filePath))
+        {
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: File path is null or empty.");
+        }
 
         if (!File.Exists(filePath))
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File not found: {filePath}");
+        }
 
         if (string.IsNullOrWhiteSpace(vp))
+        {
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: VP is null or empty.");
+        }
 
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: true);
 
         if (fs.Length < BasisBeeConstants.DiskHeaderSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File too small to contain header. Size={fs.Length} bytes.");
+        }
 
         // Read Int32 connector size (little-endian)
         byte[] sizeBytes = await ReadExactAsync(fs, BasisBeeConstants.DiskHeaderSize, cancellationToken);
         if (sizeBytes.Length != BasisBeeConstants.DiskHeaderSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read connector size (header). Got {sizeBytes.Length} bytes.");
+        }
 
         int connectorSize = ReadInt32LittleEndian(sizeBytes);
         long remainingPossible = fs.Length - fs.Position;
         if (connectorSize <= 0 || connectorSize > remainingPossible)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Invalid connector size {connectorSize}. Remaining file bytes: {remainingPossible}. File may be corrupt.");
+        }
 
         // Read connector bytes
         byte[] connectorBytes = await ReadExactAsync(fs, connectorSize, cancellationToken);
         if (connectorBytes.Length != connectorSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
+        }
 
         BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback);
         BasisDebug.Log("GenerateMetaFromBytes", BasisDebug.LogTag.Event);
@@ -289,14 +303,18 @@ public static class BasisIOManagement
         long remaining = fs.Length - fs.Position;
         if (remaining < 0) remaining = 0;
 
-        byte[] sectionData = remaining == 0 ? null : await ReadExactAsync(fs, checked((int)remaining), cancellationToken);
-        if(sectionData == null)
+        byte[] sectionData;
+        if (remaining == 0)
         {
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full section data. Expected {remaining}, got {null}.");
+            sectionData = Array.Empty<byte>();
         }
-        if (sectionData.LongLength != remaining)
+        else
         {
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full section data. Expected {remaining}, got {sectionData.LongLength}.");
+            sectionData = await ReadExactAsync(fs, checked((int)remaining), cancellationToken);
+            if (sectionData == null || sectionData.LongLength != remaining)
+            {
+                return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full section data. Expected {remaining}, got {sectionData?.LongLength ?? 0}.");
+            }
         }
 
         return BeeResult<BeeReadResult>.Ok(new BeeReadResult(connector, sectionData));
@@ -554,26 +572,40 @@ public static class BasisIOManagement
         // Auto-tune buffer: min 32KB, max 1MB
         int buffer = Clamp((int)(totalSize / 8), 32 * 1024, 1 * 1024 * 1024);
 
-        // Write file
-        using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, buffer, useAsync: true))
+        // Write to a temp file then atomic-rename to avoid sharing violations
+        // when multiple concurrent downloads target the same .BEE path.
+        string tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
         {
-            await fs.WriteAsync(sizeLE, 0, sizeLE.Length).ConfigureAwait(false);
-            await fs.WriteAsync(connectorBytes, 0, connectorBytes.Length).ConfigureAwait(false);
-
-            if (writeSection)
+            using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, buffer, useAsync: true))
             {
-                await fs.WriteAsync(sectionBytes, 0, sectionBytes.Length).ConfigureAwait(false);
+                await fs.WriteAsync(sizeLE, 0, sizeLE.Length).ConfigureAwait(false);
+                await fs.WriteAsync(connectorBytes, 0, connectorBytes.Length).ConfigureAwait(false);
+
+                if (writeSection)
+                {
+                    await fs.WriteAsync(sectionBytes, 0, sectionBytes.Length).ConfigureAwait(false);
+                }
             }
+
+            long actual = new FileInfo(tempPath).Length;
+            BasisDebug.Log($"Expected File Size: {totalSize} bytes");
+            BasisDebug.Log($"Actual File Size on Disk: {actual} bytes");
+
+            if (totalSize != actual)
+            {
+                BasisDebug.LogError("File size does not match expected size!");
+                try { File.Delete(tempPath); } catch { }
+                return BeeResult<bool>.Fail($"WriteBeeFileAsync: Size mismatch after write. Expected {totalSize}, actual {actual}.");
+            }
+
+            // Atomic move — last writer wins, no sharing violation.
+            File.Move(tempPath, path);
         }
-
-        long actual = new FileInfo(path).Length;
-        BasisDebug.Log($"Expected File Size: {totalSize} bytes");
-        BasisDebug.Log($"Actual File Size on Disk: {actual} bytes");
-
-        if (totalSize != actual)
+        catch (IOException)
         {
-            BasisDebug.LogError("File size does not match expected size!");
-            return BeeResult<bool>.Fail($"WriteBeeFileAsync: Size mismatch after write. Expected {totalSize}, actual {actual}.");
+            // Another task already wrote the file — that's fine, clean up our temp.
+            try { File.Delete(tempPath); } catch { }
         }
 
         return BeeResult<bool>.Ok(true);
@@ -682,6 +714,52 @@ public static class BasisIOManagement
         if (value < min) return min;
         if (value > max) return max;
         return value;
+    }
+
+    /// <summary>
+    /// Sends an HTTP HEAD request to check if the remote file is reachable.
+    /// Returns success if the server responds with a 2xx status code,
+    /// indicating the file exists and is accessible.
+    /// </summary>
+    public static async Task<BeeResult<bool>> CheckRemoteFileReachable(string url, CancellationToken cancellationToken = default)
+    {
+        if (!ValidateUrl(url, out var urlErr))
+            return BeeResult<bool>.Fail($"Invalid URL: {urlErr}");
+
+        using var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
+        req.downloadHandler = new DownloadHandlerBuffer();
+
+        var op = req.SendWebRequest();
+
+        while (!op.isDone)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                req.Abort();
+                return BeeResult<bool>.Fail("Reachability check cancelled.");
+            }
+            await Task.Yield();
+        }
+
+        long code = req.responseCode;
+
+        if (req.result == UnityWebRequest.Result.ConnectionError)
+            return BeeResult<bool>.Fail($"Cannot connect to server: {req.error}", code);
+
+        if (req.result == UnityWebRequest.Result.ProtocolError)
+        {
+            if (code == 404)
+                return BeeResult<bool>.Fail("Avatar file not found on the server (404). The file may have been moved or deleted.", code);
+            if (code == 403)
+                return BeeResult<bool>.Fail("Access denied to avatar file (403). You may not have permission to access this file.", code);
+
+            return BeeResult<bool>.Fail($"Server returned error {code}: {req.error}", code);
+        }
+
+        if (req.result != UnityWebRequest.Result.Success)
+            return BeeResult<bool>.Fail($"Request failed: {req.error}", code);
+
+        return BeeResult<bool>.Ok(true);
     }
 
     /// <summary>

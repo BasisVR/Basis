@@ -1,210 +1,122 @@
+#if !BASIS_DISABLE_MICROPHONE
+using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
 public class SMDMicrophone : BasisSettingsBase
 {
-    // -------- Current fields you already had --------
     public static string[] MicrophoneDevices;
-    public static Dictionary<string, string> MicrophoneSelections = new Dictionary<string, string>();
-    public static Dictionary<string, float> VolumeSettings = new Dictionary<string, float>();
 
-    public delegate void MicrophoneChangedHandler(string newMicrophone);
-    public static event MicrophoneChangedHandler OnMicrophoneChanged;
+    public enum BasisMicrophoneMode { OnActivation = 0, PushToTalk = 1 }
 
-    private static string selectedMicrophone;
-    public static string SelectedMicrophone
+    [Serializable]
+    public struct MicSettings
     {
-        get => selectedMicrophone;
-        set
+        public string Microphone;
+        public float Volume01;
+
+        public bool UseDenoiser;
+
+        public float LimitThreshold;
+        public float LimitKnee;
+
+        public float DenoiseMakeupDb;
+        public float DenoiseWet;
+
+        public bool UseAGC;
+        public float AgcTargetRms;
+        public float AgcMaxGainDb;
+        public float AgcAttack;
+        public float AgcRelease;
+
+        public BasisMicrophoneMode TalkMode;
+    }
+
+    // ONE EVENT
+    public static event Action<MicSettings> OnMicrophoneSettingsChanged;
+
+    // Current (active-mode) snapshot
+    public static MicSettings Current { get; private set; }
+
+    public static string CurrentMode { get; private set; }
+
+    // Consistent prefs key namespace
+    private static string P(string mode, string key) => $"{mode}_Mic_{key}";
+
+    private const string K_MIC = "Microphone";
+    private const string K_VOL = "Volume01";
+    private const string K_DENOISER = "Denoiser";
+    private const string K_LIMIT_TH = "LimitThreshold";
+    private const string K_LIMIT_KNEE = "LimitKnee";
+    private const string K_DN_MK = "DenoiseMakeupDb";
+    private const string K_DN_WET = "DenoiseWet";
+    private const string K_AGC_ON = "UseAGC";
+    private const string K_AGC_TR = "AgcTargetRms";
+    private const string K_AGC_MG = "AgcMaxGainDb";
+    private const string K_AGC_AT = "AgcAttack";
+    private const string K_AGC_RL = "AgcRelease";
+    private const string K_TALK = "TalkMode";
+
+    private static MicSettings Defaults()
+    {
+        string defaultMic = (MicrophoneDevices != null && MicrophoneDevices.Length > 0) ? MicrophoneDevices[0] : "";
+        return new MicSettings
         {
-            selectedMicrophone = value;
-            OnMicrophoneChanged?.Invoke(selectedMicrophone);
+            Microphone = defaultMic,
+            Volume01 = 1f,
+            UseDenoiser = false,
+            LimitThreshold = 0.95f,
+            LimitKnee = 0.05f,
+            DenoiseMakeupDb = 3f,
+            DenoiseWet = 1f,
+            UseAGC = false,
+            AgcTargetRms = 0.06f,
+            AgcMaxGainDb = 8f,
+            AgcAttack = 0.10f,
+            AgcRelease = 0.01f,
+            TalkMode = BasisMicrophoneMode.OnActivation
+        };
+    }
+
+    private static void ClampAndValidate(ref MicSettings s)
+    {
+        s.Volume01 = Mathf.Clamp01(s.Volume01);
+        s.LimitThreshold = Mathf.Clamp01(s.LimitThreshold);
+        s.LimitKnee = Mathf.Clamp01(s.LimitKnee);
+        s.DenoiseWet = Mathf.Clamp01(s.DenoiseWet);
+        s.AgcTargetRms = Mathf.Max(1e-6f, s.AgcTargetRms);
+        s.AgcAttack = Mathf.Clamp01(s.AgcAttack);
+        s.AgcRelease = Mathf.Clamp01(s.AgcRelease);
+
+        // Validate mic exists
+        if (MicrophoneDevices != null && MicrophoneDevices.Length > 0)
+        {
+            if (string.IsNullOrEmpty(s.Microphone))
+                s.Microphone = MicrophoneDevices[0];
+
+            bool exists = false;
+            foreach (var d in MicrophoneDevices)
+            {
+                if (d == s.Microphone) { exists = true; break; }
+            }
+            if (!exists) s.Microphone = MicrophoneDevices[0];
+        }
+        else
+        {
+            s.Microphone = "";
         }
     }
 
-    public delegate void MicrophoneVolumeChangedHandler(float Volume);
-    public static event MicrophoneVolumeChangedHandler OnMicrophoneVolumeChanged;
-
-    private static float selectedVolumeMicrophone = 1f;
-    public static float SelectedVolumeMicrophone
+    private static void Emit()
     {
-        get => selectedVolumeMicrophone;
-        set
-        {
-            selectedVolumeMicrophone = Mathf.Clamp01(value);
-            OnMicrophoneVolumeChanged?.Invoke(selectedVolumeMicrophone);
-        }
+        OnMicrophoneSettingsChanged?.Invoke(Current);
     }
 
-    public enum BasisMicrophoneMode
-    {
-        OnActivation = 0,
-        PushToTalk = 1, 
-    }
-
-    public delegate void MicrophoneTalkmode(BasisMicrophoneMode BasisMicrophoneMode);
-    public static event MicrophoneTalkmode MicrophoneTalkmodeChanged;
-
-    private static BasisMicrophoneMode selectedTalkmode;
-    public static BasisMicrophoneMode SelectedTalkmode
-    {
-        get => selectedTalkmode;
-        set
-        {
-            selectedTalkmode = value;
-            MicrophoneTalkmodeChanged?.Invoke(selectedTalkmode);
-        }
-    }
-
-    public delegate void MicrophoneUseDenoiserChangedHandler(bool useDenoiser);
-    public static event MicrophoneUseDenoiserChangedHandler OnMicrophoneUseDenoiserChanged;
-
-    private static bool selectedDenoiserMicrophone;
-    public static bool SelectedDenoiserMicrophone
-    {
-        get => selectedDenoiserMicrophone;
-        set
-        {
-            selectedDenoiserMicrophone = value;
-            OnMicrophoneUseDenoiserChanged?.Invoke(selectedDenoiserMicrophone);
-        }
-    }
-
-    // -------- NEW: Limiter settings --------
-    public delegate void LimiterChangedHandler(float threshold, float knee);
-    public static event LimiterChangedHandler OnLimiterChanged;
-
-    private static float selectedLimitThreshold = 0.95f; // pre-clip
-    public static float SelectedLimitThreshold
-    {
-        get => selectedLimitThreshold;
-        set
-        {
-            selectedLimitThreshold = Mathf.Clamp(value, 0.0f, 1.0f);
-            OnLimiterChanged?.Invoke(selectedLimitThreshold, selectedLimitKnee);
-        }
-    }
-
-    private static float selectedLimitKnee = 0.05f; // soft-knee width
-    public static float SelectedLimitKnee
-    {
-        get => selectedLimitKnee;
-        set
-        {
-            selectedLimitKnee = Mathf.Clamp(value, 0.0f, 1.0f);
-            OnLimiterChanged?.Invoke(selectedLimitThreshold, selectedLimitKnee);
-        }
-    }
-
-    // -------- NEW: Denoise post-gain + wet/dry --------
-    public delegate void DenoiseParamsChangedHandler(float makeupDb, float wet);
-    public static event DenoiseParamsChangedHandler OnDenoiseParamsChanged;
-
-    private static float selectedDenoiseMakeupDb = 3f;
-    public static float SelectedDenoiseMakeupDb
-    {
-        get => selectedDenoiseMakeupDb;
-        set
-        {
-            selectedDenoiseMakeupDb = value;
-            OnDenoiseParamsChanged?.Invoke(selectedDenoiseMakeupDb, selectedDenoiseWet);
-        }
-    }
-
-    private static float selectedDenoiseWet = 1f; // 0..1
-    public static float SelectedDenoiseWet
-    {
-        get => selectedDenoiseWet;
-        set
-        {
-            selectedDenoiseWet = Mathf.Clamp01(value);
-            OnDenoiseParamsChanged?.Invoke(selectedDenoiseMakeupDb, selectedDenoiseWet);
-        }
-    }
-
-    // -------- NEW: AGC (automatic gain control) --------
-    public delegate void AgcEnabledChangedHandler(bool enabled);
-    public static event AgcEnabledChangedHandler OnAgcEnabledChanged;
-
-    public delegate void AgcParamsChangedHandler(float targetRms, float maxGainDb, float attack, float release);
-    public static event AgcParamsChangedHandler OnAgcParamsChanged;
-
-    private static bool selectedUseAGC = false;
-    public static bool SelectedUseAGC
-    {
-        get => selectedUseAGC;
-        set
-        {
-            selectedUseAGC = value;
-            OnAgcEnabledChanged?.Invoke(selectedUseAGC);
-            // also re-emit params so listeners can refresh their state in one shot
-            OnAgcParamsChanged?.Invoke(selectedAgcTargetRms, selectedAgcMaxGainDb, selectedAgcAttack, selectedAgcRelease);
-        }
-    }
-
-    private static float selectedAgcTargetRms = 0.06f; // ≈ −24 dBFS
-    public static float SelectedAgcTargetRms
-    {
-        get => selectedAgcTargetRms;
-        set
-        {
-            selectedAgcTargetRms = Mathf.Max(1e-6f, value);
-            OnAgcParamsChanged?.Invoke(selectedAgcTargetRms, selectedAgcMaxGainDb, selectedAgcAttack, selectedAgcRelease);
-        }
-    }
-
-    private static float selectedAgcMaxGainDb = 18f;
-    public static float SelectedAgcMaxGainDb
-    {
-        get => selectedAgcMaxGainDb;
-        set
-        {
-            selectedAgcMaxGainDb = value;
-            OnAgcParamsChanged?.Invoke(selectedAgcTargetRms, selectedAgcMaxGainDb, selectedAgcAttack, selectedAgcRelease);
-        }
-    }
-
-    private static float selectedAgcAttack = 0.10f; // 0..1 (how fast to rise)
-    public static float SelectedAgcAttack
-    {
-        get => selectedAgcAttack;
-        set
-        {
-            selectedAgcAttack = Mathf.Clamp01(value);
-            OnAgcParamsChanged?.Invoke(selectedAgcTargetRms, selectedAgcMaxGainDb, selectedAgcAttack, selectedAgcRelease);
-        }
-    }
-
-    private static float selectedAgcRelease = 0.01f; // 0..1 (how fast to fall)
-    public static float SelectedAgcRelease
-    {
-        get => selectedAgcRelease;
-        set
-        {
-            selectedAgcRelease = Mathf.Clamp01(value);
-            OnAgcParamsChanged?.Invoke(selectedAgcTargetRms, selectedAgcMaxGainDb, selectedAgcAttack, selectedAgcRelease);
-        }
-    }
-
-    public static Dictionary<string, bool> DenoiserSettings = new Dictionary<string, bool>();
-    public static Dictionary<string, float> LimitThresholdSettings = new Dictionary<string, float>();
-    public static Dictionary<string, float> LimitKneeSettings = new Dictionary<string, float>();
-    public static Dictionary<string, bool> AgcEnabledSettings = new Dictionary<string, bool>();
-    public static Dictionary<string, float> AgcTargetRmsSettings = new Dictionary<string, float>();
-    public static Dictionary<string, float> AgcMaxGainDbSettings = new Dictionary<string, float>();
-    public static Dictionary<string, float> AgcAttackSettings = new Dictionary<string, float>();
-    public static Dictionary<string, float> AgcReleaseSettings = new Dictionary<string, float>();
-    public static Dictionary<string, float> DenoiseMakeupDbSettings = new Dictionary<string, float>();
-    public static Dictionary<string, float> DenoiseWetSettings = new Dictionary<string, float>();
-    public static Dictionary<string, BasisMicrophoneMode> BasisMicrophoneModeSettings = new Dictionary<string, BasisMicrophoneMode>();
-    // -------- Load / Save --------
-
+    // Load active mode (sets Current and emits once)
     public static void LoadInMicrophoneData(string mode)
     {
-        BasisDebug.Log($"Loading microphone and volume for mode: {mode}");
         MicrophoneDevices = Microphone.devices;
 
         if (string.IsNullOrEmpty(mode))
@@ -213,188 +125,159 @@ public class SMDMicrophone : BasisSettingsBase
             return;
         }
 
-        // Mic + volume (existing behavior)
-        string savedMicrophone = PlayerPrefs.GetString($"{mode}_Microphone", "");
-        float savedVolume = PlayerPrefs.GetFloat($"{mode}_Volume", 1.0f);
-        if (string.IsNullOrEmpty(savedMicrophone) && MicrophoneDevices.Length > 0)
-        {
-            savedMicrophone = MicrophoneDevices[0];
-        }
-        MicrophoneSelections[mode] = savedMicrophone;
-        VolumeSettings[mode] = savedVolume;
+        CurrentMode = mode;
 
-        // Denoiser enable
-        bool savedDenoiser = PlayerPrefs.GetInt($"{mode}_Denoiser", 0) == 1;
-        DenoiserSettings[mode] = savedDenoiser;
+        var s = Defaults();
 
-        int index = PlayerPrefs.GetInt($"{mode}_MicrophoneMode", 0);
-        BasisMicrophoneModeSettings[mode] = (BasisMicrophoneMode)index;
+        s.Microphone = PlayerPrefs.GetString(P(mode, K_MIC), s.Microphone);
+        s.Volume01 = PlayerPrefs.GetFloat(P(mode, K_VOL), s.Volume01);
 
-        // Limiter
-        float savedLimitThreshold = PlayerPrefs.GetFloat($"{mode}_LimitThreshold", 0.95f);
-        float savedLimitKnee = PlayerPrefs.GetFloat($"{mode}_LimitKnee", 0.05f);
-        LimitThresholdSettings[mode] = savedLimitThreshold;
-        LimitKneeSettings[mode] = savedLimitKnee;
+        s.UseDenoiser = PlayerPrefs.GetInt(P(mode, K_DENOISER), s.UseDenoiser ? 1 : 0) == 1;
 
-        // Denoise params
-        float savedDenoiseMakeupDb = PlayerPrefs.GetFloat($"{mode}_DenoiseMakeupDb", 3f);
-        float savedDenoiseWet = PlayerPrefs.GetFloat($"{mode}_DenoiseWet", 1f);
-        DenoiseMakeupDbSettings[mode] = savedDenoiseMakeupDb;
-        DenoiseWetSettings[mode] = savedDenoiseWet;
+        s.LimitThreshold = PlayerPrefs.GetFloat(P(mode, K_LIMIT_TH), s.LimitThreshold);
+        s.LimitKnee = PlayerPrefs.GetFloat(P(mode, K_LIMIT_KNEE), s.LimitKnee);
 
-        // AGC
-        bool savedUseAgc = PlayerPrefs.GetInt($"{mode}_UseAGC", 0) == 1;
-        float savedAgcTargetRms = PlayerPrefs.GetFloat($"{mode}_AgcTargetRms", 0.06f);
-        float savedAgcMaxGainDb = PlayerPrefs.GetFloat($"{mode}_AgcMaxGainDb", 18f);
-        float savedAgcAttack = PlayerPrefs.GetFloat($"{mode}_AgcAttack", 0.10f);
-        float savedAgcRelease = PlayerPrefs.GetFloat($"{mode}_AgcRelease", 0.01f);
+        s.DenoiseMakeupDb = PlayerPrefs.GetFloat(P(mode, K_DN_MK), s.DenoiseMakeupDb);
+        s.DenoiseWet = PlayerPrefs.GetFloat(P(mode, K_DN_WET), s.DenoiseWet);
 
-        AgcEnabledSettings[mode] = savedUseAgc;
-        AgcTargetRmsSettings[mode] = savedAgcTargetRms;
-        AgcMaxGainDbSettings[mode] = savedAgcMaxGainDb;
-        AgcAttackSettings[mode] = savedAgcAttack;
-        AgcReleaseSettings[mode] = savedAgcRelease;
+        s.UseAGC = PlayerPrefs.GetInt(P(mode, K_AGC_ON), s.UseAGC ? 1 : 0) == 1;
+        s.AgcTargetRms = PlayerPrefs.GetFloat(P(mode, K_AGC_TR), s.AgcTargetRms);
+        s.AgcMaxGainDb = PlayerPrefs.GetFloat(P(mode, K_AGC_MG), s.AgcMaxGainDb);
+        s.AgcAttack = PlayerPrefs.GetFloat(P(mode, K_AGC_AT), s.AgcAttack);
+        s.AgcRelease = PlayerPrefs.GetFloat(P(mode, K_AGC_RL), s.AgcRelease);
 
-        // Emit into active Selected* (fires events so listeners refresh)
-        SelectedMicrophone = savedMicrophone;
-        SelectedVolumeMicrophone = savedVolume;
+        s.TalkMode = (BasisMicrophoneMode)PlayerPrefs.GetInt(P(mode, K_TALK), (int)s.TalkMode);
 
-        SelectedDenoiserMicrophone = savedDenoiser;
-        SelectedLimitThreshold = savedLimitThreshold;
-        SelectedLimitKnee = savedLimitKnee;
+        ClampAndValidate(ref s);
+        Current = s;
 
-        SelectedDenoiseMakeupDb = savedDenoiseMakeupDb;
-        SelectedDenoiseWet = savedDenoiseWet;
-
-        SelectedUseAGC = savedUseAgc;
-        SelectedAgcTargetRms = savedAgcTargetRms;
-        SelectedAgcMaxGainDb = savedAgcMaxGainDb;
-        SelectedAgcAttack = savedAgcAttack;
-        SelectedAgcRelease = savedAgcRelease;
-
-        selectedTalkmode = (BasisMicrophoneMode)index;
-
-    }
-    public static void SaveMicrophoneModeSettings(string mode, BasisMicrophoneMode MicrophoneMode)
-    {
-        if (!string.IsNullOrEmpty(mode))
-        {
-            BasisMicrophoneModeSettings[mode] = MicrophoneMode;
-            PlayerPrefs.SetInt($"{mode}_MicrophoneMode", (int)MicrophoneMode);
-            PlayerPrefs.Save();
-
-            selectedTalkmode = MicrophoneMode;
-        }
-        else
-        {
-            BasisDebug.LogError("Missing Device Mode!");
-            return;
-        }
-    }
-    public static void SaveMicrophoneData(string mode, string selectedMicrophone)
-    {
-        if (string.IsNullOrEmpty(mode))
-        {
-            BasisDebug.LogError("Missing Device Mode!");
-            return;
-        }
-        BasisDebug.Log($"Saving selected microphone for mode: {mode}");
-        MicrophoneSelections[mode] = selectedMicrophone;
-        PlayerPrefs.SetString($"{mode}_Microphone", selectedMicrophone);
-        PlayerPrefs.Save();
-        SelectedMicrophone = selectedMicrophone;
+        Emit();
     }
 
-    public static void SaveVolumeSettings(string mode, float volume)
+    // Save helper: writes Current to prefs and emits once
+    private static void SaveCurrent()
     {
+        string mode = CurrentMode;
         if (string.IsNullOrEmpty(mode))
         {
             BasisDebug.LogError("Missing Device Mode!");
             return;
         }
 
-        BasisDebug.Log($"Saving volume settings for mode: {mode}");
-        VolumeSettings[mode] = Mathf.Clamp01(volume);
-        PlayerPrefs.SetFloat($"{mode}_Volume", volume);
+        var s = Current;
+        ClampAndValidate(ref s);
+        Current = s;
+
+        PlayerPrefs.SetString(P(mode, K_MIC), s.Microphone);
+        PlayerPrefs.SetFloat(P(mode, K_VOL), s.Volume01);
+
+        PlayerPrefs.SetInt(P(mode, K_DENOISER), s.UseDenoiser ? 1 : 0);
+
+        PlayerPrefs.SetFloat(P(mode, K_LIMIT_TH), s.LimitThreshold);
+        PlayerPrefs.SetFloat(P(mode, K_LIMIT_KNEE), s.LimitKnee);
+
+        PlayerPrefs.SetFloat(P(mode, K_DN_MK), s.DenoiseMakeupDb);
+        PlayerPrefs.SetFloat(P(mode, K_DN_WET), s.DenoiseWet);
+
+        PlayerPrefs.SetInt(P(mode, K_AGC_ON), s.UseAGC ? 1 : 0);
+        PlayerPrefs.SetFloat(P(mode, K_AGC_TR), s.AgcTargetRms);
+        PlayerPrefs.SetFloat(P(mode, K_AGC_MG), s.AgcMaxGainDb);
+        PlayerPrefs.SetFloat(P(mode, K_AGC_AT), s.AgcAttack);
+        PlayerPrefs.SetFloat(P(mode, K_AGC_RL), s.AgcRelease);
+
+        PlayerPrefs.SetInt(P(mode, K_TALK), (int)s.TalkMode);
+
         PlayerPrefs.Save();
-        SelectedVolumeMicrophone = volume;
+
+        Emit();
     }
 
-    public static void SaveDenoiserSetting(string mode, bool useDenoiser)
+    // Public “setters” mutate Current then SaveCurrent()
+
+    public static void SetMicrophone(string mic)
     {
-        if (string.IsNullOrEmpty(mode)) { BasisDebug.LogError("Missing Device Mode!"); return; }
-        DenoiserSettings[mode] = useDenoiser;
-        PlayerPrefs.SetInt($"{mode}_Denoiser", useDenoiser ? 1 : 0);
-        PlayerPrefs.Save();
-        SelectedDenoiserMicrophone = useDenoiser;
+        var s = Current;
+        s.Microphone = mic;
+        Current = s;
+        SaveCurrent();
     }
 
-    public static void SaveLimiterSettings(string mode, float threshold, float knee)
+    public static void SetVolume(float volume01)
     {
-        if (string.IsNullOrEmpty(mode)) { BasisDebug.LogError("Missing Device Mode!"); return; }
-        threshold = Mathf.Clamp(threshold, 0f, 1f);
-        knee = Mathf.Clamp(knee, 0f, 1f);
-
-        LimitThresholdSettings[mode] = threshold;
-        LimitKneeSettings[mode] = knee;
-
-        PlayerPrefs.SetFloat($"{mode}_LimitThreshold", threshold);
-        PlayerPrefs.SetFloat($"{mode}_LimitKnee", knee);
-        PlayerPrefs.Save();
-
-        SelectedLimitThreshold = threshold;
-        SelectedLimitKnee = knee;
+        var s = Current;
+        s.Volume01 = volume01;
+        Current = s;
+        SaveCurrent();
     }
 
-    public static void SaveDenoiseParams(string mode, float makeupDb, float wet)
+    public static void SetDenoiser(bool enabled)
     {
-        if (string.IsNullOrEmpty(mode)) { BasisDebug.LogError("Missing Device Mode!"); return; }
-        wet = Mathf.Clamp01(wet);
-
-        DenoiseMakeupDbSettings[mode] = makeupDb;
-        DenoiseWetSettings[mode] = wet;
-
-        PlayerPrefs.SetFloat($"{mode}_DenoiseMakeupDb", makeupDb);
-        PlayerPrefs.SetFloat($"{mode}_DenoiseWet", wet);
-        PlayerPrefs.Save();
-
-        SelectedDenoiseMakeupDb = makeupDb;
-        SelectedDenoiseWet = wet;
+        var s = Current;
+        s.UseDenoiser = enabled;
+        Current = s;
+        SaveCurrent();
     }
 
-    public static void SaveAgcEnabled(string mode, bool enabled)
+    public static void SetLimiter(float threshold, float knee)
     {
-        if (string.IsNullOrEmpty(mode)) { BasisDebug.LogError("Missing Device Mode!"); return; }
-        AgcEnabledSettings[mode] = enabled;
-        PlayerPrefs.SetInt($"{mode}_UseAGC", enabled ? 1 : 0);
-        PlayerPrefs.Save();
-        SelectedUseAGC = enabled;
+        var s = Current;
+        s.LimitThreshold = threshold;
+        s.LimitKnee = knee;
+        Current = s;
+        SaveCurrent();
     }
 
-    public static void SaveAgcParams(string mode, float targetRms, float maxGainDb, float attack, float release)
+    public static void SetDenoiseParams(float makeupDb, float wet)
     {
-        if (string.IsNullOrEmpty(mode)) { BasisDebug.LogError("Missing Device Mode!"); return; }
-
-        targetRms = Mathf.Max(1e-6f, targetRms);
-        attack = Mathf.Clamp01(attack);
-        release = Mathf.Clamp01(release);
-
-        AgcTargetRmsSettings[mode] = targetRms;
-        AgcMaxGainDbSettings[mode] = maxGainDb;
-        AgcAttackSettings[mode] = attack;
-        AgcReleaseSettings[mode] = release;
-
-        PlayerPrefs.SetFloat($"{mode}_AgcTargetRms", targetRms);
-        PlayerPrefs.SetFloat($"{mode}_AgcMaxGainDb", maxGainDb);
-        PlayerPrefs.SetFloat($"{mode}_AgcAttack", attack);
-        PlayerPrefs.SetFloat($"{mode}_AgcRelease", release);
-        PlayerPrefs.Save();
-
-        SelectedAgcTargetRms = targetRms;
-        SelectedAgcMaxGainDb = maxGainDb;
-        SelectedAgcAttack = attack;
-        SelectedAgcRelease = release;
+        var s = Current;
+        s.DenoiseMakeupDb = makeupDb;
+        s.DenoiseWet = wet;
+        Current = s;
+        SaveCurrent();
     }
+
+    public static void SetAgcEnabled(bool enabled)
+    {
+        var s = Current;
+        s.UseAGC = enabled;
+        Current = s;
+        SaveCurrent();
+    }
+
+    public static void SetAgcParams(float targetRms, float maxGainDb, float attack, float release)
+    {
+        var s = Current;
+        s.AgcTargetRms = targetRms;
+        s.AgcMaxGainDb = maxGainDb;
+        s.AgcAttack = attack;
+        s.AgcRelease = release;
+        Current = s;
+        SaveCurrent();
+    }
+
+    public static void SetTalkMode(BasisMicrophoneMode mode)
+    {
+        var s = Current;
+        s.TalkMode = mode;
+        Current = s;
+        SaveCurrent();
+    }
+
+    // ---- Hook to your settings system (BindingKey mapping stays the same) ----
+    private static string B_LIMIT_THRESHOLD => BasisSettingsDefaults.LimitThreshold.BindingKey;
+    private static string B_LIMIT_KNEE => BasisSettingsDefaults.LimitKnee.BindingKey;
+    private static string B_DENOISE_MAKEUP => BasisSettingsDefaults.DenoiseMakeupDb.BindingKey;
+    private static string B_DENOISE_WET => BasisSettingsDefaults.DenoiseWet.BindingKey;
+
+    private static string B_AGC => BasisSettingsDefaults.UseAutomaticGain.BindingKey;
+    private static string B_AGC_TARGET => BasisSettingsDefaults.AgcTargetRms.BindingKey;
+    private static string B_AGC_MAXGAIN => BasisSettingsDefaults.AgcMaxGainDb.BindingKey;
+    private static string B_AGC_ATTACK => BasisSettingsDefaults.AgcAttack.BindingKey;
+    private static string B_AGC_RELEASE => BasisSettingsDefaults.AgcRelease.BindingKey;
+
+    private static string B_DENOISER => BasisSettingsDefaults.MicrophoneDenoiser.BindingKey;
+    private static string B_MIC_MODE => BasisSettingsDefaults.MicrophoneMode.BindingKey;
+
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
         string mode = BasisDeviceManagement.StaticCurrentMode;
@@ -404,7 +287,9 @@ public class SMDMicrophone : BasisSettingsBase
             return;
         }
 
-        // Use invariant culture to accept dot decimals irrespective of locale
+        // Make sure CurrentMode/Current are initialized for this mode
+        if (CurrentMode != mode) LoadInMicrophoneData(mode);
+
         var st = NumberStyles.Float | NumberStyles.AllowThousands;
         var ci = CultureInfo.InvariantCulture;
 
@@ -412,93 +297,53 @@ public class SMDMicrophone : BasisSettingsBase
         {
             switch (matchedSettingName)
             {
-                case "voicedenoiser":
-                    if (bool.TryParse(optionValue, out bool den))
-                    {
-                        SaveDenoiserSetting(mode, den);
-                        BasisDebug.Log($"setting Denoiser to {SelectedDenoiserMicrophone}");
-                    }
-                    else BasisDebug.LogError($"Unable to parse Denoiser Setting! {optionValue}");
+                case var s when s == B_DENOISER:
+                    if (bool.TryParse(optionValue, out bool den)) SetDenoiser(den);
                     break;
 
-                case "limitthreshold":
-                    if (float.TryParse(optionValue, st, ci, out float th))
-                        SaveLimiterSettings(mode, th, SelectedLimitKnee);
-                    else BasisDebug.LogError($"Bad LimitThreshold: {optionValue}");
+                case var s when s == B_LIMIT_THRESHOLD:
+                    if (float.TryParse(optionValue, st, ci, out float th)) SetLimiter(th, Current.LimitKnee);
                     break;
 
-                case "microphonemode":
-                    if (Enum.TryParse<BasisMicrophoneMode>(optionValue.Replace(" ",""), out BasisMicrophoneMode value))
-                    {
-                        SaveMicrophoneModeSettings(mode, (BasisMicrophoneMode)value);
-                    }
-                    else
-                    {
-                        switch (optionValue)
-                        {
-                            case "On Activation":
-                                SaveMicrophoneModeSettings(mode, BasisMicrophoneMode.OnActivation);
-                                break;
-                            case "Push To Talk":
-                                SaveMicrophoneModeSettings(mode, BasisMicrophoneMode.PushToTalk);
-                                break;
-                            default:
-                                BasisDebug.LogError($"Bad Microphone Mode settings: {optionValue}");
-                                break;
-                        }
-                    }
-
-                        break;
-
-                case "limitknee":
-                    if (float.TryParse(optionValue, st, ci, out float kn))
-                        SaveLimiterSettings(mode, SelectedLimitThreshold, kn);
-                    else BasisDebug.LogError($"Bad LimitKnee: {optionValue}");
+                case var s when s == B_LIMIT_KNEE:
+                    if (float.TryParse(optionValue, st, ci, out float kn)) SetLimiter(Current.LimitThreshold, kn);
                     break;
 
-                case "denoisemakeupdb":
-                    if (float.TryParse(optionValue, st, ci, out float mk))
-                        SaveDenoiseParams(mode, mk, SelectedDenoiseWet);
-                    else BasisDebug.LogError($"Bad DenoiseMakeupDb: {optionValue}");
+                case var s when s == B_DENOISE_MAKEUP:
+                    if (float.TryParse(optionValue, st, ci, out float mk)) SetDenoiseParams(mk, Current.DenoiseWet);
                     break;
 
-                case "denoisewet":
-                    if (float.TryParse(optionValue, st, ci, out float wet))
-                        SaveDenoiseParams(mode, SelectedDenoiseMakeupDb, wet);
-                    else BasisDebug.LogError($"Bad DenoiseWet: {optionValue}");
+                case var s when s == B_DENOISE_WET:
+                    if (float.TryParse(optionValue, st, ci, out float wet)) SetDenoiseParams(Current.DenoiseMakeupDb, wet);
                     break;
 
-                case "agc":
-                    if (bool.TryParse(optionValue, out bool agcOn))
-                        SaveAgcEnabled(mode, agcOn);
-                    else BasisDebug.LogError($"Bad AGCEnabled: {optionValue}");
+                case var s when s == B_AGC:
+                    if (bool.TryParse(optionValue, out bool agcOn)) SetAgcEnabled(agcOn);
                     break;
 
-                case "agctargetrms":
+                case var s when s == B_AGC_TARGET:
                     if (float.TryParse(optionValue, st, ci, out float tr))
-                        SaveAgcParams(mode, tr, SelectedAgcMaxGainDb, SelectedAgcAttack, SelectedAgcRelease);
-                    else BasisDebug.LogError($"Bad AGCTargetRms: {optionValue}");
+                        SetAgcParams(tr, Current.AgcMaxGainDb, Current.AgcAttack, Current.AgcRelease);
                     break;
 
-                case "agcmaxgaindb":
+                case var s when s == B_AGC_MAXGAIN:
                     if (float.TryParse(optionValue, st, ci, out float mg))
-                        SaveAgcParams(mode, SelectedAgcTargetRms, mg, SelectedAgcAttack, SelectedAgcRelease);
-                    else BasisDebug.LogError($"Bad AGCMaxGainDb: {optionValue}");
+                        SetAgcParams(Current.AgcTargetRms, mg, Current.AgcAttack, Current.AgcRelease);
                     break;
 
-                case "agcattack":
+                case var s when s == B_AGC_ATTACK:
                     if (float.TryParse(optionValue, st, ci, out float att))
-                        SaveAgcParams(mode, SelectedAgcTargetRms, SelectedAgcMaxGainDb, att, SelectedAgcRelease);
-                    else BasisDebug.LogError($"Bad AGCAttack: {optionValue}");
+                        SetAgcParams(Current.AgcTargetRms, Current.AgcMaxGainDb, att, Current.AgcRelease);
                     break;
 
-                case "agcrelease":
+                case var s when s == B_AGC_RELEASE:
                     if (float.TryParse(optionValue, st, ci, out float rel))
-                        SaveAgcParams(mode, SelectedAgcTargetRms, SelectedAgcMaxGainDb, SelectedAgcAttack, rel);
-                    else BasisDebug.LogError($"Bad AGCRelease: {optionValue}");
+                        SetAgcParams(Current.AgcTargetRms, Current.AgcMaxGainDb, Current.AgcAttack, rel);
                     break;
-                default:
-                    BasisDebug.LogError($"Unknown setting '{matchedSettingName}' with value '{optionValue}'.");
+
+                case var s when s == B_MIC_MODE:
+                    if (Enum.TryParse<BasisMicrophoneMode>(optionValue.Replace(" ", ""), true, out var m))
+                        SetTalkMode(m);
                     break;
             }
         }
@@ -507,4 +352,8 @@ public class SMDMicrophone : BasisSettingsBase
             BasisDebug.LogError($"ValidSettingsChange error for '{matchedSettingName}': {ex}");
         }
     }
+
+    public override void ChangedSettings() { }
 }
+
+#endif

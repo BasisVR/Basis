@@ -92,6 +92,10 @@ PrefabInstance:
       propertyPath: m_fontColor32.rgba
       value: 4293059295
       objectReference: {fileID: 0}
+    - target: {fileID: 4983171500763732307, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
+      propertyPath: m_hasFontAssetChanged
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5067617763252449152, guid: 64a436389ec64fc47bfd6d1068f1e3c9, type: 3}
       propertyPath: <DefaultIcon>k__BackingField
       value: 

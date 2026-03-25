@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
@@ -8,6 +9,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using UnityEngine;
+using static SerializableBasis;
 namespace Basis.Scripts.Networking.Receivers
 {
     /// <summary>
@@ -38,10 +40,12 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public BasisVoiceRingBuffer InOrderRead = new BasisVoiceRingBuffer();
 
+        public BasisJitterBuffer JitterBuffer = new BasisJitterBuffer();
+
         /// <summary>
         /// Decode destination buffer (mono) sized to one network frame.
         /// </summary>
-        public float[] pcmBuffer = new float[RemoteOpusSettings.SampleLength];
+        public float[] pcmBuffer = new float[RemoteOpusSettings.FrameSize];
 
         /// <summary>
         /// Number of valid samples written to <see cref="pcmBuffer"/> by the decoder.
@@ -69,6 +73,12 @@ namespace Basis.Scripts.Networking.Receivers
         public volatile bool HasAudioSource = false;
 
         /// <summary>
+        /// Volume multiplier applied by listener directional dampening (0..1).
+        /// Set from BasisTransmissionResults and consumed per-sample in OnAudioFilterRead.
+        /// </summary>
+        public volatile float DirectionalDampeningMultiplier = 1f;
+
+        /// <summary>
         /// Owning network receiver (player/session context).
         /// </summary>
         public BasisNetworkReceiver BasisNetworkReceiver;
@@ -86,7 +96,8 @@ namespace Basis.Scripts.Networking.Receivers
         /// <summary>
         /// Opus decoder used for network voice frames.
         /// </summary>
-        public OpusDecoder decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
+
+        public OpusDecoder decoder;
 
         private float[] _inputScratch;    // big enough for the largest chunk we pull
         private int _cachedOutputRate = -1;
@@ -105,9 +116,8 @@ namespace Basis.Scripts.Networking.Receivers
         {
             if (HasAudioSource)
             {
-                pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.NetworkSampleRate, false);
+                pcmLength = decoder.Decode(data, length, pcmBuffer, RemoteOpusSettings.FrameSize, false);
                 InOrderRead.Add(pcmBuffer, pcmLength, true);
-                AudioSourceSet();
             }
         }
 
@@ -147,17 +157,73 @@ namespace Basis.Scripts.Networking.Receivers
             if (HasAudioSource)
             {
                 InOrderRead.Add(silentData, RemoteOpusSettings.FrameSize, false);
-                AudioSourceSet();
+            }
+        }
+        public void Insert(AudioSegmentDataMessage msg)
+        {
+            JitterBuffer.Insert(msg.SequenceNumber, msg.buffer, msg.LengthUsed, msg.TotalPlayedInSilence);
+        }
+
+        public void DrainAndDecode()
+        {
+            bool decoded = false;
+            while (JitterBuffer.TryConsume(out byte[] data, out int length, out byte silenceUnits, out bool isMissing))
+            {
+                decoded = true;
+                if (isMissing)
+                {
+                    OnDecodePLC();
+                }
+                else
+                {
+                    if (silenceUnits > 0)
+                    {
+                        int localUnits = System.Threading.Interlocked.Exchange(ref _silentUnits20ms, 0);
+                        int missing = silenceUnits - localUnits;
+                        for (int i = 0; i < missing; i++)
+                            OnDecodeSilence();
+                    }
+                    OnDecode(data, length);
+                }
+            }
+            // Single audio source state update after all packets are processed.
+            // We're already on the main thread — skip the lambda enqueue overhead
+            // that AudioSourceSet() would add per packet.
+            if (decoded && HasAudioSource)
+            {
+                bool shouldEnable = InOrderRead.HasRealAudio;
+                if (audioSource.enabled != shouldEnable)
+                {
+                    audioSource.enabled = shouldEnable;
+                }
             }
         }
 
+        /// <summary>
+        /// Generates a Packet Loss Concealment frame using the Opus decoder internal state.
+        /// </summary>
+        public void OnDecodePLC()
+        {
+            if (HasAudioSource)
+            {
+                try
+                {
+                    pcmLength = decoder.Decode(Span<byte>.Empty, 0, new Span<float>(pcmBuffer), RemoteOpusSettings.FrameSize, false);
+                    InOrderRead.Add(pcmBuffer, pcmLength, true);
+                }
+                catch
+                {
+                    InOrderRead.Add(silentData, RemoteOpusSettings.FrameSize, false);
+                }
+            }
+        }
         /// <summary>
         /// Creates/attaches an <see cref="AudioSource"/> and begins playback for the given player.
         /// Also initializes viseme driving and applies per-player volume settings.
         /// </summary>
         /// <param name="networkedPlayer">The networked player whose voice we render.</param>
         /// <param name="MouthParent">Transform to parent the audio source under (e.g., mouth).</param>
-        public async Task LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent)
+        public async Task LoadAudioSource(BasisNetworkPlayer networkedPlayer, Transform MouthParent,float MaxDistance)
         {
             if (AudioSourceTransform == null || audioSource == null)
             {
@@ -168,10 +234,13 @@ namespace Basis.Scripts.Networking.Receivers
                 audioSource.clip = BasisAudioClipPool.Get(networkedPlayer.playerId);
                 audioSource.loop = true;
                 audioSource.Play();
+
+                audioSource.maxDistance = MaxDistance;
             }
             HasAudioSource = true;
             AvatarChanged(networkedPlayer,false);
 
+            SettingsProviderRemoteAudio.ApplyRemoteAudioTo(this);
             ChangeRemotePlayersVolumeSettings(1);
 
             try
@@ -184,7 +253,13 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogError($"{ex}", BasisDebug.LogTag.Remote);
             }
         }
-
+        public void ApplyRangeData(float Distance)
+        {
+            if (HasAudioSource)
+            {
+                audioSource.maxDistance = Distance;
+            }
+        }
         /// <summary>
         /// Stops playback, returns pooled resources, and clears references.
         /// </summary>
@@ -212,7 +287,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// Sets up shared silence buffer and caches output sample rate.
         /// </summary>
         /// <param name="networkedPlayer">Owning network receiver.</param>
-        public void Initalize(BasisNetworkReceiver networkedPlayer)
+        public void Initialize(BasisNetworkReceiver networkedPlayer)
         {
 #if UNITY_SERVER
             return;
@@ -222,6 +297,13 @@ namespace Basis.Scripts.Networking.Receivers
             silentData ??= new float[RemoteOpusSettings.FrameSize];
 
             BasisNetworkReceiver = networkedPlayer;
+
+#if UNITY_IOS && !UNITY_EDITOR
+            // iOS requires statically linked Opus library
+            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
+#else
+            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+#endif
         }
 
         /// <summary>
@@ -291,10 +373,27 @@ namespace Basis.Scripts.Networking.Receivers
             UnloadAudioSource();
         }
 
+
+        /// <summary>
+        /// Initializes scratch buffers and resampling state for audio playback.
+        /// Call this before setting HasAudioSource = true so that OnAudioFilterRead
+        /// has valid buffers when it first runs. Used by BasisShoutAudioDriver
+        /// which manages its own AudioSource lifecycle.
+        /// </summary>
+        public void InitializeForPlayback()
+        {
+            const int BufferSize = 1024;
+
+            _inputScratch = new float[BufferSize];
+            _resampleScratch = new float[BufferSize];
+            _cachedOutputRate = outputSampleRate;
+            _resampleRatio = (float)RemoteOpusSettings.NetworkSampleRate / _cachedOutputRate;
+        }
+
         /// <summary>
         /// Starts audio playback, allocating scratch buffers and creating the source if needed.
         /// </summary>
-        public void StartAudio()
+        public void StartAudio(float MaxDistance)
         {
             // Conservative initial sizes; will grow once and then reuse.
             const int BufferSize = 1024;
@@ -337,11 +436,11 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisDebug.LogError("Mouth Transform Does not exist in Audio Receiver!", BasisDebug.LogTag.Remote);
                 return;
             }
-            LoadAudioSource();
+            LoadAudioSource(MaxDistance);
         }
-        public async void LoadAudioSource()
+        public async void LoadAudioSource(float MaxDistance)
         {
-            await LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform);
+            await LoadAudioSource(BasisNetworkReceiver, BasisNetworkReceiver.RemotePlayer.MouthTransform, MaxDistance);
         }
 
         /// <summary>
@@ -358,7 +457,14 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 if (decoder != null)
                 {
-                    OpusDecoderExtensions.SetGain(decoder, 1024);
+                    try
+                    {
+                        OpusDecoderExtensions.SetGain(decoder, 256);
+                    }
+                    catch (OpusException)
+                    {
+                        // SetGain may fail on some Opus builds - non-fatal
+                    }
                 }
                 BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
                 return;
@@ -368,26 +474,32 @@ namespace Basis.Scripts.Networking.Receivers
             audioSource.spatialBlend = Mathf.Clamp01(spatialBlend);
             audioSource.dopplerLevel = Mathf.Max(0f, dopplerLevel);
 
-            short gain;
+            int gain;
             if (volume <= 0f)
             {
+                // Effectively silence
+                gain = (int)(-96f * 256f);
                 audioSource.volume = 0f;
-                gain = 256;              // "mute" gain for Opus
-            }
-            else if (volume <= 1f)
-            {
-                audioSource.volume = volume;
-                gain = 1024;             // nominal gain
             }
             else
             {
-                audioSource.volume = 1f;
-                gain = (short)Mathf.Clamp(volume * 1024f, 1024f, short.MaxValue);
+                float db = 20f * Mathf.Log10(volume);
+                gain = (int)(db * 256f);
+                audioSource.volume = 1;
             }
-
             if (decoder != null)
             {
-                OpusDecoderExtensions.SetGain(decoder, gain);
+                try
+                {
+                    //  BasisDebug.Log($"Gain Set To {gain}");
+                    OpusDecoderExtensions.SetGain(decoder, gain);
+                }
+                catch (OpusException ex)
+                {
+                    // Some Opus library builds may not support OPUS_SET_GAIN or may fail
+                    // if called before any decoding has occurred. This is non-fatal.
+                    BasisDebug.LogWarning($"Failed to set decoder gain: {ex.Message}", BasisDebug.LogTag.Voice);
+                }
             }
             else
             {
@@ -476,14 +588,15 @@ namespace Basis.Scripts.Networking.Receivers
             // Copy to local scratch for safe reuse of pooled arrays
             Buffer.BlockCopy(segment, 0, _inputScratch, 0, frames * sizeof(float));
 
+            float dampen = DirectionalDampeningMultiplier;
+            float listenerVolume = SMModuleAudio.ActiveMainVolume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = _inputScratch[f];
+                float sample = FastClamp(_inputScratch[f] * dampen * listenerVolume);
                 for (int c = 0; c < channels; c++)
                 {
-                    float v = data[idx] * sample;
-                    data[idx++] = FastClamp(v);
+                    data[idx++] = sample;
                 }
             }
 
@@ -534,14 +647,15 @@ namespace Basis.Scripts.Networking.Receivers
                 phase += step;
             }
 
+            float dampen = DirectionalDampeningMultiplier;
+            float listenerVolume = SMModuleAudio.ActiveMainVolume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = _resampleScratch[f];
+                float sample = FastClamp(_resampleScratch[f] * dampen * listenerVolume);
                 for (int c = 0; c < channels; c++)
                 {
-                    float v = data[idx] * sample;
-                    data[idx++] = FastClamp(v);
+                    data[idx++] = sample;
                 }
             }
 

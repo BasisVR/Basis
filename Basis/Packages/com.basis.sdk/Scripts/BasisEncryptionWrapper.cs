@@ -2,9 +2,10 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 
-public static class BasisEncryptionWrapper
+public static partial class BasisEncryptionWrapper
 {
     private const int SaltSize = 16;
     private const int KeySize = 32;
@@ -38,7 +39,7 @@ public static class BasisEncryptionWrapper
     }
 
     // Threshold to decide when to offload encryption to a separate thread
-    private const long LargeFileThreshold = 25L * 1024L * 1024L; // 25 MB
+    private const long LargeFileThreshold = 10L * 1024L * 1024L; // 25 MB
 
     public static Task EncryptFileAsync(string UniqueID, BasisPassword password, string inputPath, string outputPath, BasisProgressReport reportProgress)
     {
@@ -107,8 +108,7 @@ public static class BasisEncryptionWrapper
                 {
                     reportProgress?.ReportProgress(UniqueID, progress, ProgressWritingData);
                     lastReportedProgress = progress;
-                }
-            }
+                }            }
         }
         finally
         {
@@ -120,83 +120,144 @@ public static class BasisEncryptionWrapper
         reportProgress?.ReportProgress(UniqueID, 100, ProgressEncryptionComplete);
     }
 
-    public static Task<byte[]> DecryptFromBytesAsync(string UniqueID, BasisPassword password, byte[] encryptedData, BasisProgressReport reportProgress)
+    public static Task<BasisDecryptResult> DecryptFromBytesAsync(
+        string UniqueID,
+        BasisPassword password,
+        byte[] encryptedData,
+        BasisProgressReport reportProgress,
+        CancellationToken ct = default)
     {
-        if (encryptedData.Length > LargeFileThreshold)
+        if (encryptedData != null && encryptedData.Length > LargeFileThreshold)
         {
-            return Task.Run(() => DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress));
+            return Task.Run(() => DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress, ct), ct);
         }
-        else
-        {
-            return DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress);
-        }
+
+        return DecryptFromBytesInternalAsync(UniqueID, password, encryptedData, reportProgress, ct);
     }
 
-    private static async Task<byte[]> DecryptFromBytesInternalAsync(string UniqueID, BasisPassword password, byte[] encryptedData, BasisProgressReport reportProgress)
+    private static async Task<BasisDecryptResult> DecryptFromBytesInternalAsync(
+        string UniqueID,
+        BasisPassword password,
+        byte[] encryptedData,
+        BasisProgressReport reportProgress,
+        CancellationToken ct)
     {
-        reportProgress?.ReportProgress(UniqueID, 0, ProgressInitDecryption);
-
-        int bufferSize = CalculateBufferSize(encryptedData.Length);
-
-        using var msInput = new MemoryStream(encryptedData, writable: false);
-
-        byte[] salt = new byte[SaltSize];
-        byte[] iv = new byte[IvSize];
-
-        // Read Salt & IV synchronously (small fixed sizes)
-        int readSalt = await msInput.ReadAsync(salt, 0, SaltSize);
-        int readIv = await msInput.ReadAsync(iv, 0, IvSize);
-
-        if (readSalt != SaltSize || readIv != IvSize)
-        {
-            throw new InvalidDataException("Encrypted data is corrupted or incomplete.");
-        }
-
-        using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
-        byte[] keyBytes = key.GetBytes(KeySize);
-
-        using var aes = Aes.Create();
-        aes.Key = keyBytes;
-        aes.IV = iv;
-
-        using var cryptoStream = new CryptoStream(msInput, aes.CreateDecryptor(), CryptoStreamMode.Read);
-
-        // Use pooled MemoryStream to avoid multiple internal buffers allocation:
-        using var msOutput = new PooledMemoryStream();
-
-        // Rent buffer from pool
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
         try
         {
-            int bytesRead;
-            long totalRead = 0;
-            long estimatedSize = encryptedData.Length - SaltSize - IvSize;
+            reportProgress?.ReportProgress(UniqueID, 0, ProgressInitDecryption);
 
-            float lastReportedProgress = 0;
-
-            while ((bytesRead = await cryptoStream.ReadAsync(buffer.AsMemory(0, bufferSize))) > 0)
+            if (ct.IsCancellationRequested)
             {
-                await msOutput.WriteAsync(buffer.AsMemory(0, bytesRead));
-                totalRead += bytesRead;
+                return BasisDecryptResult.Fail(BasisDecryptError.Cancelled, "Decryption cancelled.");
+            }
 
-                float progress = (float)totalRead / estimatedSize * 90f + 5f;
-                if (progress - lastReportedProgress >= 1)
+            if (string.IsNullOrWhiteSpace(password.VP))
+            {
+                return BasisDecryptResult.Fail(BasisDecryptError.InvalidPassword, "Password was null/empty.");
+            }
+
+            if (encryptedData == null || encryptedData.Length == 0)
+            {
+                return BasisDecryptResult.Fail(BasisDecryptError.DataNullOrEmpty, "Encrypted data was null/empty.");
+            }
+
+            int minLen = SaltSize + IvSize + 1; // need at least 1 byte of ciphertext
+            if (encryptedData.Length < minLen)
+            {
+                return BasisDecryptResult.Fail(
+                    BasisDecryptError.HeaderTooShort,
+                    $"Encrypted data too short. Length={encryptedData.Length}, minimum={minLen}.");
+            }
+
+            int bufferSize = CalculateBufferSize(encryptedData.Length);
+
+            // Defensive copy — the caller's buffer may be pooled/reused by concurrent downloads.
+            // Without this, another async download completing between our awaits can overwrite the
+            // ciphertext mid-decryption, causing PKCS7 padding failures under load.
+            byte[] localCopy = new byte[encryptedData.Length];
+            Buffer.BlockCopy(encryptedData, 0, localCopy, 0, encryptedData.Length);
+
+            using var msInput = new MemoryStream(localCopy, writable: false);
+
+            byte[] salt = new byte[SaltSize];
+            byte[] iv = new byte[IvSize];
+
+            // Read exactly salt+iv; if not, it's not your format or truncated.
+            int readSalt = await msInput.ReadAsync(salt, 0, SaltSize, ct);
+            int readIv = await msInput.ReadAsync(iv, 0, IvSize, ct);
+
+            if (readSalt != SaltSize || readIv != IvSize)
+            {
+                return BasisDecryptResult.Fail(
+                    BasisDecryptError.WrongFormatOrCorruptHeader,
+                    $"Failed to read header (salt/iv). ReadSalt={readSalt}/{SaltSize}, ReadIv={readIv}/{IvSize}.");
+            }
+
+            using var key = new Rfc2898DeriveBytes(password.VP, salt, IterationSize);
+            byte[] keyBytes = key.GetBytes(KeySize);
+
+            using var aes = Aes.Create();
+            aes.Key = keyBytes;
+            aes.IV = iv;
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.PKCS7;
+
+            using var cryptoStream = new CryptoStream(msInput, aes.CreateDecryptor(), CryptoStreamMode.Read);
+
+            using var msOutput = new PooledMemoryStream();
+
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+            try
+            {
+                long totalRead = 0;
+                long estimatedSize = Math.Max(1, encryptedData.Length - SaltSize - IvSize);
+
+                float lastReportedProgress = 0;
+
+                while (true)
                 {
-                    reportProgress?.ReportProgress(UniqueID, progress, ProgressReadingData);
-                    lastReportedProgress = progress;
+                    ct.ThrowIfCancellationRequested();
+
+                    int bytesRead = await cryptoStream.ReadAsync(buffer.AsMemory(0, bufferSize), ct);
+                    if (bytesRead <= 0) break;
+
+                    await msOutput.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
+
+                    totalRead += bytesRead;
+
+                    float progress = (float)totalRead / estimatedSize * 90f + 5f;
+                    if (progress - lastReportedProgress >= 1f)
+                    {
+                        reportProgress?.ReportProgress(UniqueID, progress, ProgressReadingData);
+                        lastReportedProgress = progress;
+                    }
                 }
             }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buffer);
+            }
+
+            reportProgress?.ReportProgress(UniqueID, 100, ProgressDecryptionComplete);
+            return BasisDecryptResult.Ok(msOutput.ToArray());
         }
-        finally
+        catch (Exception ex)
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            if (ex is OperationCanceledException oce)
+            {
+                return BasisDecryptResult.Fail(BasisDecryptError.Cancelled, "Decryption cancelled.", oce);
+            }
+
+            // Treat all crypto failures the same (wrong password OR corrupt data)
+            // NOTE: avoid referencing CryptographicException in a catch clause.
+            if (ex.GetType().FullName == "System.Security.Cryptography.CryptographicException")
+            {
+                return BasisDecryptResult.Fail( BasisDecryptError.WrongPasswordOrCorruptedData, "Decryption failed: wrong password or data corrupted (unauthenticated ciphertext).", ex);
+            }
+
+            return BasisDecryptResult.Fail(BasisDecryptError.Unknown, "Decryption failed with an unexpected error.", ex);
         }
-
-        reportProgress?.ReportProgress(UniqueID, 100, ProgressDecryptionComplete);
-
-        return msOutput.ToArray();
     }
-
     public static async Task<byte[]> EncryptToBytesAsync(string UniqueID, BasisPassword password, byte[] data, BasisProgressReport reportProgress)
     {
         reportProgress?.ReportProgress(UniqueID, 0, ProgressInitEncryption);

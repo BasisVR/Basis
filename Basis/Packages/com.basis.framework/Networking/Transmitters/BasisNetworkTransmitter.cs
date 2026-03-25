@@ -1,4 +1,5 @@
 using Basis.Network.Core;
+using Basis.Network.Core.Compression;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
 using System;
@@ -23,7 +24,7 @@ namespace Basis.Scripts.Networking.Transmitters
         [SerializeField]
         public BasisTransmissionResults TransmissionResults = new BasisTransmissionResults();
 
-        public NetDataWriter AvatarSendWriter = new NetDataWriter(true, LocalAvatarSyncMessage.AvatarSyncSize + 2);
+        public NetDataWriter AvatarSendWriter = new NetDataWriter(true, BasisAvatarBitPacking.ConvertToSize(BasisAvatarBitPacking.BitQuality.High) + 2);
         public Dictionary<byte, AdditionalAvatarData> SendingOutAvatarData = new Dictionary<byte, AdditionalAvatarData>();
 
         public static Action AfterAvatarChanges;
@@ -37,7 +38,7 @@ namespace Basis.Scripts.Networking.Transmitters
         public void ClearAdditional() => SendingOutAvatarData.Clear();
         public override void Initialize()
         {
-            TransmissionResults.LastIndexLength = -1;
+            TransmissionResults.Initalize();
             AudioTransmission.Initialize(this);
             OnAvatarCalibrationLocal();
 
@@ -51,6 +52,7 @@ namespace Basis.Scripts.Networking.Transmitters
         }
         public override void DeInitialize()
         {
+            TransmissionResults.DeInitalize();
             AudioTransmission?.DeInitialize();
 
             if (HasEvents)
@@ -58,13 +60,13 @@ namespace Basis.Scripts.Networking.Transmitters
                 Player.OnAvatarSwitched -= OnAvatarCalibrationLocal;
                 Player.OnAvatarSwitched -= SendOutAvatarChange;
                 AfterAvatarChanges -= TransmissionResults.Simulate;
-                TransmissionResults.ReleaseResults();
                 HasEvents = false;
             }
             BasisRemoteFaceManagement.Dispose();
         }
 
         public static NetDataWriter AvatarChangeWriter = new NetDataWriter();
+        private static readonly object AvatarChangeWriterLock = new object();
         public void SendOutAvatarChange()
         {
             LastLinkedAvatarIndex = (byte)((LastLinkedAvatarIndex + 1) % (byte.MaxValue + 1));
@@ -75,10 +77,13 @@ namespace Basis.Scripts.Networking.Transmitters
                 loadMode = Player.AvatarLoadMode,
                 LocalAvatarIndex = LastLinkedAvatarIndex,
             };
-            AvatarChangeWriter.Reset();
-            ClientAvatarChangeMessage.Serialize(AvatarChangeWriter);
-            BasisNetworkConnection.LocalPlayerPeer.Send(AvatarChangeWriter, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);
-            BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarChange, AvatarChangeWriter.Length);
+            lock (AvatarChangeWriterLock)
+            {
+                AvatarChangeWriter.Reset();
+                ClientAvatarChangeMessage.Serialize(AvatarChangeWriter);
+                BasisNetworkConnection.LocalPlayerPeer.Send(AvatarChangeWriter, BasisNetworkCommons.AvatarChangeMessageChannel, DeliveryMethod.ReliableOrdered);
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarChange, AvatarChangeWriter.Length);
+            }
         }
     }
 }

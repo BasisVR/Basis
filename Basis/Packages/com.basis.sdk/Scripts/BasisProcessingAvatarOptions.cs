@@ -1,4 +1,4 @@
-﻿namespace Basis.Scripts.BasisSdk
+namespace Basis.Scripts.BasisSdk
 {
     [System.Serializable]
     public class BasisProcessingAvatarOptions
@@ -9,5 +9,11 @@
         /// The Animation Rigging package is reason why we need to rename duplicated humanoid bone names in the first place.
         /// </summary>
         public bool doNotAutoRenameBones = false;
+
+        /// <summary>
+        /// Removes Unused Blendshapes, can be controlled through the callbacks
+        /// when on the blendshape indexes break and need reconstruction from callback.
+        /// </summary>
+      // disabled does work just not for all avatars  public bool RemoveUnusedBlendshapes = false;
     }
 }

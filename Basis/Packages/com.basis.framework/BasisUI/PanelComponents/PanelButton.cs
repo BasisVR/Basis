@@ -1,18 +1,41 @@
 using System;
+using Basis.BTween;
 using Basis.BasisUI.Styling;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
-    public class PanelButton : PanelComponent
+    public class PanelButton : PanelComponent, IPointerEnterHandler, IPointerExitHandler
     {
+        private bool _isHovered;
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (_isHovered) return;
+            _isHovered = true;
+            UIAnimations.HoverLift(transform);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (!_isHovered) return;
+            _isHovered = false;
+            UIAnimations.HoverReset(transform);
+        }
         public static class ButtonStyles
         {
             public static string Default => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button.prefab";
             public static string Tab => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Tab Variant.prefab";
             public static string Hotbar => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Hotbar Variant.prefab";
             public static string Avatar => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Avatar Variant.prefab";
+            public static string Prop => "Packages/com.basis.sdk/Prefabs/Panel Elements/PE Button - Library Variant.prefab";
+            public static string StandardButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Button Standard Variant.prefab";
+            public static string AcceptButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Button Yes Variant.prefab";
+            public static string CancelButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Cancel Button Variant.prefab";
+            public static string ExitButton => "Packages/com.basis.sdk/Prefabs/Panel Elements/Close Button.prefab";
+            public static string ExitButtonOverlay => "Packages/com.basis.sdk/Prefabs/Panel Elements/Close Button - Modal.prefab";
         }
 
         private PanelButton() { }
@@ -20,7 +43,6 @@ namespace Basis.BasisUI
         public Button ButtonComponent;
         public UiStyleButton ButtonStyling;
         public Action OnClicked;
-
         protected bool _iconIsAddressable;
 
 
@@ -52,6 +74,7 @@ namespace Basis.BasisUI
 
         public virtual void OnClick()
         {
+            UIAnimations.PunchScale(transform);
             OnClicked?.Invoke();
         }
 
@@ -69,5 +92,27 @@ namespace Basis.BasisUI
             base.OnReleaseEvent();
             if (Descriptor.IconImage.sprite && _iconIsAddressable) AddressableAssets.Release(Descriptor.IconImage.sprite);
         }
+        public LayoutElement Layout
+        {
+            get
+            {
+                if (!_layout) _layout = GetComponent<LayoutElement>();
+                return _layout;
+            }
+        }
+        private LayoutElement _layout;
+        public void SetSize(Vector2 size)
+        {
+            rectTransform.sizeDelta = size;
+
+            Layout.minWidth = size.x;
+            Layout.minHeight = size.y;
+            Layout.preferredWidth = size.x;
+            Layout.preferredHeight = size.y;
+        }
+
+        public void SetHeight(float height) => SetSize(new Vector2(rectTransform.sizeDelta.x, height));
+        public void SetWidth(float width) => SetSize(new Vector2(rectTransform.sizeDelta.x, width));
+
     }
 }

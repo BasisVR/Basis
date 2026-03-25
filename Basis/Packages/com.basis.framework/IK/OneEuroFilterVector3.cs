@@ -17,7 +17,7 @@ namespace Basis.Scripts.Drivers
         public OneEuroFilterVector3() { }
         public OneEuroFilterVector3(float minCutoff, float beta, float dCutoff) : base(minCutoff, beta, dCutoff) { }
 
-        public Vector3 Filter(Vector3 x, float timestamp)
+        public Vector3 Filter(Vector3 x, double timestamp)
         {
             float dt = ComputeDt(timestamp);
 

@@ -1,9 +1,11 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System.Collections.Generic;
+using Unity.Jobs;
 using UnityEngine;
+using UnityEngine.Rendering;
+using Material = UnityEngine.Material;
 
 namespace Basis.Scripts.Drivers
 {
@@ -300,18 +302,343 @@ namespace Basis.Scripts.Drivers
             }
             JiggleColliders.Clear();
         }
+        // Common albedo/main texture property names across built-in/URP/custom shaders.
+        private static readonly string[] AlbedoProps =
+        {
+        "_MainTex",          // Some custom / Pyi
+        "_BaseMap",          // URP Lit/Unlit
+        "_Albedo",           // Some custom
+        "_Diffuse",          // Some custom
+        "_BaseColorMap",     // Some ShaderGraph setups
+        "_ColorTexture",     // Some toon shaders
+        "_Tex",              // Generic
+        "_Texture"           // Generic
+    };
+        private static readonly string[] NormalProps =
+{
+    "_BumpMap", "_NormalMap", "_NormalTex", "_NormalTexture"
+};
+
+        private static readonly string[] MetallicProps =
+        {
+    "_MetallicGlossMap", "_MetallicMap", "_MetalMap", "_MetallicTex"
+};
+
+        private static readonly string[] OcclusionProps =
+        {
+    "_OcclusionMap", "_Occlusion", "_AOMap", "_AmbientOcclusionMap"
+};
+
+        private static readonly string[] ColorProps =
+        {
+    "_BaseColor", "_Color", "_Tint", "_MainColor"
+};
 
         /// <summary>
-        /// Sets the Unity layer on all avatar renderers to the provided value.
+        /// Fix renderers + repair broken shaders by swapping to a URP shader and copying over textures/colors.
         /// </summary>
-        /// <param name="Player">Player whose avatar renderers will be updated.</param>
-        /// <param name="Layer">Layer index to assign to each renderer's GameObject.</param>
-        public static void SetupAvatarLayers(BasisPlayer Player, int Layer)
+        public static void LocalRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers, SkinnedMeshRenderer FaceMesh)
         {
-            int RenderCount = Player.BasisAvatar.Renders.Length;
-            for (int Index = 0; Index < RenderCount; Index++)
+            RemoveOldShadowClones();
+
+            for (int index = 0; index < skinnedMeshRendererLength; index++)
             {
-                Player.BasisAvatar.Renders[Index].gameObject.layer = Layer;
+                var Render = skinnedMeshRenderers[index];
+                //  Render.shadowCastingMode = ShadowCastingMode.On;
+                Render.updateWhenOffscreen = true;
+                Render.forceMatrixRecalculationPerRender = true;
+                Render.gameObject.layer = layer;
+                Render.forceMeshLod = 0;
+                MaterialCorrection(Render, BundledContentHolder.Instance.UrpShader);
+            }
+            if (FaceMesh != null)
+            {
+                FaceMesh.shadowCastingMode = ShadowCastingMode.Off;
+                EnsureShadowOnlyClone(FaceMesh, layer);
+            }
+        }
+        /// <summary>
+        /// Fix renderers + repair broken shaders by swapping to a URP shader and copying over textures/colors.
+        /// </summary>
+        public static void RemoteRenderMeshSettings(int layer, int skinnedMeshRendererLength, SkinnedMeshRenderer[] skinnedMeshRenderers)
+        {
+            for (int index = 0; index < skinnedMeshRendererLength; index++)
+            {
+                var r = skinnedMeshRenderers[index];
+                r.updateWhenOffscreen = false;
+                r.forceMatrixRecalculationPerRender = false;
+                r.gameObject.layer = layer;
+                MaterialCorrection(r, BundledContentHolder.Instance.UrpShader);
+            }
+        }
+        private struct BasisShadowCloneEntry
+        {
+            public SkinnedMeshRenderer Source;
+            public SkinnedMeshRenderer Clone;
+            public int BlendShapeCount;
+            public float[] Values;
+        }
+        private static List<BasisShadowCloneBlendshapeSync> ShadowCloneSyncs = new();
+        private static void RemoveOldShadowClones()
+        {
+            for (int i = 0; i < ShadowCloneSyncs.Count; i++)
+            {
+                ShadowCloneSyncs[i].Dispose();
+
+                var clone = ShadowCloneSyncs[i].Clone;
+                if (clone != null)
+                {
+                    GameObject.Destroy(clone.gameObject);
+                }
+            }
+            ShadowCloneSyncs.Clear();
+        }
+        private static void EnsureShadowOnlyClone(SkinnedMeshRenderer source, int layer)
+        {
+            if (source.enabled && source.gameObject.activeSelf)
+            {
+                // Create clone object as sibling (keeps hierarchy simple)
+                var cloneGO = new GameObject(source.gameObject.name + "_ShadowOnly");
+                var sourcetransform = source.transform;
+                var clonetransform = cloneGO.transform;
+                clonetransform.SetParent(sourcetransform.parent, worldPositionStays: false);
+                sourcetransform.GetPositionAndRotation(out UnityEngine.Vector3 position, out Quaternion rotation);
+                clonetransform.SetPositionAndRotation(position, rotation);
+                clonetransform.localScale = sourcetransform.localScale;
+                cloneGO.layer = layer;
+                // Clone SMR setup
+                var LocalShadowClone = cloneGO.AddComponent<SkinnedMeshRenderer>();
+                // The whole point:
+                LocalShadowClone.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+                LocalShadowClone.receiveShadows = false;
+                LocalShadowClone.lightProbeUsage = LightProbeUsage.Off;
+                int blendShapeCount = 0;
+                if (source.sharedMesh != null)
+                {
+                    LocalShadowClone.sharedMesh = source.sharedMesh;
+                    blendShapeCount = source.sharedMesh.blendShapeCount;
+                    for (int i = 0; i < blendShapeCount; i++)
+                    {
+                        LocalShadowClone.SetBlendShapeWeight(i, source.GetBlendShapeWeight(i));
+                    }
+                }
+                if (source.sharedMaterials != null)
+                {
+                    LocalShadowClone.sharedMaterials = source.sharedMaterials;
+                }
+                if (source.bones != null)
+                {
+                    LocalShadowClone.bones = source.bones;
+                }
+                if (source.rootBone != null)
+                {
+                    LocalShadowClone.rootBone = source.rootBone;
+                }
+                LocalShadowClone.updateWhenOffscreen = false;
+                LocalShadowClone.forceMatrixRecalculationPerRender = false;
+                LocalShadowClone.quality = SkinQuality.Bone1;
+                LocalShadowClone.allowOcclusionWhenDynamic = true;
+                LocalShadowClone.skinnedMotionVectors = false;
+                LocalShadowClone.localBounds = source.localBounds;
+                LocalShadowClone.forceMeshLod = -1;
+                ShadowCloneSyncs.Add(new BasisShadowCloneBlendshapeSync(source, LocalShadowClone, blendShapeCount));
+            }
+        }
+        public static void ScheduleReadBlendShapes(float epsilon = 0.001f)
+        {
+            for (int s = 0; s < ShadowCloneSyncs.Count; s++)
+            {
+                var sync = ShadowCloneSyncs[s];
+
+                if (sync.Source == null || sync.Clone == null)
+                    continue;
+
+                int count = sync.Count;
+
+                for (int i = 0; i < count; i++)
+                {
+                    sync.Current[i] = sync.Source.GetBlendShapeWeight(i);
+                }
+
+                // Schedule job
+                var job = new BasisDiffBlendShapesJob
+                {
+                    Current = sync.Current,
+                    Previous = sync.Previous,
+                    ChangedMask = sync.ChangedMask,
+                    Epsilon = epsilon
+                };
+
+                // Batch size can be tuned; 32 is a decent start
+                sync.Handle = job.Schedule(count, 32);
+            }
+        }
+        public static void ApplyShadowCloneBlendShapes()
+        {
+            for (int s = 0; s < ShadowCloneSyncs.Count; s++)
+            {
+                var sync = ShadowCloneSyncs[s];
+
+                if (sync.Source == null || sync.Clone == null)
+                {
+                    continue;
+                }
+
+                sync.Handle.Complete();
+
+                int count = sync.Count;
+                for (int i = 0; i < count; i++)
+                {
+                    if (sync.ChangedMask[i] != 0)
+                    {
+                        sync.Clone.SetBlendShapeWeight(i, sync.Previous[i]);
+                    }
+                }
+            }
+        }
+        private static bool TryGetFirstColor(Material mat, out Color value, out string foundProp)
+        {
+            for (int i = 0; i < ColorProps.Length; i++)
+            {
+                string p = ColorProps[i];
+                if (mat.HasProperty(p))
+                {
+                    value = mat.GetColor(p);
+                    foundProp = p;
+                    return true;
+                }
+            }
+            value = Color.white;
+            foundProp = string.Empty;
+            return false;
+        }
+        private static bool TryGetFirstTextureWithScaleAndOffset(Material mat, string[] props, out BasisTexTransform result, out string foundProp)
+        {
+            for (int i = 0; i < props.Length; i++)
+            {
+                string p = props[i];
+                if (TryGetTextureWithScaleAndOffset(mat, p, out result))
+                {
+                    foundProp = p;
+                    return true;
+                }
+            }
+            result = default;
+            foundProp = string.Empty;
+            return false;
+        }
+        public static bool TryGetTextureWithScaleAndOffset(Material mat, string propertyName, out BasisTexTransform result)
+        {
+            result = default;
+
+            if (mat == null)
+            {
+                return false;
+            }
+
+            Texture tex = mat.GetTexture(propertyName);
+            if (tex == null)
+            {
+                return false;
+            }
+
+            Vector2 scale = mat.GetTextureScale(propertyName);
+            Vector2 offset = mat.GetTextureOffset(propertyName);
+
+            result = new BasisTexTransform(tex, scale, offset);
+            return true;
+        }
+        public static void MaterialCorrection(SkinnedMeshRenderer renderer, Shader fallbackUrpShader)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            var materials = renderer.sharedMaterials;
+            if (materials == null || materials.Length == 0)
+            {
+                return;
+            }
+
+            if (fallbackUrpShader == null)
+            {
+                Debug.LogWarning("MaterialCorrection: fallbackUrpShader is null, cannot swap shaders.");
+                return;
+            }
+
+            bool anyChanged = false;
+
+            for (int mi = 0; mi < materials.Length; mi++)
+            {
+                var mat = materials[mi];
+                if (mat == null)
+                {
+                    continue;
+                }
+
+                var shader = mat.shader;
+                if (shader == null)
+                {
+                    continue;
+                }
+
+                bool shaderBroken = !shader.isSupported || (!string.IsNullOrEmpty(shader.name) && shader.name.Contains("InternalErrorShader"));
+
+                if (!shaderBroken)
+                {
+                    continue;
+                }
+                bool hasAlbedo = TryGetFirstTextureWithScaleAndOffset(mat, AlbedoProps, out BasisTexTransform albedo, out string albedoProp);
+                bool hasNormal = TryGetFirstTextureWithScaleAndOffset(mat, NormalProps, out BasisTexTransform normal, out string normalProp);
+                bool hasMetal = TryGetFirstTextureWithScaleAndOffset(mat, MetallicProps, out BasisTexTransform metal, out string metalProp);
+                bool hasOcc = TryGetFirstTextureWithScaleAndOffset(mat, OcclusionProps, out BasisTexTransform occ, out string occProp);
+                bool hasColor = TryGetFirstColor(mat, out Color baseColor, out string colorProp);
+                var fixedMat = new Material(fallbackUrpShader)
+                {
+                    name = mat.name + " (Fixed)"
+                };
+                if (hasAlbedo)
+                {
+                    fixedMat.SetTexture("_BaseMap", albedo.texture);
+                    fixedMat.SetTextureScale("_BaseMap", albedo.scale);
+                    fixedMat.SetTextureOffset("_BaseMap", albedo.offset);
+                }
+                if (hasColor)
+                {
+                    fixedMat.SetColor("_BaseColor", baseColor);
+                }
+                if (hasNormal)
+                {
+                    fixedMat.EnableKeyword("_NORMALMAP");
+                    fixedMat.SetTexture("_BumpMap", normal.texture);
+                    fixedMat.SetTextureScale("_BumpMap", normal.scale);
+                    fixedMat.SetTextureOffset("_BumpMap", normal.offset);
+                    fixedMat.SetFloat("_BumpScale", 0.2f);
+                }
+                if (hasMetal)
+                {
+                    fixedMat.EnableKeyword("_METALLICSPECGLOSSMAP");
+                    fixedMat.SetTexture("_MetallicGlossMap", metal.texture);
+                    fixedMat.SetTextureScale("_MetallicGlossMap", metal.scale);
+                    fixedMat.SetTextureOffset("_MetallicGlossMap", metal.offset);
+                }
+                fixedMat.SetFloat("_Metallic", 0.2f);
+                fixedMat.SetFloat("_Smoothness", 0.2f);
+                if (hasOcc)
+                {
+                    fixedMat.SetTexture("_OcclusionMap", occ.texture);
+                    fixedMat.SetTextureScale("_OcclusionMap", occ.scale);
+                    fixedMat.SetTextureOffset("_OcclusionMap", occ.offset);
+
+                    fixedMat.SetFloat("_OcclusionStrength", 0.2f);
+                }
+                materials[mi] = fixedMat;
+                anyChanged = true;
+            }
+            if (anyChanged)
+            {
+                renderer.sharedMaterials = materials;
             }
         }
     }

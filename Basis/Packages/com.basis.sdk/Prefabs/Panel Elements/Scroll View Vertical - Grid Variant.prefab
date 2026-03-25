@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 228824932531600253, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1592243851516139402, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -18,11 +22,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1592243851516139402, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1592243851516139402, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1592243851516139402, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_AnchorMin.x
@@ -90,11 +94,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2096309428159512841, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2096309428159512841, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2096309428159512841, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
       propertyPath: m_AnchorMin.y
@@ -162,6 +166,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 7605367460173527216, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
+    - {fileID: 5096023943224406672, guid: fca2c6fde5234b7499377f69fbde2ff6, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
@@ -257,7 +262,7 @@ MonoBehaviour:
     m_Right: 10
     m_Top: 10
     m_Bottom: 10
-  m_ChildAlignment: 1
+  m_ChildAlignment: 0
   m_StartCorner: 0
   m_StartAxis: 0
   m_CellSize: {x: 200, y: 250}

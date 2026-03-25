@@ -7,20 +7,50 @@ using UnityEngine;
 public class BasisBundleConnector
 {
     public string UniqueVersion;
+    [SerializeField]
     public BasisBundleDescription BasisBundleDescription;
+    [SerializeField]
     public BasisBundleGenerated[] BasisBundleGenerated;
-    public byte[] ImageBytes;
+    public string ImageBase64;
     public string DateOfCreation;
-    public BasisBundleConnector(string version, BasisBundleDescription basisBundleDescription, BasisBundleGenerated[] basisBundleGenerated, byte[] imageBytes)
+    [SerializeField]
+    public BasisBounds Bounds;
+    [SerializeField]
+    public BasisMetaData MetaData;
+    [System.Serializable]
+    public struct BasisMetaData
+    {
+        public long TrianglesCount;
+        public long MaterialCount;
+        public long BonesCount;
+        [SerializeField]
+        public BasisComponentName[] ComponentNames;
+    }
+    [System.Serializable]
+    public struct BasisComponentName
+    {
+        public string Name;
+        public int count;
+    }
+    public BasisBundleConnector(string version, BasisBundleDescription basisBundleDescription, BasisBundleGenerated[] basisBundleGenerated, string imageBytes, BasisBounds basisBounds, BasisMetaData basisMetaData)
     {
         UniqueVersion = version ?? throw new ArgumentNullException(nameof(version));
         BasisBundleDescription = basisBundleDescription ?? throw new ArgumentNullException(nameof(basisBundleDescription));
         BasisBundleGenerated = basisBundleGenerated ?? throw new ArgumentNullException(nameof(basisBundleGenerated));
-        ImageBytes = imageBytes;
+        ImageBase64 = imageBytes;
         DateOfCreation = DateTime.UtcNow.ToString("o");
+        Bounds = basisBounds;
+        MetaData = basisMetaData;
     }
     public BasisBundleConnector()
     {
+        // if we want to initialize new bundles with a default size it can be done here
+        // but this is not needed anymore I have implemented a solution in content loader to load the item beforehand and calculate it
+        // if the metadata is missing for old items
+        // if(Bounds.extents == Vector3.zero)
+        // {
+        //     Bounds.extents = new Vector3(0.1f, 0.1f, 0.1f);
+        // }
     }
     public bool CheckVersion(string version)
     {
@@ -40,12 +70,14 @@ public class BasisBundleConnector
     {
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneWindows), new HashSet<RuntimePlatform> { RuntimePlatform.WindowsEditor, RuntimePlatform.WindowsPlayer, RuntimePlatform.WindowsServer } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneWindows64), new HashSet<RuntimePlatform> { RuntimePlatform.WindowsEditor, RuntimePlatform.WindowsPlayer, RuntimePlatform.WindowsServer } },
+        { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneOSX), new HashSet<RuntimePlatform> { RuntimePlatform.OSXPlayer, RuntimePlatform.OSXEditor } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.Android), new HashSet<RuntimePlatform> { RuntimePlatform.Android } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneLinux64), new HashSet<RuntimePlatform> { RuntimePlatform.LinuxEditor, RuntimePlatform.LinuxPlayer, RuntimePlatform.LinuxServer } },
-        { Enum.GetName(typeof(BuildTarget), BuildTarget.iOS), new HashSet<RuntimePlatform> { RuntimePlatform.IPhonePlayer, RuntimePlatform.OSXPlayer, RuntimePlatform.OSXEditor } }
+        { Enum.GetName(typeof(BuildTarget), BuildTarget.iOS), new HashSet<RuntimePlatform> { RuntimePlatform.IPhonePlayer } }
     };
     public enum BuildTarget
     {
+        StandaloneOSX = 2,
         StandaloneWindows = 5,
         iOS = 9,
         Android = 13,
@@ -77,14 +109,16 @@ public class BasisBundleDescription
 {
     public string AssetBundleName;//user friendly name of this asset.
     public string AssetBundleDescription;//the description of this asset
+    public Texture2D AssetBundleIcon;//icon for this asset
     public BasisBundleDescription()
     {
 
     }
-    public BasisBundleDescription(string assetBundleName, string assetBundleDescription)
+    public BasisBundleDescription(string assetBundleName, string assetBundleDescription, Texture2D assetBundleIcon = null)
     {
         AssetBundleName = assetBundleName ?? throw new ArgumentNullException(nameof(assetBundleName));
         AssetBundleDescription = assetBundleDescription ?? throw new ArgumentNullException(nameof(assetBundleDescription));
+        AssetBundleIcon = assetBundleIcon;
     }
 }
 [System.Serializable]

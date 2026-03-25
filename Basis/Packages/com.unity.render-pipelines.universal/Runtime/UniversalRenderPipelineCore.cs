@@ -103,21 +103,6 @@ namespace UnityEngine.Rendering.Universal
 
         internal UniversalRenderingData universalRenderingData => frameData.Get<UniversalRenderingData>();
 
-#if URP_COMPATIBILITY_MODE
-        // Non-rendergraph path only. Do NOT use with rendergraph!
-        internal ref CommandBuffer commandBuffer
-        {
-            get
-            {
-                ref var cmd = ref frameData.Get<UniversalRenderingData>().m_CommandBuffer;
-                if (cmd == null)
-                    Debug.LogError("RenderingData.commandBuffer is null. RenderGraph does not support this property. Please use the command buffer provided by the RenderGraphContext.");
-
-                return ref cmd;
-            }
-        }
-#endif
-
         /// <summary>
         /// Returns culling results that exposes handles to visible objects, lights and probes.
         /// You can use this to draw objects with <c>ScriptableRenderContext.DrawRenderers</c>
@@ -295,34 +280,6 @@ namespace UnityEngine.Rendering.Universal
             return frameData.Get<UniversalCameraData>().GetProjectionMatrixNoJitter(viewIndex);
         }
 
-#if URP_COMPATIBILITY_MODE
-        /// <summary>
-        /// Returns the camera GPU projection matrix. This contains platform specific changes to handle y-flip and reverse z. Includes camera jitter if required by active features.
-        /// Similar to <c>GL.GetGPUProjectionMatrix</c> but queries URP internal state to know if the pipeline is rendering to render texture.
-        /// For more info on platform differences regarding camera projection check: https://docs.unity3d.com/Manual/SL-PlatformDifferences.html
-        /// </summary>
-        /// <param name="viewIndex"> View index in case of stereo rendering. By default <c>viewIndex</c> is set to 0. </param>
-        /// <seealso cref="GL.GetGPUProjectionMatrix(Matrix4x4, bool)"/>
-        /// <returns></returns>
-        public Matrix4x4 GetGPUProjectionMatrix(int viewIndex = 0)
-        {
-            return frameData.Get<UniversalCameraData>().GetGPUProjectionMatrix(viewIndex);
-        }
-
-        /// <summary>
-        /// Returns the camera GPU projection matrix. This contains platform specific changes to handle y-flip and reverse z. Does not include any camera jitter.
-        /// Similar to <c>GL.GetGPUProjectionMatrix</c> but queries URP internal state to know if the pipeline is rendering to render texture.
-        /// For more info on platform differences regarding camera projection check: https://docs.unity3d.com/Manual/SL-PlatformDifferences.html
-        /// </summary>
-        /// <param name="viewIndex"> View index in case of stereo rendering. By default <c>viewIndex</c> is set to 0. </param>
-        /// <seealso cref="GL.GetGPUProjectionMatrix(Matrix4x4, bool)"/>
-        /// <returns></returns>
-        public Matrix4x4 GetGPUProjectionMatrixNoJitter(int viewIndex = 0)
-        {
-            return frameData.Get<UniversalCameraData>().GetGPUProjectionMatrixNoJitter(viewIndex);
-        }
-#endif
-
         internal Matrix4x4 GetGPUProjectionMatrix(bool renderIntoTexture, int viewIndex = 0)
         {
             return frameData.Get<UniversalCameraData>().GetGPUProjectionMatrix(renderIntoTexture, viewIndex);
@@ -475,21 +432,6 @@ namespace UnityEngine.Rendering.Universal
         {
             return frameData.Get<UniversalCameraData>().IsHandleYFlipped(handle);
         }
-
-#if URP_COMPATIBILITY_MODE
-        /// <summary>
-        /// True if the camera device projection matrix is flipped. This happens when the pipeline is rendering
-        /// to a render texture in non OpenGL platforms. If you are doing a custom Blit pass to copy camera textures
-        /// (_CameraColorTexture, _CameraDepthAttachment) you need to check this flag to know if you should flip the
-        /// matrix when rendering with for cmd.Draw* and reading from camera textures.
-        /// </summary>
-        /// <returns> True if the camera device projection matrix is flipped. </returns>
-        [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsoleteFrom2023_3)]
-        public bool IsCameraProjectionMatrixFlipped()
-        {
-            return frameData.Get<UniversalCameraData>().IsCameraProjectionMatrixFlipped();
-        }
-#endif
 
         /// <summary>
         /// True if the render target's projection matrix is flipped. This happens when the pipeline is rendering
@@ -906,7 +848,7 @@ namespace UnityEngine.Rendering.Universal
         public static readonly int overlayUITexture = Shader.PropertyToID("_OverlayUITexture");
         public static readonly int hdrOutputLuminanceParams = Shader.PropertyToID("_HDROutputLuminanceParams");
         public static readonly int hdrOutputGradingParams = Shader.PropertyToID("_HDROutputGradingParams");
-
+        public static readonly int offscreenUIViewportParams = Shader.PropertyToID("_OffscreenUIViewportParams");
         public static readonly int screenSpaceIrradiance = Shader.PropertyToID("_ScreenSpaceIrradiance");
     }
 
@@ -1550,8 +1492,9 @@ namespace UnityEngine.Rendering.Universal
             int lastBaseCameraIndex = 0;
             for (int i = 0; i < cameras.Count; i++)
             {
+                // Assume a camera is a base camera if no UniversalAdditionalCameraData is available (e.g., for cameras created at runtime).
                 cameras[i].TryGetComponent<UniversalAdditionalCameraData>(out var baseCameraAdditionalData);
-                if (baseCameraAdditionalData?.renderType == CameraRenderType.Base)
+                if (baseCameraAdditionalData == null || baseCameraAdditionalData.renderType == CameraRenderType.Base)
                     lastBaseCameraIndex = i;
             }
             return lastBaseCameraIndex;
@@ -2008,21 +1951,39 @@ namespace UnityEngine.Rendering.Universal
     internal static class PlatformAutoDetect
     {
         /// <summary>
-        /// Detect and cache runtime platform information. This function should only be called once when creating the URP.
+        /// Detect and cache runtime platform information.
+        /// Lazy initialized for situations where platform detection is required before URP is initialized (UUM-134298)
         /// </summary>
+        private sealed class PlatformDetectionCache
+        {
+            public readonly bool isXRMobile;
+            public readonly bool isShaderAPIMobileDefined;
+            public readonly bool isSwitch;
+            public readonly bool isSwitch2;
+            public readonly bool isRunningOnPowerVRGPU;
+
+            public PlatformDetectionCache()
+            {
+                bool isRunningMobile = false;
+                #if ENABLE_VR && ENABLE_VR_MODULE
+                    #if PLATFORM_WINRT || PLATFORM_ANDROID
+                        isRunningMobile = IsRunningXRMobile();
+                    #endif
+                #endif
+
+                isXRMobile = isRunningMobile;
+                isShaderAPIMobileDefined = GraphicsSettings.HasShaderDefine(BuiltinShaderDefine.SHADER_API_MOBILE);
+                isSwitch = Application.platform == RuntimePlatform.Switch;
+                isSwitch2 = Application.platform == RuntimePlatform.Switch2;
+                isRunningOnPowerVRGPU = SystemInfo.graphicsDeviceName.Contains("PowerVR");
+            }
+        }
+
+        private static readonly Lazy<PlatformDetectionCache> platformCache = new(() => new PlatformDetectionCache(), true);
+
         internal static void Initialize()
         {
-            bool isRunningMobile = false;
-            #if ENABLE_VR && ENABLE_VR_MODULE
-                #if PLATFORM_WINRT || PLATFORM_ANDROID
-                    isRunningMobile = IsRunningXRMobile();
-                #endif
-            #endif
-
-            isXRMobile = isRunningMobile;
-            isShaderAPIMobileDefined = GraphicsSettings.HasShaderDefine(BuiltinShaderDefine.SHADER_API_MOBILE);
-            isSwitch = Application.platform == RuntimePlatform.Switch;
-            isSwitch2 = Application.platform == RuntimePlatform.Switch2;
+            _ = platformCache.Value;
         }
 
 #if ENABLE_VR && ENABLE_VR_MODULE
@@ -2051,19 +2012,21 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>
         /// If true, the runtime platform is an XR mobile platform.
         /// </summary>
-        internal static bool isXRMobile { get; private set; } = false;
+        internal static bool isXRMobile => platformCache.Value.isXRMobile;
 
         /// <summary>
         /// If true, then SHADER_API_MOBILE has been defined in URP Shaders.
         /// </summary>
-        internal static bool isShaderAPIMobileDefined { get; private set; } = false;
+        internal static bool isShaderAPIMobileDefined => platformCache.Value.isShaderAPIMobileDefined;
 
         /// <summary>
         /// If true, then the runtime platform is set to Switch.
         /// </summary>
-        internal static bool isSwitch { get; private set; } = false;
+        internal static bool isSwitch => platformCache.Value.isSwitch;
 
-        internal static bool isSwitch2 { get; private set; } = false;
+        internal static bool isSwitch2 => platformCache.Value.isSwitch2;
+
+        internal static bool isRunningOnPowerVRGPU => platformCache.Value.isRunningOnPowerVRGPU;
 
         /// <summary>
         /// Gives the SH evaluation mode when set to automatically detect.
@@ -2082,7 +2045,5 @@ namespace UnityEngine.Rendering.Universal
 
             return mode;
         }
-
-        internal static bool isRunningOnPowerVRGPU = SystemInfo.graphicsDeviceName.Contains("PowerVR");
     }
 }

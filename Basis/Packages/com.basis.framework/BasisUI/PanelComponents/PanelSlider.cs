@@ -1,7 +1,9 @@
 using System;
 using System.Globalization;
+using Basis.BTween;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Basis.BasisUI
@@ -16,7 +18,7 @@ namespace Basis.BasisUI
         MemorySize
     }
 
-    public class PanelSlider : PanelDataComponent<float>
+    public class PanelSlider : PanelDataComponent<float>, IPointerDownHandler, IPointerUpHandler
     {
 
         [Serializable]
@@ -100,6 +102,10 @@ namespace Basis.BasisUI
 
         [field: SerializeField] public SliderSettings Settings { get; protected set; }
 
+        [Header("Slider Fill")]
+        public Graphic FillGraphic;
+        public Color FillColorMin = new Color(0.35f, 0.55f, 0.85f, 1f);
+        public Color FillColorMax = new Color(0.25f, 0.8f, 0.5f, 1f);
 
         public static class SliderStyles
         {
@@ -108,6 +114,13 @@ namespace Basis.BasisUI
         }
 
         public Slider SliderComponent;
+
+        private RectTransform _handleRect;
+        private Graphic _roundedFrontGraphic;
+        private TweenScale _handleScaleTween;
+        private TweenGraphicColor _fillColorTween;
+        private TweenScale _labelPunchTween;
+        private bool _isDragging;
 
 
         public static PanelSlider CreateNew(Component parent)
@@ -146,6 +159,56 @@ namespace Basis.BasisUI
             ApplySliderSettings();
             SliderComponent.onValueChanged.AddListener(OnSliderValueChanged);
             SliderConfirmedListener.OnValueConfirmed += OnSliderConfirmed;
+
+            // Cache handle rect for scale animations
+            if (SliderComponent.handleRect != null)
+            {
+                _handleRect = SliderComponent.handleRect;
+            }
+
+            // Try to find fill graphic if not assigned
+            if (FillGraphic == null && SliderComponent.fillRect != null)
+            {
+                FillGraphic = SliderComponent.fillRect.GetComponent<Graphic>();
+            }
+
+            // Color-match the rounded front cap to the fill so it blends seamlessly
+            if (SliderComponent.fillRect != null)
+            {
+                Transform roundedFront = SliderComponent.fillRect.parent.Find("Rounded Front");
+                if (roundedFront != null)
+                {
+                    _roundedFrontGraphic = roundedFront.GetComponent<Graphic>();
+                }
+            }
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            if (!Application.isPlaying) return;
+            _isDragging = true;
+
+            // Scale up handle on grab
+            if (_handleRect != null)
+            {
+                if (_handleScaleTween != null && _handleScaleTween.Active) _handleScaleTween.Reset();
+                _handleScaleTween = _handleRect.TweenScale(0.12f, _handleRect.localScale, Vector3.one * 1.25f)
+                    .SetEase(Easing.OutBack);
+            }
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            if (!Application.isPlaying) return;
+            _isDragging = false;
+
+            // Scale down handle on release
+            if (_handleRect != null)
+            {
+                if (_handleScaleTween != null && _handleScaleTween.Active) _handleScaleTween.Reset();
+                _handleScaleTween = _handleRect.TweenScale(0.2f, _handleRect.localScale, Vector3.one)
+                    .SetEase(Easing.OutBack);
+            }
         }
 
         // Applies visually, does not write to settings.
@@ -159,6 +222,23 @@ namespace Basis.BasisUI
         private void OnSliderConfirmed()
         {
             SetValue(SliderComponent.value);
+
+            // Punch the value label when user confirms
+            if (Application.isPlaying && CurrentValueLabel != null)
+            {
+                if (_labelPunchTween != null && _labelPunchTween.Active) _labelPunchTween.Reset();
+                Transform labelTransform = CurrentValueLabel.transform;
+                _labelPunchTween = labelTransform.TweenScale(0.06f, labelTransform.localScale, Vector3.one * 1.15f)
+                    .SetEase(Easing.OutCubic)
+                    .AddCallback(() =>
+                    {
+                        if (labelTransform != null)
+                        {
+                            labelTransform.TweenScale(0.15f, Vector3.one * 1.15f, Vector3.one)
+                                .SetEase(Easing.OutBack);
+                        }
+                    });
+            }
         }
 
         public void SetSliderSettings(SliderSettings settings)
@@ -183,17 +263,47 @@ namespace Basis.BasisUI
         public override void SetValueWithoutNotify(float value)
         {
             base.SetValueWithoutNotify(value);
-            SliderComponent.SetValueWithoutNotify(value);
+            if (SliderComponent != null)
+            {
+                SliderComponent.SetValueWithoutNotify(value);
+            }
+            else
+            {
+                BasisDebug.LogError("Missing Slider Component!");
+            }
         }
 
         protected override void ApplyValue()
         {
             base.ApplyValue();
+
+            // Animate fill color based on normalized position
+            if (Application.isPlaying && FillGraphic != null)
+            {
+                float range = SliderComponent.maxValue - SliderComponent.minValue;
+                float t = (range > 0f) ? (Value - SliderComponent.minValue) / range : 0f;
+                Color targetFillColor = Color.Lerp(FillColorMin, FillColorMax, t);
+
+                if (_isDragging)
+                {
+                    // Instant color while dragging for responsiveness
+                    FillGraphic.color = targetFillColor;
+                    if (_roundedFrontGraphic != null) _roundedFrontGraphic.color = targetFillColor;
+                }
+                else
+                {
+                    if (_fillColorTween != null && _fillColorTween.Active) _fillColorTween.Reset();
+                    _fillColorTween = FillGraphic.TweenColor(0.15f, FillGraphic.color, targetFillColor)
+                        .SetEase(Easing.OutCubic);
+                    if (_roundedFrontGraphic != null) _roundedFrontGraphic.color = targetFillColor;
+                }
+            }
+
             switch (Settings.DisplayMode)
             {
                 case ValueDisplayMode.Percentage:
-                    float range = SliderComponent.maxValue - SliderComponent.minValue;
-                    float normalized = (range > 0f) ? (Value - SliderComponent.minValue) / range : 0f;
+                    float range2 = SliderComponent.maxValue - SliderComponent.minValue;
+                    float normalized = (range2 > 0f) ? (Value - SliderComponent.minValue) / range2 : 0f;
                     CurrentValueLabel.text = $"{Mathf.RoundToInt(normalized * 100f)}%";
                     break;
                 case ValueDisplayMode.percentageFromZero:

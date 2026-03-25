@@ -1,4 +1,3 @@
-using BasisNetworkCore.Pooling;
 using Basis.Network.Core;
 using System;
 
@@ -8,6 +7,7 @@ public static partial class SerializableBasis
     {
         public ushort messageIndex;
         public byte[] payload;
+        public int payloadLength;
 
         public void Deserialize(NetDataReader reader)
         {
@@ -21,14 +21,9 @@ public static partial class SerializableBasis
 
             if (payloadSize > 0)
             {
-                // Return previous payload to the pool if needed
-                if (payload != null)
-                {
-                    BasisByteArrayPooling.Return(payload);
-                }
-
-                payload = BasisByteArrayPooling.Rent(payloadSize);
+                payload = new byte[payloadSize];
                 reader.GetBytes(payload, payloadSize);
+                payloadLength = payloadSize;
             }
         }
 
@@ -36,9 +31,10 @@ public static partial class SerializableBasis
         {
             writer.Put(messageIndex);
 
-            if (payload != null && payload.Length > 0)
+            int len = payloadLength > 0 ? payloadLength : (payload != null ? payload.Length : 0);
+            if (payload != null && len > 0)
             {
-                writer.Put(payload);
+                writer.Put(payload, 0, len);
             }
         }
 
@@ -46,8 +42,8 @@ public static partial class SerializableBasis
         {
             if (payload != null)
             {
-                BasisByteArrayPooling.Return(payload);
                 payload = null;
+                payloadLength = 0;
             }
         }
     }

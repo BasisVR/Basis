@@ -85,7 +85,6 @@ Distributed under the MIT License. See [MIT License](https://opensource.org/lice
  ### Built With
 
 This would not be possible without the following:
-- [OdinSerializer](https://github.com/TeamSirenix/odin-serializer)
 - [ULipSync](https://github.com/hecomi/uLipSync)
 - [UnityJigglePhysics](https://github.com/naelstrof/UnityJigglePhysics)
 - [opussharp](https://github.com/AvionBlock/OpusSharp)
@@ -93,9 +92,6 @@ This would not be possible without the following:
 - [Steam Audio](https://github.com/ValveSoftware/steam-audio)
 - [Kevin Iglesias Animations](https://www.keviniglesias.com/)
 - [Unity Starter Assets - ThirdPerson](https://assetstore.unity.com/packages/essentials/starter-assets-thirdperson-updates-in-new-charactercontroller-pa-196526)
-- [Aurellia](https://github.com/CascadianVR) Assets\third_party\Avatar\Aurellia\LICENSE
-- [YUN](https://github.com/yewnyx) Assets\third_party\Avatar\Yun\LICENSE
-- [lilToon](https://github.com/lilxyzw/lilToon)
 - [RNNoise](https://github.com/xiph/rnnoise?tab=BSD-3-Clause-1-ov-file)
 - [RNNoise.Net](https://github.com/Yellow-Dog-Man/RNNoise.Net)
 - [unity](https://unity.com/)

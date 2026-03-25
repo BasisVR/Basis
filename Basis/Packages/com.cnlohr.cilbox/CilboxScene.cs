@@ -11,6 +11,8 @@ namespace Cilbox
 	[CilboxTarget]
 	public class CilboxScene : Cilbox
 	{
+		public override long MaxTimeoutLengthUs => 10000000; // 10 seconds. Let scenes go crazy.
+
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			"Cilbox.CilboxPublicUtils",
 			"System.Array",
@@ -73,6 +75,12 @@ namespace Cilbox
 			"UnityEngine.Vector3",
 		};
 
+		static HashSet<String> whiteListFields = new HashSet<String>(){
+			"UnityEngine.Vector3.x",
+			"UnityEngine.Vector3.y",
+			"UnityEngine.Vector3.z",
+		};
+
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
 
 		// This is called by CilboxUsage to decide of a type is allowed.
@@ -80,6 +88,14 @@ namespace Cilbox
 		override public bool CheckTypeAllowed( String sType )
 		{
 			return whiteListType.Contains( sType );
+		}
+
+		override public bool CheckFieldAllowed( String sType, String sFieldName )
+		{
+			if( !CheckTypeAllowed( sType ) ) return false;
+			if( sType.Length < 1 || sFieldName.Length < 1 ) return false;
+			if( !whiteListFields.Contains( sType + "." + sFieldName ) ) return false;
+			return true;
 		}
 
 		// After a type is allowed, this is called to see if the specific method is OK.
@@ -101,5 +117,11 @@ namespace Cilbox
 			if( name.Contains( "Invoke" ) ) return false;
 			return true;
 		}
+
+        public override bool GetComponentTypeOverride(string sType, out Type t)
+        {
+			t = null;
+            return false;
+        }
 	}
 }

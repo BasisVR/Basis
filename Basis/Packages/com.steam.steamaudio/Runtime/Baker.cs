@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright 2017-2023 Valve Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -234,6 +234,7 @@ namespace SteamAudio
                 var probeBatches = sTasks[i].probeBatches;
                 sTotalProbeBatches = probeBatches.Length;
 
+                var singleton = SteamAudioSettings.Singleton;
                 for (var j = 0; j < sTotalProbeBatches; ++j)
                 {
                     sCurrentProbeBatchIndex = j;
@@ -267,26 +268,26 @@ namespace SteamAudio
                         bakeParams.flags = 0;
                         bakeParams.numRays = simulationSettings.maxNumRays;
                         bakeParams.numDiffuseSamples = simulationSettings.numDiffuseSamples;
-                        bakeParams.numBounces = SteamAudioSettings.Singleton.bakingBounces;
+                        bakeParams.numBounces = singleton.bakingBounces;
                         bakeParams.simulatedDuration = simulationSettings.maxDuration;
                         bakeParams.savedDuration = simulationSettings.maxDuration;
                         bakeParams.order = simulationSettings.maxOrder;
                         bakeParams.numThreads = simulationSettings.numThreads;
                         bakeParams.rayBatchSize = simulationSettings.rayBatchSize;
-                        bakeParams.irradianceMinDistance = SteamAudioSettings.Singleton.bakingIrradianceMinDistance;
+                        bakeParams.irradianceMinDistance = singleton.bakingIrradianceMinDistance;
                         bakeParams.bakeBatchSize = 1;
 
-                        if (SteamAudioSettings.Singleton.bakeConvolution)
+                        if (singleton.bakeConvolution)
                             bakeParams.flags = bakeParams.flags | ReflectionsBakeFlags.BakeConvolution;
 
-                        if (SteamAudioSettings.Singleton.bakeParametric)
+                        if (singleton.bakeParametric)
                             bakeParams.flags = bakeParams.flags | ReflectionsBakeFlags.BakeParametric;
 
                         if (simulationSettings.sceneType == SceneType.RadeonRays)
                         {
                             bakeParams.openCLDevice = SteamAudioManager.OpenCLDevice;
                             bakeParams.radeonRaysDevice = SteamAudioManager.RadeonRaysDevice;
-                            bakeParams.bakeBatchSize = SteamAudioSettings.Singleton.bakingBatchSize;
+                            bakeParams.bakeBatchSize = singleton.bakingBatchSize;
                         }
 
                         API.iplReflectionsBakerBake(SteamAudioManager.Context.Get(), ref bakeParams, sProgressCallback, IntPtr.Zero);
@@ -297,12 +298,12 @@ namespace SteamAudio
                         bakeParams.scene = SteamAudioManager.CurrentScene.Get();
                         bakeParams.probeBatch = probeBatch.Get();
                         bakeParams.identifier = sTasks[i].identifier;
-                        bakeParams.numSamples = SteamAudioSettings.Singleton.bakingVisibilitySamples;
-                        bakeParams.radius = SteamAudioSettings.Singleton.bakingVisibilityRadius;
-                        bakeParams.threshold = SteamAudioSettings.Singleton.bakingVisibilityThreshold;
-                        bakeParams.visRange = SteamAudioSettings.Singleton.bakingVisibilityRange;
-                        bakeParams.pathRange = SteamAudioSettings.Singleton.bakingPathRange;
-                        bakeParams.numThreads = SteamAudioManager.Singleton.NumThreadsForCPUCorePercentage(SteamAudioSettings.Singleton.bakedPathingCPUCoresPercentage);
+                        bakeParams.numSamples = singleton.bakingVisibilitySamples;
+                        bakeParams.radius = singleton.bakingVisibilityRadius;
+                        bakeParams.threshold = singleton.bakingVisibilityThreshold;
+                        bakeParams.visRange = singleton.bakingVisibilityRange;
+                        bakeParams.pathRange = singleton.bakingPathRange;
+                        bakeParams.numThreads = SteamAudioManager.Singleton.NumThreadsForCPUCorePercentage(singleton.bakedPathingCPUCoresPercentage);
 
                         API.iplPathBakerBake(SteamAudioManager.Context.Get(), ref bakeParams, sProgressCallback, IntPtr.Zero);
                     }

@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: m_PreferredHeight
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 113480404192910959, guid: 39635a6f162161b4886f452055cf7169, type: 3}
+      propertyPath: <Header>k__BackingField
+      value: 
+      objectReference: {fileID: 418794736520680895}
     - target: {fileID: 549275540832916274, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -197,6 +201,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5180122307685806191, guid: 39635a6f162161b4886f452055cf7169, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5180122307685806191, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
@@ -274,15 +282,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8076094224542608644, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8076094224542608644, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8076094224542608644, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 580
       objectReference: {fileID: 0}
     - target: {fileID: 8076094224542608644, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_SizeDelta.y
@@ -290,11 +298,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8076094224542608644, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 290
       objectReference: {fileID: 0}
     - target: {fileID: 8076094224542608644, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -30
       objectReference: {fileID: 0}
     - target: {fileID: 8589570113720539571, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchorMax.y
@@ -350,23 +358,27 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 9196793108066369430, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9196793108066369430, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9196793108066369430, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_SizeDelta.x
+      value: 880
+      objectReference: {fileID: 0}
+    - target: {fileID: 9196793108066369430, guid: 39635a6f162161b4886f452055cf7169, type: 3}
+      propertyPath: m_SizeDelta.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9196793108066369430, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 520
       objectReference: {fileID: 0}
     - target: {fileID: 9196793108066369430, guid: 39635a6f162161b4886f452055cf7169, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -40
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -379,6 +391,11 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 4566907125851745142}
   m_SourcePrefab: {fileID: 100100000, guid: 39635a6f162161b4886f452055cf7169, type: 3}
+--- !u!224 &418794736520680895 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 8775635711127575370, guid: 39635a6f162161b4886f452055cf7169, type: 3}
+  m_PrefabInstance: {fileID: 8936981929767702261}
+  m_PrefabAsset: {fileID: 0}
 --- !u!114 &2102666718608367833 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 7001027634957364780, guid: 39635a6f162161b4886f452055cf7169, type: 3}

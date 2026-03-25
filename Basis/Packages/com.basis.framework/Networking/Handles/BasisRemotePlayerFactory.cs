@@ -27,7 +27,7 @@ namespace Basis.Scripts.Networking
 
             if (avatarID.byteArray != null)
             {
-                BasisNetworkPlayers.JoiningPlayers.Add(ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkPlayers.JoiningPlayers.TryAdd(ServerReadyMessage.playerIdMessage.playerID, 0);
 
                 // Start both tasks simultaneously
                 BasisRemotePlayer remote = BasisPlayerFactory.CreateRemotePlayer(instantiationParameters, avatarID, ServerReadyMessage.localReadyMessage.playerMetaDataMessage);
@@ -56,7 +56,7 @@ namespace Basis.Scripts.Networking
                 BasisNetworkPlayer.OnRemotePlayerJoined?.Invoke(BasisNetworkReceiver, remote);
                 BasisNetworkPlayer.OnPlayerJoined?.Invoke(BasisNetworkReceiver);
 
-                BasisNetworkPlayers.JoiningPlayers.Remove(ServerReadyMessage.playerIdMessage.playerID);
+                BasisNetworkPlayers.JoiningPlayers.TryRemove(ServerReadyMessage.playerIdMessage.playerID, out _);
 
                 return BasisNetworkReceiver;
             }

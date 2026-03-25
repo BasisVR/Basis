@@ -3,5 +3,9 @@
   "displayName": "Basis Framework Editor",
   "version": "0.0.1",
   "description": "Editor Folder for basis framework",
+  "author": {
+    "name": "BasisVR",
+    "url": "https://github.com/BasisVR"
+  },
   "_fingerprint": "6f2492e58e7e542d685e81ff4bef0a8f5010a966"
 }

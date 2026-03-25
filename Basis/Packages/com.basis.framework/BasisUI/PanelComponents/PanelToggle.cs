@@ -25,6 +25,8 @@ namespace Basis.BasisUI
         public Color OnColor = new Color(0.2f, 0.8f, 0.4f, 1f);
         private TweenAnchorPosition _toggleTween;
         private TweenGraphicColor _backgroundTween;
+        private TweenScale _knobScaleTween;
+        private TweenScale _knobSquishTween;
 
         private bool _initialized;
 
@@ -68,19 +70,42 @@ namespace Basis.BasisUI
                 return;
             }
 
-
-
             if (ToggleVisual)
             {
-                if (_toggleTween && _toggleTween.Active) _toggleTween.Finish();
-                _toggleTween = ToggleVisual.TweenAnchorPosition(TweenDuration, new Vector2(targetX, 0));
+                // Kill active tweens
+                if (_toggleTween && _toggleTween.Active) _toggleTween.Reset();
+                if (_knobScaleTween && _knobScaleTween.Active) _knobScaleTween.Reset();
+                if (_knobSquishTween && _knobSquishTween.Active) _knobSquishTween.Reset();
+
+                // Slide the knob with a springy overshoot
+                _toggleTween = ToggleVisual.TweenAnchorPosition(TweenDuration, new Vector2(targetX, 0))
+                    .SetEase(Easing.OutBack);
+
+                // Squish the knob horizontally during travel, then snap back
+                Vector3 squished = new Vector3(0.8f, 1.15f, 1f);
+                _knobSquishTween = ToggleVisual.TweenScale(TweenDuration * 0.5f, Vector3.one, squished)
+                    .SetEase(Easing.OutCubic)
+                    .AddCallback(() =>
+                    {
+                        if (ToggleVisual != null)
+                        {
+                            _knobScaleTween = ToggleVisual.TweenScale(TweenDuration * 0.6f, squished, Vector3.one)
+                                .SetEase(Easing.OutBack);
+                        }
+                    });
             }
 
             if (Background)
             {
-                if (_backgroundTween && _backgroundTween.Active) _backgroundTween.Finish();
-                _backgroundTween = Background.TweenColor(TweenDuration, Background.color, targetColor);
+                if (_backgroundTween && _backgroundTween.Active) _backgroundTween.Reset();
+                _backgroundTween = Background.TweenColor(TweenDuration, Background.color, targetColor)
+                    .SetEase(Easing.OutCubic);
             }
+        }
+        public override void SetValueWithoutNotify(bool value)
+        {
+            base.SetValueWithoutNotify(value);
+            ToggleComponent.SetIsOnWithoutNotify(value);
         }
 
         private void SetVisualInstant(bool on)
@@ -90,6 +115,7 @@ namespace Basis.BasisUI
                 float x = on ? ToggleVisualOffset : -ToggleVisualOffset;
                 Vector2 pos = ToggleVisual.anchoredPosition;
                 ToggleVisual.anchoredPosition = new Vector2(x, pos.y);
+                ToggleVisual.localScale = Vector3.one;
             }
 
             if (Background)

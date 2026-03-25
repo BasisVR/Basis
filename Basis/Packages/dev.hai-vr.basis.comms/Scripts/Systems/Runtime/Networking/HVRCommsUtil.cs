@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Basis.Scripts.BasisSdk;
 using UnityEngine;
@@ -41,6 +42,139 @@ namespace HVR.Basis.Comms
             if (structuresNullable == null) return Array.Empty<T>();
 
             return structuresNullable;
+        }
+    }
+
+    [AddComponentMenu("HVR.Basis/Comms/Internal/Face Tracking Activity Relay")]
+    public class FaceTrackingActivityRelay : MonoBehaviour, IHVRInitializable
+    {
+        public const string ActivityAddress = "HVR/Internal/FaceTrackingActive";
+        public static readonly int ActivityAddressId = HVRAddress.AddressToId(ActivityAddress);
+        public const float InactivityTimeoutSeconds = 0.5f;
+
+        [HideInInspector] [SerializeField] private BasisAvatar avatar;
+        [HideInInspector] [SerializeField] private AcquisitionService acquisition;
+
+        [NonSerialized] internal MutualizedFeatureInterpolator featureInterpolator;
+
+        private bool _isWearer;
+        private bool _isTrackingActive;
+        private float _lastActivityTime = float.NegativeInfinity;
+
+        public bool IsTrackingActive => _isTrackingActive;
+
+        public static FaceTrackingActivityRelay GetOrCreate(BasisAvatar avatar)
+        {
+            if (avatar == null)
+            {
+                return null;
+            }
+
+            var relay = avatar.GetComponentInChildren<FaceTrackingActivityRelay>(true);
+            if (relay != null)
+            {
+                return relay;
+            }
+
+            var relayRoot = new GameObject("Generated__FaceTrackingActivityRelay")
+            {
+                transform =
+                {
+                    parent = avatar.transform,
+                }
+            };
+            return relayRoot.AddComponent<FaceTrackingActivityRelay>();
+        }
+
+        private void Awake()
+        {
+            if (avatar == null)
+            {
+                avatar = HVRCommsUtil.GetAvatar(this);
+            }
+
+            if (acquisition == null)
+            {
+                acquisition = AcquisitionService.SceneInstance;
+            }
+        }
+
+        public void OnHVRAvatarReady(bool isWearer)
+        {
+            _isWearer = isWearer;
+            ApplyTrackingState(false, submitToNetwork: false);
+        }
+
+        public void OnHVRReadyBothAvatarAndNetwork(bool isWearer)
+        {
+            _isWearer = isWearer;
+            featureInterpolator = CommsNetworking.UsingMutualizedInterpolator(avatar, new List<MutualizedInterpolationRange>
+            {
+                new MutualizedInterpolationRange
+                {
+                    address = ActivityAddressId,
+                    lower = 0f,
+                    upper = 1f,
+                }
+            }, OnInterpolatedDataChanged);
+
+            if (_isWearer && featureInterpolator != null)
+            {
+                featureInterpolator.SubmitAbsolute(0, _isTrackingActive ? 1f : 0f);
+            }
+        }
+
+        private void Update()
+        {
+            if (!_isWearer || !_isTrackingActive)
+            {
+                return;
+            }
+
+            if (Time.unscaledTime - _lastActivityTime > InactivityTimeoutSeconds)
+            {
+                ApplyTrackingState(false, submitToNetwork: true);
+            }
+        }
+
+        public void NotifySourceSample()
+        {
+            if (!_isWearer)
+            {
+                return;
+            }
+
+            _lastActivityTime = Time.unscaledTime;
+            if (!_isTrackingActive)
+            {
+                ApplyTrackingState(true, submitToNetwork: true);
+            }
+        }
+
+        private void OnInterpolatedDataChanged(float[] current)
+        {
+            if (_isWearer || current == null || current.Length == 0)
+            {
+                return;
+            }
+
+            ApplyTrackingState(current[0] >= 0.5f, submitToNetwork: false);
+        }
+
+        private void ApplyTrackingState(bool isTrackingActive, bool submitToNetwork)
+        {
+            bool stateChanged = _isTrackingActive != isTrackingActive;
+            _isTrackingActive = isTrackingActive;
+
+            if (acquisition != null && (stateChanged || submitToNetwork))
+            {
+                acquisition.Submit(ActivityAddressId, isTrackingActive ? 1f : 0f);
+            }
+
+            if (submitToNetwork && _isWearer && featureInterpolator != null)
+            {
+                featureInterpolator.SubmitAbsolute(0, isTrackingActive ? 1f : 0f);
+            }
         }
     }
 }

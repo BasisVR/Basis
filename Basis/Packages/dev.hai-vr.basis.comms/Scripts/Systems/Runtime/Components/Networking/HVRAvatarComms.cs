@@ -12,6 +12,7 @@ namespace HVR.Basis.Comms
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization")]
     public class HVRAvatarComms : BasisAvatarMonoBehaviour
     {
+        new public static bool VisibleInAvatarMenu = false;
         [HideInInspector] [SerializeField] private BasisAvatar avatar;
         [SerializeField] private bool isFromPrefab = false;
 
@@ -52,7 +53,7 @@ namespace HVR.Basis.Comms
 
         private void OnAvatarReady(bool isWearer)
         {
-            _isWearer = true;
+            _isWearer = isWearer;
 
             var allInitializables = avatar.GetComponentsInChildren<IHVRInitializable>(true);
             foreach (var initializable in allInitializables)
@@ -103,14 +104,16 @@ namespace HVR.Basis.Comms
             _streamedLateInit.transmitter = carrier;
             _streamedLateInit.isWearer = isWearer;
             _streamedLateInit.localIdentifier = 0;
-            _toStoreLater.Clear();
+            var pendingStores = _toStoreLater.ToArray();
             holder.SetActive(true);
+            _streamedLateInit.InitializeNormalizedValues(BuildNeutralNormalizedValues());
             // StreamedAvatarFeature only gets the ability to store data AFTER Awake() runs, so order matters here.
-            foreach (var toStoreLater in _toStoreLater)
+            foreach (var toStoreLater in pendingStores)
             {
                 var mutualizedIndex = toStoreLater.mutualizedIndex;
                 _streamedLateInit.Store(mutualizedIndex, _ranges[mutualizedIndex].AbsoluteToRange(toStoreLater.absolute));
             }
+            _toStoreLater.Clear();
 
             _streamedLateInit.OnInterpolatedDataChanged += mutualizedData =>
             {
@@ -169,6 +172,7 @@ namespace HVR.Basis.Comms
                 {
                     storedRange.upper = inputRange.upper;
                 }
+                _ranges[mutualizedIndex] = storedRange;
             }
 
             _needsInterpolation.Add(new HVRNeedsInterpolationCallback
@@ -211,6 +215,20 @@ namespace HVR.Basis.Comms
             {
                 avatarMessageProcessing.OnNetworkMessageServerReductionSystem(buffer);
             }
+        }
+
+        private float[] BuildNeutralNormalizedValues()
+        {
+            var normalized = new float[_ranges.Count];
+            for (int index = 0; index < _ranges.Count; index++)
+            {
+                var range = _ranges[index];
+                normalized[index] = range.lower <= 0f && range.upper >= 0f
+                    ? Mathf.Clamp01(range.AbsoluteToRange(0f))
+                    : 0f;
+            }
+
+            return normalized;
         }
 
         private class HVRRedirectToStreamed : IFeatureReceiver

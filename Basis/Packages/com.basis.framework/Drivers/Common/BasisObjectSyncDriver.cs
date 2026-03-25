@@ -23,18 +23,20 @@ public static class BasisObjectSyncDriver
     private static TransformAccessArray _remoteTransforms;
     private static NativeList<float3> _targetPositions;
     private static NativeList<quaternion> _targetRotations;
-    private static NativeList<float3> _targetScales;          // NEW: scales
+    private static NativeList<float3> _targetScales;
     private static NativeList<float> _lerpMultipliers;
 
     private static Transform[] _cachedTransforms = Array.Empty<Transform>();
+    private static Transform[] _lastCachedTransforms = Array.Empty<Transform>();
     private static JobHandle _remoteJobHandle;
-
+    public static int TargetCount = -1;
     public static void Initalization()
     {
         _remoteTransforms = new TransformAccessArray(0);
         _targetPositions = new NativeList<float3>(128, Allocator.Persistent);
+        TargetCount = _targetPositions.Length;
         _targetRotations = new NativeList<quaternion>(128, Allocator.Persistent);
-        _targetScales = new NativeList<float3>(128, Allocator.Persistent); // NEW
+        _targetScales = new NativeList<float3>(128, Allocator.Persistent);
         _lerpMultipliers = new NativeList<float>(128, Allocator.Persistent);
     }
 
@@ -45,7 +47,7 @@ public static class BasisObjectSyncDriver
         if (_remoteTransforms.isCreated) _remoteTransforms.Dispose();
         if (_targetPositions.IsCreated) _targetPositions.Dispose();
         if (_targetRotations.IsCreated) _targetRotations.Dispose();
-        if (_targetScales.IsCreated) _targetScales.Dispose();              // NEW
+        if (_targetScales.IsCreated) _targetScales.Dispose();
         if (_lerpMultipliers.IsCreated) _lerpMultipliers.Dispose();
     }
 
@@ -63,7 +65,6 @@ public static class BasisObjectSyncDriver
             }
         }
     }
-
     public static void ScheduleRemoteLerp(float deltaTime)
     {
         _remoteJobHandle.Complete();
@@ -71,60 +72,94 @@ public static class BasisObjectSyncDriver
         int count = 0;
         foreach (var obj in RemoteOwnedObjectSyncs)
         {
-            if (obj == null || obj.IsOwnedLocallyOnClient) continue;
+            if (obj == null || obj.IsOwnedLocallyOnClient)
+            {
+                continue;
+            }
+
             count++;
         }
-        if (count == 0) return;
+        if (count == 0)
+        {
+            return;
+        }
 
         if (_cachedTransforms.Length != count)
+        {
             _cachedTransforms = new Transform[count];
+        }
 
         int index = 0;
-        bool needResize = _targetPositions.Length <= count;
+        bool needResize = TargetCount <= count;
         if (needResize)
         {
+            TargetCount = count;
             _targetPositions.ResizeUninitialized(count);
             _targetRotations.ResizeUninitialized(count);
-            _targetScales.ResizeUninitialized(count);         // NEW
+            _targetScales.ResizeUninitialized(count);
             _lerpMultipliers.ResizeUninitialized(count);
         }
 
-        foreach (BasisObjectSyncNetworking obj in RemoteOwnedObjectSyncs)
+        foreach (var obj in RemoteOwnedObjectSyncs)
         {
-            if (obj == null || obj.IsOwnedLocallyOnClient) continue;
+            if (obj == null || obj.IsOwnedLocallyOnClient)
+            {
+                continue;
+            }
 
             _cachedTransforms[index] = obj.SelfTransform;
 
             _targetPositions[index] = obj.BTU.TargetPosition;
             _targetRotations[index] = obj.BTU.TargetRotation;
-            _targetScales[index] = obj.BTU.TargetScales;  // NEW
+            _targetScales[index] = obj.BTU.TargetScales;
             _lerpMultipliers[index] = obj.BTU.LerpMultipliers * deltaTime;
 
             index++;
         }
 
+        if (_lastCachedTransforms.Length != count)
+        {
+            _lastCachedTransforms = new Transform[count];
+        }
+
+
         if (_remoteTransforms.isCreated)
         {
-            if (_remoteTransforms.length != _cachedTransforms.Length)
+            if (_remoteTransforms.length != count)
             {
                 _remoteTransforms.Dispose();
                 _remoteTransforms = new TransformAccessArray(_cachedTransforms);
+                Array.Copy(_cachedTransforms, _lastCachedTransforms, count);
             }
             else
             {
-                _remoteTransforms.SetTransforms(_cachedTransforms);
+                bool TransformsChanged = false;
+                for (int Index = 0; Index < count; Index++)
+                {
+                    if (_lastCachedTransforms[Index] != _cachedTransforms[Index])
+                    {
+                        TransformsChanged = true;
+                        break;
+                    }
+                }
+
+                if(TransformsChanged)
+                {
+                    _remoteTransforms.SetTransforms(_cachedTransforms);
+                    Array.Copy(_cachedTransforms, _lastCachedTransforms, count);
+                }
             }
         }
         else
         {
             _remoteTransforms = new TransformAccessArray(_cachedTransforms);
+            Array.Copy(_cachedTransforms, _lastCachedTransforms, count);
         }
-
         var job = new RemoteSyncJob
         {
             targetPositions = _targetPositions,
             targetRotations = _targetRotations,
-            targetScales = _targetScales,     // NEW
+            targetScales = _targetScales,
             lerpMultipliers = _lerpMultipliers
         };
 
@@ -141,7 +176,7 @@ public static class BasisObjectSyncDriver
     {
         [ReadOnly] public NativeList<float3> targetPositions;
         [ReadOnly] public NativeList<quaternion> targetRotations;
-        [ReadOnly] public NativeList<float3> targetScales;     // NEW
+        [ReadOnly] public NativeList<float3> targetScales;
         [ReadOnly] public NativeList<float> lerpMultipliers;
 
         public void Execute(int index, TransformAccess transform)
@@ -155,8 +190,6 @@ public static class BasisObjectSyncDriver
 
                 float3 newPos = math.lerp(currentPos, targetPositions[index], lerp);
                 quaternion newRot = math.slerp(currentRot, targetRotations[index], lerp);
-
-                // Scale: lerp from current to target
                 Vector3 currentScale = transform.localScale;
                 float3 newScale = math.lerp(currentScale, targetScales[index], lerp);
 
@@ -197,6 +230,6 @@ public struct BasisTranslationUpdate
 {
     public float3 TargetPosition;
     public quaternion TargetRotation;
-    public float3 TargetScales;    // already present; now applied by job
+    public float3 TargetScales;
     public float LerpMultipliers;
 }

@@ -1,428 +1,408 @@
-using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Basis.Scripts.Eye_Follow
+/// <summary>
+/// Jobified, rig-agnostic "natural eye look around" with:
+/// - Humanoid LeftEye/RightEye bones
+/// - One-time auto-calibration per eye so it works across weird rigs (axis-agnostic)
+/// - Realistic timing: holds + fast saccades + micro-saccades
+/// - Hard clamp so eyes never exceed a max cone angle (approximated via yaw/pitch plane clamp)
+/// - Optional head micro-follow near the eye limit (prevents "pinned at edge" look)
+///
+/// NOTE: We jobify the math/state. Transform reads/writes stay on main thread (LateUpdate).
+/// </summary>
+[System.Serializable]
+public class BasisLocalEyeDriver
 {
-    /// <summary>
-    /// Drives local eye “look around” behavior for the local avatar by periodically
-    /// picking randomized gaze offsets relative to the head and smoothly rotating
-    /// eye bones toward those targets. Integrates with gizmos and face visibility.
-    /// </summary>
-    /// <remarks>
-    /// This component:
-    /// <list type="bullet">
-    /// <item>
-    /// Subscribes to local player spawn and renderer visibility to enable/disable updates.
-    /// </item>
-    /// <item>
-    /// Randomizes gaze offsets and speeds within configured ranges.
-    /// </item>
-    /// <item>
-    /// Optionally visualizes per–eye targets via <see cref="BasisGizmoManager"/>.
-    /// </item>
-    /// </list>
-    /// Updates are skipped when <see cref="Override"/> is <c>true</c> or when no head is present.
-    /// </remarks>
-    [DefaultExecutionOrder(15002)]
-    [System.Serializable]
-    public class BasisLocalEyeDriver
+    [Header("Limits")]
+    [Tooltip("Max eye rotation away from forward, in degrees.")]
+    [Range(1f, 30f)] public float maxAngleDeg = 25f;
+
+    [Header("Timing (realistic ranges)")]
+    [Tooltip("How long the eyes hold a direction.")]
+    public Vector2 holdTimeRange = new Vector2(0.55f, 4f);
+
+    [Tooltip("How long a saccade takes (fast).")]
+    public Vector2 saccadeTimeRange = new Vector2(0.05f, 0.15f);
+
+
+    [Header("Style")]
+    [Tooltip("Bias toward looking near center. Higher = more centered.")]
+    [Range(0f, 6f)] public float centerBias = 2.5f;
+
+    [Tooltip("Small divergence between eyes (degrees).")]
+    [Range(0f, 2f)] public float perEyeVarianceDeg = 0.4f;
+
+    [Tooltip("If true, eyes return to center occasionally.")]
+    public bool occasionalCenterReturn = true;
+
+    public static Transform leftEyeTransform, rightEyeTransform;
+    private static Transform _headRef;     // used for calibration reference
+    public static EyeCalibration calLeft;
+    public static EyeCalibration calRight;
+
+    private static NativeArray<EyeState> _state;
+
+
+    public static bool Override = false;
+    public static bool IsEnabled = false;
+
+    public static void Initalize()
     {
-        /// <summary>Initial local rotation of the left eye (captured on initialize).</summary>
-        public quaternion leftEyeInitialRotation;
+        Dispose();
 
-        /// <summary>Initial local rotation of the right eye (captured on initialize).</summary>
-        public quaternion rightEyeInitialRotation;
-
-        /// <summary>Tracks whether runtime events have been subscribed.</summary>
-        public bool HasEvents = false;
-
-        /// <summary>
-        /// Global switch to bypass updates for all instances. When <c>true</c>,
-        /// <see cref="RequiresUpdate"/> returns <c>false</c>.
-        /// </summary>
-        public static bool Override = false;
-
-        /// <summary>Current look interpolation speed used by <see cref="Simulate(float)"/>.</summary>
-        public float lookSpeed;
-
-        /// <summary>Minimum seconds between randomized look-around target changes.</summary>
-        public float MinLookAroundInterval = 1;
-
-        /// <summary>Maximum seconds between randomized look-around target changes.</summary>
-        public float MaxLookAroundInterval = 6;
-
-        /// <summary>Maximum randomized offset distance from the forward gaze target (in meters).</summary>
-        public float MaximumLookDistance = 0.25f;
-
-        /// <summary>Lower bound for randomized look speed per interval.</summary>
-        public float minLookSpeed = 0.03f;
-
-        /// <summary>Upper bound for randomized look speed per interval.</summary>
-        public float maxLookSpeed = 0.1f;
-
-        /// <summary>World-space transform of the left eye bone.</summary>
-        public Transform leftEyeTransform;
-
-        /// <summary>World-space transform of the right eye bone.</summary>
-        public Transform rightEyeTransform;
-
-        /// <summary>World-space transform of the head.</summary>
-        public Transform HeadTransform;
-
-        /// <summary>
-        /// Captured left-eye reference pose relative to the head at initialization
-        /// (position is offset from head, rotation is world rotation at capture).
-        /// </summary>
-        public BasisCalibratedCoords LeftEyeInitallocalSpace;
-
-        /// <summary>
-        /// Captured right-eye reference pose relative to the head at initialization
-        /// (position is offset from head, rotation is world rotation at capture).
-        /// </summary>
-        public BasisCalibratedCoords RightEyeInitallocalSpace;
-
-        /// <summary>The current randomized gaze center in world space.</summary>
-        public Vector3 RandomizedPosition;
-
-        /// <summary>True if a left eye bone is present in the current avatar.</summary>
-        public bool HasLeftEye = false;
-
-        /// <summary>True if a right eye bone is present in the current avatar.</summary>
-        public bool HasRightEye = false;
-
-        /// <summary>True if a head transform is present in the current avatar.</summary>
-        public static bool HasHead = false;
-
-        /// <summary>Whether a gizmo sphere has been created for the left eye target.</summary>
-        public bool LeftEyeHasGizmo;
-
-        /// <summary>Whether a gizmo sphere has been created for the right eye target.</summary>
-        public bool RightEyeHasGizmo;
-
-        /// <summary>Gizmo index for the left eye target sphere.</summary>
-        public int LeftEyeGizmoIndex;
-
-        /// <summary>Gizmo index for the right eye target sphere.</summary>
-        public int RightEyeGizmoIndex;
-
-        /// <summary>Computed left-eye target position in world space.</summary>
-        public Vector3 LeftEyeTargetWorld;
-
-        /// <summary>Computed right-eye target position in world space.</summary>
-        public Vector3 RightEyeTargetWorld;
-
-        /// <summary>Current center gaze target position in world space.</summary>
-        public Vector3 CenterTargetWorld;
-
-        /// <summary>The current randomized offset applied to the forward gaze.</summary>
-        public Vector3 AppliedOffset;
-
-        /// <summary>Local forward direction from the head used as the base gaze vector.</summary>
-        public Vector3 EyeForwards = new float3(0, 0, 1);
-
-        /// <summary>The active interval length (seconds) until the next randomization.</summary>
-        public float CurrentLookAroundInterval;
-
-        /// <summary>Elapsed time accumulator for interval timing (seconds).</summary>
-        public float timer;
-
-        /// <summary>
-        /// Distance threshold at which the target teleports instead of smoothing
-        /// (useful after disabling, teleport, or large head movement).
-        /// </summary>
-        public float DistanceBeforeTeleport = 30;
-
-        /// <summary>Singleton-like reference to the most recently initialized instance.</summary>
-        public static BasisLocalEyeDriver Instance;
-
-        /// <summary>Tracks if the driver was recently disabled to force a teleport catch-up.</summary>
-        public bool wasDisabled = false;
-
-        /// <summary>Whether the driver is currently enabled (e.g., face visible).</summary>
-        public bool IsEnabled;
-
-        /// <summary>
-        /// Cleans up subscriptions and static flags on destroy.
-        /// </summary>
-        /// <param name="Player">The local player instance associated with this driver.</param>
-        public void OnDestroy(BasisLocalPlayer Player)
+        var References = BasisLocalAvatarDriver.Mapping;
+        if (References.HasLeftEye == false || References.HasRightEye == false)
         {
-            HasHead = false;
-            Instance = null;
-            if (HasEvents)
-            {
-                if (Player.IsLocal)
-                {
-                    BasisLocalPlayer.OnSpawnedEvent -= AfterTeleport;
-                }
-                HasEvents = false;
-            }
-            BasisGizmoManager.OnUseGizmosChanged -= UpdateGizmoUsage;
-            if (Player.FaceRenderer != null)
-            {
-                Player.FaceRenderer.Check -= UpdateFaceVisibility;
-            }
-            // its regenerated this script will be nuked and rebuilt BasisLocalPlayer.OnLocalAvatarChanged -= AfterTeleport;
+            IsEnabled = false;
+            return;
         }
 
-        /// <summary>
-        /// Initializes references, baseline eye/head poses, gizmos, and visibility hooks.
-        /// Also randomizes the initial look speed within configured bounds.
-        /// </summary>
-        /// <param name="CAD">Avatar driver providing calibration context.</param>
-        /// <param name="Player">Player owning the avatar; used to gate local-only events.</param>
-        public void Initalize(BasisAvatarDriver CAD, BasisPlayer Player)
+        leftEyeTransform = References.LeftEye;
+        rightEyeTransform = References.RightEye;
+        _headRef = References.head;
+
+        _state = new NativeArray<EyeState>(1, Allocator.Persistent);
+        _state[0] = EyeState.Create((uint)UnityEngine.Random.Range(1, int.MaxValue));
+        CalibrateEyes();
+        IsEnabled = true;
+
+    }
+
+    public static JobHandle handle;
+    public static void Dispose()
+    {
+        if (_state.IsCreated)
         {
-            // Initialize look speed
-            lookSpeed = UnityEngine.Random.Range(minLookSpeed, maxLookSpeed);
-            if (HasEvents == false)
+            handle.Complete();
+            _state.Dispose();
+        }
+    }
+    public bool HasEyeSchedule = false;
+    public void Simulate(float dt)
+    {
+        if (IsEnabled && Override == false && HasEyeSchedule == false)
+        {
+            BasisEyeJob job = new BasisEyeJob
             {
-                if (Player.IsLocal)
-                {
-                    BasisLocalPlayer.OnSpawnedEvent += AfterTeleport;
-                }
-                HasEvents = true;
+                dt = dt,
+
+                maxAngleRad = maxAngleDeg,
+
+                holdMin = holdTimeRange.x,
+                holdMax = holdTimeRange.y,
+
+                saccadeMin = saccadeTimeRange.x,
+                saccadeMax = saccadeTimeRange.y,
+
+                centerBias = centerBias,
+                perEyeVarRad = perEyeVarianceDeg,
+                occasionalCenterReturn = occasionalCenterReturn,
+
+                calLeftBasis = calLeft.basis,
+                calLeftInvBasis = calLeft.invBasis,
+                calRightBasis = calRight.basis,
+                calRightInvBasis = calRight.invBasis,
+                rightBase = rightEyeTransform.localRotation,
+                leftBase = leftEyeTransform.localRotation,
+
+                state = _state
+            };
+            HasEyeSchedule = true;
+            handle = job.Schedule();
+        }
+    }
+    public void Apply()
+    {
+        if (HasEyeSchedule)
+        {
+            HasEyeSchedule = false;
+            handle.Complete();
+
+            EyeState s = _state[0];
+
+            // Apply results (still respecting base animation)
+            leftEyeTransform.localRotation = s.leftoutput;
+            rightEyeTransform.localRotation = s.rightoutput;
+        }
+    }
+
+    private static void CalibrateEyes()
+    {
+        // Per-eye calibration against head reference directions
+        calLeft = CalibrateOneEye(leftEyeTransform, _headRef);
+        calRight = CalibrateOneEye(rightEyeTransform, _headRef);
+    }
+
+    [System.Serializable]
+    public struct EyeCalibration
+    {
+        // basis maps canonical eye-space -> rig eye local-space
+        // canonical: +Z forward, +Y up, +X right
+        public quaternion basis;
+        public quaternion invBasis;
+        public quaternion initialRotation;
+    }
+    private static float3[] axes = new float3[]
+{
+            new float3( 1, 0, 0), new float3(-1, 0, 0),
+            new float3( 0, 1, 0), new float3( 0,-1, 0),
+            new float3( 0, 0, 1), new float3( 0, 0,-1)
+};
+    /// <summary>
+    /// Auto-detect the eye bone's local forward/up axes by comparing its transformed local axes
+    /// to the head reference forward/up in world space.
+    /// </summary>
+    private static EyeCalibration CalibrateOneEye(Transform eye, Transform refHead)
+    {
+
+        float3 headF = refHead.forward;
+        float3 headU = refHead.up;
+
+        // Pick local axis that best matches head forward
+        int bestF = 0;
+        float bestFDot = -1e9f;
+        for (int i = 0; i < axes.Length; i++)
+        {
+            float3 w = eye.TransformDirection((Vector3)axes[i]);
+            float d = math.dot(math.normalizesafe(w), math.normalizesafe(headF));
+            if (d > bestFDot) { bestFDot = d; bestF = i; }
+        }
+        float3 fLocal = axes[bestF];
+
+        // Pick local axis (not colinear with forward) that best matches head up
+        int bestU = 0;
+        float bestUDot = -1e9f;
+        for (int Index = 0; Index < axes.Length; Index++)
+        {
+            if (Index == bestF)
+            {
+                continue;
             }
 
-            var References = BasisLocalAvatarDriver.References;
-            rightEyeTransform = References.RightEye;
-            leftEyeTransform = References.LeftEye;
-            HeadTransform = References.head;
-
-            HasLeftEye = References.HasLeftEye;
-            HasRightEye = References.HasRightEye;
-            HasHead = References.Hashead;
-            Vector3 HeadPosition = References.head.position;
-
-            if (HasLeftEye)
+            if (math.abs(math.dot(axes[Index], fLocal)) > 0.9f)
             {
-                LeftEyeInitallocalSpace.rotation = leftEyeTransform.rotation;
-                LeftEyeInitallocalSpace.position = leftEyeTransform.position - HeadPosition;
-
-                leftEyeInitialRotation = leftEyeTransform.localRotation;
+                continue; // reject colinear
             }
 
-            if (HasRightEye)
+            float3 w = eye.TransformDirection((Vector3)axes[Index]);
+            float d = math.dot(math.normalizesafe(w), math.normalizesafe(headU));
+            if (d > bestUDot) { bestUDot = d; bestU = Index; }
+        }
+        float3 uLocal = axes[bestU];
+
+        // Orthonormalize basis
+        fLocal = math.normalize(fLocal);
+        uLocal = uLocal - fLocal * math.dot(uLocal, fLocal);
+        uLocal = math.normalizesafe(uLocal, new float3(0, 1, 0));
+
+        float3 rLocal = math.normalizesafe(math.cross(uLocal, fLocal), new float3(1, 0, 0));
+        uLocal = math.normalizesafe(math.cross(fLocal, rLocal), new float3(0, 1, 0));
+
+        // Build basis rotation: canonical (R,U,F) -> rig local (rLocal,uLocal,fLocal)
+        float3x3 m = new float3x3(rLocal, uLocal, fLocal);
+        quaternion basis = new quaternion(m);
+        quaternion inv = math.inverse(basis);
+
+        return new EyeCalibration { basis = basis, invBasis = inv, initialRotation = eye.localRotation };
+    }
+
+    [BurstCompile]
+    public struct BasisEyeJob : IJob
+    {
+        public float dt;
+
+        public float maxAngleRad;
+
+        public float holdMin, holdMax;
+        public float saccadeMin, saccadeMax;
+
+        public float centerBias;
+        public float perEyeVarRad;
+
+        public bool occasionalCenterReturn;
+
+        public quaternion calLeftBasis, calLeftInvBasis;
+        public quaternion calRightBasis, calRightInvBasis;
+
+        public NativeArray<EyeState> state;
+        public Quaternion rightBase;
+        public Quaternion leftBase;
+
+        public void Execute()
+        {
+            EyeState s = state[0];
+
+            s.Update(
+                dt,
+                math.radians(maxAngleRad),
+                holdMin, holdMax,
+                saccadeMin, saccadeMax,
+                centerBias,
+               math.radians(perEyeVarRad),
+                occasionalCenterReturn,
+                calLeftBasis, calLeftInvBasis,
+                calRightBasis, calRightInvBasis,
+                leftBase, rightBase
+            );
+
+
+            state[0] = s;
+        }
+    }
+
+    public struct EyeState
+    {
+        // RNG
+        public Unity.Mathematics.Random rng;
+
+        // Phase: 0=Hold, 1=Saccade
+        public byte phase;
+        public float phaseT;
+        public float phaseDur;
+
+        // Motion in canonical space as yaw/pitch (radians)
+        public float2 startYawPitch;
+        public float2 targetYawPitch;
+        public float2 currentYawPitch;
+
+        // Output rotations (rig-local offsets to multiply onto base animation)
+        public quaternion leftOffset;
+        public quaternion rightOffset;
+
+        public quaternion leftoutput;
+        public quaternion rightoutput;
+        public static EyeState Create(uint seed)
+        {
+            return new EyeState
             {
-                RightEyeInitallocalSpace.rotation = rightEyeTransform.rotation;
-                RightEyeInitallocalSpace.position = rightEyeTransform.position - HeadPosition;
+                rng = new Unity.Mathematics.Random(seed),
 
-                rightEyeInitialRotation = rightEyeTransform.localRotation;
-            }
+                phase = 0,
+                phaseT = 0f,
+                phaseDur = 0.5f,
 
-            BasisGizmoManager.OnUseGizmosChanged += UpdateGizmoUsage;
+                startYawPitch = float2.zero,
+                targetYawPitch = float2.zero,
+                currentYawPitch = float2.zero,
 
-            if (BasisLocalPlayer.Instance != null && BasisLocalPlayer.Instance.FaceRenderer != null)
-            {
-                BasisDebug.Log("Wired up Renderer Check For Blinking");
-                BasisLocalPlayer.Instance.FaceRenderer.Check += UpdateFaceVisibility;
-                UpdateFaceVisibility(BasisLocalPlayer.Instance.FaceIsVisible);
-            }
-            else
-            {
-                BasisDebug.LogError("Missing Render Checks");
-            }
-
-            Instance = this;
-            IsEnabled = true;
+                leftOffset = quaternion.identity,
+                rightOffset = quaternion.identity,
+            };
         }
 
-        /// <summary>
-        /// Renderer visibility callback. Enables/disables simulation based on face visibility.
-        /// </summary>
-        /// <param name="State">True when the face is visible and eye updates should run.</param>
-        private void UpdateFaceVisibility(bool State)
+        public void Update(
+            float dt,
+            float maxAngleRad,
+            float holdMin, float holdMax,
+            float saccadeMin, float saccadeMax,
+            float centerBias,
+            float perEyeVarRad,
+            bool occasionalCenterReturn,
+            quaternion calLeftBasis, quaternion calLeftInvBasis,
+            quaternion calRightBasis, quaternion calRightInvBasis,
+            quaternion leftinput,quaternion rightinput
+            )
         {
-            IsEnabled = State;
+            // Advance timers
+            phaseT += dt;
+
+            if (phase == 0) // Hold
+            {
+                // Soft drift toward target while holding
+                currentYawPitch = math.lerp(currentYawPitch, targetYawPitch, 1f - math.exp(-dt * 8f));
+
+                // End hold -> begin saccade
+                if (phaseT >= phaseDur)
+                {
+                    phase = 1;
+                    phaseT = 0f;
+                    phaseDur = rng.NextFloat(saccadeMin, saccadeMax);
+
+                    startYawPitch = currentYawPitch;
+                    targetYawPitch = PickNewTarget(ref rng, maxAngleRad, centerBias, occasionalCenterReturn);
+                }
+            }
+            else // Saccade
+            {
+                float u = math.saturate(phaseT / math.max(phaseDur, 1e-5f));
+
+                // Ease-out-ish: quick start, settle
+                float eased = 1f - math.pow(1f - u, 3f);
+
+                currentYawPitch = math.lerp(startYawPitch, targetYawPitch, eased);
+
+                // End saccade -> hold
+                if (phaseT >= phaseDur)
+                {
+                    phase = 0;
+                    phaseT = 0f;
+                    phaseDur = rng.NextFloat(holdMin, holdMax);
+                }
+            }
+
+            // Slight per-eye variation (still highly correlated)
+            float2 eyeVar = new float2(
+                rng.NextFloat(-perEyeVarRad, perEyeVarRad),
+                rng.NextFloat(-perEyeVarRad, perEyeVarRad)
+            );
+
+            float2 leftYP = ClampYawPitchPlane(currentYawPitch + eyeVar * 0.6f, maxAngleRad);
+            float2 rightYP = ClampYawPitchPlane(currentYawPitch - eyeVar * 0.6f, maxAngleRad);
+
+            // Build canonical yaw/pitch -> rig-local offset via calibration basis
+            leftOffset = CanonicalYawPitchToRigOffset(leftYP, calLeftBasis, calLeftInvBasis);
+            rightOffset = CanonicalYawPitchToRigOffset(rightYP, calRightBasis, calRightInvBasis);
+
+            leftoutput = math.mul(leftinput, leftOffset);
+            rightoutput = math.mul(rightinput, rightOffset);
+        }
+        // Canonical yaw around +Y, pitch around +X, forward +Z
+        private static quaternion CanonicalYawPitchToQuat(float2 yawPitch)
+        {
+            quaternion yaw = quaternion.AxisAngle(new float3(0, 1, 0), yawPitch.x);
+            quaternion pitch = quaternion.AxisAngle(new float3(1, 0, 0), -yawPitch.y);
+            return math.mul(yaw, pitch);
         }
 
-        /// <summary>
-        /// Creates or removes gizmo spheres for eye targets based on <paramref name="State"/>.
-        /// </summary>
-        /// <param name="State">Whether gizmos should be active.</param>
-        public void UpdateGizmoUsage(bool State)
+        // Convert canonical offset to rig-local using: basis * q * basis^-1
+        private static quaternion CanonicalYawPitchToRigOffset(float2 yawPitch, quaternion basis, quaternion invBasis)
         {
-            BasisDebug.Log("Running Bone EyeFollow Gizmos");
-            if (State)
-            {
-                if (LeftEyeHasGizmo == false)
-                {
-                    BasisGizmoManager.CreateSphereGizmo("LeftEye Target", out LeftEyeGizmoIndex, LeftEyeTargetWorld, 0.1f, Color.cyan);
-                    LeftEyeHasGizmo = true;
-                }
-                if (RightEyeHasGizmo == false)
-                {
-                    BasisGizmoManager.CreateSphereGizmo("RightEye Target", out RightEyeGizmoIndex, RightEyeTargetWorld, 0.1f, Color.magenta);
-                    RightEyeHasGizmo = true;
-                }
-            }
-            else
-            {
-                LeftEyeHasGizmo = false;
-                RightEyeHasGizmo = false;
-            }
+            quaternion qCan = CanonicalYawPitchToQuat(yawPitch);
+            return math.mul(math.mul(basis, qCan), invBasis);
         }
 
-        /// <summary>
-        /// Post-teleport handler that forces a catch-up simulation step and re-seeds the center target.
-        /// </summary>
-        public void AfterTeleport()
+        // Plane clamp: keeps sqrt(yaw^2 + pitch^2) <= maxAngle (good approximation of cone for small angles)
+        private static float2 ClampYawPitchPlane(float2 yawPitch, float maxAngleRad)
         {
-            if (RequiresUpdate())
-            {
-                Simulate(Time.deltaTime);
-            }
-            CenterTargetWorld = RandomizedPosition; // will be caught up
+            float mag = math.length(yawPitch);
+            if (mag > maxAngleRad)
+                yawPitch *= (maxAngleRad / mag);
+            return yawPitch;
         }
 
-        /// <summary>
-        /// Restores initial eye rotations and disables head availability when the driver is disabled.
-        /// </summary>
-        public void OnDisable()
+        private static float2 PickNewTarget(ref Unity.Mathematics.Random rng, float maxAngleRad, float centerBias, bool occasionalCenterReturn)
         {
-            if (HasLeftEye && leftEyeTransform != null)
+            // Occasionally return toward center
+            if (occasionalCenterReturn && rng.NextFloat() < 0.18f)
             {
-                leftEyeTransform.rotation = LeftEyeInitallocalSpace.rotation;
+                float small = maxAngleRad * 0.25f;
+                return new float2(rng.NextFloat(-small, small), rng.NextFloat(-small, small));
             }
 
-            if (HasRightEye && rightEyeTransform != null)
-            {
-                rightEyeTransform.rotation = RightEyeInitallocalSpace.rotation;
-            }
-            CenterTargetWorld = RandomizedPosition;
-            wasDisabled = true;
-            HasHead = false;
-        }
+            // Bias toward center: r = U^(bias) * max
+            float u = rng.NextFloat(0f, 1f);
+            float r = math.pow(u, centerBias) * maxAngleRad;
 
-        /// <summary>
-        /// Returns whether the driver should run simulation this frame.
-        /// </summary>
-        /// <returns>
-        /// <c>true</c> when <see cref="Override"/> is <c>false</c> and a head is present; otherwise <c>false</c>.
-        /// </returns>
-        public static bool RequiresUpdate()
-        {
-            return Override == false && HasHead;
-        }
+            float a = rng.NextFloat(0f, math.PI * 2f);
+            float yaw = math.cos(a) * r;
+            float pitch = math.sin(a) * r;
 
-        /// <summary>
-        /// Advances the eye-look simulation by <paramref name="DeltaTime"/> seconds:
-        /// randomizes intervals and speeds, computes a center gaze target from head pose,
-        /// teleports for large changes or after disable, and rotates each eye toward its target.
-        /// </summary>
-        /// <param name="DeltaTime">Time step in seconds (typically <see cref="Time.deltaTime"/>).</param>
-        public void Simulate(float DeltaTime)
-        {
-            if (IsEnabled)
-            {
-                // Update timer using DeltaTime
-                timer += DeltaTime;
-
-                // Check if it's time to look around
-                if (timer > CurrentLookAroundInterval)
-                {
-                    CurrentLookAroundInterval = UnityEngine.Random.Range(MinLookAroundInterval, MaxLookAroundInterval);
-                    AppliedOffset = UnityEngine.Random.insideUnitSphere * MaximumLookDistance;
-
-                    // Reset timer and randomize look speed
-                    timer = 0f;
-                    lookSpeed = UnityEngine.Random.Range(minLookSpeed, maxLookSpeed);
-                }
-
-                HeadTransform.GetPositionAndRotation(out Vector3 headPosition, out Quaternion headRotation);
-
-                // Calculate the randomized target position using float3 for optimized math operations
-                Vector3 targetPosition = headPosition + (headRotation * EyeForwards) + AppliedOffset;
-
-                // Check distance for teleporting, otherwise smooth move
-                if (math.distance(targetPosition, CenterTargetWorld) > DistanceBeforeTeleport || wasDisabled)
-                {
-                    CenterTargetWorld = targetPosition;
-                    wasDisabled = false;
-                }
-                else
-                {
-                    CenterTargetWorld = Vector3.MoveTowards(CenterTargetWorld, targetPosition, lookSpeed);
-                }
-
-                Quaternion InversedHeadRotation = math.inverse(headRotation);
-                Vector3 Up = HeadTransform.up;
-
-                // Set eye rotations using optimized float3 and quaternion operations
-                if (HasLeftEye)
-                {
-                    LeftEyeTargetWorld = CenterTargetWorld + LeftEyeInitallocalSpace.position;
-                    leftEyeTransform.rotation = LookAtTarget(leftEyeTransform.position, LeftEyeTargetWorld, math.mul(LeftEyeInitallocalSpace.rotation, InversedHeadRotation), Up);
-                }
-                if (HasRightEye)
-                {
-                    RightEyeTargetWorld = CenterTargetWorld + RightEyeInitallocalSpace.position;
-                    rightEyeTransform.rotation = LookAtTarget(rightEyeTransform.position, RightEyeTargetWorld, math.mul(RightEyeInitallocalSpace.rotation, InversedHeadRotation), Up);
-                }
-
-                if (SMModuleDebugOptions.UseGizmos)
-                {
-                    if (RightEyeHasGizmo)
-                    {
-                        if (BasisGizmoManager.UpdateSphereGizmo(RightEyeGizmoIndex, RightEyeTargetWorld) == false)
-                        {
-                            RightEyeHasGizmo = false;
-                        }
-                    }
-                    if (LeftEyeHasGizmo)
-                    {
-                        if (BasisGizmoManager.UpdateSphereGizmo(LeftEyeGizmoIndex, LeftEyeTargetWorld) == false)
-                        {
-                            LeftEyeHasGizmo = false;
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Computes a world rotation for an eye so it looks from <paramref name="observerPosition"/>
-        /// toward <paramref name="targetPosition"/>, using <paramref name="UP"/> as the up vector
-        /// and blending with the provided <paramref name="initialRotation"/>.
-        /// </summary>
-        /// <param name="observerPosition">World position of the eye (observer).</param>
-        /// <param name="targetPosition">World position the eye should look at.</param>
-        /// <param name="initialRotation">Reference rotation captured at initialization.</param>
-        /// <param name="UP">Up vector used to resolve roll.</param>
-        /// <returns>Quaternion rotation that points the eye toward the target.</returns>
-        private Quaternion LookAtTarget(Vector3 observerPosition, Vector3 targetPosition, Quaternion initialRotation, Vector3 up)
-        {
-            const float EPS = 1e-8f;
-
-            // 1) Forward vector (guard zero)
-            Vector3 toTarget = targetPosition - observerPosition;
-            if (toTarget.sqrMagnitude < EPS)
-                return initialRotation; // nothing to look at; keep what you have
-
-            Vector3 forward = toTarget.normalized;
-
-            // 2) Up vector (guard zero + colinearity with forward)
-            if (up.sqrMagnitude < EPS) up = Vector3.up;
-            if (Vector3.Cross(forward, up).sqrMagnitude < EPS)
-            {
-                // Choose a fallback up that's not colinear with forward
-                up = Mathf.Abs(Vector3.Dot(forward, Vector3.up)) > 0.99f ? Vector3.right : Vector3.up;
-            }
-
-            Quaternion look = Quaternion.LookRotation(forward, up);
-
-            // 3) If you want to BLEND toward the new look (instead of snapping), add a blend factor:
-            // float blend = 0.2f; // 0=keep initialRotation, 1=full look
-            // return Quaternion.Slerp(initialRotation, look, blend);
-
-            // 4) If you intended to PRESERVE a captured local offset (e.g., eye bone rest pose),
-            // compute it once at init: offset = Quaternion.Inverse(referenceLook) * initialRotation;
-            // then use: return look * offset;
-
-            return look;
+            return new float2(yaw, pitch);
         }
     }
 }

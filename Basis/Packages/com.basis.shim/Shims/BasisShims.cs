@@ -1,4 +1,4 @@
-using Basis;
+using Basis.Shims;
 using System;
 using UnityEngine.Networking;
 using UnityEngine;
@@ -22,32 +22,20 @@ namespace Basis
 
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
-			// Actually needs to be CilboxProxies.
-			GameObject go = null;
-			string setGUID = "";
-			if( o is CilboxProxy )
+			if (o is not MonoBehaviour behaviour)
 			{
-				CilboxProxy p = (CilboxProxy)o;
-				go = p.gameObject;
-				setGUID = p.buildTimeGuid + p.initialLoadPath;
-			}
-			else
-			{
-				MonoBehaviour p = (MonoBehaviour)o;
-				go = p.gameObject;
-				setGUID = p.GetInstanceID().ToString();
+				Debug.LogError( $"Object {o} is not a MonoBehaviour and cannot be made networkable." );
+				return null;
 			}
 
-			BasisNetworkShim bi;
+			return MakeNetworkable( behaviour );
+		}
 
-			if( go.TryGetComponent<BasisNetworkShim>( out bi ) ) return bi;
+		public static BasisNetworkShim MakeNetworkable( MonoBehaviour mb )
+		{
+			if( mb.gameObject.TryGetComponent<BasisNetworkShim>( out BasisNetworkShim bi ) ) return bi;
 
-			bi = go.AddComponent<BasisNetworkShim>();
-
-			bi.AssignNetworkGUIDIdentifier(setGUID);
-			Debug.Log( $"ADDING ASSIGN: {bi} {setGUID}");
-
-			return bi;
+			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
 
 		public static BasisInteractableShim MakeInteractable( object o )
@@ -124,7 +112,7 @@ namespace Basis
 					InFlight.Remove( www );
 					callback( new IBasisImageDownload( www, dht, null ) );
 				}
-			}; 
+			};
 
 			req.completed += eventcb;
 
@@ -166,7 +154,7 @@ namespace Basis
 					DownloadHandler dh = www.downloadHandler;
 					callback( www.result == UnityWebRequest.Result.Success, dh.error, dh.GetData() );
 				}
-			}; 
+			};
 
 			if( !bCompleted && req.isDone )
 			{

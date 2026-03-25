@@ -1,6 +1,7 @@
 using Basis.Scripts.Addressable_Driver.Resource;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Concurrent;
@@ -87,7 +88,6 @@ namespace Basis.Scripts.Avatar
 
             // Fallback can happen instantly, no restriction
             RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
-
             try
             {
                 GameObject Output = null;
@@ -117,10 +117,10 @@ namespace Basis.Scripts.Avatar
                             {
                                 BasisDebug.Log($"Requested Avatar was an Addressable Avatar {BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation}", BasisDebug.LogTag.Avatar);
                                 InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
-                                ChecksRequired Required = new ChecksRequired(true, false, true);
+                                ChecksRequired Required = new ChecksRequired(true, false, false,true);
 
                                 // If LoadAsGameObjectsAsync doesn't accept a token, we still check before/after.
-                                Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(
+                                Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
                                     BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
 
                                 token.ThrowIfCancellationRequested();
@@ -139,7 +139,6 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarLoadMode = Mode;
 
                 InitializePlayerAvatar(Player, Output);
-                BasisHeightDriver.ChangeEyeHeightMode(Player, BasisSelectedHeightMode.EyeHeight);
                 Player.AvatarSwitched();
             }
             catch (OperationCanceledException)
@@ -169,6 +168,7 @@ namespace Basis.Scripts.Avatar
 
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
+                Player.AvatarLoadErrorMessage = "Avatar address was empty or null";
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
                 await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
                 ClearPlayerLoadToken(Player, token);
@@ -177,11 +177,9 @@ namespace Basis.Scripts.Avatar
 
             // Instant fallback, not gated
             RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
-
+            GameObject Output = null;
             try
             {
-                GameObject Output = null;
-
                 switch (Mode)
                 {
                     case 2:
@@ -203,10 +201,10 @@ namespace Basis.Scripts.Avatar
                             }
                             else
                             {
-                                ChecksRequired Required = new ChecksRequired(false, false, true);
+                                ChecksRequired Required = new ChecksRequired(false, false, false,true);
                                 InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
 
-                                Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(
+                                Output = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
                                     BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
 
                                 token.ThrowIfCancellationRequested();
@@ -225,14 +223,21 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarLoadMode = Mode;
 
                 InitializePlayerAvatar(Player, Output);
+                Player.AvatarLoadErrorMessage = null;
                 Player.AvatarSwitched();
             }
             catch (OperationCanceledException)
             {
-                // replaced; ignore
+                // Load was cancelled (e.g. player disconnected). Destroy any already-instantiated
+                // avatar GameObject to prevent it from being orphaned at spawn.
+                if (Output != null)
+                {
+                    GameObject.Destroy(Output);
+                }
             }
             catch (Exception e)
             {
+                Player.AvatarLoadErrorMessage = $"Loading avatar failed: {e.Message}";
                 BasisDebug.LogError($"Loading avatar failed: {e}");
                 if (!token.IsCancellationRequested)
                     await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
@@ -254,9 +259,9 @@ namespace Basis.Scripts.Avatar
         public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken  Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
         {
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
-            GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(
+            GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject,
                 BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, Token,
-                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform, true,MaxDownloadSizeInMB);
+                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform,false,true,MaxDownloadSizeInMB);
 
             BasisPlayer.ProgressReportAvatarLoad.ReportProgress(UniqueID, 100, "Setting Position");
             return Output;
@@ -304,6 +309,7 @@ namespace Basis.Scripts.Avatar
             Player.IsConsideredFallBackAvatar = isFallback;
             Player.BasisAvatar = avatar;
             Player.AvatarTransform = avatar.transform;
+            Player.AvatarAnimatorTransform = avatar.Animator.transform;
             Player.BasisAvatar.Renders = avatar.GetComponentsInChildren<Renderer>(true);
             Player.BasisAvatar.IsOwnedLocally = Player.IsLocal;
 
@@ -326,9 +332,9 @@ namespace Basis.Scripts.Avatar
         {
             try
             {
-                ChecksRequired Required = new ChecksRequired(false, false, true);
+                ChecksRequired Required = new ChecksRequired(false, false, false,true);
                 InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
-                GameObject data = await AddressableResourceProcess.LoadAsGameObjectsAsync(
+                GameObject data = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
                     LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
 
                 InitializePlayerAvatar(Player, data);
@@ -427,6 +433,21 @@ namespace Basis.Scripts.Avatar
             if (_playerLoadCts.TryGetValue(key, out var cts) && cts.Token == token)
             {
                 _playerLoadCts.TryRemove(key, out _);
+                cts.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Cancels any in-flight avatar load for the given player.
+        /// Call this before destroying a player to prevent orphaned avatar GameObjects.
+        /// </summary>
+        public static void CancelPlayerLoad(BasisPlayer player)
+        {
+            if (player == null) return;
+            int key = player.GetInstanceID();
+            if (_playerLoadCts.TryRemove(key, out var cts))
+            {
+                try { cts.Cancel(); } catch { /* ignore */ }
                 cts.Dispose();
             }
         }

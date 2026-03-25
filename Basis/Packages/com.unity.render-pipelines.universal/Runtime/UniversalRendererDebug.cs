@@ -27,7 +27,7 @@ namespace UnityEngine.Rendering.Universal
             debugTexDescriptor.bindMS = false;
             debugTexDescriptor.depthStencilFormat = GraphicsFormat.None;
 
-            RenderingUtils.ReAllocateHandleIfNeeded(ref m_RenderGraphDebugTextureHandle, debugTexDescriptor, FilterMode.Point, TextureWrapMode.Clamp, name: "_RenderingDebuggerTexture");
+            RenderingUtils.ReAllocateHandleIfNeeded(ref s_RenderGraphDebugTextureHandle, debugTexDescriptor, FilterMode.Point, TextureWrapMode.Clamp, name: "_RenderingDebuggerTexture");
         }
 
         private Rect CalculateUVRect(UniversalCameraData cameraData, float width, float height)
@@ -102,7 +102,7 @@ namespace UnityEngine.Rendering.Universal
                         ImportResourceParams importParams = new ImportResourceParams();
                         importParams.clearOnFirstUse = false;
                         importParams.discardOnLastUse = false;
-                        TextureHandle debugTexture = renderGraph.ImportTexture(m_RenderGraphDebugTextureHandle, importParams);
+                        TextureHandle debugTexture = renderGraph.ImportTexture(s_RenderGraphDebugTextureHandle, importParams);
 
 
                         switch (fullScreenDebugMode)
@@ -187,7 +187,7 @@ namespace UnityEngine.Rendering.Universal
 
 
                     Rect uvRect = CalculateUVRect(cameraData, width, height);
-                    DebugHandler.SetDebugRenderTarget(m_RenderGraphDebugTextureHandle, uvRect, supportsStereo, dataRangeRemap);
+                    DebugHandler.SetDebugRenderTarget(s_RenderGraphDebugTextureHandle, uvRect, supportsStereo, dataRangeRemap);
                 }
                 else
                 {
@@ -201,7 +201,7 @@ namespace UnityEngine.Rendering.Universal
                 {
                     var debugSettings = DebugHandler.DebugDisplaySettings.gpuResidentDrawerSettings;
 
-                    GPUResidentDrawer.RenderDebugOcclusionTestOverlay(renderGraph, debugSettings, cameraData.camera.GetInstanceID(), resourceData.activeColorTexture);
+                    GPUResidentDrawer.RenderDebugOcclusionTestOverlay(renderGraph, debugSettings, cameraData.camera.GetEntityId(), resourceData.activeColorTexture);
 
                     float screenWidth = (int)(cameraData.pixelHeight * cameraData.renderScale);
                     float screenHeight = (int)(cameraData.pixelHeight * cameraData.renderScale);
@@ -226,12 +226,12 @@ namespace UnityEngine.Rendering.Universal
                     ImportResourceParams importParams = new ImportResourceParams();
                     importParams.clearOnFirstUse = false;
                     importParams.discardOnLastUse = false;
-                    TextureHandle debugTexture = renderGraph.ImportTexture(m_RenderGraphDebugTextureHandle, importParams);
+                    TextureHandle debugTexture = renderGraph.ImportTexture(s_RenderGraphDebugTextureHandle, importParams);
                     BlitToDebugTexture(renderGraph, resourceData.stpDebugView, debugTexture);
 
                     Rect uvRect = CalculateUVRect(cameraData, textureHeightPercent);
                     Vector4 rangeRemap = Vector4.zero; // Off
-                    DebugHandler.SetDebugRenderTarget(m_RenderGraphDebugTextureHandle, uvRect, true, rangeRemap);
+                    DebugHandler.SetDebugRenderTarget(s_RenderGraphDebugTextureHandle, uvRect, true, rangeRemap);
                 }
             }
         }
@@ -275,7 +275,7 @@ namespace UnityEngine.Rendering.Universal
                 builder.SetRenderAttachment(destination, 0);
 
                 builder.AllowPassCulling(false);
-                builder.SetRenderFunc((CopyToDebugTexturePassData data, RasterGraphContext context) =>
+                builder.SetRenderFunc(static (CopyToDebugTexturePassData data, RasterGraphContext context) =>
                 {
                     Blitter.BlitTexture(context.cmd, data.src, new Vector4(1,1,0,0), 0, false);
                 });

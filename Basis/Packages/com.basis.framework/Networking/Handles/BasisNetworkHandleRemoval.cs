@@ -2,6 +2,7 @@ using Basis.Scripts.Avatar;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.Networking.Receivers;
 using Basis.Network.Core;
 using UnityEngine;
 
@@ -23,7 +24,7 @@ public static class BasisNetworkHandleRemoval
 
     public static void HandleDisconnectId(ushort disconnectedID)
     {
-        if (disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
+        if (BasisNetworkPlayer.LocalPlayer != null && disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
         {
             BasisDebug.LogError("LocalPlayer Matched Disconnected ID returning early");
             return;
@@ -38,9 +39,9 @@ public static class BasisNetworkHandleRemoval
 
     public static void HandleDisconnectIdImmediate(ushort disconnectedID)
     {
-        if (disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
+        if (BasisNetworkPlayer.LocalPlayer != null && disconnectedID == BasisNetworkPlayer.LocalPlayer.playerId)
         {
-            BasisDebug.LogError("LocalPlayer Matched Disconnected ID returning early");
+           // BasisDebug.LogError("LocalPlayer Matched Disconnected ID returning early");
             return;
         }
 
@@ -64,8 +65,17 @@ public static class BasisNetworkHandleRemoval
             }
             BasisNetworkPlayer.OnPlayerLeft?.Invoke(network);
 
+            // Clean up any shout audio for this player
+            BasisShoutAudioDriver.RemovePlayer(disconnectedID);
+
             // Shutdown networking
             network.DeInitialize();
+
+            // Cancel any in-flight async avatar load to prevent orphaned avatar GameObjects
+            if (network.Player != null)
+            {
+                BasisAvatarFactory.CancelPlayerLoad(network.Player);
+            }
 
             if (network.Player != null)
             {

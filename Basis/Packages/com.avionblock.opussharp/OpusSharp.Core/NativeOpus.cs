@@ -11,6 +11,12 @@ namespace OpusSharp.Core
     /// </summary>
     public static class NativeOpus
     {
+<<<<<<< HEAD
+=======
+#if UNITY_IOS && !UNITY_EDITOR
+        private const string DllName = "__Internal";
+#else
+>>>>>>> a5d5f1d0f588559637e32080f644b9d134cab16c
         private const string DllName = "opus";
 
         //Encoder

@@ -82,7 +82,7 @@ public class BasisLocalVirtualSpineDriver
         BasisLocalBoneDriver.SpineControl.HasVirtualOverride = true;
         BasisLocalBoneDriver.HipsControl.HasVirtualOverride = true;
 
-        BasisLocalPlayer.Instance.OnPreSimulateBones += OnSimulate;
+        BasisLocalPlayer.Instance.OnVirtualData += OnSimulate;
         _initialized = true;
     }
 
@@ -102,7 +102,7 @@ public class BasisLocalVirtualSpineDriver
             BasisLocalBoneDriver.HipsControl.HasVirtualOverride = false;
             Instance = null;
         }
-        BasisLocalPlayer.Instance.OnPreSimulateBones -= OnSimulate;
+        BasisLocalPlayer.Instance.OnVirtualData -= OnSimulate;
         _initialized = false;
     }
 
@@ -135,8 +135,7 @@ public class BasisLocalVirtualSpineDriver
         _lenTotal = Mathf.Max(1e-4f, _lenNeckToChest + _lenChestToSpine + _lenSpineToHips);
 
         float dt = Time.deltaTime;
-        var parent = BasisLocalPlayer.Instance.transform;
-        Matrix4x4 parentMatrix = parent.localToWorldMatrix;
+        Matrix4x4 parentMatrix = BasisLocalPlayer.localToWorldMatrix;
 
         // =========================
         // 1) HEAD & NECK (top cues)
@@ -164,7 +163,8 @@ public class BasisLocalVirtualSpineDriver
 
         // Add small forward bias using head yaw, which also applies to the hips, except when overridden.
         Quaternion headYaw = HipsFreezeToTpose ? Quaternion.identity : ExtractYawRotation(head.OutGoingData.rotation);
-        idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
+        idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale);
+
 
         // Blend XZ with tracked hips for authority retention
         Vector3 trackedHips = hips.Target.OutGoingData.position;

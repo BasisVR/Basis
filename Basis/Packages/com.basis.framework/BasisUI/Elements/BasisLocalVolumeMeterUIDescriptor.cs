@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
+#if !BASIS_DISABLE_MICROPHONE
     [RequireComponent(typeof(BasisLocalVolumeMeterUI))]
     public class BasisLocalVolumeMeterUIDescriptor : AddressableUIInstanceBase
     {
@@ -119,4 +120,5 @@ namespace Basis.BasisUI
         }
 #endif
     }
+#endif
 }

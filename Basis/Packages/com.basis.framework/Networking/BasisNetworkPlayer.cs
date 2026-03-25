@@ -43,7 +43,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         };
         [SerializeField]
         public HumanPoseHandler PoseHandler;
-        public BasisPlayer Player;
+        public BasisPlayer Player {get; set; }
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -62,7 +62,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-        public ushort playerId;
+        public ushort playerId {get; protected set; }
         public Dictionary<byte, ServerAvatarDataMessageQueue> NextMessages = new Dictionary<byte, ServerAvatarDataMessageQueue>();
         public struct ServerAvatarDataMessageQueue
         {
@@ -104,9 +104,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // All checks pas
                 PoseHandler = new HumanPoseHandler(
                     basisAvatar.Animator.avatar,
-                    Player.AvatarTransform
+                    Player.AvatarAnimatorTransform
                 );
-                PoseHandler.GetHumanPose(ref HumanPose);
+               // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
                 NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
                 NetworkBehaviourCount = NetworkBehaviours.Length;
@@ -143,7 +143,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public void OnAvatarServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
         {
-            if (BasisNetworkManagement.Instance != null && BasisNetworkManagement.Transmitter != null)
+            if (BasisNetworkManagement.Transmitter != null)
             {
                 AdditionalAvatarData AAD = new AdditionalAvatarData
                 {
@@ -170,17 +170,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 recipientsSize = 0,
             };
             NetDataWriter netDataWriter = new NetDataWriter();
-            if (DeliveryMethod == DeliveryMethod.Unreliable)
-            {
-                netDataWriter.Put(BasisNetworkCommons.AvatarChannel);
-                AvatarDataMessage.Serialize(netDataWriter);
-                BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, DeliveryMethod);
-            }
-            else
-            {
-                AvatarDataMessage.Serialize(netDataWriter);
-                BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
-            }
+            AvatarDataMessage.Serialize(netDataWriter);
+            BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarDataMessage, netDataWriter.Length);
         }
         public static bool AvatarToPlayer(BasisAvatar Avatar, out BasisPlayer BasisPlayer)
@@ -294,7 +285,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                return BasisLocalAvatarDriver.References.GetBoneLocalPositionRotation(bone, out position, out rotation);
+                return BasisLocalAvatarDriver.Mapping.GetBoneLocalPositionRotation(bone, out position, out rotation);
             }
             else
             {
@@ -401,7 +392,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                BasisLocalAvatarDriver.References.GetBonePosition(bone, out Vector3 position);
+                BasisLocalAvatarDriver.Mapping.GetBonePosition(bone, out Vector3 position);
                 return position;
             }
             else
@@ -414,7 +405,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                BasisLocalAvatarDriver.References.GetBoneRotation(bone, out Quaternion rotation);
+                BasisLocalAvatarDriver.Mapping.GetBoneRotation(bone, out Quaternion rotation);
                 return rotation;
             }
             else
@@ -509,6 +500,21 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 if (Player != null)
                 {
                     return Player.DisplayName;
+                }
+                else
+                {
+                    return string.Empty;
+                }
+            }
+        }
+        
+        public string SafeDisplayName
+        {
+            get
+            {
+                if (Player != null)
+                {
+                    return Player.SafeDisplayName;
                 }
                 else
                 {

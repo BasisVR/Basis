@@ -149,6 +149,15 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "Tab",
+                    "type": "Button",
+                    "id": "ebb32108-0caa-4287-8dce-cea9355734d9",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -278,7 +287,7 @@
                     "id": "c1f7a91b-d0fd-4a62-997e-7fb9b69bf235",
                     "path": "<Gamepad>/rightStick",
                     "interactions": "",
-                    "processors": "ScaleVector2(x=25,y=25),StickDeadzone",
+                    "processors": "StickDeadzone",
                     "groups": ";Gamepad;All",
                     "action": "Look Delta",
                     "isComposite": false,
@@ -734,6 +743,17 @@
                     "action": "MoveLocalUpDown",
                     "isComposite": false,
                     "isPartOfComposite": true
+                },
+                {
+                    "name": "",
+                    "id": "e0bebede-694f-4d81-b191-3c94f528f23d",
+                    "path": "<Keyboard>/tab",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";All",
+                    "action": "Tab",
+                    "isComposite": false,
+                    "isPartOfComposite": false
                 }
             ]
         }

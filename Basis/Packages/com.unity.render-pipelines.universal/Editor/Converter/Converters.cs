@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Reflection;
+using System.Text;
+using UnityEditor.Rendering.Converter;
 using UnityEngine;
 
 namespace UnityEditor.Rendering.Universal
@@ -8,7 +10,7 @@ namespace UnityEditor.Rendering.Universal
     /// <summary>
     /// Filter for the list of converters used in batch mode.
     /// </summary>
-    /// <seealso cref="Converters.RunInBatchMode(UnityEditor.Rendering.Universal.ConverterContainerId, List{UnityEditor.Rendering.Universal.ConverterId}, UnityEditor.Rendering.Universal.ConverterFilter)"/>.)
+    /// <seealso cref="Converters.RunInBatchMode(UnityEditor.Rendering.Universal.ConverterContainerId, List{UnityEditor.Rendering.Universal.ConverterId}, UnityEditor.Rendering.Universal.ConverterFilter)"/>
     public enum ConverterFilter
     {
         /// <summary>
@@ -25,7 +27,7 @@ namespace UnityEditor.Rendering.Universal
     /// <summary>
     /// The container to run in batch mode.
     /// </summary>
-    /// <seealso cref="Converters.RunInBatchMode(UnityEditor.Rendering.Universal.ConverterContainerId)"/>.)
+    /// <seealso cref="Converters.RunInBatchMode(UnityEditor.Rendering.Universal.ConverterContainerId)"/>
     public enum ConverterContainerId
     {
         /// <summary>
@@ -39,45 +41,83 @@ namespace UnityEditor.Rendering.Universal
         BuiltInToURP2D,
 
         /// <summary>
+        /// Use this for Built-in and 3D URP to 2D (URP) converter.
+        /// </summary>
+        BuiltInAndURPToURP2D,
+
+        /// <summary>
         /// Use this to upgrade 2D (URP) assets.
         /// </summary>
         UpgradeURP2DAssets,
     }
 
+    [AttributeUsage(AttributeTargets.Field, AllowMultiple = false)]
+    internal class BatchModeConverterInfo : Attribute
+    {
+        public Type converterType { get; }
+        public ConverterContainerId containerName {get;}
+
+        public BatchModeConverterInfo(ConverterContainerId containerName, Type converterType)
+        {
+            this.converterType = converterType;
+            this.containerName = containerName;
+        }
+    }
+
     /// <summary>
     /// The converter to run in batch mode.
     /// </summary>
-    /// <seealso cref="Converters.RunInBatchMode(UnityEditor.Rendering.Universal.ConverterContainerId, List{UnityEditor.Rendering.Universal.ConverterId}, UnityEditor.Rendering.Universal.ConverterFilter)"/>.)
+    /// <seealso cref="Converters.RunInBatchMode(UnityEditor.Rendering.Universal.ConverterContainerId, List{UnityEditor.Rendering.Universal.ConverterId}, UnityEditor.Rendering.Universal.ConverterFilter)"/>
     public enum ConverterId
     {
         /// <summary>
         /// Use this for the material converters.
         /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.BuiltInToURP,typeof(BuiltInToURP3DMaterialUpgrader))]
         Material,
 
         /// <summary>
         /// Use this for the render settings converters.
         /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.BuiltInToURP, typeof(RenderSettingsConverter))]
         RenderSettings,
 
         /// <summary>
         /// Use this for the animation clip converters.
         /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.BuiltInToURP, typeof(AnimationClipConverter))]
         AnimationClip,
 
         /// <summary>
         /// Use this for readonly material converters.
         /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.BuiltInToURP, typeof(ReadonlyMaterialConverter))]
         ReadonlyMaterial,
 
         /// <summary>
+        /// Use this for 2D material conversion
+        /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.BuiltInToURP2D, typeof(BuiltInToURP2DMaterialUpgrader))]
+        ReadonlyMaterial2D,
+
+        /// <summary>
+        /// Use this for 3D URP material conversion
+        /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.UpgradeURP2DAssets, typeof(BuiltInAndURP3DTo2DMaterialUpgrader))]
+        URPToReadonlyMaterial2D,
+
+#if PPV2_EXISTS
+        /// <summary>
         /// Use this for post processing V2 converters.
         /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.BuiltInToURP, typeof(PPv2Converter))]
         PPv2,
+#endif
 
         /// <summary>
         /// Use this for parametric to freeform light converters.
         /// </summary>
+        [BatchModeConverterInfo(ConverterContainerId.UpgradeURP2DAssets, typeof(ParametricToFreeformLightUpgrader))]
         ParametricToFreeformLight,
     }
 
@@ -86,42 +126,18 @@ namespace UnityEditor.Rendering.Universal
     /// </summary>
     public static class Converters
     {
-        static Type GetContainerType(ConverterContainerId containerName)
+        private static void DumpAvailableConverters()
         {
-            switch (containerName)
+            StringBuilder sb = new();
+            foreach (var converter in TypeCache.GetTypesDerivedFrom<IRenderPipelineConverter>())
             {
-                case ConverterContainerId.BuiltInToURP:
-                    return typeof(BuiltInToURPConverterContainer);
-                case ConverterContainerId.BuiltInToURP2D:
-                    return typeof(BuiltInToURP2DConverterContainer);
-                case ConverterContainerId.UpgradeURP2DAssets:
-                    return typeof(UpgradeURP2DAssetsContainer);
+                if (converter.IsAbstract || converter.IsInterface)
+                    continue;
+
+                sb.AppendLine(converter.AssemblyQualifiedName);
             }
 
-            return null;
-        }
-
-        static Type GetConverterType(ConverterId converterName)
-        {
-            switch (converterName)
-            {
-                case ConverterId.Material:
-                    return typeof(UniversalRenderPipelineMaterialUpgrader);
-                case ConverterId.RenderSettings:
-                    return typeof(RenderSettingsConverter);
-                case ConverterId.AnimationClip:
-                    return typeof(AnimationClipConverter);
-                case ConverterId.ReadonlyMaterial:
-                    return typeof(ReadonlyMaterialConverter);
-#if PPV2_EXISTS
-                case ConverterId.PPv2:
-                    return typeof(PPv2Converter);
-#endif
-                case ConverterId.ParametricToFreeformLight:
-                    return typeof(ParametricToFreeformLightUpgrader);
-            }
-
-            return null;
+            Debug.Log(sb.ToString());
         }
 
         /// <summary>
@@ -130,11 +146,23 @@ namespace UnityEditor.Rendering.Universal
         /// <param name="containerName">The name of the container which will be batched. All Converters in this Container will run if prerequisites are met.</param>
         public static void RunInBatchMode(ConverterContainerId containerName)
         {
-            Type typeName = GetContainerType(containerName);
-            if (typeName != null)
+            RunInBatchMode(containerName, new List<ConverterId>() { }, ConverterFilter.Exclusive);
+        }
+
+        internal static bool TryGetTypeInContainer(ConverterId value, ConverterContainerId containerName, out Type type)
+        {
+            type = null;
+            var memberInfo = typeof(ConverterId).GetMember(value.ToString());
+            if (memberInfo.Length > 0)
             {
-                RunInBatchMode(typeName);
+                var attr = memberInfo[0].GetCustomAttribute<BatchModeConverterInfo>();
+                if (attr != null)
+                {
+                    if(attr.containerName == containerName)
+                        type = attr.converterType;
+                }   
             }
+            return type != null;
         }
 
         /// <summary>
@@ -145,129 +173,109 @@ namespace UnityEditor.Rendering.Universal
         /// <param name="converterFilter">The enum that decide if the list of converters will be included or excluded when batching.</param>
         public static void RunInBatchMode(ConverterContainerId containerName, List<ConverterId> converterList, ConverterFilter converterFilter)
         {
-            Type containerType = GetContainerType(containerName);
-            List<Type> converterTypes = new List<Type>(converterList.Count);
-            foreach (ConverterId typeName in converterList)
-            {
-                var converterType = GetConverterType(typeName);
-                if (containerType != null && !converterTypes.Contains(converterType))
-                {
-                    converterTypes.Add(converterType);
-                }
-            }
-
-            if (containerType != null && converterTypes.Any())
-            {
-                RunInBatchMode(containerType, converterTypes, converterFilter);
-            }
+            var types = FilterConverters(containerName, converterList, converterFilter);
+            RunInBatchMode(types);
         }
 
-        internal static void RunInBatchMode(Type containerName, List<Type> converterList, ConverterFilter converterFilter)
+        internal static List<Type> FilterConverters(ConverterContainerId containerName, List<ConverterId> converterList, ConverterFilter converterFilter)
         {
-            Debug.Log($"Converter Batch Mode: {containerName}");
-            var container = (RenderPipelineConverterContainer)Activator.CreateInstance(containerName);
-            List<RenderPipelineConverter> converters = GetConvertersInContainer(container);
+            Array converters = Enum.GetValues(typeof(ConverterId));
 
-            List<RenderPipelineConverter> convertersToBatch = new List<RenderPipelineConverter>(converters.Count);
-            // This is just a temp to deal with the Include and Exclude enum
-            List<RenderPipelineConverter> tempConvertersToBatch = new List<RenderPipelineConverter>(converters.Count);
-
-            if (converterFilter == ConverterFilter.Inclusive)
+            List<Type> converterTypes = new();
+            foreach (object value in converters)
             {
-                foreach (RenderPipelineConverter converter in converters)
+                var converterEnum = (ConverterId)value;
+                if (TryGetTypeInContainer(converterEnum, containerName, out var type))
                 {
-                    if (converterList.Contains(converter.GetType()))
-                    {
-                        tempConvertersToBatch.Add(converter);
-                    }
-                }
-            }
-            else if (converterFilter == ConverterFilter.Exclusive)
-            {
-                tempConvertersToBatch = converters;
-                foreach (RenderPipelineConverter converter in converters)
-                {
-                    if (converterList.Contains(converter.GetType()))
-                    {
-                        tempConvertersToBatch.Remove(converter);
-                    }
+                    bool inFilter = converterList.Contains(converterEnum);
+                    if ((converterFilter == ConverterFilter.Inclusive) ^ !inFilter)
+                        converterTypes.Add(type);
                 }
             }
 
-            convertersToBatch = tempConvertersToBatch;
-            BatchConverters(convertersToBatch);
+            return converterTypes;
         }
 
         /// <summary>
-        /// The method that will be run when converting the assets in batch mode.
+        /// Call this method to run a specific list of converters in batch mode.
         /// </summary>
-        /// <param name="containerName">The name of the container which will be batched.</param>
-        internal static void RunInBatchMode(Type containerName)
+        /// <param name="converterTypes">The list of converters to run</param>
+        /// <returns>False if there were errors.</returns>
+        internal static bool RunInBatchMode(List<Type> converterTypes)
         {
-            List<RenderPipelineConverter> converters = new List<RenderPipelineConverter>();
-            var containers = TypeCache.GetTypesDerivedFrom<RenderPipelineConverterContainer>();
-            foreach (var containerType in containers)
+            Debug.LogWarning("Using this API can lead to incomplete or unpredictable conversion outcomes. For reliable results, please perform the conversion via the dedicated window: Window > Rendering > Render Pipeline Converter.");
+
+            List<IRenderPipelineConverter> convertersToExecute = new();
+
+            bool errors = false;
+            foreach (var type in converterTypes)
             {
-                if (containerType == containerName)
+                try
                 {
-                    var container = (RenderPipelineConverterContainer)Activator.CreateInstance(containerType);
-                    converters = GetConvertersInContainer(container);
-                }
-            }
-
-            BatchConverters(converters);
-        }
-
-        internal static void BatchConverters(List<RenderPipelineConverter> converters)
-        {
-            // This need to be sorted by Priority property
-            converters = converters.OrderBy(o => o.priority).ToList();
-
-            foreach (RenderPipelineConverter converter in converters)
-            {
-                List<ConverterItemDescriptor> converterItemInfos = new List<ConverterItemDescriptor>();
-                var initCtx = new InitializeConverterContext { items = converterItemInfos };
-                initCtx.isBatchMode = true;
-                converter.OnInitialize(initCtx, () => { });
-
-                converter.OnPreRun();
-                for (int i = 0; i < initCtx.items.Count; i++)
-                {
-                    var item = new ConverterItemInfo()
+                    var instance = Activator.CreateInstance(type) as IRenderPipelineConverter;
+                    if (instance == null)
                     {
-                        index = i,
-                        descriptor = initCtx.items[i],
-                    };
-                    var ctx = new RunItemContext(item);
-                    ctx.isBatchMode = true;
-                    converter.OnRun(ref ctx);
-
-                    string converterStatus = ctx.didFail ? $"Fail\nInfo: {ctx.info}" : "Pass";
-                    Debug.Log($"Name: {ctx.item.descriptor.name}\nConverter Status: {converterStatus}");
+                        Debug.LogWarning($"{type} is not a converter type.");
+                        errors = true;
+                    }
+                    else
+                        convertersToExecute.Add(instance);
                 }
-
-                converter.OnPostRun();
-
-                AssetDatabase.SaveAssets();
+                catch
+                {
+                    Debug.LogWarning($"Unable to create instance of type {type}.");
+                    errors = true;
+                }
             }
+
+            if (errors)
+            {
+                Debug.LogWarning($"Please use any of the given Converter Types.");
+                DumpAvailableConverters();
+            }
+
+            BatchConverters(convertersToExecute);
+
+            return !errors;
         }
 
-        internal static List<RenderPipelineConverter> GetConvertersInContainer(RenderPipelineConverterContainer container)
+        internal static void BatchConverters(List<IRenderPipelineConverter> converters)
         {
-            List<RenderPipelineConverter> listOfConverters = new List<RenderPipelineConverter>();
-            var converterList = TypeCache.GetTypesDerivedFrom<RenderPipelineConverter>();
-
-            for (int i = 0; i < converterList.Count; ++i)
+            foreach (var converter in converters)
             {
-                // Iterate over the converters that are used by the current container
-                RenderPipelineConverter conv = (RenderPipelineConverter)Activator.CreateInstance(converterList[i]);
-                if (conv.container == container.GetType())
+                var sb = new StringBuilder($"Conversion results for item: {converter}:{Environment.NewLine}");
+
+                converter.Scan(OnConverterCompleteDataCollection);
+
+                void OnConverterCompleteDataCollection(List<IRenderPipelineConverterItem> items)
                 {
-                    listOfConverters.Add(conv);
+                    converter.BeforeConvert();
+                    foreach (var item in items)
+                    {
+                        var status = converter.Convert(item, out var message);
+                        switch (status)
+                        {
+                            case Status.Pending:
+                                throw new InvalidOperationException("Converter returned a pending status when converting. This is not supported.");
+                            case Status.Error:
+                            case Status.Warning:
+                                sb.AppendLine($"- {item.name} ({status}) ({message})");
+                                break;
+                            case Status.Success:
+                            {
+                                sb.AppendLine($"- {item.name} ({status})");
+                                message = "Conversion successful!";
+                            }
+                            break;
+                        }
+                    }
+                    converter.AfterConvert();
+
+                    Debug.Log(sb.ToString());
                 }
             }
 
-            return listOfConverters;
+            AssetDatabase.SaveAssets();
         }
     }
 }

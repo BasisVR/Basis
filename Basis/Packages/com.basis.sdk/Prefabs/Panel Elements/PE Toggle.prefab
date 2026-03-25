@@ -93,7 +93,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -169,7 +169,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_Material: {fileID: 0}
+  m_Material: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
   m_Color: {r: 0.3529412, g: 0.3529412, b: 0.43529412, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
@@ -323,6 +323,14 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2695670721113310902, guid: c291cad985c051346b5516c30fda2029, type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
+    - target: {fileID: 3263669264447411214, guid: c291cad985c051346b5516c30fda2029, type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
     - target: {fileID: 3263669264447411214, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_RaycastTarget
       value: 0
@@ -375,6 +383,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7078463098538894437, guid: c291cad985c051346b5516c30fda2029, type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 2100000, guid: 400aab2496c5028449f88f0184de3e3b, type: 2}
     - target: {fileID: 7078463098538894437, guid: c291cad985c051346b5516c30fda2029, type: 3}
       propertyPath: m_RaycastTarget
       value: 0
@@ -540,7 +552,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Basis Framework::Basis.BasisUI.PanelToggle
   ToggleComponent: {fileID: 798007477887917358}
   ToggleVisual: {fileID: 7228324214470216984}
+  Background: {fileID: 0}
   ToggleVisualOffset: 35
+  TweenDuration: 0.2
+  OffColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
+  OnColor: {r: 0.2, g: 0.8, b: 0.4, a: 1}
 --- !u!114 &4384726876132874969 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 2695670721113310902, guid: c291cad985c051346b5516c30fda2029, type: 3}

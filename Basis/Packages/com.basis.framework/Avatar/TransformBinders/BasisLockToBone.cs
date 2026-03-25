@@ -49,7 +49,7 @@ namespace Basis.Scripts.TransformBinders
         /// <summary>
         /// Initializes this component with the given local player.
         /// Finds the bone driver and attempts to resolve the <see cref="Role"/>.
-        /// Subscribes to the <see cref="BasisLocalPlayer.AfterFinalMove"/> event for updates.
+        /// Subscribes to the <see cref="BasisLocalPlayer.AfterSimulateOnRender"/> event for updates.
         /// </summary>
         /// <param name="LocalPlayer">The local player to bind against.</param>
         public void Initialize(BasisLocalPlayer LocalPlayer)
@@ -77,7 +77,7 @@ namespace Basis.Scripts.TransformBinders
 
             if (HasEvent == false)
             {
-                BasisLocalPlayer.AfterFinalMove.AddAction(99, Simulation);
+                BasisLocalPlayer.AfterSimulateOnRender.AddAction(99, Simulation);
                 HasEvent = true;
             }
         }
@@ -91,7 +91,7 @@ namespace Basis.Scripts.TransformBinders
             {
                 if (HasEvent)
                 {
-                    BasisLocalPlayer.AfterFinalMove.RemoveAction(99, Simulation);
+                    BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(99, Simulation);
                     HasEvent = false;
                 }
             }

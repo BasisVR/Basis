@@ -1,32 +1,135 @@
-using BasisSerializer.OdinSerializer;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 public static class BasisBundleBuild
 {
     public static event Func<BasisContentBase, List<BuildTarget>, Task> PreBuildBundleEvents;
 
-    public static async Task<(bool, string)> GameObjectBundleBuild(byte[] Image, BasisContentBase BasisContentBase, List<BuildTarget> Targets,bool useProvidedPassword = false, string OverridenPassword = "")
+    public static async Task<(bool, string)> GameObjectBundleBuild(
+        string Image,
+        BasisContentBase BasisContentBase,
+        List<BuildTarget> Targets,
+        bool useProvidedPassword = false,
+        string OverridenPassword = "")
     {
         int TargetCount = Targets.Count;
         for (int Index = 0; Index < TargetCount; Index++)
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return new(false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please Install build Target for " + Targets[Index].ToString());
             }
         }
-        return await BuildBundle(BasisContentBase,Image, Targets, useProvidedPassword, OverridenPassword, (content, obj, hex, target) => BasisAssetBundlePipeline.BuildAssetBundle(content.gameObject, obj, hex, target));
+
+        Bounds unitybounds = CalculateLocalRenderBounds(BasisContentBase.gameObject);
+        BasisBounds BasisBounds = new BasisBounds(unitybounds.center, unitybounds.size);
+
+        var meta = GenerateMetaData(BasisContentBase.gameObject);
+        string FolderPath = MakeSafeFolderName(BasisContentBase.BasisBundleDescription.AssetBundleName);
+        return await BuildBundle(FolderPath,
+            basisContentBase: BasisContentBase,
+            MetaData: meta,
+            BasisBounds: BasisBounds,
+            Images: Image,
+            targets: Targets,
+            useProvidedPassword: useProvidedPassword,
+            OverridenPassword: OverridenPassword,
+            buildFunction: (content, obj, hex, target, buildId) =>
+                BasisAssetBundlePipeline.BuildAssetBundle(content.gameObject, obj, hex, target, FolderPath));
+    }
+    /// <summary>
+    /// Calculates bounds of all child renderers in PARENT LOCAL SPACE (pivot-relative).
+    /// This is stable even if the object is moved/rotated in the world before measuring.
+    /// </summary>
+    public static Bounds CalculateLocalRenderBounds(GameObject parent)
+    {
+        var renderers = parent.GetComponentsInChildren<Renderer>(true);
+        if (renderers == null || renderers.Length == 0)
+            return new Bounds(Vector3.zero, Vector3.zero);
+
+        Matrix4x4 parentWorldToLocal = parent.transform.worldToLocalMatrix;
+
+        bool hasAny = false;
+        Bounds accum = default;
+
+        foreach (var r in renderers)
+        {
+            if (r == null) continue;
+
+            Bounds srcLocal;
+
+            if (r is SkinnedMeshRenderer smr)
+            {
+                // In smr local space
+                srcLocal = smr.localBounds;
+            }
+            else if (r is MeshRenderer mr)
+            {
+                var mf = mr.GetComponent<MeshFilter>();
+                if (mf == null || mf.sharedMesh == null) continue;
+
+                // In mesh local space (same as MeshFilter transform local space)
+                srcLocal = mf.sharedMesh.bounds;
+            }
+            else
+            {
+                continue; // ignore other renderer types for now
+            }
+
+            // Map from renderer local -> world -> parent local
+            Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
+
+            // Transform bounds center and extents to new AABB in parent local space
+            Bounds transformed = TransformBoundsAABB(srcLocal, toParentLocal);
+
+            if (!hasAny)
+            {
+                accum = transformed;
+                hasAny = true;
+            }
+            else
+            {
+                accum.Encapsulate(transformed.min);
+                accum.Encapsulate(transformed.max);
+            }
+        }
+
+        if (!hasAny)
+            return new Bounds(Vector3.zero, Vector3.zero);
+
+        if (accum.extents == Vector3.zero)
+            accum = new Bounds(accum.center, new Vector3(0.1f, 0.1f, 0.1f));
+
+        return accum;
     }
 
+    private static Bounds TransformBoundsAABB(Bounds b, Matrix4x4 m)
+    {
+        // Standard affine bounds transform:
+        Vector3 c = m.MultiplyPoint3x4(b.center);
+
+        Vector3 ex = m.MultiplyVector(new Vector3(b.extents.x, 0f, 0f));
+        Vector3 ey = m.MultiplyVector(new Vector3(0f, b.extents.y, 0f));
+        Vector3 ez = m.MultiplyVector(new Vector3(0f, 0f, b.extents.z));
+
+        Vector3 e = new Vector3(
+            Mathf.Abs(ex.x) + Mathf.Abs(ey.x) + Mathf.Abs(ez.x),
+            Mathf.Abs(ex.y) + Mathf.Abs(ey.y) + Mathf.Abs(ez.y),
+            Mathf.Abs(ex.z) + Mathf.Abs(ey.z) + Mathf.Abs(ez.z)
+        );
+
+        return new Bounds(c, e * 2f);
+    }
     public static bool CheckTarget(BuildTarget target)
     {
         bool isSupported = BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, target) ||
@@ -35,24 +138,277 @@ public static class BasisBundleBuild
         Debug.Log($"{target.ToString()} Build Target Installed: {isSupported}");
         return isSupported;
     }
-    public static async Task<(bool, string)> SceneBundleBuild(byte[] Image,BasisContentBase BasisContentBase, List<BuildTarget> Targets,bool useProvidedPassword = false, string OverridenPassword = "")
+    public static async Task<(bool, string)> SceneBundleBuild(
+     string Image,
+     BasisContentBase BasisContentBase,
+     List<BuildTarget> Targets,
+     bool useProvidedPassword = false,
+     string OverridenPassword = "")
     {
         int TargetCount = Targets.Count;
         for (int Index = 0; Index < TargetCount; Index++)
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return new(false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please Install build Target for " + Targets[Index].ToString());
             }
         }
-        UnityEngine.SceneManagement.Scene Scene = BasisContentBase.gameObject.scene;
-        return await BuildBundle(BasisContentBase, Image, Targets, useProvidedPassword, OverridenPassword, (content, obj, hex, target) => BasisAssetBundlePipeline.BuildAssetBundle(Scene, obj, hex, target));
+
+        UnityEngine.SceneManagement.Scene scene = BasisContentBase.gameObject.scene;
+
+        var unitybounds = CalculateSceneBounds(scene);
+        BasisBounds BasisBounds = new BasisBounds(unitybounds.center, unitybounds.size);
+
+        var meta = GenerateSceneMetaData(scene);
+        string FolderName = MakeSafeFolderName(BasisContentBase.BasisBundleDescription.AssetBundleName);
+        return await BuildBundle(FolderName,
+            basisContentBase: BasisContentBase,
+            MetaData: meta,
+            BasisBounds: BasisBounds,
+            Images: Image,
+            targets: Targets,
+            useProvidedPassword: useProvidedPassword,
+            OverridenPassword: OverridenPassword,
+            buildFunction: (content, obj, hex, target, buildId) => BasisAssetBundlePipeline.BuildAssetBundle(scene, obj, hex, target, FolderName));
     }
-    public static async Task<(bool, string)> BuildBundle(BasisContentBase basisContentBase, byte[] Images, List<BuildTarget> targets, bool useProvidedPassword, string OverridenPassword, Func<BasisContentBase, BasisAssetBundleObject, string, BuildTarget, Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>> buildFunction)
+    // Windows reserved device names (case-insensitive)
+    private static readonly string[] ReservedNames =
     {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1","COM2","COM3","COM4","COM5","COM6","COM7","COM8","COM9",
+        "LPT1","LPT2","LPT3","LPT4","LPT5","LPT6","LPT7","LPT8","LPT9"
+    };
+
+    public static string MakeSafeFolderName(string input, int maxLength = 64)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return "Folder";
+
+        // Normalize to avoid weird unicode combining issues
+        input = input.Normalize(NormalizationForm.FormKC);
+
+        // Remove invalid path chars (cross-platform safe)
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(input.Length);
+
+        foreach (char c in input)
+        {
+            if (invalidChars.Contains(c) || char.IsControl(c))
+                builder.Append('_');
+            else
+                builder.Append(c);
+        }
+
+        string result = builder.ToString();
+
+        // Remove trailing dots/spaces (Windows hates these)
+        result = result.Trim().TrimEnd('.', ' ');
+
+        // Collapse repeated underscores
+        result = Regex.Replace(result, "_{2,}", "_");
+
+        // Prevent empty
+        if (string.IsNullOrWhiteSpace(result))
+            result = "Folder";
+
+        // Prevent reserved names (Windows)
+        if (ReservedNames.Any(r =>
+            string.Equals(r, result, StringComparison.OrdinalIgnoreCase)))
+        {
+            result = "_" + result;
+        }
+
+        // Enforce max length
+        if (result.Length > maxLength)
+            result = result.Substring(0, maxLength);
+
+        return result;
+    }
+    public static Bounds CalculateSceneBounds(Scene scene)
+    {
+        var rootObjects = scene.GetRootGameObjects();
+
+        bool hasBounds = false;
+        Bounds sceneBounds = new Bounds(Vector3.zero, new Vector3(0.1f, 0.1f, 0.1f));
+
+        foreach (var root in rootObjects)
+        {
+            var renderers = root.GetComponentsInChildren<Renderer>(true);
+
+            foreach (var renderer in renderers)
+            {
+                if (!hasBounds)
+                {
+                    sceneBounds = renderer.bounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    sceneBounds.Encapsulate(renderer.bounds);
+                }
+            }
+        }
+        return sceneBounds;
+    }
+    public static BasisBundleConnector.BasisMetaData GenerateMetaData(GameObject root)
+    {
+
+        BasisBundleConnector.BasisMetaData meta = new BasisBundleConnector.BasisMetaData();
+        long triangleCount = 0;
+        long materialCount = 0;
+        long bonesCount = 0;
+        Dictionary<string, int> componentCounts = new Dictionary<string, int>();
+        var meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
+        foreach (var mf in meshFilters)
+        {
+            if (mf.sharedMesh != null)
+            {
+                EnsureReadWriteEnabled(mf.sharedMesh);
+                triangleCount += mf.sharedMesh.triangles.Length / 3;
+            }
+        }
+        var skinnedMeshes = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        foreach (var smr in skinnedMeshes)
+        {
+            if (smr.sharedMesh != null)
+            {
+                EnsureReadWriteEnabled(smr.sharedMesh);
+                triangleCount += smr.sharedMesh.triangles.Length / 3;
+            }
+
+            if (smr.bones != null)
+            {
+                bonesCount += smr.bones.Length;
+            }
+        }
+        var renderers = root.GetComponentsInChildren<Renderer>(true);
+        HashSet<Material> uniqueMaterials = new HashSet<Material>();
+
+        foreach (var r in renderers)
+        {
+            foreach (var mat in r.sharedMaterials)
+            {
+                if (mat != null)
+                {
+                    uniqueMaterials.Add(mat);
+                }
+            }
+        }
+        materialCount = uniqueMaterials.Count;
+        var components = root.GetComponentsInChildren<Component>(true);
+        foreach (var comp in components)
+        {
+            if (comp == null)
+            {
+                continue;
+            }
+
+            string typeName = comp.GetType().Name;
+
+            if (componentCounts.ContainsKey(typeName))
+            {
+                componentCounts[typeName]++;
+            }
+            else
+            {
+                componentCounts[typeName] = 1;
+            }
+        }
+
+        meta.TrianglesCount = triangleCount;
+        meta.MaterialCount = materialCount;
+        meta.BonesCount = bonesCount;
+        meta.ComponentNames = componentCounts
+            .Select(kvp => new BasisBundleConnector.BasisComponentName
+            {
+                Name = kvp.Key,
+                count = kvp.Value
+            })
+            .ToArray();
+
+        return meta;
+    }
+    public static void EnsureReadWriteEnabled(Mesh mesh)
+    {
+        if (mesh == null)
+        {
+            return;
+        }
+
+        string path = AssetDatabase.GetAssetPath(mesh);
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+
+        ModelImporter importer = AssetImporter.GetAtPath(path) as ModelImporter;
+        if (importer != null && importer.isReadable == false)
+        {
+            importer.isReadable = true;
+            importer.SaveAndReimport();
+        }
+    }
+    public static BasisBundleConnector.BasisMetaData GenerateSceneMetaData(Scene scene)
+    {
+        var roots = scene.GetRootGameObjects();
+
+        BasisBundleConnector.BasisMetaData combined = new BasisBundleConnector.BasisMetaData();
+
+        long triangles = 0;
+        long materials = 0;
+        long bones = 0;
+        Dictionary<string, int> componentCounts = new Dictionary<string, int>();
+
+        foreach (var root in roots)
+        {
+            var meta = GenerateMetaData(root);
+
+            triangles += meta.TrianglesCount;
+            materials += meta.MaterialCount;
+            bones += meta.BonesCount;
+
+            if (meta.ComponentNames != null)
+            {
+                foreach (var c in meta.ComponentNames)
+                {
+                    if (componentCounts.ContainsKey(c.Name))
+                        componentCounts[c.Name] += c.count;
+                    else
+                        componentCounts[c.Name] = c.count;
+                }
+            }
+        }
+
+        combined.TrianglesCount = triangles;
+        combined.MaterialCount = materials;
+        combined.BonesCount = bones;
+
+        combined.ComponentNames = componentCounts
+            .Select(kvp => new BasisBundleConnector.BasisComponentName
+            {
+                Name = kvp.Key,
+                count = kvp.Value
+            })
+            .ToArray();
+
+        return combined;
+    }
+    public static async Task<(bool, string)> BuildBundle(string FolderName,
+      BasisContentBase basisContentBase,
+      BasisBundleConnector.BasisMetaData MetaData,
+      BasisBounds BasisBounds,
+      string Images,
+      List<BuildTarget> targets,
+      bool useProvidedPassword,
+      string OverridenPassword,
+      Func<BasisContentBase, BasisAssetBundleObject, string, BuildTarget, string,
+           Task<(bool, (BasisBundleGenerated, AssetBundleBuilder.InformationHash))>> buildFunction)
+    {
+        string generatedID = null;
+        string stagingRoot = null;
+
         try
         {
-            // Invoke pre build event and wait for all subscribers to complete
             if (PreBuildBundleEvents != null)
             {
                 List<Task> eventTasks = new List<Task>();
@@ -60,7 +416,7 @@ public static class BasisBundleBuild
                 int Length = events.Length;
                 for (int ctr = 0; ctr < Length; ctr++)
                 {
-                    Func<BasisContentBase, List<BuildTarget>, Task> handler = (Func<BasisContentBase, List<BuildTarget>, Task>)events[ctr];
+                    var handler = (Func<BasisContentBase, List<BuildTarget>, Task>)events[ctr];
                     eventTasks.Add(handler(basisContentBase, targets));
                 }
 
@@ -78,20 +434,24 @@ public static class BasisBundleBuild
                 return (false, error);
             }
 
-            Debug.Log("Passed error checking for BuildBundle...");
             AdjustBuildTargetOrder(targets);
 
-            BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
-            ClearAssetBundleDirectory(assetBundleObject.AssetBundleDirectory);
-            string Password = string.Empty;
-            if (useProvidedPassword)
-            {
-                Password = OverridenPassword;
-            }
-            else
-            {
-                Password = GenerateHexString(32);
-            }
+            BasisAssetBundleObject assetBundleObject =
+                AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
+
+            // Final output folder (combined result)
+            string rootOutDir = assetBundleObject.AssetBundleDirectory;
+            Directory.CreateDirectory(rootOutDir);
+
+            generatedID = BasisGenerateUniqueID.GenerateUniqueID();
+            string buildOutDir = EnsureBuildOutputDirectory(rootOutDir, FolderName, deleteIfExists: true);
+
+            // Staging output folder (uncombined per-target Unity output)
+            string uncombinedRoot = PathConversion(assetBundleObject.AssetBundleUnCombined);
+            stagingRoot = Path.Combine(uncombinedRoot, FolderName);
+            Directory.CreateDirectory(stagingRoot);
+
+            string Password = useProvidedPassword ? OverridenPassword : GenerateHexString(32);
 
             int targetsLength = targets.Count;
             BasisBundleGenerated[] bundles = new BasisBundleGenerated[targetsLength];
@@ -100,13 +460,16 @@ public static class BasisBundleBuild
             for (int Index = 0; Index < targetsLength; Index++)
             {
                 BuildTarget target = targets[Index];
-                var (success, result) = await buildFunction(basisContentBase, assetBundleObject, Password, target);
+
+                // CHANGED: pass buildId (generatedID) into buildFunction
+                var (success, result) = await buildFunction(basisContentBase, assetBundleObject, Password, target, generatedID);
                 if (!success)
                 {
                     return (false, $"Failure While Building for {target}");
                 }
 
                 bundles[Index] = result.Item1;
+
                 string hashPath = PathConversion(result.Item2.EncyptedPath);
                 paths.Add(hashPath);
 
@@ -115,50 +478,97 @@ public static class BasisBundleBuild
 
             EditorUtility.DisplayProgressBar("Starting Bundle Build", "Starting Bundle Build", 10);
 
-            string generatedID = BasisGenerateUniqueID.GenerateUniqueID();
-            BasisBundleConnector basisBundleConnector = new BasisBundleConnector(generatedID, basisContentBase.BasisBundleDescription, bundles,Images);
+            BasisBundleConnector basisBundleConnector = new BasisBundleConnector(
+                generatedID,
+                basisContentBase.BasisBundleDescription,
+                bundles,
+                Images,
+                BasisBounds,
+                MetaData
+            );
 
-            byte[] BasisbundleconnectorUnEncrypted = BasisSerializer.OdinSerializer.SerializationUtility.SerializeValue<BasisBundleConnector>(basisBundleConnector, DataFormat.JSON);
-            var BasisPassword = new BasisEncryptionWrapper.BasisPassword
-            {
-                VP = Password
-            };
+            byte[] BasisbundleconnectorUnEncrypted =
+                BasisSerialization.SerializeValue<BasisBundleConnector>(basisBundleConnector);
+
+            var BasisPassword = new BasisEncryptionWrapper.BasisPassword { VP = Password };
+
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             BasisProgressReport report = new BasisProgressReport();
-            byte[] EncryptedConnector = await BasisEncryptionWrapper.EncryptToBytesAsync(UniqueID, BasisPassword, BasisbundleconnectorUnEncrypted, report);
+            byte[] EncryptedConnector =
+                await BasisEncryptionWrapper.EncryptToBytesAsync(UniqueID, BasisPassword, BasisbundleconnectorUnEncrypted, report);
 
             EditorUtility.DisplayProgressBar("Starting Bundle Combining", "Starting Bundle Combining", 100);
 
-            string FilePath = Path.Combine(assetBundleObject.AssetBundleDirectory, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
+            string FilePath = Path.Combine(buildOutDir, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
             EditorUtility.DisplayProgressBar("Saving Generated BEE file", "Saving Generated BEE file", 100);
 
-            await AssetBundleBuilder.SaveFileAsync(assetBundleObject.AssetBundleDirectory, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
+            await AssetBundleBuilder.SaveFileAsync(buildOutDir, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
 
             EditorUtility.DisplayProgressBar("Finshed File Combining", "Finshed File Combining", 100);
 
-            DeleteFolders(assetBundleObject.AssetBundleDirectory);
+            DeleteFolders(buildOutDir);
+
+            // cleanup staging (uncombined) outputs
+            try
+            {
+                if (!string.IsNullOrEmpty(stagingRoot) && Directory.Exists(stagingRoot))
+                    Directory.Delete(stagingRoot, true);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"Failed to delete staging folder {stagingRoot}: {ex.Message}");
+            }
+
             if (assetBundleObject.OpenFolderOnDisc)
             {
-                OpenRelativePath(assetBundleObject.AssetBundleDirectory);
+                OpenRelativePath(buildOutDir);
             }
+
             RestoreOriginalBuildTarget(originalActiveTarget);
 
-            Debug.Log("Successfully built asset bundle.");
-
+            BasisDebug.Log("Successfully built asset bundle.");
             EditorUtility.ClearProgressBar();
             return (true, "Success");
         }
         catch (Exception ex)
         {
             Debug.LogException(ex);
-            Debug.LogError($"BuildBundle error: {ex.Message}");
+            BasisDebug.LogError($"BuildBundle error: {ex.Message}");
+
+            // cleanup staging even on failure
+            try
+            {
+                if (!string.IsNullOrEmpty(stagingRoot) && Directory.Exists(stagingRoot))
+                    Directory.Delete(stagingRoot, true);
+            }
+            catch { /* ignore */ }
+
             EditorUtility.ClearProgressBar();
             return (false, $"BuildBundle Exception: {ex.Message}");
         }
     }
+    private static string EnsureBuildOutputDirectory(string rootOutDir, string folderName, bool deleteIfExists)
+    {
+        if (string.IsNullOrEmpty(rootOutDir))
+            throw new ArgumentException("rootOutDir is null/empty", nameof(rootOutDir));
+        if (string.IsNullOrEmpty(folderName))
+            throw new ArgumentException("folderName is null/empty", nameof(folderName));
 
+        string buildOutDir = Path.Combine(rootOutDir, folderName);
+
+        if (Directory.Exists(buildOutDir))
+        {
+            if (deleteIfExists)
+                Directory.Delete(buildOutDir, true);
+            else
+                buildOutDir = Path.Combine(rootOutDir, folderName + "_" + DateTime.Now.ToString("yyyyMMdd_HHmmss"));
+        }
+
+        Directory.CreateDirectory(buildOutDir);
+        return buildOutDir;
+    }
     private static void AdjustBuildTargetOrder(List<BuildTarget> targets)
     {
         BuildTarget activeTarget = EditorUserBuildSettings.activeBuildTarget;
@@ -192,44 +602,7 @@ public static class BasisBundleBuild
             Debug.Log($"Switched back to original build target: {originalTarget}");
         }
     }
-
-    private static int GetAdaptiveBufferSize(long fileSize)
-    {
-        const int minBufferSize = 4 * 1024 * 1024;       // 8MB minimum
-        const int maxBufferSize = 64 * 1024 * 1024;      // 32MB maximum
-
-        if (fileSize <= 0)
-            return minBufferSize;
-
-        // Scale with file size, using a power-of-two approach
-        int bufferSize = (int)Math.Min(
-            maxBufferSize,
-            Math.Max(
-                minBufferSize,
-                NextPowerOfTwo(fileSize / 64) // Less aggressive divisor for bigger buffers
-            )
-        );
-
-        return bufferSize;
-    }
-
-    private static long NextPowerOfTwo(long value)
-    {
-        if (value < 1)
-            return 1;
-
-        value--;
-        value |= value >> 1;
-        value |= value >> 2;
-        value |= value >> 4;
-        value |= value >> 8;
-        value |= value >> 16;
-        value |= value >> 32;
-
-        return value + 1;
-    }
-
-    public static async Task CombineFiles(string outputPath,List<string> bundlePaths,byte[] encryptedConnector, CancellationToken ct = default(CancellationToken))
+    public static async Task CombineFiles(string outputPath, List<string> bundlePaths, byte[] encryptedConnector, CancellationToken ct = default(CancellationToken))
     {
         // --- prep: total lengths for preallocation + progress ---
         long headerLen = encryptedConnector != null ? encryptedConnector.Length : 0L;
@@ -255,7 +628,7 @@ public static class BasisBundleBuild
 
         try
         {
-            using (var output = new FileStream(outputPath,FileMode.Create,FileAccess.Write,FileShare.Read, BufferSize, useAsync: true))
+            using (var output = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.Read, BufferSize, useAsync: true))
             {
                 // pre-size once — reduces fragmentation and page faults
                 output.SetLength(totalLen);
@@ -274,7 +647,7 @@ public static class BasisBundleBuild
                 for (int i = 0; i < bundlePaths.Count; i++)
                 {
                     string path = bundlePaths[i];
-                    using (var input = new FileStream(path,FileMode.Open,FileAccess.Read, FileShare.Read, BufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                    using (var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan))
                     {
                         int read;
                         while ((read = await input.ReadAsync(buffer, 0, BufferSize, ct)) > 0)
@@ -286,7 +659,7 @@ public static class BasisBundleBuild
                             if (sw.ElapsedMilliseconds >= nextUiMs)
                             {
                                 float progress = (float)((double)bytesDone / (double)totalLen);
-                                EditorUtility.DisplayProgressBar("Combining Files","Processing: " + Path.GetFileName(path),progress);
+                                EditorUtility.DisplayProgressBar("Combining Files", "Processing: " + Path.GetFileName(path), progress);
                                 nextUiMs = sw.ElapsedMilliseconds + 200;
                             }
                         }
@@ -310,7 +683,8 @@ public static class BasisBundleBuild
     {
         // Get the root path of the project (up to the Assets folder)
         string projectRoot = Application.dataPath.Replace("/Assets", "");
-        if (string.IsNullOrEmpty(relativePath)) {
+        if (string.IsNullOrEmpty(relativePath))
+        {
             return projectRoot;
         }
 
@@ -363,10 +737,12 @@ public static class BasisBundleBuild
         OpenFolderInExplorer(fullPath);
         return fullPath;
     }
-    // Convert a Unity path to a Windows-compatible path and open it in File Explorer
+    // Convert a Unity path to a platform-compatible path and open it in File Explorer
     public static void OpenFolderInExplorer(string folderPath)
     {
 #if UNITY_EDITOR_LINUX
+        string osPath = folderPath;
+#elif UNITY_EDITOR_OSX
         string osPath = folderPath;
 #else
         // Convert Unity-style file path (forward slashes) to Windows-style (backslashes)
@@ -377,8 +753,11 @@ public static class BasisBundleBuild
         if (Directory.Exists(osPath) || File.Exists(osPath))
         {
 #if UNITY_EDITOR_LINUX
-            // On Linux, use 'xdg-open' or 'open'
+            // On Linux, use 'xdg-open'
             System.Diagnostics.Process.Start("xdg-open", osPath);
+#elif UNITY_EDITOR_OSX
+            // On Mac, use 'open'
+            System.Diagnostics.Process.Start("open", osPath);
 #else
             // On Windows, use 'explorer' to open the folder or highlight the file
             System.Diagnostics.Process.Start("explorer.exe", osPath);
@@ -413,14 +792,6 @@ public static class BasisBundleBuild
         Debug.Log("Random bytes generated successfully.");
         return randomBytes;
     }
-
-    // Converts a byte array to a Base64 encoded string
-    public static string ByteArrayToBase64String(byte[] byteArray)
-    {
-        Debug.Log("Converting byte array to Base64 string...");
-        return Convert.ToBase64String(byteArray);
-    }
-
     // Converts a byte array to a hexadecimal string
     public static string ByteArrayToHexString(byte[] byteArray)
     {

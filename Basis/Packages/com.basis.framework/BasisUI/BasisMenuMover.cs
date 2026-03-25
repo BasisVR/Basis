@@ -18,8 +18,14 @@ namespace Basis.BasisUI
             Floating,
             World,
             Eye,
-            LeftHand, // VR Only
-            RightHand, // VR Only
+            LeftHand,       // VR Only
+            RightHand,      // VR Only
+
+            /// <summary>
+            /// VR-focused: menu spawns at eye pose, then sticks to playspace movement (no head bob),
+            /// using a captured playspace-local anchor.
+            /// </summary>
+            PlaySpaceStable,
         }
 
         [Serializable]
@@ -35,9 +41,11 @@ namespace Basis.BasisUI
         public RectTransform GroupOffset;
 
         [Header("Settings")]
-        public PanelGroupRootMode VRMode = PanelGroupRootMode.Floating;
+        public PanelGroupRootMode VRMode = PanelGroupRootMode.PlaySpaceStable;
         public PanelGroupRootMode DesktopRootMode = PanelGroupRootMode.Eye;
         public PanelGroupRootMode InUse = PanelGroupRootMode.Eye;
+
+        [Tooltip("Base UI scale (menu sizing)")]
         public float RootScale = 0.0005f;
 
         [Header("Offsets are multiplied against the Player Eye Height.\nAssign your values assuming a height of 1 meter.")]
@@ -47,74 +55,100 @@ namespace Basis.BasisUI
         public RootModeOffset RightHandOffset;
         public RootModeOffset FloatingOffset;
 
-        [Header("Readout")]
-        public Vector3 Position;
-        public Quaternion Rotation;
+        [Header("Floating")]
         public Vector3 VRRootOffset;
 
-        private BasisLocalBoneControl _leftHandControl;
-        private BasisLocalBoneControl _rightHandControl;
-        private bool _hasLocalCreationEvent;
+        private BasisLocalBoneControl leftHandControl;
+        private BasisLocalBoneControl rightHandControl;
+
+        private bool HasCallbackForLocalCreate;
         private bool _hasLocalMoveEvent;
 
         private const float MIN_Z_SCALE = 0.01f;
 
+        // --- PlaySpaceStable state (from v1) ---
+        private bool _stableHasAnchor;
+        private Vector3 _stableLocalPos;
+        private Quaternion _stableLocalRot = Quaternion.identity;
 
-        private void Start()
+        private void OnEnable()
         {
-            if (BasisLocalPlayer.Instance)
+            // Local player init
+            if (BasisLocalPlayer.PlayerReady)
             {
                 OnLocalPlayerCreated();
             }
             else
             {
-                BasisLocalPlayer.OnLocalPlayerCreated += OnLocalPlayerCreated;
-                _hasLocalCreationEvent = true;
+                BasisLocalPlayer.OnLocalPlayerInitalized += OnLocalPlayerCreated;
+                HasCallbackForLocalCreate = true;
             }
-
             BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
-        }
-        public void OnEnable()
-        {
-            OnAvatarHeightChange();
+            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnAvatarHeightChange;
         }
 
-        private void OnDestroy()
+        private void OnDisable()
         {
-            BasisLocalPlayer.Instance.OnAvatarSwitched -= OnAvatarHeightChange;
+            if (BasisLocalPlayer.PlayerReady)
+            {
+                BasisLocalPlayer.Instance.OnAvatarSwitched -= OnAvatarHeightChange;
+            }
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnAvatarHeightChange;
 
-            if (_hasLocalCreationEvent)
+            if (HasCallbackForLocalCreate)
             {
-                BasisLocalPlayer.OnLocalPlayerCreated -= OnLocalPlayerCreated;
+                BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerCreated;
+                HasCallbackForLocalCreate = false;
+            }
+
+            BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+            if (HasCallbackForLocalCreate)
+            {
+                BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerCreated;
             }
 
             if (_hasLocalMoveEvent)
             {
-                BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
+                BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(120, UpdateUILocation);
             }
-
-            BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+            SetMovementCallback(false);
         }
-
         private void OnLocalPlayerCreated()
         {
+            // Avatar swap + height changes
             BasisLocalPlayer.Instance.OnAvatarSwitched += OnAvatarHeightChange;
-            BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnAvatarHeightChange;
+            var localbonedriver = BasisLocalPlayer.Instance.LocalBoneDriver;
+            // Bone refs
+            localbonedriver.FindBone(out leftHandControl, BasisBoneTrackedRole.LeftHand);
+            localbonedriver.FindBone(out rightHandControl, BasisBoneTrackedRole.RightHand);
+            // Apply current mode
             SetRootMode(GetFindCurrentMode());
-
-            BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _leftHandControl, BasisBoneTrackedRole.LeftHand);
-            BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out _rightHandControl, BasisBoneTrackedRole.RightHand);
         }
 
-        private void OnBootModeChanged(string obj)
+        private void OnBootModeChanged(string mode)
         {
+            if (!BasisLocalPlayer.PlayerReady)
+            {
+                return;
+            }
+            BasisDebug.Log("OnBootModeChanged Menu Updating", BasisDebug.LogTag.Core);
             SetRootMode(GetFindCurrentMode());
         }
 
         public void OnAvatarHeightChange()
         {
+            BasisDebug.Log("OnAvatarHeightChange Menu Updating", BasisDebug.LogTag.Core);
             SetRootMode(GetFindCurrentMode());
+        }
+
+        public void OnAvatarHeightChange(BasisHeightDriver.HeightModeChange change)
+        {
+            // v1 had a special case for T-pose. Keep it: only rescale if not T-pose.
+            if (change != BasisHeightDriver.HeightModeChange.OnTpose)
+            {
+                BasisDebug.Log("OnAvatarHeightChange Menu Updating", BasisDebug.LogTag.Core);
+                SetRootMode(GetFindCurrentMode());
+            }
         }
 
         public PanelGroupRootMode GetFindCurrentMode()
@@ -123,17 +157,13 @@ namespace Basis.BasisUI
             {
                 return DesktopRootMode;
             }
-            else
+
+            if (BasisDeviceManagement.IsCurrentModeVR())
             {
-                if (BasisDeviceManagement.IsCurrentModeVR())
-                {
-                    return VRMode;
-                }
-                else
-                {
-                    return DesktopRootMode;
-                }
+                return VRMode;
             }
+
+            return DesktopRootMode;
         }
 
         /// <summary>
@@ -143,30 +173,47 @@ namespace Basis.BasisUI
         public void SetRootMode(PanelGroupRootMode mode)
         {
             InUse = mode;
+
+            // Reset playspace-stable anchor when switching into/out of it
+            if (InUse != PanelGroupRootMode.PlaySpaceStable)
+            {
+                _stableHasAnchor = false;
+            }
+
             switch (InUse)
             {
                 case PanelGroupRootMode.World:
                     SetMovementCallback(false);
                     SetRootOffset(WorldOffset);
                     break;
+
                 case PanelGroupRootMode.Eye:
                     SetMovementCallback(true);
-                    // SetRootOffset(HeadOffset);
-                    UpdateUILocation(PanelGroupRootMode.Eye);
+                    UpdateUILocation(PanelGroupRootMode.Eye, false);
                     break;
+
                 case PanelGroupRootMode.LeftHand:
                     SetMovementCallback(true);
                     SetRootOffset(LeftHandOffset);
                     break;
+
                 case PanelGroupRootMode.RightHand:
                     SetMovementCallback(true);
                     SetRootOffset(RightHandOffset);
                     break;
+
                 case PanelGroupRootMode.Floating:
                     SetMovementCallback(false);
                     SetRootOffset(FloatingOffset);
-                    UpdateUILocation();
+                    UpdateUILocation(PanelGroupRootMode.Floating, false);
                     break;
+
+                case PanelGroupRootMode.PlaySpaceStable:
+                    SetMovementCallback(true);
+                    SetRootOffsetForPlaySpaceStable();
+                    UpdateUILocation(PanelGroupRootMode.PlaySpaceStable, true);
+                    break;
+
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -174,94 +221,257 @@ namespace Basis.BasisUI
 
         private void SetMovementCallback(bool value)
         {
-            if (value != _hasLocalMoveEvent)
+            if (value == _hasLocalMoveEvent)
             {
-                if (value)
-                {
-                    BasisLocalPlayer.AfterFinalMove.AddAction(120, UpdateUILocation);
-                }
-                else
-                {
-                    BasisLocalPlayer.AfterFinalMove.RemoveAction(120, UpdateUILocation);
-                }
-
-                _hasLocalMoveEvent = value;
+                return;
             }
+
+            if (value)
+            {
+                BasisLocalPlayer.AfterSimulateOnLate.AddAction(120, UpdateUILocation);
+            }
+            else
+            {
+                BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(120, UpdateUILocation);
+            }
+
+            _hasLocalMoveEvent = value;
         }
 
         private void SetRootOffset(RootModeOffset offset)
         {
-            float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
+            float playerHeight = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+
             GroupOffset.SetLocalPositionAndRotation(offset.Position, offset.Rotation);
 
-            Vector3 offsetScale =  Vector3.one * (offset.Scale * RootScale);
+            Vector3 offsetScale = Vector3.one * (offset.Scale * RootScale);
             offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
+            // Root is avatar-compensated
             transform.localScale = Vector3.one * playerHeight;
         }
 
         private void SetEyeOffset(float scaleFactor)
         {
-            float playerHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerToDefaultScale;
-            Vector3 scaledOffset = Vector3.Scale(HeadOffset.Position, new Vector3(scaleFactor, scaleFactor, 1));
+            float playerHeight = BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+
+            Vector3 scaledOffset = Vector3.Scale(HeadOffset.Position, new Vector3(scaleFactor, scaleFactor, 1f));
             GroupOffset.SetLocalPositionAndRotation(scaledOffset, HeadOffset.Rotation);
 
-            Vector3 offsetScale =  Vector3.one * (HeadOffset.Scale * RootScale * scaleFactor);
+            Vector3 offsetScale = Vector3.one * (HeadOffset.Scale * RootScale * scaleFactor);
             offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
             GroupOffset.localScale = offsetScale;
 
             transform.localScale = Vector3.one * playerHeight;
         }
 
-        private void UpdateUILocation()
+        /// <summary>
+        /// PlaySpaceStable distance is controlled ONLY by GroupOffset (like v1).
+        /// We keep the "VR distance" default here: 0.6m forward in local space when VR.
+        /// </summary>
+        private void SetRootOffsetForPlaySpaceStable()
         {
-            UpdateUILocation(InUse);
+            GroupOffset.SetLocalPositionAndRotation(new Vector3(0f, 0f, 0.6f), Quaternion.identity);
+
+            ApplyScaleOnly();
         }
 
-        private void UpdateUILocation(PanelGroupRootMode mode)
+        private void ApplyScaleOnly()
         {
+            // 1) UI group scale (menu sizing)
+            Vector3 offsetScale = Vector3.one * RootScale;
+            offsetScale.z = Mathf.Max(MIN_Z_SCALE, offsetScale.z);
+            GroupOffset.localScale = offsetScale;
+
+            // 2) Root scale (avatar-to-default compensation)
+            transform.localScale = Vector3.one * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+        }
+
+        private void UpdateUILocation()
+        {
+            UpdateUILocation(InUse, false);
+        }
+
+        private void UpdateUILocation(PanelGroupRootMode mode, bool OverrideAnchor)
+        {
+            if (OverrideAnchor)
+            {
+                _stableHasAnchor = false;
+            }
             switch (mode)
             {
                 case PanelGroupRootMode.World:
+                    // Static in world space; GroupOffset handles position relative to root.
                     break;
-                case PanelGroupRootMode.Eye:
-                    // 11-30-2025: This value did not report the active value, as this setting was not applied to the application immediately.
-                    // float fieldOfView = BasisSettingsSystem.LoadFloat(BasisSettingsDefaults.FieldOfView.BindingKey);
-                    float fieldOfView = BasisLocalPlayer.Instance.LocalCameraDriver.Camera.fieldOfView;
-                    float tanFOV = Mathf.Tan((Mathf.Deg2Rad * fieldOfView) / 2);
 
-                    // 80 was the FOV the Menu was designed at.
-                    const float designerMenuScale = 80;
-                    float tanFOVBase = Mathf.Tan((Mathf.Deg2Rad * designerMenuScale) / 2);
+                case PanelGroupRootMode.Eye:
+                    if (!BasisLocalCameraDriver.HasInstance)
+                    {
+                        break;
+                    }
+                    float fieldOfView = BasisLocalCameraDriver.CameraInstance.fieldOfView;
+                    float tanFOV = Mathf.Tan((Mathf.Deg2Rad * fieldOfView) / 2f);
+
+                    // Menu was designed at 80 FOV
+                    const float designerMenuScale = 80f;
+                    float tanFOVBase = Mathf.Tan((Mathf.Deg2Rad * designerMenuScale) / 2f);
                     float scaleFactor = tanFOV / tanFOVBase;
 
-                    BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
+                    BasisLocalCameraDriver.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
                     transform.SetPositionAndRotation(Position, Rotation);
 
                     SetEyeOffset(scaleFactor);
+                    break;
 
-                    break;
                 case PanelGroupRootMode.LeftHand:
-                    BasisCalibratedCoords leftData = _leftHandControl.OutgoingWorldData;
-                    Position = leftData.position;
-                    Rotation = leftData.rotation;
-                    transform.SetPositionAndRotation(Position, Rotation);
+                    if (leftHandControl == null)
+                    {
+                        break;
+                    }
+                    BasisCalibratedCoords leftData = leftHandControl.OutgoingWorldData;
+                    transform.SetPositionAndRotation(leftData.position, leftData.rotation);
                     break;
+
                 case PanelGroupRootMode.RightHand:
-                    BasisCalibratedCoords rightData = _rightHandControl.OutgoingWorldData;
-                    Position = rightData.position;
-                    Rotation = rightData.rotation;
-                    transform.SetPositionAndRotation(Position, Rotation);
+                    if (rightHandControl == null)
+                    {
+                        break;
+                    }
+                    BasisCalibratedCoords rightData = rightHandControl.OutgoingWorldData;
+                    transform.SetPositionAndRotation(rightData.position, rightData.rotation);
                     break;
+
                 case PanelGroupRootMode.Floating:
-                    BasisLocalCameraDriver.GetPositionAndRotation(out Position, out Rotation);
-                    Rotation = Quaternion.LookRotation(Rotation * Vector3.forward, Vector3.up);
-                    transform.SetPositionAndRotation(Position + VRRootOffset, Rotation);
+                    if (!BasisLocalCameraDriver.HasInstance)
+                    {
+                        break;
+                    }
+                    BasisLocalCameraDriver.GetPositionAndRotation(out Vector3 CameraPosition, out Quaternion CameraRotation);
+                    Rotation = Quaternion.LookRotation(CameraRotation * Vector3.forward, Vector3.up);
+                    transform.SetPositionAndRotation(CameraPosition + VRRootOffset, Rotation);
                     break;
+
+                case PanelGroupRootMode.PlaySpaceStable:
+                    UpdateUILocationPlaySpace();
+                    break;
+
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+        private void UpdateUILocationPlaySpace()
+        {
+            CaptureStableAnchorIfNeeded();
+
+            if (!_stableHasAnchor)
+            {
+                return;
+            }
+
+            BasisLocalPlayer.Instance.PlayerSelf.GetPositionAndRotation(out Vector3 playPosWS, out Quaternion playRotWS);
+
+            // Apply playspace transform to captured playspace-local anchor
+            transform.SetPositionAndRotation(playPosWS + (playRotWS * _stableLocalPos), playRotWS * _stableLocalRot);
+        }
+
+        private static float ExtractPitchDegreesNoRoll(Quaternion localRot)
+        {
+            // Pitch from forward.y (roll-proof).
+            Vector3 fwd = localRot * Vector3.forward;
+            float pitchRad = Mathf.Asin(Mathf.Clamp(fwd.y, -1f, 1f));
+            return pitchRad * Mathf.Rad2Deg;
+        }
+
+        // Add near the other constants / fields:
+        private const float STABLE_RECENTER_TOLERANCE_MULT = 2.25f;   // how far beyond intended distance before we recenter
+        private const float STABLE_RECENTER_MIN_WORLD_DIST = 0.75f;   // absolute minimum threshold (meters), avoids tiny-scale jitter
+
+        /// <summary>
+        /// Expected menu distance from the head in world meters, accounting for avatar-to-default scaling.
+        /// In PlaySpaceStable, distance is controlled by GroupOffset local Z (default 0.5).
+        /// Root (transform) is scaled by BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale.
+        /// </summary>
+        private float GetExpectedStableMenuDistanceWorld()
+        {
+            // GroupOffset.localPosition.z is in root-local units
+            float localZ = Mathf.Abs(GroupOffset.localPosition.z);
+
+            // Root scale converts local units -> world units.
+            // In your setup, root scale is avatar-compensation (AvatarToDefaultRatioScaledWithAvatarScale).
+            // Use lossyScale.z to capture actual world scaling even if hierarchy changes.
+            float rootWorldScaleZ = Mathf.Abs(transform.lossyScale.z);
+
+            // Expected world distance along forward axis
+            float expected = localZ * rootWorldScaleZ;
+
+            // Safety clamp in case scale is weird / tiny.
+            return Mathf.Max(expected, 0.01f);
+        }
+
+        private void CaptureStableAnchorIfNeeded()
+        {
+            // If already anchored, verify we didn't drift too far away.
+            if (_stableHasAnchor)
+            {
+                if (!BasisLocalCameraDriver.HasInstance || GroupOffset == null)
+                {
+                    // Can't validate; keep anchor.
+                    return;
+                }
+
+                BasisLocalCameraDriver.GetPositionAndRotation(out Vector3 camPosWS, out _);
+
+                // Measure distance from head to the actual UI group (not the root).
+                float currentDist = Vector3.Distance(camPosWS, GroupOffset.position);
+
+                // Height-aware "intended" distance.
+                float expectedDist = GetExpectedStableMenuDistanceWorld();
+
+                // Allow some tolerance; also enforce a minimum meter threshold so small avatars don't cause constant recaptures.
+                float maxAllowed = Mathf.Max(expectedDist * STABLE_RECENTER_TOLERANCE_MULT, STABLE_RECENTER_MIN_WORLD_DIST);
+
+                if (currentDist > maxAllowed)
+                {
+                    // Force a recapture this frame.
+                    _stableHasAnchor = false;
+                }
+                else
+                {
+                    return; // anchor is valid, keep it
+                }
+            }
+
+            if (!BasisLocalCameraDriver.HasInstance)
+            {
+                return;
+            }
+
+            BasisLocalPlayer.Instance.PlayerSelf.GetPositionAndRotation(out Vector3 playPosWS, out Quaternion playRotWS);
+
+            // Camera pose (head/eye)
+            BasisLocalCameraDriver.GetPositionAndRotation(out Vector3 camPosWS2, out Quaternion camRotWS);
+
+            // Head rotation in playspace-local space
+            Quaternion headLocal = Quaternion.Inverse(playRotWS) * camRotWS;
+
+            float pitch = -ExtractPitchDegreesNoRoll(headLocal);
+
+            // yaw then pitch (pitch around local X)
+            Quaternion spawnLocalRotNoRoll =
+                Quaternion.Euler(0f, headLocal.eulerAngles.y, 0f) *
+                Quaternion.Euler(pitch, 0f, 0f);
+
+            Quaternion spawnRotWS = playRotWS * spawnLocalRotNoRoll;
+
+            // Place the root at the spawn pose once (then we follow playspace)
+            transform.SetPositionAndRotation(camPosWS2, spawnRotWS);
+
+            // Cache playspace-local anchor
+            _stableLocalPos = Quaternion.Inverse(playRotWS) * (camPosWS2 - playPosWS);
+            _stableLocalRot = spawnLocalRotNoRoll;
+
+            _stableHasAnchor = true;
         }
     }
 }

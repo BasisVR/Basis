@@ -26,11 +26,13 @@ namespace Basis.BTween
             BTweenManager.RegisterGroup(ProcessGroup);
         }
 
-        private static void ProcessGroup(float currentTime)
+        private static void ProcessGroup(double currentTime)
         {
             List<T> list = Tweens;
-            foreach (T tween in list)
+            int count = list.Count;
+            for (int i = 0; i < count; i++)
             {
+                T tween = list[i];
                 if (!tween.Active) continue;
                 tween.Process(currentTime);
             }
@@ -38,20 +40,34 @@ namespace Basis.BTween
 
         public static T GetAvailableTween()
         {
-            foreach (T tween in Tweens)
+            List<T> list = Tweens;
+            int count = list.Count;
+            for (int i = 0; i < count; i++)
             {
+                T tween = list[i];
                 if (tween.Active) continue;
                 return tween;
             }
 
             T newTween = new();
-            Tweens.Add(newTween);
+            list.Add(newTween);
             return newTween;
         }
 
-        protected float BlendValue(float currentTime) =>
-            EaseTypes.PerformEase(Ease, Mathf.InverseLerp(StartTime, EndTime, currentTime));
+        protected double BlendValue(double currentTime)
+        {
+            double t = InverseLerp(StartTime, EndTime, currentTime);
+            return EaseTypes.PerformEase(Ease, t);
+        }
 
+        static double InverseLerp(double a, double b, double value)
+        {
+            if (a == b)
+                return 0.0;
+
+            double t = (value - a) / (b - a);
+            return Math.Clamp(t, 0.0, 1.0);
+        }
 
         protected void AssignTimes(float duration)
         {
@@ -73,12 +89,19 @@ namespace Basis.BTween
             return (T)this;
         }
 
+        public T SetDelay(float delay)
+        {
+            StartTime += delay;
+            EndTime += delay;
+            return (T)this;
+        }
+
         /// <summary>
         /// Returns true when completed.
         /// </summary>
-        public virtual bool Process(float currentTime)
+        public virtual bool Process(double currentTime)
         {
-            float percentage = BlendValue(currentTime);
+            double percentage = BlendValue(currentTime);
             if (percentage >= 1)
             {
                 Finish();

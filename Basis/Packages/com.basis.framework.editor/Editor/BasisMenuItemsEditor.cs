@@ -68,7 +68,7 @@ public static class BasisMenuItemsEditor
         var Value = FindSimulate();
         foreach (var device in allDevicesToRemove)
         {
-            Value.CreatePhysicalTrackedDevice(device.UniqueID, "{htc}vr_tracker_vive_3_0");
+            Value.CreatePhysicalTrackedDevice(device.UniqueDeviceIdentifier, "{htc}vr_tracker_vive_3_0");
         }
     }
     public static BasisSimulateXR FindSimulate()
@@ -137,9 +137,9 @@ public static class BasisMenuItemsEditor
         BasisInputXRSimulate BasisLeftFoot = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisLeftFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
         BasisInputXRSimulate BasisRightFoot = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisRightFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
 
-        var hips = BasisLocalAvatarDriver.References.Hips;
-        var leftFoot = BasisLocalAvatarDriver.References.leftFoot;
-        var rightFoot = BasisLocalAvatarDriver.References.rightFoot;
+        var hips = BasisLocalAvatarDriver.Mapping.Hips;
+        var leftFoot = BasisLocalAvatarDriver.Mapping.leftFoot;
+        var rightFoot = BasisLocalAvatarDriver.Mapping.rightFoot;
 
         Vector3 HipsPosition = ModifyVector(hips.position);
         Vector3 leftFootPosition = ModifyVector(leftFoot.position);
@@ -163,7 +163,7 @@ public static class BasisMenuItemsEditor
         // Create an array of the tracker names for simplicity
         string trackerName = "{htc}vr_tracker_vive_3_0";
 
-        var avatarDriver = BasisLocalAvatarDriver.References;
+        var avatarDriver = BasisLocalAvatarDriver.Mapping;
         // avatarDriver.neck, avatarDriver.head,
         // Array of all relevant body parts
         Transform[] bodyParts = new Transform[]
@@ -198,7 +198,7 @@ public static class BasisMenuItemsEditor
         // Create an array of the tracker names for simplicity
         string trackerName = "{htc}vr_tracker_vive_3_0";
 
-        var avatarDriver = BasisLocalAvatarDriver.References;
+        var avatarDriver = BasisLocalAvatarDriver.Mapping;
         // avatarDriver.neck, avatarDriver.head,
         // Array of all relevant body parts
         Transform[] bodyParts = new Transform[]

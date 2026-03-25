@@ -61,6 +61,12 @@ public struct TposeAndOffsetDataJob
     public float3 offsets_unscaled_CenterEye;
     /// <summary>Unscaled offset from head to mouth.</summary>
     public float3 offsets_unscaled_Mouth;
+
+
+    /// <summary>
+    /// default scale
+    /// </summary>
+    public float3 TposeScale;
 }
 
 /// <summary>
@@ -136,6 +142,9 @@ public struct BasisRemoteBoneJob : IJobParallelFor
     /// <summary>Per-frame pose outputs.</summary>
     [WriteOnly]
     public NativeArray<RemoteFrameOutput> Out;
+    /// <summary>Separate mouth-only positions for fast lookup (avoids full RemoteFrameOutput copy).</summary>
+    [WriteOnly]
+    public NativeArray<float3> MouthPositions;
     /// <summary>Writable per-frame scale cache (scaled TPose and offsets).</summary>
     public NativeArray<RemoteScaleCache> GeneratedScales;
 
@@ -173,6 +182,10 @@ public struct BasisRemoteBoneJob : IJobParallelFor
         float3 spineP = chestP + math.mul(headR, sc.offsets_scaled_Spine);
         float3 eyeP = headP + math.mul(headR, sc.offsets_scaled_CenterEye);
         float3 mouthP = headP + math.mul(headR, sc.offsets_scaled_Mouth);
+
+
+        float3 difference = SafeDivide(f.nowScale, a.TposeScale);
+
         Out[i] = new RemoteFrameOutput
         {
             pos_Head = headP,
@@ -189,9 +202,20 @@ public struct BasisRemoteBoneJob : IJobParallelFor
             rot_Hips = hipsR,
             rot_CenterEye = headR,
             rot_Mouth = headR,
+
+
             // Used for vertical offsetting of the nameplate UI
-            HeightAvatarHipCoord = sc.tposeLocal_scaled_Hips.y * 1.2f
+            HeightAvatarHipCoord = difference.y * 1.2f,
         };
+        MouthPositions[i] = mouthP;
+    }
+    float3 SafeDivide(float3 numerator, float3 denominator)
+    {
+        const float eps = 1e-6f;
+
+        float3 safeDenom = math.select(denominator,math.sign(denominator) * eps, math.abs(denominator) < eps);
+
+        return numerator / safeDenom;
     }
 }
 
@@ -368,6 +392,8 @@ public static class RemoteBoneJobSystem
     static NativeList<RemoteScaleCache> sScale;
     /// <summary>Per-frame pose outputs per avatar.</summary>
     static NativeList<RemoteFrameOutput> sOut;
+    /// <summary>Separate mouth-only world positions for fast lookup (avoids full RemoteFrameOutput copy).</summary>
+    static NativeList<float3> sMouthPositions;
 
     // Cached TPose quats (job friendly)
     /// <summary>TPose head quaternions per avatar.</summary>
@@ -399,13 +425,15 @@ public static class RemoteBoneJobSystem
     static NativeArray<quaternion> sTmpHeadRot, sTmpHipsRot;
 
     // Bookkeeping
-    /// <summary>Map from external key → internal SoA index.</summary>
-    static readonly Dictionary<int, int> sKeyToIndex = new Dictionary<int, int>();
+    /// <summary>Map from external key → internal SoA index. Flat array indexed by ushort player ID; -1 = absent.</summary>
+    static int[] sKeyToIndex;
+    /// <summary>Reverse map: internal SoA index → external key. Used for O(1) swap-back removal.</summary>
+    static readonly List<int> sIndexToKey = new List<int>();
     /// <summary>Pending job handle chain.</summary>
     static JobHandle sPending;
     /// <summary>Initialization flag.</summary>
     static bool sInitialized;
-
+    public static int AuthoringLength;
     /// <summary>
     /// Allocates persistent containers and sets initial capacities for all arrays.
     /// Safe to call multiple times; subsequent calls are ignored once initialized.
@@ -419,6 +447,7 @@ public static class RemoteBoneJobSystem
         sIn = new NativeList<GeneratedTranslationalData>(initialCapacity, Allocator.Persistent);
         sScale = new NativeList<RemoteScaleCache>(initialCapacity, Allocator.Persistent);
         sOut = new NativeList<RemoteFrameOutput>(initialCapacity, Allocator.Persistent);
+        sMouthPositions = new NativeList<float3>(initialCapacity, Allocator.Persistent);
 
         sTPoseHeadRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
         sTPoseHipsRot = new NativeList<quaternion>(initialCapacity, Allocator.Persistent);
@@ -430,6 +459,10 @@ public static class RemoteBoneJobSystem
         sNamePlate = new TransformAccessArray(initialCapacity);
         sAvatarScale = new TransformAccessArray(initialCapacity);
         sMouth = new TransformAccessArray(initialCapacity);
+
+        sKeyToIndex = new int[65536];
+        Array.Fill(sKeyToIndex, -1);
+        sIndexToKey.Clear();
 
         sInitialized = true;
     }
@@ -445,6 +478,7 @@ public static class RemoteBoneJobSystem
         if (sIn.IsCreated) sIn.Dispose();
         if (sScale.IsCreated) sScale.Dispose();
         if (sOut.IsCreated) sOut.Dispose();
+        if (sMouthPositions.IsCreated) sMouthPositions.Dispose();
 
         if (sTPoseHeadRot.IsCreated) sTPoseHeadRot.Dispose();
         if (sTPoseHipsRot.IsCreated) sTPoseHipsRot.Dispose();
@@ -459,7 +493,8 @@ public static class RemoteBoneJobSystem
 
         DisposeTempBuffers();
 
-        sKeyToIndex.Clear();
+        if (sKeyToIndex != null) Array.Fill(sKeyToIndex, -1);
+        sIndexToKey.Clear();
         sInitialized = false;
     }
 
@@ -488,9 +523,7 @@ public static class RemoteBoneJobSystem
     /// <param name="AvatarScale">Transform used for avatar scaling (if any).</param>
     /// <param name="MouthTransform">Mouth transform to be driven.</param>
     /// <returns>The provided <paramref name="key"/>.</returns>
-    public static int AddRemotePlayer(int key, Transform remotePlayerRoot, Transform head, Transform hips,
-        BasisCalibratedCoords tposeHead, BasisCalibratedCoords tposeHips, float3 authoredCenterEyeWorld,
-        float3 authoredMouthWorld, Transform NamePlate, Transform AvatarScale, Transform MouthTransform)
+    public static int AddRemotePlayer(int key, Transform remotePlayerRoot, Transform head, Transform hips,BasisCalibratedCoords tposeHead, BasisCalibratedCoords tposeHips, float3 authoredCenterEyeWorld,float3 authoredMouthWorld, Transform NamePlate, Transform AvatarScale, Transform MouthTransform,float3 TposedScale)
     {
         if (!sInitialized) Initialize();
         CompletePending();
@@ -527,7 +560,8 @@ public static class RemoteBoneJobSystem
             offsets_unscaled_Chest = offChest,
             offsets_unscaled_Spine = offSpine,
             offsets_unscaled_CenterEye = offEye,
-            offsets_unscaled_Mouth = offMouth
+            offsets_unscaled_Mouth = offMouth,
+             TposeScale = TposedScale
         };
 
         int idx = sAuthoring.Length;
@@ -537,6 +571,7 @@ public static class RemoteBoneJobSystem
         sIn.Add(default);
         sScale.Add(new RemoteScaleCache());
         sOut.Add(default);
+        sMouthPositions.Add(default);
 
         sTPoseHeadRot.Add((quaternion)tposeHead.rotation);
         sTPoseHipsRot.Add((quaternion)tposeHips.rotation);
@@ -550,6 +585,8 @@ public static class RemoteBoneJobSystem
         sHeads.Add(head);
         sHips.Add(hips);
         sKeyToIndex[key] = idx;
+        sIndexToKey.Add(key);
+        AuthoringLength = sAuthoring.Length;
         return key;
     }
 
@@ -564,7 +601,9 @@ public static class RemoteBoneJobSystem
         if (!sInitialized) return false;
         CompletePending();
 
-        if (!sKeyToIndex.TryGetValue(key, out int idx)) return false;
+        if ((uint)key >= (uint)sKeyToIndex.Length) return false;
+        int idx = sKeyToIndex[key];
+        if (idx < 0) return false;
 
         int last = sAuthoring.Length - 1;
         if (idx != last)
@@ -574,6 +613,7 @@ public static class RemoteBoneJobSystem
             sIn[idx] = sIn[last];
             sScale[idx] = sScale[last];
             sOut[idx] = sOut[last];
+            sMouthPositions[idx] = sMouthPositions[last];
             sTPoseHeadRot[idx] = sTPoseHeadRot[last];
             sTPoseHipsRot[idx] = sTPoseHipsRot[last];
 
@@ -585,13 +625,10 @@ public static class RemoteBoneJobSystem
             sHeads.RemoveAtSwapBack(idx);
             sHips.RemoveAtSwapBack(idx);
 
-            // Update the moved key's mapping
-            int movedKey = -1;
-            foreach (var kv in sKeyToIndex)
-            {
-                if (kv.Value == last) { movedKey = kv.Key; break; }
-            }
-            if (movedKey != -1) sKeyToIndex[movedKey] = idx;
+            // O(1) reverse lookup instead of iterating the dictionary
+            int movedKey = sIndexToKey[last];
+            sKeyToIndex[movedKey] = idx;
+            sIndexToKey[idx] = movedKey;
         }
         else
         {
@@ -608,9 +645,12 @@ public static class RemoteBoneJobSystem
         sIn.RemoveAt(last);
         sScale.RemoveAt(last);
         sOut.RemoveAt(last);
+        sMouthPositions.RemoveAt(last);
         sTPoseHeadRot.RemoveAt(last);
         sTPoseHipsRot.RemoveAt(last);
-        sKeyToIndex.Remove(key);
+        sKeyToIndex[key] = -1;
+        sIndexToKey.RemoveAt(last);
+        AuthoringLength = sAuthoring.Length;
         return true;
     }
 
@@ -685,9 +725,16 @@ public static class RemoteBoneJobSystem
     /// <returns>The final <see cref="JobHandle"/> for dependency chaining.</returns>
     public static JobHandle Schedule(int batchSize = 64)
     {
-        if (!sInitialized || sAuthoring.Length == 0) return default;
+        if (!sInitialized)
+        {
+            return default;
+        }
+        if (AuthoringLength == 0)
+        {
+            return default;
+        }
 
-        EnsureTempBuffers(sAuthoring.Length);
+        EnsureTempBuffers(AuthoringLength);
 
         // Gather root/head/hips
         var hRoot = new GatherRootJob
@@ -722,7 +769,7 @@ public static class RemoteBoneJobSystem
             tposeHeadRot = sTPoseHeadRot.AsDeferredJobArray(),
             tposeHipsRot = sTPoseHipsRot.AsDeferredJobArray(),
             InOut = sIn.AsDeferredJobArray()
-        }.Schedule(sAuthoring.Length, batchSize, deps);
+        }.Schedule(AuthoringLength, batchSize, deps);
 
         // Run bone simulation
         var BoneSimulation = new BasisRemoteBoneJob
@@ -730,8 +777,9 @@ public static class RemoteBoneJobSystem
             Authoring = sAuthoring.AsDeferredJobArray(),
             In = sIn.AsDeferredJobArray(),
             GeneratedScales = sScale.AsDeferredJobArray(),
-            Out = sOut.AsDeferredJobArray()
-        }.Schedule(sAuthoring.Length, batchSize, combine);
+            Out = sOut.AsDeferredJobArray(),
+            MouthPositions = sMouthPositions.AsDeferredJobArray()
+        }.Schedule(AuthoringLength, batchSize, combine);
 
         // Apply outputs
         Vector3 CameraPosition = BasisLocalCameraDriver.Position;
@@ -750,7 +798,6 @@ public static class RemoteBoneJobSystem
         sPending = ApplyMouthJob;
         return ApplyMouthJob;
     }
-
     /// <summary>
     /// Completes a provided handle and any internally pending chain.
     /// </summary>
@@ -771,13 +818,18 @@ public static class RemoteBoneJobSystem
     /// <returns><c>true</c> if the key is found; otherwise <c>false</c>.</returns>
     public static bool GetOutGoingMouth(int key, out float3 outgoing)
     {
-        if (!sKeyToIndex.TryGetValue(key, out int idx))
+        if ((uint)key >= (uint)sKeyToIndex.Length)
         {
-            outgoing = Vector3.zero;
+            outgoing = float3.zero;
             return false;
         }
-        var o = sOut[idx];
-        outgoing = o.pos_Mouth;
+        int idx = sKeyToIndex[key];
+        if (idx < 0)
+        {
+            outgoing = float3.zero;
+            return false;
+        }
+        outgoing = sMouthPositions[idx];
         return true;
     }
 }

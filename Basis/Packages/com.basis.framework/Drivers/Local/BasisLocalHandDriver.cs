@@ -1,6 +1,6 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Player;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,6 @@ using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.AddressableAssets;
 using UnityEngine.Jobs;
 
 /// <summary>
@@ -268,10 +267,7 @@ public class BasisLocalHandDriver
         {
             BasisLocalAvatarDriver.SavedruntimeAnimatorController = Anim.runtimeAnimatorController;
         }
-        UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op =
-            Addressables.LoadAssetAsync<RuntimeAnimatorController>(BasisLocalAvatarDriver.TPose);
-        RuntimeAnimatorController RAC = op.WaitForCompletion();
-        Anim.runtimeAnimatorController = RAC;
+        Anim.runtimeAnimatorController = BasisPlayerFactory.TposeController;
         float desiredTime = Time.deltaTime;
         Anim.Update(desiredTime);
     }
@@ -315,7 +311,7 @@ public class BasisLocalHandDriver
     /// <param name="DeltaTime">Frame delta time (seconds).</param>
     public void UpdateFingers(float DeltaTime)
     {
-        var Map = BasisLocalAvatarDriver.References;
+        var Map = BasisLocalAvatarDriver.Mapping;
         // Find nearest baked pose using two-stage job: distance + min reduction
         bool GetClosestValue(Vector2 percentage, out BasisPoseDataAdditional result)
         {

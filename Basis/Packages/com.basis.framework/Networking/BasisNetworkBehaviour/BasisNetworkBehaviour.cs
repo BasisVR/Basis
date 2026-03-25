@@ -4,6 +4,7 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
 using System;
 using System.Collections;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using static BasisNetworkCommon;
@@ -69,7 +70,7 @@ namespace Basis
                 return false;
             }
         }
-        private async void OnLocalPlayerJoined(BasisNetworkPlayer player1, BasisLocalPlayer player2)
+        private async void OnLocalPlayerJoined(BasisNetworkPlayer NetworkedPlayer, BasisLocalPlayer LocalPlayer)
         {
             if (BasisNetworkConnection.LocalPlayerIsConnected)
             {
@@ -82,41 +83,51 @@ namespace Basis
 
                     wassuccesful = TryGetNetworkGUIDIdentifier(out NetworkGuidID);
                 }
-                if (wassuccesful)
+                if (!wassuccesful)
                 {
-                    BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
-                    BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
-
-                    Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
-                    Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
-                    Task[] tasks = new Task[] { IDResolverAsync, output };
-
-                    await Task.WhenAll(tasks);
-
-                    //convert GUID into Ushort for network transport.
-                    BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
-                    var InitalOwnershipStatus = await output;
-                    CurrentOwnerId = InitalOwnershipStatus.PlayerId;
-                   BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
-                    HasNetworkID = IDResolverResult.Success;
-                    NetworkID = IDResolverResult.Id;
-                    if (HasNetworkID)
-                    {
-                        OnNetworkReady();
-                        BasisNetworkGenericMessages.RegisterHandler(NetworkID, OnNetworkMessage);
-                    }
+                    BasisDebug.LogError("Was not sucessful at TryGetNetworkGUIDIdentifier NetworkGUID");
+                    return;
                 }
+                BasisNetworkPlayer.OnOwnershipTransfer += LowLevelOwnershipTransfer;
+                BasisNetworkPlayer.OnOwnershipReleased += LowLevelOwnershipReleased;
+
+                Task<BasisIdResolutionResult> IDResolverAsync = BasisNetworkIdResolver.ResolveAsync(NetworkGuidID);
+                Task<BasisOwnershipResult> output = BasisNetworkOwnership.RequestCurrentOwnershipAsync(NetworkGuidID);
+                Task[] tasks = new Task[] { IDResolverAsync, output };
+
+                await Task.WhenAll(tasks);
+
+                //convert GUID into Ushort for network transport.
+                BasisIdResolutionResult IDResolverResult = await IDResolverAsync;
+                var InitalOwnershipStatus = await output;
+                if (InitalOwnershipStatus.Success)
+                {
+                    CurrentOwnerId = InitalOwnershipStatus.PlayerId;
+                    BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
+                }
+                HasNetworkID = IDResolverResult.Success;
+                NetworkID = IDResolverResult.Id;
+                if (HasNetworkID)
+                {
+                    OnNetworkReady();
+                    BasisNetworkGenericMessages.RegisterHandler(NetworkID, OnNetworkMessage);
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("LocalPlayer Is Not Connected Behaviour Cant Start");
             }
         }
         private void LowLevelOwnershipReleased(string uniqueEntityID)
         {
             if (uniqueEntityID == clientIdentifier)
             {
-                ServerOwnershipDestroyed();
+                OnServerOwnershipDestroyed();
             }
         }
         private void LowLevelOwnershipTransfer(string uniqueEntityID, ushort NetIdNewOwner, bool isOwner)
         {
+
             if (uniqueEntityID == clientIdentifier)
             {
                 IsOwnedLocallyOnServer = isOwner;
@@ -219,33 +230,76 @@ namespace Basis
         }
         public static string LowLevelGetHierarchyPath(BasisNetworkContentBase obj)
         {
+            StringBuilder pathBuilder = new StringBuilder();
             // Get the index of the component on the GameObject
             Component[] components = obj.gameObject.GetComponents(obj.GetType());
             int index = System.Array.IndexOf(components, obj);
 
-            string path = obj.gameObject.name + obj.GetType() + index;
+            pathBuilder.Append($"{obj.gameObject.name}{SiblingIndexIfNeeded(obj.transform)}:{obj.GetType().FullName}_{index}");
             Transform current = obj.transform.parent;
 
             while (current != null)
             {
-                path = current.name + "/" + path;
+                pathBuilder.Insert(0, $"{current.name}{SiblingIndexIfNeeded(current)}/");
                 current = current.parent;
             }
 
-            return path;
+            return pathBuilder.ToString();
+        }
+        private static string SiblingIndexIfNeeded(Transform t)
+        {
+            Transform parent = t.parent;
+            string name = t.name;
+            if (parent == null)
+            {
+                foreach (var go in t.gameObject.scene.GetRootGameObjects())
+                {
+                    if (go != t.gameObject && go.name == name)
+                    {
+                        return $"[{t.GetSiblingIndex()}]";
+                    }
+                }
+            }
+            else
+            {
+                int childCount = parent.childCount;
+                for (int i = 0; i < childCount; i++)
+                {
+                    Transform sibling = parent.GetChild(i);
+                    if (sibling != t && sibling.name == name)
+                    {
+                        return $"[{t.GetSiblingIndex()}]";
+                    }
+                }
+            }
+            return string.Empty;
         }
         public async void TakeOwnership()
         {
             //no need to use await ownership will get back here from lower level.
             await TakeOwnershipAsync();
         }
+        /// <summary>
+        /// actively takes ownership from another player
+        /// </summary>
+        /// <param name="Timout"></param>
+        /// <returns></returns>
         public async Task<BasisOwnershipResult> TakeOwnershipAsync(int Timout = 5000)
         {
             IsOwnedLocallyOnClient = true;
             CurrentOwnerId = BasisNetworkPlayer.LocalPlayer.playerId;
             currentOwnedPlayer = BasisNetworkPlayer.LocalPlayer;
-            //no need to use await ownership will get back here from lower level.
             BasisOwnershipResult Result = await BasisNetworkOwnership.TakeOwnershipAsync(clientIdentifier, BasisNetworkConnection.LocalPlayerPeer.RemoteId, Timout);
+            return Result;
+        }
+        /// <summary>
+        /// requests who is the owner
+        /// </summary>
+        /// <param name="Timout"></param>
+        /// <returns></returns>
+        public async Task<BasisOwnershipResult> RequestWhoIsOwnershipAsync(int Timout = 5000)
+        {
+            BasisOwnershipResult Result = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(clientIdentifier, Timout);
             return Result;
         }
         public virtual void OnNetworkReady()
@@ -255,7 +309,7 @@ namespace Basis
         /// <summary>
         /// back to no one owning it, (item no longer exists for example)
         /// </summary>
-        public virtual void ServerOwnershipDestroyed()
+        public virtual void OnServerOwnershipDestroyed()
         {
 
         }

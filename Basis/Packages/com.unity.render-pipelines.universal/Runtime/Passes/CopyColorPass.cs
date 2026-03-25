@@ -19,12 +19,6 @@ namespace UnityEngine.Rendering.Universal.Internal
         Downsampling m_DownsamplingMethod;
         Material m_CopyColorMaterial;
 
-#if URP_COMPATIBILITY_MODE
-        private RTHandle source { get; set; }
-        private RTHandle destination { get; set; }
-        private PassData m_PassData;
-#endif
-
         /// <summary>
         /// Creates a new <c>CopyColorPass</c> instance.
         /// </summary>
@@ -44,11 +38,6 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_SampleOffsetShaderHandle = Shader.PropertyToID("_SampleOffset");
             renderPassEvent = evt;
             m_DownsamplingMethod = Downsampling.None;
-
-#if URP_COMPATIBILITY_MODE
-            base.useNativeRenderPass = false;
-            m_PassData = new PassData();
-#endif
         }
 
         /// <summary>
@@ -64,6 +53,23 @@ namespace UnityEngine.Rendering.Universal.Internal
         {
             descriptor.msaaSamples = 1;
             descriptor.depthStencilFormat = GraphicsFormat.None;
+            if (downsamplingMethod == Downsampling._2xBilinear)
+            {
+                descriptor.width = Mathf.Max(1, descriptor.width / 2);
+                descriptor.height = Mathf.Max(1, descriptor.height / 2);
+            }
+            else if (downsamplingMethod == Downsampling._4xBox || downsamplingMethod == Downsampling._4xBilinear)
+            {
+                descriptor.width = Mathf.Max(1, descriptor.width / 4);
+                descriptor.height = Mathf.Max(1, descriptor.height / 4);
+            }
+
+            filterMode = downsamplingMethod == Downsampling.None ? FilterMode.Point : FilterMode.Bilinear;
+        }
+
+        internal static void ConfigureDescriptor(Downsampling downsamplingMethod, ref TextureDesc descriptor, out FilterMode filterMode)
+        {
+            descriptor.msaaSamples = MSAASamples.None;
             if (downsamplingMethod == Downsampling._2xBilinear)
             {
                 descriptor.width = Mathf.Max(1, descriptor.width / 2);
@@ -98,47 +104,8 @@ namespace UnityEngine.Rendering.Universal.Internal
         /// <param name="downsampling">The downsampling method to use.</param>
         public void Setup(RTHandle source, RTHandle destination, Downsampling downsampling)
         {
-#if URP_COMPATIBILITY_MODE
-            this.source = source;
-            this.destination = destination;
-#endif
             m_DownsamplingMethod = downsampling;
         }
-
-#if URP_COMPATIBILITY_MODE
-        /// <inheritdoc />
-        [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsoleteFrom2023_3)]
-        public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
-        {
-            cmd.SetGlobalTexture(destination.name, destination.nameID);
-        }
-
-        /// <inheritdoc/>
-        [Obsolete(DeprecationMessage.CompatibilityScriptingAPIObsoleteFrom2023_3)]
-        public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
-        {
-            m_PassData.samplingMaterial = m_SamplingMaterial;
-            m_PassData.copyColorMaterial = m_CopyColorMaterial;
-            m_PassData.downsamplingMethod = m_DownsamplingMethod;
-            m_PassData.sampleOffsetShaderHandle = m_SampleOffsetShaderHandle;
-
-            var cmd = renderingData.commandBuffer;
-
-            // TODO RENDERGRAPH: Do we need a similar check in the RenderGraph path?
-            //It is possible that the given color target is now the frontbuffer
-            if (source == renderingData.cameraData.renderer.GetCameraColorFrontBuffer(cmd))
-            {
-                source = renderingData.cameraData.renderer.cameraColorTargetHandle;
-            }
-
-#if ENABLE_VR && ENABLE_XR_MODULE
-            if (renderingData.cameraData.xr.supportsFoveatedRendering)
-                cmd.SetFoveatedRenderingMode(FoveatedRenderingMode.Disabled);
-#endif
-            ScriptableRenderer.SetRenderTarget(cmd, destination, k_CameraTarget, clearFlag, clearColor);
-            ExecutePass(CommandBufferHelpers.GetRasterCommandBuffer(cmd), m_PassData, source, renderingData.cameraData.xr.enabled);
-        }
-#endif
 
         private static void ExecutePass(RasterCommandBuffer cmd, PassData passData, RTHandle source, bool useDrawProceduralBlit)
         {
@@ -154,28 +121,25 @@ namespace UnityEngine.Rendering.Universal.Internal
                     samplingMaterial);
                 return;
             }
+          
+            Vector2 viewportScale = source.useScaling ? new Vector2(source.rtHandleProperties.rtHandleScale.x, source.rtHandleProperties.rtHandleScale.y) : Vector2.one;
 
-            using (new ProfilingScope(cmd, ProfilingSampler.Get(URPProfileId.CopyColor)))
+            switch (downsamplingMethod)
             {
-                Vector2 viewportScale = source.useScaling ? new Vector2(source.rtHandleProperties.rtHandleScale.x, source.rtHandleProperties.rtHandleScale.y) : Vector2.one;
-
-                switch (downsamplingMethod)
-                {
-                    case Downsampling.None:
-                        Blitter.BlitTexture(cmd, source, viewportScale, copyColorMaterial, 0);
-                        break;
-                    case Downsampling._2xBilinear:
-                        Blitter.BlitTexture(cmd, source, viewportScale, copyColorMaterial, 1);
-                        break;
-                    case Downsampling._4xBox:
-                        samplingMaterial.SetFloat(sampleOffsetShaderHandle, 2);
-                        Blitter.BlitTexture(cmd, source, viewportScale, samplingMaterial, 0);
-                        break;
-                    case Downsampling._4xBilinear:
-                        Blitter.BlitTexture(cmd, source, viewportScale, copyColorMaterial, 1);
-                        break;
-                }
-            }
+                case Downsampling.None:
+                    Blitter.BlitTexture(cmd, source, viewportScale, copyColorMaterial, 0);
+                    break;
+                case Downsampling._2xBilinear:
+                    Blitter.BlitTexture(cmd, source, viewportScale, copyColorMaterial, 1);
+                    break;
+                case Downsampling._4xBox:
+                    samplingMaterial.SetFloat(sampleOffsetShaderHandle, 2);
+                    Blitter.BlitTexture(cmd, source, viewportScale, samplingMaterial, 0);
+                    break;
+                case Downsampling._4xBilinear:
+                    Blitter.BlitTexture(cmd, source, viewportScale, copyColorMaterial, 1);
+                    break;
+            }            
         }
 
         private class PassData
@@ -194,12 +158,13 @@ namespace UnityEngine.Rendering.Universal.Internal
             m_DownsamplingMethod = downsampling;
 
             UniversalCameraData cameraData = frameData.Get<UniversalCameraData>();
-            RenderTextureDescriptor descriptor = cameraData.cameraTargetDescriptor;
-            ConfigureDescriptor(downsampling, ref descriptor, out var filterMode);
+            var srcDesc = source.GetDescriptor(renderGraph);
 
-            destination = UniversalRenderer.CreateRenderGraphTexture(renderGraph, descriptor, "_CameraOpaqueTexture", true, filterMode);
+            ConfigureDescriptor(downsampling, ref srcDesc, out var filterMode);
 
-            RenderInternal(renderGraph, destination, source, cameraData.xr.enabled);
+            destination = UniversalRenderer.CreateRenderGraphTexture(renderGraph, srcDesc, "_CameraOpaqueTexture", true, srcDesc.clearColor, filterMode);
+            
+            RenderInternal(renderGraph, destination, source, cameraData.xr.enabled);   
 
             return destination;
         }
@@ -251,7 +216,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                 builder.SetGlobalTextureAfterPass(destination, Shader.PropertyToID("_CameraOpaqueTexture"));
 
-                builder.SetRenderFunc((PassData data, RasterGraphContext context) =>
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext context) =>
                 {
                     ExecutePass(context.cmd, data, data.source, data.useProceduralBlit);
                 });

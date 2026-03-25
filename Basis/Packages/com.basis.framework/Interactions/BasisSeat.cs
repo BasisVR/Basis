@@ -98,6 +98,23 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public float LowerLegLength { get; private set; } = 0.5f;
         public float LegAngleDegrees { get; private set; } = 90.0f;
 
+        private AsyncOperationHandle<Material> _asyncOperationHighlightMat;
+        private GameObject _seatHighlightObject;
+        private MeshFilter _seatHighlightMeshFilter;
+        private Material _colliderHighlightMat;
+        private const string k_LoadMaterialAddress = "Interactable/InteractHighlightMat.mat";
+        public Action<BasisPlayer> OnLocalPlayerEnterSeat;
+        public Action<BasisPlayer> OnLocalPlayerExitSeat;
+        private BasisInput _interactingInput = null;
+        private bool IsSeatTakenByAnyone = false;
+        public bool LocallyInSeat;
+        public bool ResetPitchOnEntry = false;
+        public bool ExitRequiresAllDevicesPressed;
+        public BasisInputKey ExitKey = BasisInputKey.Trigger;
+        public BasisBoneTrackedRole[] ExitRoles = null;
+
+        // Internal latch to prevent repeat firing while held (used when ExitOnPressDown == true).
+        private bool _exitLatch;
         public void SetPoints(Vector3 back, Vector3 foot, Vector3 knee, double angle = 90.0)
         {
             _back = back;
@@ -138,12 +155,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #endregion Seat Internals
 
         #region Highlight Code
-        private AsyncOperationHandle<Material> _asyncOperationHighlightMat;
-        private GameObject _seatHighlightObject;
-        private MeshFilter _seatHighlightMeshFilter;
-        private Material _colliderHighlightMat;
-        private const string k_LoadMaterialAddress = "Interactable/InteractHighlightMat.mat";
-
         private Mesh _generateSeatHighlightMesh()
         {
             const float k_lineWidth = 0.1f;
@@ -207,6 +218,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             hipsWorldRot = seatQuat * SpineRotation;
 
             var refs = Player.RemoteAvatarDriver.References;
+            Vector3 scale = Player.AvatarTransform.localScale;
             // grab T-pose dictionary once
             var tpose = refs.Tpose;
             // pull out the leg joints you need
@@ -214,10 +226,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
             var leftLower = tpose[HumanBodyBones.LeftLowerLeg];
             var leftFoot = tpose[HumanBodyBones.LeftFoot];
             var leftToe = tpose[HumanBodyBones.LeftToes];
-
-            Matrix4x4 dat = Player.AvatarTransform.localToWorldMatrix;
-
-            Vector3 scale = Convert(dat);
 
             Vector3 LUL_World = Vector3.Scale(scale, leftUpper.position);
             Vector3 LLL_World = Vector3.Scale(scale, leftLower.position);
@@ -227,17 +235,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // finally call your leg placement helper
             hipsWorldPos = ApplyRemoteLeg(leftLower.rotation, leftUpper.rotation, LF_World, LLL_World, LUL_World, LT_World);
         }
-        public Vector3 Convert(Matrix4x4 m)
-        {
-            Vector3 sx = new Vector3(m.m00, m.m10, m.m20);
-            Vector3 sy = new Vector3(m.m01, m.m11, m.m21);
-            Vector3 sz = new Vector3(m.m02, m.m12, m.m22);
-            return new Vector3(sx.magnitude, sy.magnitude, sz.magnitude);
-        }
         /// <summary>
         ///
         /// </summary>
-        /// <param name="scale"></param>
         /// <param name="LeftLowerLegControlRotation"></param>
         /// <param name="LeftUpperLegControlRotation"></param>
         /// <param name="LeftFootControl"></param>
@@ -245,7 +245,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <param name="LeftUpperLegControl"></param>
         /// <param name="LeftToeControl"></param>
         /// <returns></returns>
-        public Vector3 ApplyRemoteLeg( Quaternion LeftLowerLegControlRotation, Quaternion LeftUpperLegControlRotation, Vector3 LeftFootControl, Vector3 LeftLowerLegControl, Vector3 LeftUpperLegControl, Vector3 LeftToeControl)
+        public Vector3 ApplyRemoteLeg(Quaternion LeftLowerLegControlRotation, Quaternion LeftUpperLegControlRotation, Vector3 LeftFootControl, Vector3 LeftLowerLegControl, Vector3 LeftUpperLegControl, Vector3 LeftToeControl)
         {
 
             Vector3 leftLowerLegOffset = LeftFootControl - LeftLowerLegControl;
@@ -399,6 +399,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public override void OnDestroy()
         {
+            if (LocallyInSeat)
+            {
+                if (BasisLocalPlayer.Instance != null)
+                {
+                    BasisLocalPlayer.Instance?.LocalSeatDriver.Stand();
+                }
+                SetSeatOccupied(false);
+                LocallyInSeat = false;
+            }
             if (_seatHighlightMeshFilter != null)
             {
                 if (_seatHighlightMeshFilter.mesh != null)
@@ -415,9 +424,6 @@ namespace Basis.Scripts.BasisSdk.Interactions
         #endregion Unity Lifecycle Hooks
 
         #region Basis Integration
-        private BasisInput _interactingInput = null;
-        public bool IsSeatTakenByAnyone = false;
-        public bool LocallyInSeat;
         public override bool CanHover(BasisInput input)
         {
             // Can only hover when not already hovering or interacting.
@@ -452,14 +458,20 @@ namespace Basis.Scripts.BasisSdk.Interactions
         public override void OnHoverStart(BasisInput input)
         {
             var found = Inputs.FindExcludeExtras(input);
-            if (found != null && found.Value.GetState() != BasisInteractInputState.Ignored)
+            if (found == null)
             {
-               // BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " input state is not ignored OnHoverStart, this shouldn't happen");
+                return;
             }
+            //  if (found.Value.GetState() != BasisInteractInputState.Ignored)
+            // {
+            // BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " input state is not ignored OnHoverStart, this shouldn't happen");
+            // }
 
             var added = Inputs.ChangeStateByRole(found.Value.Role, BasisInteractInputState.Hovering);
             if (!added)
+            {
                 BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " did not find role for input on hover");
+            }
 
             OnHoverStartEvent?.Invoke(input);
             HighlightSeat(true);
@@ -489,7 +501,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public override void OnInteractStart(BasisInput input)
         {
-            if(InteractionTimerValidation() == false)
+            if (InteractionTimerValidation() == false)
             {
                 return;
             }
@@ -509,31 +521,32 @@ namespace Basis.Scripts.BasisSdk.Interactions
             _interactingInput = input;
             if (LocallyInSeat)
             {
-                BasisLocalPlayer.Instance.LocalSeatDriver.Stand();
+                if (BasisLocalPlayer.Instance != null)
+                {
+                    BasisLocalPlayer.Instance?.LocalSeatDriver.Stand();
+                }
                 SetSeatOccupied(false);
                 LocallyInSeat = false;
             }
             else
             {
                 BasisLocalPlayer.Instance.LocalSeatDriver.Sit(this);
-                SetSeatOccupied(true);
-                LocallyInSeat = true;
+                OnEnterSeat(BasisLocalPlayer.Instance);
             }
             base.OnInteractStart(input);
         }
-        public void Sit()
+        public void OnDisable()
         {
-            BasisLocalPlayer.Instance.LocalSeatDriver.Sit(this);
-            SetSeatOccupied(true);
-            LocallyInSeat = true;
+            if (LocallyInSeat)
+            {
+                if (BasisLocalPlayer.Instance != null)
+                {
+                    BasisLocalPlayer.Instance?.LocalSeatDriver.Stand();
+                }
+                SetSeatOccupied(false);
+                LocallyInSeat = false;
+            }
         }
-        public void Stand()
-        {
-            BasisLocalPlayer.Instance.LocalSeatDriver.Stand();
-            SetSeatOccupied(false);
-            LocallyInSeat = false;
-        }
-
 
         public override void OnInteractEnd(BasisInput input)
         {
@@ -544,18 +557,106 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Inputs.ChangeStateByRole(wrapper.Role, BasisInteractInputState.Ignored);
                     _interactingInput = null;
                 }
-
             }
         }
+
+        public void OnEnterSeat(BasisPlayer player)
+        {
+            SetSeatOccupied(true);
+            LocallyInSeat = true;
+            OnLocalPlayerEnterSeat?.Invoke(player);
+        }
+
         /// <summary>
         /// this one actually does the callback.
         /// </summary>
-        public void OnExitSeat()
+        public void OnExitSeat(BasisPlayer player)
         {
             base.OnInteractEnd(null);
             SetSeatOccupied(false);
             LocallyInSeat = false;
+            OnLocalPlayerExitSeat?.Invoke(player);
+        }
+        public void LateUpdate()
+        {
+            if (LocallyInSeat)
+            {
+                if (ExitRoles == null || ExitRoles.Length == 0)
+                {
+                    return;
+                }
+
+                bool anyPressed = false;
+                bool allPressed = true;
+
+                for (int i = 0; i < ExitRoles.Length; i++)
+                {
+                    var role = ExitRoles[i];
+
+                    // If a role isn't available, treat it as NOT pressed (safer).
+                    if (!Inputs.TryGetByRole(role, out BasisInputWrapper wrapper) || wrapper.Source == null)
+                    {
+                        allPressed = false;
+                        continue;
+                    }
+
+                    bool pressed = HasState(wrapper.Source.CurrentInputState, ExitKey);
+
+                    anyPressed |= pressed;
+                    allPressed &= pressed;
+
+                    // Micro-early-outs
+                    if (!ExitRequiresAllDevicesPressed && anyPressed)
+                    {
+                        break;
+                    }
+
+                    if (ExitRequiresAllDevicesPressed && !allPressed)
+                    {
+                        // can't break here if you want to keep checking for side effects; we don't, so break.
+                        break;
+                    }
+                }
+
+                bool exitConditionMet = ExitRequiresAllDevicesPressed ? allPressed : anyPressed;
+
+                if (exitConditionMet && !_exitLatch)
+                {
+                    BasisDebug.Log($"Exit Condition Met!");
+                    _exitLatch = true;
+                    RequestExit();
+                }
+                else if (!exitConditionMet)
+                {
+                    _exitLatch = false;
+                }
+            }
+        }
+        private void RequestExit()
+        {
+            if (BasisLocalPlayer.Instance != null)
+            {
+                BasisLocalPlayer.Instance?.LocalSeatDriver.Stand();
+            }
+            SetSeatOccupied(false);
+            LocallyInSeat = false;
         }
         #endregion Basis Integration
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.matrix = transform.localToWorldMatrix;
+
+            Gizmos.DrawSphere(_back, 0.04f);
+            Gizmos.DrawSphere(_knee, 0.04f);
+            Gizmos.DrawSphere(_foot, 0.04f);
+
+            Gizmos.DrawLine(_back, _knee);
+            Gizmos.DrawLine(_knee, _foot);
+
+            // show local forward
+            Gizmos.DrawLine(Vector3.zero, Vector3.forward * 0.3f);
+
+            Gizmos.matrix = Matrix4x4.identity;
+        }
     }
 }

@@ -26,7 +26,7 @@ namespace Valve.VR
             set
             {
                 trackingSpaceOrigin = value;
-                if (SteamVR_Behaviour.isPlaying)
+                if (SteamVR_Render.isPlaying)
                     SteamVR_Action_Pose.SetTrackingUniverseOrigin(trackingSpaceOrigin);
             }
         }

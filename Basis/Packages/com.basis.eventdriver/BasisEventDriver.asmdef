@@ -5,7 +5,8 @@
         "BasisConsoleDisplay",
         "Basis Framework",
         "Unity.InputSystem",
-        "com.gator-dragon-games.jigglephysics"
+        "com.gator-dragon-games.jigglephysics",
+        "SteamAudioUnity"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

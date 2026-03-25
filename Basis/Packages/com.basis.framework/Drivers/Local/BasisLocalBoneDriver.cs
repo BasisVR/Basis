@@ -1,11 +1,11 @@
+using Basis.Scripts.Avatar;
+using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.TransformBinders.BoneControl;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System;
 using UnityEngine;
-using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.Avatar;
 
 namespace Basis.Scripts.Drivers
 {
@@ -140,10 +140,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         /// <param name="deltaTime">Time elapsed since last update (seconds).</param>
         /// <param name="transform">Parent transform whose <see cref="Transform.localToWorldMatrix"/> seeds world computation.</param>
-        public void Simulate(float deltaTime, Transform transform)
+        public void Simulate(float deltaTime, Matrix4x4 parentMatrix)
         {
             // sequence all other devices to run at the same time
-            Matrix4x4 parentMatrix = transform.localToWorldMatrix;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].ComputeMovementLocal(parentMatrix, deltaTime);
@@ -159,11 +158,10 @@ namespace Basis.Scripts.Drivers
         /// effectively skipping interpolation/lerp for this frame.
         /// </summary>
         /// <param name="transform">Parent transform for world calculations.</param>
-        public void SimulateWithoutLerp(Transform transform)
+        public void SimulateWithoutLerp(Matrix4x4 parentMatrix)
         {
             // sequence all other devices to run at the same time
             float DeltaTime = Time.deltaTime;
-            Matrix4x4 parentMatrix = transform.localToWorldMatrix;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 Controls[Index].LastRunData.position = Controls[Index].OutGoingData.position;
@@ -181,32 +179,31 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void DrawGizmos()
         {
-            float Size = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
-                DrawGizmos(Controls[Index], Size);
+                DrawGizmos(Controls[Index]);
             }
-        }
-
-        /// <summary>
-        /// Invokes pre-sim callbacks on the player and simulates this driver for the frame.
-        /// </summary>
-        /// <param name="Player">The owning player.</param>
-        /// <param name="deltaTime">Elapsed time since last update (seconds).</param>
-        public void SimulateAndApply(BasisPlayer Player, float deltaTime)
-        {
-            Player.OnPreSimulateBones?.Invoke();
-            Simulate(deltaTime, Player.PlayerSelf);
+            for (int i = 0; i < GizmoBones.Count; i++)
+            {
+                GizmoBone GizmoBone = GizmoBones[i];
+                if (GizmoBone.GizmoTransform != null)
+                {
+                    float ScaledDistance = BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(GizmoBone.Control) * SMModuleCalibration.GetSphereScale(GizmoBone.Control) * BasisHeightDriver.ScaledToMatchValue;
+                    BasisGizmoManager.UpdateSphereGizmo(GizmoBone.GizmoReference, GizmoBone.GizmoTransform.position, Vector3.one * ScaledDistance);
+                }
+            }
         }
 
         /// <summary>
         /// Invokes pre-sim callbacks on the player and simulates without interpolation.
         /// </summary>
         /// <param name="Player">The owning player.</param>
-        public void SimulateAndApplyWithoutLerp(BasisPlayer Player)
+        public void SimulateAndApplyWithoutLerp(BasisLocalPlayer Player)
         {
-            Player.OnPreSimulateBones?.Invoke();
-            SimulateWithoutLerp(Player.PlayerSelf);
+            Player.OnLateSimulateBones(Player);
+            Player.OnRenderSimulateBones(Player);
+            Player.ApplyVirtualData(Player);
+            SimulateWithoutLerp(BasisLocalPlayer.localToWorldMatrix);
         }
 
         /// <summary>
@@ -366,7 +363,7 @@ namespace Basis.Scripts.Drivers
         public void UpdateGizmoUsage(bool State)
         {
             BasisDebug.Log("Running Bone Driver Gizmos", BasisDebug.LogTag.Gizmo);
-            float Size = BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            float Size = BasisHeightDriver.ScaledToMatchValue;
             for (int Index = 0; Index < ControlsLength; Index++)
             {
                 BasisLocalBoneControl Control = Controls[Index];
@@ -380,12 +377,6 @@ namespace Basis.Scripts.Drivers
                             Control.HasLineDraw = true;
                         }
                     }
-                    BasisGizmoManager.CreateSphereGizmo(trackedRoles[Index].ToString(), out Control.GizmoReference, BonePosition, DefaultGizmoSize * Size, Control.Color);
-                }
-                else
-                {
-                    Control.GizmoReference = -1;
-                    Control.TposeGizmoReference = -1;
                 }
             }
         }
@@ -443,52 +434,39 @@ namespace Basis.Scripts.Drivers
         {
             return BasisHelpers.ConvertToLocalSpace(WorldSpace, Transform.position);
         }
+        [System.Serializable]
+        public class GizmoBone
+        {
+            public int GizmoReference;
+            public Transform GizmoTransform;
+            public BasisBoneTrackedRole Control;
 
+        }
+        [SerializeField]
+        public List<GizmoBone> GizmoBones = new List<GizmoBone>();
         /// <summary>
         /// Updates/creates gizmos for a specific control (sphere and optional line to target).
         /// Also renders a T-pose gizmo if T-posing and the role is FB-tracked.
         /// </summary>
         /// <param name="Control">Control to visualize.</param>
         /// <param name="Size">Avatar scale multiplier for gizmo sizing.</param>
-        public void DrawGizmos(BasisLocalBoneControl Control, float Size)
+        public void DrawGizmos(BasisLocalBoneControl Control)
         {
             Vector3 BonePosition = Control.OutgoingWorldData.position;
-            if (Control.HasTarget)
+            if (Control.HasTarget && Control.HasLineDraw)
             {
-                if (Control.HasLineDraw)
-                {
-                    BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
-                }
+                BasisGizmoManager.UpdateLineGizmo(Control.LineDrawIndex, BonePosition, Control.Target.OutgoingWorldData.position);
             }
-            if (FindTrackedRole(Control, out BasisBoneTrackedRole Role))
+        }
+        public void AddGizmo(string Name, Transform Transform, float Scale, Color Color, BasisBoneTrackedRole Bone)
+        {
+            GizmoBone GizmoBone = new GizmoBone();
+            if (BasisGizmoManager.CreateSphereGizmo(Name, out int LinkedID, Transform.position, Scale, Color))
             {
-                if (Control.HasGizmo)
-                {
-                    if (BasisGizmoManager.UpdateSphereGizmo(Control.GizmoReference, BonePosition) == false)
-                    {
-                        Control.GizmoReference = -1;
-                    }
-                }
-            }
-            if (BasisLocalAvatarDriver.CurrentlyTposing)
-            {
-                if (FindTrackedRole(Control, out BasisBoneTrackedRole role))
-                {
-                    if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(role))
-                    {
-                        if (Control.TposeHasGizmo)
-                        {
-                            if (BasisGizmoManager.UpdateSphereGizmo(Control.TposeGizmoReference, BonePosition) == false)
-                            {
-                                Control.TposeGizmoReference = -1;
-                            }
-                        }
-                        else
-                        {
-                            BasisGizmoManager.CreateSphereGizmo(role.ToString(), out Control.TposeGizmoReference, BonePosition, BasisAvatarIKStageCalibration.MaxDistanceBeforeTrackerIsIrrelivant(role) * Size, Control.Color);
-                        }
-                    }
-                }
+                GizmoBone.GizmoReference = LinkedID;
+                GizmoBone.GizmoTransform = Transform;
+                GizmoBone.Control = Bone;
+                GizmoBones.Add(GizmoBone);
             }
         }
     }

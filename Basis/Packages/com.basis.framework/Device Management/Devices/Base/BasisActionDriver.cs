@@ -1,6 +1,8 @@
+using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI;
 using Basis.Scripts.UI.UI_Panels;
@@ -322,7 +324,25 @@ public static class BasisActionDriver
         }
 #endif
     }
+    public static async void ResetBindingsToDefaultsAsyncIgnored()
+    {
+      await  ResetBindingsToDefaultsAsync();
+    }
+    // <summary>
+    /// Resets bindings for the current device mode back to defaults:
+    /// deletes the saved bindings file and reloads defaults (which will be saved).
+    /// </summary>
+    public static async Task ResetBindingsToDefaultsAsync()
+    {
+        // Remove any persisted overrides for this mode
+        DeleteSaveFile();
 
+        // Rebuild driver state from defaults (and SaveFromDriver() will run because file is gone)
+        await LoadBindings();
+
+        BasisDebug.Log($"Bindings reset to defaults for mode {BasisDeviceManagement.StaticCurrentMode}.",
+            BasisDebug.LogTag.Input);
+    }
     /// <summary>
     /// Delegate signature for compiled input actions.
     /// </summary>
@@ -338,7 +358,7 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetMovementSpeedMultiplierFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
-        Vector2 axis = current.Primary2DAxis;
+        Vector2 axis = current.Primary2DAxisDeadZoned;
         float largestValue = Mathf.Abs(axis.x) > Mathf.Abs(axis.y) ? axis.x : axis.y;
         var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
         controller.SetMovementSpeedMultiplier(largestValue);
@@ -352,8 +372,8 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void SetMovementVectorFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
-        var controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
-        controller.SetMovementVector(current.Primary2DAxis);
+        BasisLocalCharacterDriver controller = BasisLocalPlayer.Instance.LocalCharacterDriver;
+        controller.SetMovementVector(current.Primary2DAxisDeadZoned);
     }
 
     /// <summary>
@@ -380,15 +400,6 @@ public static class BasisActionDriver
         {
 
             Basis.BasisUI.BasisMainMenu.Toggle();
-
-            /*if (BasisHamburgerMenu.Instance == null)
-            {
-                BasisHamburgerMenu.OpenHamburgerMenuNow();
-            }
-            else
-            {
-                BasisHamburgerMenu.Instance.CloseThisMenu();
-            }*/
         }
     }
 
@@ -400,9 +411,10 @@ public static class BasisActionDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static void ToggleMicOnPrimaryReleaseIfNoHover(ref BasisInputState current, ref BasisInputState last)
     {
+#if !BASIS_DISABLE_MICROPHONE
         if (BasisInputModuleHandler.Instance.HasHoverONInput == false)
         {
-            switch (SMDMicrophone.SelectedTalkmode)
+            switch (SMDMicrophone.Current.TalkMode)
             {
                 case SMDMicrophone.BasisMicrophoneMode.OnActivation:
                     if (current.PrimaryButtonGetState == false && last.PrimaryButtonGetState)
@@ -432,6 +444,7 @@ public static class BasisActionDriver
                     break;
             }
         }
+#endif
     }
 
     /// <summary>
@@ -443,7 +456,7 @@ public static class BasisActionDriver
     public static void RotateFromPrimary2DAxis(ref BasisInputState current, ref BasisInputState last)
     {
         var driver = BasisLocalPlayer.Instance.LocalCharacterDriver;
-        driver.Rotation = current.Primary2DAxis;
+        driver.Rotation = current.Primary2DAxisButterfly;
     }
 
     /// <summary>

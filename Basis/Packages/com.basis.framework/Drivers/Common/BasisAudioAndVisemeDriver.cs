@@ -1,10 +1,6 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using System.Collections.Generic;
-using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.Device_Management;
-using uLipSync;
-
 namespace Basis.Scripts.Drivers
 {
     /// <summary>
@@ -24,7 +20,7 @@ namespace Basis.Scripts.Drivers
     /// </para>
     /// </remarks>
     [System.Serializable]
-    public partial class BasisAudioAndVisemeDriver
+    public class BasisAudioAndVisemeDriver
     {
         /// <summary>
         /// Smoothing amount used by uLipSync (implementation-specific).
@@ -54,7 +50,7 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// uLipSync core component that analyses incoming audio to phoneme weights.
         /// </summary>
-        public uLipSync.uLipSync uLipSync;
+        public BasisUlipSync uLipSync = new BasisUlipSync();
 
         /// <summary>
         /// Table mapping phoneme strings (e.g., "A", "E") to avatar blendshape indices.
@@ -90,12 +86,12 @@ namespace Basis.Scripts.Drivers
 
             if (Avatar == null)
             {
-                //  BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
+                //   BasisDebug.Log("not setting up BasisVisemeDriver Avatar was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh == null)
             {
-                //  BasisDebug.Log("not setting up BasisVisemeDriver FaceVisemeMesh was null");
+                //   BasisDebug.Log("not setting up BasisVisemeDriver FaceVisemeMesh was null");
                 return false;
             }
             if (Avatar.FaceVisemeMesh.sharedMesh.blendShapeCount == 0)
@@ -103,15 +99,11 @@ namespace Basis.Scripts.Drivers
                 //  BasisDebug.Log("not setting up BasisVisemeDriver blendShapeCount was empty");
                 return false;
             }
-            if (uLipSync == null)
-            {
-                uLipSync = BasisHelpers.GetOrAddComponent<uLipSync.uLipSync>(BasisPlayer.gameObject);
-            }
 
             phonemeBlendShapeTable.Clear();
-            uLipSync.profile = BasisDeviceManagement.Instance.LipSyncProfile;
             uLipSync.skinnedMeshRenderer = Avatar.FaceVisemeMesh;
-
+            uLipSync.sharedMesh = Avatar.FaceVisemeMesh.sharedMesh;
+            uLipSync.blendShapeCount = uLipSync.sharedMesh.blendShapeCount;
             // Build viseme availability and phoneme mapping table
             BlendShapeCount = Avatar.FaceVisemeMovement.Length;
             HasViseme = new bool[BlendShapeCount];
@@ -160,7 +152,6 @@ namespace Basis.Scripts.Drivers
                 uLipSync.AddBlendShape(info.phoneme, info.blendShape);
             }
             uLipSync.BlendShapeInfos = uLipSync.CachedblendShapes.ToArray();
-            uLipSync.Initalize();
 
             // Wire visibility and lifetime callbacks (only once per renderer instance)
             if (Player != null && Player.FaceRenderer != null && HashInstanceID != Player.FaceRenderer.GetInstanceID())
@@ -169,12 +160,30 @@ namespace Basis.Scripts.Drivers
                 Player.FaceRenderer.Check += UpdateFaceVisibility;
                 Player.FaceRenderer.DestroyCalled += TryShutdown;
             }
+            //BasisDebug.Log($"uLipSync Initalized {Avatar.name}", BasisDebug.LogTag.Voice);
+            uLipSync.Initalize();
 
             UpdateFaceVisibility(Player.FaceIsVisible);
             WasSuccessful = true;
             return true;
         }
+        public void OnDestroy()
+        {
+            uLipSync.DisposeBuffers();
+        }
+        public void Simulate(float DeltaTime)
+        {
+            if (uLipSyncEnabledState == false)
+            {
+                return;
+            }
 
+            uLipSync.Simulate(DeltaTime);
+        }
+        public void Apply()
+        {
+            uLipSync.Apply();
+        }
         /// <summary>
         /// Attempts to cleanly shut down the driver, disabling processing and unbinding callbacks.
         /// </summary>
@@ -224,8 +233,15 @@ namespace Basis.Scripts.Drivers
         /// </remarks>
         public void ProcessAudioSamples(float[] data, int channels, int Length)
         {
-            if (uLipSyncEnabledState == false) return;
-            if (WasSuccessful == false) return;
+            if (uLipSyncEnabledState == false)
+            {
+                return;
+            }
+
+            if (WasSuccessful == false)
+            {
+                return;
+            }
 
             uLipSync.OnDataReceived(data, channels, Length);
         }
@@ -239,6 +255,13 @@ namespace Basis.Scripts.Drivers
         /// </remarks>
         public void OnPausedEvent(bool IsPaused)
         {
+            if (IsPaused)
+            {
+                foreach (BasisPhonemeBlendShapeInfo blendshapeIndex in phonemeBlendShapeTable)
+                {
+                    Avatar.FaceVisemeMesh.SetBlendShapeWeight(blendshapeIndex.blendShape, 0);
+                }
+            }
         }
     }
 }

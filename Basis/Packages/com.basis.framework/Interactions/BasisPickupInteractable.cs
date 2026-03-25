@@ -1,4 +1,3 @@
-using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
@@ -11,6 +10,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.InputSystem;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections;
+using Basis.Scripts.BasisSdk.Players;
 using Unity.Mathematics;
 
 namespace Basis.Scripts.BasisSdk.Interactions
@@ -37,6 +37,16 @@ namespace Basis.Scripts.BasisSdk.Interactions
         [Tooltip("Enables the ability to self-steal")]
         public bool CanSelfSteal = true;
 
+        /// <summary>
+        /// If <see langword="true"/>, the object will smoothly interpolate to the hand position/rotation on pickup.
+        /// </summary>
+        [Tooltip("The object will move to the player's hand instead of keeping its offset on pickup")]
+        public bool LerpToHandOnPickup = true;
+
+        /// <summary>
+        /// Show Highlight on haver. does not effect on hover exit.
+        /// </summary>
+        public bool ShowHighlightOnHover = true;
         /// <summary>
         /// Desktop-only rotation speed multiplier when dragging to rotate the held object.
         /// </summary>
@@ -164,7 +174,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// <summary>
         /// Event-like callback invoked every frame a trigger state is detected while interacting.
         /// </summary>
-        public Action<BasisPickUpUseMode> OnPickupUse;
+        public UnityEngine.Events.UnityEvent<BasisPickUpUseMode> OnPickupUse;
 
         /// <summary>
         /// Optional hook points that must all return <see langword="true"/> for hover to be allowed.
@@ -257,9 +267,25 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private Coroutine _autoReturnCoroutine;
         # endregion
 
+        public bool CanSelfStealResolved => CanSelfSteal && !BasisDeviceManagement.IsUserInDesktop();
+
+        private const float lerpToHandDuration = 0.05f;
+        private float _lerpElapsed;
+        private bool _lerping;
+
+        private Vector3 magicNumberHandOffsetRight = new(0.26f, -0.14f, 0.24f); // right, down, forward
+        private Quaternion magicNumberHandRotationRight = Quaternion.Euler(00, 010, -100);
+        private Vector3 magicNumberHandOffsetLeft = new(-0.26f, -0.14f, 0.24f); // left, down, forward
+        private Quaternion magicNumberHandRotationLeft = Quaternion.Euler(0, -10, -80);
+        private Vector3 magicNumberItemDeltaRight = new(-.05f, .025f, .05f); // slightly inward from right hand
+        private Vector3 magicNumberItemDeltaLeft = new(.05f, .025f, .05f);   // slightly inward from left hand
+
+        private BasisLocalBoneControl useHandBoneControl;
+        private Vector3 useMagicNumberHandOffset;
+        private Quaternion useMagicNumberHandRotation;
+        private Vector3 useMagicNumberItemDelta;
+
         private float _previousDistance = 0;
-
-
         /// <summary>
         /// Unity start hook. Ensures references, allocates constraint, loads highlight material, and optionally builds the collider highlight mesh.
         /// </summary>
@@ -304,7 +330,28 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
                 }
             }
-            OnInteractStartEvent += OnInteractionEventFired;
+            OnInteractStartEvent.AddListener(OnInteractionEventFired);
+        }
+
+        private void OnEnable()
+        {
+            BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+        }
+
+        private void OnDisable()
+        {
+            BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
+            Drop();
+        }
+
+        private void OnBootModeChanged(string mode)
+        {
+            if (BasisLocalPlayer.Instance != null)
+            {
+                BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+            }
+
+            Drop();
         }
 
         internal void OnInteractionEventFired(BasisInput input)
@@ -334,7 +381,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             // NOTE: see CanInteract note
             return InteractableEnabled &&
-                (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
+                (!Inputs.AnyInteracting() || CanSelfStealResolved) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
@@ -350,7 +397,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             // NOTE: Injected checks must be called at the end so that we can safely assume that at the time this was invoked, everything was valid.
             //       Important for net sync: pending steal requests shouldn't re-invoke with stale data.
             return InteractableEnabled &&
-                (!Inputs.AnyInteracting() || CanSelfSteal) &&               // self-steal
+                (!Inputs.AnyInteracting() || CanSelfStealResolved) &&               // self-steal
                 !input.BasisUIRaycast.HadRaycastUITarget &&                 // didn't hit UI target this frame
                 Inputs.IsInputAdded(input) &&                               // input exists
                 input.TryGetRole(out BasisBoneTrackedRole role) &&          // has role
@@ -358,6 +405,14 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 found.GetState() == BasisInteractInputState.Hovering &&     // only current hover can interact
                 IsWithinRange(found.BoneControl.OutgoingWorldData.position, InteractRange) && // within range
                 CanInteractInjected.AllTrue(input);                         // injected
+        }
+
+        /// <inheritdoc />
+        public override bool CanDirectGrab(BasisInput input)
+        {
+            if (!base.CanDirectGrab(input)) return false;
+            if (Inputs.AnyInteracting() && !CanSelfStealResolved) return false;
+            return CanInteractInjected.AllTrue(input);
         }
 
         /// <summary>
@@ -375,7 +430,10 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 BasisDebug.LogWarning(nameof(BasisPickupInteractable) + " did not find role for input on hover");
 
             OnHoverStartEvent?.Invoke(input);
-            HighlightObject(true);
+            if (ShowHighlightOnHover)
+            {
+                HighlightObject(true);
+            }
         }
 
         /// <summary>
@@ -413,7 +471,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Clean up interacting ourselves (system won't do this for us) when self-steal is allowed.
-            if (CanSelfSteal)
+            if (CanSelfStealResolved)
                 Inputs.ForEachWithState(OnInteractEnd, BasisInteractInputState.Interacting);
 
             if (input.TryGetRole(out BasisBoneTrackedRole role) && Inputs.TryGetByRole(role, out BasisInputWrapper wrapper))
@@ -446,8 +504,32 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
                     transform.GetPositionAndRotation(out Vector3 ActivePosition, out Quaternion ActiveRotation);
 
-                    var offsetPos = Quaternion.Inverse(inRot) * (ActivePosition - inPos);
-                    var offsetRot = Quaternion.Inverse(inRot) * ActiveRotation;
+                    Vector3 offsetPos;
+                    bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
+                    if (inDesktop)
+                    {
+                        EnableDesktopHandTracking();
+                    }
+
+                    if (LerpToHandOnPickup)
+                    {
+                        Vector3 lerpTarget = inPos;
+                        if (inDesktop)
+                        {
+                            lerpTarget = inPos + inRot * (useMagicNumberHandOffset * BasisHeightDriver.ScaledToMatchValue);
+                        }
+                        offsetPos = ComputeClosestBoundsOffset(lerpTarget, inRot, ActivePosition);
+                        InputConstraint.GlobalWeight = 0f;
+                        _lerpElapsed = 0f;
+                        _lerping = true;
+                    }
+                    else
+                    {
+                        offsetPos = Quaternion.Inverse(inRot) * (ActivePosition - inPos);
+                        InputConstraint.GlobalWeight = 1f;
+                    }
+
+                    Quaternion offsetRot = Quaternion.Inverse(inRot) * ActiveRotation;
 
                     InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
 
@@ -466,7 +548,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Clean up hovers if self-steal is disabled.
-            if (!CanSelfSteal)
+            if (!CanSelfStealResolved)
                 Inputs.ForEachWithState(i => OnHoverEnd(i, false), BasisInteractInputState.Hovering);
         }
 
@@ -502,6 +584,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     }
 
                     InputConstraint.Enabled = false;
+                    _lerping = false;
                     InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
 
                     if (RigidRef != null)
@@ -521,6 +604,11 @@ namespace Basis.Scripts.BasisSdk.Interactions
                         }
                     }
                     BasisDebug.Log($"OnInteractEnd", BasisDebug.LogTag.Pickups);
+
+                    if (BasisDeviceManagement.IsUserInDesktop())
+                    {
+                        DisableDesktopHandTracking();
+                    }
 
                     OnInteractEndEvent?.Invoke(input);
                 }
@@ -599,11 +687,30 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             if (!GetActiveInteracting(out BasisInputWrapper interactingInput)) return;
 
-            Vector3 inPos = interactingInput.BoneControl.OutgoingWorldData.position;
+            if (_lerping)
+            {
+                _lerpElapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(_lerpElapsed / lerpToHandDuration);
+                InputConstraint.GlobalWeight = t * t;
+                if (t >= 1f)
+                    _lerping = false;
+            }
+
+            Vector3 inPos;
             Quaternion inRot = interactingInput.BoneControl.OutgoingWorldData.rotation;
+            bool inDesktop = BasisDeviceManagement.IsUserInDesktop();
 
+            if (inDesktop && LerpToHandOnPickup)
+            {
+                inPos = useHandBoneControl.OutgoingWorldData.position
+                        + interactingInput.BoneControl.OutgoingWorldData.rotation * useMagicNumberItemDelta * BasisHeightDriver.ScaledToMatchValue;
+            }
+            else
+            {
+                inPos = interactingInput.BoneControl.OutgoingWorldData.position;
+            }
 
-            if (BasisDeviceManagement.IsUserInDesktop())
+            if (inDesktop)
             {
                 PollDesktopControl(Inputs.desktopCenterEye.Source);
             }
@@ -612,7 +719,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // If trigger pulled on opposing input, scale object based on hand distance
                 if (enableScaleWithGesture && GetOppositeInteracting(out BasisInputWrapper opposingInput))
                 {
-                    if (HasState(opposingInput.Source.CurrentInputState))
+                    if (HasState(opposingInput.Source.CurrentInputState, InputKey))
                     {
                         float distanceBetweenHands = BasisPickupHelpers.GetNormalizedDistanceBetweenHands(Inputs);
                         if (_previousDistance == -1)
@@ -647,8 +754,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
 
             // Trigger state machine for OnPickupUse
-            bool State = HasState(interactingInput.Source.CurrentInputState);
-            bool LastState = HasState(interactingInput.Source.LastInputState);
+            bool State = HasState(interactingInput.Source.CurrentInputState, InputKey);
+            bool LastState = HasState(interactingInput.Source.LastInputState, InputKey);
             if (State && LastState == false)
             {
                 OnPickupUse?.Invoke(BasisPickUpUseMode.OnPickUpUseDown);
@@ -764,7 +871,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         private void PollDesktopControl(BasisInput DesktopEye)
         {
             // scroll zoop
-            float mouseScroll = DesktopEye.CurrentInputState.Secondary2DAxis.y; // only ever 1, 0, -1
+            float mouseScroll = DesktopEye.CurrentInputState.Secondary2DAxisDeadZoned.y; // only ever 1, 0, -1
 
             Vector3 currentOffset = InputConstraint.sources[0].positionOffset;
             if (targetOffset == Vector3.zero)
@@ -775,13 +882,13 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
             if (mouseScroll != 0)
             {
-                Transform sourceTransform = BasisLocalCameraDriver.Instance.Camera.transform;
+                Transform sourceTransform = BasisLocalCameraDriver.Instance.transform;
 
                 Vector3 movement = DesktopZoopSpeed * mouseScroll * BasisLocalCameraDriver.Forward();
                 Vector3 newTargetOffset = targetOffset + sourceTransform.InverseTransformVector(movement);
 
                 // Enforce min/max distance along the source forward.
-                float maxDistance = DesktopZoopMaxDistance + BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight / 2;
+                float maxDistance = DesktopZoopMaxDistance + BasisHeightDriver.SelectedScaledPlayerHeight / 2;
 
                 if (mouseScroll != 0 && newTargetOffset.z > DesktopZoopMinDistance && newTargetOffset.z < maxDistance)
                 {
@@ -831,14 +938,17 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     BasisInputWrapper = Inputs.desktopCenterEye;
                     return true;
                 default:
-                    if (Inputs.leftHand.GetState() == BasisInteractInputState.Interacting)
+                    // Check dominant hand first so the preferred hand wins when both are interacting
+                    BasisInputWrapper dominant = BasisDominantHand.IsLeftHanded ? Inputs.leftHand : Inputs.rightHand;
+                    BasisInputWrapper nonDominant = BasisDominantHand.IsLeftHanded ? Inputs.rightHand : Inputs.leftHand;
+                    if (dominant.GetState() == BasisInteractInputState.Interacting)
                     {
-                        BasisInputWrapper = Inputs.leftHand;
+                        BasisInputWrapper = dominant;
                         return true;
                     }
-                    else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
+                    else if (nonDominant.GetState() == BasisInteractInputState.Interacting)
                     {
-                        BasisInputWrapper = Inputs.rightHand;
+                        BasisInputWrapper = nonDominant;
                         return true;
                     }
                     else
@@ -862,14 +972,17 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     BasisInputWrapper = Inputs.desktopCenterEye;
                     return true;
                 default:
-                    if (Inputs.leftHand.GetState() == BasisInteractInputState.Interacting)
+                    // Check dominant hand first; return the opposite hand
+                    BasisInputWrapper dominant = BasisDominantHand.IsLeftHanded ? Inputs.leftHand : Inputs.rightHand;
+                    BasisInputWrapper nonDominant = BasisDominantHand.IsLeftHanded ? Inputs.rightHand : Inputs.leftHand;
+                    if (dominant.GetState() == BasisInteractInputState.Interacting)
                     {
-                        BasisInputWrapper = Inputs.rightHand;
+                        BasisInputWrapper = nonDominant;
                         return true;
                     }
-                    else if (Inputs.rightHand.GetState() == BasisInteractInputState.Interacting)
+                    else if (nonDominant.GetState() == BasisInteractInputState.Interacting)
                     {
-                        BasisInputWrapper = Inputs.leftHand;
+                        BasisInputWrapper = dominant;
                         return true;
                     }
                     else
@@ -885,7 +998,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         /// </summary>
         public override void OnDestroy()
         {
-            OnInteractStartEvent -= OnInteractionEventFired;
+            OnInteractStartEvent.RemoveListener(OnInteractionEventFired);
 
             Destroy(HighlightClone);
             if (asyncOperationHighlightMat.IsValid())
@@ -906,7 +1019,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 // special case for desktop (right-click)
                 input.TryGetRole(out var role) &&
                 role == BasisBoneTrackedRole.CenterEye &&
-                input.CurrentInputState.SecondaryTrigger == 1; ;
+                input.CurrentInputState.SecondaryTrigger > .8f;
         }
 
         private IEnumerator MoveAfterDelayCoroutine() {
@@ -961,6 +1074,67 @@ namespace Basis.Scripts.BasisSdk.Interactions
             }
         }
 #endif
+
+        private void EnableDesktopHandTracking()
+        {
+            UpdateDominantHandValues();
+            BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+            BasisLocalPlayer.Instance.OnLatePollData += OverrideDesktopHandTarget;
+            useHandBoneControl.HasTracked = BasisHasTracked.HasTracker;
+            useHandBoneControl.HasRigLayer = BasisHasRigLayer.HasRigLayer;
+        }
+
+        private void DisableDesktopHandTracking()
+        {
+            useHandBoneControl.HasTracked = BasisHasTracked.HasNoTracker;
+            useHandBoneControl.HasRigLayer = BasisHasRigLayer.HasNoRigLayer;
+            BasisLocalPlayer.Instance.OnLatePollData -= OverrideDesktopHandTarget;
+        }
+
+        private void OverrideDesktopHandTarget()
+        {
+            BasisLocalBoneControl eye = BasisLocalBoneDriver.EyeControl;
+            BasisLocalBoneControl hand = useHandBoneControl;
+
+            Vector3 offset = useMagicNumberHandOffset * BasisHeightDriver.ScaledToMatchValue;
+
+            hand.IncomingData.position = eye.IncomingData.position + eye.IncomingData.rotation * offset;
+            hand.IncomingData.rotation = eye.IncomingData.rotation * useMagicNumberHandRotation;
+        }
+
+        private void UpdateDominantHandValues()
+        {
+            useHandBoneControl = BasisDominantHand.IsLeftHanded ? BasisLocalBoneDriver.LeftHandControl : BasisLocalBoneDriver.RightHandControl;
+            useMagicNumberHandOffset = BasisDominantHand.IsLeftHanded ? magicNumberHandOffsetLeft : magicNumberHandOffsetRight;
+            useMagicNumberHandRotation = BasisDominantHand.IsLeftHanded ? magicNumberHandRotationLeft : magicNumberHandRotationRight;
+            useMagicNumberItemDelta = BasisDominantHand.IsLeftHanded ? magicNumberItemDeltaLeft : magicNumberItemDeltaRight;
+        }
+
+        /// <summary>
+        /// Computes a constraint offset so that the closest point on the object's collider bounds
+        /// aligns with the hand, rather than the object center.
+        /// </summary>
+        private Vector3 ComputeClosestBoundsOffset(Vector3 inPos, Quaternion handRot, Vector3 objectPos)
+        {
+            Collider[] colliders = GetColliders();
+            if (colliders == null || colliders.Length == 0)
+                return Vector3.zero;
+
+            Vector3 bestPoint = objectPos;
+            float bestDistSq = float.MaxValue;
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                if (colliders[i] == null) continue;
+                Vector3 point = colliders[i].ClosestPoint(inPos);
+                float distSq = (point - inPos).sqrMagnitude;
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    bestPoint = point;
+                }
+            }
+            return Quaternion.Inverse(handRot) * (objectPos - bestPoint);
+        }
 
         /// <summary>
         /// Convenience method to force a drop by clearing all influencers.

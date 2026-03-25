@@ -62,7 +62,7 @@ public class BasisFallBackBoneDataEditor : Editor
             Role = BasisBoneTrackedRole.CenterEye
         };
         EyeBone.Position = new Vector3(0,1.6f,0);
-        EyeBone.PositionPercentage = CalculatePercentage(Vector3.zero,new Vector3(0, BasisLocalHeight.FallbackSizeInMeters, 0), EyeBone.Position);
+        EyeBone.PositionPercentage = CalculatePercentage(Vector3.zero,new Vector3(0, BasisHeightDriver.FallbackHeightInMeters, 0), EyeBone.Position);
         fallBackBoneData.BoneTrackedRoles.Add( BasisBoneTrackedRole.CenterEye);
         fallBackBoneData.FallBackPercentage.Add(EyeBone);
     }
@@ -104,7 +104,7 @@ public class BasisFallBackBoneDataEditor : Editor
         Renderer[] renderers = Animatorparent.GetComponentsInChildren<Renderer>();
         if (renderers.Length == 0)
         {
-            return new Bounds(Vector3.zero, new Vector3(0.3f, BasisLocalHeight.FallbackSizeInMeters, 0.3f));
+            return new Bounds(Vector3.zero, new Vector3(0.3f, BasisHeightDriver.FallbackHeightInMeters, 0.3f));
         }
         Bounds bounds = renderers[0].bounds;
         for (int Index = 1; Index < renderers.Length; Index++)
