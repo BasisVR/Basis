@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Headless;
@@ -219,6 +220,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         BasisNetworkManagement.Instance.Port = (ushort)Port;
         BasisNetworkManagement.Instance.Connect();
         BasisDebug.Log("connecting to default");
+        BasisMainMenu.Close();
     }
 
     /// <summary>
