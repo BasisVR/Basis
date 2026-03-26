@@ -75,6 +75,10 @@ public class BasisBundleConnector
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneLinux64), new HashSet<RuntimePlatform> { RuntimePlatform.LinuxEditor, RuntimePlatform.LinuxPlayer, RuntimePlatform.LinuxServer } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.iOS), new HashSet<RuntimePlatform> { RuntimePlatform.IPhonePlayer } }
     };
+    public static string DebugOfPlatforms()
+    {
+        return string.Join("\n", platformMappings.Select(kvp => $"  {kvp.Key} => [{string.Join(", ", kvp.Value)}]"));
+    }
     public enum BuildTarget
     {
         StandaloneOSX = 2,
