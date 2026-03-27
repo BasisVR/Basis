@@ -30,6 +30,7 @@ public static class BasisHeadlessBuild
         string buildName = GetArgument("customBuildName") ?? Path.GetFileNameWithoutExtension(buildPath);
         string projectPath = GetArgument("projectPath") ?? Directory.GetCurrentDirectory();
         string standaloneSubtargetArg = GetArgument("standaloneBuildSubtarget") ?? "Server";
+        string linuxArchitectureArg = GetArgument("linuxArchitecture");
 
         Debug.Log($"[BasisHeadlessBuild] Starting {target} build");
         Debug.Log($"[BasisHeadlessBuild] projectPath={projectPath}");
@@ -38,6 +39,7 @@ public static class BasisHeadlessBuild
         Debug.Log($"[BasisHeadlessBuild] activeBuildTarget(before)={EditorUserBuildSettings.activeBuildTarget}");
         Debug.Log($"[BasisHeadlessBuild] activeBuildTargetGroup(before)={BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget)}");
         Debug.Log($"[BasisHeadlessBuild] standaloneBuildSubtarget(arg)={standaloneSubtargetArg}");
+        Debug.Log($"[BasisHeadlessBuild] linuxArchitecture(arg)={linuxArchitectureArg ?? "<default>"}");
 
         BuildTargetGroup targetGroup = BuildPipeline.GetBuildTargetGroup(target);
         if (!BuildPipeline.IsBuildTargetSupported(targetGroup, target))
@@ -53,6 +55,12 @@ public static class BasisHeadlessBuild
 
         StandaloneBuildSubtarget standaloneSubtarget = ParseStandaloneSubtarget(standaloneSubtargetArg);
         EditorUserBuildSettings.standaloneBuildSubtarget = standaloneSubtarget;
+        if (target == BuildTarget.StandaloneLinux64)
+        {
+            int linuxArchitecture = ParseLinuxArchitecture(linuxArchitectureArg);
+            PlayerSettings.SetArchitecture(targetGroup, linuxArchitecture);
+            Debug.Log($"[BasisHeadlessBuild] Linux architecture(set)={linuxArchitecture}");
+        }
         Debug.Log($"[BasisHeadlessBuild] activeBuildTarget(after)={EditorUserBuildSettings.activeBuildTarget}");
         Debug.Log($"[BasisHeadlessBuild] standaloneBuildSubtarget(set)={EditorUserBuildSettings.standaloneBuildSubtarget}");
 
@@ -164,6 +172,25 @@ public static class BasisHeadlessBuild
         }
 
         return StandaloneBuildSubtarget.Server;
+    }
+
+    private static int ParseLinuxArchitecture(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0;
+        }
+
+        switch (value.Trim().ToUpperInvariant())
+        {
+            case "ARM64":
+                return 1;
+            case "UNIVERSAL":
+                return 2;
+            case "X64":
+            default:
+                return 0;
+        }
     }
 
     private static string RequireArgument(string name)

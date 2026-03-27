@@ -9,7 +9,12 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY ./HeadlessLinux64/. .
-RUN chmod +x ./HeadlessLinuxServer.x86_64
+ARG ARTIFACT_DIR=HeadlessLinux64
+COPY ./${ARTIFACT_DIR}/. .
+RUN set -eux; \
+    exe="$(find . -maxdepth 1 -type f \( -name 'HeadlessLinuxServer.x86_64' -o -name 'HeadlessLinuxServer.arm64' -o -name 'HeadlessLinuxServer' \) | head -n1)"; \
+    test -n "$exe"; \
+    chmod +x "$exe"; \
+    ln -sf "$(basename "$exe")" /app/HeadlessLinuxServer
 
-ENTRYPOINT ["./HeadlessLinuxServer.x86_64"]
+ENTRYPOINT ["./HeadlessLinuxServer"]
