@@ -6,6 +6,7 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using TMPro;
@@ -54,7 +55,7 @@ public class BasisContentSphere : BasisInteractableObject
         ContentType = contentType;
         CreatorPlayerID = creatorPlayerID;
         InteractRange = 2f;
-        Label.text = GetContentTypeName();
+        SetInitialLabel();
 
         if (BasisSettingsDefaults.SharedContentPreviews.RawValue)
         {
@@ -209,6 +210,42 @@ public class BasisContentSphere : BasisInteractableObject
             case ContentShareType.Prop: return "Prop";
             case ContentShareType.World: return "World";
             default: return "Unknown";
+        }
+    }
+
+    private void SetInitialLabel()
+    {
+        if (Label == null)
+        {
+            return;
+        }
+
+        string typeName = GetContentTypeName();
+        string bundleName = TryGetBundleNameFromUrl();
+        Label.text = string.IsNullOrEmpty(bundleName) ? typeName : $"{typeName}\n{bundleName}";
+    }
+
+    private string TryGetBundleNameFromUrl()
+    {
+        if (string.IsNullOrEmpty(ContentURL))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            string path = ContentURL;
+            if (Uri.TryCreate(ContentURL, UriKind.Absolute, out Uri uri))
+            {
+                path = uri.LocalPath;
+            }
+
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            return string.IsNullOrWhiteSpace(fileName) ? string.Empty : fileName;
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 
