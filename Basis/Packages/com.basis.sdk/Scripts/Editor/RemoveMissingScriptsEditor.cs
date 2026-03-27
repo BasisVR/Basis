@@ -26,7 +26,7 @@ public static class RemoveMissingScriptsEditor
         return Selection.objects.OfType<GameObject>().Any();
     }
 
-    [MenuItem("Tools/Editor Extensions/Remove Missing Scripts From Prefabs")]
+    [MenuItem("Basis/Tools/Remove Missing Scripts From Prefabs")]
     private static void RemoveFromPrefabs()
     {
         string[] allPrefabGuids = AssetDatabase.FindAssets("t:Prefab");
