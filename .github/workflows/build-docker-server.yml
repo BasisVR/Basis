@@ -89,7 +89,7 @@ jobs:
         run: 'echo "Image pushed with digest: ${{ steps.build.outputs.digest }}"'
 
   headless-build:
-    name: Build headless for ${{ matrix.targetPlatform }}
+    name: Build headless for ${{ matrix.targetPlatform }}${{ matrix.linuxArchitecture && format(' - {0}', matrix.linuxArchitecture) || '' }}
     timeout-minutes: 100
     runs-on: ${{ matrix.buildPlatform }}
     permissions:
@@ -124,7 +124,6 @@ jobs:
             buildOutput: WindowsServer
             artifactName: WindowsHeadless
             headlessFolderName: HeadlessWindows64
-            linuxArchitecture: ""
             customParameters: -standaloneBuildSubtarget Server
             buildMethod: BasisHeadlessBuild.BuildWindowsServer
     needs: [check-secret]
