@@ -162,17 +162,7 @@ jobs:
         if: matrix.targetPlatform == 'StandaloneLinux64' && matrix.linuxArchitecture == 'ARM64'
         shell: bash
         run: |
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-
-          manifest_path = Path("Basis/Packages/manifest.json")
-          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-          dependencies = manifest.setdefault("dependencies", {})
-          dependencies["com.unity.sdk.linux-arm64"] = "1.0.2"
-          manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-          print("Added com.unity.sdk.linux-arm64@1.0.2 to manifest.json")
-          PY
+          python3 .github/scripts/install_unity_package_latest.py "${projectPath}" "com.unity.sdk.linux-arm64"
       - name: "Disable OpenVR editor setup for Windows headless builds"
         if: runner.os == 'Windows'
         shell: pwsh
