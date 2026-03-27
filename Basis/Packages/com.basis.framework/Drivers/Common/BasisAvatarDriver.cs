@@ -548,7 +548,79 @@ namespace Basis.Scripts.Drivers
             result = new BasisTexTransform(tex, scale, offset);
             return true;
         }
-        public static void MaterialCorrection(SkinnedMeshRenderer renderer, Shader fallbackUrpShader)
+        private static bool TryCreateFallbackMaterial(Material mat, Shader fallbackUrpShader, out Material fixedMat)
+        {
+            fixedMat = null;
+
+            if (mat == null)
+            {
+                return false;
+            }
+
+            var shader = mat.shader;
+            if (shader == null)
+            {
+                return false;
+            }
+
+            if (fallbackUrpShader == null)
+            {
+                Debug.LogWarning("MaterialCorrection: fallbackUrpShader is null, cannot swap shaders.");
+                return false;
+            }
+
+            bool shaderBroken = !shader.isSupported || (!string.IsNullOrEmpty(shader.name) && shader.name.Contains("InternalErrorShader"));
+            if (!shaderBroken)
+            {
+                return false;
+            }
+
+            bool hasAlbedo = TryGetFirstTextureWithScaleAndOffset(mat, AlbedoProps, out BasisTexTransform albedo, out _);
+            bool hasNormal = TryGetFirstTextureWithScaleAndOffset(mat, NormalProps, out BasisTexTransform normal, out _);
+            bool hasMetal = TryGetFirstTextureWithScaleAndOffset(mat, MetallicProps, out BasisTexTransform metal, out _);
+            bool hasOcc = TryGetFirstTextureWithScaleAndOffset(mat, OcclusionProps, out BasisTexTransform occ, out _);
+            bool hasColor = TryGetFirstColor(mat, out Color baseColor, out _);
+            fixedMat = new Material(fallbackUrpShader)
+            {
+                name = mat.name + " (Fixed)"
+            };
+            if (hasAlbedo)
+            {
+                fixedMat.SetTexture("_BaseMap", albedo.texture);
+                fixedMat.SetTextureScale("_BaseMap", albedo.scale);
+                fixedMat.SetTextureOffset("_BaseMap", albedo.offset);
+            }
+            if (hasColor)
+            {
+                fixedMat.SetColor("_BaseColor", baseColor);
+            }
+            if (hasNormal)
+            {
+                fixedMat.EnableKeyword("_NORMALMAP");
+                fixedMat.SetTexture("_BumpMap", normal.texture);
+                fixedMat.SetTextureScale("_BumpMap", normal.scale);
+                fixedMat.SetTextureOffset("_BumpMap", normal.offset);
+                fixedMat.SetFloat("_BumpScale", 0.2f);
+            }
+            if (hasMetal)
+            {
+                fixedMat.EnableKeyword("_METALLICSPECGLOSSMAP");
+                fixedMat.SetTexture("_MetallicGlossMap", metal.texture);
+                fixedMat.SetTextureScale("_MetallicGlossMap", metal.scale);
+                fixedMat.SetTextureOffset("_MetallicGlossMap", metal.offset);
+            }
+            fixedMat.SetFloat("_Metallic", 0.2f);
+            fixedMat.SetFloat("_Smoothness", 0.2f);
+            if (hasOcc)
+            {
+                fixedMat.SetTexture("_OcclusionMap", occ.texture);
+                fixedMat.SetTextureScale("_OcclusionMap", occ.scale);
+                fixedMat.SetTextureOffset("_OcclusionMap", occ.offset);
+                fixedMat.SetFloat("_OcclusionStrength", 0.2f);
+            }
+            return true;
+        }
+        public static void MaterialCorrection(Renderer renderer, Shader fallbackUrpShader, List<Material> createdMaterials = null)
         {
             if (renderer == null)
             {
@@ -561,85 +633,30 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            if (fallbackUrpShader == null)
-            {
-                Debug.LogWarning("MaterialCorrection: fallbackUrpShader is null, cannot swap shaders.");
-                return;
-            }
-
             bool anyChanged = false;
-
             for (int mi = 0; mi < materials.Length; mi++)
             {
-                var mat = materials[mi];
-                if (mat == null)
+                if (TryCreateFallbackMaterial(materials[mi], fallbackUrpShader, out Material fixedMat))
                 {
-                    continue;
+                    materials[mi] = fixedMat;
+                    createdMaterials?.Add(fixedMat);
+                    anyChanged = true;
                 }
-
-                var shader = mat.shader;
-                if (shader == null)
-                {
-                    continue;
-                }
-
-                bool shaderBroken = !shader.isSupported || (!string.IsNullOrEmpty(shader.name) && shader.name.Contains("InternalErrorShader"));
-
-                if (!shaderBroken)
-                {
-                    continue;
-                }
-                bool hasAlbedo = TryGetFirstTextureWithScaleAndOffset(mat, AlbedoProps, out BasisTexTransform albedo, out string albedoProp);
-                bool hasNormal = TryGetFirstTextureWithScaleAndOffset(mat, NormalProps, out BasisTexTransform normal, out string normalProp);
-                bool hasMetal = TryGetFirstTextureWithScaleAndOffset(mat, MetallicProps, out BasisTexTransform metal, out string metalProp);
-                bool hasOcc = TryGetFirstTextureWithScaleAndOffset(mat, OcclusionProps, out BasisTexTransform occ, out string occProp);
-                bool hasColor = TryGetFirstColor(mat, out Color baseColor, out string colorProp);
-                var fixedMat = new Material(fallbackUrpShader)
-                {
-                    name = mat.name + " (Fixed)"
-                };
-                if (hasAlbedo)
-                {
-                    fixedMat.SetTexture("_BaseMap", albedo.texture);
-                    fixedMat.SetTextureScale("_BaseMap", albedo.scale);
-                    fixedMat.SetTextureOffset("_BaseMap", albedo.offset);
-                }
-                if (hasColor)
-                {
-                    fixedMat.SetColor("_BaseColor", baseColor);
-                }
-                if (hasNormal)
-                {
-                    fixedMat.EnableKeyword("_NORMALMAP");
-                    fixedMat.SetTexture("_BumpMap", normal.texture);
-                    fixedMat.SetTextureScale("_BumpMap", normal.scale);
-                    fixedMat.SetTextureOffset("_BumpMap", normal.offset);
-                    fixedMat.SetFloat("_BumpScale", 0.2f);
-                }
-                if (hasMetal)
-                {
-                    fixedMat.EnableKeyword("_METALLICSPECGLOSSMAP");
-                    fixedMat.SetTexture("_MetallicGlossMap", metal.texture);
-                    fixedMat.SetTextureScale("_MetallicGlossMap", metal.scale);
-                    fixedMat.SetTextureOffset("_MetallicGlossMap", metal.offset);
-                }
-                fixedMat.SetFloat("_Metallic", 0.2f);
-                fixedMat.SetFloat("_Smoothness", 0.2f);
-                if (hasOcc)
-                {
-                    fixedMat.SetTexture("_OcclusionMap", occ.texture);
-                    fixedMat.SetTextureScale("_OcclusionMap", occ.scale);
-                    fixedMat.SetTextureOffset("_OcclusionMap", occ.offset);
-
-                    fixedMat.SetFloat("_OcclusionStrength", 0.2f);
-                }
-                materials[mi] = fixedMat;
-                anyChanged = true;
             }
+
             if (anyChanged)
             {
                 renderer.sharedMaterials = materials;
             }
+        }
+        public static void MaterialCorrection(SkinnedMeshRenderer renderer, Shader fallbackUrpShader)
+        {
+            if (renderer == null)
+            {
+                return;
+            }
+
+            MaterialCorrection((Renderer)renderer, fallbackUrpShader, null);
         }
     }
 }

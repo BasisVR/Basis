@@ -24,6 +24,11 @@ public static class SettingsProviderStorage
             PanelSlider.SliderSettings.Advanced("Avatar Download Size", 5, 1024, false, 0, ValueDisplayMode.MemorySize),
             BasisSettingsDefaults.AvatarDownloadSize);
 
+        PanelToggle sharedPreviewToggle = PanelToggle.CreateNewEntry(downloadGroup.ContentParent);
+        sharedPreviewToggle.Descriptor.SetTitle("Load Shared Content Previews");
+        sharedPreviewToggle.Descriptor.SetDescription("Downloads shared content in the background and renders a fitted LOD3-style preview inside the share sphere.");
+        sharedPreviewToggle.AssignBinding(BasisSettingsDefaults.SharedContentPreviews);
+
         // Cache size limit slider (lightweight, no file I/O)
         PanelElementDescriptor limitGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
@@ -137,5 +142,6 @@ public static class SettingsProviderStorage
     {
         BasisSettingsDefaults.AvatarDownloadSize.ResetToDefault();
         BasisSettingsDefaults.CacheMaxSizeGB.ResetToDefault();
+        BasisSettingsDefaults.SharedContentPreviews.ResetToDefault();
     }
 }

@@ -150,6 +150,8 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<float> CacheMaxSizeGB = new("cachemaxsizegb", new BasisPlatformDefault<float>(128));
 
+        public static BasisSettingsBinding<bool> SharedContentPreviews = new("sharedcontentpreviews", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<float> AvatarMeshLOD = new("avatarmeshlod", new BasisPlatformDefault<float>
         {
             windows = 0.05f,
@@ -631,6 +633,7 @@ namespace Basis.BasisUI
             // LOD / Download limits
             AvatarDownloadSize.LoadBindingValue();
             CacheMaxSizeGB.LoadBindingValue();
+            SharedContentPreviews.LoadBindingValue();
             AvatarMeshLOD.LoadBindingValue();
             GlobalMeshLOD.LoadBindingValue();
 
