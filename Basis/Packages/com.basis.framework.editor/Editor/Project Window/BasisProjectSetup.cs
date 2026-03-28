@@ -61,7 +61,7 @@ public partial class BasisProjectSetup : EditorWindow
     private Texture2D _basisLogo;
 
     // Basis default scenes (adjust as needed)
-    private const string SCENE_INIT = "Packages/com.basis.sdk/Scenes/initialization.unity";
+    private const string SCENE_INIT = "Packages/com.basis.framework/Scenes/initialization.unity";
     private const string SCENE_DEMO = "Packages/com.basis.examples/Scenes/DemoScene.unity";
     private const string SCENE_INTERACTABLES = "Packages/com.basis.examples/Scenes/InteractablesScene.unity";
 

@@ -17,7 +17,7 @@ public class BasisCursorEditorWindow : EditorWindow
         BasisLocks.Crouching
     };
 
-    [MenuItem("Basis/Cursor")]
+    [MenuItem("Basis/Settings/Cursor")]
     public static void Open()
     {
         GetWindow<BasisCursorEditorWindow>("Basis Cursor");

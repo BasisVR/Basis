@@ -44,7 +44,7 @@ public sealed class PermissionsEditorWindow : EditorWindow
     private bool _quickCheckResult = false;
     private bool _quickCheckRan = false;
 
-    [MenuItem("Basis/Permissions Editor")]
+    [MenuItem("Basis/Settings/Permissions")]
     public static void Open()
     {
         var w = GetWindow<PermissionsEditorWindow>("Permissions");

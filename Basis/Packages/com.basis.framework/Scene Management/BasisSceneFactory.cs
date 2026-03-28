@@ -3,20 +3,42 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
 
 public static class BasisSceneFactory
 {
+    public const string BasisLoadingSceneKey = "BasisLoadingScene";
+
     public static BasisScene BasisScene;
     private static float timeSinceLastCheck = 0f;
     public static float RespawnCheckTimer = 5f;
     public static float RespawnHeight = -100f;
     public static BasisLocalPlayer BasisLocalPlayer;
+    private static bool _isLoadingLoadingScene = false;
+    private static AsyncOperationHandle<SceneInstance>? _loadingSceneHandle = null;
+
     public static void Initalize()
     {
         BasisScene.Ready += Initalize;
         BasisScene.Destroyed += BasisSceneDestroyed;
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        SceneManager.sceneUnloaded += OnSceneUnloaded;
+    }
+    private static void OnSceneUnloaded(Scene unloadedScene)
+    {
+        // Check if any BasisScene still exists after the scene was unloaded
+        BasisScene[] scenes = Object.FindObjectsByType<BasisScene>(FindObjectsInactive.Exclude);
+        if (scenes.Length == 0)
+        {
+            LoadLoadingScene();
+        }
     }
     public static void BasisSceneDestroyed(BasisScene UnloadingScene)
     {
@@ -24,21 +46,79 @@ public static class BasisSceneFactory
         {
             return;
         }
-        else
+
+        BasisScene[] scenes = Object.FindObjectsByType<BasisScene>(FindObjectsInactive.Exclude);
+        foreach(BasisScene potentialMainScene in scenes)
         {
-            BasisScene[] Scenes = GameObject.FindObjectsByType<BasisScene>( FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-            foreach(BasisScene PotentialMainScene in Scenes)
+            if (potentialMainScene == UnloadingScene)
             {
-                if(PotentialMainScene != UnloadingScene)
-                {
-                    Initalize(PotentialMainScene);
-                    return;
-                }
+                continue;
             }
+
+            Initalize(potentialMainScene);
+            return;
+        }
+    }
+    private static async void LoadLoadingScene()
+    {
+        if (_isLoadingLoadingScene)
+        {
+            BasisDebug.Log("Loading scene load already in progress, skipping.", BasisDebug.LogTag.Scene);
+            return;
+        }
+        _isLoadingLoadingScene = true;
+        try
+        {
+            BasisDebug.Log("No BasisScene found after scene unload. Loading BasisLoadingScene.", BasisDebug.LogTag.Scene);
+            BasisLocalPlayer.SpawnPlayerOnSceneLoad = true;
+            AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(BasisLoadingSceneKey, LoadSceneMode.Additive, activateOnLoad: true);
+            while (!handle.IsDone)
+            {
+                await Task.Yield();
+            }
+            await handle.Task;
+            _loadingSceneHandle = handle;
+            BasisDebug.Log("BasisLoadingScene loaded successfully.", BasisDebug.LogTag.Scene);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Error loading BasisLoadingScene: {ex}", BasisDebug.LogTag.Scene);
+        }
+        finally
+        {
+            _isLoadingLoadingScene = false;
+        }
+    }
+    private static async void UnloadLoadingScene()
+    {
+        if (_loadingSceneHandle == null)
+        {
+            return;
+        }
+        try
+        {
+            BasisDebug.Log("Unloading BasisLoadingScene.", BasisDebug.LogTag.Scene);
+            AsyncOperationHandle<SceneInstance> handle = _loadingSceneHandle.Value;
+            _loadingSceneHandle = null;
+            await Addressables.UnloadSceneAsync(handle).Task;
+            BasisDebug.Log("BasisLoadingScene unloaded successfully.", BasisDebug.LogTag.Scene);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Error unloading BasisLoadingScene: {ex}", BasisDebug.LogTag.Scene);
         }
     }
     public static void Initalize(BasisScene scene)
     {
+        // If a loading scene is active and a different BasisScene is now ready, unload the loading scene
+        if (_loadingSceneHandle != null && _loadingSceneHandle.Value.IsValid())
+        {
+            Scene loadingScene = _loadingSceneHandle.Value.Result.Scene;
+            if (scene.gameObject.scene != loadingScene)
+            {
+                UnloadLoadingScene();
+            }
+        }
         BasisScene = scene;
         AttachMixerToAllSceneAudioSources();
         RespawnCheckTimer = BasisScene.RespawnCheckTimer;

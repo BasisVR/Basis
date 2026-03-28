@@ -38,7 +38,7 @@ public class ShaderVariantFinderWindow : EditorWindow
     // Material -> renderers that use it
     private readonly Dictionary<Material, HashSet<Renderer>> materialToRenderers = new();
 
-    [MenuItem("Tools/Rendering/Shader Variant Browser")]
+    [MenuItem("Basis/Tools/Shader Variant Browser")]
     public static void Open()
     {
         GetWindow<ShaderVariantFinderWindow>("Shader Variant Browser");

@@ -22,7 +22,7 @@ public class BasisLoadableConfigurationWindow : EditorWindow
     bool persist = true;
 
     // UI
-    [MenuItem("Basis/Loadable Config Editor")]
+    [MenuItem("Basis/Settings/Loadable Config")]
     public static void ShowWindow()
     {
         var win = GetWindow<BasisLoadableConfigurationWindow>("Basis Config");

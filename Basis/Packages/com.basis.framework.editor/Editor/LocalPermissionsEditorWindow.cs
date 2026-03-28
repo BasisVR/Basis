@@ -18,7 +18,7 @@ public sealed class LocalPermissionsEditorWindow : EditorWindow
     private bool _showBitsetSection = true;
     private bool _showExtrasSection = true;
 
-    [MenuItem("Basis/Local Permissions")]
+    [MenuItem("Basis/Settings/Local Permissions")]
     public static void Open()
     {
         var w = GetWindow<LocalPermissionsEditorWindow>("Local Permissions");

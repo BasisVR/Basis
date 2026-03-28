@@ -10,7 +10,7 @@ public class BasisFakeDeviceHelperWindow : EditorWindow
     public bool Overridebool = false;
     public BasisBoneTrackedRole BasisBoneTrackedRole;
     // Add menu item to open the editor window
-    [MenuItem("Basis/Trackers/Basis Fake Device Helper")]
+    [MenuItem("Basis/Trackers/Fake Device Helper")]
     public static void ShowWindow()
     {
         // Show the editor window

@@ -36,7 +36,7 @@ namespace LinkerGenerator
         // Throttle progress UI updates (too frequent updates can slow scans).
         private const double ProgressUpdateMinSeconds = 0.05;
 
-        [MenuItem("Basis/Update link.xml (all platforms union, filtered)")]
+        [MenuItem("Basis/Bundles/Update Link XML")]
         public static void GenerateLinkXml()
         {
             try
