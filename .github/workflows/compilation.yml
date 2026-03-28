@@ -70,8 +70,8 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: ${{ env.projectPath }}/Library
-          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(env.projectPath) }}
-          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
+          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-${{ hashFiles(env.projectPath) }}
+          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-
       - name: "Create version string"
         id: version
         run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
@@ -114,6 +114,7 @@ jobs:
           buildName: ${{ env.buildName }}
           projectPath: ${{ env.projectPath }}
           targetPlatform: ${{ matrix.targetPlatform }}
+          customParameters: ${{ startsWith(matrix.targetPlatform, 'Standalone') && '-standaloneBuildSubtarget Player' || '' }}
           versioning: Custom
           version: ${{ steps.version.outputs.gitversion }}
           # TODO: make a decision on how we want to increment this.
@@ -138,7 +139,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}- --json id --jq '.[1:] | map(.id) | @sh')
+          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client- --json id --jq '.[1:] | map(.id) | @sh')
           for cache_id in $OLD_CACHE_IDS; do
             echo "Deleting cache id: $cache_id"
             gh cache delete $cache_id
