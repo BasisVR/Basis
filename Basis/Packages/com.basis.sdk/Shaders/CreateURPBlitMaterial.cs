@@ -4,7 +4,7 @@ using UnityEngine;
 
 public static class CreateURPBlitMaterial
 {
-    [MenuItem("Tools/URP/Create SRP Blit Material")]
+    [MenuItem("Basis/Tools/Create SRP Blit Material")]
     public static void Create()
     {
         // URP/Core package shader name (works in recent URP versions)

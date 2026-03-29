@@ -75,6 +75,32 @@ public class BasisBundleConnector
         { Enum.GetName(typeof(BuildTarget), BuildTarget.StandaloneLinux64), new HashSet<RuntimePlatform> { RuntimePlatform.LinuxEditor, RuntimePlatform.LinuxPlayer, RuntimePlatform.LinuxServer } },
         { Enum.GetName(typeof(BuildTarget), BuildTarget.iOS), new HashSet<RuntimePlatform> { RuntimePlatform.IPhonePlayer } }
     };
+    public static string DebugOfPlatforms(BasisBundleConnector connector = null)
+    {
+        string bundlePlatforms = "  <unknown>";
+
+        if (connector != null)
+        {
+            if (connector.BasisBundleGenerated == null || connector.BasisBundleGenerated.Length == 0)
+            {
+                bundlePlatforms = "  <none>";
+            }
+            else
+            {
+                var platforms = connector.BasisBundleGenerated
+                    .Where(bundle => bundle != null)
+                    .Select(bundle => string.IsNullOrWhiteSpace(bundle.Platform) ? "<empty>" : bundle.Platform)
+                    .ToArray();
+
+                bundlePlatforms = platforms.Length == 0
+                    ? "  <none>"
+                    : string.Join("\n", platforms.Select(platform => $"  {platform}"));
+            }
+        }
+
+        string knownPlatforms = string.Join("\n", platformMappings.Select(kvp => $"  {kvp.Key} => [{string.Join(", ", kvp.Value)}]"));
+        return $"Bundle Generated Platforms:\n{bundlePlatforms}\nKnown Platform Mappings:\n{knownPlatforms}";
+    }
     public enum BuildTarget
     {
         StandaloneOSX = 2,

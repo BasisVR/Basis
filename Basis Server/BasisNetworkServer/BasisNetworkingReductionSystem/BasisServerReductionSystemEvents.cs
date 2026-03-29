@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using BasisNetworkServer.BasisNetworking;
 using System;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,13 +22,18 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
     }
 
     /// <summary>
-    /// Combined per-peer tracking data. Two longs in one struct = one cache line fetch
-    /// instead of two parallel array accesses in the O(NÂ²) send loop.
+    /// Combined per-peer tracking + cached distance data. 32 bytes = two per cache line.
+    /// The send loop reads all fields sequentially per pair with no float math.
     /// </summary>
     public struct PeerTrackingData
     {
         public long LastSentTime;
         public long LastSeenGeneration;
+        // Cached by the slow distance loop (~2Hz), read by the fast send loop (~250Hz).
+        // Eliminates per-pair distance math from the hot path.
+        public long CachedIntervalTicks;
+        public byte CachedQualityIndex;
+        public byte CachedIntervalByte;
     }
 
     public class PlayerState
@@ -53,7 +59,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Cached during ProcessMessage to avoid dereference chain in the inner send loop.
         public bool HasAdditionalData;
 
-        // Cached per-quality payloads (payload bytes only, plus DataQualityLevel)
+        // Cached per-quality payloads (payload bytes only, plus DataQualityLevel).
+        // AvatarHigh owns its own byte[] — never shares with the QueuedMessagePool.
+        // This prevents pool reuse from silently corrupting the muscle-change comparison.
         public LocalAvatarSyncMessage AvatarHigh;
         public LocalAvatarSyncMessage AvatarMedium;
         public LocalAvatarSyncMessage AvatarLow;
@@ -66,16 +74,25 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Outbound sequence stamped into pre-serialized data (increments per new avatar update)
         public byte OutboundSequence;
 
-        // Pre-serialized keyframe bytes per quality [PlayerID:2][interval_placeholder:1][sequence:1][array:N][additionalSize:1]
-        // The interval byte at offset 2 is filled per-recipient in the send loop.
+        // Pre-serialized keyframe bytes per quality.
+        // Byte-ID: [PlayerID:1][interval_placeholder:1][sequence:1][array:N][additional...]
+        // Ushort-ID: [PlayerID:2][interval_placeholder:1][sequence:1][array:N][additional...]
+        // The interval byte offset depends on SmallId (1 for byte, 2 for ushort).
         // Quality is derived from the channel number — not stored in the payload.
         public byte[][] SerializedKeyframe = new byte[4][];
         public int[] SerializedKeyframeLength = new int[4];
+
+        // True when playerID fits in a byte (≤255). Set once at creation.
+        public bool SmallId;
 
         // Lazy pre-serialization: bitmask of which quality levels had receivers last tick.
         // Updated atomically from the parallel send loop. Read/reset in ProcessMessage.
         // Bit 0 = VeryLow, Bit 1 = Low, Bit 2 = Medium, Bit 3 = High.
         public int UsedQualities;
+
+        // Actual payload size stored in AvatarHigh.array (which may be larger if from ArrayPool).
+        // Used for muscle-change comparison instead of .Length to handle pooled arrays correctly.
+        public int HighArrayActualSize;
     }
 
     public partial class BasisServerReductionSystemEvents
@@ -91,7 +108,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         };
 
         public static ConcurrentDictionary<int, PlayerState> playerStates = new();
+        // Double-buffered message dictionaries: swap and clear instead of allocating per tick.
         private static ConcurrentDictionary<int, QueuedMessage> currentMessages = new();
+        private static ConcurrentDictionary<int, QueuedMessage> _backMessages = new();
 
         public static float BSRBaseMultiplier = 1.0f;
         public static float BSRSIncreaseRate = 0.01f;
@@ -109,6 +128,19 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Reusable snapshot list for draining currentMessages each tick  avoids allocation per tick.
         private static readonly List<QueuedMessage> _messagesSnapshot = new(1024);
 
+        // Static delegate for Parallel.ForEach — avoids closure allocation every tick.
+        private static readonly Action<QueuedMessage> s_processMessageAction = msg =>
+        {
+            try
+            {
+                ProcessMessage(msg);
+            }
+            catch (Exception ex)
+            {
+                BNL.LogError($"[ProcessMessage] Exception: {ex}");
+            }
+        };
+
         // Distance -> Quality thresholds (squared meters)
         public static float HighDistanceSq = 9f;        // 3m
         public static float MediumDistanceSq = 100f;    // 10m
@@ -120,28 +152,38 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         private static int _sliceCount = 1;
         private static int _sliceIndex = 0;
 
-        // Thread-local NetDataWriter for serialization  eliminates shared pool contention.
-        [ThreadStatic]
-        private static NetDataWriter t_serializeWriter;
+        // Distance cache: recalculate quality/interval from distance every N ticks.
+        // The fast send loop uses cached values instead of computing distance per pair per tick.
+        // At 4ms tick interval, 125 ticks = ~500ms. Players at 6m/s cover 3m in that time,
+        // which is within one quality threshold (3m/10m/20m) — acceptable staleness.
+        private static int _distanceTickCounter = 0;
+        public static int DistanceUpdateIntervalTicks = 125;
 
         // Cached muscle+tail byte counts for the position-only fast path (skip repack).
         private static readonly int HighMuscleAndTailBytes = MuscleBytes(BitQuality.High) + TailBytes;
 
-        // Generation snapshot: populated once per tick before the O(NÂ²) send loop.
-        // Eliminates Interlocked.Read per pair (NÂ² memory fences â†’ N).
-        private static long[] _generationSnapshot = Array.Empty<long>();
+        // Generation snapshot: populated once per tick before the O(N²) send loop.
+        // Eliminates Interlocked.Read per pair (N² memory fences → N).
+        // Pre-allocated to InitialPlayerArrayCapacity to avoid reallocation on early player joins.
+        private static long[] _generationSnapshot = new long[InitialPlayerArrayCapacity];
 
         // Position snapshots: contiguous arrays for cache-friendly reads in the inner loop.
         // Avoids pointer-chasing through scattered heap PlayerState objects per pair.
-        private static float[] _posXSnapshot = Array.Empty<float>();
-        private static float[] _posYSnapshot = Array.Empty<float>();
-        private static float[] _posZSnapshot = Array.Empty<float>();
+        private static float[] _posXSnapshot = new float[InitialPlayerArrayCapacity];
+        private static float[] _posYSnapshot = new float[InitialPlayerArrayCapacity];
+        private static float[] _posZSnapshot = new float[InitialPlayerArrayCapacity];
 
 
 
         static BasisServerReductionSystemEvents()
         {
-            _ = StartBackgroundProcessingAsync();
+            var thread = new Thread(BackgroundTickLoop)
+            {
+                IsBackground = true,
+                Name = "BSR-TickLoop",
+                Priority = ThreadPriority.AboveNormal,
+            };
+            thread.Start();
         }
 
         public static void HandleAvatarMovement(NetPacketReader reader, NetPeer fromPeer, byte channel)
@@ -171,14 +213,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 return;
             }
 
-            // Overwrite any pending message for this peer. Return the old one to the pool.
-            // Safe: AddMessage and the drain loop (TryRemove) run sequentially within the same
-            // background tick (TriggerUpdate fires after drain+process), so no concurrent contention.
-            currentMessages.AddOrUpdate(fromPeer.Id, message, (_, prev) =>
-            {
-                QueuedMessagePool.Return(prev);
-                return message;
-            });
+            // Overwrite any pending message for this peer.
+            // Uses indexer instead of AddOrUpdate to avoid closure allocation on every call.
+            // Do NOT return prev to the pool — the drain phase may have captured it.
+            // The orphaned prev (if any) is collected by the GC; this only occurs when two
+            // messages for the same peer arrive within the same tick — negligible cost.
+            currentMessages[fromPeer.Id] = message;
         }
 
         public static void AddMessage(NetPeer fromPeer, LocalAvatarSyncMessage localMessage, byte sequence)
@@ -188,14 +228,17 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             message.Sequence = sequence;
             message.AvatarMessage = localMessage;
 
-            currentMessages.AddOrUpdate(fromPeer.Id, message, (_, prev) =>
-            {
-                QueuedMessagePool.Return(prev);
-                return message;
-            });
+            // Same as HandleAvatarMovement — indexer avoids closure allocation.
+            currentMessages[fromPeer.Id] = message;
         }
 
-        private static async Task StartBackgroundProcessingAsync()
+        /// <summary>
+        /// Dedicated tick loop running on its own thread with sub-millisecond precision.
+        /// Replaces the async Task.Delay approach which had ~15ms resolution on Windows,
+        /// limiting tick rate to ~70Hz. This achieves the target tick rate of ~250Hz (4ms).
+        /// Uses coarse Thread.Sleep for long waits + SpinWait for precise final timing.
+        /// </summary>
+        private static void BackgroundTickLoop()
         {
             while (!cts.Token.IsCancellationRequested)
             {
@@ -204,11 +247,11 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 long phaseTick = profiling ? Stopwatch.GetTimestamp() : 0;
 
                 // Phase 1: Drain
-                // Atomically swap in a fresh dictionary so inbound threads write to the new one.
-                // ConcurrentDictionary's enumerator is NOT a point-in-time snapshot  items added
-                // during iteration can be seen, causing duplicate messages for the same peer to be
-                // drained and then processed in parallel, racing on the shared PlayerState.
-                var batch = Interlocked.Exchange(ref currentMessages, new ConcurrentDictionary<int, QueuedMessage>());
+                // Swap to the back-buffer so inbound threads write to the cleared dictionary.
+                // No allocation per tick — just swap and drain.
+                _backMessages.Clear();
+                var batch = Interlocked.Exchange(ref currentMessages, _backMessages);
+                _backMessages = batch;
                 _messagesSnapshot.Clear();
                 foreach (var kvp in batch)
                 {
@@ -216,21 +259,21 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 }
                 if (profiling) { BSRProfiler.drainTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
 
-                // Phase 2: Process messages
-                Parallel.ForEach(_messagesSnapshot, parallelOptions, msg =>
-                {
-                    try
-                    {
-                        ProcessMessage(msg);
-                    }
-                    catch (Exception ex)
-                    {
-                        BNL.LogError($"[ProcessMessage] Exception: {ex}");
-                    }
-                });
+                // Phase 2: Process messages (static delegate avoids closure allocation per tick)
+                Parallel.ForEach(_messagesSnapshot, parallelOptions, s_processMessageAction);
                 if (profiling) { BSRProfiler.processTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
 
                 ProcessPendingRemovals();
+
+                // Phase 2.5: Distance cache update (runs at ~2Hz instead of every tick)
+                _distanceTickCounter++;
+                if (_distanceTickCounter >= DistanceUpdateIntervalTicks)
+                {
+                    _distanceTickCounter = 0;
+                    long distStart = profiling ? Stopwatch.GetTimestamp() : 0;
+                    UpdateDistanceCache();
+                    if (profiling) { BSRProfiler.distanceTicks += Stopwatch.GetTimestamp() - distStart; phaseTick = Stopwatch.GetTimestamp(); }
+                }
 
                 //Phase 3: Send loop
                 long now = Stopwatch.GetTimestamp();
@@ -256,7 +299,6 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 //Tick bookkeeping
                 long elapsedTicks = Stopwatch.GetTimestamp() - startTick;
                 double elapsedMs = elapsedTicks / MsToTick;
-                long remainingMs = intervalMs - (long)elapsedMs;
 
                 BSRProfiler.TryPrint();
 
@@ -270,13 +312,21 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     _sliceCount--;
                 }
 
-                if (remainingMs > 0)
+                // Precise timing: coarse sleep for bulk wait, then spin to exact target.
+                // Thread.Sleep(1) has ~1-2ms resolution vs Task.Delay's ~15ms on Windows.
+                long targetTick = startTick + (long)(intervalMs * MsToTick);
+                long nowTick = Stopwatch.GetTimestamp();
+                double remainMs = (targetTick - nowTick) / MsToTick;
+
+                if (remainMs > 2.0)
                 {
-                    await Task.Delay((int)remainingMs, cts.Token);
+                    Thread.Sleep(Math.Max(1, (int)(remainMs - 1)));
                 }
-                else
+
+                // Spin-wait for sub-millisecond precision to hit the exact target
+                while (Stopwatch.GetTimestamp() < targetTick)
                 {
-                    await Task.Yield();
+                    Thread.SpinWait(20);
                 }
             }
         }
@@ -288,6 +338,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 if (playerStates.TryRemove(id, out var removedState))
                 {
                     removedState.IsActive = false;
+
+                    // Return pooled arrays to ArrayPool
+                    if (removedState.AvatarHigh.array != null)
+                        ArrayPool<byte>.Shared.Return(removedState.AvatarHigh.array);
 
                     // Remove from active players list
                     lock (_activePlayersLock)
@@ -325,6 +379,89 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             }
         }
 
+        private static void UpdateDistanceCache()
+        {
+            if (_activePlayersDirty)
+            {
+                lock (_activePlayersLock)
+                {
+                    if (_activePlayersDirty)
+                    {
+                        _activePlayersSnapshot = _activePlayers.ToArray();
+                        _activePlayersDirty = false;
+                    }
+                }
+            }
+            var activeCopy = _activePlayersSnapshot;
+            int playerCount = activeCopy.Length;
+            if (playerCount == 0) return;
+
+            // Snapshot positions into contiguous arrays for cache-friendly distance math.
+            int maxId = 0;
+            for (int i = 0; i < playerCount; i++)
+            {
+                if (activeCopy[i].id > maxId) maxId = activeCopy[i].id;
+            }
+            int snapshotLen = maxId + 1;
+            if (_posXSnapshot.Length < snapshotLen)
+            {
+                int newLen = Math.Max(snapshotLen, _posXSnapshot.Length * 2);
+                _posXSnapshot = new float[newLen];
+                _posYSnapshot = new float[newLen];
+                _posZSnapshot = new float[newLen];
+            }
+            for (int i = 0; i < playerCount; i++)
+            {
+                int id = activeCopy[i].id;
+                var state = activeCopy[i].state;
+                _posXSnapshot[id] = state.Position.x;
+                _posYSnapshot[id] = state.Position.y;
+                _posZSnapshot[id] = state.Position.z;
+            }
+
+            Parallel.For(0, playerCount, parallelOptions, i =>
+            {
+                var (id, state) = activeCopy[i];
+                var tracking = state.PeerTracking;
+                if (tracking == null) return;
+
+                float iX = _posXSnapshot[id];
+                float iY = _posYSnapshot[id];
+                float iZ = _posZSnapshot[id];
+
+                for (int index = 0; index < playerCount; index++)
+                {
+                    int jId = activeCopy[index].id;
+                    if (id == jId) continue;
+
+                    // Grow tracking array if needed (same logic as send loop)
+                    if (jId >= tracking.Length)
+                    {
+                        lock (state)
+                        {
+                            if (jId >= state.PeerTracking.Length)
+                            {
+                                int newLen = Math.Max(state.PeerTracking.Length * 2, jId + 1);
+                                Array.Resize(ref state.PeerTracking, newLen);
+                            }
+                            tracking = state.PeerTracking;
+                        }
+                    }
+
+                    float dx = iX - _posXSnapshot[jId];
+                    float dy = iY - _posYSnapshot[jId];
+                    float dz = iZ - _posZSnapshot[jId];
+                    float distSq = dx * dx + dy * dy + dz * dz;
+
+                    CalculateIntervalFromDistanceSq(distSq, out byte intervalByte, out int actualInterval);
+
+                    tracking[jId].CachedIntervalTicks = (long)(actualInterval * MsToTick);
+                    tracking[jId].CachedQualityIndex = (byte)GetQualityIndex(distSq);
+                    tracking[jId].CachedIntervalByte = intervalByte;
+                }
+            });
+        }
+
         private static void UpdateCommunicationAndDistances(long nowTicks)
         {
             // Double-buffered snapshot: only rebuild when dirty
@@ -347,7 +484,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 return;
             }
 
-            // Snapshot all hot data into contiguous arrays (N reads instead of NÂ² pointer chases).
+            // Snapshot generation counters only (positions handled by slow distance cache).
             int maxId = 0;
             for (int i = 0; i < playerCount; i++)
             {
@@ -356,22 +493,15 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             int snapshotLen = maxId + 1;
             if (_generationSnapshot.Length < snapshotLen)
             {
-                _generationSnapshot = new long[snapshotLen];
-                _posXSnapshot = new float[snapshotLen];
-                _posYSnapshot = new float[snapshotLen];
-                _posZSnapshot = new float[snapshotLen];
+                _generationSnapshot = new long[Math.Max(snapshotLen, _generationSnapshot.Length * 2)];
             }
             for (int i = 0; i < playerCount; i++)
             {
                 int id = activeCopy[i].id;
-                var state = activeCopy[i].state;
-                _generationSnapshot[id] = Interlocked.Read(ref state.DataGeneration);
-                _posXSnapshot[id] = state.Position.x;
-                _posYSnapshot[id] = state.Position.y;
-                _posZSnapshot[id] = state.Position.z;
+                _generationSnapshot[id] = Interlocked.Read(ref activeCopy[i].state.DataGeneration);
             }
 
-            // Pre-compute minimum interval in ticks cheapest early-exit threshold.
+            // Fallback interval for pairs not yet in the distance cache (new players).
             long minIntervalTicks = (long)(BSRSMillisecondDefaultInterval * BSRBaseMultiplier * MsToTick);
 
             // Tick slicing: only process a slice of receivers per tick
@@ -397,12 +527,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     return;
                 }
 
-                // Cache receiver position from snapshot for distance calc
-                float iX = _posXSnapshot[id];
-                float iY = _posYSnapshot[id];
-                float iZ = _posZSnapshot[id];
-
-                // Thread-local send counter no Interlocked in the hot loop
+                // Thread-local send counter — no Interlocked in the hot loop
                 long localSends = 0;
 
                 for (int index = 0; index < playerCount; index++)
@@ -413,7 +538,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         continue;
                     }
 
-                    // Bounds check grow array if needed (rare, only when IDs exceed capacity)
+                    // Bounds check — grow array if needed (rare, only when IDs exceed capacity)
                     if (jId >= tracking.Length)
                     {
                         lock (stateI)
@@ -427,39 +552,25 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         }
                     }
 
-                    // Reordered checks: cheapest first, skip distance calc when possible
-
-                    // 1. New data check plain array read, no pointer chase
+                    // 1. New data check — plain array read, no pointer chase
                     long senderGen = _generationSnapshot[jId];
                     if (senderGen <= tracking[jId].LastSeenGeneration)
                     {
                         continue;
                     }
 
-                    // 2. Minimum interval check skip without distance calc
+                    // 2. Interval check using cached distance results (no float math)
                     long elapsed = nowTicks - tracking[jId].LastSentTime;
-                    if (elapsed < minIntervalTicks)
-                    {
-                        continue;
-                    }
-
-                    // 3. Distance from contiguous snapshot arrays (cache-friendly)
-                    float dx = iX - _posXSnapshot[jId];
-                    float dy = iY - _posYSnapshot[jId];
-                    float dz = iZ - _posZSnapshot[jId];
-                    float distSq = dx * dx + dy * dy + dz * dz;
-
-                    // 4. Full interval check with distance
-                    CalculateIntervalFromDistanceSq(distSq, out byte startAtZeroInterval, out int actualInterval);
-                    long required = (long)((actualInterval) * MsToTick);
-
+                    long required = tracking[jId].CachedIntervalTicks;
+                    if (required <= 0) required = minIntervalTicks;
                     if (elapsed < required)
                     {
                         continue;
                     }
 
-                    // 5. Quality + send
-                    int qi = GetQualityIndex(distSq);
+                    // 3. Quality + interval byte from distance cache
+                    int qi = tracking[jId].CachedQualityIndex;
+                    byte startAtZeroInterval = tracking[jId].CachedIntervalByte;
 
                     PlayerState stateJ = activeCopy[index].state;
 
@@ -470,8 +581,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         continue;
                     }
 
-                    byte avatarChannel = BasisNetworkCommons.GetPlayerAvatarChannelForQuality(qi, stateJ.HasAdditionalData);
-                    SendPreSerialized(peer, qi, startAtZeroInterval, avatarChannel,stateJ.SerializedKeyframe, stateJ.SerializedKeyframeLength);
+                    byte avatarChannel = stateJ.SmallId
+                        ? BasisNetworkCommons.GetPlayerAvatarChannelForQuality(qi, stateJ.HasAdditionalData)
+                        : BasisNetworkCommons.GetPlayerAvatarLargeChannelForQuality(qi, stateJ.HasAdditionalData);
+                    SendPreSerialized(peer, qi, startAtZeroInterval, avatarChannel, stateJ.SerializedKeyframe, stateJ.SerializedKeyframeLength, stateJ.SmallId);
 
                     MarkQualityUsed(ref stateJ.UsedQualities, qi);
 
@@ -481,7 +594,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     localSends++;
                 }
 
-                // One Interlocked.Add per receiver (not per send) ~25 atomics/tick instead of ~32K
+                // One Interlocked.Add per receiver (not per send) — ~25 atomics/tick instead of ~32K
                 if (localSends > 0 && BSRProfiler.Enabled)
                 {
                     Interlocked.Add(ref BSRProfiler.SendCount, localSends);
@@ -497,31 +610,29 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         private static void MarkQualityUsed(ref int usedQualities, int qi)
         {
             int bit = 1 << qi;
+            // Bits are sticky (only set, never cleared in the send loop), so a plain read
+            // showing "set" is always correct. Avoids the Volatile.Read barrier in the
+            // common case after the first few ticks when all 4 bits converge.
+            if ((usedQualities & bit) != 0) return;
+
             int cur = Volatile.Read(ref usedQualities);
             while (true)
             {
-                if ((cur & bit) != 0)
-                {
-                    return; // already set
-                }
-
+                if ((cur & bit) != 0) return;
                 int updated = cur | bit;
                 int was = Interlocked.CompareExchange(ref usedQualities, updated, cur);
-                if (was == cur)
-                {
-                    return;
-                }
-
+                if (was == cur) return;
                 cur = was;
             }
         }
 
         /// <summary>
-        /// Sends a pre-serialized message, patching the interval byte at offset 2.
-        /// Uses a thread-local writer to avoid shared pool contention.
+        /// Sends a pre-serialized message directly into the merge buffer, patching the
+        /// interval byte after the copy to avoid racing on the shared source array.
+        /// Eliminates the intermediate NetDataWriter copy.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static void SendPreSerialized(NetPeer peer, int qi,byte interval, byte channel, byte[][] serializedArray, int[] lengthArray)
+        private static void SendPreSerialized(NetPeer peer, int qi, byte interval, byte channel, byte[][] serializedArray, int[] lengthArray, bool smallId)
         {
             int len = lengthArray[qi];
             byte[] src = serializedArray[qi];
@@ -530,37 +641,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 return;
             }
 
-            NetDataWriter writer = GetThreadWriter();
-            writer.Put(src, 0, len);
-
-            // Patch interval byte at offset 2 (after PlayerID ushort)
-            if (writer.Length > 2)
-            {
-                writer.Data[2] = interval;
-            }
-
-            peer.Send(writer, channel, DeliveryMethod.Unreliable);
-            BasisNetworkStatistics.RecordOutbound(channel, writer.Length);
-        }
-
-        /// <summary>
-        /// Returns a thread-local NetDataWriter, creating one if needed.
-        /// Avoids contention on the shared ConcurrentQueue writer pool.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static NetDataWriter GetThreadWriter()
-        {
-            var w = t_serializeWriter;
-            if (w == null)
-            {
-                w = new NetDataWriter(true, 512);
-                t_serializeWriter = w;
-            }
-            else
-            {
-                w.Reset();
-            }
-            return w;
+            // Patch interval byte: offset 1 for byte playerID, offset 2 for ushort playerID
+            int intervalOffset = smallId ? 1 : 2;
+            peer.SendUnreliableRawMerge(src, 0, len, channel, intervalOffset, interval);
+            BasisNetworkStatistics.RecordOutbound(channel, len);
         }
 
         /// <summary>
@@ -615,6 +699,25 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             veryLow.AdditionalAvatarDataSize = high.AdditionalAvatarDataSize;
             veryLow.LinkedAvatarIndex = high.LinkedAvatarIndex;
         }
+        /// <summary>
+        /// Copies position bytes from the high-quality source to all lower quality arrays.
+        /// Position encoding is identical across all quality levels.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CopyPositionToLowerQualities(
+            byte[] highArray,
+            ref LocalAvatarSyncMessage medium,
+            ref LocalAvatarSyncMessage low,
+            ref LocalAvatarSyncMessage veryLow)
+        {
+            if (medium.array != null)
+                Buffer.BlockCopy(highArray, 0, medium.array, 0, WritePosition);
+            if (low.array != null)
+                Buffer.BlockCopy(highArray, 0, low.array, 0, WritePosition);
+            if (veryLow.array != null)
+                Buffer.BlockCopy(highArray, 0, veryLow.array, 0, WritePosition);
+        }
+
         private static void ProcessMessage(QueuedMessage message)
         {
             if (message.FromPeer == null)
@@ -626,16 +729,16 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             int id = message.FromPeer.Id;
             byte inboundSeq = message.Sequence;
 
-            var high = message.AvatarMessage;
+            var poolMsg = message.AvatarMessage;
 
-            if (high.array == null)
+            if (poolMsg.array == null)
             {
                 BNL.LogError($"[ProcessMessage] Avatar array is null for peer {id}");
                 QueuedMessagePool.Return(message);
                 return;
             }
 
-            var incomingQuality = (BitQuality)high.DataQualityLevel;
+            var incomingQuality = (BitQuality)poolMsg.DataQualityLevel;
             bool isHighQuality = incomingQuality == BitQuality.High;
 
             if (!BasisAvatarBitPacking.IsValidQuality(incomingQuality))
@@ -645,13 +748,28 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             }
 
             int expectedPayloadSize = BasisAvatarBitPacking.ConvertToSize(incomingQuality);
-            if (high.array.Length < expectedPayloadSize)
+            if (poolMsg.array.Length < expectedPayloadSize)
             {
                 QueuedMessagePool.Return(message);
                 return;
             }
 
-            var pos = BasisNetworkCompressionExtensions.ReadPosition(ref high.array);
+            var pos = BasisNetworkCompressionExtensions.ReadPosition(ref poolMsg.array);
+
+            // Deep-copy the avatar payload so state.AvatarHigh owns its own buffer.
+            // Without this copy, QueuedMessagePool.Return() preserves the byte[] and
+            // re-rents it for other peers — silently overwriting state.AvatarHigh.array.
+            // Uses ArrayPool to avoid per-message heap allocation (~208 bytes * 11K/sec).
+            byte[] rentedArray = ArrayPool<byte>.Shared.Rent(expectedPayloadSize);
+            Buffer.BlockCopy(poolMsg.array, 0, rentedArray, 0, expectedPayloadSize);
+            var high = new LocalAvatarSyncMessage
+            {
+                DataQualityLevel = poolMsg.DataQualityLevel,
+                AdditionalAvatarDatas = poolMsg.AdditionalAvatarDatas,
+                AdditionalAvatarDataSize = poolMsg.AdditionalAvatarDataSize,
+                LinkedAvatarIndex = poolMsg.LinkedAvatarIndex,
+                array = rentedArray,
+            };
 
             if (!playerStates.TryGetValue(id, out var state))
             {
@@ -666,11 +784,13 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         avatarSerialization = high
                     },
                     AvatarHigh = high,
+                    HighArrayActualSize = expectedPayloadSize,
                     PeerTracking = new PeerTrackingData[InitialPlayerArrayCapacity],
                     DataGeneration = 1,
                     LastInboundSequence = inboundSeq,
                     HasReceivedFirst = true,
                     OutboundSequence = 0,
+                    SmallId = id <= byte.MaxValue,
                 };
 
                 if (isHighQuality)
@@ -682,16 +802,22 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     catch (Exception ex)
                     {
                         BNL.LogError($"[ProcessMessage] Repack failed: {ex}");
-                        state.AvatarMedium = high;
-                        state.AvatarLow = high;
-                        state.AvatarVeryLow = high;
+                        // Don't alias high into lower slots — that sends High-packed muscle
+                        // data on lower-quality channels, causing bit-width mismatches.
+                        // Null the arrays so PreSerializeAll skips them; the repacker's
+                        // EnsureBuffer and the position-only fast path both handle null safely.
+                        state.AvatarMedium.array = null;
+                        state.AvatarLow.array = null;
+                        state.AvatarVeryLow.array = null;
                     }
                 }
                 else
                 {
-                    state.AvatarMedium = high;
-                    state.AvatarLow = high;
-                    state.AvatarVeryLow = high;
+                    // Non-High quality: can't repack downward. Null lower slots to
+                    // avoid sending mismatched quality data on wrong channels.
+                    state.AvatarMedium.array = null;
+                    state.AvatarLow.array = null;
+                    state.AvatarVeryLow.array = null;
                 }
 
                 // Propagate additional avatar data (e.g. blendshapes) to quality variants.
@@ -720,7 +846,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                     byte delta = unchecked((byte)(inboundSeq - state.LastInboundSequence));
                     if (delta == 0 || delta >= 128)
                     {
-                        // Duplicate or stale  discard
+                        // Duplicate or stale — discard. Return the just-rented array.
+                        ArrayPool<byte>.Shared.Return(rentedArray);
                         QueuedMessagePool.Return(message);
                         return;
                     }
@@ -739,23 +866,29 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 unchecked { state.OutboundSequence++; }
 
                 byte[] prevArray = state.AvatarHigh.array;
+                int prevActualSize = state.HighArrayActualSize;
                 state.AvatarHigh = high;
+                state.HighArrayActualSize = expectedPayloadSize;
 
                 if (isHighQuality)
                 {
                     // Check if muscles+tail changed (skip expensive bit repacking if only position moved).
-                    // ReferenceEquals guard: QueuedMessagePool preserves byte arrays for reuse,
-                    // so prevArray and high.array can be the same object (pool handed back the
-                    // same buffer). Comparing an array with itself always yields "equal", which
-                    // would permanently freeze rotation+muscles in lower quality buffers.
+                    // Uses HighArrayActualSize instead of .Length since ArrayPool may return larger arrays.
                     int muscleAndTailBytes = HighMuscleAndTailBytes;
                     bool musclesOrTailChanged = prevArray == null
                         || ReferenceEquals(prevArray, high.array)
-                        || prevArray.Length != high.array.Length
+                        || prevActualSize != expectedPayloadSize
                         || !high.array.AsSpan(WritePosition, muscleAndTailBytes)
                             .SequenceEqual(prevArray.AsSpan(WritePosition, muscleAndTailBytes));
 
-                    if (musclesOrTailChanged)
+                    // Force a full repack when any lower quality array is null (e.g. after a
+                    // previous repack failure).  Without this, the position-only fast path would
+                    // skip the null arrays indefinitely and far receivers would never see the player.
+                    bool needsRecovery = state.AvatarMedium.array == null
+                        || state.AvatarLow.array == null
+                        || state.AvatarVeryLow.array == null;
+
+                    if (musclesOrTailChanged || needsRecovery)
                     {
                         try
                         {
@@ -764,34 +897,24 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                         catch (Exception ex)
                         {
                             BNL.LogError($"[ProcessMessage] Repack failed: {ex}");
-                            state.AvatarMedium = high;
-                            state.AvatarLow = high;
-                            state.AvatarVeryLow = high;
+                            state.AvatarMedium.array = null;
+                            state.AvatarLow.array = null;
+                            state.AvatarVeryLow.array = null;
                         }
                     }
                     else
                     {
-                        if (state.AvatarMedium.array != null)
-                        {
-                            Buffer.BlockCopy(high.array, 0, state.AvatarMedium.array, 0, WritePosition);
-                        }
-
-                        if (state.AvatarLow.array != null)
-                        {
-                            Buffer.BlockCopy(high.array, 0, state.AvatarLow.array, 0, WritePosition);
-                        }
-
-                        if (state.AvatarVeryLow.array != null)
-                        {
-                            Buffer.BlockCopy(high.array, 0, state.AvatarVeryLow.array, 0, WritePosition);
-                        }
+                        // Position-only fast path: copy position bytes to all lower qualities.
+                        // Position is identical across all quality levels (no bit-width difference).
+                        CopyPositionToLowerQualities(high.array, ref state.AvatarMedium, ref state.AvatarLow, ref state.AvatarVeryLow);
                     }
                 }
                 else
                 {
-                    state.AvatarMedium = high;
-                    state.AvatarLow = high;
-                    state.AvatarVeryLow = high;
+                    // Non-High quality: can't repack downward safely.
+                    state.AvatarMedium.array = null;
+                    state.AvatarLow.array = null;
+                    state.AvatarVeryLow.array = null;
                 }
 
                 // Propagate additional avatar data to quality variants
@@ -802,6 +925,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 state.SyncMessage.avatarSerialization = high;
 
                 PreSerializeAll(state);
+
+                // Return the previous tick's array to the pool now that muscle comparison is done.
+                if (prevArray != null)
+                {
+                    ArrayPool<byte>.Shared.Return(prevArray);
+                }
 
                 // Single atomic increment replaces O(N) CAS bit-setting across all other players.
                 // Receivers detect new data by comparing this generation against their LastSeenGeneration.
@@ -874,8 +1003,8 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 return;
             }
 
-            // Even channels (no additional):  [PlayerID:2][interval:1][sequence:1][array:N]
-            // Odd channels (has additional):   [PlayerID:2][interval:1][sequence:1][array:N][AdditionalSize:1][LinkedAvatarIndex:1][Additional...]
+            // Byte-ID:   [PlayerID:1][interval:1][sequence:1][array:N][additional...]
+            // Ushort-ID: [PlayerID:2][interval:1][sequence:1][array:N][additional...]
             // Quality and additional-data presence are derived from the channel number.
             bool hasAdditional = state.HasAdditionalData
                 && msg.AdditionalAvatarDatas != null
@@ -892,33 +1021,61 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 }
             }
 
-            int totalSize = 2 + 1 + 1 + expectedPayload + additionalSize;
+            int idSize = state.SmallId ? 1 : 2;
+            int totalSize = idSize + 1 + 1 + expectedPayload + additionalSize;
 
             if (state.SerializedKeyframe[qi] == null || state.SerializedKeyframe[qi].Length < totalSize)
             {
                 state.SerializedKeyframe[qi] = new byte[totalSize];
             }
 
-            NetDataWriter writer = GetThreadWriter();
-            writer.Put(playerId);
-            writer.Put((byte)0); // interval placeholder
-            writer.Put(state.OutboundSequence); // sequence byte
-            writer.Put(msg.array, 0, expectedPayload);
+            // Write directly to SerializedKeyframe — avoids the intermediate NetDataWriter
+            // buffer and the final BlockCopy (~40MB/sec saved at 200K+ pre-serializations/5s).
+            byte[] dst = state.SerializedKeyframe[qi];
+            int offset = 0;
 
-            // Additional avatar data only on odd channels (hasAdditional = true)
+            if (state.SmallId)
+            {
+                dst[offset++] = (byte)playerId;
+            }
+            else
+            {
+                dst[offset++] = (byte)(playerId & 0xFF);
+                dst[offset++] = (byte)((playerId >> 8) & 0xFF);
+            }
+
+            dst[offset++] = 0; // interval placeholder (patched per-receiver in send loop)
+            dst[offset++] = state.OutboundSequence;
+
+            Buffer.BlockCopy(msg.array, 0, dst, offset, expectedPayload);
+            offset += expectedPayload;
+
             if (hasAdditional)
             {
-                writer.Put((byte)msg.AdditionalAvatarDatas.Length);
-                writer.Put(msg.LinkedAvatarIndex);
+                dst[offset++] = (byte)msg.AdditionalAvatarDatas.Length;
+                dst[offset++] = msg.LinkedAvatarIndex;
                 for (int i = 0; i < msg.AdditionalAvatarDatas.Length; i++)
                 {
-                    msg.AdditionalAvatarDatas[i].Serialize(writer);
+                    var ad = msg.AdditionalAvatarDatas[i];
+                    if (ad.array == null || ad.array.Length > 255)
+                    {
+                        dst[offset++] = 0;
+                    }
+                    else
+                    {
+                        byte payloadSize = (byte)ad.array.Length;
+                        dst[offset++] = payloadSize;
+                        dst[offset++] = ad.messageIndex;
+                        if (payloadSize > 0)
+                        {
+                            Buffer.BlockCopy(ad.array, 0, dst, offset, payloadSize);
+                            offset += payloadSize;
+                        }
+                    }
                 }
             }
 
-            int written = writer.Length;
-            Buffer.BlockCopy(writer.Data, 0, state.SerializedKeyframe[qi], 0, written);
-            state.SerializedKeyframeLength[qi] = written;
+            state.SerializedKeyframeLength[qi] = offset;
         }
 
         #endregion

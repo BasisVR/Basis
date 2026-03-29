@@ -552,6 +552,12 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<float> AgcRelease = new("agcrelease", new BasisPlatformDefault<float>(0.01f)); // 0..1
 
+        // Noise Gate
+        public static BasisSettingsBinding<bool> UseNoiseGate = new("usenoisegate", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> NoiseGateThreshold = new("noisegatethreshold", new BasisPlatformDefault<float>(0.01f)); // RMS threshold
+        public static BasisSettingsBinding<float> NoiseGateAttack = new("noisegateattack", new BasisPlatformDefault<float>(0.10f)); // 0..1
+        public static BasisSettingsBinding<float> NoiseGateRelease = new("noisegaterelease", new BasisPlatformDefault<float>(0.05f)); // 0..1
+
         public static void LoadAll()
         {
             // Audio
@@ -575,6 +581,10 @@ namespace Basis.BasisUI
             AgcMaxGainDb.LoadBindingValue();
             AgcAttack.LoadBindingValue();
             AgcRelease.LoadBindingValue();
+            UseNoiseGate.LoadBindingValue();
+            NoiseGateThreshold.LoadBindingValue();
+            NoiseGateAttack.LoadBindingValue();
+            NoiseGateRelease.LoadBindingValue();
 
             // Input / Movement
             ControllerDeadZone.LoadBindingValue();

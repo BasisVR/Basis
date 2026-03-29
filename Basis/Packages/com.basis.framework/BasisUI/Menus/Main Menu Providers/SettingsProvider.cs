@@ -568,6 +568,63 @@ namespace Basis.BasisUI
             sliderAgcAttack.OnValueChanged += AgcAttackChanged;
             sliderAgcRelease.OnValueChanged += AgcReleaseChanged;
 
+            // Noise Gate
+            PanelElementDescriptor noiseGateGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            noiseGateGroup.SetTitle("Noise Gate");
+            noiseGateGroup.SetDescription("Mutes audio below a threshold to cut background noise.");
+
+            PanelToggle toggleNoiseGate = PanelToggle.CreateNewEntry(noiseGateGroup);
+            toggleNoiseGate.Descriptor.SetTitle("Enable Noise Gate");
+            toggleNoiseGate.AssignBinding(BasisSettingsDefaults.UseNoiseGate);
+
+            sliderNoiseGateThreshold = PanelSlider.CreateEntryAndBind(
+               noiseGateGroup,
+               PanelSlider.SliderSettings.Advanced("Gate Threshold", 0f, 0.5f, false, 4, ValueDisplayMode.Raw),
+               BasisSettingsDefaults.NoiseGateThreshold);
+            sliderNoiseGateThreshold.SetValueWithoutNotify(snap.NoiseGateThreshold);
+
+            sliderNoiseGateAttack = PanelSlider.CreateEntryAndBind(
+               noiseGateGroup,
+               PanelSlider.SliderSettings.Advanced("Gate Attack", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
+               BasisSettingsDefaults.NoiseGateAttack);
+            sliderNoiseGateAttack.SetValueWithoutNotify(snap.NoiseGateAttack);
+
+            sliderNoiseGateRelease = PanelSlider.CreateEntryAndBind(
+               noiseGateGroup,
+               PanelSlider.SliderSettings.Advanced("Gate Release", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
+               BasisSettingsDefaults.NoiseGateRelease);
+            sliderNoiseGateRelease.SetValueWithoutNotify(snap.NoiseGateRelease);
+
+            void NoiseGateThresholdChanged(float v)
+            {
+                if (SMDMicrophone.CurrentMode != BasisDeviceManagement.StaticCurrentMode)
+                    SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.StaticCurrentMode);
+
+                var s = SMDMicrophone.Current;
+                SMDMicrophone.SetNoiseGateParams(v, s.NoiseGateAttack, s.NoiseGateRelease);
+            }
+            void NoiseGateAttackChanged(float v)
+            {
+                if (SMDMicrophone.CurrentMode != BasisDeviceManagement.StaticCurrentMode)
+                    SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.StaticCurrentMode);
+
+                var s = SMDMicrophone.Current;
+                SMDMicrophone.SetNoiseGateParams(s.NoiseGateThreshold, v, s.NoiseGateRelease);
+            }
+            void NoiseGateReleaseChanged(float v)
+            {
+                if (SMDMicrophone.CurrentMode != BasisDeviceManagement.StaticCurrentMode)
+                    SMDMicrophone.LoadInMicrophoneData(BasisDeviceManagement.StaticCurrentMode);
+
+                var s = SMDMicrophone.Current;
+                SMDMicrophone.SetNoiseGateParams(s.NoiseGateThreshold, s.NoiseGateAttack, v);
+            }
+
+            sliderNoiseGateThreshold.OnValueChanged += NoiseGateThresholdChanged;
+            sliderNoiseGateAttack.OnValueChanged += NoiseGateAttackChanged;
+            sliderNoiseGateRelease.OnValueChanged += NoiseGateReleaseChanged;
+
             // Mic Icon Position (advanced)
             PanelElementDescriptor micIconGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
@@ -588,6 +645,7 @@ namespace Basis.BasisUI
             limiterGroup.SetActive(false);
             denoiseGroup.SetActive(false);
             agcGroup.SetActive(false);
+            noiseGateGroup.SetActive(false);
             micIconGroup.SetActive(false);
 
             PanelToggle toggleAdvanced = PanelToggle.CreateNewEntry(microphoneGroup);
@@ -598,6 +656,7 @@ namespace Basis.BasisUI
                 limiterGroup.SetActive(val);
                 denoiseGroup.SetActive(val);
                 agcGroup.SetActive(val);
+                noiseGateGroup.SetActive(val);
                 micIconGroup.SetActive(val);
                 descriptor.ForceRebuild();
             };
@@ -626,6 +685,10 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.AgcMaxGainDb.ResetToDefault();
             BasisSettingsDefaults.AgcAttack.ResetToDefault();
             BasisSettingsDefaults.AgcRelease.ResetToDefault();
+            BasisSettingsDefaults.UseNoiseGate.ResetToDefault();
+            BasisSettingsDefaults.NoiseGateThreshold.ResetToDefault();
+            BasisSettingsDefaults.NoiseGateAttack.ResetToDefault();
+            BasisSettingsDefaults.NoiseGateRelease.ResetToDefault();
             SyncUiFromSnapshot(SMDMicrophone.Current);
 #endif
         }
@@ -641,6 +704,9 @@ namespace Basis.BasisUI
         public static PanelSlider sliderAgcMaxGain;
         public static PanelSlider sliderAgcAttack;
         public static PanelSlider sliderAgcRelease;
+        public static PanelSlider sliderNoiseGateThreshold;
+        public static PanelSlider sliderNoiseGateAttack;
+        public static PanelSlider sliderNoiseGateRelease;
 
         /// <summary>
         /// allows us to get up to date information directly from the microphone
@@ -678,6 +744,15 @@ namespace Basis.BasisUI
 
                 if (sliderAgcRelease != null)
                     sliderAgcRelease.SetValueWithoutNotify(s.AgcRelease);
+
+                if (sliderNoiseGateThreshold != null)
+                    sliderNoiseGateThreshold.SetValueWithoutNotify(s.NoiseGateThreshold);
+
+                if (sliderNoiseGateAttack != null)
+                    sliderNoiseGateAttack.SetValueWithoutNotify(s.NoiseGateAttack);
+
+                if (sliderNoiseGateRelease != null)
+                    sliderNoiseGateRelease.SetValueWithoutNotify(s.NoiseGateRelease);
             }
         }
 #endif
@@ -977,6 +1052,9 @@ namespace Basis.BasisUI
             infoGroup.SetDescription("Useful identifiers for debugging builds.");
 
             CreateBuildInfoSection(infoGroup.ContentParent);
+
+            // Network & Statistics (live-updating)
+            SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out var netUpdater);
 
             // One reset button for this whole page
             AddResetPageButton(container, "Developer", ResetDeveloperDefaults);

@@ -8,7 +8,7 @@ public class AvatarLoaderEditorWindow : EditorWindow
     private string password = "";
     private string url = "";
 
-    [MenuItem("Basis/Editor/Load Forced Avatar Window")]
+    [MenuItem("Basis/Avatar/Force Load")]
     public static void ShowWindow()
     {
         GetWindow<AvatarLoaderEditorWindow>("Forced Avatar Loader");

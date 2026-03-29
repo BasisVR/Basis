@@ -1,3 +1,5 @@
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
 using Unity.Burst;
@@ -51,6 +53,7 @@ public static class BasisRemoteFaceManagement
     public static JobHandle handle;
     public static BasisNetworkReceiver[] snapshot;
     public static  int count;
+    public static bool HasJob = false;
     public static void Simulate(double t,float dt)
     {
         snapshot = BasisNetworkPlayers.ReceiversSnapshot;
@@ -91,19 +94,26 @@ public static class BasisRemoteFaceManagement
         };
 
         handle = job.Schedule(count, BatchSize);
+        HasJob = true;
     }
 
     public static void Apply()
     {
-        if (count <= 0) return;
-
+        if (count <= 0)
+        {
+            return;
+        }
+        if (!HasJob)
+        {
+            return;
+        }
         handle.Complete();
-
+        HasJob = false;
         for (int Index = 0; Index < count; Index++)
         {
-            var receiver = snapshot[Index];
-            var remote = receiver.RemotePlayer;
-            var Face = remote.RemoteFaceDriver;
+            BasisNetworkReceiver receiver = snapshot[Index];
+            BasisRemotePlayer remote = receiver.RemotePlayer;
+            BasisRemoteFaceDriver Face = remote.RemoteFaceDriver;
 
             if (!Face.OverrideEye)
             {
@@ -132,7 +142,6 @@ public static class BasisRemoteFaceManagement
             }
         }
     }
-
     static void EnsureArrays(int requiredCount,double nowTime,BasisNetworkReceiver[] snapshot)
     {
         // Already sufficient

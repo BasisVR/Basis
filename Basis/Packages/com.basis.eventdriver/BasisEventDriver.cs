@@ -185,9 +185,9 @@ public class BasisEventDriver : MonoBehaviour
         {
             BasisDeviceManagement.Instance.Simulate(); // poll things like steam audio
         }
-        #if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED
         SteamAudioManager.Schedule();//schedule steam audio
-        #endif
+#endif
         BasisRemoteFaceManagement.Simulate(TimeAsDouble, DeltaTime); // eye blinking
 
         if (BasisLocalPlayer.PlayerReady)
@@ -201,9 +201,9 @@ public class BasisEventDriver : MonoBehaviour
 
         }
         BasisRemoteAudioDriver.Apply(); //apply visemes
-        #if STEAMAUDIO_ENABLED
+#if STEAMAUDIO_ENABLED
         SteamAudioManager.Apply(); //apply steam audio transforms
-        #endif
+#endif
 
         if (BasisLocalPlayer.PlayerReady)
         {
@@ -239,6 +239,9 @@ public class BasisEventDriver : MonoBehaviour
         JigglePhysics.CompletePose();
         BasisAvatarDriver.ApplyShadowCloneBlendShapes();
         StateOfOnRenderBefore = true;
+#if UNITY_SERVER
+        OnBeforeRender();
+#endif
     }
 
     /// <summary>

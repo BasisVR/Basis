@@ -22,6 +22,7 @@ using System.IO;
 using System.Text;
 using UnityEditor;
 using UnityEditor.Compilation;
+using System.Reflection;
 using UnityEngine;
 
 namespace LinkerGenerator
@@ -35,7 +36,7 @@ namespace LinkerGenerator
         // Throttle progress UI updates (too frequent updates can slow scans).
         private const double ProgressUpdateMinSeconds = 0.05;
 
-        [MenuItem("Basis/Update link.xml (all platforms union, filtered)")]
+        [MenuItem("Basis/Bundles/Update Link XML")]
         public static void GenerateLinkXml()
         {
             try
@@ -86,8 +87,12 @@ namespace LinkerGenerator
             AddAsmdefReferences(ScanAssetsRoot, assemblies, guidAsmdefNameCache, progressBase: 0.70f, progressSpan: 0.10f);
             AddAsmdefReferences(ScanPackagesRoot, assemblies, guidAsmdefNameCache, progressBase: 0.80f, progressSpan: 0.10f);
 
+            // 5) If cilbox is in the project, include assemblies for all whitelisted types
+            if (Cancelable("Link.xml", 0.90f, "Checking cilbox whitelisted types...")) return;
+            AddCilboxWhitelistedTypeAssemblies(assemblies);
+
             // Final filtering pass (removes editor/test/invalid like GUID:...)
-            if (Cancelable("Link.xml", 0.90f, "Filtering + sorting assemblies...")) return;
+            if (Cancelable("Link.xml", 0.92f, "Filtering + sorting assemblies...")) return;
             var sorted = new List<string>(assemblies.Count);
             foreach (var a in assemblies)
             {
@@ -274,6 +279,129 @@ namespace LinkerGenerator
                     }
                 }
             }
+        }
+
+        private static void AddCilboxWhitelistedTypeAssemblies(HashSet<string> output)
+        {
+            var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            // Find the base Cilbox type to discover all subclasses
+            Type cilboxBaseType = null;
+            foreach (var asm in loadedAssemblies)
+            {
+                cilboxBaseType = asm.GetType("Cilbox.Cilbox");
+                if (cilboxBaseType != null)
+                    break;
+            }
+            if (cilboxBaseType == null)
+                return;
+
+            // Collect whiteListType entries from ALL Cilbox subclasses
+            // (CilboxAvatar, CilboxScene, CilboxSceneBasis, CilboxPropBasis, etc.)
+            var allTypeNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var asm in loadedAssemblies)
+            {
+                Type[] types;
+                try { types = asm.GetTypes(); }
+                catch { continue; }
+
+                foreach (var type in types)
+                {
+                    if (!cilboxBaseType.IsAssignableFrom(type) || type == cilboxBaseType)
+                        continue;
+
+                    var field = type.GetField("whiteListType",
+                        BindingFlags.NonPublic | BindingFlags.Static);
+                    if (field == null) continue;
+
+                    HashSet<string> whiteList;
+                    try { whiteList = field.GetValue(null) as HashSet<string>; }
+                    catch { continue; }
+                    if (whiteList == null) continue;
+
+                    foreach (var entry in whiteList)
+                    {
+                        if (!string.IsNullOrWhiteSpace(entry))
+                            allTypeNames.Add(entry);
+                    }
+                }
+            }
+
+            if (allTypeNames.Count == 0)
+                return;
+
+            // Split into exact names and wildcard patterns (e.g. "UnityEngine.UI.*", "System.Int*")
+            var exactNames = new List<string>();
+            var wildcardPrefixes = new List<string>();
+            foreach (var name in allTypeNames)
+            {
+                if (name.StartsWith("<", StringComparison.Ordinal))
+                    continue; // Skip <PrivateImplementationDetails> etc.
+
+                if (name.Contains("*"))
+                    wildcardPrefixes.Add(name.Substring(0, name.IndexOf('*')));
+                else
+                    exactNames.Add(name);
+            }
+
+            int added = 0;
+
+            // Resolve exact type names
+            foreach (var typeName in exactNames)
+            {
+                Type resolved = null;
+                foreach (var asm in loadedAssemblies)
+                {
+                    resolved = asm.GetType(typeName);
+                    if (resolved != null) break;
+                }
+                if (resolved == null) continue;
+
+                string asmName = resolved.Assembly.GetName().Name;
+                if (!string.IsNullOrWhiteSpace(asmName) && IsValidPlayerAssemblyName(asmName))
+                {
+                    if (output.Add(asmName))
+                        added++;
+                }
+            }
+
+            // Resolve wildcard patterns by scanning exported types
+            if (wildcardPrefixes.Count > 0)
+            {
+                foreach (var asm in loadedAssemblies)
+                {
+                    string asmName = asm.GetName().Name;
+                    if (string.IsNullOrWhiteSpace(asmName) || !IsValidPlayerAssemblyName(asmName))
+                        continue;
+                    if (output.Contains(asmName))
+                        continue;
+
+                    bool matched = false;
+                    try
+                    {
+                        foreach (var t in asm.GetExportedTypes())
+                        {
+                            if (t.FullName == null) continue;
+                            for (int i = 0; i < wildcardPrefixes.Count; i++)
+                            {
+                                if (t.FullName.StartsWith(wildcardPrefixes[i], StringComparison.Ordinal))
+                                {
+                                    matched = true;
+                                    break;
+                                }
+                            }
+                            if (matched) break;
+                        }
+                    }
+                    catch { }
+
+                    if (matched && output.Add(asmName))
+                        added++;
+                }
+            }
+
+            if (added > 0)
+                BasisDebug.Log($"Added {added} assembly(ies) from cilbox whitelisted types to link.xml.");
         }
 
         [Serializable]

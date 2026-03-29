@@ -4,7 +4,7 @@ using UnityEngine.SceneManagement;
 
 public class BasisUnhideAllBehaviours : EditorWindow
 {
-    [MenuItem("Basis/Tools/Unhide All Behaviours in Scene")]
+    [MenuItem("Basis/Debug/Unhide All Behaviours")]
    public static void UnhideAll()
     {
         int total = 0;

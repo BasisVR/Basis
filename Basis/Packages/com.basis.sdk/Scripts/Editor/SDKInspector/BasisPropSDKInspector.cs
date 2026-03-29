@@ -114,7 +114,7 @@ public class BasisPropSDKInspector : Editor
             return;
         }
 
-        if (BasisPropValidator.ValidateProp(out List<BasisValidationIssue> errors, out List<string> passes))
+        if (BasisPropValidator.ValidateProp(out List<BasisValidationIssue> errors, out List<BasisValidationIssue> suggestions, out List<string> passes))
         {
             if (Image == null)
             {

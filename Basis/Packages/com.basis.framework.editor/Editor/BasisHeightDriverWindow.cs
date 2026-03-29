@@ -15,7 +15,7 @@ public class BasisHeightDriverWindow : EditorWindow
     private float _autoRepaintInterval = 0.15f;
     private double _nextRepaintTime;
 
-    [MenuItem("Basis/Calibration/Basis Height Driver")]
+    [MenuItem("Basis/Calibration/Height Driver")]
     public static void Open()
     {
         var w = GetWindow<BasisHeightDriverWindow>("Basis Height Driver");

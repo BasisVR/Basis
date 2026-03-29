@@ -2,7 +2,9 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
+#if !UNITY_SERVER
 using OpusSharp.Core;
+#endif
 using System.Collections.Generic;
 using UnityEngine;
 using static SerializableBasis;
@@ -37,6 +39,10 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
         public static void EnableShoutMode(ushort playerId)
         {
+#if UNITY_SERVER
+            BasisDebug.LogWarning($"Ignoring shout audio enable for player {playerId} on server/headless build.");
+            return;
+#else
             if (_entries.ContainsKey(playerId))
             {
                 return; // already active
@@ -100,6 +106,7 @@ namespace Basis.Scripts.Networking.Receivers
 
             _entries[playerId] = entry;
             BasisDebug.Log($"Shout audio enabled for player {playerId}");
+#endif
         }
 
         /// <summary>
@@ -114,11 +121,13 @@ namespace Basis.Scripts.Networking.Receivers
 
             entry.Receiver.HasAudioSource = false;
 
+#if !UNITY_SERVER
             if (entry.Receiver.decoder != null)
             {
                 entry.Receiver.decoder.Dispose();
                 entry.Receiver.decoder = null;
             }
+#endif
 
             if (entry.AudioSource != null)
             {

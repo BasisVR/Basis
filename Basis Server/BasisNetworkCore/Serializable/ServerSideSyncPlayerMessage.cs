@@ -24,6 +24,16 @@ public static partial class SerializableBasis
             Writer.Get(out sequence);//1 byte
             avatarSerialization.Deserialize(Writer, channelDerivedQuality, hasAdditionalData);
         }
+        /// <summary>
+        /// Deserialize with byte/ushort playerID based on channel variant.
+        /// </summary>
+        public void Deserialize(NetDataReader Writer, byte channelDerivedQuality, bool hasAdditionalData, bool largeId)
+        {
+            playerIdMessage.Deserialize(Writer, largeId);
+            Writer.Get(out interval);
+            Writer.Get(out sequence);
+            avatarSerialization.Deserialize(Writer, channelDerivedQuality, hasAdditionalData);
+        }
         public void Serialize(NetDataWriter Writer)
         {
             playerIdMessage.Serialize(Writer);

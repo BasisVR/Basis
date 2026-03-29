@@ -114,7 +114,15 @@ public static class BasisNetworkEvents
                 Reader.Recycle();
 #else
                 //released inside
-                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader);
+                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, false);
+#endif
+                break;
+            case BasisNetworkCommons.VoiceLargeChannel:
+#if UNITY_SERVER
+                Reader.Recycle();
+#else
+                //released inside
+                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, true);
 #endif
                 break;
             case BasisNetworkCommons.PlayerAvatarVeryLowChannel:
@@ -125,6 +133,14 @@ public static class BasisNetworkEvents
             case BasisNetworkCommons.PlayerAvatarMediumAdditionalChannel:
             case BasisNetworkCommons.PlayerAvatarHighChannel:
             case BasisNetworkCommons.PlayerAvatarHighAdditionalChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarLowLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarLowAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarHighLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarHighAdditionalLargeChannel:
                 if (ValidateSize(Reader, peer, channel) == false)
                 {
                     Reader.Recycle();
@@ -439,8 +455,39 @@ public static class BasisNetworkEvents
     }
     public static void HandleDisconnectionReason(DisconnectInfo disconnectInfo)
     {
+#if UNITY_SERVER
+        bool canShowMenu = !UnityEngine.Application.isBatchMode;
+#endif
+
         if (disconnectInfo.Reason == DisconnectReason.RemoteConnectionClose)
         {
+#if UNITY_SERVER
+            string reason = null;
+            if (disconnectInfo.AdditionalData != null &&
+                disconnectInfo.AdditionalData.TryGetString(out string parsedReason))
+            {
+                reason = parsedReason;
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                if (canShowMenu)
+                {
+                    BasisMainMenu.Open();
+                    if (BasisMainMenu.Instance != null)
+                    {
+                        BasisMainMenu.Instance.OpenDialogue("Server Connection", reason, "ok", value =>
+                        {
+                        });
+                    }
+                }
+                BasisDebug.LogError(reason);
+            }
+            else
+            {
+                BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
+            }
+#else
             if (disconnectInfo.AdditionalData.TryGetString(out string Reason))
             {
                 BasisMainMenu.Open();
@@ -453,15 +500,31 @@ public static class BasisNetworkEvents
             {
                 BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
+#endif
         }
         else
         {
+#if UNITY_SERVER
+            if (canShowMenu)
+            {
+                BasisMainMenu.Open();
+                if (BasisMainMenu.Instance != null)
+                {
+                    BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+                    {
+                    });
+                }
+            }
+
+            BasisDebug.LogError(disconnectInfo.Reason.ToString());
+#else
             BasisMainMenu.Open();
             BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
               {
               });
 
             BasisDebug.LogError(disconnectInfo.Reason.ToString());
+#endif
         }
     }
 }
