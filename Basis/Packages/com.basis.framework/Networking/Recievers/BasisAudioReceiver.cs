@@ -5,6 +5,7 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 #if !UNITY_SERVER
 using OpusSharp.Core;
+using OpusSharp.Core.Interfaces;
 using OpusSharp.Core.Extensions;
 #endif
 using System;
@@ -100,7 +101,7 @@ namespace Basis.Scripts.Networking.Receivers
         /// </summary>
 
 #if !UNITY_SERVER
-        public OpusDecoder decoder;
+        public IOpusDecoder decoder;
 #endif
 
         private float[] _inputScratch;    // big enough for the largest chunk we pull
@@ -312,9 +313,9 @@ namespace Basis.Scripts.Networking.Receivers
 
 #if UNITY_IOS && !UNITY_EDITOR
             // iOS requires statically linked Opus library
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
+            decoder = new Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #else
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+            decoder = new Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 #endif
         }

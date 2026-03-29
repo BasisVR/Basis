@@ -4,6 +4,7 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
 #if !UNITY_SERVER
 using OpusSharp.Core;
+using OpusSharp.Core.Interfaces;
 #endif
 using static SerializableBasis;
 
@@ -13,7 +14,7 @@ namespace Basis.Scripts.Networking.Transmitters
     public class BasisAudioTransmission
     {
 #if !UNITY_SERVER
-        public OpusEncoder encoder;
+        public IOpusEncoder encoder;
 #endif
         public BasisNetworkPlayer NetworkedPlayer;
         public BasisLocalPlayer Local;
@@ -60,18 +61,16 @@ namespace Basis.Scripts.Networking.Transmitters
         private void InitializeEncoder()
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            encoder = new OpusEncoder(
+            encoder = new Static.OpusEncoder(
                 LocalOpusSettings.MicrophoneSampleRate,
                 LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication,
-                use_static: true
+                LocalOpusSettings.OpusApplication
             );
 #else
-            encoder = new OpusEncoder(
+            encoder = new Dynamic.OpusEncoder(
                 LocalOpusSettings.MicrophoneSampleRate,
                 LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication,
-                use_static: false
+                LocalOpusSettings.OpusApplication
             );
 #endif
 
