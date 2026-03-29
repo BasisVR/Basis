@@ -1,11 +1,18 @@
 # OpusSharp
 
-OpusSharp aims to be a cross-platform, pure and ported C# compatible version of the native opus codec/library. The core library uses the native compiled DLL's/binaries. Windows, Android, Linux, macOS and iOS are supported. OpusSharp compiles the opus binaries using a github actions file which is available [here](.github/workflows/OpusCompile.yml).
+OpusSharp aims to be a cross-platform, pure and ported C# compatible version of the native opus codec/library. The core
+library uses the native compiled DLL's/binaries. Windows, Android, Linux, macOS and iOS are supported. OpusSharp
+compiles the opus binaries using a github actions file which is available [here](.github/workflows/OpusCompile.yml).
 
 > [!NOTE]
-> While OpusSharp.Core contains minimal pre-made decoder and encoder handlers, you can create your own as all the SafeHandlers and NativeOpus functions are exposed and fully documented. However to get a minimal setup working, check the example below.
+> While OpusSharp.Core contains minimal pre-made decoder and encoder handlers, you can create your own as all the
+> SafeHandlers and NativeOpus functions are exposed and fully documented. However to get a minimal setup working, check
+> the example below.
 
 ## Encoder Example
+
+Simple encoder example for initializing and encoding. You of course can use `short[]` or `float[]` arrays to encode as
+well.
 
 ```cs
 using OpusSharp.Core;
@@ -25,6 +32,9 @@ var encodedBytes = encoder.Encode(someAudioData, samplesPerFrame, encodedAudio, 
 
 ## Decoder Example
 
+Simple decoder example for initializing and decoding. You of course can use `short[]` or `float[]` arrays to encode as
+well.
+
 ```cs
 using OpusSharp.Core;
 
@@ -41,11 +51,32 @@ var decodedSamples = decoder.Decode(someEncodedAudio, someEncodedAudio.Length, d
 
 ## Static Usage Example
 
+This example shows a forced usage of OpusSharp to use the statically linked opus binary.
+
 ```csharp
 // On iOS OpusSharp switches to StaticNativeOpus automatically.
 // You can still force the same behavior manually with use_static: true.
 var encoder = new OpusEncoder(sampleRate, channels, OpusPredefinedValues.OPUS_APPLICATION_VOIP, use_static: true);
 var encoder = new OpusDecoder(sampleRate, channels, use_static: true);
+```
+
+## Unity Example
+
+For unity integration, you may want to use `Static.OpusDecoder`, `Dynamic.OpusDecoder`, `Static.OpusEncoder` or
+`Dynamic.OpusEncoder` to prevent IL2CPP errors for example...
+
+```csharp
+using OpusSharp.Core;
+    
+IOpusEncoder encoder;
+IOpusDecoder decoder;
+//Decoder
+#if UNITY_IOS && !UNITY_EDITOR
+encoder = new Static.OpusEncoder(...);
+decoder = new Static.OpusDecoder(...);
+#else
+encoder = new Dynamic.OpusEncoder(...);
+decoder = new Dynamic.OpusDecoder(...);
 ```
 
 ## Basic NAudio Example
@@ -82,6 +113,8 @@ Console.ReadLine();
 
 ## CTL Example using OpusSharp.Core.Extensions
 
+This CTL example shows the usage of extensions to make setting CTL's easier.
+
 ```csharp
 using OpusSharp.Core;
 using OpusSharp.Core.Extensions;
@@ -93,6 +126,9 @@ Console.WriteLine(encoder.GetComplexity());
 ```
 
 ## CTL Example
+
+This example shows the raw usage of calling a CTL with no extensions, OpusSharp will directly pass the call to the opus
+binary.
 
 ```cs
 using OpusSharp.Core;
@@ -106,7 +142,10 @@ encoder.Ctl<int>(EncoderCTL.OPUS_SET_VBR, 1); //OpusSharp already checks if an e
 ```
 
 > [!NOTE]
-> While disposing of encoder's and decoder's are handled by the GC (garbage collector) since unmanaged states are wrapped in a SafeHandler, It is still recommended to directly call the Dispose() function due to different runtime environments such as unity's mono runtime (at the time of writing this) which can take an impact on performance depending on how many is initialized and dereferenced over time.
+> While disposing of encoder's and decoder's are handled by the GC (garbage collector) since unmanaged states are
+> wrapped in a SafeHandler, It is still recommended to directly call the Dispose() function due to different runtime
+> environments such as unity's mono runtime (at the time of writing this) which can take an impact on performance
+> depending on how many is initialized and dereferenced over time.
 
 ## Supported Devices
 
@@ -116,20 +155,22 @@ encoder.Ctl<int>(EncoderCTL.OPUS_SET_VBR, 1); //OpusSharp already checks if an e
 - ❌ Not planned, Not supported.
 
 | Device  | x64 | x86 | arm32 | arm64 |
-| ------- | --- | --- | ----- | ----- |
-| Linux   | ✅  | ✅  | ✅    | ✅    |
-| Android | ✅  | ✅  | ✅    | ✅    |
-| Windows | ✅  | ✅  | ✅    | ✅    |
-| iOS     | ❌  | ❌  | ❌    | ✅    |
-| MacOS   | ✅  | ❌  | ❌    | ✅    |
-| WASM    | ✅  | ❗  | ❗    | ❗    |
+|---------|-----|-----|-------|-------|
+| Linux   | ✅   | ✅   | ✅     | ✅     |
+| Android | ✅   | ✅   | ✅     | ✅     |
+| Windows | ✅   | ✅   | ✅     | ✅     |
+| iOS     | ❌   | ❌   | ❌     | ✅     |
+| MacOS   | ✅   | ❌   | ❌     | ✅     |
+| WASM    | ✅   | ❗   | ❗     | ❗     |
 
 ## Installation
 
-Please check [QuickStart](https://avionblock.github.io/OpusSharp/quick-start/index.html) OR [Nuget](https://www.nuget.org/packages/OpusSharp)
-For the default cross-platform experience, install [OpusSharp](https://www.nuget.org/packages/OpusSharp). It brings in both `OpusSharp.Core` and the prebuilt native assets, including automatic iOS linking through `OpusSharp.Natives`.
+Please check [QuickStart](https://avionblock.github.io/OpusSharp/quick-start/index.html)
+OR [Nuget](https://www.nuget.org/packages/OpusSharp).
+For the default cross-platform experience, install [OpusSharp](https://www.nuget.org/packages/OpusSharp). It brings in
+both `OpusSharp.Core` and the prebuilt native assets, including automatic iOS linking through `OpusSharp.Natives`.
 
-If you want to manage native binaries yourself, install only `OpusSharp.Core`.
+If you want to manage native binaries yourself, only install the `OpusSharp.Core` package.
 
 ## API Documentation
 

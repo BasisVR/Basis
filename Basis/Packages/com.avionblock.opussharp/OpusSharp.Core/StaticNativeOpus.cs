@@ -1,7 +1,3 @@
-#if UNITY_IOS && !UNITY_EDITOR
-#define COMPILE_STATIC
-#endif
-
 using System;
 using OpusSharp.Core.SafeHandlers;
 using System.Runtime.InteropServices;
@@ -16,11 +12,7 @@ namespace OpusSharp.Core
     /// </summary>
     public static partial class StaticNativeOpus
     {
-#if COMPILE_STATIC
-            private const string DllName = "__Internal";
-#else
-            private const string DllName = "opus"; 
-#endif
+        private const string DllName = "__Internal";
 
         //Encoder
         /// <summary>
