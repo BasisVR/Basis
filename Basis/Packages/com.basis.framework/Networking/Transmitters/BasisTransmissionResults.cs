@@ -47,8 +47,10 @@ public partial class BasisTransmissionResults
     [SerializeReference] public BasisNetworkTransmitter BasisNetworkTransmitter;
     public NetDataWriter VRMWriter = new NetDataWriter(true, 0);
 
-    // Recipients
+    // Recipients / excluded
     public List<ushort> TalkingPoints = new List<ushort>(128);
+    public List<ushort> ExcludedPoints = new List<ushort>(128);
+    private byte[] bitfieldBuffer = new byte[128];
 
     // Capacity / length
     public int LengthOfArrays = -1;
@@ -383,30 +385,88 @@ public partial class BasisTransmissionResults
     {
         if (TalkingPoints.Capacity < receiverCount)
             TalkingPoints.Capacity = receiverCount;
+        if (ExcludedPoints.Capacity < receiverCount)
+            ExcludedPoints.Capacity = receiverCount;
 
         TalkingPoints.Clear();
+        ExcludedPoints.Clear();
+        ushort maxId = 0;
 
         for (int i = 0; i < receiverCount; i++)
         {
+            ushort id = snapshot[i].playerId;
+            if (id > maxId) maxId = id;
+
             if (MicrophoneRange[i])
-            {
-                TalkingPoints.Add(snapshot[i].playerId);
-            }
+                TalkingPoints.Add(id);
+            else
+                ExcludedPoints.Add(id);
         }
 
-        BasisNetworkTransmitter.HasReasonToSendAudio = TalkingPoints.Count != 0;
+        int recipientCount = TalkingPoints.Count;
+        int excludedCount = ExcludedPoints.Count;
+        BasisNetworkTransmitter.HasReasonToSendAudio = recipientCount != 0;
 
-        // Serialize directly: [count][id0][id1]...
+        // Compute wire sizes for each mode
+        int listSize = (recipientCount <= byte.MaxValue ? 1 : 2) + recipientCount * 2;
+        int invertedSize = (excludedCount <= byte.MaxValue ? 1 : 2) + excludedCount * 2;
+        int bitfieldBytes = (maxId / 8) + 1;
+        int bitfieldSize = 2 + bitfieldBytes;
+
         VRMWriter.Reset();
-        VRMWriter.Put((ushort)TalkingPoints.Count);
-        for (int i = 0; i < TalkingPoints.Count; i++)
+        byte channel;
+
+        if (bitfieldSize <= listSize && bitfieldSize <= invertedSize)
         {
-            VRMWriter.Put(TalkingPoints[i]);
+            // Bitfield mode: [byteCount: ushort][bitfield bytes]
+            channel = BasisNetworkCommons.AudioRecipientsBitfieldChannel;
+
+            // Grow buffer if needed
+            if (bitfieldBuffer.Length < bitfieldBytes)
+                bitfieldBuffer = new byte[bitfieldBytes];
+
+            System.Array.Clear(bitfieldBuffer, 0, bitfieldBytes);
+            for (int i = 0; i < recipientCount; i++)
+            {
+                int id = TalkingPoints[i];
+                bitfieldBuffer[id / 8] |= (byte)(1 << (id % 8));
+            }
+
+            VRMWriter.Put((ushort)bitfieldBytes);
+            VRMWriter.Put(bitfieldBuffer, 0, bitfieldBytes);
+        }
+        else if (invertedSize < listSize)
+        {
+            // Inverted list mode: send excluded IDs
+            bool largeCnt = excludedCount > byte.MaxValue;
+            channel = largeCnt
+                ? BasisNetworkCommons.AudioRecipientsInvertedLargeChannel
+                : BasisNetworkCommons.AudioRecipientsInvertedChannel;
+            if (largeCnt)
+                VRMWriter.Put((ushort)excludedCount);
+            else
+                VRMWriter.Put((byte)excludedCount);
+            for (int i = 0; i < excludedCount; i++)
+                VRMWriter.Put(ExcludedPoints[i]);
+        }
+        else
+        {
+            // Normal list mode: send recipient IDs
+            bool largeCnt = recipientCount > byte.MaxValue;
+            channel = largeCnt
+                ? BasisNetworkCommons.AudioRecipientsLargeChannel
+                : BasisNetworkCommons.AudioRecipientsChannel;
+            if (largeCnt)
+                VRMWriter.Put((ushort)recipientCount);
+            else
+                VRMWriter.Put((byte)recipientCount);
+            for (int i = 0; i < recipientCount; i++)
+                VRMWriter.Put(TalkingPoints[i]);
         }
 
         BasisNetworkConnection.LocalPlayerPeer.Send(
             VRMWriter,
-            BasisNetworkCommons.AudioRecipientsChannel,
+            channel,
             DeliveryMethod.ReliableOrdered);
 
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AudioRecipients, VRMWriter.Length);

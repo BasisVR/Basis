@@ -15,7 +15,7 @@ public static class BasisNetworkHandleVoice
     public static ConcurrentQueue<ServerAudioSegmentMessage> Message = new ConcurrentQueue<ServerAudioSegmentMessage>();
     public const int MaxStoredServerAudioSegmentMessage = 250;
 
-    public static async Task HandleAudioUpdate(NetPacketReader Reader)
+    public static async Task HandleAudioUpdate(NetPacketReader Reader, bool largeId)
     {
         try
         {
@@ -26,7 +26,7 @@ public static class BasisNetworkHandleVoice
                 {
                     audioUpdate = new ServerAudioSegmentMessage();
                 }
-                audioUpdate.Deserialize(Reader);
+                audioUpdate.Deserialize(Reader, largeId);
                 if (BasisNetworkPlayers.RemotePlayers.TryGetValue(audioUpdate.playerIdMessage.playerID, out BasisNetworkReceiver player))
                 {
                     if (audioUpdate.audioSegmentData.LengthUsed == 0)

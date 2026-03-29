@@ -114,7 +114,15 @@ public static class BasisNetworkEvents
                 Reader.Recycle();
 #else
                 //released inside
-                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader);
+                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, false);
+#endif
+                break;
+            case BasisNetworkCommons.VoiceLargeChannel:
+#if UNITY_SERVER
+                Reader.Recycle();
+#else
+                //released inside
+                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, true);
 #endif
                 break;
             case BasisNetworkCommons.PlayerAvatarVeryLowChannel:
@@ -125,6 +133,14 @@ public static class BasisNetworkEvents
             case BasisNetworkCommons.PlayerAvatarMediumAdditionalChannel:
             case BasisNetworkCommons.PlayerAvatarHighChannel:
             case BasisNetworkCommons.PlayerAvatarHighAdditionalChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarLowLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarLowAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarHighLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarHighAdditionalLargeChannel:
                 if (ValidateSize(Reader, peer, channel) == false)
                 {
                     Reader.Recycle();

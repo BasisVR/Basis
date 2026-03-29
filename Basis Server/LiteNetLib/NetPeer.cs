@@ -1398,6 +1398,34 @@ namespace LiteNetLib
             _mergeCount = 0;
         }
 
+        /// <summary>
+        /// Builds an unreliable NetPacket from raw user bytes and enqueues it, skipping the
+        /// intermediate NetDataWriter copy. Thread-safe: uses the same _unreliableChannel
+        /// queue as Send(), so Update() merges it on the logic thread.
+        /// Optionally patches a single byte at patchOffset (relative to user data start)
+        /// after the copy — used for per-receiver fields like interval that differ per
+        /// destination while the source array is shared.
+        /// Pass patchOffset = -1 to skip patching.
+        /// </summary>
+        public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0)
+        {
+            if (_connectionState != ConnectionState.Connected || channelNumber >= _channels.Length)
+                return;
+
+            int headerSize = NetConstants.UnreliableHeaderSize;
+            int packetSize = headerSize + length;
+
+            NetPacket packet = NetManager.PoolGetPacket(packetSize);
+            packet.Property = PacketProperty.Unreliable;
+            packet.RawData[1] = channelNumber;
+            Buffer.BlockCopy(data, offset, packet.RawData, headerSize, length);
+
+            if (patchOffset >= 0)
+                packet.RawData[headerSize + patchOffset] = patchValue;
+
+            EnqueueUnreliable(packet);
+        }
+
         internal void SendUserData(NetPacket packet)
         {
             packet.ConnectionNumber = _connectNum;

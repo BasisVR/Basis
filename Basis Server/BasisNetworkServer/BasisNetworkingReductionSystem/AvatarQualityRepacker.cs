@@ -106,12 +106,12 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         {
             msg.DataQualityLevel = (byte)q;
 
-            // Fast path: already allocated and correct size
-            if (msg.array != null && msg.array.Length == size)
+            // Fast path: already allocated and large enough.
+            // Accepts >= size to support pooled/reused arrays without reallocating.
+            // Serialization uses explicit payload sizes from ConvertToSize(), not .Length.
+            if (msg.array != null && msg.array.Length >= size)
                 return;
 
-            // If you can tolerate ">= size" (e.g. pooled arrays), use >=
-            // but if you serialize based on Length, you want exact size.
             msg.array = new byte[size];
         }
 

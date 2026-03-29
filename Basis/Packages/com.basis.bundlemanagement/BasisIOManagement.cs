@@ -152,7 +152,7 @@ public static class BasisIOManagement
 
         if (platformSectionData == null || platformSectionData.Length == 0)
         {
-            return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: No platform-matching section found in connector. Platform Request was {Application.platform} using platform keys -> {BasisBundleConnector.DebugOfPlatforms()}");
+            return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: No platform-matching section found in connector. Platform Request was {Application.platform}. {BasisBundleConnector.DebugOfPlatforms(connector)}");
         }
 
         // 5) Write local .bee (Int32 header + connector + section)

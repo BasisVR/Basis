@@ -20,6 +20,7 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         // Phase timings (accumulated ticks, reset each print interval)
         public static long drainTicks;
         public static long processTicks;
+        public static long distanceTicks;
         public static long updateTicks;
         public static long triggerTicks;
 
@@ -61,17 +62,19 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             double drain = Interlocked.Exchange(ref drainTicks, 0) / MsToTick;
             double process = Interlocked.Exchange(ref processTicks, 0) / MsToTick;
+            double distance = Interlocked.Exchange(ref distanceTicks, 0) / MsToTick;
             double update = Interlocked.Exchange(ref updateTicks, 0) / MsToTick;
             double trigger = Interlocked.Exchange(ref triggerTicks, 0) / MsToTick;
 
-            double total = drain + process + update + trigger;
+            double total = drain + process + distance + update + trigger;
 
             BNL.Log($"\n[BSR Profile] {ticks} ticks, {msgs} msgs, {sends} sends, preSer {preSer}/{preSer + preSkip}");
-            BNL.Log($"  drain:   {drain / ticks:F3} ms/tick ({drain / total * 100:F1}%)");
-            BNL.Log($"  process: {process / ticks:F3} ms/tick ({process / total * 100:F1}%)");
-            BNL.Log($"  update:  {update / ticks:F3} ms/tick ({update / total * 100:F1}%)");
-            BNL.Log($"  trigger: {trigger / ticks:F3} ms/tick ({trigger / total * 100:F1}%)");
-            BNL.Log($"  total:   {total / ticks:F3} ms/tick");
+            BNL.Log($"  drain:    {drain / ticks:F3} ms/tick ({drain / total * 100:F1}%)");
+            BNL.Log($"  process:  {process / ticks:F3} ms/tick ({process / total * 100:F1}%)");
+            BNL.Log($"  distance: {distance / ticks:F3} ms/tick ({distance / total * 100:F1}%)");
+            BNL.Log($"  update:   {update / ticks:F3} ms/tick ({update / total * 100:F1}%)");
+            BNL.Log($"  trigger:  {trigger / ticks:F3} ms/tick ({trigger / total * 100:F1}%)");
+            BNL.Log($"  total:    {total / ticks:F3} ms/tick");
         }
     }
 }

@@ -58,6 +58,7 @@ namespace Basis.Network.Core
         public void DisconnectForce();
         public void Send(byte[] data, byte channelNumber, DeliveryMethod deliveryMethod);
         public void Send(NetDataWriter data, byte channelNumber, DeliveryMethod deliveryMethod);
+        public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0);
         public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod);
         public int Id { get; }
         public IPAddress Address { get; }

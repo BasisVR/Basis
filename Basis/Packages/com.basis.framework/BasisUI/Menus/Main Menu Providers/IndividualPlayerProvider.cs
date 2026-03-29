@@ -513,6 +513,39 @@ namespace Basis.BasisUI
                 }
             };
 
+            // ---- Network metadata group ----
+            var networkGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            networkGroup.SetTitle("Network");
+            networkGroup.SetDescription("Live network state for this player.");
+
+            var netIdField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, networkGroup.ContentParent);
+            netIdField.SetTitle("Player ID");
+            if (Basis.Scripts.Networking.BasisNetworkPlayers.PlayerToNetworkedPlayer(
+                remotePlayer, out BasisNetworkPlayer netP))
+            {
+                netIdField.SetDescription(netP.playerId.ToString());
+            }
+            else
+            {
+                netIdField.SetDescription("Unknown");
+            }
+
+            var distanceField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, networkGroup.ContentParent);
+            distanceField.SetTitle("Distance");
+            distanceField.SetDescription("...");
+
+            var lodField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, networkGroup.ContentParent);
+            lodField.SetTitle("Mesh LOD Level");
+            lodField.SetDescription("...");
+
+            var rangesField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, networkGroup.ContentParent);
+            rangesField.SetTitle("Ranges");
+            rangesField.SetDescription("...");
+
+            var bufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, networkGroup.ContentParent);
+            bufferField.SetTitle("Buffer State");
+            bufferField.SetDescription("...");
+
             var debugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
             debugGroup.SetTitle("Debug");
             debugGroup.SetDescription("Live diagnostics for voice/range checks (optional).");
@@ -524,6 +557,10 @@ namespace Basis.BasisUI
             var updater = panel.gameObject.AddComponent<IndividualPlayerPanelUpdater>();
             updater.RemotePlayer = remotePlayer;
             updater.DebugField = debugField;
+            updater.DistanceField = distanceField;
+            updater.LodField = lodField;
+            updater.RangesField = rangesField;
+            updater.BufferField = bufferField;
 
             panel.Descriptor.ForceRebuild();
             panel.Descriptor.ForceRebuild();

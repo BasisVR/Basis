@@ -26,6 +26,7 @@ namespace BasisNetworkServer
     public static class BasisNetworkPIPCamera
     {
         public static ConcurrentDictionary<int, CameraPIPState> PIPStates = new();
+        private static readonly double MsToTick = Stopwatch.Frequency / 1000.0;
 
         /// <summary>
         /// Client says their PIP camera was created or destroyed.
@@ -115,7 +116,6 @@ namespace BasisNetworkServer
         /// </summary>
         public static void UpdatePIPPositions(long nowTicks)
         {
-            double msToTick = Stopwatch.Frequency / 1000.0;
             NetPeer[] peers = NetworkServer.PeerSnapshot;
             if (peers == null) return;
 
@@ -168,12 +168,11 @@ namespace BasisNetworkServer
                     float distSq = DistanceSquared(recipientState.Position, ownerPlayerState.Position);
                     CalculateIntervalFromDistanceSq(distSq, out int actualInterval);
 
-                    if (!pipState.LastSentTimes.ContainsKey(recipientId))
-                        pipState.LastSentTimes[recipientId] = 0;
+                    if (!pipState.LastSentTimes.TryGetValue(recipientId, out long lastSent))
+                        lastSent = 0;
 
-                    long lastSent = pipState.LastSentTimes[recipientId];
                     long elapsed = Math.Max(0, nowTicks - lastSent);
-                    long required = (long)(actualInterval * msToTick);
+                    long required = (long)(actualInterval * MsToTick);
 
                     if (elapsed >= required)
                     {
