@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Network.Core.Compression;
 using Basis.Network.Server;
 using Basis.Network.Server.Auth;
+using Basis.Scripts.Networking.Steam;
 using BasisDidLink;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
@@ -19,7 +20,7 @@ using static BasisPermissions.PermissionManager;
 public static class NetworkServer
 {
     public static EventBasedNetListener Listener;
-    public static LNLNetManager Server;
+    public static NetManager Server;
     public static ConcurrentDictionary<int, NetPeer> AuthenticatedPeers = new();
     public static Configuration Configuration;
     // Cached snapshot rebuilt on connect/disconnect — avoids ToArray() alloc on every broadcast.
@@ -117,7 +118,7 @@ public static class NetworkServer
     public static void SetupServer(Configuration configuration)
     {
         Listener = new EventBasedNetListener();
-        Server = new LNLNetManager(Listener, configuration);
+        Server = BasisTransportFactory.Create(Listener, configuration);
 
         NetDebug.Logger = new BasisServerLogger();
         StartListening(configuration);

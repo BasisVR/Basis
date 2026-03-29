@@ -144,7 +144,7 @@ namespace BasisServerHandle
         {
             try
             {
-                if (BasisPlayerModeration.IsIpBanned(ConReq.RemoteEndPoint.Address.ToString()))
+                if (BasisPlayerModeration.IsIpBanned(ConReq.Identity))
                 {
                     RejectWithReason(ConReq, "Banned IP");
                     return;

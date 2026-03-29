@@ -1,4 +1,5 @@
 using Basis.Network;
+using Basis.Network.Core;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,26 +17,39 @@ public class BasisNetworkServerRunner
     {
         Configuration = configuration;
         BasisServerSideLogging.Initialize(Configuration, LogPath);
+
+        if (configuration.TransportType == NetworkTransportType.Steam)
+        {
+            StartServer(UUIDTomarkAsAdmin);
+            return;
+        }
+
         cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
         serverTask = Task.Run(() =>
         {
-            try
-            {
-                NetworkServer.StartServer(Configuration);
-
-                PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin,"*");
-                PermissionIntegration.Manager.AddUserToGroup(UUIDTomarkAsAdmin, "admin");
-            }
-            catch (Exception ex)
-            {
-                BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
-                // Optionally, handle server restart or log critical errors
-            }
+            StartServer(UUIDTomarkAsAdmin);
         }, cancellationToken);
     }
+
+    private void StartServer(string UUIDTomarkAsAdmin)
+    {
+        try
+        {
+            NetworkServer.StartServer(Configuration);
+
+            PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin,"*");
+            PermissionIntegration.Manager.AddUserToGroup(UUIDTomarkAsAdmin, "admin");
+        }
+        catch (Exception ex)
+        {
+            BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
+        }
+    }
+
     public void Stop()
     {
-        cancellationTokenSource.Cancel();
+        cancellationTokenSource?.Cancel();
+        NetworkServer.Server?.Stop();
     }
 }

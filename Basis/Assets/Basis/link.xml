@@ -27,12 +27,16 @@
     <assembly fullname="BasisSerializer.OdinSerializer" preserve="all" />
     <assembly fullname="BasisSettings" preserve="all" />
     <assembly fullname="BasisShims" preserve="all" />
+    <assembly fullname="BasisSteamTransport" preserve="all" />
+    <assembly fullname="BasisSteamTransportCore" preserve="all" />
     <assembly fullname="BasisVehicles" preserve="all" />
     <assembly fullname="BasisVehiclesNetwork" preserve="all" />
     <assembly fullname="BouncyCastle.Cryptography" preserve="all" />
     <assembly fullname="Cilbox" preserve="all" />
     <assembly fullname="Crypto" preserve="all" />
     <assembly fullname="Did" preserve="all" />
+    <assembly fullname="Facepunch.Steamworks.Win32" preserve="all" />
+    <assembly fullname="Facepunch.Steamworks.Win64" preserve="all" />
     <assembly fullname="GPUUtilities" preserve="all" />
     <assembly fullname="Generator.Equals" preserve="all" />
     <assembly fullname="Generator.Equals.Runtime" preserve="all" />
@@ -128,6 +132,8 @@
     <assembly fullname="openvr_api" preserve="all" />
     <assembly fullname="phonon" preserve="all" />
     <assembly fullname="phonon_fmod" preserve="all" />
+    <assembly fullname="steam_api" preserve="all" />
+    <assembly fullname="steam_api64" preserve="all" />
     <assembly fullname="ucrtbased" preserve="all" />
 
 </linker>

@@ -102,6 +102,8 @@ namespace Basis.Network.Core
 
         public IPEndPoint RemoteEndPoint => request.RemoteEndPoint;
 
+        public string Identity => request.RemoteEndPoint?.Address?.ToString() ?? string.Empty;
+
         NetPeer ConnectionRequest.Accept()
         {
             return new LNLNetPeer(request.Accept());
@@ -125,6 +127,8 @@ namespace Basis.Network.Core
         int NetPeer.Id => peer.Id;
 
         IPAddress NetPeer.Address => peer.Address;
+
+        string NetPeer.Identity => peer.Address?.ToString() ?? string.Empty;
 
         int NetPeer.RemoteId => peer.RemoteId;
 
@@ -391,6 +395,11 @@ public class CompressionPacketLayer : PacketLayerBase
         public void Stop()
         {
             manager.Stop();
+        }
+
+        public void PollEvents()
+        {
+            manager.TriggerUpdate();
         }
 
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer)

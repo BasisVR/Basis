@@ -4,6 +4,7 @@
     "references": [
         "LiteNetLib",
         "BasisNetworkCore",
+        "BasisSteamTransportCore",
         "Did",
         "Crypto"
     ],

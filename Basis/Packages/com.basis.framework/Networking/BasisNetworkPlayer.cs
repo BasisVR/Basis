@@ -143,6 +143,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public void OnAvatarServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
         {
+            if (!BasisNetworkManagement.NetworkRunning || !BasisNetworkConnection.LocalPlayerIsConnected)
+            {
+                return;
+            }
+
             if (BasisNetworkManagement.Transmitter != null)
             {
                 AdditionalAvatarData AAD = new AdditionalAvatarData

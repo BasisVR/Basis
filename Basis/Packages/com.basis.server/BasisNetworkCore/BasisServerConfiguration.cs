@@ -1,4 +1,5 @@
 using BasisNetworkCore.Security;
+using Basis.Network.Core;
 using System;
 using System.IO;
 using System.Reflection;
@@ -56,6 +57,11 @@ public class Configuration
     public bool DisableReadUnlessAdminPersistentFlag = false;
     public bool UseNetworkFinalCompression = false;
     public bool EnableBSRProfiling = false;
+    public NetworkTransportType TransportType = NetworkTransportType.LiteNetLib;
+    public bool UseSteamRelay = true;
+    public ulong SteamLobbyId = 0;
+    public ulong SteamHostSteamId = 0;
+    public int SteamVirtualPort = 0;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

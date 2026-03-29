@@ -41,6 +41,35 @@ namespace Basis.Network.Core
         public event OnNetworkReceive NetworkReceiveEvent;
         public event OnNetworkError NetworkErrorEvent;
         public event OnPeerConnected PeerConnectedEvent;
+
+        public void RaiseConnectionRequest(ConnectionRequest request)
+        {
+            ConnectionRequestEvent?.Invoke(request);
+        }
+
+        public void RaisePeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
+        {
+            PeerDisconnectedEvent?.Invoke(peer, disconnectInfo);
+        }
+
+        public void RaiseNetworkReceive(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            reader.channel = channel;
+            reader.method = deliveryMethod;
+#endif
+            NetworkReceiveEvent?.Invoke(peer, reader, channel, deliveryMethod);
+        }
+
+        public void RaiseNetworkError(IPEndPoint endPoint, SocketError socketError)
+        {
+            NetworkErrorEvent?.Invoke(endPoint, socketError);
+        }
+
+        public void RaisePeerConnected(NetPeer peer)
+        {
+            PeerConnectedEvent?.Invoke(peer);
+        }
     }
 
     public interface ConnectionRequest
@@ -49,6 +78,7 @@ namespace Basis.Network.Core
         public NetPeer Accept();
         public NetDataReader Data { get; }
         public IPEndPoint RemoteEndPoint { get; }
+        public string Identity => RemoteEndPoint?.Address?.ToString() ?? string.Empty;
     }
 
     public interface NetPeer
@@ -61,6 +91,7 @@ namespace Basis.Network.Core
         public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod);
         public int Id { get; }
         public IPAddress Address { get; }
+        public string Identity => Address?.ToString() ?? string.Empty;
         public int RemoteId { get; }
         public int RoundTripTime { get; }
         public int Ping => RoundTripTime / 2;
@@ -84,6 +115,9 @@ namespace Basis.Network.Core
         public void Start(IPAddress IPv4Address, IPAddress IPv6Address, int SetPort);
         public void Stop();
         public Basis.Network.Core.NetPeer Connect(string sIP, int port, NetDataWriter Writer);
+        public void PollEvents()
+        {
+        }
 
         public NetStatistics Statistics { get; }
 
@@ -92,6 +126,10 @@ namespace Basis.Network.Core
 
     public sealed partial class NetStatistics
     {
+        public NetStatistics()
+        {
+        }
+
         public long PacketsSent;
         public long PacketsReceived;
         public long BytesSent;
@@ -102,6 +140,10 @@ namespace Basis.Network.Core
     public partial class NetPacketReader : NetDataReader
     {
         Action RecycleInternal;
+
+        internal NetPacketReader()
+        {
+        }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 		internal byte channel;
@@ -122,6 +164,14 @@ namespace Basis.Network.Core
 #endif
 
             RecycleInternal?.Invoke();
+        }
+
+        public static NetPacketReader Create(byte[] source, int offset, int maxSize, Action recycle = null)
+        {
+            NetPacketReader reader = new NetPacketReader();
+            reader.SetSource(source, offset, maxSize);
+            reader.RecycleInternal = recycle;
+            return reader;
         }
     }
 

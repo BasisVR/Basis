@@ -3,8 +3,8 @@ using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
+using Basis.Network.Core;
 using System;
-using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -171,41 +171,27 @@ namespace Basis.BasisUI
                 Info.SetTitle("Connecting");
                 Info.SetDescription("Initializing...");
 
-                string userName = usernameField._inputField.text;
-                if (string.IsNullOrEmpty(userName))
+                string userName = usernameField.Value;
+                if (string.IsNullOrWhiteSpace(userName))
                 {
                     Info.SetTitle("Error");
                     Info.SetDescription("Display Name Was Empty");
                     return;
                 }
-                if (ushort.TryParse(portField.Value, out var port))
-                {
-
-                }
-                else
+                if (!ushort.TryParse(portField.Value, out ushort port))
                 {
                     BasisDebug.LogError($"Unable to pass Port! {portField.Value}");
+                    Info.SetTitle("Error");
+                    Info.SetDescription("Port was invalid.");
+                    return;
                 }
 
-                // If currently connected, disconnect + wait for reboot completion
-                if (BasisNetworkConnection.LocalPlayerIsConnected)
+                if (BasisNetworkConnection.LocalPlayerIsConnected || BasisNetworkConnection.HasActiveClient())
                 {
                     Info.SetTitle("Disconnecting");
                     Info.SetDescription("Disconnecting...");
                     BasisDebug.Log("Disconnecting From Current Connection", BasisDebug.LogTag.Networking);
-
-                    // Start waiting BEFORE you trigger the chain that will raise the event.
-                    // (If it fires instantly, you won't miss it.)
-                    using var cts = new CancellationTokenSource(); // optionally store and cancel on UI close
-                    Task rebootWait = BasisNetworkConnection.WaitForRebootCompleteAsync(cts.Token);
-
-                    await BasisNetworkLifeCycle.Destroy(BasisNetworkManagement.Instance);
-
-                    // Wait until HandleDisconnection -> RebootManagement -> OnRebootComplete happens
-                    await rebootWait;
-
-                    // Now safe to continue
-                    BasisNetworkLifeCycle.Initalize(BasisNetworkManagement.Instance);
+                    await BasisNetworkConnection.ResetConnectionStateAsync(BasisNetworkManagement.Instance);
                 }
 
                 Info.SetTitle("Connecting");
@@ -229,6 +215,9 @@ namespace Basis.BasisUI
                 BasisNetworkManagement.Instance.Ip = ipAddressField.Value;
                 BasisNetworkManagement.Instance.Password = passwordField.Password;
                 BasisNetworkManagement.Instance.IsHostMode = hostModeToggle.Value;
+                BasisNetworkManagement.Instance.Transport = NetworkTransportType.LiteNetLib;
+                BasisNetworkManagement.Instance.ClearPendingSteamWorld();
+                BasisNetworkManagement.Instance.ClearSteamLobbyState();
                 BasisMainMenu.Close();//no ui from here
                 BasisCursorManagement.OnReset();
                 await CreateAssetBundle();
@@ -252,8 +241,6 @@ namespace Basis.BasisUI
             }
             finally
             {
-                // If you successfully connected and you don't want the button back, remove this.
-                // Otherwise it's nice for retry on failure.
                 connectButton.ButtonComponent.interactable = true;
             }
         }

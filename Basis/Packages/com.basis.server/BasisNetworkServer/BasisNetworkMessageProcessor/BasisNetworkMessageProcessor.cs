@@ -186,7 +186,7 @@ public static class BasisNetworkMessageProcessor
         catch (Exception ex)
         {
             BNL.LogError(
-                $"[Error] Exception in ProcessMessage\nPeer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
+                $"[Error] Exception in ProcessMessage\nPeer: {peer.Identity}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
             );
             reader.Recycle();
         }
