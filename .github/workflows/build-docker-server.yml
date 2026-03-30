@@ -231,6 +231,13 @@ jobs:
             <Password>default_password</Password>
             <Ip>server1.basisvr.org</Ip>
             <Port>4296</Port>
+            <HealthCheckEnabled>false</HealthCheckEnabled>
+            <HealthCheckHost>0.0.0.0</HealthCheckHost>
+            <HealthCheckPort>10666</HealthCheckPort>
+            <HealthPath>/health</HealthPath>
+            <ReconnectEnabled>true</ReconnectEnabled>
+            <ReconnectDelaySeconds>5</ReconnectDelaySeconds>
+            <MaxReconnectAttempts>10</MaxReconnectAttempts>
           </Configuration>
           EOF
       - name: "Upload headless artifact"
