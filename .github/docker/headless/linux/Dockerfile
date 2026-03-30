@@ -6,6 +6,7 @@ RUN apt-get update && \
     libglib2.0-0 \
     libgtk-3-0 \
     libx11-6 \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
