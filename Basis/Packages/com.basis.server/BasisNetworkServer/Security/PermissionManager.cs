@@ -1020,6 +1020,7 @@ namespace BasisPermissions
                 // Ensure saved
                 Manager.SaveToXmlDebounced();
 
+                Manager.OnPermissionsChanged -= HandlePermissionsChanged;
                 Manager.OnPermissionsChanged += HandlePermissionsChanged;
             }
             public static void InitWithoutDisc()
@@ -1027,7 +1028,14 @@ namespace BasisPermissions
                 // Optional defaults if file was empty/nonexistent
                 Manager.EnsureDefaults();
 
+                Manager.OnPermissionsChanged -= HandlePermissionsChanged;
                 Manager.OnPermissionsChanged += HandlePermissionsChanged;
+            }
+
+            public static void Shutdown()
+            {
+                Manager.OnPermissionsChanged -= HandlePermissionsChanged;
+                _playerMeta.Clear();
             }
 
             /// <summary>

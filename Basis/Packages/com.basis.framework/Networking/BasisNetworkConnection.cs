@@ -20,6 +20,7 @@ namespace Basis.Scripts.Networking
     /// </summary>
     public static class BasisNetworkConnection
     {
+        private static readonly object BnlSubscriptionLock = new object();
         public static NetPeer LocalPlayerPeer { get; set; }
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();
         public static bool LocalPlayerIsConnected { get; set; }
@@ -27,9 +28,30 @@ namespace Basis.Scripts.Networking
         public static event Action<NetPeer> OnConnectedToServer;
         public static event Action<NetPeer, DisconnectInfo> OnDisconnectedFromServer;
         public static BasisNetworkServerRunner BasisNetworkServerRunner = null;
+        private static bool HasRegisteredBnlLogging;
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);
         private static void LogOutput(string msg) => BasisDebug.Log(msg, BasisDebug.LogTag.Networking);
+        private static void EnsureBnlLoggingRegistered()
+        {
+            if (HasRegisteredBnlLogging)
+            {
+                return;
+            }
+
+            lock (BnlSubscriptionLock)
+            {
+                if (HasRegisteredBnlLogging)
+                {
+                    return;
+                }
+
+                BNL.LogOutput += LogOutput;
+                BNL.LogWarningOutput += LogWarningOutput;
+                BNL.LogErrorOutput += LogErrorOutput;
+                HasRegisteredBnlLogging = true;
+            }
+        }
         public static bool TryGetLocalPlayerID(out ushort localId)
         {
             localId = 0;
@@ -89,7 +111,7 @@ namespace Basis.Scripts.Networking
             Task rebootWait = WaitForRebootCompleteAsync(cts.Token);
 
             SuppressNextDisconnectUi = true;
-            await BasisNetworkLifeCycle.Destroy(management);
+            NetworkClient?.Disconnect();
             await rebootWait;
 
             if (management != null)
@@ -103,9 +125,7 @@ namespace Basis.Scripts.Networking
         }
         public static void Connect(ushort port, string ipString, string primitivePassword, bool isHostMode, NetworkTransportType transportType, bool useSteamRelay, ulong steamLobbyId, ulong steamHostSteamId, int steamVirtualPort)
         {
-            BNL.LogOutput += LogOutput;
-            BNL.LogWarningOutput += LogWarningOutput;
-            BNL.LogErrorOutput += LogErrorOutput;
+            EnsureBnlLoggingRegistered();
 
             var uuid = BasisDIDAuthIdentityClient.GetOrSaveDID();
 

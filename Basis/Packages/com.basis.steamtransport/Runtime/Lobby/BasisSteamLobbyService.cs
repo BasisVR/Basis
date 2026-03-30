@@ -87,7 +87,6 @@ namespace Basis.Scripts.Networking.Steam
             lobby.SetJoinable(true);
 
             ApplyState(lobby, true, useRelay);
-            BasisNetworkManagement.Instance?.SetPendingSteamWorld(world.WorldUrl, world.WorldPassword, world.WorldName);
             return CloneState();
         }
 
@@ -221,6 +220,21 @@ namespace Basis.Scripts.Networking.Steam
             State.UseRelay = useRelay;
             OnLobbyStateChanged?.Invoke(CloneState());
             return true;
+        }
+
+        public static void HandleSteamShutdown()
+        {
+            if (steamCallbacksSubscribed)
+            {
+                SteamFriends.OnGameLobbyJoinRequested -= HandleGameLobbyJoinRequested;
+                SteamMatchmaking.OnLobbyDataChanged -= HandleLobbyDataChanged;
+                SteamMatchmaking.OnLobbyMemberLeave -= HandleLobbyMemberLeave;
+                SteamMatchmaking.OnLobbyMemberDisconnected -= HandleLobbyMemberDisconnected;
+                steamCallbacksSubscribed = false;
+            }
+
+            currentLobby = null;
+            State.Reset();
         }
 
         private static void ApplyState(Lobby lobby, bool isHost, bool useRelay)

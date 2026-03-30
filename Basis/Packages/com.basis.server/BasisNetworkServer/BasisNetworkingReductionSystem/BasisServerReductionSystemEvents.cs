@@ -588,6 +588,26 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
         public static void Shutdown() => cts.Cancel();
 
+        public static void Reset()
+        {
+            playerStates.Clear();
+            currentMessages.Clear();
+
+            while (playersToRemove.TryDequeue(out _))
+            {
+            }
+
+            lock (_activePlayersLock)
+            {
+                _activePlayers.Clear();
+                _activePlayersSnapshot = Array.Empty<(int, PlayerState)>();
+                _activePlayersDirty = false;
+            }
+
+            _sliceCount = 1;
+            _sliceIndex = 0;
+        }
+
         public static void RemovePlayer(int id)
         {
             playersToRemove.Enqueue(id);

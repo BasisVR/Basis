@@ -55,6 +55,19 @@ namespace BasisDidLink
         public void DeInitialize()
         {
             BasisServerHandleEvents.OnAuthReceived -= OnAuthReceived;
+            foreach (KeyValuePair<NetPeer, CancellationTokenSource> pair in _timeouts)
+            {
+                try
+                {
+                    pair.Value.Cancel();
+                    pair.Value.Dispose();
+                }
+                catch
+                {
+                }
+            }
+            _timeouts.Clear();
+            AuthIdentity.Clear();
             BNL.Log("DidAuthIdentity deinitialized.");
         }
 

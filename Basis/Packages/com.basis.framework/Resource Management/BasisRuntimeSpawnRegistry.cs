@@ -66,6 +66,7 @@ namespace Basis
 
         // LoadedNetID -> instance (fast removal / lookup)
         private static readonly Dictionary<string, SpawnInstance> _byNetId = new();
+        private static readonly ConcurrentDictionary<string, byte> _removalsInFlight = new();
 
         public static bool HasAny(string url)
             => !string.IsNullOrWhiteSpace(url)
@@ -192,55 +193,53 @@ namespace Basis
         {
             if (string.IsNullOrWhiteSpace(loadedNetId)) return false;
             if (!_byNetId.TryGetValue(loadedNetId, out var inst) || inst == null) return false;
-
-            // Despawn first (main thread!)
-            switch (inst.SpawnMode)
+            if (!_removalsInFlight.TryAdd(loadedNetId, 0))
             {
-                case SpawnMode.GameObject:
-                case SpawnMode.Avatar: // treat avatar as GO unless you add a separate avatar store
-                    {
-                        if (SpawnedGameobjects.TryGetValue(loadedNetId, out var go) && go != null)
-                        {
-                            if (inst.SpawnMethod == SpawnMethod.Embedded)
-                            {
-                                Addressables.ReleaseInstance(go);
-                            }
-                            else
-                            {
-                                GameObject.Destroy(go);
-                            }
-                        }
+                return false;
+            }
 
-                        break;
-                    }
-                case SpawnMode.Scene:
-                    {
-                        if (SpawnedScenes.TryGetValue(loadedNetId, out var scene) && scene.IsValid())
+            try
+            {
+                // Despawn first (main thread!)
+                switch (inst.SpawnMode)
+                {
+                    case SpawnMode.GameObject:
+                    case SpawnMode.Avatar: // treat avatar as GO unless you add a separate avatar store
                         {
-                            /*
-                            if (inst.SpawnMethod == SpawnMethod.Embedded)
+                            if (SpawnedGameobjects.TryGetValue(loadedNetId, out var go) && go != null)
                             {
-                                Addressables.UnloadSceneAsync(scene, true);
+                                if (inst.SpawnMethod == SpawnMethod.Embedded)
+                                {
+                                    Addressables.ReleaseInstance(go);
+                                }
+                                else
+                                {
+                                    GameObject.Destroy(go);
+                                }
                             }
-                            else
-                            {
-                                SceneManager.UnloadSceneAsync(scene);
-                            }
-                            */
-                            if (scene.IsValid() && scene.isLoaded)
+
+                            break;
+                        }
+                    case SpawnMode.Scene:
+                        {
+                            if (SpawnedScenes.TryGetValue(loadedNetId, out var scene) && scene.IsValid() && scene.isLoaded)
                             {
                                 await SceneManager.UnloadSceneAsync(scene);
                             }
+
+                            break;
                         }
-
+                    default:
                         break;
-                    }
-                default:
-                    break;
-            }
+                }
 
-            // Now remove bookkeeping + runtime refs
-            return RemoveByLoadedNetId_RegistryOnly(loadedNetId);
+                // Now remove bookkeeping + runtime refs
+                return RemoveByLoadedNetId_RegistryOnly(loadedNetId);
+            }
+            finally
+            {
+                _removalsInFlight.TryRemove(loadedNetId, out _);
+            }
         }
         private static bool RemoveByLoadedNetId_RegistryOnly(string loadedNetId)
         {
@@ -328,6 +327,7 @@ namespace Basis
         {
             _map.Clear();
             _byNetId.Clear();
+            _removalsInFlight.Clear();
 
             SpawnedGameobjects.Clear();
             SpawnedScenes.Clear();

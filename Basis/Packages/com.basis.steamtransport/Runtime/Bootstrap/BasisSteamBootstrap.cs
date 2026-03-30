@@ -12,6 +12,7 @@ namespace Basis.Scripts.Networking.Steam
         public static BasisSteamSettings ActiveSettings { get; private set; }
         public static bool IsInitialized => SteamClient.IsValid;
         public static bool HasTriedInitialization { get; private set; }
+        public static bool HasRequestedRelayWarmup { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void EnsureRuntimeInstance()
@@ -37,8 +38,14 @@ namespace Basis.Scripts.Networking.Steam
 
             Instance = this;
             ActiveSettings = ResolveSettings(Settings);
+            BasisSteamTransportMetrics.Reset();
             BasisSteamTransportTrace.Configure(ActiveSettings != null && ActiveSettings.EnableTransportTrace);
             BasisSteamTransportTrace.Clear();
+
+            if (SteamClient.IsValid)
+            {
+                EnsureRelayWarmup();
+            }
 
             if (ActiveSettings != null && ActiveSettings.AutoInitialize)
             {
@@ -53,6 +60,7 @@ namespace Basis.Scripts.Networking.Steam
                 SteamClient.RunCallbacks();
             }
 
+            BasisSteamTransportTrace.FlushPending();
             SteamNetManager.PollActiveManagers();
         }
 
@@ -66,6 +74,7 @@ namespace Basis.Scripts.Networking.Steam
 
         private void OnApplicationQuit()
         {
+            BasisSteamTransportTrace.FlushPending(force: true);
             Shutdown();
         }
 
@@ -96,6 +105,7 @@ namespace Basis.Scripts.Networking.Steam
                 }
 
                 SteamClient.Init(settings.AppId, asyncCallbacks: !settings.RunCallbacksManually);
+                EnsureRelayWarmup();
                 return SteamClient.IsValid;
             }
             catch (System.Exception ex)
@@ -107,10 +117,14 @@ namespace Basis.Scripts.Networking.Steam
 
         public static void Shutdown()
         {
+            BasisSteamLobbyService.HandleSteamShutdown();
+
             if (SteamClient.IsValid)
             {
                 SteamClient.Shutdown();
             }
+
+            HasRequestedRelayWarmup = false;
         }
 
         public static BasisSteamSettings ResolveSettings(BasisSteamSettings settings = null)
@@ -128,6 +142,17 @@ namespace Basis.Scripts.Networking.Steam
 
             ActiveSettings = Resources.Load<BasisSteamSettings>(BasisSteamSettings.DefaultResourcesPath);
             return ActiveSettings;
+        }
+
+        private static void EnsureRelayWarmup()
+        {
+            if (HasRequestedRelayWarmup || !SteamClient.IsValid)
+            {
+                return;
+            }
+
+            SteamNetworkingUtils.InitRelayNetworkAccess();
+            HasRequestedRelayWarmup = true;
         }
     }
 }

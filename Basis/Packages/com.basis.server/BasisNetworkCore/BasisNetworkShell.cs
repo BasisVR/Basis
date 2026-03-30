@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 
@@ -139,10 +140,35 @@ namespace Basis.Network.Core
 
     public partial class NetPacketReader : NetDataReader
     {
+        static readonly ConcurrentBag<NetPacketReader> ReaderPool = new ConcurrentBag<NetPacketReader>();
         Action RecycleInternal;
+        bool IsRecycled;
 
         internal NetPacketReader()
         {
+        }
+
+        void Prepare(byte[] source, int offset, int maxSize, Action recycle)
+        {
+            SetSource(source, offset, maxSize);
+            RecycleInternal = recycle;
+            IsRecycled = false;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            channel = 0;
+            method = 0;
+#endif
+        }
+
+        void ResetForPool()
+        {
+            _data = null;
+            _position = 0;
+            _dataSize = 0;
+            RecycleInternal = null;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            channel = 0;
+            method = 0;
+#endif
         }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -152,6 +178,11 @@ namespace Basis.Network.Core
 
         public void Recycle(bool IsOkTOHaveEmptyData = false)
         {
+            if (IsRecycled)
+            {
+                return;
+            }
+
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 			if (IsOkTOHaveEmptyData == false)
 			{
@@ -163,14 +194,27 @@ namespace Basis.Network.Core
 			}
 #endif
 
-            RecycleInternal?.Invoke();
+            IsRecycled = true;
+            Action recycle = RecycleInternal;
+            ResetForPool();
+            try
+            {
+                recycle?.Invoke();
+            }
+            finally
+            {
+                ReaderPool.Add(this);
+            }
         }
 
         public static NetPacketReader Create(byte[] source, int offset, int maxSize, Action recycle = null)
         {
-            NetPacketReader reader = new NetPacketReader();
-            reader.SetSource(source, offset, maxSize);
-            reader.RecycleInternal = recycle;
+            if (!ReaderPool.TryTake(out NetPacketReader reader))
+            {
+                reader = new NetPacketReader();
+            }
+
+            reader.Prepare(source, offset, maxSize, recycle);
             return reader;
         }
     }

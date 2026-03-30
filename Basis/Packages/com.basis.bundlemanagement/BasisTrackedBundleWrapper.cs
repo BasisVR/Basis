@@ -10,6 +10,7 @@ public class BasisTrackedBundleWrapper
     [SerializeField]
     public AssetBundle AssetBundle;
     private int _requestedTimes = 0;
+    private int _unloadState = 0;
     public bool DidErrorOccur = false;
     public static TimeSpan TimeSpan = TimeSpan.FromSeconds(BasisBeeConstants.TimeUntilMemoryRemoval);
     /// <summary>
@@ -45,25 +46,38 @@ public class BasisTrackedBundleWrapper
     {
         if (AssetBundle == null)
         {
+            if (Volatile.Read(ref _unloadState) != 0)
+            {
+                return false;
+            }
+
             BasisDebug.LogError("Asset Bundle was null this should never occur");
             return false;
         }
         if (Volatile.Read(ref _requestedTimes) <= 0)
         {
+            if (Interlocked.CompareExchange(ref _unloadState, 1, 0) != 0)
+            {
+                return false;
+            }
+
             await Task.Delay(TimeSpan);
             if (Volatile.Read(ref _requestedTimes) <= 0)
             {
                 if (AssetBundle == null)
                 {
-                    BasisDebug.LogError("Already Unloaded this bundle, check logic could be ok if you loaded this a few times and unloaded it quickly aswell.");
+                    Interlocked.Exchange(ref _unloadState, 2);
                     return false;
                 }
                 BasisDebug.Log("Unloading Bundle " + AssetBundle.name);
                 AssetBundle.Unload(true);
+                AssetBundle = null;
+                Interlocked.Exchange(ref _unloadState, 2);
                 return true;
             }
             else
             {
+                Interlocked.Exchange(ref _unloadState, 0);
                 BasisDebug.Log("Stopping Unload Process, Bundle was Incremented again after Requested Time");
                 return false;
             }

@@ -24,6 +24,11 @@ namespace BasisServerHandle
         #region Server Events Setup
         public static void SubscribeServerEvents()
         {
+            if (NetworkServer.Listener == null)
+            {
+                return;
+            }
+
             NetworkServer.Listener.ConnectionRequestEvent += HandleConnectionRequest;
             NetworkServer.Listener.PeerDisconnectedEvent += HandlePeerDisconnected;
             NetworkServer.Listener.NetworkReceiveEvent += BasisNetworkMessageProcessor.ProcessMessage;
@@ -32,6 +37,11 @@ namespace BasisServerHandle
 
         public static void UnsubscribeServerEvents()
         {
+            if (NetworkServer.Listener == null)
+            {
+                return;
+            }
+
             NetworkServer.Listener.ConnectionRequestEvent -= HandleConnectionRequest;
             NetworkServer.Listener.PeerDisconnectedEvent -= HandlePeerDisconnected;
             NetworkServer.Listener.NetworkReceiveEvent -= BasisNetworkMessageProcessor.ProcessMessage;
@@ -40,8 +50,7 @@ namespace BasisServerHandle
 
         public static void StopWorker()
         {
-            NetworkServer.Server?.Stop();
-            BasisServerHandleEvents.UnsubscribeServerEvents();
+            NetworkServer.StopServer();
         }
         #endregion
 
@@ -64,26 +73,34 @@ namespace BasisServerHandle
                     return;
                 }
                 int id = peer.Id;
+                bool isShuttingDown = NetworkServer.IsShuttingDown;
 
                 // Clean up stored metadata before the UUID mapping is removed
-                if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string disconnectedUuid))
+                if (NetworkServer.AuthIdentity != null && NetworkServer.AuthIdentity.NetIDToUUID(peer, out string disconnectedUuid))
                 {
                     PermissionIntegration.RemovePlayerMeta(disconnectedUuid);
                 }
 
-                NetworkServer.AuthIdentity.RemoveConnection(id);
-                BasisNetworkOwnership.RemovePlayerOwnership(id);
+                NetworkServer.AuthIdentity?.RemoveConnection(id);
                 BasisSavedState.RemovePlayer(id);
                 BasisServerReductionSystemEvents.RemovePlayer(id);
-                BasisNetworkPIPCamera.RemovePlayer(id);
-                BasisNetworkContentShare.RemovePlayerSpheres(id);
+
+                if (!isShuttingDown)
+                {
+                    BasisNetworkOwnership.RemovePlayerOwnership(id);
+                    BasisNetworkPIPCamera.RemovePlayer(id);
+                    BasisNetworkContentShare.RemovePlayerSpheres(id);
+                }
 
                 if (NetworkServer.AuthenticatedPeers.TryRemove(id, out _))
                 {
                     NetworkServer.RebuildPeerSnapshot();
-                    BNL.Log($"Peer removed: {id}");
+                    if (!isShuttingDown)
+                    {
+                        BNL.Log($"Peer removed: {id}");
+                    }
                 }
-                else
+                else if (!isShuttingDown)
                 {
                     BNL.LogError($"Failed to remove peer: {id}");
                 }
@@ -93,6 +110,11 @@ namespace BasisServerHandle
                     BasisNetworkIDDatabase.Reset();
                     BasisNetworkResourceManagement.Reset();
                     BasisNetworkContentShare.Reset();
+                }
+
+                if (isShuttingDown)
+                {
+                    return;
                 }
 
                 NetDataWriter writer = NetworkServer.RentWriter();

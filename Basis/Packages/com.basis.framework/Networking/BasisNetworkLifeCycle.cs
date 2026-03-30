@@ -69,6 +69,7 @@ public static class BasisNetworkLifeCycle
             }
 
             BasisRemoteNetworkDriver.Apply();//complete in-flight jobs before clearing players
+            BasisObjectSyncDriver.Reset();//stop owned pickup sync before scene/object teardown
             BasisNetworkPlayers.ClearAllRegistries();//remove players
             Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
             await BasisNetworkSpawnItem.Reset();//remove items
@@ -113,6 +114,7 @@ public static class BasisNetworkLifeCycle
             BasisNetworkConnection.BasisNetworkServerRunner = null;
         }
         BasisRemoteNetworkDriver.Shutdown();//complete in-flight jobs before disposing anything
+        BasisObjectSyncDriver.Reset();//stop owned pickup sync before scene/object teardown
         BasisNetworkPlayers.ClearAllRegistries();//remove players
         Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DeInitialize();//remove shout audio sources
         await BasisNetworkSpawnItem.Reset();//remove items

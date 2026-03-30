@@ -155,6 +155,13 @@ namespace Basis
         /// <param name="Recipients">if null everyone but self, you can include yourself to make it loop back over the network</param>
         public void SendCustomNetworkEvent(byte[] buffer = null, DeliveryMethod DeliveryMethod = DeliveryMethod.Unreliable, ushort[] Recipients = null)
         {
+            if (!BasisNetworkManagement.NetworkRunning
+                || !BasisNetworkConnection.LocalPlayerIsConnected
+                || BasisNetworkConnection.LocalPlayerPeer == null)
+            {
+                return;
+            }
+
             if (HasNetworkID)
             {
                // BasisDebug.Log("Sening Out Custom Network Event");

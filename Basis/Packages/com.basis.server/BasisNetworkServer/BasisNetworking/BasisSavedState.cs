@@ -25,6 +25,14 @@ namespace Basis.Network.Server.Generic
             shoutModeStates.TryRemove(id, out _);
         }
 
+        public static void Reset()
+        {
+            avatarChangeStates.Clear();
+            playerMetaDataMessages.Clear();
+            voiceReceiversMessages.Clear();
+            shoutModeStates.Clear();
+        }
+
         /// <summary>
         /// Adds or updates the ReadyMessage for a player.
         /// </summary>

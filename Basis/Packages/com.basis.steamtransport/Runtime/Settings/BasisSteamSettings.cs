@@ -6,6 +6,7 @@ namespace Basis.Scripts.Networking.Steam
     public class BasisSteamSettings : ScriptableObject
     {
         public const string DefaultResourcesPath = "BasisSteamSettings";
+        public const int ValidatedDefaultMaxLobbyMembers = 32;
 
         [Header("App")]
         public uint AppId = 480;
@@ -16,8 +17,9 @@ namespace Basis.Scripts.Networking.Steam
         public bool RunCallbacksManually = true;
 
         [Header("Lobby Defaults")]
+        [Tooltip("Keep this conservative until targeted load testing validates a higher count. 32 is the current validated default.")]
         [Range(2, 250)]
-        public int DefaultMaxLobbyMembers = 32;
+        public int DefaultMaxLobbyMembers = ValidatedDefaultMaxLobbyMembers;
         public int RelayVirtualPort = 0;
         public bool UseRelayByDefault = true;
         public bool CreateFriendsOnlyByDefault = true;
