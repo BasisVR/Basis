@@ -311,6 +311,11 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     /// </summary>
     public async Task CreateAssetBundle()
     {
+#if UNITY_SERVER
+        BasisDebug.Log("Skipping visual scene asset initialization on dedicated server build.", BasisDebug.LogTag.Networking);
+        await Task.CompletedTask;
+        return;
+#endif
         if (BundledContentHolder.Instance.UseSceneProvidedHere)
         {
             BasisDebug.Log("using Local Asset Bundle or Addressable", BasisDebug.LogTag.Networking);
