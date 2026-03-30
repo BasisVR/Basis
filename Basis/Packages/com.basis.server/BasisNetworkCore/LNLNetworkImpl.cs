@@ -168,6 +168,11 @@ namespace Basis.Network.Core
             peer.Send(data.AsReadOnlySpan(), channelNumber, (LiteNetLib.DeliveryMethod)(byte)deliveryMethod);
         }
 
+        void NetPeer.SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset, byte patchValue)
+        {
+            peer.SendUnreliableRawMerge(data, offset, length, channelNumber, patchOffset, patchValue);
+        }
+
         public override bool Equals(object obj)
         {
             if (obj == null || !(obj is LNLNetPeer))

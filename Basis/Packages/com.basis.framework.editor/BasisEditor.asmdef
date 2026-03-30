@@ -14,7 +14,9 @@
         "BasisDebug",
         "BasisBundleManagement",
         "BasisProfiler",
-        "BasisNetworkServer"
+        "BasisNetworkServer",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor"
     ],
     "includePlatforms": [
         "Editor"

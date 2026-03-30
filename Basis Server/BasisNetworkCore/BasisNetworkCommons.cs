@@ -10,7 +10,12 @@ namespace Basis.Network.Core
         public const int NetworkIntervalPoll = 2;
         public const int PingInterval = 1500;
         public const int ReceivePollingTime = 50000;
-        public const int PacketPoolSize = 4096;
+        /// <summary>
+        /// LiteNetLib packet pool size. Must be large enough to avoid allocating new NetPacket
+        /// objects during high-throughput send loops. With 1000 players at ~4M sends/sec,
+        /// packets cycle through pool rapidly. 65536 keeps the pool warm and avoids GC pressure.
+        /// </summary>
+        public const int PacketPoolSize = 65536;
         /// <summary>
         /// when adding a new message we need to increase this
         /// will function up to 64
@@ -30,8 +35,18 @@ namespace Basis.Network.Core
         public const byte VoiceChannel = 3;
         /// <summary>Shout mode voice. Non-spatialized audio broadcast to all clients.</summary>
         public const byte ShoutVoiceChannel = 4;
-        /// <summary>Voice recipient list</summary>
+        /// <summary>Voice recipient list (byte count, ≤255 recipients)</summary>
         public const byte AudioRecipientsChannel = 5;
+        /// <summary>Voice recipient list (ushort count, >255 recipients)</summary>
+        public const byte AudioRecipientsLargeChannel = 39;
+        /// <summary>Spatialized voice data (ushort playerID, for IDs >255)</summary>
+        public const byte VoiceLargeChannel = 40;
+        /// <summary>Voice excluded list (byte count, ≤255 excluded). Server sends to everyone EXCEPT listed IDs.</summary>
+        public const byte AudioRecipientsInvertedChannel = 49;
+        /// <summary>Voice excluded list (ushort count, >255 excluded). Server sends to everyone EXCEPT listed IDs.</summary>
+        public const byte AudioRecipientsInvertedLargeChannel = 50;
+        /// <summary>Voice recipients as a bitfield. Bit at position playerID = recipient.</summary>
+        public const byte AudioRecipientsBitfieldChannel = 51;
 
         // ── Per-quality avatar channels ──────────────────────────────────────
         // Layout: PlayerAvatarVeryLowChannel + quality * 2 + hasAdditional
@@ -125,8 +140,23 @@ namespace Basis.Network.Core
         /// <summary>Camera countdown started — remote clients replay the tick/shutter timing.</summary>
         public const byte EventType_CameraCountdown = 1;
 
+        // ── Per-quality avatar channels (ushort playerID, for IDs >255) ──
+        // Same layout as byte-ID channels: base + quality * 2 + hasAdditional
+        //   41 = VeryLow              42 = VeryLow + Additional
+        //   43 = Low                  44 = Low + Additional
+        //   45 = Medium              46 = Medium + Additional
+        //   47 = High                48 = High + Additional
+        public const byte PlayerAvatarVeryLowLargeChannel = 41;
+        public const byte PlayerAvatarVeryLowAdditionalLargeChannel = 42;
+        public const byte PlayerAvatarLowLargeChannel = 43;
+        public const byte PlayerAvatarLowAdditionalLargeChannel = 44;
+        public const byte PlayerAvatarMediumLargeChannel = 45;
+        public const byte PlayerAvatarMediumAdditionalLargeChannel = 46;
+        public const byte PlayerAvatarHighLargeChannel = 47;
+        public const byte PlayerAvatarHighAdditionalLargeChannel = 48;
+
         /// <summary>
-        /// Maps quality index (0‑3) + additional data presence → channel.
+        /// Maps quality index (0‑3) + additional data presence → byte-ID channel.
         /// </summary>
         public static byte GetPlayerAvatarChannelForQuality(int qualityIndex, bool hasAdditionalData)
         {
@@ -134,26 +164,47 @@ namespace Basis.Network.Core
         }
 
         /// <summary>
+        /// Maps quality index (0‑3) + additional data presence → ushort-ID channel (for playerIDs >255).
+        /// </summary>
+        public static byte GetPlayerAvatarLargeChannelForQuality(int qualityIndex, bool hasAdditionalData)
+        {
+            return (byte)(PlayerAvatarVeryLowLargeChannel + qualityIndex * 2 + (hasAdditionalData ? 1 : 0));
+        }
+
+        /// <summary>
+        /// Returns true if this channel uses ushort playerID (large variant).
+        /// </summary>
+        public static bool IsLargePlayerIdChannel(byte channel)
+        {
+            return channel == VoiceLargeChannel
+                || (channel >= PlayerAvatarVeryLowLargeChannel && channel <= PlayerAvatarHighAdditionalLargeChannel);
+        }
+
+        /// <summary>
         /// Reverse mapping: channel → quality index (0‑3).
-        /// The channel already encodes quality and additional-data presence,
-        /// so we derive the quality instead of reading it from the payload.
+        /// Works for both byte-ID and ushort-ID avatar channels.
         /// </summary>
         public static byte GetQualityFromChannel(byte channel)
         {
+            if (channel >= PlayerAvatarVeryLowLargeChannel)
+                return (byte)((channel - PlayerAvatarVeryLowLargeChannel) / 2);
             return (byte)((channel - PlayerAvatarVeryLowChannel) / 2);
         }
 
         /// <summary>
         /// Reverse mapping: channel → has additional data.
-        /// Odd channels carry additional data, even channels do not.
+        /// Odd offset channels carry additional data, even do not.
+        /// Works for both byte-ID and ushort-ID avatar channels.
         /// </summary>
         public static bool ChannelHasAdditionalData(byte channel)
         {
+            if (channel >= PlayerAvatarVeryLowLargeChannel)
+                return ((channel - PlayerAvatarVeryLowLargeChannel) & 1) == 1;
             return ((channel - PlayerAvatarVeryLowChannel) & 1) == 1;
         }
 
         /// <summary>
-        /// All 8 per-quality avatar channels for aggregate congestion checks.
+        /// All 16 per-quality avatar channels (byte-ID + ushort-ID) for aggregate congestion checks.
         /// </summary>
         public static readonly byte[] PlayerAvatarQualityChannels = new byte[]
         {
@@ -165,6 +216,14 @@ namespace Basis.Network.Core
             PlayerAvatarMediumAdditionalChannel,
             PlayerAvatarHighChannel,
             PlayerAvatarHighAdditionalChannel,
+            PlayerAvatarVeryLowLargeChannel,
+            PlayerAvatarVeryLowAdditionalLargeChannel,
+            PlayerAvatarLowLargeChannel,
+            PlayerAvatarLowAdditionalLargeChannel,
+            PlayerAvatarMediumLargeChannel,
+            PlayerAvatarMediumAdditionalLargeChannel,
+            PlayerAvatarHighLargeChannel,
+            PlayerAvatarHighAdditionalLargeChannel,
         };
     }
 }

@@ -21,6 +21,8 @@ namespace BasisServerHandle
 {
     public static class BasisServerHandleEvents
     {
+        [ThreadStatic] private static HashSet<int> _excludedSet;
+
         #region Server Events Setup
         public static void SubscribeServerEvents()
         {
@@ -340,7 +342,7 @@ namespace BasisServerHandle
                 audioSegmentData = audioSegment,
             };
 
-            SendVoiceMessageToClients(serverAudio, BasisNetworkCommons.VoiceChannel, peer, DeliveryMethod.Unreliable);
+            SendVoiceMessageToClients(serverAudio, peer, DeliveryMethod.Unreliable);
 
             ThreadSafeMessagePool<AudioSegmentDataMessage>.Return(audioSegment);
         }
@@ -372,10 +374,24 @@ namespace BasisServerHandle
                 },
             };
 
+            // Serialize once, then send raw to each peer — skips N writer→packet copies.
             var writer = NetworkServer.RentWriter();
             serverAudio.Serialize(writer);
+            int len = writer.Length;
+            byte[] data = writer.Data;
+            byte channel = BasisNetworkCommons.ShoutVoiceChannel;
+            int senderId = peer.Id;
 
-            NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.ShoutVoiceChannel, peer, NetworkServer.PeerSnapshot, DeliveryMethod.Unreliable);
+            var clients = NetworkServer.PeerSnapshot;
+            for (int i = 0; i < clients.Length; i++)
+            {
+                NetPeer client = clients[i];
+                if (client.Id != senderId)
+                {
+                    client.SendUnreliableRawMerge(data, 0, len, channel);
+                    BasisNetworkStatistics.RecordOutbound(channel, len);
+                }
+            }
 
             NetworkServer.ReturnWriter(writer);
             ThreadSafeMessagePool<AudioSegmentDataMessage>.Return(audioSegment);
@@ -421,27 +437,10 @@ namespace BasisServerHandle
             NetworkServer.ReturnWriter(writer);
         }
 
-        [ThreadStatic] private static List<NetPeer> _voicePeerList;
-
-        public static void SendVoiceMessageToClients(ServerAudioSegmentMessage audioSegment, byte channel, NetPeer sender, DeliveryMethod method)
+        public static void SendVoiceMessageToClients(ServerAudioSegmentMessage audioSegment, NetPeer sender, DeliveryMethod method)
         {
-            if (BasisSavedState.GetLastVoiceReceivers(sender, out VoiceReceiversMessage receivers))
+            if (!BasisSavedState.GetResolvedVoicePeers(sender, out List<NetPeer> targetPeers) || targetPeers.Count == 0)
             {
-            }
-            else
-            {
-                BNL.Log($"[VoiceMessage] No receivers found for sender {sender.Id}.");
-            }
-            if (receivers.Users == null || receivers.Users.Length == 0)
-            {
-                BNL.Log($"[VoiceMessage] No users found for {sender.Id}.");
-                return;
-            }
-
-            var targetPeers = GetTargetPeers(receivers);
-            if (targetPeers.Count == 0)
-            {
-                BNL.Log($"[VoiceMessage] No valid peer matches found for sender {sender.Id}.");
                 return;
             }
 
@@ -450,42 +449,118 @@ namespace BasisServerHandle
                 playerID = (ushort)sender.Id,
             };
 
+            bool largeId = sender.Id > byte.MaxValue;
+            byte channel = largeId ? BasisNetworkCommons.VoiceLargeChannel : BasisNetworkCommons.VoiceChannel;
+
+            // Serialize once into a byte[], then send raw to each peer — skips N writer→packet copies.
             var writer = NetworkServer.RentWriter();
+            audioSegment.Serialize(writer, largeId);
+            int len = writer.Length;
+            byte[] data = writer.Data;
 
-            audioSegment.Serialize(writer);
-
-            NetworkServer.BroadcastMessageToClients(writer, channel, ref targetPeers, method, 1024);
+            int count = targetPeers.Count;
+            for (int i = 0; i < count; i++)
+            {
+                NetPeer client = targetPeers[i];
+                client.SendUnreliableRawMerge(data, 0, len, channel);
+                BasisNetworkStatistics.RecordOutbound(channel, len);
+            }
 
             NetworkServer.ReturnWriter(writer);
         }
-
-        private static List<NetPeer> GetTargetPeers(VoiceReceiversMessage Message)
+        public static void UpdateVoiceReceivers(NetPacketReader Reader, NetPeer Peer, bool largeCount)
         {
-            if (_voicePeerList == null)
-                _voicePeerList = new List<NetPeer>(64);
-            else
-                _voicePeerList.Clear();
+            VoiceReceiversMessage VoiceReceiversMessage = new VoiceReceiversMessage();
+            VoiceReceiversMessage.Deserialize(Reader, largeCount);
+            Reader.Recycle();
+            BasisSavedState.AddLastData(Peer, VoiceReceiversMessage);
+        }
 
-            foreach (ushort userId in Message.Users)
+        /// <summary>
+        /// Inverted mode: the message contains IDs to EXCLUDE. Everyone else is a recipient.
+        /// </summary>
+        public static void UpdateVoiceReceiversInverted(NetPacketReader Reader, NetPeer Peer, bool largeCount)
+        {
+            VoiceReceiversMessage excluded = new VoiceReceiversMessage();
+            excluded.Deserialize(Reader, largeCount);
+            Reader.Recycle();
+
+            int senderId = Peer.Id;
+            var peers = BasisSavedState.GetOrCreateResolvedList(senderId);
+
+            if (excluded.Users == null || excluded.UsersLength == 0)
             {
-                if (NetworkServer.AuthenticatedPeers.TryGetValue(userId, out NetPeer found))
+                // No exclusions: everyone except sender is a recipient
+                foreach (var kvp in NetworkServer.AuthenticatedPeers)
                 {
-                    _voicePeerList.Add(found);
+                    if (kvp.Key != senderId)
+                        peers.Add(kvp.Value);
                 }
+            }
+            else
+            {
+                // Reuse thread-local set to avoid allocation
+                if (_excludedSet == null)
+                    _excludedSet = new HashSet<int>(64);
                 else
+                    _excludedSet.Clear();
+                for (int i = 0; i < excluded.UsersLength; i++)
+                    _excludedSet.Add(excluded.Users[i]);
+
+                foreach (var kvp in NetworkServer.AuthenticatedPeers)
                 {
-                    BNL.LogError($"[VoiceMessage] Could not find peer with ID: {userId}");
+                    if (kvp.Key != senderId && !_excludedSet.Contains(kvp.Key))
+                        peers.Add(kvp.Value);
                 }
             }
 
-            return _voicePeerList;
+            excluded.ReturnPool();
         }
-        public static void UpdateVoiceReceivers(NetPacketReader Reader, NetPeer Peer)
+
+        /// <summary>
+        /// Bitfield mode: each set bit at position N means playerID N is a recipient.
+        /// Wire format: [byteCount: ushort][bitfield bytes]
+        /// </summary>
+        public static void UpdateVoiceReceiversBitfield(NetPacketReader Reader, NetPeer Peer)
         {
-            VoiceReceiversMessage VoiceReceiversMessage = new VoiceReceiversMessage();
-            VoiceReceiversMessage.Deserialize(Reader);
+            int senderId = Peer.Id;
+
+            if (Reader.AvailableBytes < sizeof(ushort))
+            {
+                Reader.Recycle();
+                return;
+            }
+
+            ushort byteCount = Reader.GetUShort();
+
+            if (byteCount == 0 || Reader.AvailableBytes < byteCount)
+            {
+                Reader.Recycle();
+                return;
+            }
+
+            var peers = BasisSavedState.GetOrCreateResolvedList(senderId);
+
+            for (int byteIdx = 0; byteIdx < byteCount; byteIdx++)
+            {
+                byte b = Reader.GetByte();
+                if (b == 0) continue;
+
+                int baseId = byteIdx * 8;
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    if ((b & (1 << bit)) != 0)
+                    {
+                        int playerId = baseId + bit;
+                        if (playerId != senderId && NetworkServer.AuthenticatedPeers.TryGetValue(playerId, out NetPeer found))
+                        {
+                            peers.Add(found);
+                        }
+                    }
+                }
+            }
+
             Reader.Recycle();
-            BasisSavedState.AddLastData(Peer, VoiceReceiversMessage);
         }
         #endregion
 

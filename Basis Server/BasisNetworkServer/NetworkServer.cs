@@ -32,7 +32,9 @@ public static class NetworkServer
     }
 
     // Centralized NetDataWriter pool — single source of truth for all server code.
+    // Capped so writers don't accumulate unboundedly after player count spikes.
     private static readonly ConcurrentQueue<NetDataWriter> _writerPool = new();
+    private const int MaxPooledWriters = 64;
     public static NetDataWriter RentWriter(int initialCapacity = 208)
     {
         if (_writerPool.TryDequeue(out var writer)) return writer;
@@ -41,7 +43,11 @@ public static class NetworkServer
     public static void ReturnWriter(NetDataWriter writer)
     {
         writer.Reset();
-        _writerPool.Enqueue(writer);
+        if (_writerPool.Count < MaxPooledWriters)
+        {
+            _writerPool.Enqueue(writer);
+        }
+        // else: drop it — GC reclaims, keeps pool bounded
     }
 
     public static IAuth Auth;

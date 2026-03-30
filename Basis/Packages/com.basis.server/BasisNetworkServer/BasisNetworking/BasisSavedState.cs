@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using Basis.Network.Core;
 using static SerializableBasis;
@@ -11,18 +12,33 @@ namespace Basis.Network.Server.Generic
         // Thread-safe dictionaries for each type of data
         private static readonly ConcurrentDictionary<int, ClientAvatarChangeMessage> avatarChangeStates = new();
         private static readonly ConcurrentDictionary<int, ClientMetaDataMessage> playerMetaDataMessages = new();
-        private static readonly ConcurrentDictionary<int, VoiceReceiversMessage> voiceReceiversMessages = new();
+        private static readonly ConcurrentDictionary<int, List<NetPeer>> resolvedVoicePeers = new();
         private static readonly ConcurrentDictionary<int, bool> shoutModeStates = new();
 
         /// <summary>
-        /// Removes all state data for a specific player.
+        /// Removes all state data for a specific player and purges them
+        /// from every other player's cached voice-peer list.
         /// </summary>
         public static void RemovePlayer(int id)
         {
             avatarChangeStates.TryRemove(id, out _);
             playerMetaDataMessages.TryRemove(id, out _);
-            voiceReceiversMessages.TryRemove(id, out _);
+            resolvedVoicePeers.TryRemove(id, out _);
             shoutModeStates.TryRemove(id, out _);
+
+            // Purge the disconnected peer from all other players' cached lists
+            // so voice packets aren't sent to a dead peer until the next recipient update.
+            foreach (var kvp in resolvedVoicePeers)
+            {
+                List<NetPeer> peers = kvp.Value;
+                for (int i = peers.Count - 1; i >= 0; i--)
+                {
+                    if (peers[i].Id == id)
+                    {
+                        peers.RemoveAt(i);
+                    }
+                }
+            }
         }
 
         public static void Reset()
@@ -46,12 +62,23 @@ namespace Basis.Network.Server.Generic
         }
 
         /// <summary>
-        /// Adds or updates the VoiceReceiversMessage for a player.
+        /// Resolves a VoiceReceiversMessage into cached NetPeer list.
         /// </summary>
         public static void AddLastData(NetPeer client, VoiceReceiversMessage voiceReceiversMessage)
         {
-            voiceReceiversMessages[client.Id] = voiceReceiversMessage;
+            var peers = GetOrCreateResolvedList(client.Id);
 
+            if (voiceReceiversMessage.Users != null)
+            {
+                for (int i = 0; i < voiceReceiversMessage.UsersLength; i++)
+                {
+                    if (NetworkServer.AuthenticatedPeers.TryGetValue(voiceReceiversMessage.Users[i], out NetPeer found))
+                    {
+                        peers.Add(found);
+                    }
+                }
+                voiceReceiversMessage.ReturnPool();
+            }
         }
 
         /// <summary>
@@ -79,11 +106,24 @@ namespace Basis.Network.Server.Generic
         }
 
         /// <summary>
-        /// Retrieves the last VoiceReceiversMessage for a player.
+        /// Retrieves the cached resolved peer list for a player's voice receivers.
+        /// This list is rebuilt each time the voice receivers message is updated, not per voice packet.
         /// </summary>
-        public static bool GetLastVoiceReceivers(NetPeer client, out VoiceReceiversMessage message)
+        public static bool GetResolvedVoicePeers(NetPeer client, out List<NetPeer> peers)
         {
-            return voiceReceiversMessages.TryGetValue(client.Id, out message);
+            return resolvedVoicePeers.TryGetValue(client.Id, out peers);
+        }
+
+        /// <summary>
+        /// Directly sets the resolved voice peer list for a player.
+        /// Used by inverted-list and bitfield modes which resolve peers during deserialization
+        /// rather than storing a ushort[] first.
+        /// </summary>
+        public static List<NetPeer> GetOrCreateResolvedList(int clientId)
+        {
+            var peers = resolvedVoicePeers.GetOrAdd(clientId, _ => new List<NetPeer>(64));
+            peers.Clear();
+            return peers;
         }
 
         /// <summary>

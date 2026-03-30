@@ -1053,6 +1053,9 @@ namespace Basis.BasisUI
 
             CreateBuildInfoSection(infoGroup.ContentParent);
 
+            // Network & Statistics (live-updating)
+            SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out var netUpdater);
+
             // One reset button for this whole page
             AddResetPageButton(container, "Developer", ResetDeveloperDefaults);
 

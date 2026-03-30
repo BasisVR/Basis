@@ -151,8 +151,8 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: ${{ env.projectPath }}/Library
-          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-${{ hashFiles(env.projectPath) }}
-          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-
+          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-${{ hashFiles(env.projectPath) }}
+          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-
       - name: "Sanitize headless project (Linux)"
         if: runner.os == 'Linux'
         shell: bash
@@ -233,23 +233,6 @@ jobs:
             <Port>4296</Port>
           </Configuration>
           EOF
-      - name: "Save Library Cache"
-        uses: actions/cache/save@v3
-        if: always()
-        with:
-          path: ${{ env.projectPath }}/Library
-          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
-      - name: "Only retain latest cache"
-        if: always()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}- --json id --jq '.[1:] | map(.id) | @sh')
-          for cache_id in $OLD_CACHE_IDS; do
-            echo "Deleting cache id: $cache_id"
-            gh cache delete $cache_id
-          done
       - name: "Upload headless artifact"
         timeout-minutes: 5
         uses: actions/upload-artifact@v4
