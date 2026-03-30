@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Basis.Network.Core;
+using Basis.Scripts.Networking;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -34,6 +35,7 @@ namespace HVR.Basis.Comms
         private float _timeLeft;
         private bool _isOutOfTape;
         private bool _writtenThisFrame;
+        private bool _canSendNetworkData;
 
         public event InterpolatedDataChanged OnInterpolatedDataChanged;
         public delegate void InterpolatedDataChanged(float[] current);
@@ -41,6 +43,13 @@ namespace HVR.Basis.Comms
         private void Awake()
         {
             EnsureBuffers();
+            _canSendNetworkData = BasisNetworkConnection.LocalPlayerIsConnected;
+            BasisNetworkConnection.OnLocalPlayerConnectionStateChanged += OnLocalPlayerConnectionStateChanged;
+        }
+
+        private void OnDestroy()
+        {
+            BasisNetworkConnection.OnLocalPlayerConnectionStateChanged -= OnLocalPlayerConnectionStateChanged;
         }
 
         private void OnDisable()
@@ -89,6 +98,10 @@ namespace HVR.Basis.Comms
         {
             if (isWearer)
             {
+                if (!_canSendNetworkData)
+                {
+                    return;
+                }
                 OnSender();
             }
             else
@@ -119,6 +132,15 @@ namespace HVR.Basis.Comms
                     }
                 }
 
+                _timeLeft = 0;
+            }
+        }
+
+        private void OnLocalPlayerConnectionStateChanged(bool isConnected)
+        {
+            _canSendNetworkData = isConnected;
+            if (!isConnected)
+            {
                 _timeLeft = 0;
             }
         }
