@@ -152,6 +152,32 @@ namespace Basis.Scripts.Networking.Steam
             owner.SendApplicationMessage(connection, data.Data, 0, data.Length, channelNumber, deliveryMethod);
         }
 
+        public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0)
+        {
+            if (data == null || length <= 0)
+            {
+                return;
+            }
+
+            if (patchOffset < 0 || patchOffset >= length)
+            {
+                owner.SendApplicationMessage(connection, data, offset, length, channelNumber, DeliveryMethod.Unreliable);
+                return;
+            }
+
+            byte[] patchedData = ArrayPool<byte>.Shared.Rent(length > 0 ? length : 1);
+            try
+            {
+                Buffer.BlockCopy(data, offset, patchedData, 0, length);
+                patchedData[patchOffset] = patchValue;
+                owner.SendApplicationMessage(connection, patchedData, 0, length, channelNumber, DeliveryMethod.Unreliable);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(patchedData);
+            }
+        }
+
         public int GetPacketsCountInQueue(byte channel, DeliveryMethod deliveryMethod)
         {
             try

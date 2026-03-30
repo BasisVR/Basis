@@ -45,7 +45,7 @@ namespace Basis.Network.Server.Generic
         {
             avatarChangeStates.Clear();
             playerMetaDataMessages.Clear();
-            voiceReceiversMessages.Clear();
+            resolvedVoicePeers.Clear();
             shoutModeStates.Clear();
         }
 
