@@ -60,8 +60,12 @@ public class BasisParameterDriver : StateMachineBehaviour
     // Runtime state
     // ------------------------------------------------------------------
 
-    // Tracks previous int values per parameter for preventRepeats.
-    private readonly Dictionary<string, int> _lastIntValues = new Dictionary<string, int>();
+    // Tracks previous int values per parameter hash for preventRepeats.
+    private readonly Dictionary<int, int> _lastIntValues = new Dictionary<int, int>();
+
+    // Pre-computed parameter name hashes (populated once on first enter).
+    private int[] _destHashes;
+    private int[] _srcHashes;
 
     // ------------------------------------------------------------------
     // StateMachineBehaviour callbacks
@@ -69,55 +73,74 @@ public class BasisParameterDriver : StateMachineBehaviour
 
     public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
-        foreach (Operation op in operations)
-            Execute(animator, op);
+        if (_destHashes == null)
+            BakeHashes();
+
+        for (int i = 0; i < operations.Length; i++)
+        {
+            Execute(animator, operations[i], _destHashes[i], _srcHashes[i]);
+        }
+    }
+
+    private void BakeHashes()
+    {
+        _destHashes = new int[operations.Length];
+        _srcHashes  = new int[operations.Length];
+        for (int i = 0; i < operations.Length; i++)
+        {
+            _destHashes[i] = string.IsNullOrEmpty(operations[i].destination)
+                ? 0 : Animator.StringToHash(operations[i].destination);
+            _srcHashes[i]  = string.IsNullOrEmpty(operations[i].source)
+                ? 0 : Animator.StringToHash(operations[i].source);
+        }
     }
 
     // ------------------------------------------------------------------
     // Execution
     // ------------------------------------------------------------------
 
-    private void Execute(Animator animator, Operation op)
+    private void Execute(Animator animator, Operation op, int destHash, int srcHash)
     {
-        if (string.IsNullOrEmpty(op.destination))
+        // 0 == unset; StringToHash never returns 0 for non-empty strings
+        if (destHash == 0)
             return;
 
-        AnimatorControllerParameterType destType = GetParamType(animator, op.destination);
+        AnimatorControllerParameterType destType = GetParamType(animator, destHash);
         if (destType == 0)
         {
-            Debug.LogWarning($"[RNGParamDriver] Destination parameter '{op.destination}' not found on animator.", animator);
+            BasisDebug.LogWarning($"[BasisParameterDriver] Destination parameter '{op.destination}' not found on animator.", animator);
             return;
         }
 
         switch (op.type)
         {
             case Operation.OperationType.Set:
-                WriteParam(animator, op.destination, destType, op.value);
+                WriteParam(animator, destHash, destType, op.value);
                 break;
 
             case Operation.OperationType.Add:
             {
-                float current = ReadParamAsFloat(animator, op.destination, destType);
-                WriteParam(animator, op.destination, destType, current + op.value);
+                float current = ReadParamAsFloat(animator, destHash, destType);
+                WriteParam(animator, destHash, destType, current + op.value);
                 break;
             }
 
             case Operation.OperationType.Random:
-                ExecuteRandom(animator, op, destType);
+                ExecuteRandom(animator, op, destHash, destType);
                 break;
 
             case Operation.OperationType.Copy:
-                ExecuteCopy(animator, op, destType);
+                ExecuteCopy(animator, op, destHash, srcHash, destType);
                 break;
         }
     }
 
-    private void ExecuteRandom(Animator animator, Operation op, AnimatorControllerParameterType destType)
+    private void ExecuteRandom(Animator animator, Operation op, int destHash, AnimatorControllerParameterType destType)
     {
         switch (destType)
         {
             case AnimatorControllerParameterType.Bool:
-                animator.SetBool(op.destination, UnityEngine.Random.value < op.chance);
+                animator.SetBool(destHash, UnityEngine.Random.value < op.chance);
                 break;
 
             case AnimatorControllerParameterType.Int:
@@ -128,69 +151,69 @@ public class BasisParameterDriver : StateMachineBehaviour
                 int result = UnityEngine.Random.Range(min, max + 1);
 
                 if (op.preventRepeats && range > 1 &&
-                    _lastIntValues.TryGetValue(op.destination, out int last) && last == result)
+                    _lastIntValues.TryGetValue(destHash, out int last) && last == result)
                 {
                     result = min + ((result - min + 1) % range);
                 }
 
-                _lastIntValues[op.destination] = result;
-                animator.SetInteger(op.destination, result);
+                _lastIntValues[destHash] = result;
+                animator.SetInteger(destHash, result);
                 break;
             }
 
             default: // Float
-                animator.SetFloat(op.destination, UnityEngine.Random.Range(op.minValue, op.maxValue));
+                animator.SetFloat(destHash, UnityEngine.Random.Range(op.minValue, op.maxValue));
                 break;
         }
     }
 
-    private void ExecuteCopy(Animator animator, Operation op, AnimatorControllerParameterType destType)
+    private void ExecuteCopy(Animator animator, Operation op, int destHash, int srcHash, AnimatorControllerParameterType destType)
     {
-        if (string.IsNullOrEmpty(op.source))
+        if (srcHash == 0)
             return;
 
-        AnimatorControllerParameterType srcType = GetParamType(animator, op.source);
+        AnimatorControllerParameterType srcType = GetParamType(animator, srcHash);
         if (srcType == 0)
         {
-            Debug.LogWarning($"[RNGParamDriver] Source parameter '{op.source}' not found on animator.", animator);
+            Debug.LogWarning($"[BasisParameterDriver] Source parameter '{op.source}' not found on animator.", animator);
             return;
         }
 
-        float srcVal = ReadParamAsFloat(animator, op.source, srcType);
+        float srcVal = ReadParamAsFloat(animator, srcHash, srcType);
 
         if (op.remapRange)
             srcVal = Remap(srcVal, op.sourceMin, op.sourceMax, op.destMin, op.destMax);
 
-        WriteParam(animator, op.destination, destType, srcVal);
+        WriteParam(animator, destHash, destType, srcVal);
     }
 
     // ------------------------------------------------------------------
     // Helpers
     // ------------------------------------------------------------------
 
-    private static float ReadParamAsFloat(Animator animator, string name, AnimatorControllerParameterType type)
+    private static float ReadParamAsFloat(Animator animator, int hash, AnimatorControllerParameterType type)
     {
         switch (type)
         {
-            case AnimatorControllerParameterType.Float: return animator.GetFloat(name);
-            case AnimatorControllerParameterType.Int:   return animator.GetInteger(name);
-            case AnimatorControllerParameterType.Bool:  return animator.GetBool(name) ? 1f : 0f;
+            case AnimatorControllerParameterType.Float: return animator.GetFloat(hash);
+            case AnimatorControllerParameterType.Int:   return animator.GetInteger(hash);
+            case AnimatorControllerParameterType.Bool:  return animator.GetBool(hash) ? 1f : 0f;
             default: return 0f;
         }
     }
 
-    private static void WriteParam(Animator animator, string name, AnimatorControllerParameterType type, float value)
+    private static void WriteParam(Animator animator, int hash, AnimatorControllerParameterType type, float value)
     {
         switch (type)
         {
             case AnimatorControllerParameterType.Float:
-                animator.SetFloat(name, value);
+                animator.SetFloat(hash, value);
                 break;
             case AnimatorControllerParameterType.Int:
-                animator.SetInteger(name, Mathf.RoundToInt(value));
+                animator.SetInteger(hash, Mathf.RoundToInt(value));
                 break;
             case AnimatorControllerParameterType.Bool:
-                animator.SetBool(name, value >= 0.5f);
+                animator.SetBool(hash, value >= 0.5f);
                 break;
         }
     }
@@ -201,10 +224,10 @@ public class BasisParameterDriver : StateMachineBehaviour
         return Mathf.Lerp(outMin, outMax, Mathf.InverseLerp(inMin, inMax, value));
     }
 
-    private static AnimatorControllerParameterType GetParamType(Animator animator, string name)
+    private static AnimatorControllerParameterType GetParamType(Animator animator, int nameHash)
     {
         foreach (AnimatorControllerParameter p in animator.parameters)
-            if (p.name == name) return p.type;
+            if (p.nameHash == nameHash) return p.type;
         return (AnimatorControllerParameterType)0;
     }
 }
