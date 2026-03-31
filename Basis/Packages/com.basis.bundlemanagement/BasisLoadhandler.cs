@@ -277,14 +277,14 @@ public static class BasisLoadHandler
                 if (discInfo.StoredRemote.RemoteBeeFileLocation == MetaURL)
                 {
                     if (!string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) &&
-                        !string.Equals(discInfo.DownloadedPlatform, currentPlatform, StringComparison.OrdinalIgnoreCase))
+                        !BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
                     {
                         continue;
                     }
 
                     if (TryResolveStoredBeePath(discInfo, out _))
                     {
-                        if (string.Equals(discInfo.DownloadedPlatform, currentPlatform, StringComparison.OrdinalIgnoreCase))
+                        if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
                         {
                             info = discInfo;
                             return true;

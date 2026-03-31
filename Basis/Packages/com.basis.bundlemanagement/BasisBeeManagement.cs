@@ -9,7 +9,7 @@ public static class BasisBeeManagement
     {
         return metaInfo != null &&
                !string.IsNullOrEmpty(metaInfo.DownloadedPlatform) &&
-               BasisBundleConnector.PlatformMatch(metaInfo.DownloadedPlatform);
+               BasisIOManagement.CachePlatformMatchesCurrent(metaInfo.DownloadedPlatform);
     }
 
     /// <summary>

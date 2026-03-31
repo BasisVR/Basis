@@ -9,7 +9,36 @@ public static class BasisIOManagement
 {
     public static string GetCurrentCachePlatform()
     {
-        return Application.platform.ToString();
+        return NormalizeCachePlatformName(Application.platform.ToString());
+    }
+
+    public static bool CachePlatformMatchesCurrent(string downloadedPlatform)
+    {
+        return string.Equals(NormalizeCachePlatformName(downloadedPlatform), GetCurrentCachePlatform(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string NormalizeCachePlatformName(string platformName)
+    {
+        if (string.IsNullOrWhiteSpace(platformName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = platformName.Trim();
+        return normalized switch
+        {
+            nameof(RuntimePlatform.WindowsEditor) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsPlayer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsServer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.LinuxEditor) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxPlayer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxServer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.OSXEditor) => "StandaloneOSX",
+            nameof(RuntimePlatform.OSXPlayer) => "StandaloneOSX",
+            nameof(RuntimePlatform.Android) => "Android",
+            nameof(RuntimePlatform.IPhonePlayer) => "iOS",
+            _ => normalized,
+        };
     }
 
     public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
@@ -39,7 +68,7 @@ public static class BasisIOManagement
 
         string normalizedPlatform = string.IsNullOrWhiteSpace(downloadedPlatform)
             ? GetCurrentCachePlatform()
-            : downloadedPlatform.Trim();
+            : NormalizeCachePlatformName(downloadedPlatform);
 
         foreach (char invalidChar in Path.GetInvalidFileNameChars())
         {
