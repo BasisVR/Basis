@@ -82,12 +82,16 @@ public static class BasisStorageManagement
             remoteUrl = meta.StoredRemote.RemoteBeeFileLocation;
 
             string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
-            if (string.IsNullOrEmpty(beePath))
+            if (string.IsNullOrEmpty(beePath) && string.IsNullOrWhiteSpace(meta.UniqueVersion) == false)
             {
                 beePath = BasisIOManagement.GetBeeCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
             }
 
-            string metaFilePath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+            string metaFilePath = string.Empty;
+            if (string.IsNullOrWhiteSpace(meta.UniqueVersion) == false)
+            {
+                metaFilePath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+            }
 
             long fileSize = 0;
             DateTime lastWrite = DateTime.MinValue;
@@ -281,14 +285,17 @@ public static class BasisStorageManagement
         }
 
         string beePath = meta.StoredLocal.DownloadedBeeFileLocation;
-        if (string.IsNullOrEmpty(beePath))
+        if (string.IsNullOrEmpty(beePath) && string.IsNullOrWhiteSpace(meta.UniqueVersion) == false)
         {
             beePath = BasisIOManagement.GetBeeCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
         }
         TryDeleteFile(beePath);
 
-        string metaPath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
-        TryDeleteFile(metaPath);
+        if (string.IsNullOrWhiteSpace(meta.UniqueVersion) == false)
+        {
+            string metaPath = BasisIOManagement.GetMetaCacheFilePath(meta.UniqueVersion, meta.DownloadedPlatform);
+            TryDeleteFile(metaPath);
+        }
 
         BasisDebug.Log($"Deleted stored BEE file: {meta.UniqueVersion} [{meta.DownloadedPlatform}] (source: {meta.StoredRemote.RemoteBeeFileLocation})", BasisDebug.LogTag.Event);
         return true;

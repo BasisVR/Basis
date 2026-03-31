@@ -106,7 +106,9 @@ public static class SettingsProviderStorage
 
             foreach (var file in storedFiles)
             {
-                string fileName = file.UniqueVersion;
+                string fileName = string.IsNullOrWhiteSpace(file.UniqueVersion)
+                    ? (string.IsNullOrWhiteSpace(file.LocalPath) ? "Unknown Cache Entry" : System.IO.Path.GetFileName(file.LocalPath))
+                    : file.UniqueVersion;
                 string size = BasisStorageManagement.FormatBytes(file.FileSizeBytes);
                 string loadedStatus = file.IsLoadedInMemory ? " [IN USE]" : "";
                 string remoteUrl = file.RemoteUrl;
