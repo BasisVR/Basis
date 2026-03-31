@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Basis.Network.Core;
+using Basis.Scripts.Networking;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -34,6 +35,7 @@ namespace HVR.Basis.Comms
         private float _timeLeft;
         private bool _isOutOfTape;
         private bool _writtenThisFrame;
+        private bool _canSendNetworkData;
 
         public event InterpolatedDataChanged OnInterpolatedDataChanged;
         public delegate void InterpolatedDataChanged(float[] current);
@@ -41,6 +43,14 @@ namespace HVR.Basis.Comms
         private void Awake()
         {
             EnsureBuffers();
+            BasisNetworkConnection.NetworkClient.listener.PeerConnectedEvent += OnLocalPlayerPeerConnected;
+            BasisNetworkConnection.NetworkClient.listener.PeerDisconnectedEvent += OnLocalPlayerPeerDisconnected;
+        }
+
+        private void OnDestroy()
+        {
+            BasisNetworkConnection.NetworkClient.listener.PeerConnectedEvent -= OnLocalPlayerPeerConnected;
+            BasisNetworkConnection.NetworkClient.listener.PeerDisconnectedEvent -= OnLocalPlayerPeerDisconnected;
         }
 
         private void OnDisable()
@@ -89,6 +99,10 @@ namespace HVR.Basis.Comms
         {
             if (isWearer)
             {
+                if (!_canSendNetworkData)
+                {
+                    return;
+                }
                 OnSender();
             }
             else
@@ -121,6 +135,26 @@ namespace HVR.Basis.Comms
 
                 _timeLeft = 0;
             }
+        }
+
+        private void OnLocalPlayerConnectionStateChanged(bool isConnected)
+        {
+            _canSendNetworkData = isConnected;
+            if (!isConnected)
+            {
+                _timeLeft = 0;
+            }
+        }
+
+        private void OnLocalPlayerPeerConnected(NetPeer peer)
+        {
+            _canSendNetworkData = true;
+        }
+
+        private void OnLocalPlayerPeerDisconnected(NetPeer peer,DisconnectInfo disconnectInfo)
+        {
+            _canSendNetworkData = false;
+            _timeLeft = 0;
         }
 
         private void OnReceiver()
