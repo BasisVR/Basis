@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -47,11 +48,11 @@ public static class BasisStorageManagement
             return 0;
 
         long total = 0;
-        foreach (string file in Directory.GetFiles(folderPath))
+        foreach (FieldInfo file in DirectoryInfo.GetFiles(folderPath, "*", SearchOption.AllDirectories))
         {
             try
             {
-                total += new FileInfo(file).Length;
+                total += file.Length;
             }
             catch (Exception)
             {
@@ -208,7 +209,7 @@ public static class BasisStorageManagement
         string folderPath = GetCacheFolderPath();
         if (Directory.Exists(folderPath))
         {
-            foreach (string file in Directory.GetFiles(folderPath))
+            foreach (string file in Directory.GetFiles(folderPath, "*", SearchOption.AllDirectories))
             {
                 TryDeleteFile(file);
             }

@@ -43,12 +43,12 @@ public static class BasisIOManagement
 
     public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        return GenerateFilePath(BuildLegacyCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension), GetPlatformCacheFolder(downloadedPlatform));
     }
 
     public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        return GenerateFilePath(BuildLegacyCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension), GetPlatformCacheFolder(downloadedPlatform));
     }
 
     public static string GetLegacyBeeCacheFilePath(string uniqueVersion)
@@ -61,21 +61,26 @@ public static class BasisIOManagement
         return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
     }
 
-    private static string BuildPlatformAwareCacheFileName(string uniqueVersion, string extension, string downloadedPlatform)
+    private static string GetPlatformCacheFolder(string downloadedPlatform)
     {
-        if (string.IsNullOrWhiteSpace(uniqueVersion))
-            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
-
         string normalizedPlatform = string.IsNullOrWhiteSpace(downloadedPlatform)
             ? GetCurrentCachePlatform()
             : NormalizeCachePlatformName(downloadedPlatform);
 
-        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        foreach (char invalidChar in Path.GetInvalidPathChars())
         {
             normalizedPlatform = normalizedPlatform.Replace(invalidChar, '_');
         }
 
-        return $"{uniqueVersion}.{normalizedPlatform}{extension}";
+        return Path.Combine(BasisBeeConstants.AssetBundlesFolder, normalizedPlatform);
+    }
+
+    private static string BuildLegacyCacheFileName(string uniqueVersion, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueVersion))
+            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
+
+        return $"{uniqueVersion}{extension}";
     }
 
     public sealed class BeeDownloadResult

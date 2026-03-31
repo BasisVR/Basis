@@ -7,12 +7,12 @@ namespace Basis.Scripts.Common
 {
     public static class BasisDataStore
     {
-        public static void SaveAvatar(string avatarName, byte avatarData, string fileNameAndExtension)
+        public static void SaveAvatar(string avatarName, byte avatarData, string fileNameAndExtension, string cacheFileName = "")
         {
             try
             {
                 string filePath = Path.Combine(Application.persistentDataPath, fileNameAndExtension);
-                string json = JsonUtility.ToJson(new BasisSavedAvatar(avatarName, avatarData));
+                string json = JsonUtility.ToJson(new BasisSavedAvatar(avatarName, avatarData, cacheFileName));
                 File.WriteAllText(filePath, json);
                 BasisDebug.Log("Avatar saved to " + filePath);
             }
@@ -27,11 +27,13 @@ namespace Basis.Scripts.Common
         {
             public string UniqueID;
             public byte loadmode;
+            public string CacheFileName;
 
-            public BasisSavedAvatar(string name, byte data)
+            public BasisSavedAvatar(string name, byte data, string cacheFileName = "")
             {
                 UniqueID = name;
                 loadmode = data;
+                CacheFileName = cacheFileName;
             }
         }
 

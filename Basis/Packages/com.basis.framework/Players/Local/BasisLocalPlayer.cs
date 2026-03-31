@@ -253,7 +253,21 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <param name="LastUsedAvatar">Metadata pointing to the last persisted avatar selection.</param>
         public async Task LoadInitialAvatar(BasisDataStore.BasisSavedAvatar LastUsedAvatar)
         {
-            if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisBEEExtensionMeta info))
+            bool hasCachedMeta = false;
+            BasisBEEExtensionMeta info = null;
+
+            if (!string.IsNullOrWhiteSpace(LastUsedAvatar.CacheFileName))
+            {
+                hasCachedMeta = BasisLoadHandler.TryLoadMetaDataFromCacheFile(LastUsedAvatar.CacheFileName, LastUsedAvatar.UniqueID, out info);
+            }
+
+            if (!hasCachedMeta)
+            {
+                await BasisLoadHandler.EnsureInitializationComplete();
+                hasCachedMeta = BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out info);
+            }
+
+            if (hasCachedMeta)
             {
                 await BasisDataStoreItemKeys.LoadKeys();
                 ItemKey[] activeKeys = BasisDataStoreItemKeys.DisplayKeys();
@@ -339,7 +353,7 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle, this.transform.position, Quaternion.identity);
             OnLocalAvatarChanged?.Invoke();
-            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
+            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension, BasisLoadableBundle.BasisBundleConnector?.UniqueVersion);
         }
 
         /// <summary>
