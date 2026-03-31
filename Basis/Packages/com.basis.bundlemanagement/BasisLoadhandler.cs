@@ -209,43 +209,60 @@ public static class BasisLoadHandler
         return false;
     }
 
-    private static bool TryLoadDiscInfoFromFile(string filePath, string expectedRemoteUrl, out BasisBEEExtensionMeta info)
+    private static bool TryLazyLoadDiscInfo(string metaUrl, string currentPlatform, out BasisBEEExtensionMeta info)
     {
         info = null;
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+
+        string path = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
+        if (!Directory.Exists(path))
         {
             return false;
         }
 
-        try
+        BasisBEEExtensionMeta legacyCandidate = null;
+
+        foreach (string file in Directory.GetFiles(path, $"*{BasisBeeConstants.BasisMetaExtension}"))
         {
-            byte[] fileData = File.ReadAllBytes(filePath);
-            BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
-            if (discInfo?.StoredRemote?.RemoteBeeFileLocation == null)
+            try
             {
-                return false;
-            }
+                byte[] fileData = File.ReadAllBytes(file);
+                BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
+                if (discInfo?.StoredRemote?.RemoteBeeFileLocation != metaUrl)
+                {
+                    continue;
+                }
 
-            if (!string.IsNullOrWhiteSpace(expectedRemoteUrl) &&
-                !string.Equals(discInfo.StoredRemote.RemoteBeeFileLocation, expectedRemoteUrl, StringComparison.Ordinal))
+                OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
+
+                if (!TryResolveStoredBeePath(discInfo, out _))
+                {
+                    continue;
+                }
+
+                if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
+                {
+                    info = discInfo;
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) && legacyCandidate == null)
+                {
+                    legacyCandidate = discInfo;
+                }
+            }
+            catch (Exception ex)
             {
-                return false;
+                BasisDebug.LogWarning($"Failed lazy-loading disc info from {file}: {ex.Message}", BasisDebug.LogTag.Event);
             }
+        }
 
-            OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
-            if (!TryResolveStoredBeePath(discInfo, out _))
-            {
-                return false;
-            }
-
-            info = discInfo;
+        if (legacyCandidate != null)
+        {
+            info = legacyCandidate;
             return true;
         }
-        catch (Exception ex)
-        {
-            BasisDebug.LogWarning($"Failed loading disc info from {filePath}: {ex.Message}", BasisDebug.LogTag.Event);
-            return false;
-        }
+
+        return false;
     }
 
     public static bool IsMetaDataOnDisc(string MetaURL, out BasisBEEExtensionMeta info)
@@ -284,29 +301,14 @@ public static class BasisLoadHandler
                 return true;
             }
 
-            info = new BasisBEEExtensionMeta();
-            return false;
-        }
-    }
-
-    public static bool TryLoadMetaDataFromCacheFile(string uniqueVersion, string expectedRemoteUrl, out BasisBEEExtensionMeta info)
-    {
-        lock (_discInfoLock)
-        {
-            if (string.IsNullOrWhiteSpace(uniqueVersion))
+            if (TryLazyLoadDiscInfo(MetaURL, currentPlatform, out BasisBEEExtensionMeta lazyLoadedInfo))
             {
-                info = new BasisBEEExtensionMeta();
-                return false;
-            }
-
-            string platformAwarePath = BasisIOManagement.GetMetaCacheFilePath(uniqueVersion, BasisIOManagement.GetCurrentCachePlatform());
-            if (TryLoadDiscInfoFromFile(platformAwarePath, expectedRemoteUrl, out info))
-            {
+                info = lazyLoadedInfo;
                 return true;
             }
 
-            string legacyPath = BasisIOManagement.GetLegacyMetaCacheFilePath(uniqueVersion);
-            return TryLoadDiscInfoFromFile(legacyPath, expectedRemoteUrl, out info);
+            info = new BasisBEEExtensionMeta();
+            return false;
         }
     }
 
@@ -368,16 +370,8 @@ public static class BasisLoadHandler
     private static async Task LoadAllDiscData()
     {
         BasisDebug.Log("Loading all disc data...", BasisDebug.LogTag.Event);
-        string rootPath = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
-        string currentPlatformPath = BasisIOManagement.GenerateFolderPath(Path.Combine(BasisBeeConstants.AssetBundlesFolder, BasisIOManagement.GetCurrentCachePlatform()));
-
-        List<string> files = new List<string>();
-        files.AddRange(Directory.GetFiles(rootPath, $"*{BasisBeeConstants.BasisMetaExtension}", SearchOption.TopDirectoryOnly));
-
-        if (!string.Equals(rootPath, currentPlatformPath, StringComparison.OrdinalIgnoreCase) && Directory.Exists(currentPlatformPath))
-        {
-            files.AddRange(Directory.GetFiles(currentPlatformPath, $"*{BasisBeeConstants.BasisMetaExtension}", SearchOption.TopDirectoryOnly));
-        }
+        string path = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
+        string[] files = Directory.GetFiles(path, $"*{BasisBeeConstants.BasisMetaExtension}");
 
         List<Task> loadTasks = new List<Task>();
 
