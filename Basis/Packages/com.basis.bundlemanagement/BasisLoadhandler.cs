@@ -167,37 +167,82 @@ public static class BasisLoadHandler
             BasisDebug.LogError($"{ex.Message} {ex.StackTrace}");
             LoadedBundles.Remove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out var data);
             CleanupFiles(loadableBundle.BasisLocalEncryptedBundle);
-            OnDiscData.TryRemove(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out _);
             return null;
         }
     }
+
+    public static string GetDiscInfoKey(string remoteUrl, string downloadedPlatform)
+    {
+        string safeUrl = remoteUrl ?? string.Empty;
+        string safePlatform = string.IsNullOrWhiteSpace(downloadedPlatform) ? "legacy" : downloadedPlatform.Trim();
+        return $"{safePlatform}|{safeUrl}";
+    }
+
+    private static bool TryResolveStoredBeePath(BasisBEEExtensionMeta discInfo, out string beePath)
+    {
+        beePath = discInfo.StoredLocal.DownloadedBeeFileLocation;
+        if (!string.IsNullOrWhiteSpace(beePath) && File.Exists(beePath))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+        {
+            string platformAwarePath = BasisIOManagement.GetBeeCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
+            if (File.Exists(platformAwarePath))
+            {
+                discInfo.StoredLocal.DownloadedBeeFileLocation = platformAwarePath;
+                beePath = platformAwarePath;
+                return true;
+            }
+
+            string legacyPath = BasisIOManagement.GetLegacyBeeCacheFilePath(discInfo.UniqueVersion);
+            if (File.Exists(legacyPath))
+            {
+                discInfo.StoredLocal.DownloadedBeeFileLocation = legacyPath;
+                beePath = legacyPath;
+                return true;
+            }
+        }
+
+        beePath = null;
+        return false;
+    }
+
     public static bool IsMetaDataOnDisc(string MetaURL, out BasisBEEExtensionMeta info)
     {
         lock (_discInfoLock)
         {
+            string currentPlatform = BasisIOManagement.GetCurrentCachePlatform();
+            BasisBEEExtensionMeta legacyCandidate = null;
+
             foreach (var discInfo in OnDiscData.Values)
             {
                 if (discInfo.StoredRemote.RemoteBeeFileLocation == MetaURL)
                 {
-                    info = discInfo;
-
-                    if (string.IsNullOrEmpty(discInfo.StoredLocal.DownloadedBeeFileLocation))
+                    if (!string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) &&
+                        !string.Equals(discInfo.DownloadedPlatform, currentPlatform, StringComparison.OrdinalIgnoreCase))
                     {
-                        string BEEPath = BasisIOManagement.GenerateFilePath($"{info.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}", BasisBeeConstants.AssetBundlesFolder);
-                        if (File.Exists(BEEPath))
-                        {
-                            discInfo.StoredLocal.DownloadedBeeFileLocation = BEEPath;
-                            return true;
-                        }
+                        continue;
                     }
-                    else
+
+                    if (TryResolveStoredBeePath(discInfo, out _))
                     {
-                        if (File.Exists(discInfo.StoredLocal.DownloadedBeeFileLocation))
+                        if (string.Equals(discInfo.DownloadedPlatform, currentPlatform, StringComparison.OrdinalIgnoreCase))
                         {
+                            info = discInfo;
                             return true;
                         }
+
+                        legacyCandidate = discInfo;
                     }
                 }
+            }
+
+            if (legacyCandidate != null)
+            {
+                info = legacyCandidate;
+                return true;
             }
 
             info = new BasisBEEExtensionMeta();
@@ -207,19 +252,21 @@ public static class BasisLoadHandler
 
     public static async Task AddDiscInfo(BasisBEEExtensionMeta discInfo)
     {
-        if (OnDiscData.TryAdd(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo))
-        {
-        }
-        else
-        {
-            OnDiscData[discInfo.StoredRemote.RemoteBeeFileLocation] = discInfo;
-            BasisDebug.Log("Disc info updated.", BasisDebug.LogTag.Event);
-        }
-        string filePath = BasisIOManagement.GenerateFilePath($"{discInfo.UniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
+        string discKey = GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform);
+        OnDiscData[discKey] = discInfo;
+        string filePath = BasisIOManagement.GetMetaCacheFilePath(discInfo.UniqueVersion, discInfo.DownloadedPlatform);
         byte[] serializedData = BasisSerialization.SerializeValue(discInfo);
 
         try
         {
+            if (!string.IsNullOrWhiteSpace(discInfo.UniqueVersion))
+            {
+                string legacyMetaPath = BasisIOManagement.GetLegacyMetaCacheFilePath(discInfo.UniqueVersion);
+                if (File.Exists(legacyMetaPath))
+                {
+                    File.Delete(legacyMetaPath);
+                }
+            }
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
@@ -275,7 +322,7 @@ public static class BasisLoadHandler
                 {
                     byte[] fileData = await File.ReadAllBytesAsync(file);
                     BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
-                    OnDiscData.TryAdd(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo);
+                    OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
                 }
                 catch (Exception ex)
                 {
@@ -292,7 +339,7 @@ public static class BasisLoadHandler
 
     private static void CleanupFiles(BasisStoredEncryptedBundle bundle)
     {
-        if (File.Exists(bundle.DownloadedBeeFileLocation))
+        if (!string.IsNullOrWhiteSpace(bundle?.DownloadedBeeFileLocation) && File.Exists(bundle.DownloadedBeeFileLocation))
         {
             File.Delete(bundle.DownloadedBeeFileLocation);
         }
