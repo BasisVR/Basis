@@ -1,5 +1,7 @@
 using Basis.BasisUI;
 using Basis.Network.Core;
+using Basis.Scripts.Avatar;
+using Basis.Scripts.Common;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Headless;
@@ -488,7 +490,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(AvatarFileLocation))
+        if (!TryResolveHeadlessAvatarSelection(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource))
         {
             configuredAvatarApplied = true;
             return;
@@ -498,23 +500,75 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         BasisLoadableBundle bundle = new BasisLoadableBundle
         {
-            UnlockPassword = AvatarPassword ?? string.Empty,
+            UnlockPassword = avatarPassword ?? string.Empty,
             BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
             {
-                RemoteBeeFileLocation = AvatarFileLocation
+                RemoteBeeFileLocation = avatarLocation
             },
             BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle()
         };
 
         try
         {
-            BasisDebug.Log($"Loading headless configured avatar {AvatarFileLocation}", BasisDebug.LogTag.Avatar);
-            await BasisLocalPlayer.Instance.CreateAvatar(BasisLocalPlayer.LoadModeLocal, bundle);
+            BasisDebug.Log($"Loading headless avatar from {avatarSource}: {avatarLocation} (mode {avatarLoadMode})", BasisDebug.LogTag.Avatar);
+            await BasisLocalPlayer.Instance.CreateAvatar(avatarLoadMode, bundle);
         }
         catch (Exception ex)
         {
-            BasisDebug.LogError($"Failed to load configured headless avatar '{AvatarFileLocation}': {ex.Message}", BasisDebug.LogTag.Avatar);
+            BasisDebug.LogError($"Failed to load headless avatar from {avatarSource} '{avatarLocation}': {ex.Message}", BasisDebug.LogTag.Avatar);
         }
+    }
+
+    private static bool TryResolveHeadlessAvatarSelection(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
+        if (!string.IsNullOrWhiteSpace(AvatarFileLocation))
+        {
+            avatarLocation = AvatarFileLocation;
+            avatarLoadMode = ResolveAvatarLoadMode(avatarLocation, BasisPlayer.LoadModeLocal);
+            avatarPassword = AvatarPassword ?? string.Empty;
+            avatarSource = "headless override";
+            return true;
+        }
+
+        if (BasisDataStore.LoadAvatar(
+                BasisLocalPlayer.LoadFileNameAndExtension,
+                BasisBeeConstants.DefaultAvatar,
+                BasisPlayer.LoadModeLocal,
+                out BasisDataStore.BasisSavedAvatar savedAvatar) &&
+            !string.IsNullOrWhiteSpace(savedAvatar?.UniqueID))
+        {
+            avatarLocation = savedAvatar.UniqueID;
+            avatarLoadMode = ResolveAvatarLoadMode(avatarLocation, savedAvatar.loadmode);
+            avatarPassword = string.Empty;
+            avatarSource = BasisLocalPlayer.LoadFileNameAndExtension;
+            return true;
+        }
+
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static byte ResolveAvatarLoadMode(string avatarLocation, byte fallbackMode)
+    {
+        if (IsRemoteUrl(avatarLocation))
+        {
+            return BasisPlayer.LoadModeNetworkDownloadable;
+        }
+
+        return fallbackMode;
+    }
+
+    private static bool IsRemoteUrl(string avatarLocation)
+    {
+        if (!Uri.TryCreate(avatarLocation, UriKind.Absolute, out Uri uri))
+        {
+            return false;
+        }
+
+        return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps;
     }
 
     private void StartHealthEndpoint()
