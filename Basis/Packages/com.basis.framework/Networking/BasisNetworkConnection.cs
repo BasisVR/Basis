@@ -22,22 +22,7 @@ namespace Basis.Scripts.Networking
     {
         public static NetPeer LocalPlayerPeer { get; set; }
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();
-        private static bool _localPlayerIsConnected;
-        public static bool LocalPlayerIsConnected
-        {
-            get => _localPlayerIsConnected;
-            set
-            {
-                if (_localPlayerIsConnected == value)
-                {
-                    return;
-                }
-
-                _localPlayerIsConnected = value;
-                OnLocalPlayerConnectionStateChanged?.Invoke(value);
-            }
-        }
-        public static event Action<bool> OnLocalPlayerConnectionStateChanged;
+        public static bool LocalPlayerIsConnected { get; set; }
         public static BasisNetworkServerRunner BasisNetworkServerRunner = null;
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);

@@ -43,13 +43,14 @@ namespace HVR.Basis.Comms
         private void Awake()
         {
             EnsureBuffers();
-            _canSendNetworkData = BasisNetworkConnection.LocalPlayerIsConnected;
-            BasisNetworkConnection.OnLocalPlayerConnectionStateChanged += OnLocalPlayerConnectionStateChanged;
+            BasisNetworkConnection.NetworkClient.listener.PeerConnectedEvent += OnLocalPlayerPeerConnected;
+            BasisNetworkConnection.NetworkClient.listener.PeerDisconnectedEvent += OnLocalPlayerPeerDisconnected;
         }
 
         private void OnDestroy()
         {
-            BasisNetworkConnection.OnLocalPlayerConnectionStateChanged -= OnLocalPlayerConnectionStateChanged;
+            BasisNetworkConnection.NetworkClient.listener.PeerConnectedEvent -= OnLocalPlayerPeerConnected;
+            BasisNetworkConnection.NetworkClient.listener.PeerDisconnectedEvent -= OnLocalPlayerPeerDisconnected;
         }
 
         private void OnDisable()
@@ -143,6 +144,17 @@ namespace HVR.Basis.Comms
             {
                 _timeLeft = 0;
             }
+        }
+
+        private void OnLocalPlayerPeerConnected(NetPeer peer)
+        {
+            _canSendNetworkData = true;
+        }
+
+        private void OnLocalPlayerPeerDisconnected(NetPeer peer,DisconnectInfo disconnectInfo)
+        {
+            _canSendNetworkData = false;
+            _timeLeft = 0;
         }
 
         private void OnReceiver()
