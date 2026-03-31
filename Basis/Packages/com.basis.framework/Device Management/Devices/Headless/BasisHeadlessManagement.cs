@@ -8,6 +8,7 @@ using Basis.Scripts.Networking;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Linq;
@@ -32,6 +33,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
     /// <summary>Server port loaded from config or default.</summary>
     public static int Port = 4296;
+    public static string AvatarFileLocation = string.Empty;
+    public static string AvatarPassword = string.Empty;
 
     public static bool HealthCheckEnabled = false;
     public static string HealthCheckHost = "0.0.0.0";
@@ -46,6 +49,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private bool isShuttingDown;
     private bool hasLoadedStartupContent;
     private bool reconnectScheduled;
+    private bool configuredAvatarApplied;
 
     /// <summary>
     /// Scene change hook used in headless to aggressively strip visuals and free memory.
@@ -144,6 +148,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         string defaultPassword = Password;
         string defaultIp = Ip;
         int defaultPort = Port;
+        string defaultAvatarFileLocation = AvatarFileLocation;
+        string defaultAvatarPassword = AvatarPassword;
         bool defaultHealthCheckEnabled = HealthCheckEnabled;
         string defaultHealthCheckHost = HealthCheckHost;
         int defaultHealthCheckPort = HealthCheckPort;
@@ -155,6 +161,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         string envPassword = ReadEnvironmentString("Password");
         string envIp = ReadEnvironmentString("Ip");
         int? envPort = ReadEnvironmentInt("Port");
+        string envAvatarFileLocation = ReadEnvironmentString("AvatarFileLocation");
+        string envAvatarPassword = ReadEnvironmentString("AvatarPassword");
         bool? envHealthCheckEnabled = ReadEnvironmentBool("HealthCheckEnabled");
         string envHealthCheckHost = ReadEnvironmentString("HealthCheckHost");
         int? envHealthCheckPort = ReadEnvironmentInt("HealthCheckPort");
@@ -176,6 +184,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
                 defaultPassword,
                 defaultIp,
                 defaultPort,
+                defaultAvatarFileLocation,
+                defaultAvatarPassword,
                 defaultHealthCheckEnabled,
                 defaultHealthCheckHost,
                 defaultHealthCheckPort,
@@ -188,6 +198,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         Password = envPassword ?? root?.Element("Password")?.Value ?? defaultPassword;
         Ip = envIp ?? root?.Element("Ip")?.Value ?? defaultIp;
         Port = envPort ?? ReadXmlInt(root?.Element("Port")?.Value, defaultPort);
+        AvatarFileLocation = envAvatarFileLocation ?? root?.Element("AvatarFileLocation")?.Value ?? defaultAvatarFileLocation;
+        AvatarPassword = envAvatarPassword ?? root?.Element("AvatarPassword")?.Value ?? defaultAvatarPassword;
         HealthCheckEnabled = envHealthCheckEnabled ?? ReadXmlBool(root?.Element("HealthCheckEnabled")?.Value, defaultHealthCheckEnabled);
         HealthCheckHost = envHealthCheckHost ?? root?.Element("HealthCheckHost")?.Value ?? defaultHealthCheckHost;
         HealthCheckPort = envHealthCheckPort ?? ReadXmlInt(root?.Element("HealthCheckPort")?.Value, defaultHealthCheckPort);
@@ -195,6 +207,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         ReconnectEnabled = envReconnectEnabled ?? ReadXmlBool(root?.Element("ReconnectEnabled")?.Value, defaultReconnectEnabled);
         ReconnectDelaySeconds = Mathf.Max(1, envReconnectDelaySeconds ?? ReadXmlInt(root?.Element("ReconnectDelaySeconds")?.Value, defaultReconnectDelaySeconds));
         MaxReconnectAttempts = Mathf.Max(0, envMaxReconnectAttempts ?? ReadXmlInt(root?.Element("MaxReconnectAttempts")?.Value, defaultMaxReconnectAttempts));
+        NormalizeConfiguredAvatarFields();
     }
 
     private static void TryCreateDefaultConfigXml(
@@ -202,6 +215,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         string password,
         string ip,
         int port,
+        string avatarFileLocation,
+        string avatarPassword,
         bool healthCheckEnabled,
         string healthCheckHost,
         int healthCheckPort,
@@ -216,6 +231,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
                 new XElement("Password", password),
                 new XElement("Ip", ip),
                 new XElement("Port", port),
+                new XElement("AvatarFileLocation", avatarFileLocation ?? string.Empty),
+                new XElement("AvatarPassword", avatarPassword ?? string.Empty),
                 new XElement("HealthCheckEnabled", healthCheckEnabled),
                 new XElement("HealthCheckHost", healthCheckHost),
                 new XElement("HealthCheckPort", healthCheckPort),
@@ -287,6 +304,42 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         return bool.TryParse(value, out bool parsed) ? parsed : fallback;
     }
 
+    private static void NormalizeConfiguredAvatarFields()
+    {
+        AvatarFileLocation = AvatarFileLocation?.Trim() ?? string.Empty;
+        AvatarPassword = AvatarPassword?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(AvatarFileLocation))
+        {
+            AvatarFileLocation = string.Empty;
+            return;
+        }
+
+        int fragmentIndex = AvatarFileLocation.IndexOf('#');
+        if (fragmentIndex < 0)
+        {
+            return;
+        }
+
+        string baseUrl = AvatarFileLocation[..fragmentIndex].Trim();
+        string encodedPassword = AvatarFileLocation[(fragmentIndex + 1)..].Trim();
+        AvatarFileLocation = baseUrl;
+
+        if (!string.IsNullOrEmpty(AvatarPassword) || string.IsNullOrEmpty(encodedPassword))
+        {
+            return;
+        }
+
+        try
+        {
+            AvatarPassword = Encoding.UTF8.GetString(Convert.FromBase64String(encodedPassword));
+        }
+        catch (FormatException)
+        {
+            Debug.LogWarning("AvatarFileLocation contains a '#' fragment, but the suffix is not valid base64. Ignoring inline avatar password.");
+        }
+    }
+
     /// <summary>
     /// Reads config, loads default scene once, and connects to network as client.
     /// </summary>
@@ -311,11 +364,9 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     /// </summary>
     public async Task CreateAssetBundle()
     {
-#if UNITY_SERVER
         BasisDebug.Log("Skipping visual scene asset initialization on dedicated server build.", BasisDebug.LogTag.Networking);
         await Task.CompletedTask;
         return;
-#endif
         if (BundledContentHolder.Instance.UseSceneProvidedHere)
         {
             BasisDebug.Log("using Local Asset Bundle or Addressable", BasisDebug.LogTag.Networking);
@@ -333,12 +384,14 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     /// <inheritdoc/>
     public override void StartSDK()
     {
-#if UNITY_SERVER
         isShuttingDown = false;
         hasLoadedStartupContent = false;
         reconnectScheduled = false;
+        configuredAvatarApplied = false;
         reconnectCts = new CancellationTokenSource();
         BasisHeadlessRuntimeStatus.Reset();
+        LoadOrCreateConfigXml();
+        ApplyRuntimeConfiguration();
         BasisNetworkConnection.HeadlessReconnectSuppressed = false;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
         BasisNetworkConnection.OnDisconnectedAfterReboot += OnDisconnectedAfterReboot;
@@ -346,6 +399,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         if (BasisLocalPlayer.PlayerReady && BasisLocalPlayer.Instance != null)
         {
             EnsureHeadlessInput();
+            _ = ApplyConfiguredAvatarAsync();
         }
         else
         {
@@ -367,13 +421,11 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         SceneManager.activeSceneChanged += OnSceneLoadeded;
-#endif
         BasisDebug.Log(nameof(StartSDK), BasisDebug.LogTag.Device);
     }
 
     private void OnDestroy()
     {
-#if UNITY_SERVER
         isShuttingDown = true;
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
@@ -383,14 +435,13 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         StopHealthEndpoint();
         BasisHeadlessRuntimeStatus.MarkStopping();
         BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
-#endif
     }
 
-#if UNITY_SERVER
     private void OnLocalPlayerReadyForHeadless()
     {
         BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
         EnsureHeadlessInput();
+        _ = ApplyConfiguredAvatarAsync();
     }
 
     private void EnsureHeadlessInput()
@@ -428,6 +479,42 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             ReconnectEnabled,
             ReconnectDelaySeconds,
             MaxReconnectAttempts);
+    }
+
+    private async Task ApplyConfiguredAvatarAsync()
+    {
+        if (configuredAvatarApplied || BasisLocalPlayer.Instance == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(AvatarFileLocation))
+        {
+            configuredAvatarApplied = true;
+            return;
+        }
+
+        configuredAvatarApplied = true;
+
+        BasisLoadableBundle bundle = new BasisLoadableBundle
+        {
+            UnlockPassword = AvatarPassword ?? string.Empty,
+            BasisRemoteBundleEncrypted = new BasisRemoteEncyptedBundle
+            {
+                RemoteBeeFileLocation = AvatarFileLocation
+            },
+            BasisLocalEncryptedBundle = new BasisStoredEncryptedBundle()
+        };
+
+        try
+        {
+            BasisDebug.Log($"Loading headless configured avatar {AvatarFileLocation}", BasisDebug.LogTag.Avatar);
+            await BasisLocalPlayer.Instance.CreateAvatar(BasisLocalPlayer.LoadModeLocal, bundle);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Failed to load configured headless avatar '{AvatarFileLocation}': {ex.Message}", BasisDebug.LogTag.Avatar);
+        }
     }
 
     private void StartHealthEndpoint()
@@ -621,18 +708,15 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         return null;
     }
-#endif
 
     /// <inheritdoc/>
     public override void StopSDK()
     {
-#if UNITY_SERVER
         isShuttingDown = true;
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
         CancelReconnectLoop();
         StopHealthEndpoint();
         BasisHeadlessRuntimeStatus.MarkStopping();
-#endif
         BasisDebug.Log(nameof(StopSDK), BasisDebug.LogTag.Device);
     }
 

@@ -231,8 +231,10 @@ jobs:
             <Password>default_password</Password>
             <Ip>server1.basisvr.org</Ip>
             <Port>4296</Port>
+            <AvatarFileLocation></AvatarFileLocation>
+            <AvatarPassword></AvatarPassword>
             <HealthCheckEnabled>false</HealthCheckEnabled>
-            <HealthCheckHost>0.0.0.0</HealthCheckHost>
+            <HealthCheckHost>127.0.0.1</HealthCheckHost>
             <HealthCheckPort>10666</HealthCheckPort>
             <HealthPath>/health</HealthPath>
             <ReconnectEnabled>true</ReconnectEnabled>
