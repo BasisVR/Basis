@@ -76,6 +76,8 @@ public static class BasisNetworkPreloadManager
             BasisProgressReport report = new BasisProgressReport();
             CancellationToken cancel = default;
 
+            await BasisLoadHandler.EnsureInitializationComplete();
+
             // Check if the full BEE file is already on disk
             bool isOnDisc = BasisLoadHandler.IsMetaDataOnDisc(resource.CombinedURL, out BasisBEEExtensionMeta metaInfo);
 

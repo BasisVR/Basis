@@ -276,6 +276,8 @@ namespace Basis.BasisUI
                 wrapper = CreateNewWrapperFromItem(item);
             }
 
+            await BasisLoadHandler.EnsureInitializationComplete();
+
             // If the metadata is missing on disk, remove the key and DO NOT attempt to create a bundle from it.
             if (BasisLoadHandler.IsMetaDataOnDisc(item.Url, out BasisBEEExtensionMeta info))
             {

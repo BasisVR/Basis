@@ -209,6 +209,62 @@ public static class BasisLoadHandler
         return false;
     }
 
+    private static bool TryLazyLoadDiscInfo(string metaUrl, string currentPlatform, out BasisBEEExtensionMeta info)
+    {
+        info = null;
+
+        string path = BasisIOManagement.GenerateFolderPath(BasisBeeConstants.AssetBundlesFolder);
+        if (!Directory.Exists(path))
+        {
+            return false;
+        }
+
+        BasisBEEExtensionMeta legacyCandidate = null;
+
+        foreach (string file in Directory.GetFiles(path, $"*{BasisBeeConstants.BasisMetaExtension}"))
+        {
+            try
+            {
+                byte[] fileData = File.ReadAllBytes(file);
+                BasisBEEExtensionMeta discInfo = BasisSerialization.DeserializeValue<BasisBEEExtensionMeta>(fileData);
+                if (discInfo?.StoredRemote?.RemoteBeeFileLocation != metaUrl)
+                {
+                    continue;
+                }
+
+                OnDiscData[GetDiscInfoKey(discInfo.StoredRemote.RemoteBeeFileLocation, discInfo.DownloadedPlatform)] = discInfo;
+
+                if (!TryResolveStoredBeePath(discInfo, out _))
+                {
+                    continue;
+                }
+
+                if (BasisIOManagement.CachePlatformMatchesCurrent(discInfo.DownloadedPlatform))
+                {
+                    info = discInfo;
+                    return true;
+                }
+
+                if (string.IsNullOrWhiteSpace(discInfo.DownloadedPlatform) && legacyCandidate == null)
+                {
+                    legacyCandidate = discInfo;
+                }
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogWarning($"Failed lazy-loading disc info from {file}: {ex.Message}", BasisDebug.LogTag.Event);
+            }
+        }
+
+        if (legacyCandidate != null)
+        {
+            info = legacyCandidate;
+            return true;
+        }
+
+        return false;
+    }
+
     public static bool IsMetaDataOnDisc(string MetaURL, out BasisBEEExtensionMeta info)
     {
         lock (_discInfoLock)
@@ -242,6 +298,12 @@ public static class BasisLoadHandler
             if (legacyCandidate != null)
             {
                 info = legacyCandidate;
+                return true;
+            }
+
+            if (TryLazyLoadDiscInfo(MetaURL, currentPlatform, out BasisBEEExtensionMeta lazyLoadedInfo))
+            {
+                info = lazyLoadedInfo;
                 return true;
             }
 
@@ -285,7 +347,7 @@ public static class BasisLoadHandler
         BasisStorageManagement.DeleteStoredFile(metaUrl);
     }
 
-    private static async Task EnsureInitializationComplete()
+    public static async Task EnsureInitializationComplete()
     {
         if (!IsInitialized)
         {
