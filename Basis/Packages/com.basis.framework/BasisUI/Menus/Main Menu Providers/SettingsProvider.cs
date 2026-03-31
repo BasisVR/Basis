@@ -180,7 +180,19 @@ namespace Basis.BasisUI
                 rangeGroup,
                 PanelSlider.SliderSettings.Distance("Avatar Visibility Range", 100),
                 BasisSettingsDefaults.AvatarRange);
-            
+
+            PanelSlider sliderHearingRange = PanelSlider.CreateEntryAndBind(
+    rangeGroup,
+    PanelSlider.SliderSettings.Distance("Hearing Range", 25),
+    BasisSettingsDefaults.HearingRange);
+
+#if !BASIS_DISABLE_MICROPHONE
+            PanelSlider sliderMicrophoneRange = PanelSlider.CreateEntryAndBind(
+                rangeGroup,
+                PanelSlider.SliderSettings.Distance("Microphone Range", 25),
+                BasisSettingsDefaults.MicrophoneRange);
+#endif
+
             PanelToggle toggleLimitAvatars = PanelToggle.CreateNewEntry(rangeGroup);
             toggleLimitAvatars.AssignBinding(BasisSettingsDefaults.UseMaxVisibleAvatars);
 
@@ -218,19 +230,43 @@ namespace Basis.BasisUI
                 rangeGroup.ForceRebuild();
             };
 
-            PanelSlider sliderHearingRange = PanelSlider.CreateEntryAndBind(
-                rangeGroup,
-                PanelSlider.SliderSettings.Distance("Hearing Range", 25),
-                BasisSettingsDefaults.HearingRange);
+            PanelToggle toggleLimitAudio = PanelToggle.CreateNewEntry(rangeGroup);
+            toggleLimitAudio.AssignBinding(BasisSettingsDefaults.UseMaxAudioSources);
+            toggleLimitAudio.Descriptor.SetTitle("Limit Audio Sources");
 
-#if !BASIS_DISABLE_MICROPHONE
-            PanelSlider sliderMicrophoneRange = PanelSlider.CreateEntryAndBind(
+            PanelSlider sliderMaxAudioSources = PanelSlider.CreateEntryAndBind(
                 rangeGroup,
-                PanelSlider.SliderSettings.Distance("Microphone Range", 25),
-                BasisSettingsDefaults.MicrophoneRange);
-#endif
+                PanelSlider.SliderSettings.Advanced("Max Audio Sources", 0, 250, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.MaxAudioSources);
+
+            sliderMaxAudioSources.Descriptor.SetActive(toggleLimitAudio.Value);
+
+            toggleLimitAudio.OnValueChanged += (val) =>
+            {
+                sliderMaxAudioSources.Descriptor.SetActive(val);
+                rangeGroup.ForceRebuild();
+            };
 
             SettingsProviderPlatform.BuildAutoSwapUI(container);
+
+            // Pose LOD group
+            PanelElementDescriptor poseLodGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            poseLodGroup.SetTitle("Pose LOD");
+            poseLodGroup.SetDescription(
+                "Reduces CPU cost by updating distant player poses less frequently.\n" +
+                "Higher values skip more frames for faraway players.\n" +
+                "At 0, every player updates every frame (most accurate, highest cost).\n" +
+                "Visible as slightly choppy animation on distant players.");
+
+            PanelSlider sliderPoseLod = PanelSlider.CreateEntryAndBind(
+                poseLodGroup,
+                PanelSlider.SliderSettings.Advanced("Pose LOD Bias", 0, 5, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.PoseLOD);
+            sliderPoseLod.Descriptor.SetDescription(
+                "0 = off (all players update every frame).\n" +
+                "1-2 = subtle reduction, barely visible.\n" +
+                "3-5 = noticeable on distant players, significant CPU savings.");
 
             // One reset button for this whole page
             AddResetPageButton(container, "General", ResetGeneralDefaults);
@@ -242,6 +278,9 @@ namespace Basis.BasisUI
         {
             BasisSettingsDefaults.AvatarRange.ResetToDefault();
             BasisSettingsDefaults.MaxVisibleAvatars.ResetToDefault();
+            BasisSettingsDefaults.MaxAudioSources.ResetToDefault();
+            BasisSettingsDefaults.UseMaxAudioSources.ResetToDefault();
+            BasisSettingsDefaults.PoseLOD.ResetToDefault();
             BasisSettingsDefaults.UseViewConeAvatars.ResetToDefault();
             BasisSettingsDefaults.ViewConeAngle.ResetToDefault();
             BasisSettingsDefaults.HearingRange.ResetToDefault();
@@ -1053,6 +1092,11 @@ namespace Basis.BasisUI
 
             CreateBuildInfoSection(infoGroup.ContentParent);
 
+            PanelToggle toggleStatistics = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
+            toggleStatistics.Descriptor.SetTitle("Enable Statistics");
+            toggleStatistics.Descriptor.SetDescription("Enable network statistics recording. Takes effect on next connection.");
+            toggleStatistics.AssignBinding(BasisSettingsDefaults.EnableStatistics);
+
             // Network & Statistics (live-updating)
             SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out var netUpdater);
 
@@ -1070,6 +1114,7 @@ namespace Basis.BasisUI
         {
             BasisSettingsDefaults.DebugVisuals.ResetToDefault();
             BasisSettingsDefaults.VisualState.SetValue("off");
+            BasisSettingsDefaults.EnableStatistics.ResetToDefault();
         }
 
         private static void CreateBuildInfoSection(RectTransform parent)

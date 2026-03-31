@@ -643,6 +643,10 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
 
             // Patch interval byte: offset 1 for byte playerID, offset 2 for ushort playerID
             int intervalOffset = smallId ? 1 : 2;
+            if (len <= intervalOffset)
+            {
+                return;
+            }
             peer.SendUnreliableRawMerge(src, 0, len, channel, intervalOffset, interval);
             BasisNetworkStatistics.RecordOutbound(channel, len);
         }

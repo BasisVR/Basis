@@ -20,6 +20,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             int length = data.Length;
 
             BasisAvatarBitPacking.BitQuality q = (BasisAvatarBitPacking.BitQuality)syncMessage.avatarSerialization.DataQualityLevel;
+            if (!BasisAvatarBitPacking.IsValidQuality(q))
+            {
+                BasisDebug.LogError($"Invalid avatar quality level {syncMessage.avatarSerialization.DataQualityLevel}", BasisDebug.LogTag.Networking);
+                return;
+            }
             int expected = BasisAvatarBitPacking.ConvertToSize(q);
 
             if (length >= expected)
@@ -49,6 +54,11 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             int length = data.Length;
 
             BasisAvatarBitPacking.BitQuality q = (BasisAvatarBitPacking.BitQuality)avatarSerialization.DataQualityLevel;
+            if (!BasisAvatarBitPacking.IsValidQuality(q))
+            {
+                BasisDebug.LogError($"Invalid avatar quality level {avatarSerialization.DataQualityLevel}", BasisDebug.LogTag.Networking);
+                return;
+            }
             int expected = BasisAvatarBitPacking.ConvertToSize(q);
 
             if (length >= expected)

@@ -316,7 +316,7 @@ namespace Basis.Scripts.Networking.Receivers
             if (HasOverridenDestination)
             {
                 var References = RemotePlayer?.RemoteAvatarDriver?.References;
-                if (References.Hips != null)
+                if (References != null && References.Hips != null)
                 {
                     References.Hips.SetPositionAndRotation(OverridenPosition, OverridenRotation);
                 }
@@ -454,10 +454,17 @@ namespace Basis.Scripts.Networking.Receivers
 
         public async void ReceiveAvatarChangeRequest(ServerAvatarChangeMessage SACM)
         {
-            LastLinkedAvatarIndex = SACM.clientAvatarChangeMessage.LocalAvatarIndex;
-            RemotePlayer.CACM = SACM.clientAvatarChangeMessage;
-            BasisLoadableBundle bundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(SACM.clientAvatarChangeMessage.byteArray);
-            await RemotePlayer.CreateAvatar(SACM.clientAvatarChangeMessage.loadMode, bundle);
+            try
+            {
+                LastLinkedAvatarIndex = SACM.clientAvatarChangeMessage.LocalAvatarIndex;
+                RemotePlayer.CACM = SACM.clientAvatarChangeMessage;
+                BasisLoadableBundle bundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(SACM.clientAvatarChangeMessage.byteArray);
+                await RemotePlayer.CreateAvatar(SACM.clientAvatarChangeMessage.loadMode, bundle);
+            }
+            catch (Exception ex)
+            {
+                BasisDebug.LogError($"ReceiveAvatarChangeRequest failed: {ex}");
+            }
         }
 
         public BasisNetworkReceiver(ushort PlayerID)

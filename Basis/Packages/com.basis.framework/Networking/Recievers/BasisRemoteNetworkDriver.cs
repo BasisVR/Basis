@@ -104,6 +104,22 @@ public static class BasisRemoteNetworkDriver
     static System.IntPtr _ptrPrevMuscles;
     static System.IntPtr _ptrTargetMuscles;
 
+    // ---------------- LOD SKIP FLAG ----------------
+    // Per-player flag: 1 = skip muscle interpolation this frame (player is being LOD-skipped).
+    // Position/rotation interpolation still runs so distance checks remain accurate.
+    static NativeArray<byte> _skipMuscles;
+
+    /// <summary>
+    /// Mark a player index to skip muscle interpolation on the next Compute().
+    /// Called from SimulateNetworkApply when PoseSkipCounter > 0.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void SetSkipMuscles(int index, bool skip)
+    {
+        if (_initialized && (uint)index < FixedCapacity)
+            _skipMuscles[index] = skip ? (byte)1 : (byte)0;
+    }
+
     // ---------------- TUNING ----------------
     // Pose (position + rotation) smoothing: usually higher MinCutoff than muscles to reduce "floaty" lag.
     public static float PoseMinCutoff = 3.0f;
@@ -221,6 +237,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void ResetPoseFilter(int index)
     {
         if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
         ((byte*)(void*)_ptrPoseFilterSeeded)[index] = 0;
     }
 
@@ -232,6 +249,7 @@ public static class BasisRemoteNetworkDriver
     public static unsafe void SetFrameTiming(int index, double interpolationTime, double deltaTimeSeconds)
     {
         if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
         ((double*)(void*)_ptrInterpolationTimes)[index] = interpolationTime;
         ((double*)(void*)_ptrDeltaTimes)[index] = deltaTimeSeconds;
     }
@@ -246,6 +264,7 @@ public static class BasisRemoteNetworkDriver
         NativeArray<float> prevMuscles, NativeArray<float> targetMuscles)
     {
         if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
         ((float*)(void*)_ptrHumanScales)[index] = humanScale;
         ((float3*)(void*)_ptrPrevPositions)[index] = prevPos;
         ((float3*)(void*)_ptrTargetPositions)[index] = targetPos;
@@ -267,6 +286,11 @@ public static class BasisRemoteNetworkDriver
     {
         if (!_initialized) return;
         if (BasisNetworkPlayers.ReceiverCount == 0) return;
+
+        // Complete the previous frame's jobs before re-scheduling.
+        // NativeArrays like _skipMuscles are shared across frames; writing to
+        // them between Compute() and Apply() would violate [ReadOnly] safety.
+        oneEuroJob.Complete();
 
         int num = BasisNetworkPlayers.LargestNetworkReceiverID + 1;
         num = math.clamp(num, 0, FixedCapacity);
@@ -327,22 +351,24 @@ public static class BasisRemoteNetworkDriver
             ScaledBodyPositions = _scaledBodyPositions
         }.Schedule(num, 128, poseFilterJob);
 
-        // 4) Muscle interpolation (raw)
+        // 4) Muscle interpolation (raw) — skipped for LOD-throttled players
         JobHandle musclesJob = new UpdateAllAvatarMusclesJob
         {
             PreviousMuscles = _prevMuscles,
             TargetMuscles = _targetMuscles,
             InterpolationTimes = _interpolationTimes,
+            SkipMuscles = _skipMuscles,
             OutputMuscles = _outMuscles,
             MuscleCountPerAvatar = _muscleCount
         }.Schedule(num * _muscleCount, 128, avatarJob);
 
-        // 5) Muscle 1€ filter (uses BasisNetworkManagement knobs)
+        // 5) Muscle 1€ filter — skipped for LOD-throttled players
         JobHandle euroMusclesJob = new BasisOneEuroFilterParallelJob
         {
             InputValues = _outMuscles,
             OutputValues = euroValuesOutput,
             DeltaTimeSeconds = _deltaTimes,
+            SkipMuscles = _skipMuscles,
             MinCutoff = BasisNetworkManagement.MinCutoff,
             Beta = BasisNetworkManagement.Beta,
             DerivativeCutoff = BasisNetworkManagement.DerivativeCutoff,
@@ -384,7 +410,7 @@ public static class BasisRemoteNetworkDriver
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void GetScaleOutput(int index, out float3 outScale)
     {
-        if (!_initialized) { outScale = new float3(1, 1, 1); return; }
+        if (!_initialized || (uint)index >= FixedCapacity) { outScale = new float3(1, 1, 1); return; }
         outScale = ((float3*)(void*)_ptrOutScales)[index];
     }
 
@@ -399,7 +425,7 @@ public static class BasisRemoteNetworkDriver
         int eyesAndMouthOffsetFloats,
         int eyesAndMouthCountBytes)
     {
-        if (!_initialized)
+        if (!_initialized || (uint)index >= FixedCapacity)
         {
             outScale = false;
             outRot = quaternion.identity;
@@ -456,6 +482,7 @@ public static class BasisRemoteNetworkDriver
         _scaledBodyPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
 
         _HasScaleChange = new NativeArray<bool>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _skipMuscles = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
 
         int flat = capacity * _muscleCount;
         _prevMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
@@ -510,6 +537,7 @@ public static class BasisRemoteNetworkDriver
         if (derivativeFilters.IsCreated) derivativeFilters.Dispose();
 
         if (_HasScaleChange.IsCreated) _HasScaleChange.Dispose();
+        if (_skipMuscles.IsCreated) _skipMuscles.Dispose();
     }
 
     // ---------------- JOBS ----------------
@@ -681,6 +709,7 @@ public static class BasisRemoteNetworkDriver
         [ReadOnly] public NativeArray<float> PreviousMuscles;
         [ReadOnly] public NativeArray<float> TargetMuscles;
         [ReadOnly] public NativeArray<double> InterpolationTimes;
+        [ReadOnly] public NativeArray<byte> SkipMuscles;
 
         [WriteOnly] public NativeArray<float> OutputMuscles;
 
@@ -689,6 +718,11 @@ public static class BasisRemoteNetworkDriver
         public void Execute(int index)
         {
             int playerIndex = index / MuscleCountPerAvatar;
+            if (SkipMuscles[playerIndex] != 0)
+            {
+                OutputMuscles[index] = PreviousMuscles[index];
+                return;
+            }
             double t = InterpolationTimes[playerIndex];
             t = math.clamp(t, 0f, 1f);
             OutputMuscles[index] = (float)math.lerp(PreviousMuscles[index], TargetMuscles[index], t);
@@ -712,6 +746,7 @@ public static class BasisRemoteNetworkDriver
 
         // per-player dt
         [ReadOnly] public NativeArray<double> DeltaTimeSeconds;
+        [ReadOnly] public NativeArray<byte> SkipMuscles;
 
         // per-value filter state
         public NativeArray<float2> PositionFilters;   // x = previous input, y = previous output
@@ -726,6 +761,11 @@ public static class BasisRemoteNetworkDriver
         public void Execute(int index)
         {
             int playerIndex = MuscleCountPerAvatar > 0 ? (index / MuscleCountPerAvatar) : 0;
+            if (SkipMuscles[playerIndex] != 0)
+            {
+                OutputValues[index] = PositionFilters[index].y; // keep last filtered value
+                return;
+            }
 
             double dt = math.max(DeltaTimeSeconds[playerIndex], 1e-3);
             double frequency = math.rcp(dt);

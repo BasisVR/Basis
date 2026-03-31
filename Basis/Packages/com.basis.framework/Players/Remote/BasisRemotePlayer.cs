@@ -85,6 +85,18 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool InAvatarRange = true;
 
         /// <summary>
+        /// Current mesh LOD level (0 = closest, 3 = furthest). Set by BasisTransmissionResults.
+        /// Used to control pose update frequency — distant players update less often.
+        /// </summary>
+        public short CurrentLodLevel;
+
+        /// <summary>
+        /// Frame counter for LOD-based pose skip. When > 0, SetHumanPose and muscle
+        /// interpolation are skipped this frame. Decremented each frame.
+        /// </summary>
+        public byte PoseSkipCounter;
+
+        /// <summary>
         /// The "always-requested" load mode for the avatar.
         /// <list type="bullet">
         /// <item><description><c>0</c> – Downloading/remote mode</description></item>

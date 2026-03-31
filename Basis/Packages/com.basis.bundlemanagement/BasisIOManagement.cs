@@ -9,17 +9,46 @@ public static class BasisIOManagement
 {
     public static string GetCurrentCachePlatform()
     {
-        return Application.platform.ToString();
+        return NormalizeCachePlatformName(Application.platform.ToString());
+    }
+
+    public static bool CachePlatformMatchesCurrent(string downloadedPlatform)
+    {
+        return string.Equals(NormalizeCachePlatformName(downloadedPlatform), GetCurrentCachePlatform(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string NormalizeCachePlatformName(string platformName)
+    {
+        if (string.IsNullOrWhiteSpace(platformName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = platformName.Trim();
+        return normalized switch
+        {
+            nameof(RuntimePlatform.WindowsEditor) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsPlayer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsServer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.LinuxEditor) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxPlayer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxServer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.OSXEditor) => "StandaloneOSX",
+            nameof(RuntimePlatform.OSXPlayer) => "StandaloneOSX",
+            nameof(RuntimePlatform.Android) => "Android",
+            nameof(RuntimePlatform.IPhonePlayer) => "iOS",
+            _ => normalized,
+        };
     }
 
     public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        return GenerateFilePath(BuildLegacyCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension), GetPlatformCacheFolder(downloadedPlatform));
     }
 
     public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
     {
-        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+        return GenerateFilePath(BuildLegacyCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension), GetPlatformCacheFolder(downloadedPlatform));
     }
 
     public static string GetLegacyBeeCacheFilePath(string uniqueVersion)
@@ -32,21 +61,26 @@ public static class BasisIOManagement
         return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
     }
 
-    private static string BuildPlatformAwareCacheFileName(string uniqueVersion, string extension, string downloadedPlatform)
+    private static string GetPlatformCacheFolder(string downloadedPlatform)
     {
-        if (string.IsNullOrWhiteSpace(uniqueVersion))
-            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
-
         string normalizedPlatform = string.IsNullOrWhiteSpace(downloadedPlatform)
             ? GetCurrentCachePlatform()
-            : downloadedPlatform.Trim();
+            : NormalizeCachePlatformName(downloadedPlatform);
 
-        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        foreach (char invalidChar in Path.GetInvalidPathChars())
         {
             normalizedPlatform = normalizedPlatform.Replace(invalidChar, '_');
         }
 
-        return $"{uniqueVersion}.{normalizedPlatform}{extension}";
+        return Path.Combine(BasisBeeConstants.AssetBundlesFolder, normalizedPlatform);
+    }
+
+    private static string BuildLegacyCacheFileName(string uniqueVersion, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueVersion))
+            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
+
+        return $"{uniqueVersion}{extension}";
     }
 
     public sealed class BeeDownloadResult

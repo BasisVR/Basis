@@ -14,6 +14,8 @@ namespace Basis.BasisUI
     /// </summary>
     public static class SettingsProviderAdminTab
     {
+        /// <summary>Fired when a player is selected in the admin player list. Carries the UUID.</summary>
+        public static event Action<string> OnPlayerUuidSelected;
         public static PanelTabPage AdminTab(PanelTabGroup tabGroup)
         {
             PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
@@ -34,6 +36,12 @@ namespace Basis.BasisUI
             // A controller MonoBehaviour to manage lifetime + rebuild list on joins/leaves.
             AdminTabController controller = tab.gameObject.AddComponent<AdminTabController>();
             controller.PlayerListParent = playersGroup.ContentParent;
+
+            PanelTextField playerSearch = PanelTextField.CreateNewEntry(playersGroup.ContentParent);
+            playerSearch.Descriptor.SetTitle("Search");
+            playerSearch.Descriptor.SetDescription("Filter players by name.");
+            playerSearch.OnValueChanged += controller.OnSearchChanged;
+            controller.SearchField = playerSearch;
 
             PanelButton refreshPlayers = PanelButton.CreateNew(playersGroup.ContentParent);
             refreshPlayers.Descriptor.SetTitle("Refresh Player List");
@@ -84,12 +92,13 @@ namespace Basis.BasisUI
                 "Teleport",
                 () =>
                 {
-                    if (controller.SelectedPlayer == null)
+                    BasisNetworkPlayer target = controller.GetEffectivePlayer();
+                    if (target == null)
                     {
-                        BasisDebug.LogError("No target selected.");
+                        BasisDebug.LogError("No player available.");
                         return;
                     }
-                    BasisNetworkModeration.TryTeleportToPlayer(controller.SelectedPlayer.playerId);
+                    BasisNetworkModeration.TryTeleportToPlayer(target.playerId);
                 });
 
             PanelButton teleportAll = PanelButton.CreateNew(actionsGroup.ContentParent);
@@ -102,12 +111,13 @@ namespace Basis.BasisUI
                 "Teleport",
                 () =>
                 {
-                    if (controller.SelectedPlayer == null)
+                    BasisNetworkPlayer target = controller.GetEffectivePlayer();
+                    if (target == null)
                     {
-                        BasisDebug.LogError("No target selected.");
+                        BasisDebug.LogError("No player available.");
                         return;
                     }
-                    BasisNetworkModeration.TeleportAll(controller.SelectedPlayer.playerId);
+                    BasisNetworkModeration.TeleportAll(target.playerId);
                 });
 
             PanelButton teleportHere = PanelButton.CreateNew(actionsGroup.ContentParent);
@@ -120,12 +130,13 @@ namespace Basis.BasisUI
                 "Teleport",
                 () =>
                 {
-                    if (controller.SelectedPlayer == null)
+                    BasisNetworkPlayer target = controller.GetEffectivePlayer();
+                    if (target == null)
                     {
-                        BasisDebug.LogError("No target selected.");
+                        BasisDebug.LogError("No player available.");
                         return;
                     }
-                    BasisNetworkModeration.TeleportHere(controller.SelectedPlayer.playerId);
+                    BasisNetworkModeration.TeleportHere(target.playerId);
                 });
 
             // ------------------
@@ -265,12 +276,13 @@ namespace Basis.BasisUI
                 "Enable",
                 () =>
                 {
-                    if (controller.SelectedPlayer == null)
+                    BasisNetworkPlayer target = controller.GetEffectivePlayer();
+                    if (target == null)
                     {
-                        BasisDebug.LogError("No target selected.");
+                        BasisDebug.LogError("No player available.");
                         return;
                     }
-                    BasisNetworkModeration.EnableShoutMode(controller.SelectedPlayer.playerId);
+                    BasisNetworkModeration.EnableShoutMode(target.playerId);
                 });
 
             PanelButton disableShout = PanelButton.CreateNew(actionsGroup.ContentParent);
@@ -283,12 +295,13 @@ namespace Basis.BasisUI
                 "Disable",
                 () =>
                 {
-                    if (controller.SelectedPlayer == null)
+                    BasisNetworkPlayer target = controller.GetEffectivePlayer();
+                    if (target == null)
                     {
-                        BasisDebug.LogError("No target selected.");
+                        BasisDebug.LogError("No player available.");
                         return;
                     }
-                    BasisNetworkModeration.DisableShoutMode(controller.SelectedPlayer.playerId);
+                    BasisNetworkModeration.DisableShoutMode(target.playerId);
                 });
 
             // Permissions section
@@ -348,10 +361,19 @@ namespace Basis.BasisUI
 
             public PanelTextField UUIDField;
             public PanelTextField ReasonField;
+            public PanelTextField SearchField;
 
             public BasisNetworkPlayer SelectedPlayer;
+            private string _searchQuery = string.Empty;
+
+            /// <summary>Returns the selected player, or falls back to the local player.</summary>
+            public BasisNetworkPlayer GetEffectivePlayer()
+            {
+                return SelectedPlayer ?? BasisNetworkPlayer.LocalPlayer;
+            }
 
             private readonly List<PanelButton> _playerButtons = new();
+            private readonly List<BasisNetworkPlayer> _playerRefs = new();
 
             private void OnEnable()
             {
@@ -375,14 +397,12 @@ namespace Basis.BasisUI
 
             public string GetUUIDText()
             {
-                TMP_InputField input = UUIDField ? UUIDField.GetComponentInChildren<TMP_InputField>(true) : null;
-                return input ? input.text : string.Empty;
+                return UUIDField != null ? UUIDField.Value ?? string.Empty : string.Empty;
             }
 
             public string GetReasonText()
             {
-                TMP_InputField input = ReasonField ? ReasonField.GetComponentInChildren<TMP_InputField>(true) : null;
-                return input ? input.text : string.Empty;
+                return ReasonField != null ? ReasonField.Value ?? string.Empty : string.Empty;
             }
 
             private void ClearPlayerButtons()
@@ -392,14 +412,19 @@ namespace Basis.BasisUI
                     if (_playerButtons[i] != null) _playerButtons[i].ReleaseInstance();
                 }
                 _playerButtons.Clear();
+                _playerRefs.Clear();
+            }
+
+            public void OnSearchChanged(string query)
+            {
+                _searchQuery = query ?? string.Empty;
+                ApplyFilter();
             }
 
             public void RebuildPlayerList()
             {
                 if (!PlayerListParent) return;
 
-                // Remove old list (keep the "Refresh Player List" button which is created outside this controller)
-                // We only track/destroy the buttons we created.
                 ClearPlayerButtons();
 
                 foreach (BasisNetworkPlayer player in BasisNetworkPlayers.Players.Values)
@@ -412,6 +437,23 @@ namespace Basis.BasisUI
                     b.OnClicked += () => SelectPlayer(player);
 
                     _playerButtons.Add(b);
+                    _playerRefs.Add(player);
+                }
+
+                ApplyFilter();
+            }
+
+            private void ApplyFilter()
+            {
+                string q = _searchQuery.Trim().ToLowerInvariant();
+                bool hasQuery = q.Length > 0;
+
+                for (int i = 0; i < _playerButtons.Count; i++)
+                {
+                    if (_playerButtons[i] == null) continue;
+                    bool show = !hasQuery || (_playerRefs[i].Player != null &&
+                        (_playerRefs[i].Player.SafeDisplayName ?? "").ToLowerInvariant().Contains(q));
+                    _playerButtons[i].gameObject.SetActive(show);
                 }
             }
 
@@ -419,9 +461,10 @@ namespace Basis.BasisUI
             {
                 SelectedPlayer = player;
 
-                // Fill UUID field
-                TMP_InputField input = UUIDField ? UUIDField.GetComponentInChildren<TMP_InputField>(true) : null;
-                if (input) input.SetTextWithoutNotify(SelectedPlayer.Player.UUID);
+                if (UUIDField != null)
+                    UUIDField.SetValueWithoutNotify(SelectedPlayer.Player.UUID);
+
+                OnPlayerUuidSelected?.Invoke(SelectedPlayer.Player.UUID);
             }
 
             public bool TryFindId(string uuid, out ushort id)

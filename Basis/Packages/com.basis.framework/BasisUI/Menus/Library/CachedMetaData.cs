@@ -206,13 +206,26 @@ namespace Basis.BasisUI
         {
             BasisDebug.LogError(ex);
         }
+        private static readonly SemaphoreSlim _preloadGate = new SemaphoreSlim(4);
+
         public static async Task PreloadMetaForItems(IEnumerable<BasisDataStoreItemKeys.ItemKey> items)
         {
             if (items == null) return;
 
             try
             {
-                await Task.WhenAll(items.Select(PreloadMetaDataForItem));
+                await Task.WhenAll(items.Select(async item =>
+                {
+                    await _preloadGate.WaitAsync();
+                    try
+                    {
+                        await PreloadMetaDataForItem(item);
+                    }
+                    finally
+                    {
+                        _preloadGate.Release();
+                    }
+                }));
             }
             catch (Exception ex)
             {

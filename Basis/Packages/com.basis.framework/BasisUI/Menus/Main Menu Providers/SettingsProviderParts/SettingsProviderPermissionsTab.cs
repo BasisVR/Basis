@@ -247,11 +247,18 @@ namespace Basis.BasisUI
             private void OnEnable()
             {
                 BasisNetworkModeration.OnPermissionsReceived += OnPermissionsReceived;
+                SettingsProviderAdminTab.OnPlayerUuidSelected += OnPlayerUuidSelected;
             }
 
             private void OnDestroy()
             {
                 BasisNetworkModeration.OnPermissionsReceived -= OnPermissionsReceived;
+                SettingsProviderAdminTab.OnPlayerUuidSelected -= OnPlayerUuidSelected;
+            }
+
+            private void OnPlayerUuidSelected(string uuid)
+            {
+                SetFieldText(AssignUuidField, uuid);
             }
 
             private void OnPermissionsReceived(BasisNetworkModeration.PermissionSnapshot snapshot)

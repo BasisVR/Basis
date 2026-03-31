@@ -53,6 +53,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
 
         public static BasisPlayerInteract Instance;
 
+        private BasisDirectTouch _directTouch;
+
         private void Start()
         {
             IgnoreRaycasting = LayerMask.NameToLayer("Ignore Raycast");
@@ -71,6 +73,8 @@ namespace Basis.Scripts.BasisSdk.Interactions
                    ~(1 << (int)LocalPlayerAvatar);
 
             Instance = this;
+
+            _directTouch = new BasisDirectTouch();
 
             BasisLocalPlayer.AfterSimulateOnLate.AddAction(k_UpdatePriority, PollSystem);
 
@@ -96,6 +100,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
             {
                 asyncOperationLineMaterial.Release();
             }
+
+            _directTouch?.Shutdown();
+            _directTouch = null;
 
             BasisLocalPlayer.AfterSimulateOnLate.RemoveAction(k_UpdatePriority, PollSystem);
 
@@ -237,6 +244,9 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 }
             }
 
+            // Poll direct finger touch for VR UI
+            _directTouch?.Poll(InteractInputs);
+
             // Apply line renderer
             if (renderInteractLines)
             {
@@ -245,6 +255,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
                 for (int index = 0; index < interactInputsCount; index++)
                 {
                     var input = InteractInputs[index];
+
+                    // Hide interaction line when direct touch is active for this hand
+                    if (_directTouch != null && _directTouch.IsDeviceTouching(input.input))
+                    {
+                        if (input.input.InteractionLineRenderer)
+                            input.input.InteractionLineRenderer.enabled = false;
+                        continue;
+                    }
+
                     if (input.lastTarget != null && input.lastTarget.IsHoveredBy(input.input))
                     {
                         Vector3 origin = input.input.RaycastCoord.position;

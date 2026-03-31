@@ -37,6 +37,11 @@ namespace Basis.BasisUI
             transmissionField.SetTitle("Transmission");
             transmissionField.SetDescription("...");
 
+            // Bandwidth
+            var bandwidthField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
+            bandwidthField.SetTitle("Bandwidth");
+            bandwidthField.SetDescription("...");
+
             // Server Metadata
             var metaField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, netGroup.ContentParent);
             metaField.SetTitle("Server Metadata");
@@ -51,6 +56,7 @@ namespace Basis.BasisUI
             updater.PingField = pingField;
             updater.PlayersField = playersField;
             updater.TransmissionField = transmissionField;
+            updater.BandwidthField = bandwidthField;
             updater.MetaField = metaField;
         }
     }

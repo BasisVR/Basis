@@ -34,7 +34,8 @@
         "GUID:5e0b455853cd340e0813387221dfd501",
         "GUID:a16aeb37b717b1945aec1e5f96e604d8",
         "GUID:da73c4ed88505644497dd650af00dc26",
-        "GUID:5ade891473129184996c15ca0222dc9b"
+        "GUID:5ade891473129184996c15ca0222dc9b",
+        "Basis.OpenLipSync.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

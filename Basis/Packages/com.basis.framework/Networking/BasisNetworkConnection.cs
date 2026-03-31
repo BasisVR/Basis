@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
@@ -58,7 +59,7 @@ namespace Basis.Scripts.Networking
                     UseAuthIdentity = true,
                     UseAuth = true,
                     Password = primitivePassword,
-                    EnableStatistics = false
+                    EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue
                 };
                 BasisNetworkServerRunner.Initalize(serverConfig, string.Empty, uuid);
             }
@@ -103,7 +104,7 @@ namespace Basis.Scripts.Networking
                         UseAuthIdentity = true,
                         UseAuth = true,
                         Password = primitivePassword,
-                        EnableStatistics = false
+                        EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue
                     };
                     // Pass the token into anything that supports cancellation
                     LocalPlayerPeer = NetworkClient.StartClient(

@@ -32,6 +32,7 @@ namespace Basis.Scripts.BasisCharacterController
         public bool LastWasGrounded = true;
         public bool IsFalling;
         public bool IsJumpHeld = false;
+        public bool IsDescendHeld = false;
         public bool HasJumpAction = false;
         public float jumpHeight = 1.0f; // Jump height set to 1 meter
         public float currentVerticalSpeed = 0f; // Vertical speed of the character
@@ -265,8 +266,8 @@ namespace Basis.Scripts.BasisCharacterController
         public float GetVerticalMovement()
         {
             float moveLocal = BasisLocalInputActions.Instance.MoveLocalUpDown.action.ReadValue<float>();
-            float ascend = IsJumpHeld ? 1.0f : 0.0f; // This works for both VR and desktop.
-            float descend = BasisLocalInputActions.Instance.IsCrouchHeld ? -1.0f : 0.0f; // No crouch button in VR.
+            float ascend = IsJumpHeld ? 1.0f : 0.0f;
+            float descend = (IsDescendHeld || BasisLocalInputActions.Instance.IsCrouchHeld) ? -1.0f : 0.0f;
             return Mathf.Clamp(moveLocal + ascend + descend, -1.0f, 1.0f);
         }
 

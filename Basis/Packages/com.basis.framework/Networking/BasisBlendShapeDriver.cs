@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using System.Collections.Generic;
 
@@ -58,7 +59,12 @@ public static class BasisBlendShapeDriver
                 continue;
             }
             if (!sync.IsLocal && sync.HasPendingData)
+            {
+                // Skip blendshape writes for players out of avatar range
+                if (sync.NetworkedPlayer?.Player is BasisRemotePlayer rp && !rp.InAvatarRange)
+                    continue;
                 sync.ApplyReceivedWeights();
+            }
         }
     }
 }

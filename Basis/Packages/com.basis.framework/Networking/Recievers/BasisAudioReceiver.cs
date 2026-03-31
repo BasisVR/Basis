@@ -109,7 +109,7 @@ namespace Basis.Scripts.Networking.Receivers
         private float[] _resampleScratch; // big enough for the largest frames we output
         // Count local silence in 20 ms "units"
         public volatile int _silentUnits20ms;   // thread-safe-ish; prefer Interlocked ops
-        public double _silentMsAccum;           // accumulate fractional callback durations
+        public long _silentUsAccum;             // accumulate fractional callback durations in microseconds (long avoids double-tearing on 32-bit)
 
         /// <summary>
         /// Called when an encoded voice packet arrives. Decodes and enqueues PCM.
@@ -543,24 +543,24 @@ namespace Basis.Scripts.Networking.Receivers
                 Array.Clear(data, 0, length);
 
                 // accumulate time and convert to 20ms units
-                _silentMsAccum += msThisCallback;
-                int newUnits = (int)(_silentMsAccum / 20.0); // how many full 20ms chunks fit
+                _silentUsAccum += (long)(msThisCallback * 1000.0);
+                int newUnits = (int)(_silentUsAccum / 20000L); // how many full 20ms chunks fit
                 if (newUnits > 0)
                 {
                     // make local counter reflect total observed units this silence run
                     // only increment the delta to avoid double counting
-                    int delta = newUnits - _silentUnits20ms;
+                    int delta = newUnits - System.Threading.Volatile.Read(ref _silentUnits20ms);
                     if (delta > 0)
                         System.Threading.Interlocked.Add(ref _silentUnits20ms, delta);
 
-                    _silentMsAccum -= newUnits * 20.0; // keep remainder for next callback
+                    _silentUsAccum -= newUnits * 20000L; // keep remainder for next callback
                 }
                 return;
             }
 
             // got audio: reset local silence tracking
             System.Threading.Interlocked.Exchange(ref _silentUnits20ms, 0);
-            _silentMsAccum = 0.0;
+            _silentUsAccum = 0L;
 
             if (_cachedOutputRate != outputSampleRate)
             {
@@ -656,7 +656,8 @@ namespace Basis.Scripts.Networking.Receivers
             for (int f = 0; f < frames; f++)
             {
                 int iLow = (int)phase;
-                double frac = phase - iLow;
+                if (iLow > maxIndex) iLow = maxIndex;
+                double frac = phase - (int)phase;
                 int iHigh = iLow + 1;
 
                 float sLow = _inputScratch[iLow];

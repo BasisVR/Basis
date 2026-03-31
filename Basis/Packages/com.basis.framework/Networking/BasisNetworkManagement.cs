@@ -221,16 +221,103 @@ namespace Basis.Scripts.Networking
                 return;
             }
 
-            BasisRemoteNetworkDriver.Apply();
-            BasisRemoteNetworkDriver.BeginRead();
-            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
+#if UNITY_EDITOR
+            bool p = BasisEventDriverProfilerData.Enabled;
+            System.Diagnostics.Stopwatch s = null;
+            if (p)
             {
-                BasisNetworkPlayers.ReceiversSnapshot[Index].Apply();
+                // Check if the interpolation job (scheduled in Update) finished before we need it
+                BasisEventDriverProfilerData.Net_InterpolationJobWasIncomplete = !BasisRemoteNetworkDriver.oneEuroJob.IsCompleted;
+                s = System.Diagnostics.Stopwatch.StartNew();
             }
+#endif
+            BasisRemoteNetworkDriver.Apply(); // completes interpolation job
+            BasisRemoteNetworkDriver.BeginRead();
+#if UNITY_EDITOR
+            if (p) { s.Stop(); BasisEventDriverProfilerData.Net_RemoteDriverApplyMs = s.Elapsed.TotalMilliseconds; s.Restart(); }
+#endif
+
+            int count = BasisNetworkPlayers.ReceiverCount;
+            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+            bool poseLodEnabled = SMModuleDistanceBasedReductions.PoseLODBias > 0f;
+#if UNITY_EDITOR
+            int _skipped = 0, _applied = 0;
+            int _lod0 = 0, _lod1 = 0, _lod2 = 0, _lod3 = 0;
+#endif
+
+            for (int Index = 0; Index < count; Index++)
+            {
+                var receiver = snapshot[Index];
+                var remote = receiver.RemotePlayer;
+
+#if UNITY_EDITOR
+                if (p)
+                {
+                    switch (math.clamp(remote.CurrentLodLevel, 0, 3))
+                    {
+                        case 0: _lod0++; break;
+                        case 1: _lod1++; break;
+                        case 2: _lod2++; break;
+                        case 3: _lod3++; break;
+                    }
+                }
+#endif
+
+                // LOD-based frame skipping: distant players update pose less often
+                if (poseLodEnabled && remote.PoseSkipCounter > 0)
+                {
+                    remote.PoseSkipCounter--;
+                    BasisRemoteNetworkDriver.SetSkipMuscles(receiver.playerId, true);
+#if UNITY_EDITOR
+                    _skipped++;
+#endif
+                    continue;
+                }
+
+                receiver.Apply();
+#if UNITY_EDITOR
+                _applied++;
+#endif
+
+                if (poseLodEnabled)
+                {
+                    int lod = math.clamp(remote.CurrentLodLevel, 0, 3);
+                    remote.PoseSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
+                }
+                BasisRemoteNetworkDriver.SetSkipMuscles(receiver.playerId, false);
+            }
+#if UNITY_EDITOR
+            if (p)
+            {
+                BasisEventDriverProfilerData.PoseLod_Applied = _applied;
+                BasisEventDriverProfilerData.PoseLod_Skipped = _skipped;
+                BasisEventDriverProfilerData.PoseLod_Lod0 = _lod0;
+                BasisEventDriverProfilerData.PoseLod_Lod1 = _lod1;
+                BasisEventDriverProfilerData.PoseLod_Lod2 = _lod2;
+                BasisEventDriverProfilerData.PoseLod_Lod3 = _lod3;
+                BasisEventDriverProfilerData.PoseLod_Bias = SMModuleDistanceBasedReductions.PoseLODBias;
+            }
+#endif
+#if UNITY_EDITOR
+            if (p)
+            {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs = s.Elapsed.TotalMilliseconds;
+                BasisEventDriverProfilerData.Net_ReceiverCount = count;
+                s.Restart();
+            }
+#endif
 
             BoneJobSystem = RemoteBoneJobSystem.Schedule();
+#if UNITY_EDITOR
+            if (p) { s.Stop(); BasisEventDriverProfilerData.Net_BoneJobScheduleMs = s.Elapsed.TotalMilliseconds; }
+            if (p) { BasisEventDriverProfilerData.Net_BoneJobWasIncomplete = !BoneJobSystem.IsCompleted; s = System.Diagnostics.Stopwatch.StartNew(); }
+#endif
 
             RemoteBoneJobSystem.Complete(BoneJobSystem);
+#if UNITY_EDITOR
+            if (p) { s.Stop(); BasisEventDriverProfilerData.Net_BoneJobCompleteMs = s.Elapsed.TotalMilliseconds; }
+#endif
         }
 
         #endregion

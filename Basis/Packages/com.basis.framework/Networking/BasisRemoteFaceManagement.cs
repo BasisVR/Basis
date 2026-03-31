@@ -107,14 +107,24 @@ public static class BasisRemoteFaceManagement
         {
             return;
         }
+#if UNITY_EDITOR
+        bool _fp = BasisEventDriverProfilerData.Enabled;
+        System.Diagnostics.Stopwatch _fs = null;
+        if (_fp) _fs = System.Diagnostics.Stopwatch.StartNew();
+#endif
         handle.Complete();
         HasJob = false;
+#if UNITY_EDITOR
+        if (_fp) { _fs.Stop(); BasisEventDriverProfilerData.RemoteFace_JobCompleteMs = _fs.Elapsed.TotalMilliseconds; _fs.Restart(); }
+        int _blinkWrites = 0;
+#endif
         for (int Index = 0; Index < count; Index++)
         {
             BasisNetworkReceiver receiver = snapshot[Index];
             BasisRemotePlayer remote = receiver.RemotePlayer;
             BasisRemoteFaceDriver Face = remote.RemoteFaceDriver;
 
+            // Always write eye floats (cheap, keeps state consistent across range transitions)
             if (!Face.OverrideEye)
             {
                 var e = eyeOut[Index];
@@ -126,6 +136,7 @@ public static class BasisRemoteFaceManagement
                 eyes[3] = e.hR;
             }
 
+            // Skip blink blendshape mesh writes when there is no mesh to write to
             if (Face.BlinkingEnabled && !Face.OverrideBlinking && Face.meshRenderer != null)
             {
                 float w = blinkOut[Index];
@@ -133,14 +144,23 @@ public static class BasisRemoteFaceManagement
 
                 float weight100 = w * 100f;
 
-                // If all blendshapes get the same blink weight, this loop is unavoidable
-                // unless your driver has a "set all blink shapes" bulk method.
                 for (int b = 0; b < Face.blendShapeCount; b++)
                 {
                     Face.SafeSetBlendShape(Face.blendShapeIndices[b], weight100);
                 }
+#if UNITY_EDITOR
+                _blinkWrites++;
+#endif
             }
         }
+#if UNITY_EDITOR
+        if (_fp)
+        {
+            _fs.Stop();
+            BasisEventDriverProfilerData.RemoteFace_EyeWriteMs = _fs.Elapsed.TotalMilliseconds; // includes both eye + blink write time
+            BasisEventDriverProfilerData.RemoteFace_BlinkWriteCount = _blinkWrites;
+        }
+#endif
     }
     static void EnsureArrays(int requiredCount,double nowTime,BasisNetworkReceiver[] snapshot)
     {

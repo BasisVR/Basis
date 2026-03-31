@@ -172,9 +172,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 return;
             }
 #else
-            // In release builds, skip the expensive Interlocked.Exchange — use a plain write.
-            // Double-release is a bug caught during development; no need for atomic overhead in production.
-            item.PooledFlag = 1;
+            if (Interlocked.Exchange(ref item.PooledFlag, 1) == 1)
+            {
+                return;
+            }
 #endif
 
             // IMPORTANT:

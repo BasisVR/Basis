@@ -458,8 +458,8 @@ namespace Basis.Scripts.BasisSdk.Players
             // Apply Animator Weights using most current data and outside movement effectors.
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
-            // handles fingers
-            LocalHandDriver.UpdateFingers(DeltaTime);
+            // schedule finger slerp job (completed by Apply in BasisEventDriver)
+            LocalHandDriver.Simulate(DeltaTime);
 
             AfterSimulateOnLate?.Invoke();
         }
