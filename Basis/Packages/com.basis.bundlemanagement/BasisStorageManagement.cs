@@ -48,7 +48,8 @@ public static class BasisStorageManagement
             return 0;
 
         long total = 0;
-        foreach (FieldInfo file in DirectoryInfo.GetFiles(folderPath, "*", SearchOption.AllDirectories))
+        DirectoryInfo folderInfo = new DirectoryInfo(folderPath);
+        foreach (FileInfo file in folderInfo.GetFiles( "*", SearchOption.AllDirectories))
         {
             try
             {
