@@ -70,6 +70,7 @@ namespace Cilbox
 			"UnityEngine.Collision",
 			"UnityEngine.Events.UnityAction",
 			"UnityEngine.Events.UnityEvent",
+			"UnityEngine.EventSystems.*",
 			"UnityEngine.GameObject",     // Hyper restrictive.
 			"UnityEngine.Material",
 			"UnityEngine.MaterialPropertyBlock",
@@ -86,6 +87,7 @@ namespace Cilbox
 			"UnityEngine.Transform",
 			"UnityEngine.Quaternion",
 			"UnityEngine.Rigidbody",
+			"UnityEngine.RectTransform",
 			"UnityEngine.RenderTexture",
 			"UnityEngine.RenderTextureFormat",
 			"UnityEngine.UI.*",
@@ -107,6 +109,7 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
+			"UnityEngine.EventSystems.EventTrigger+Entry.*",
 
 			// System fields
 			"System.Array.*",
@@ -118,7 +121,7 @@ namespace Cilbox
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
-			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+			"Basis.BasisNetworkBehaviour.IsOwnedLocally*",
         };
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }

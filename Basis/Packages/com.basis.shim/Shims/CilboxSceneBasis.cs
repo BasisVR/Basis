@@ -88,11 +88,7 @@ namespace Cilbox
 			"UnityEngine.DynamicGI",
 			"UnityEngine.Events.UnityAction",
 			"UnityEngine.Events.UnityEvent",
-			"UnityEngine.EventSystems.BaseEventData",
-			"UnityEngine.EventSystems.EventTrigger",
-			"UnityEngine.EventSystems.EventTrigger+Entry",
-			"UnityEngine.EventSystems.EventTrigger+TriggerEvent",
-			"UnityEngine.EventSystems.EventTriggerType",
+			"UnityEngine.EventSystems.*",
 			"UnityEngine.GameObject",     // Hyper restrictive.
 			"UnityEngine.Gradient",
 			"UnityEngine.LayerMask",
@@ -107,6 +103,7 @@ namespace Cilbox
 			"UnityEngine.ParticleSystem",
 			"UnityEngine.Quaternion",
 			"UnityEngine.Random",
+			"UnityEngine.RectTransform",
 			"UnityEngine.Renderer",
 			"UnityEngine.RenderTextureFormat",
 			"UnityEngine.Rendering.AmbientMode",
@@ -125,7 +122,7 @@ namespace Cilbox
 		static HashSet<String> whiteListFields = new HashSet<String>(){
 			// Basis fields
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
-			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+			"Basis.BasisNetworkBehaviour.IsOwnedLocally*",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
 
 			// Unity fields
@@ -133,6 +130,7 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
+			"UnityEngine.EventSystems.EventTrigger+Entry.*",
 
 			// System fields
 			"System.Array.*",
