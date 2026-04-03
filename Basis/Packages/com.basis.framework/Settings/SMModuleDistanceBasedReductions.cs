@@ -1,8 +1,6 @@
 using Basis.BasisUI;
 using System;
 using UnityEngine;
-using static UnityEngine.Rendering.DebugUI;
-using static UnityEngine.UIElements.UxmlAttributeDescription;
 
 public class SMModuleDistanceBasedReductions : BasisSettingsBase
 {
@@ -176,9 +174,8 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
     private static bool TryReadSlider(string optionValue, out float raw) => StaticSliderReadOption(optionValue, out raw);
 #if UNITY_SERVER
     private static float ServerSafeDistance(float _) => 0f;
-#else
-    private static float SquaredDistance(float v) => v * v;
 #endif
+    private static float SquaredDistance(float v) => v * v;
     private static void LogDistanceSetting(string label, float value) => BasisDebug.Log($"{label} {value}");
     public override void ChangedSettings()
     {
@@ -189,19 +186,19 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
         switch (matchedSettingName)
         {
             case var s when s == K_MIC_RANGE:
-                ApplyDistanceSetting(optionValue, "MicrophoneRange", v => MicrophoneRange = v);
+                ApplyDistanceSetting(optionValue, "MicrophoneRange", v => MicrophoneRange = v, false);
                 break;
 
             case var s when s == K_HEARING_RANGE:
-                ApplyDistanceSetting(optionValue, "HearingRange", v => HearingRange = v);
+                ApplyDistanceSetting(optionValue, "HearingRange", v => HearingRange = v, true);
                 break;
 
             case var s when s == K_AVATAR_RANGE:
-                ApplyDistanceSetting(optionValue, "AvatarRange", v => AvatarRange = v);
+                ApplyDistanceSetting(optionValue, "AvatarRange", v => AvatarRange = v, true);
                 break;
 
             case var s when s == K_AVATAR_MESH_LOD:
-                ApplyDistanceSetting(optionValue, "MeshLod", v => MeshLod = v);
+                ApplyDistanceSetting(optionValue, "MeshLod", v => MeshLod = v, true);
                 break;
 
             case var s when s == K_GLOBAL_MESH_LOD:
@@ -220,7 +217,7 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
                 }
                 break;
             case var s when s == K_USEMAX_VISIBLE_AVATARS:
-                if (bool.TryParse(optionValue,out bool usemax))
+                if (bool.TryParse(optionValue, out bool usemax))
                 {
                     UseMaxVisibleAvatars = usemax;
                     BasisDebug.Log($"Use Max Visible Avatars {usemax}");
@@ -264,7 +261,7 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
         }
     }
 
-    private static void ApplyDistanceSetting(string optionValue, string label, Action<float> assign)
+    private static void ApplyDistanceSetting(string optionValue, string label, Action<float> assign, bool IfServerUseZero)
     {
         if (!TryReadSlider(optionValue, out var raw))
         {
@@ -272,8 +269,17 @@ public class SMModuleDistanceBasedReductions : BasisSettingsBase
         }
 
 #if UNITY_SERVER
-        assign(ServerSafeDistance(raw));
-        LogDistanceSetting(label, 0f);
+        if (IfServerUseZero)
+        {
+            assign(ServerSafeDistance(raw));
+            LogDistanceSetting(label, 0f);
+        }
+        else
+        {
+            var squared = SquaredDistance(raw);
+            assign(squared);
+            LogDistanceSetting(label, squared);
+        }
 #else
         var squared = SquaredDistance(raw);
         assign(squared);

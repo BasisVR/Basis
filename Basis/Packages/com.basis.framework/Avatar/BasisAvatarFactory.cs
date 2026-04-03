@@ -413,7 +413,7 @@ namespace Basis.Scripts.Avatar
 
         private static CancellationToken ReplacePlayerLoadToken(BasisPlayer player)
         {
-            int key = player.GetInstanceID();
+            int key = player.GetEntityId();
 
             // Cancel & dispose previous request (if any)
             if (_playerLoadCts.TryRemove(key, out var old))
@@ -429,7 +429,7 @@ namespace Basis.Scripts.Avatar
 
         private static void ClearPlayerLoadToken(BasisPlayer player, CancellationToken token)
         {
-            int key = player.GetInstanceID();
+            int key = player.GetEntityId();
             if (_playerLoadCts.TryGetValue(key, out var cts) && cts.Token == token)
             {
                 _playerLoadCts.TryRemove(key, out _);
@@ -444,7 +444,7 @@ namespace Basis.Scripts.Avatar
         public static void CancelPlayerLoad(BasisPlayer player)
         {
             if (player == null) return;
-            int key = player.GetInstanceID();
+            int key = player.GetEntityId();
             if (_playerLoadCts.TryRemove(key, out var cts))
             {
                 try { cts.Cancel(); } catch { /* ignore */ }

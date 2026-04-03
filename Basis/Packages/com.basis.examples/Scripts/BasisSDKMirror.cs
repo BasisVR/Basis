@@ -396,7 +396,7 @@ public class BasisSDKMirror : MonoBehaviour
 
         portalTexture = new RenderTexture(desc)
         {
-            name = $"__MirrorReflection{eye}_{GetInstanceID()}",
+            name = $"__MirrorReflection{eye}_{GetEntityId()}",
             anisoLevel = 0
         };
         portalTexture.Create();
@@ -414,7 +414,7 @@ public class BasisSDKMirror : MonoBehaviour
 
     private void CreateNewCamera(Camera sourceCamera, out Camera newCamera)
     {
-        GameObject camObj = new GameObject($"MirrorCam_{GetInstanceID()}_{sourceCamera.GetInstanceID()}", typeof(Camera));
+        GameObject camObj = new GameObject($"MirrorCam_{GetEntityId()}_{sourceCamera.GetEntityId()}", typeof(Camera));
         camObj.TryGetComponent<Camera>(out  newCamera);
         newCamera.enabled = false;
         newCamera.CopyFrom(sourceCamera);

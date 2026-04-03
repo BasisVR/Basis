@@ -354,6 +354,7 @@ namespace Basis.Scripts.Drivers
             if (SmoothRot[S_Hips])
                 hipsRot = EuroRot[S_Hips] ? fRotHips.Filter(hipsRot, timeAccumulator) : FallbackRot(ref sRotHips, hipsRot, deltaTime);
 
+            hipsPos.y -= localPlayer.LocalCharacterDriver.landingCrouchEffect;
             data.PositionHips = hipsPos;
             data.RotationHips = hipsRot;
 

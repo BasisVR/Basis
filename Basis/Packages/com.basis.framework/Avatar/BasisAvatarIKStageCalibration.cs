@@ -20,6 +20,7 @@ namespace Basis.Scripts.Avatar
 
             public static void Set(BasisBoneTrackedRole role, Vector3 localOffset) => LocalOffset[role] = localOffset;
             public static bool TryGet(BasisBoneTrackedRole role, out Vector3 localOffset) => LocalOffset.TryGetValue(role, out localOffset);
+            public static void Clear() => LocalOffset.Clear();
         }
         /// <summary>
         /// If Any trackers are actively connected to the IK system
@@ -63,6 +64,7 @@ namespace Basis.Scripts.Avatar
         {
             BasisHeightDriver.OnAvatarFBCalibration();//avatar height is good,player height is needed
             HasFBIKTrackers = false;
+            BasisHintBiasStore.Clear();
             BasisDeviceManagement.UnassignFBTrackers();
             BasisLocalPlayer.Instance.LocalBoneDriver.SimulateAndApplyWithoutLerp(BasisLocalPlayer.Instance);
 

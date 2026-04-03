@@ -97,7 +97,7 @@ namespace Basis.Scripts.Drivers
             // Release any previous OpenLipSync slot
             if (openLipSyncContext != null)
             {
-                BasisOpenLipSyncDriver.ReleaseSlot(BasisPlayer.GetInstanceID());
+                BasisOpenLipSyncDriver.ReleaseSlot(BasisPlayer.GetEntityId());
                 openLipSyncContext.Dispose();
                 openLipSyncContext = null;
             }
@@ -108,7 +108,7 @@ namespace Basis.Scripts.Drivers
             {
                 BasisOpenLipSyncDriver.Initialize();
             }
-            if (BasisOpenLipSyncDriver.TryAcquireSlot(BasisPlayer.GetInstanceID(), out uint ctxHandle))
+            if (BasisOpenLipSyncDriver.TryAcquireSlot(BasisPlayer.GetEntityId(), out uint ctxHandle))
             {
                 openLipSyncContext = new BasisOpenLipSyncContext();
                 openLipSyncContext.Initialize(Avatar, ctxHandle);
@@ -170,7 +170,7 @@ namespace Basis.Scripts.Drivers
             uLipSync.BlendShapeInfos = uLipSync.CachedblendShapes.ToArray();
 
             // Wire visibility and lifetime callbacks (only once per renderer instance)
-            if (Player != null && Player.FaceRenderer != null && HashInstanceID != Player.FaceRenderer.GetInstanceID())
+            if (Player != null && Player.FaceRenderer != null && HashInstanceID != Player.FaceRenderer.GetEntityId())
             {
                 Player.FaceRenderer.Check += UpdateFaceVisibility;
                 Player.FaceRenderer.DestroyCalled += TryShutdown;
@@ -188,7 +188,7 @@ namespace Basis.Scripts.Drivers
             {
                 if (Player != null)
                 {
-                    BasisOpenLipSyncDriver.ReleaseSlot(Player.GetInstanceID());
+                    BasisOpenLipSyncDriver.ReleaseSlot(Player.GetEntityId());
                 }
                 openLipSyncContext.Dispose();
                 openLipSyncContext = null;
@@ -260,7 +260,7 @@ namespace Basis.Scripts.Drivers
         {
             if (Player != null)
             {
-                if (Player.FaceRenderer != null && HashInstanceID == Player.FaceRenderer.GetInstanceID())
+                if (Player.FaceRenderer != null && HashInstanceID == Player.FaceRenderer.GetEntityId())
                 {
                     Player.FaceRenderer.Check -= UpdateFaceVisibility;
                     Player.FaceRenderer.DestroyCalled -= TryShutdown;

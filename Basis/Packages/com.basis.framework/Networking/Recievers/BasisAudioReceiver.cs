@@ -549,9 +549,11 @@ namespace Basis.Scripts.Networking.Receivers
                 {
                     // make local counter reflect total observed units this silence run
                     // only increment the delta to avoid double counting
+#pragma warning disable CS0420 // Volatile.Read/Interlocked.Add provide correct semantics for volatile fields
                     int delta = newUnits - System.Threading.Volatile.Read(ref _silentUnits20ms);
                     if (delta > 0)
                         System.Threading.Interlocked.Add(ref _silentUnits20ms, delta);
+#pragma warning restore CS0420
 
                     _silentUsAccum -= newUnits * 20000L; // keep remainder for next callback
                 }

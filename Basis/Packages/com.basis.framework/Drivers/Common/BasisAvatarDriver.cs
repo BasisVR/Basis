@@ -417,9 +417,9 @@ namespace Basis.Scripts.Drivers
                 {
                     LocalShadowClone.sharedMesh = source.sharedMesh;
                     blendShapeCount = source.sharedMesh.blendShapeCount;
-                    for (int i = 0; i < blendShapeCount; i++)
+                    for (int Index = 0; Index < blendShapeCount; Index++)
                     {
-                        LocalShadowClone.SetBlendShapeWeight(i, source.GetBlendShapeWeight(i));
+                        LocalShadowClone.SetBlendShapeWeight(Index, source.GetBlendShapeWeight(Index));
                     }
                 }
                 if (source.sharedMaterials != null)
@@ -444,6 +444,7 @@ namespace Basis.Scripts.Drivers
                 ShadowCloneSyncs.Add(new BasisShadowCloneBlendshapeSync(source, LocalShadowClone, blendShapeCount));
             }
         }
+        public static bool hasBlendShapeJobScheduled = false;
         public static void ScheduleReadBlendShapes(float epsilon = 0.001f)
         {
             for (int s = 0; s < ShadowCloneSyncs.Count; s++)
@@ -451,13 +452,19 @@ namespace Basis.Scripts.Drivers
                 var sync = ShadowCloneSyncs[s];
 
                 if (sync.Source == null || sync.Clone == null)
+                {
                     continue;
-
+                }
+                if (hasBlendShapeJobScheduled)
+                {
+                    sync.Handle.Complete();
+                    hasBlendShapeJobScheduled = false;
+                }
                 int count = sync.Count;
 
-                for (int i = 0; i < count; i++)
+                for (int Index = 0; Index < count; Index++)
                 {
-                    sync.Current[i] = sync.Source.GetBlendShapeWeight(i);
+                    sync.Current[Index] = sync.Source.GetBlendShapeWeight(Index);
                 }
 
                 // Schedule job
@@ -471,6 +478,7 @@ namespace Basis.Scripts.Drivers
 
                 // Batch size can be tuned; 32 is a decent start
                 sync.Handle = job.Schedule(count, 32);
+                hasBlendShapeJobScheduled = true;
             }
         }
         public static void ApplyShadowCloneBlendShapes()
@@ -483,24 +491,27 @@ namespace Basis.Scripts.Drivers
                 {
                     continue;
                 }
-
-                sync.Handle.Complete();
+                if (hasBlendShapeJobScheduled)
+                {
+                    sync.Handle.Complete();
+                    hasBlendShapeJobScheduled = false;
+                }
 
                 int count = sync.Count;
-                for (int i = 0; i < count; i++)
+                for (int Index = 0; Index < count; Index++)
                 {
-                    if (sync.ChangedMask[i] != 0)
+                    if (sync.ChangedMask[Index] != 0)
                     {
-                        sync.Clone.SetBlendShapeWeight(i, sync.Previous[i]);
+                        sync.Clone.SetBlendShapeWeight(Index, sync.Previous[Index]);
                     }
                 }
             }
         }
         private static bool TryGetFirstColor(Material mat, out Color value, out string foundProp)
         {
-            for (int i = 0; i < ColorProps.Length; i++)
+            for (int Index = 0; Index < ColorProps.Length; Index++)
             {
-                string p = ColorProps[i];
+                string p = ColorProps[Index];
                 if (mat.HasProperty(p))
                 {
                     value = mat.GetColor(p);

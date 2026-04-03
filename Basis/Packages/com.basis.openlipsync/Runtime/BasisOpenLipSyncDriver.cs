@@ -7,13 +7,13 @@ using UnityEngine.AddressableAssets;
 
 public static class BasisOpenLipSyncDriver
 {
-    public const int MaxSlots = 30;
+    public static int MaxSlots = 30;
 
     public const string ModelAddress = "Packages/com.basisvr.openlipsync/OpenLipSync/model.onnx.bytes";
     public const string ConfigAddress = "Packages/com.basisvr.openlipsync/OpenLipSync/config.json";
 
     private static OpenLipSyncBackend _backend;
-    private static readonly Dictionary<int, uint> _playerToContext = new Dictionary<int, uint>();
+    private static readonly Dictionary<EntityId, uint> _playerToContext = new Dictionary<EntityId, uint>();
     private static bool _initialized;
 
     public static bool IsInitialized => _initialized;
@@ -74,7 +74,7 @@ public static class BasisOpenLipSyncDriver
         _backend = null;
     }
 
-    public static bool TryAcquireSlot(int playerInstanceId, out uint contextHandle)
+    public static bool TryAcquireSlot(EntityId playerInstanceId, out uint contextHandle)
     {
         contextHandle = 0;
         if (!_initialized || _backend == null) return false;
@@ -99,7 +99,7 @@ public static class BasisOpenLipSyncDriver
         return true;
     }
 
-    public static void ReleaseSlot(int playerInstanceId)
+    public static void ReleaseSlot(EntityId playerInstanceId)
     {
         if (_playerToContext.TryGetValue(playerInstanceId, out uint ctx))
         {

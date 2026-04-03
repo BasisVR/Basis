@@ -105,6 +105,7 @@ namespace Basis.Scripts.Drivers
             if (!_initialized || _disposed || !_faceVisible) return;
             if (data == null || length <= 0) return;
 
+#pragma warning disable CS0420 // Volatile.Read/Write provide correct semantics for volatile fields
             int ch = Math.Max(channels, 1);
             int buf = Volatile.Read(ref _activeBuffer);
             float[] dstArr = (buf == 0) ? _audioBufferA : _audioBufferB;
@@ -123,6 +124,7 @@ namespace Basis.Scripts.Drivers
 
             if (buf == 0) Volatile.Write(ref _writeIndexA, w);
             else Volatile.Write(ref _writeIndexB, w);
+#pragma warning restore CS0420
 
             Interlocked.Exchange(ref _hasNewAudio, 1);
         }
@@ -168,8 +170,10 @@ namespace Basis.Scripts.Drivers
             Array.Copy(frozenBuffer, 0, audioChunk, 0, frozenCount);
 
             // Reset write index for the now-frozen buffer
+#pragma warning disable CS0420 // Volatile.Write provides correct semantics for volatile fields
             if (oldActive == 0) Volatile.Write(ref _writeIndexA, 0);
             else Volatile.Write(ref _writeIndexB, 0);
+#pragma warning restore CS0420
 
             // Schedule background processing
             uint handle = _contextHandle;

@@ -175,7 +175,7 @@ namespace Basis.Scripts.Drivers
                 HasInstance = true;
             }
             CameraInstance = Camera;
-            CameraInstanceID = Camera.GetInstanceID();
+            CameraInstanceID = Camera.GetEntityId();
 
             // Set initial scale from player height and set the clip planes.
             UpdateCameraScale();
@@ -339,7 +339,7 @@ namespace Basis.Scripts.Drivers
         {
             if (BasisLocalAvatarDriver.Mapping.Hashead)
             {
-                if (Camera.GetInstanceID() == CameraInstanceID)
+                if (Camera.GetEntityId() == CameraInstanceID)
                 {
                     BasisLocalAvatarDriver.ScaleHeadToNormal();
                 }
@@ -353,7 +353,7 @@ namespace Basis.Scripts.Drivers
         {
             if (BasisLocalAvatarDriver.Mapping.Hashead)
             {
-                if (Camera.GetInstanceID() == CameraInstanceID)
+                if (Camera.GetEntityId() == CameraInstanceID)
                 {
                     BasisLocalAvatarDriver.ScaleheadToZero();
                 }

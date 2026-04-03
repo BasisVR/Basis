@@ -256,7 +256,7 @@ public static class BasisMenuItemsEditor
         Vector3 OnlyY = new Vector3(0, RotationVector.y, 0);
         BasisLocalPlayer.Instance.transform.eulerAngles = OnlyY;
 
-        BasisDesktopEye basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisDesktopEye>();
+        BasisDesktopEye basisAvatarEyeInput = GameObject.FindAnyObjectByType<BasisDesktopEye>();
         if (basisAvatarEyeInput != null)
         {
             basisAvatarEyeInput.rotationYaw = UnityEngine.Random.Range(-360, 360);

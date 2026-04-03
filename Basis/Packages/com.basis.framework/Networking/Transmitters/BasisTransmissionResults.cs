@@ -114,11 +114,11 @@ public partial class BasisTransmissionResults
     private NativeArray<float> smallestD2; // length 1
     private NativeArray<int> changeMask;   // length 1
 
-   public static float HysteresisPercent = 1.10f * 1.10f; // 10% hysteresis
+    public static float HysteresisPercent = 1.10f * 1.10f; // 10% hysteresis
 
     public static float LastHearingRange = -1;
     public static bool RevaluteAudioRanges = false;
-    public static float  ConvertedVoiceDistance;
+    public static float ConvertedVoiceDistance;
     /// <summary>
     /// Called each frame; drives scheduling of distance job and network sync.
     /// </summary>
@@ -160,7 +160,11 @@ public partial class BasisTransmissionResults
 #if UNITY_EDITOR
         bool _prof = BasisEventDriverProfilerData.Enabled;
         System.Diagnostics.Stopwatch _psw = null;
-        if (_prof) { BasisEventDriverProfilerData.Net_TransmitSimRanThisTick = true; _psw = System.Diagnostics.Stopwatch.StartNew(); }
+        if (_prof)
+        {
+            BasisEventDriverProfilerData.Net_TransmitSimRanThisTick = true;
+            _psw = System.Diagnostics.Stopwatch.StartNew();
+        }
 #endif
         EnsureCapacity(receiverCount);
         LengthOfArrays = receiverCount;
@@ -198,7 +202,12 @@ public partial class BasisTransmissionResults
             RevaluteAudioRanges = false;
         }
 #if UNITY_EDITOR
-        if (_prof) { _psw.Stop(); BasisEventDriverProfilerData.Net_TransmitSim_FillPositionsMs = _psw.Elapsed.TotalMilliseconds; _psw.Restart(); }
+        if (_prof)
+        {
+            _psw.Stop();
+            BasisEventDriverProfilerData.Net_TransmitSim_FillPositionsMs = _psw.Elapsed.TotalMilliseconds;
+            _psw.Restart();
+        }
 #endif
         // Configure job inputs (only what changes per tick)
         distanceJob.SquaredAvatarDistance = SMModuleDistanceBasedReductions.AvatarRange;
@@ -292,7 +301,12 @@ public partial class BasisTransmissionResults
         BasisNetworkAvatarCompressor.Compress(BasisNetworkTransmitter, avatar.Animator);
 
 #if UNITY_EDITOR
-        if (_prof) { _psw.Stop(); BasisEventDriverProfilerData.Net_TransmitSim_CompressMs = _psw.Elapsed.TotalMilliseconds; _psw.Restart(); }
+        if (_prof)
+        {
+            _psw.Stop();
+            BasisEventDriverProfilerData.Net_TransmitSim_CompressMs = _psw.Elapsed.TotalMilliseconds;
+            _psw.Restart();
+        }
 #endif
         // Finish before consuming results — single sync point via CombineDependencies
         var combined = JobHandle.CombineDependencies(reduceJobHandle, viewConeJobHandle, audioCapJobHandle);
@@ -303,7 +317,12 @@ public partial class BasisTransmissionResults
         combined.Complete();
 
 #if UNITY_EDITOR
-        if (_prof) { _psw.Stop(); BasisEventDriverProfilerData.Net_TransmitSim_JobCompleteMs = _psw.Elapsed.TotalMilliseconds; _psw.Restart(); }
+        if (_prof)
+        {
+            _psw.Stop();
+            BasisEventDriverProfilerData.Net_TransmitSim_JobCompleteMs = _psw.Elapsed.TotalMilliseconds;
+            _psw.Restart();
+        }
 #endif
         int mask = changeMask[0];
         AnyMicrophoneRangeChanged = (mask & 1) != 0;
@@ -394,7 +413,12 @@ public partial class BasisTransmissionResults
         }
 
 #if UNITY_EDITOR
-        if (_prof) { _psw.Stop(); BasisEventDriverProfilerData.Net_TransmitSim_PostProcessMs = _psw.Elapsed.TotalMilliseconds; _psw.Restart(); }
+        if (_prof)
+        {
+            _psw.Stop();
+            BasisEventDriverProfilerData.Net_TransmitSim_PostProcessMs = _psw.Elapsed.TotalMilliseconds;
+            _psw.Restart();
+        }
 #endif
         // Update who we are talking to (serialize without allocations)
         if (microphoneChange)
@@ -450,9 +474,14 @@ public partial class BasisTransmissionResults
     private void BuildAndSendTalkingPoints(IReadOnlyList<BasisNetworkReceiver> snapshot, int receiverCount)
     {
         if (TalkingPoints.Capacity < receiverCount)
+        {
             TalkingPoints.Capacity = receiverCount;
+        }
+
         if (ExcludedPoints.Capacity < receiverCount)
+        {
             ExcludedPoints.Capacity = receiverCount;
+        }
 
         TalkingPoints.Clear();
         ExcludedPoints.Clear();
@@ -461,18 +490,27 @@ public partial class BasisTransmissionResults
         for (int i = 0; i < receiverCount; i++)
         {
             ushort id = snapshot[i].playerId;
-            if (id > maxId) maxId = id;
+            if (id > maxId)
+            {
+                maxId = id;
+            }
 
             if (MicrophoneRange[i])
+            {
                 TalkingPoints.Add(id);
+            }
             else
+            {
                 ExcludedPoints.Add(id);
+            }
         }
 
         int recipientCount = TalkingPoints.Count;
         int excludedCount = ExcludedPoints.Count;
         BasisNetworkTransmitter.HasReasonToSendAudio = recipientCount != 0;
-
+#if UNITY_SERVER
+        BasisDebug.Log($"Has Reason To Send Audio {BasisNetworkTransmitter.HasReasonToSendAudio}");
+#endif
         // Compute wire sizes for each mode
         int listSize = (recipientCount <= byte.MaxValue ? 1 : 2) + recipientCount * 2;
         int invertedSize = (excludedCount <= byte.MaxValue ? 1 : 2) + excludedCount * 2;
@@ -492,9 +530,9 @@ public partial class BasisTransmissionResults
                 bitfieldBuffer = new byte[bitfieldBytes];
 
             System.Array.Clear(bitfieldBuffer, 0, bitfieldBytes);
-            for (int i = 0; i < recipientCount; i++)
+            for (int Index = 0; Index < recipientCount; Index++)
             {
-                int id = TalkingPoints[i];
+                int id = TalkingPoints[Index];
                 bitfieldBuffer[id / 8] |= (byte)(1 << (id % 8));
             }
 
@@ -505,29 +543,39 @@ public partial class BasisTransmissionResults
         {
             // Inverted list mode: send excluded IDs
             bool largeCnt = excludedCount > byte.MaxValue;
-            channel = largeCnt
-                ? BasisNetworkCommons.AudioRecipientsInvertedLargeChannel
-                : BasisNetworkCommons.AudioRecipientsInvertedChannel;
+            channel = largeCnt  ? BasisNetworkCommons.AudioRecipientsInvertedLargeChannel : BasisNetworkCommons.AudioRecipientsInvertedChannel;
             if (largeCnt)
+            {
                 VRMWriter.Put((ushort)excludedCount);
+            }
             else
+            {
                 VRMWriter.Put((byte)excludedCount);
+            }
+
             for (int i = 0; i < excludedCount; i++)
+            {
                 VRMWriter.Put(ExcludedPoints[i]);
+            }
         }
         else
         {
             // Normal list mode: send recipient IDs
             bool largeCnt = recipientCount > byte.MaxValue;
-            channel = largeCnt
-                ? BasisNetworkCommons.AudioRecipientsLargeChannel
-                : BasisNetworkCommons.AudioRecipientsChannel;
+            channel = largeCnt  ? BasisNetworkCommons.AudioRecipientsLargeChannel  : BasisNetworkCommons.AudioRecipientsChannel;
             if (largeCnt)
+            {
                 VRMWriter.Put((ushort)recipientCount);
+            }
             else
+            {
                 VRMWriter.Put((byte)recipientCount);
+            }
+
             for (int i = 0; i < recipientCount; i++)
+            {
                 VRMWriter.Put(TalkingPoints[i]);
+            }
         }
 
         BasisNetworkConnection.LocalPlayerPeer.Send(
@@ -725,5 +773,4 @@ public partial class BasisTransmissionResults
         a = b;
         b = tmp;
     }
-
 }

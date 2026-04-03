@@ -231,7 +231,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisLocalMicrophoneDriver.Initialize();
 #endif
 
-            BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
+            BasisScene BasisScene = FindAnyObjectByType<BasisScene>(FindObjectsInactive.Exclude);
             if (BasisScene != null)
             {
                 BasisSceneFactory.Initalize(BasisScene);

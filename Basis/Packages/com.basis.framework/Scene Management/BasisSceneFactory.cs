@@ -158,7 +158,7 @@ public static class BasisSceneFactory
         }
         else
         {
-            BasisLocalPlayer = GameObject.FindFirstObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
+            BasisLocalPlayer = GameObject.FindAnyObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
         }
     }
     public static void LoadCameraProperties(Camera Camera)

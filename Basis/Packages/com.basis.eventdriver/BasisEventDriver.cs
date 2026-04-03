@@ -21,8 +21,51 @@ using UnityEngine.InputSystem;
 /// physics scheduling for JigglePhysics, and various local simulation hooks.
 /// </summary>
 [DefaultExecutionOrder(-31950)]
-public class BasisEventDriver : MonoBehaviour
+public partial class BasisEventDriver : MonoBehaviour
 {
+    // ── Platform flag (single #if, used as runtime bool everywhere else) ──
+    public static readonly bool IsServer =
+#if UNITY_SERVER
+        true;
+#else
+        false;
+#endif
+
+    // ── Profile section IDs ─────────────────────────────────────
+    const int PROF_NETWORK_APPLY = 0;
+    const int PROF_DEVICE_MANAGEMENT = 1;
+    const int PROF_REMOTE_AUDIO_SIMULATE = 2;
+    const int PROF_NAMEPLATE_SCHEDULE = 3;
+    const int PROF_BTWEEN = 4;
+    const int PROF_LOCAL_PLAYER = 5;
+    const int PROF_REMOTE_FACE_SIMULATE = 6;
+    const int PROF_REMOTE_AUDIO_APPLY = 7;
+    const int PROF_BLENDSHAPE_SIMULATE = 8;
+    const int PROF_BLENDSHAPE_APPLY = 9;
+    const int PROF_JIGGLE_SCHEDULE = 10;
+    const int PROF_NETWORK_TRANSMIT = 11;
+    const int PROF_JIGGLE_POSE = 12;
+    const int PROF_MICROPHONE = 13;
+    const int PROF_NAMEPLATE_COMPLETE = 14;
+    const int PROF_JIGGLE_COMPLETE_POSE = 15;
+    const int PROF_SHADOW_CLONE = 16;
+
+    const int PROF_NET_TRANSMIT_PICKUPS = 0;
+    const int PROF_NET_FIRE_BEFORE_APPLY = 1;
+    const int PROF_NET_SIMULATE_APPLY = 2;
+    const int PROF_NET_COMPLETE_REMOTE_LERP = 3;
+
+    // ── Partial method declarations (calls are stripped in non-editor builds) ──
+    partial void ProfileLateUpdateInit();
+    partial void ProfileBegin(int section);
+    partial void ProfileBegin2();
+    partial void ProfileEnd(int section);
+    partial void ProfileEnd2(int section);
+    partial void ProfileLateUpdateFinish();
+    partial void ProfileBeforeRenderInit();
+    partial void ProfileBeforeRenderFinish();
+
+    // ── Fields ──────────────────────────────────────────────────
     /// <summary>
     /// Accumulator used to track elapsed time since the last interval tick.
     /// </summary>
@@ -74,16 +117,17 @@ public class BasisEventDriver : MonoBehaviour
     public static BasisEventDriver Instance;
 
     public static bool StateOfOnRenderBefore = false;
+
+    // ── Lifecycle ───────────────────────────────────────────────
+
     /// <summary>
     /// Unity enable hook. Subscribes render callbacks (client), initializes scene and network drivers.
     /// </summary>
     public void OnEnable()
     {
         Instance = this;
-#if UNITY_SERVER
-#else
-        Application.onBeforeRender += OnBeforeRender;
-#endif
+        if (!IsServer)
+            Application.onBeforeRender += OnBeforeRender;
         BasisOpenLipSyncDriver.Initialize();
         BasisSceneFactory.Initalize();
         BasisObjectSyncDriver.Initalization();
@@ -107,11 +151,11 @@ public class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void OnDisable()
     {
-#if UNITY_SERVER
-#else
-        Application.onBeforeRender -= OnBeforeRender;
-#endif
+        if (!IsServer)
+            Application.onBeforeRender -= OnBeforeRender;
     }
+
+    // ── Update ──────────────────────────────────────────────────
 
     /// <summary>
     /// Unity update loop. Drains main-thread actions, advances network simulation (compute),
@@ -136,10 +180,8 @@ public class BasisEventDriver : MonoBehaviour
         }
         BasisNetworkManagement.SimulateNetworkCompute(unscaledDeltaTime);
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
-#if UNITY_SERVER
-#else
-        InputSystem.Update();
-#endif
+        if (!IsServer)
+            InputSystem.Update();
         timeSinceLastUpdate += DeltaTime;
     }
 
@@ -148,7 +190,6 @@ public class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void FixedUpdate()
     {
-
         fixedDeltaTime = Time.fixedDeltaTime;
         fixedTimeAsDouble = Time.fixedTimeAsDouble;
         if (BasisLocalPlayer.PlayerReady)
@@ -157,17 +198,15 @@ public class BasisEventDriver : MonoBehaviour
         }
     }
 
+    // ── LateUpdate ──────────────────────────────────────────────
+
     /// <summary>
     /// LateUpdate step for device management loop, eye simulation, local player late sim,
     /// microphone updates (client), network apply, and JigglePhysics scheduling/pose/render.
     /// </summary>
     public void LateUpdate()
     {
-#if UNITY_EDITOR
-        bool profiling = BasisEventDriverProfilerData.Enabled;
-        System.Diagnostics.Stopwatch totalSW = null;
-        if (profiling) totalSW = System.Diagnostics.Stopwatch.StartNew();
-#endif
+        ProfileLateUpdateInit();
 
         if (StateOfOnRenderBefore)
         {
@@ -175,79 +214,47 @@ public class BasisEventDriver : MonoBehaviour
         }
 
         // ── Network apply group (sub-timed) ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-        if (profiling) BasisEventDriverProfilerData.Begin2();
-#endif
+        ProfileBegin(PROF_NETWORK_APPLY);
+        ProfileBegin2();
         BasisObjectSyncDriver.TransmitOwnedPickups(TimeAsDouble);
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Net_TransmitPickupsMs = BasisEventDriverProfilerData.End2();
-        if (profiling) BasisEventDriverProfilerData.Begin2();
-#endif
+        ProfileEnd2(PROF_NET_TRANSMIT_PICKUPS);
+        ProfileBegin2();
         BasisLocalPlayer.FireJustBeforeNetworkApply();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Net_FireBeforeApplyMs = BasisEventDriverProfilerData.End2();
-        if (profiling) BasisEventDriverProfilerData.Begin2();
-#endif
+        ProfileEnd2(PROF_NET_FIRE_BEFORE_APPLY);
+        ProfileBegin2();
         BasisNetworkManagement.SimulateNetworkApply();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Net_SimulateNetworkApplyMs = BasisEventDriverProfilerData.End2();
-        if (profiling) BasisEventDriverProfilerData.Begin2();
-#endif
+        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
+        ProfileBegin2();
         BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Net_CompleteRemoteLerpMs = BasisEventDriverProfilerData.End2();
-        if (profiling) BasisEventDriverProfilerData.NetworkApplyMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
+        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Device management ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_DEVICE_MANAGEMENT);
         BasisDeviceManagement.OnDeviceManagementLoop?.Invoke();
         if (BasisDeviceManagement.HasEvents)
         {
             BasisDeviceManagement.Instance.Simulate();
         }
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.DeviceManagementMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_DEVICE_MANAGEMENT);
 
         // ── Remote audio simulate ──
-#if UNITY_EDITOR
-        if (profiling)
-        {
-            BasisEventDriverProfilerData.RemoteAudioDriverCount = BasisRemoteAudioDriver.Drivers.Count;
-            BasisEventDriverProfilerData.Begin();
-        }
-#endif
+        ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);
         BasisRemoteAudioDriver.Simulate(DeltaTime);
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.RemoteAudioSimulateMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_REMOTE_AUDIO_SIMULATE);
 
         // ── Nameplate schedule ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
         BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.NamePlateScheduleMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
 
         // ── BTween ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_BTWEEN);
         BTweenManager.Simulate(realtimeSinceStartupAsDouble);
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.BTweenMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_BTWEEN);
 
         // ── Local player ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_LOCAL_PLAYER);
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisLocalPlayer.Instance.FacialBlinkDriver.Simulate(TimeAsDouble);
@@ -258,116 +265,64 @@ public class BasisEventDriver : MonoBehaviour
 #endif
         if (BasisLocalPlayer.PlayerReady)
         {
+            BasisLocalPlayer.Instance.Simulate(DeltaTime);
+            BasisLocalCameraDriver.Instance.Simulate();
+            BasisLocalPlayer.Instance.LocalHandDriver.Apply();
             BasisLocalPlayer.Instance.LocalEyeDriver.Simulate(DeltaTime);
             BasisLocalPlayer.Instance.LocalEyeDriver.Apply();
         }
-        if (BasisLocalPlayer.PlayerReady)
-        {
-            BasisLocalPlayer.Instance.Simulate(DeltaTime);
-            BasisLocalCameraDriver.Instance.Simulate();
-        }
-        if (BasisLocalPlayer.PlayerReady)
-        {
-            BasisLocalPlayer.Instance.LocalHandDriver.Apply();
-        }
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.LocalPlayerMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_LOCAL_PLAYER);
 
         // ── Remote face simulate (job schedule) ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_REMOTE_FACE_SIMULATE);
         BasisRemoteFaceManagement.Simulate(TimeAsDouble, DeltaTime);
-#if UNITY_EDITOR
-        if (profiling)
-        {
-            BasisEventDriverProfilerData.RemoteFaceSimulateMs = BasisEventDriverProfilerData.End();
-            BasisEventDriverProfilerData.RemoteFace_Count = BasisRemoteFaceManagement.count;
-        }
-#endif
+        ProfileEnd(PROF_REMOTE_FACE_SIMULATE);
 
         // ── Remote audio apply ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_REMOTE_AUDIO_APPLY);
         BasisRemoteAudioDriver.Apply();
 #if STEAMAUDIO_ENABLED
         SteamAudioManager.Apply();
 #endif
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.RemoteAudioApplyMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_REMOTE_AUDIO_APPLY);
 
         // ── BlendShape simulate ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_BLENDSHAPE_SIMULATE);
         BasisBlendShapeDriver.Simulate();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.BlendShapeSimulateMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_BLENDSHAPE_SIMULATE);
 
         // ── BlendShape apply ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_BLENDSHAPE_APPLY);
         BasisBlendShapeDriver.Apply();
         BasisAvatarDriver.ScheduleReadBlendShapes();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.BlendShapeApplyMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_BLENDSHAPE_APPLY);
 
         // ── JigglePhysics schedule ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_JIGGLE_SCHEDULE);
         JigglePhysics.ScheduleSimulate(fixedTimeAsDouble, TimeAsDouble, fixedDeltaTime);
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.JiggleScheduleMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_JIGGLE_SCHEDULE);
 
         // ── Network transmit (reads bone results via GetOutGoingMouth) ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_NETWORK_TRANSMIT);
         BasisNetworkTransmitter.AfterAvatarChanges?.Invoke();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.NetworkTransmitMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_NETWORK_TRANSMIT);
 
         // ── JigglePhysics pose ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_JIGGLE_POSE);
         JigglePhysics.SchedulePose(TimeAsDouble);
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.JigglePoseMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_JIGGLE_POSE);
 
         // ── Microphone ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_MICROPHONE);
 #if !UNITY_SERVER && !BASIS_DISABLE_MICROPHONE
         BasisLocalMicrophoneDriver.MicrophoneUpdate();
 #endif
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.MicrophoneMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_MICROPHONE);
 
         // ── Nameplate complete ──
-#if UNITY_EDITOR
-        if (profiling)
-        {
-            BasisEventDriverProfilerData.NamePlateJobWasIncomplete = !BasisRemoteNamePlateDriver.handle.IsCompleted;
-            BasisEventDriverProfilerData.Begin();
-        }
-#endif
+        ProfileBegin(PROF_NAMEPLATE_COMPLETE);
         BasisRemoteNamePlateDriver.CompleteNamePlates();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.NamePlateCompleteMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_NAMEPLATE_COMPLETE);
 
         BasisJoinLeaveNotification.Simulate(TimeAsDouble);
         IndividualPlayerProvider.SimulateBeacon(DeltaTime);
@@ -382,37 +337,25 @@ public class BasisEventDriver : MonoBehaviour
         }
 
         // ── JigglePhysics complete pose ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_JIGGLE_COMPLETE_POSE);
         JigglePhysics.CompletePose();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.JiggleCompletePoseMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_JIGGLE_COMPLETE_POSE);
 
         // ── Shadow clone blendshapes ──
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.Begin();
-#endif
+        ProfileBegin(PROF_SHADOW_CLONE);
         BasisAvatarDriver.ApplyShadowCloneBlendShapes();
-#if UNITY_EDITOR
-        if (profiling) BasisEventDriverProfilerData.ShadowCloneMs = BasisEventDriverProfilerData.End();
-#endif
+        ProfileEnd(PROF_SHADOW_CLONE);
 
         StateOfOnRenderBefore = true;
-#if UNITY_SERVER
-        OnBeforeRender();
-#endif
-
-#if UNITY_EDITOR
-        if (profiling)
+        if (IsServer)
         {
-            totalSW.Stop();
-            BasisEventDriverProfilerData.LateUpdateTotalMs = totalSW.Elapsed.TotalMilliseconds;
-            BasisEventDriverProfilerData.PushHistory();
+            OnBeforeRender();
         }
-#endif
+
+        ProfileLateUpdateFinish();
     }
+
+    // ── OnBeforeRender ──────────────────────────────────────────
 
     /// <summary>
     /// Callback invoked before rendering each frame (client), used to run final local player
@@ -420,15 +363,7 @@ public class BasisEventDriver : MonoBehaviour
     /// </summary>
     private void OnBeforeRender()
     {
-#if UNITY_EDITOR
-        bool profiling = BasisEventDriverProfilerData.Enabled;
-        if (profiling)
-        {
-            BasisEventDriverProfilerData.RemoteFaceJobWasIncomplete = BasisRemoteFaceManagement.HasJob && !BasisRemoteFaceManagement.handle.IsCompleted;
-        }
-        System.Diagnostics.Stopwatch sw = null;
-        if (profiling) sw = System.Diagnostics.Stopwatch.StartNew();
-#endif
+        ProfileBeforeRenderInit();
 
         if (BasisLocalPlayer.PlayerReady)
         {
@@ -440,13 +375,7 @@ public class BasisEventDriver : MonoBehaviour
         }
         StateOfOnRenderBefore = false;
 
-#if UNITY_EDITOR
-        if (profiling && sw != null)
-        {
-            sw.Stop();
-            BasisEventDriverProfilerData.OnBeforeRenderMs = sw.Elapsed.TotalMilliseconds;
-        }
-#endif
+        ProfileBeforeRenderFinish();
     }
 
     /// <summary>
@@ -467,24 +396,124 @@ public class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void OnDrawGizmos()
     {
-#if UNITY_SERVER
-#else
-        //    BasisLocalPlayer.Instance.BasisLocalFootDriver.DrawGizmos();
-        if (BasisLocalPlayer.PlayerReady)
+        if (!IsServer && BasisLocalPlayer.PlayerReady)
         {
             BasisHintOffsetGizmos.DrawAll();
         }
-#endif
     }
+
     public void OnDrawGizmosSelected()
     {
-#if UNITY_SERVER
-#else
+        if (IsServer) return;
         JigglePhysics.OnDrawGizmos();
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisPlayerInteract.DrawAll();
         }
-#endif
     }
+
+    // ── Editor-only profiling implementation ────────────────────
+    // Partial methods with no implementation are stripped by the compiler,
+    // so all Profile*() calls above become zero-cost no-ops in non-editor builds.
+#if UNITY_EDITOR
+    private bool _profiling;
+    private System.Diagnostics.Stopwatch _lateUpdateSW;
+    private System.Diagnostics.Stopwatch _beforeRenderSW;
+
+    partial void ProfileLateUpdateInit()
+    {
+        _profiling = BasisEventDriverProfilerData.Enabled;
+        if (_profiling)
+            _lateUpdateSW = System.Diagnostics.Stopwatch.StartNew();
+    }
+
+    partial void ProfileBegin(int section)
+    {
+        if (!_profiling) return;
+        switch (section)
+        {
+            case PROF_REMOTE_AUDIO_SIMULATE:
+                BasisEventDriverProfilerData.RemoteAudioDriverCount = BasisRemoteAudioDriver.Drivers.Count;
+                break;
+            case PROF_NAMEPLATE_COMPLETE:
+                BasisEventDriverProfilerData.NamePlateJobWasIncomplete = !BasisRemoteNamePlateDriver.handle.IsCompleted;
+                break;
+        }
+        BasisEventDriverProfilerData.Begin();
+    }
+
+    partial void ProfileBegin2()
+    {
+        if (_profiling)
+            BasisEventDriverProfilerData.Begin2();
+    }
+
+    partial void ProfileEnd(int section)
+    {
+        if (!_profiling) return;
+        double ms = BasisEventDriverProfilerData.End();
+        switch (section)
+        {
+            case PROF_NETWORK_APPLY:         BasisEventDriverProfilerData.NetworkApplyMs = ms; break;
+            case PROF_DEVICE_MANAGEMENT:     BasisEventDriverProfilerData.DeviceManagementMs = ms; break;
+            case PROF_REMOTE_AUDIO_SIMULATE: BasisEventDriverProfilerData.RemoteAudioSimulateMs = ms; break;
+            case PROF_NAMEPLATE_SCHEDULE:    BasisEventDriverProfilerData.NamePlateScheduleMs = ms; break;
+            case PROF_BTWEEN:                BasisEventDriverProfilerData.BTweenMs = ms; break;
+            case PROF_LOCAL_PLAYER:          BasisEventDriverProfilerData.LocalPlayerMs = ms; break;
+            case PROF_REMOTE_FACE_SIMULATE:
+                BasisEventDriverProfilerData.RemoteFaceSimulateMs = ms;
+                BasisEventDriverProfilerData.RemoteFace_Count = BasisRemoteFaceManagement.count;
+                break;
+            case PROF_REMOTE_AUDIO_APPLY:    BasisEventDriverProfilerData.RemoteAudioApplyMs = ms; break;
+            case PROF_BLENDSHAPE_SIMULATE:   BasisEventDriverProfilerData.BlendShapeSimulateMs = ms; break;
+            case PROF_BLENDSHAPE_APPLY:      BasisEventDriverProfilerData.BlendShapeApplyMs = ms; break;
+            case PROF_JIGGLE_SCHEDULE:       BasisEventDriverProfilerData.JiggleScheduleMs = ms; break;
+            case PROF_NETWORK_TRANSMIT:      BasisEventDriverProfilerData.NetworkTransmitMs = ms; break;
+            case PROF_JIGGLE_POSE:           BasisEventDriverProfilerData.JigglePoseMs = ms; break;
+            case PROF_MICROPHONE:            BasisEventDriverProfilerData.MicrophoneMs = ms; break;
+            case PROF_NAMEPLATE_COMPLETE:    BasisEventDriverProfilerData.NamePlateCompleteMs = ms; break;
+            case PROF_JIGGLE_COMPLETE_POSE:  BasisEventDriverProfilerData.JiggleCompletePoseMs = ms; break;
+            case PROF_SHADOW_CLONE:          BasisEventDriverProfilerData.ShadowCloneMs = ms; break;
+        }
+    }
+
+    partial void ProfileEnd2(int section)
+    {
+        if (!_profiling) return;
+        double ms = BasisEventDriverProfilerData.End2();
+        switch (section)
+        {
+            case PROF_NET_TRANSMIT_PICKUPS:     BasisEventDriverProfilerData.Net_TransmitPickupsMs = ms; break;
+            case PROF_NET_FIRE_BEFORE_APPLY:    BasisEventDriverProfilerData.Net_FireBeforeApplyMs = ms; break;
+            case PROF_NET_SIMULATE_APPLY:       BasisEventDriverProfilerData.Net_SimulateNetworkApplyMs = ms; break;
+            case PROF_NET_COMPLETE_REMOTE_LERP: BasisEventDriverProfilerData.Net_CompleteRemoteLerpMs = ms; break;
+        }
+    }
+
+    partial void ProfileLateUpdateFinish()
+    {
+        if (!_profiling) return;
+        _lateUpdateSW.Stop();
+        BasisEventDriverProfilerData.LateUpdateTotalMs = _lateUpdateSW.Elapsed.TotalMilliseconds;
+        BasisEventDriverProfilerData.PushHistory();
+    }
+
+    partial void ProfileBeforeRenderInit()
+    {
+        _profiling = BasisEventDriverProfilerData.Enabled;
+        if (_profiling)
+        {
+            BasisEventDriverProfilerData.RemoteFaceJobWasIncomplete =
+                BasisRemoteFaceManagement.HasJob && !BasisRemoteFaceManagement.handle.IsCompleted;
+            _beforeRenderSW = System.Diagnostics.Stopwatch.StartNew();
+        }
+    }
+
+    partial void ProfileBeforeRenderFinish()
+    {
+        if (!_profiling || _beforeRenderSW == null) return;
+        _beforeRenderSW.Stop();
+        BasisEventDriverProfilerData.OnBeforeRenderMs = _beforeRenderSW.Elapsed.TotalMilliseconds;
+    }
+#endif
 }

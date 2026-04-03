@@ -380,6 +380,21 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             };
             */
 
+            // ─────────────── LIP SYNC GROUP (advanced) ───────────────
+            PanelElementDescriptor lipSyncGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            lipSyncGroup.SetTitle("Lip Sync");
+            lipSyncGroup.SetDescription("Controls how many players use high-quality neural lip sync (OpenLipSync).\nPlayers beyond this limit fall back to the lighter uLipSync backend.");
+
+            PanelSlider sliderLipSyncSlots = PanelSlider.CreateEntryAndBind(
+                lipSyncGroup,
+                PanelSlider.SliderSettings.Advanced("OpenLipSync Max Slots", 1, 250, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.OpenLipSyncMaxSlots);
+            sliderLipSyncSlots.Descriptor.SetDescription(
+                "Number of concurrent OpenLipSync (neural viseme) instances.\n" +
+                "Higher = better lip sync on more players, but more CPU.\n" +
+                "Default: 30. Players beyond this use uLipSync fallback.");
+
             // Hide all advanced groups by default
             audioSourceGroup.SetActive(false);
             hrtfGroup.SetActive(false);
@@ -387,6 +402,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             directivityGroup.SetActive(false);
             occlusionGroup.SetActive(false);
             transmissionGroup.SetActive(false);
+            lipSyncGroup.SetActive(false);
 
             PanelToggle advancedToggle = PanelToggle.CreateNewEntry(listenerDampenGroup);
             advancedToggle.Descriptor.SetTitle("Advanced");
@@ -399,6 +415,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
                 directivityGroup.SetActive(val);
                 occlusionGroup.SetActive(val);
                 transmissionGroup.SetActive(val);
+                lipSyncGroup.SetActive(val);
             };
         }
 

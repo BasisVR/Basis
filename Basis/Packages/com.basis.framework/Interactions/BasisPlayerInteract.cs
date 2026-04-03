@@ -354,7 +354,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
         {
             bool isSameTarget =
                 interactInput.lastTarget != null &&
-                interactInput.lastTarget.GetInstanceID() == hitInteractable.GetInstanceID();
+                interactInput.lastTarget.GetEntityId() == hitInteractable.GetEntityId();
 
             // -----------------------------
             // Different target than last time

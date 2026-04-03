@@ -1,11 +1,9 @@
 using Basis.BasisUI;
 using Basis.Network.Core;
-using Basis.Scripts.Avatar;
 using Basis.Scripts.Common;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.Headless;
-using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using System;
 using System.Collections.Generic;
@@ -384,19 +382,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     {
         BasisDebug.Log("Skipping visual scene asset initialization on dedicated server build.", BasisDebug.LogTag.Networking);
         await Task.CompletedTask;
-        return;
-        if (BundledContentHolder.Instance.UseSceneProvidedHere)
-        {
-            BasisDebug.Log("using Local Asset Bundle or Addressable", BasisDebug.LogTag.Networking);
-            if (BundledContentHolder.Instance.UseAddressablesToLoadScene)
-            {
-                await BasisSceneLoad.LoadSceneAddressables(BundledContentHolder.Instance.DefaultScene.BasisRemoteBundleEncrypted.RemoteBeeFileLocation);
-            }
-            else
-            {
-                await BasisSceneLoad.LoadSceneAssetBundle(BundledContentHolder.Instance.DefaultScene);
-            }
-        }
     }
 
     /// <inheritdoc/>
@@ -420,8 +405,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         if (BasisLocalPlayer.PlayerReady && BasisLocalPlayer.Instance != null)
         {
-            EnsureHeadlessInput();
-            _ = ApplyConfiguredAvatarAsync();
+            InitalizeLocalPlayerReadyNess();
         }
         else
         {
@@ -456,6 +440,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         SceneManager.activeSceneChanged -= OnSceneLoadeded;
         CancelReconnectLoop();
         StopHealthEndpoint();
+        BasisAudioClipPlayer.DeInitialize();
         BasisHeadlessRuntimeStatus.MarkStopping();
         BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
     }
@@ -463,7 +448,15 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private void OnLocalPlayerReadyForHeadless()
     {
         BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
+        InitalizeLocalPlayerReadyNess();
+    }
+    private void InitalizeLocalPlayerReadyNess()
+    {
         EnsureHeadlessInput();
+
+        // If AudioClips directory has .wav files, stream a random one as voice audio
+        BasisAudioClipPlayer.TryInitialize();
+
         _ = ApplyConfiguredAvatarAsync();
     }
 

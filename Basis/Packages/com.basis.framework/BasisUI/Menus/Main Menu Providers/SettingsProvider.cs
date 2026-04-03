@@ -20,6 +20,13 @@ namespace Basis.BasisUI
 #if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.OnMicrophoneSettingsChanged += SyncUiFromSnapshot;
 #endif
+            ApplyOpenLipSyncMaxSlots();
+            BasisSettingsSystem.OnSettingsFinishedChanges += ApplyOpenLipSyncMaxSlots;
+        }
+
+        private static void ApplyOpenLipSyncMaxSlots()
+        {
+            BasisOpenLipSyncDriver.MaxSlots = Mathf.Max(1, (int)BasisSettingsDefaults.OpenLipSyncMaxSlots.RawValue);
         }
 
         public static string StaticTitle => "Settings";
@@ -88,6 +95,7 @@ namespace Basis.BasisUI
             AddLazyTab(tabGroup, "Body Tracking", () => SettingsProviderIK.IKTab(tabGroup));
             AddLazyTab(tabGroup, "Nameplates", () => SettingsProviderNamePlate.NamePlateTab(tabGroup));
             AddLazyTab(tabGroup, "Downloads & Cache", () => SettingsProviderStorage.StorageTab(tabGroup));
+          //  AddLazyTab(tabGroup, "UI Style", () => SettingsProviderUIStyle.UIStyleTab(tabGroup));
             AddLazyTab(tabGroup, "Developer", () => DeveloperTab(tabGroup));
 
 
@@ -249,25 +257,6 @@ namespace Basis.BasisUI
 
             SettingsProviderPlatform.BuildAutoSwapUI(container);
 
-            // Pose LOD group
-            PanelElementDescriptor poseLodGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            poseLodGroup.SetTitle("Pose LOD");
-            poseLodGroup.SetDescription(
-                "Reduces CPU cost by updating distant player poses less frequently.\n" +
-                "Higher values skip more frames for faraway players.\n" +
-                "At 0, every player updates every frame (most accurate, highest cost).\n" +
-                "Visible as slightly choppy animation on distant players.");
-
-            PanelSlider sliderPoseLod = PanelSlider.CreateEntryAndBind(
-                poseLodGroup,
-                PanelSlider.SliderSettings.Advanced("Pose LOD Bias", 0, 5, true, 0, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.PoseLOD);
-            sliderPoseLod.Descriptor.SetDescription(
-                "0 = off (all players update every frame).\n" +
-                "1-2 = subtle reduction, barely visible.\n" +
-                "3-5 = noticeable on distant players, significant CPU savings.");
-
             // One reset button for this whole page
             AddResetPageButton(container, "General", ResetGeneralDefaults);
             descriptor.ForceRebuild();
@@ -280,7 +269,6 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.MaxVisibleAvatars.ResetToDefault();
             BasisSettingsDefaults.MaxAudioSources.ResetToDefault();
             BasisSettingsDefaults.UseMaxAudioSources.ResetToDefault();
-            BasisSettingsDefaults.PoseLOD.ResetToDefault();
             BasisSettingsDefaults.UseViewConeAvatars.ResetToDefault();
             BasisSettingsDefaults.ViewConeAngle.ResetToDefault();
             BasisSettingsDefaults.HearingRange.ResetToDefault();
@@ -344,7 +332,7 @@ namespace Basis.BasisUI
                 PanelSlider.SliderSettings.Percentage("Prop Volume"),
                 BasisSettingsDefaults.PropVolume);
 
-            // Remote Players (Spatial Audio)
+            // Remote Players (Spatial Audio) — includes its own Advanced toggle
             SettingsProviderRemoteAudio.BuildRemoteAudioUI(container);
 
             // One reset button for this whole page
@@ -362,6 +350,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.VoiceVolume.ResetToDefault();
             BasisSettingsDefaults.AvatarVolume.ResetToDefault();
             BasisSettingsDefaults.PropVolume.ResetToDefault();
+            BasisSettingsDefaults.OpenLipSyncMaxSlots.ResetToDefault();
             SettingsProviderRemoteAudio.ResetRemoteAudioToDefaults();
         }
 
@@ -852,12 +841,7 @@ namespace Basis.BasisUI
             PanelElementDescriptor renderingGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             renderingGroup.SetTitle("Rendering");
-            renderingGroup.SetDescription("Resolution, HDR and performance-related options.");
-
-            PanelDropdown dropdownHDR = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
-            dropdownHDR.Descriptor.SetTitle("HDR Support");
-            dropdownHDR.AssignEntries(new List<string> { "Off", "32bit", "64bit" });
-            dropdownHDR.AssignBinding(BasisSettingsDefaults.HDRSupport);
+            renderingGroup.SetDescription("Resolution and performance-related options.");
 
             PanelDropdown dropdownMemoryAllocation = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
             dropdownMemoryAllocation.Descriptor.SetTitle("Memory Allocation");
@@ -898,10 +882,37 @@ namespace Basis.BasisUI
             dropdownScreenMode.DropdownComponent.onValueChanged.AddListener(ScreenMode);
             dropdownScreenMode.DropdownComponent.SetValueWithoutNotify(GetIndexFromScreenMode(Screen.fullScreenMode));
 
+            PanelToggle toggleAdvanced = PanelToggle.CreateNewEntry(container);
+            toggleAdvanced.Descriptor.SetTitle("Advanced");
+            toggleAdvanced.SetValueWithoutNotify(false);
+
+            PanelElementDescriptor poseLodGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            poseLodGroup.SetTitle("Pose LOD");
+            poseLodGroup.SetDescription(
+                "Reduces CPU cost by updating distant player poses less frequently.\n" +
+                "Higher values skip more frames for faraway players.\n" +
+                "At 0, every player updates every frame (most accurate, highest cost).\n" +
+                "Visible as slightly choppy animation on distant players.");
+
+            PanelSlider sliderPoseLod = PanelSlider.CreateEntryAndBind(
+                poseLodGroup,
+                PanelSlider.SliderSettings.Advanced("Pose LOD Bias", 0, 5, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.PoseLOD);
+            sliderPoseLod.Descriptor.SetDescription(
+                "0 = off (all players update every frame).\n" +
+                "1-2 = subtle reduction, barely visible.\n" +
+                "3-5 = noticeable on distant players, significant CPU savings.");
+
             PanelElementDescriptor advancedGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            advancedGroup.SetTitle("Advanced Rendering");
-            advancedGroup.SetDescription("Change how things look vs how smooth they run.");
+            advancedGroup.SetTitle("Advanced");
+            advancedGroup.SetDescription("Fine-tune rendering, LOD, and performance options.");
+
+            PanelDropdown dropdownHDR = PanelDropdown.CreateNewEntry(advancedGroup.ContentParent);
+            dropdownHDR.Descriptor.SetTitle("HDR Support");
+            dropdownHDR.AssignEntries(new List<string> { "Off", "32bit", "64bit" });
+            dropdownHDR.AssignBinding(BasisSettingsDefaults.HDRSupport);
 
             PanelSlider sliderFoveatedRendering = PanelSlider.CreateEntryAndBind(
                 advancedGroup.ContentParent,
@@ -917,24 +928,29 @@ namespace Basis.BasisUI
                     BasisSettingsDefaults.FOV_MIN, BasisSettingsDefaults.FOV_MAX, true, 0, ValueDisplayMode.Degrees),
                 BasisSettingsDefaults.FieldOfView);
 
-            PanelElementDescriptor lodGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            lodGroup.SetTitle("LOD Bias");
-            lodGroup.SetDescription("Higher = less detail at distance, better performance.");
-
             PanelSlider sliderMeshLOD = PanelSlider.CreateEntryAndBind(
-                lodGroup.ContentParent,
-                new PanelSlider.SliderSettings("Avatar",
+                advancedGroup.ContentParent,
+                new PanelSlider.SliderSettings("Avatar LOD",
                     "",
                     0, 1, false, 3, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.AvatarMeshLOD);
 
             PanelSlider sliderGlobalMeshLOD = PanelSlider.CreateEntryAndBind(
-                lodGroup.ContentParent,
-                new PanelSlider.SliderSettings("World",
+                advancedGroup.ContentParent,
+                new PanelSlider.SliderSettings("World LOD",
                     "",
                     0, 100, true, 0, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.GlobalMeshLOD);
+
+            poseLodGroup.SetActive(false);
+            advancedGroup.SetActive(false);
+
+            toggleAdvanced.OnValueChanged += (val) =>
+            {
+                poseLodGroup.SetActive(val);
+                advancedGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
 
             // One reset button for this whole page
             AddResetPageButton(container, "Graphics", ResetGraphicsDefaults);
@@ -957,6 +973,7 @@ namespace Basis.BasisUI
 
             BasisSettingsDefaults.FoveatedRendering.ResetToDefault();
             BasisSettingsDefaults.FieldOfView.ResetToDefault();
+            BasisSettingsDefaults.PoseLOD.ResetToDefault();
             BasisSettingsDefaults.AvatarMeshLOD.ResetToDefault();
             BasisSettingsDefaults.GlobalMeshLOD.ResetToDefault();
 
