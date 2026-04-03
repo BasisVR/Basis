@@ -29,7 +29,6 @@ namespace Basis
         public bool IsOwnedLocallyOnClient = false;
         public ushort CurrentOwnerId;
         public BasisNetworkPlayer currentOwnedPlayer;
-        public bool hasCurrentOwner {get; private set; }
         /// <summary>
         /// the reason its start instead of awake is to make sure progation occurs to everything no matter the net connect
         /// </summary>
@@ -104,13 +103,6 @@ namespace Basis
                 {
                     CurrentOwnerId = InitalOwnershipStatus.PlayerId;
                     BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer);
-                    hasCurrentOwner = true;
-                }
-                else
-                {
-                    CurrentOwnerId = 0;
-                    currentOwnedPlayer = null;
-                    hasCurrentOwner = false;
                 }
                 HasNetworkID = IDResolverResult.Success;
                 NetworkID = IDResolverResult.Id;
@@ -131,9 +123,6 @@ namespace Basis
             {
                 IsOwnedLocallyOnServer = false;
                 IsOwnedLocallyOnClient = false;
-                CurrentOwnerId = 0;
-                currentOwnedPlayer = null;
-                hasCurrentOwner = false;
                 OnServerOwnershipDestroyed();
             }
         }
@@ -145,7 +134,6 @@ namespace Basis
                 IsOwnedLocallyOnServer = isOwner;
                 IsOwnedLocallyOnClient = isOwner;
                 CurrentOwnerId = NetIdNewOwner;
-                hasCurrentOwner = true;
                 if (BasisNetworkPlayers.GetPlayerById(CurrentOwnerId, out currentOwnedPlayer))
                 {
                     OnOwnershipTransfer(currentOwnedPlayer);
@@ -316,6 +304,18 @@ namespace Basis
             BasisOwnershipResult Result = await BasisNetworkOwnership.RequestCurrentOwnershipAsync(clientIdentifier, Timout);
             return Result;
         }
+
+        public bool TryGetOwnerId(out ushort OwnerId)
+        {
+            if (currentOwnedPlayer != null && currentOwnedPlayer.IsOwnerCached(clientIdentifier))
+            {
+                OwnerId = currentOwnedPlayer.playerId;
+                return true;
+            }
+            OwnerId = 0;
+            return false;
+        }
+
         public virtual void OnNetworkReady()
         {
 
