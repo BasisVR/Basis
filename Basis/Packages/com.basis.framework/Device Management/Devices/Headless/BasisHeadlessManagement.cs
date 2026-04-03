@@ -76,7 +76,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         foreach (Renderer renderer in renderers)
         {
-            foreach (Material mat in renderer.materials)
+            foreach (Material mat in renderer.sharedMaterials)
             {
                 if (mat == null || processedMats.Contains(mat))
                 {
@@ -89,6 +89,38 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         Debug.Log("All textures cleared from all materials.");
+    }
+
+    private void RemoveMaterialTexturesFromRoot(GameObject root)
+    {
+        if (root == null)
+        {
+            return;
+        }
+
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        HashSet<Material> processedMats = new HashSet<Material>();
+
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material[] materials = renderer.sharedMaterials;
+            for (int index = 0; index < materials.Length; index++)
+            {
+                Material mat = materials[index];
+                if (mat == null || processedMats.Contains(mat))
+                {
+                    continue;
+                }
+
+                ShaderUtilSafe.ClearAllKnownTextures(mat);
+                processedMats.Add(mat);
+            }
+        }
     }
 
     /// <summary>
@@ -106,7 +138,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         {
             foreach (string prop in commonTextureProps)
             {
-                if (material.HasProperty(prop))
+                if (material.HasProperty(prop) && material.GetTexture(prop) != null)
                 {
                     material.SetTexture(prop, null);
                 }
@@ -546,6 +578,10 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         {
             BasisDebug.Log($"Loading headless avatar from {avatarSource}: {avatarLocation} (mode {avatarLoadMode})", BasisDebug.LogTag.Avatar);
             await BasisLocalPlayer.Instance.CreateAvatar(avatarLoadMode, bundle);
+            if (BasisLocalPlayer.Instance.BasisAvatar != null)
+            {
+                RemoveMaterialTexturesFromRoot(BasisLocalPlayer.Instance.BasisAvatar.gameObject);
+            }
         }
         catch (Exception ex)
         {
