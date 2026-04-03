@@ -35,6 +35,8 @@ namespace HVR.Osushi
                 {
                     StartHttpServer(httpPort, _root, _avtr);
                 }
+                catch (ThreadAbortException) { }
+                catch (ThreadInterruptedException) { }
                 catch (Exception e)
                 {
                     UnityEngine.Debug.LogError($"[OsushiQuery] HTTP server thread died: {e}");

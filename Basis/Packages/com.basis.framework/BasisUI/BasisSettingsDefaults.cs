@@ -579,6 +579,25 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<float> AgcRelease = new("agcrelease", new BasisPlatformDefault<float>(0.01f)); // 0..1
 
+        // ---------------- UI STYLE PALETTE ----------------
+        public static BasisSettingsBinding<string> UIPaletteBG1 = new("ui_palette_bg1", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteBG2 = new("ui_palette_bg2", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteBG3 = new("ui_palette_bg3", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteLayer = new("ui_palette_layer", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteAccent = new("ui_palette_accent", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteFont1 = new("ui_palette_font1", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteFont2 = new("ui_palette_font2", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteFont3 = new("ui_palette_font3", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteInputField = new("ui_palette_inputfield", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteButton = new("ui_palette_button", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteWhite = new("ui_palette_white", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteClear = new("ui_palette_clear", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteBlack = new("ui_palette_black", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteSuccess = new("ui_palette_success", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteCaution = new("ui_palette_caution", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteDanger = new("ui_palette_danger", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteScrollbar = new("ui_palette_scrollbar", new BasisPlatformDefault<string>(""));
+
         // Noise Gate
         public static BasisSettingsBinding<bool> UseNoiseGate = new("usenoisegate", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> NoiseGateThreshold = new("noisegatethreshold", new BasisPlatformDefault<float>(0.01f)); // RMS threshold
@@ -863,6 +882,25 @@ namespace Basis.BasisUI
             RAReflections.LoadBindingValue();
             RAReflectionsMixLevel.LoadBindingValue();
             RAApplyHRTFToReflections.LoadBindingValue();
+
+            // UI Style Palette
+            UIPaletteBG1.LoadBindingValue();
+            UIPaletteBG2.LoadBindingValue();
+            UIPaletteBG3.LoadBindingValue();
+            UIPaletteLayer.LoadBindingValue();
+            UIPaletteAccent.LoadBindingValue();
+            UIPaletteFont1.LoadBindingValue();
+            UIPaletteFont2.LoadBindingValue();
+            UIPaletteFont3.LoadBindingValue();
+            UIPaletteInputField.LoadBindingValue();
+            UIPaletteButton.LoadBindingValue();
+            UIPaletteWhite.LoadBindingValue();
+            UIPaletteClear.LoadBindingValue();
+            UIPaletteBlack.LoadBindingValue();
+            UIPaletteSuccess.LoadBindingValue();
+            UIPaletteCaution.LoadBindingValue();
+            UIPaletteDanger.LoadBindingValue();
+            UIPaletteScrollbar.LoadBindingValue();
         }
     }
 }
