@@ -44,7 +44,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public static int ReconnectDelaySeconds = 5;
     public static int MaxReconnectAttempts = 10;
     public static bool StrictMemoryCleanupEnabled = true;
-    public static int StrictMemoryCleanupIntervalSeconds = 120;
+    private static BasisHeadlessManagement ActiveInstance;
 
     private BasisHeadlessHealthCheck healthCheck;
     private CancellationTokenSource reconnectCts;
@@ -53,7 +53,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private bool reconnectScheduled;
     private bool configuredAvatarApplied;
     private bool strictMemoryCleanupInProgress;
-    private float nextStrictMemoryCleanupTime;
 
     /// <summary>
     /// Scene change hook used in headless to aggressively strip visuals and free memory.
@@ -91,7 +90,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         Debug.Log("All textures cleared from all materials.");
     }
 
-    private void RemoveMaterialTexturesFromRoot(GameObject root)
+    private static void RemoveMaterialTexturesFromRoot(GameObject root)
     {
         if (root == null)
         {
@@ -194,7 +193,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         int defaultReconnectDelaySeconds = ReconnectDelaySeconds;
         int defaultMaxReconnectAttempts = MaxReconnectAttempts;
         bool defaultStrictMemoryCleanupEnabled = StrictMemoryCleanupEnabled;
-        int defaultStrictMemoryCleanupIntervalSeconds = StrictMemoryCleanupIntervalSeconds;
 
         string envPassword = ReadEnvironmentString("Password");
         string envIp = ReadEnvironmentString("Ip");
@@ -209,7 +207,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         int? envReconnectDelaySeconds = ReadEnvironmentInt("ReconnectDelaySeconds");
         int? envMaxReconnectAttempts = ReadEnvironmentInt("MaxReconnectAttempts");
         bool? envStrictMemoryCleanupEnabled = ReadEnvironmentBool("StrictMemoryCleanupEnabled");
-        int? envStrictMemoryCleanupIntervalSeconds = ReadEnvironmentInt("StrictMemoryCleanupIntervalSeconds");
 
         XElement root = null;
         if (File.Exists(filePath))
@@ -233,8 +230,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
                 defaultReconnectEnabled,
                 defaultReconnectDelaySeconds,
                 defaultMaxReconnectAttempts,
-                defaultStrictMemoryCleanupEnabled,
-                defaultStrictMemoryCleanupIntervalSeconds);
+                defaultStrictMemoryCleanupEnabled);
         }
 
         Password = envPassword ?? root?.Element("Password")?.Value ?? defaultPassword;
@@ -250,7 +246,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         ReconnectDelaySeconds = Mathf.Max(1, envReconnectDelaySeconds ?? ReadXmlInt(root?.Element("ReconnectDelaySeconds")?.Value, defaultReconnectDelaySeconds));
         MaxReconnectAttempts = Mathf.Max(0, envMaxReconnectAttempts ?? ReadXmlInt(root?.Element("MaxReconnectAttempts")?.Value, defaultMaxReconnectAttempts));
         StrictMemoryCleanupEnabled = envStrictMemoryCleanupEnabled ?? ReadXmlBool(root?.Element("StrictMemoryCleanupEnabled")?.Value, defaultStrictMemoryCleanupEnabled);
-        StrictMemoryCleanupIntervalSeconds = Mathf.Max(15, envStrictMemoryCleanupIntervalSeconds ?? ReadXmlInt(root?.Element("StrictMemoryCleanupIntervalSeconds")?.Value, defaultStrictMemoryCleanupIntervalSeconds));
         NormalizeConfiguredAvatarFields();
     }
 
@@ -268,8 +263,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         bool reconnectEnabled,
         int reconnectDelaySeconds,
         int maxReconnectAttempts,
-        bool strictMemoryCleanupEnabled,
-        int strictMemoryCleanupIntervalSeconds)
+        bool strictMemoryCleanupEnabled)
     {
         try
         {
@@ -286,8 +280,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
                 new XElement("ReconnectEnabled", reconnectEnabled),
                 new XElement("ReconnectDelaySeconds", reconnectDelaySeconds),
                 new XElement("MaxReconnectAttempts", maxReconnectAttempts),
-                new XElement("StrictMemoryCleanupEnabled", strictMemoryCleanupEnabled),
-                new XElement("StrictMemoryCleanupIntervalSeconds", strictMemoryCleanupIntervalSeconds)
+                new XElement("StrictMemoryCleanupEnabled", strictMemoryCleanupEnabled)
             );
             new XDocument(defaultConfig).Save(filePath);
         }
@@ -424,16 +417,14 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         reconnectScheduled = false;
         configuredAvatarApplied = false;
         reconnectCts = new CancellationTokenSource();
+        ActiveInstance = this;
         strictMemoryCleanupInProgress = false;
-        nextStrictMemoryCleanupTime = Time.unscaledTime + StrictMemoryCleanupIntervalSeconds;
         BasisHeadlessRuntimeStatus.Reset();
         LoadOrCreateConfigXml();
         ApplyRuntimeConfiguration();
         BasisNetworkConnection.HeadlessReconnectSuppressed = false;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
         BasisNetworkConnection.OnDisconnectedAfterReboot += OnDisconnectedAfterReboot;
-        BasisNetworkConnection.OnConnectedAfterBootstrap -= OnConnectedAfterBootstrap;
-        BasisNetworkConnection.OnConnectedAfterBootstrap += OnConnectedAfterBootstrap;
 
         if (BasisLocalPlayer.PlayerReady && BasisLocalPlayer.Instance != null)
         {
@@ -465,9 +456,12 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private void OnDestroy()
     {
         isShuttingDown = true;
+        if (ReferenceEquals(ActiveInstance, this))
+        {
+            ActiveInstance = null;
+        }
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
-        BasisNetworkConnection.OnConnectedAfterBootstrap -= OnConnectedAfterBootstrap;
         BasisNetworkManagement.OnEnableInstanceCreate -= ConnectToNetwork;
         SceneManager.activeSceneChanged -= OnSceneLoadeded;
         CancelReconnectLoop();
@@ -490,26 +484,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         BasisAudioClipPlayer.TryInitialize();
 
         _ = ApplyConfiguredAvatarAsync();
-    }
-
-    public override void Simulate()
-    {
-        if (!StrictMemoryCleanupEnabled || strictMemoryCleanupInProgress || isShuttingDown)
-        {
-            return;
-        }
-
-        if (Time.unscaledTime < nextStrictMemoryCleanupTime)
-        {
-            return;
-        }
-
-        TriggerStrictMemoryCleanup("periodic sweep");
-    }
-
-    private void OnConnectedAfterBootstrap()
-    {
-        TriggerStrictMemoryCleanup("connect or reconnect");
     }
 
     private void EnsureHeadlessInput()
@@ -582,6 +556,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             {
                 RemoveMaterialTexturesFromRoot(BasisLocalPlayer.Instance.BasisAvatar.gameObject);
             }
+            TriggerStrictMemoryCleanup("avatar load");
         }
         catch (Exception ex)
         {
@@ -699,7 +674,6 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         strictMemoryCleanupInProgress = true;
-        nextStrictMemoryCleanupTime = Time.unscaledTime + StrictMemoryCleanupIntervalSeconds;
         _ = RunStrictMemoryCleanupAsync(reason);
     }
 
@@ -728,8 +702,17 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         finally
         {
             strictMemoryCleanupInProgress = false;
-            nextStrictMemoryCleanupTime = Time.unscaledTime + StrictMemoryCleanupIntervalSeconds;
         }
+    }
+
+    public static void RequestStrictMemoryCleanup(string reason)
+    {
+        ActiveInstance?.TriggerStrictMemoryCleanup(reason);
+    }
+
+    public static void StripTextureReferencesFromRoot(GameObject root)
+    {
+        RemoveMaterialTexturesFromRoot(root);
     }
 
     private void OnDisconnectedAfterReboot(DisconnectInfo disconnectInfo)
@@ -878,8 +861,11 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public override void StopSDK()
     {
         isShuttingDown = true;
+        if (ReferenceEquals(ActiveInstance, this))
+        {
+            ActiveInstance = null;
+        }
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
-        BasisNetworkConnection.OnConnectedAfterBootstrap -= OnConnectedAfterBootstrap;
         CancelReconnectLoop();
         StopHealthEndpoint();
         BasisHeadlessRuntimeStatus.MarkStopping();

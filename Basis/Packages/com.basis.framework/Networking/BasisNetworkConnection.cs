@@ -28,7 +28,6 @@ namespace Basis.Scripts.Networking
 #if UNITY_SERVER
         public static bool HeadlessReconnectSuppressed { get; set; }
         public static Action<DisconnectInfo> OnDisconnectedAfterReboot;
-        public static Action OnConnectedAfterBootstrap;
 #endif
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);
@@ -193,9 +192,6 @@ namespace Basis.Scripts.Networking
 
                     BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
                     BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
-#if UNITY_SERVER
-                    OnConnectedAfterBootstrap?.Invoke();
-#endif
                 }
                 catch (Exception ex)
                 {

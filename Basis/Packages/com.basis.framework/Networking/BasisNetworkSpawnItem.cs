@@ -232,6 +232,9 @@ public static class BasisNetworkSpawnItem
             loadBundle.BasisBundleConnector, 
             out var data
         );
+#if UNITY_SERVER
+        BasisHeadlessManagement.StripTextureReferencesFromRoot(reference);
+#endif
         BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
         return reference;
     }
