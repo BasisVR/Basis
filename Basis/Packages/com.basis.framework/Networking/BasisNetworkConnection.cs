@@ -205,6 +205,11 @@ namespace Basis.Scripts.Networking
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
 #if UNITY_SERVER
+                if (disconnectInfo.Reason == DisconnectReason.Timeout)
+                {
+                    string peerId = peer == null ? "null" : peer.RemoteId.ToString();
+                    BasisDebug.LogWarning($"Headless timeout diagnostic: peer={peerId}, localConnected={LocalPlayerIsConnected}, playerReady={BasisLocalPlayer.PlayerReady}, realtime={Time.realtimeSinceStartup:F1}s", BasisDebug.LogTag.Networking);
+                }
                 Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.StopMovement();
 #endif
                 BasisNetworkAvatarCompressor.Dispose();
