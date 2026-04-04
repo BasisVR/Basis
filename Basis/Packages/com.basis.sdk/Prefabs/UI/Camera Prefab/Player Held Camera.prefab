@@ -8504,6 +8504,7 @@ GameObject:
   - component: {fileID: 1633867030109420706}
   - component: {fileID: 4007520777951763069}
   - component: {fileID: 6655142694718683072}
+  - component: {fileID: 4768669981453114985}
   m_Layer: 8
   m_Name: Player Held Camera
   m_TagString: Untagged
@@ -8570,8 +8571,12 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   InteractRange: 0.25
+  AllowDirectGrab: 1
+  GrabRadius: 0.15
   KinematicWhileInteracting: 1
   CanSelfSteal: 1
+  LerpToHandOnPickup: 1
+  ShowHighlightOnHover: 1
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
@@ -8796,6 +8801,21 @@ MonoBehaviour:
   focusCursor: {fileID: 685274034833445150}
   depthOfFieldToggle: {fileID: 1459163565643286683}
   maxRaycastDistance: 1000
+--- !u!114 &4768669981453114985
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6984508784316465459}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4c71224a0906ad4181ecaa7e38adda9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::BasisGazeTarget
+  Priority: 2
+  FocusPoint: {x: 0, y: 0, z: 0}
+  UseTransformPosition: 1
 --- !u!1 &7103186028926275320
 GameObject:
   m_ObjectHideFlags: 0
@@ -10780,6 +10800,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 1
+  m_UseReflectionProbes: 0
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
