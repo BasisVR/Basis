@@ -44,6 +44,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     public static int ReconnectDelaySeconds = 5;
     public static int MaxReconnectAttempts = 10;
     public static bool StrictMemoryCleanupEnabled = true;
+    public static float StrictMemoryCleanupDelaySeconds = 8f;
     private static BasisHeadlessManagement ActiveInstance;
 
     private BasisHeadlessHealthCheck healthCheck;
@@ -59,7 +60,10 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     /// </summary>
     private void OnSceneLoadeded(Scene arg0, Scene arg1)
     {
+        BasisDebug.Log($"Headless scene strip starting after active scene change: '{arg0.name}' -> '{arg1.name}'.", BasisDebug.LogTag.Device);
         RemoveAllMaterialTextures();
+        RemoveAllLightmapReferences();
+        RemoveSceneCubemapReferences();
         RemoveAllReflectionProbes();
         RemoveAllText();
         TriggerStrictMemoryCleanup("scene load");
@@ -135,6 +139,30 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
         public static void ClearAllKnownTextures(Material material)
         {
+            if (material == null)
+            {
+                return;
+            }
+
+            string[] textureProperties = material.GetTexturePropertyNames();
+            if (textureProperties != null && textureProperties.Length > 0)
+            {
+                foreach (string prop in textureProperties)
+                {
+                    if (string.IsNullOrEmpty(prop))
+                    {
+                        continue;
+                    }
+
+                    if (material.GetTexture(prop) != null)
+                    {
+                        material.SetTexture(prop, null);
+                    }
+                }
+
+                return;
+            }
+
             foreach (string prop in commonTextureProps)
             {
                 if (material.HasProperty(prop) && material.GetTexture(prop) != null)
@@ -157,6 +185,55 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         Debug.Log("All reflection probes removed from scene.");
+    }
+
+    private void RemoveSceneCubemapReferences()
+    {
+        if (RenderSettings.skybox != null)
+        {
+            ShaderUtilSafe.ClearAllKnownTextures(RenderSettings.skybox);
+            RenderSettings.skybox = null;
+        }
+
+        try
+        {
+            Cubemap customReflection = RenderSettings.customReflection;
+            if (customReflection != null)
+            {
+                RenderSettings.customReflection = null;
+            }
+        }
+        catch (ArgumentException)
+        {
+            // Unity can throw here when the slot is populated with an invalid/non-cubemap reference.
+        }
+    }
+
+    private void RemoveAllLightmapReferences()
+    {
+        Renderer[] renderers = FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            renderer.lightmapIndex = -1;
+            renderer.realtimeLightmapIndex = -1;
+        }
+
+        if (LightmapSettings.lightmaps != null && LightmapSettings.lightmaps.Length > 0)
+        {
+            LightmapSettings.lightmaps = Array.Empty<LightmapData>();
+        }
+
+        if (LightmapSettings.lightProbes != null)
+        {
+            LightmapSettings.lightProbes = null;
+        }
+
+        BasisDebug.Log("All baked lightmap references removed from scene.", BasisDebug.LogTag.Device);
     }
 
     /// <summary>
@@ -674,6 +751,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         strictMemoryCleanupInProgress = true;
+        BasisDebug.Log($"Headless strict memory cleanup scheduled after {reason} with {StrictMemoryCleanupDelaySeconds:F1}s delay.", BasisDebug.LogTag.Device);
         _ = RunStrictMemoryCleanupAsync(reason);
     }
 
@@ -682,7 +760,22 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         try
         {
             await Task.Yield();
+            if (StrictMemoryCleanupDelaySeconds > 0f)
+            {
+                int delayMs = Mathf.Max(0, Mathf.RoundToInt(StrictMemoryCleanupDelaySeconds * 1000f));
+                if (delayMs > 0)
+                {
+                    BasisDebug.Log($"Headless strict memory cleanup waiting {StrictMemoryCleanupDelaySeconds:F1}s before unload for {reason}.", BasisDebug.LogTag.Device);
+                    await Task.Delay(delayMs);
+                }
+            }
 
+            if (isShuttingDown)
+            {
+                return;
+            }
+
+            BasisDebug.Log($"Headless strict memory cleanup starting unload pass for {reason}.", BasisDebug.LogTag.Device);
             AsyncOperation unloadOperation = Resources.UnloadUnusedAssets();
             while (!unloadOperation.isDone)
             {

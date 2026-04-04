@@ -127,6 +127,7 @@ public class BasisTrackedBundleWrapper
         AssetBundle.Unload(false);
         AssetBundle = null;
         IsBundleBackingStoreReleased = true;
+        BasisDebug.Log("Bundle backing store released for headless scene bundle.");
 
     }
     #endif
