@@ -194,6 +194,34 @@ public partial class BasisAvatarSDKInspector : Editor
         EditorUtility.SetDirty(Avatar);
         ValueChanged?.Invoke();
     }
+    private void OnEyeLivelinessChanged(ChangeEvent<float> evt)
+    {
+        Undo.RecordObject(Avatar, "Change Eye Liveliness");
+        Avatar.EyeLiveliness = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        ValueChanged?.Invoke();
+#if BASIS_FRAMEWORK_EXISTS // To allow avatar creators to test their eye config in editor.
+        if (Application.isPlaying)
+        {
+            BasisLocalEyeDriver.Liveliness = evt.newValue;
+            BasisLocalEyeDriver.ApplyPersonality();
+        }
+#endif
+    }
+    private void OnEyeAttentivenessChanged(ChangeEvent<float> evt)
+    {
+        Undo.RecordObject(Avatar, "Change Eye Attentiveness");
+        Avatar.EyeAttentiveness = evt.newValue;
+        EditorUtility.SetDirty(Avatar);
+        ValueChanged?.Invoke();
+#if BASIS_FRAMEWORK_EXISTS // To allow avatar creators to test their eye config in editor.
+        if (Application.isPlaying)
+        {
+            BasisLocalEyeDriver.Attentiveness = evt.newValue;
+            BasisLocalEyeDriver.ApplyPersonality();
+        }
+#endif
+    }
     public void EventCallbackAnimator(ChangeEvent<UnityEngine.Object> evt, ref Animator Renderer)
     {
         //  Debug.Log(nameof(EventCallbackAnimator));
@@ -239,6 +267,20 @@ public partial class BasisAvatarSDKInspector : Editor
         // Initialize Event Callbacks for Vector2 fields (for Avatar Eye and Mouth Position)
         BasisHelpersGizmo.CallBackVector2Field(uiElementsRoot, BasisSDKConstants.avatarEyePositionField, Avatar.AvatarEyePosition, OnEyeHeightValueChanged);
         BasisHelpersGizmo.CallBackVector2Field(uiElementsRoot, BasisSDKConstants.avatarMouthPositionField, Avatar.AvatarMouthPosition, OnMouthHeightValueChanged);
+
+        // Eye Personality sliders
+        Slider livelinessSlider = uiElementsRoot.Q<Slider>(BasisSDKConstants.EyeLivelinessField);
+        if (livelinessSlider != null)
+        {
+            livelinessSlider.value = Avatar.EyeLiveliness;
+            livelinessSlider.RegisterCallback<ChangeEvent<float>>(OnEyeLivelinessChanged);
+        }
+        Slider attentivenessSlider = uiElementsRoot.Q<Slider>(BasisSDKConstants.EyeAttentivenessField);
+        if (attentivenessSlider != null)
+        {
+            attentivenessSlider.value = Avatar.EyeAttentiveness;
+            attentivenessSlider.RegisterCallback<ChangeEvent<float>>(OnEyeAttentivenessChanged);
+        }
 
         // Initialize ObjectFields and assign references
         ObjectField animatorField = uiElementsRoot.Q<ObjectField>(BasisSDKConstants.animatorField);
