@@ -240,6 +240,14 @@ public class BasisEyeDriverDebugWindow : EditorWindow
         }
         EditorGUILayout.LabelField("Jitter Scale", $"{state.jitterScale:F2}x");
 
+        // Gaze disengagement break state
+        if (state.isAverting == 1)
+            ColoredLabel("Gaze Break", $"AVERTING ({state.avertedTimer:F2}s remaining)", WarnColor);
+        else if (state.gazeBreakTimer > 0f)
+            EditorGUILayout.LabelField("Gaze Break", $"Next break in {state.gazeBreakTimer:F1}s");
+        else
+            EditorGUILayout.LabelField("Gaze Break", "Idle");
+
         EditorGUILayout.Space(4);
 
         // Crowd
@@ -387,6 +395,9 @@ public class BasisEyeDriverDebugWindow : EditorWindow
         EditorGUILayout.LabelField("Hold Scale (gaze)", $"{p.holdScaleAtFullGaze:F2}x");
         EditorGUILayout.LabelField("Blend In/Out", $"{p.gazeBlendInSpeed:F2} / {p.gazeBlendOutSpeed:F2} /s");
         EditorGUILayout.LabelField("Social Hold Scale", $"{p.socialHoldScale:F2}x");
+        EditorGUILayout.LabelField("Gaze Break Range", $"{p.gazeBreakMin:F1}s - {p.gazeBreakMax:F1}s");
+        EditorGUILayout.LabelField("Averted Range", $"{p.avertedMin:F2}s - {p.avertedMax:F2}s");
+        EditorGUILayout.LabelField("Reaction Delay", $"{p.reactionMin:F2}s - {p.reactionMax:F2}s");
         EditorGUI.indentLevel--;
     }
 

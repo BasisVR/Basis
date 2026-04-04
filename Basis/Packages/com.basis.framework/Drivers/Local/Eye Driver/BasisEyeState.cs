@@ -55,6 +55,13 @@ public struct BasisEyeState
     // Usually subtle but sometimes spikes to create brief natural drift.
     public float jitterScale;
 
+    // For personality-driven periodic disengagement
+    // gazeBreakTimer counts down during active gaze. When 0, eyes avert.
+    // avertedTimer counts down during aversion. When 0, gaze can re-engage.
+    public float gazeBreakTimer;
+    public float avertedTimer;
+    public byte isAverting; // 1 = in gaze/focus break
+
     public static BasisEyeState Create(uint seed)
     {
         var r = new Unity.Mathematics.Random(seed);
@@ -84,6 +91,10 @@ public struct BasisEyeState
             socialSaccadeDur = 0.08f,
 
             jitterScale = 1f,
+
+            gazeBreakTimer = 0f,
+            avertedTimer = 0f,
+            isAverting = 0,
         };
     }
 
@@ -161,7 +172,7 @@ public struct BasisEyeState
             {
                 phase = 0;
                 phaseT = 0f;
-                float holdScale = math.lerp(1f, p.holdScaleAtFullGaze, gazeBlend);
+                float holdScale = gazeBlend > 0f ? p.holdScaleAtFullGaze : 1f;
                 phaseDur = rng.NextFloat(p.holdMin, p.holdMax) * holdScale * math.max(1f, jitterScale * 0.4f);
             }
         }
@@ -188,14 +199,19 @@ public struct BasisEyeState
                 float baseDur = saccadeMin + (angularDist / math.max(maxAngleRad, 1e-5f)) * (saccadeMax - saccadeMin);
                 socialSaccadeDur = baseDur * rng.NextFloat(2.0f, 3.5f);
 
-                // Reaction delay / voluntary shift latency
+                // Reaction delay / voluntary shift latency (scaled by Attentiveness)
                 // Negative socialSaccadeT means "before reaction", saccade starts when it crosses 0
-                float reactionDelay = rng.NextFloat(0.15f, 0.30f);
+                float reactionDelay = rng.NextFloat(p.reactionMin, p.reactionMax);
                 socialSaccadeT = -(reactionDelay / math.max(socialSaccadeDur, 1e-5f));
 
                 socialTimer = 0f;
                 socialDur = rng.NextFloat(0.5f, 2.0f);
                 jitterScale = 1f;
+
+                // If not mid-aversion, reset the break timer.
+                // If mid-aversion, let it finish naturally so eyes don't jerk.
+                if (isAverting == 0)
+                    gazeBreakTimer = 0f;
             }
 
             // === SOCIAL TRIANGLE SUB-STATE ===
@@ -259,6 +275,33 @@ public struct BasisEyeState
 
             gazeYP = socialCurrent;
 
+            // Personality-driven periodic disengagement
+            // While gazing, gazeBreakTimer counts down. On expiry, eyes avert.
+            if (isAverting == 0)
+            {
+                if (gazeBreakTimer <= 0f && gazeBlend > 0.1f)
+                    gazeBreakTimer = rng.NextFloat(p.gazeBreakMin, p.gazeBreakMax);
+
+                if (gazeBreakTimer > 0f)
+                {
+                    gazeBreakTimer -= dt;
+                    if (gazeBreakTimer <= 0f)
+                    {
+                        isAverting = 1;
+                        avertedTimer = rng.NextFloat(p.avertedMin, p.avertedMax);
+                    }
+                }
+            }
+            else
+            {
+                avertedTimer -= dt;
+                if (avertedTimer <= 0f)
+                {
+                    isAverting = 0;
+                    gazeBreakTimer = 0f;
+                }
+            }
+
             // Eyes can track further than they idle-wander. Horizontal range is wider than vertical (physiology).
             float horizLimit = math.radians(PeripheralHorizDeg);
             float vertLimit = math.radians(PeripheralVertDeg);
@@ -266,6 +309,10 @@ public struct BasisEyeState
             // Past 1.0, gaze is fully disengaged and idle saccades take over.
             float peripheralExtent = math.length(new float2(gazeYP.x / horizLimit, gazeYP.y / vertLimit));
             float maxBlend = 1f - math.saturate((peripheralExtent - PeripheralFadeStart) / PeripheralFadeRange);
+
+            // During disengagement, drive maxBlend to 0 so gazeBlendOutSpeed takes over
+            if (isAverting == 1)
+                maxBlend = 0f;
 
             if (gazeBlend < maxBlend)
                 gazeBlend = math.min(gazeBlend + p.gazeBlendInSpeed * dt, maxBlend);
@@ -275,6 +322,10 @@ public struct BasisEyeState
         else
         {
             gazeBlend = math.max(gazeBlend - p.gazeBlendOutSpeed * dt, 0f);
+
+            // Reset disengagement on target loss
+            isAverting = 0;
+            gazeBreakTimer = 0f;
 
             // Keep socialCurrent in sync with idle so the next gaze-engage saccade starts from where the eyes actually are.
             if (gazeBlend < 0.05f)
