@@ -15,9 +15,6 @@ using static SerializableBasis;
 
 namespace Basis.Scripts.Networking
 {
-    /// <summary>
-    /// Connection/session management, server runner, time utilities, and send helpers.
-    /// </summary>
     public static class BasisNetworkConnection
     {
         private static readonly object BnlSubscriptionLock = new object();

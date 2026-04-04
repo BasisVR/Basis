@@ -15,10 +15,6 @@ using static SerializableBasis;
 
 namespace Basis.Scripts.Networking
 {
-    /// <summary>
-    /// Centralized network manager for Basis. Handles connection lifecycle, transmitters,
-    /// simulation ticks, time synchronization, and server/client messaging.
-    /// </summary>
     [DefaultExecutionOrder(15001)]
     public class BasisNetworkManagement : MonoBehaviour
     {
@@ -47,53 +43,53 @@ namespace Basis.Scripts.Networking
         public bool IsHostMode = false;
 
         /// <summary>
-        /// Transport selection. LiteNetLib remains the default path.
+        /// Transport selection.
         /// </summary>
         public NetworkTransportType Transport = NetworkTransportType.LiteNetLib;
 
         /// <summary>
-        /// When using Steam transport, prefer relay over direct peer addressing.
+        /// Prefer Steam relay over direct peer addressing.
         /// </summary>
         public bool UseSteamRelay = true;
 
         /// <summary>
-        /// Runtime state for the active or pending Steam lobby.
+        /// Active Steam lobby ID.
         /// </summary>
         [HideInInspector]
         public ulong CurrentSteamLobbyId = 0;
 
         /// <summary>
-        /// Runtime state for the current host Steam ID when using Steam transport.
+        /// Current host Steam ID for Steam transport.
         /// </summary>
         [HideInInspector]
         public ulong CurrentHostSteamId = 0;
 
         /// <summary>
-        /// Runtime state for the current Steam virtual port when using relay sockets.
+        /// Steam virtual port for relay sockets.
         /// </summary>
         [HideInInspector]
         public int CurrentSteamVirtualPort = 0;
 
         /// <summary>
-        /// Pending world BEE URL selected during Steam lobby creation.
+        /// Pending world BEE URL for Steam lobby creation.
         /// </summary>
         [HideInInspector]
         public string PendingSteamWorldUrl = string.Empty;
 
         /// <summary>
-        /// Pending world password paired with <see cref="PendingSteamWorldUrl"/>.
+        /// Pending world password for Steam lobby creation.
         /// </summary>
         [HideInInspector]
         public string PendingSteamWorldPassword = string.Empty;
 
         /// <summary>
-        /// Friendly world name derived from BEE metadata for lobby UI.
+        /// Pending world name from BEE metadata.
         /// </summary>
         [HideInInspector]
         public string PendingSteamWorldName = string.Empty;
 
         /// <summary>
-        /// Singleton instance of <see cref="BasisNetworkManagement"/>.
+        /// Singleton instance.
         /// </summary>
         public static BasisNetworkManagement Instance;
 
@@ -185,7 +181,7 @@ namespace Basis.Scripts.Networking
         #region Connection Control
 
         /// <summary>
-        /// Connects to the server using the configured <see cref="Ip"/>, <see cref="Port"/>, and <see cref="Password"/>.
+        /// Connects to the server with current settings.
         /// </summary>
         public void Connect() => BasisNetworkConnection.Connect(this);
 

@@ -991,7 +991,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             while (candidatePeerId != startPeerId);
 
-            throw new InvalidOperationException("Steam transport could not allocate a peer id because the peer id space is exhausted.");
+            throw new InvalidOperationException("Peer id space exhausted.");
         }
 
         private void ResetStatistics()

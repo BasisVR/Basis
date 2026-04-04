@@ -17,7 +17,7 @@ namespace Basis.Scripts.Networking.Steam
         public bool RunCallbacksManually = true;
 
         [Header("Lobby Defaults")]
-        [Tooltip("Keep this conservative until targeted load testing validates a higher count. 32 is the current validated default.")]
+        [Tooltip("Validated lobby size. Increase only after load testing.")]
         [Range(2, 250)]
         public int DefaultMaxLobbyMembers = ValidatedDefaultMaxLobbyMembers;
         public int RelayVirtualPort = 0;

@@ -169,10 +169,6 @@ namespace Basis.Network.Core
             recycle?.Invoke();
         }
 
-        /// <summary>
-        /// Creates a reader over a managed buffer with an optional recycle callback.
-        /// Used by transport implementations that manage their own buffer lifecycle.
-        /// </summary>
         public static NetPacketReader Create(byte[] source, int offset, int maxSize, Action recycle = null)
         {
             var reader = new NetPacketReader();
