@@ -180,7 +180,7 @@ public static class NetworkServer
         }
         catch (Exception ex)
         {
-            BNL.LogWarning($"StopServer unsubscribe warning: {ex.Message}");
+            BNL.LogError($"StopServer unsubscribe failed: {ex.Message}");
         }
 
         try
@@ -189,7 +189,7 @@ public static class NetworkServer
         }
         catch (Exception ex)
         {
-            BNL.LogWarning($"StopServer auth deinitialize warning: {ex.Message}");
+            BNL.LogError($"StopServer auth deinitialize failed: {ex.Message}");
         }
 
         try
@@ -198,7 +198,7 @@ public static class NetworkServer
         }
         catch (Exception ex)
         {
-            BNL.LogWarning($"StopServer transport warning: {ex.Message}");
+            BNL.LogError($"StopServer transport stop failed: {ex.Message}");
         }
 
         BasisStatistics.StopWorkerThread();

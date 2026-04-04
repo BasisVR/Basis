@@ -64,7 +64,8 @@ namespace Basis.Scripts.Networking.Steam
                 if (BasisNetworkManagement.Instance == null)
                 {
                     infoDescriptor.SetTitle("Error");
-                    infoDescriptor.SetDescription("Networking Layer was Not Created!");
+                    infoDescriptor.SetDescription("BasisNetworkManagement is not available.");
+                    BasisDebug.LogError("Steam CreateLobby: BasisNetworkManagement.Instance is null");
                     return;
                 }
 
@@ -181,7 +182,8 @@ namespace Basis.Scripts.Networking.Steam
                 if (BasisNetworkManagement.Instance == null)
                 {
                     infoDescriptor.SetTitle("Error");
-                    infoDescriptor.SetDescription("Networking Layer was Not Created!");
+                    infoDescriptor.SetDescription("BasisNetworkManagement is not available.");
+                    BasisDebug.LogError("Steam JoinLobby: BasisNetworkManagement.Instance is null");
                     return;
                 }
 

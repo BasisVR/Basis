@@ -20,8 +20,6 @@ namespace Basis.Scripts.Networking.Steam
         public static event Action<string> OnLobbyError;
         public static event Action<ulong> OnLobbyJoinRequested;
 
-        public static bool IsReady => BasisSteamBootstrap.IsInitialized && SteamClient.IsLoggedOn;
-
         public static bool EnsureReady()
         {
             if (!BasisSteamBootstrap.IsInitialized)

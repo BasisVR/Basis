@@ -85,7 +85,7 @@ namespace Basis.Scripts.Networking.Steam
 
             if (settings == null)
             {
-                Debug.LogWarning("[BasisSteamBootstrap] Missing BasisSteamSettings asset.");
+                BasisDebug.LogError("Missing BasisSteamSettings asset. Cannot initialize Steam.");
                 return false;
             }
 
@@ -110,7 +110,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[BasisSteamBootstrap] Steam init failed: {ex.Message}");
+                BasisDebug.LogError($"Steam init failed: {ex.Message}");
                 return false;
             }
         }

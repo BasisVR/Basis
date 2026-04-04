@@ -65,6 +65,7 @@ namespace Basis.Scripts.Networking.Steam
                 BasisNetworkManagement management = BasisNetworkManagement.Instance;
                 if (management == null)
                 {
+                    BasisDebug.LogError("Steam HandleConnectedToServer: BasisNetworkManagement.Instance is null", BasisDebug.LogTag.Networking);
                     return;
                 }
 
@@ -131,12 +132,14 @@ namespace Basis.Scripts.Networking.Steam
         {
             if (lobbyId == 0)
             {
+                BasisDebug.LogError("Steam JoinRequestedLobby called with lobbyId=0", BasisDebug.LogTag.Networking);
                 return;
             }
 
             BasisNetworkManagement management = BasisNetworkManagement.Instance;
             if (management == null)
             {
+                BasisDebug.LogError("Steam JoinRequestedLobby: BasisNetworkManagement.Instance is null", BasisDebug.LogTag.Networking);
                 return;
             }
 

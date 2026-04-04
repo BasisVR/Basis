@@ -23,7 +23,7 @@ public class NetworkClient
     {
         if (IsInUse)
         {
-            BNL.LogWarning("NetworkClient.StartClient was called while a previous client was still active. Forcing disconnect before reconnect.");
+            BNL.LogError("NetworkClient.StartClient called while previous client still active. Forcing disconnect before reconnect.");
             Disconnect();
         }
 

@@ -117,7 +117,7 @@ namespace Basis.Scripts.Networking.Steam
                 }
                 catch (Exception ex)
                 {
-                    BasisSteamTransportTrace.Warn($"RoundTripTime unavailable connectionId={connection.Id} error={ex.GetType().Name}: {ex.Message}");
+                    BasisSteamTransportTrace.Error($"RoundTripTime failed connectionId={connection.Id} {ex}");
                     return 0;
                 }
             }
@@ -156,6 +156,7 @@ namespace Basis.Scripts.Networking.Steam
         {
             if (data == null || length <= 0)
             {
+                BasisSteamTransportTrace.Error($"SendUnreliableRawMerge called with invalid data={data != null} length={length}");
                 return;
             }
 
@@ -189,7 +190,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             catch (Exception ex)
             {
-                BasisSteamTransportTrace.Warn($"GetPacketsCountInQueue unavailable connectionId={connection.Id} delivery={deliveryMethod} error={ex.GetType().Name}: {ex.Message}");
+                BasisSteamTransportTrace.Error($"GetPacketsCountInQueue failed connectionId={connection.Id} delivery={deliveryMethod} {ex}");
                 return 0;
             }
         }
@@ -301,8 +302,7 @@ namespace Basis.Scripts.Networking.Steam
             {
                 useFallback = true;
                 fallbackManager = new LNLNetManager(listener, configuration);
-                BNL.LogWarning("Steam transport currently supports relay mode first. Falling back to LiteNetLib because UseSteamRelay is disabled.");
-                BasisSteamTransportTrace.Warn("UseSteamRelay=false. Falling back to LiteNetLib.");
+                BNL.LogWarning("Steam transport: UseSteamRelay is disabled, falling back to LiteNetLib.");
                 return;
             }
 
@@ -310,8 +310,7 @@ namespace Basis.Scripts.Networking.Steam
             {
                 useFallback = true;
                 fallbackManager = new LNLNetManager(listener, configuration);
-                BNL.LogWarning("Steam transport requested while SteamClient is not initialized. Falling back to LiteNetLib.");
-                BasisSteamTransportTrace.Warn("SteamClient is not initialized. Falling back to LiteNetLib.");
+                BNL.LogWarning("Steam transport: SteamClient is not initialized, falling back to LiteNetLib.");
             }
             else
             {
@@ -389,8 +388,7 @@ namespace Basis.Scripts.Networking.Steam
 
             if (configuration.SteamHostSteamId == 0)
             {
-                BNL.LogError("Steam transport connect failed because SteamHostSteamId was not set.");
-                BasisSteamTransportTrace.Error("ConnectRelay aborted because SteamHostSteamId was 0.");
+                BasisSteamTransportTrace.Error("ConnectRelay aborted: SteamHostSteamId was 0.");
                 return null;
             }
 
@@ -427,15 +425,9 @@ namespace Basis.Scripts.Networking.Steam
                 catch (Exception ex)
                 {
                     serverReceiveEnabled = false;
-                    BasisSteamTransportTrace.Error($"Server Receive exception: {ex}");
-                    try
-                    {
-                        serverSocketManager.Close();
-                    }
-                    catch
-                    {
-                    }
-
+                    BasisSteamTransportTrace.Error($"Server receive failed, disabling: {ex}");
+                    try { serverSocketManager.Close(); }
+                    catch (Exception closeEx) { BasisSteamTransportTrace.Error($"Server socket close also failed: {closeEx.Message}"); }
                     serverSocketManager = null;
                     serverReceiveDelegate = null;
                 }
@@ -450,15 +442,9 @@ namespace Basis.Scripts.Networking.Steam
                 catch (Exception ex)
                 {
                     clientReceiveEnabled = false;
-                    BasisSteamTransportTrace.Error($"Client Receive exception: {ex}");
-                    try
-                    {
-                        clientConnectionManager.Close(false, 0, "ReceiveException");
-                    }
-                    catch
-                    {
-                    }
-
+                    BasisSteamTransportTrace.Error($"Client receive failed, disabling: {ex}");
+                    try { clientConnectionManager.Close(false, 0, "ReceiveException"); }
+                    catch (Exception closeEx) { BasisSteamTransportTrace.Error($"Client connection close also failed: {closeEx.Message}"); }
                     clientConnectionManager = null;
                     clientReceiveDelegate = null;
                 }
@@ -590,6 +576,7 @@ namespace Basis.Scripts.Networking.Steam
 
                 if (!peersByConnection.TryGetValue(connection.Id, out SteamNetPeer peer))
                 {
+                    BasisSteamTransportTrace.Error($"HandleServerMessage from unknown connectionId={connection.Id}, closing");
                     connection.Close(true, 0, "UnknownPeer");
                     return;
                 }
@@ -618,6 +605,7 @@ namespace Basis.Scripts.Networking.Steam
 
             if (!peersByConnection.TryGetValue(connection.Id, out SteamNetPeer peer))
             {
+                BasisSteamTransportTrace.Error($"HandleServerDisconnected: unknown connectionId={connection.Id}, not in pending or active peers");
                 return;
             }
 
@@ -667,6 +655,7 @@ namespace Basis.Scripts.Networking.Steam
 
             if (size == 0)
             {
+                BasisSteamTransportTrace.Error("HandleClientMessage received empty packet");
                 ReturnPacketBuffer(managedData);
                 return;
             }
@@ -678,6 +667,7 @@ namespace Basis.Scripts.Networking.Steam
                     case SteamTransportPacketType.AssignPeer:
                         if (size < 3)
                         {
+                            BasisSteamTransportTrace.Error($"HandleClientMessage AssignPeer packet too small size={size}");
                             return;
                         }
 
@@ -757,6 +747,7 @@ namespace Basis.Scripts.Networking.Steam
         {
             if (dataSize < 3 || (SteamTransportPacketType)managedData[0] != SteamTransportPacketType.Application)
             {
+                BasisSteamTransportTrace.Error($"HandleApplicationMessage invalid packet size={dataSize} type={(dataSize > 0 ? managedData[0] : -1)}");
                 if (pooledBuffer)
                 {
                     ReturnPacketBuffer(managedData);
@@ -772,8 +763,9 @@ namespace Basis.Scripts.Networking.Steam
             {
                 listener.RaiseNetworkReceive(peer, reader, basisChannel, deliveryMethod);
             }
-            catch
+            catch (Exception ex)
             {
+                BasisSteamTransportTrace.Error($"HandleApplicationMessage dispatch failed channel={basisChannel} delivery={deliveryMethod} {ex}");
                 reader.Recycle(true);
                 throw;
             }
@@ -890,7 +882,7 @@ namespace Basis.Scripts.Networking.Steam
             }
             else
             {
-                BasisSteamTransportTrace.Warn($"ConfigureConnectionLanes failed context={context} connectionId={connection.Id} result={result}");
+                BasisSteamTransportTrace.Error($"ConfigureConnectionLanes failed context={context} connectionId={connection.Id} result={result}");
             }
         }
 
