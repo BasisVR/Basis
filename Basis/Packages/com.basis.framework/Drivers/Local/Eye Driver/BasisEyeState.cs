@@ -260,7 +260,8 @@ public struct BasisEyeState
         {
             gazeBlend = math.max(gazeBlend - p.gazeBlendOutSpeed * dt, 0f);
 
-            // When losing the gaze target, avoid snapping back to idle if mid-saccade toward old target.
+            // There may be a more elegant way to handle this
+            // Keep socialCurrent in sync with idle so the next gaze-engage saccade starts from where the eyes actually are.
             if (gazeBlend < 0.05f)
                 socialCurrent = currentYawPitch;
         }
