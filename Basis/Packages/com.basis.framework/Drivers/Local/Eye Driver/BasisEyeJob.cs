@@ -13,6 +13,8 @@ public struct BasisEyeJob : IJob
     public BasisEyePersonality personality;
     public BasisEyeCalibration calLeft, calRight;
 
+    public float2 headDeltaYP;
+
     public bool hasGazeTarget;
     public float2 gazeLeftEye, gazeRightEye, gazeMouth;
     public float gazeMouthScale;
@@ -26,6 +28,7 @@ public struct BasisEyeJob : IJob
 
         s.Update(
             dt,
+            headDeltaYP,
             math.radians(maxAngleDeg),
             saccadeMin, saccadeMax,
             math.radians(perEyeVarDeg),

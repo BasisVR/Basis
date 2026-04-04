@@ -32,6 +32,11 @@ public struct BasisEyeState
     public quaternion leftOffset;
     public quaternion rightOffset;
 
+#if UNITY_EDITOR
+    // Final gaze direction for the debug window
+    public float2 finalYawPitch;
+#endif
+
     // Gaze targeting blend (0 = idle saccades only, 1 = fully targeted)
     public float gazeBlend;
 
@@ -86,6 +91,7 @@ public struct BasisEyeState
 
     public void Update(
         float dt,
+        float2 headDeltaYP,
         float maxAngleRad,
         float saccadeMin, float saccadeMax,
         float perEyeVarRad,
@@ -97,6 +103,14 @@ public struct BasisEyeState
         bool gazeTargetChanged
         )
     {
+
+        // VOR compensation: cancel out head rotation so eyes hold their world-space target.
+        currentYawPitch += headDeltaYP;
+        startYawPitch   += headDeltaYP;
+        targetYawPitch  += headDeltaYP;
+        socialCurrent   += headDeltaYP;
+        socialStart     += headDeltaYP;
+
         // === IDLE SACCADE STATE MACHINE ===
         phaseT += dt;
 
@@ -121,8 +135,8 @@ public struct BasisEyeState
                 );
 
                 // Randomize jitter amplitude with occasional spikes for brief drift.
-                jitterScale = rng.NextFloat() < 0.15f
-                    ? rng.NextFloat(2.5f, 5.0f)
+                jitterScale = rng.NextFloat() < 0.10f
+                    ? rng.NextFloat(1.5f, 2.5f)
                     : 1.0f;
 
                 // Duration is amplitude-dependent: larger saccades take longer (physiology).
@@ -152,6 +166,8 @@ public struct BasisEyeState
             }
         }
 
+        // Keep idle saccades near the gaze position so disengaging looks smooth, not a snap.
+        currentYawPitch = math.lerp(currentYawPitch, socialCurrent, gazeBlend);
         float2 idleYP = currentYawPitch;
 
         // === GAZE TARGETING ===
@@ -166,11 +182,11 @@ public struct BasisEyeState
                 socialStart = socialCurrent;
                 socialPhase = (byte)(rng.NextInt(0, 2));
 
-                // Larger gaze shifts take longer (we go 3-4.5x vs micro-saccades bcs IRL inter-person shifts are like that)
+                // Larger gaze shifts take longer (we go 2-3.5x vs micro-saccades bcs IRL inter-person shifts are like that)
                 float2 approxTarget = (gazeLeftEye + gazeRightEye) * 0.5f; // we don't know which eye will be first
                 float angularDist = math.length(approxTarget - socialStart);
                 float baseDur = saccadeMin + (angularDist / math.max(maxAngleRad, 1e-5f)) * (saccadeMax - saccadeMin);
-                socialSaccadeDur = baseDur * rng.NextFloat(3.0f, 4.5f);
+                socialSaccadeDur = baseDur * rng.NextFloat(2.0f, 3.5f);
 
                 // Reaction delay / voluntary shift latency
                 // Negative socialSaccadeT means "before reaction", saccade starts when it crosses 0
@@ -260,7 +276,6 @@ public struct BasisEyeState
         {
             gazeBlend = math.max(gazeBlend - p.gazeBlendOutSpeed * dt, 0f);
 
-            // There may be a more elegant way to handle this
             // Keep socialCurrent in sync with idle so the next gaze-engage saccade starts from where the eyes actually are.
             if (gazeBlend < 0.05f)
                 socialCurrent = currentYawPitch;
@@ -268,11 +283,17 @@ public struct BasisEyeState
 
         // === FINAL BLEND ===
         // Combines idle saccades, social gaze, jitter, vert dampening, and per-eye vergence into final output.
+
+        // Reuse idle saccade position as micro-jitter when gazing (clamped to jitter radius).
         float2 clampedIdle = ClampYawPitchPlane(idleYP, p.maxFocusedJitterRad * jitterScale);
         float2 finalYP = math.lerp(idleYP, gazeYP + clampedIdle, gazeBlend);
         finalYP.y *= VerticalDampening; // eyes bias slightly more horizontal than vertical IRL
         float2 leftYP = ClampYawPitchPlane(finalYP + eyeVar * VergenceScale, maxAngleRad);
         float2 rightYP = ClampYawPitchPlane(finalYP - eyeVar * VergenceScale, maxAngleRad);
+
+    #if UNITY_EDITOR
+        finalYawPitch = ClampYawPitchPlane(finalYP, maxAngleRad); // for debug window
+    #endif
 
         // Build canonical yaw/pitch -> rig-local offset via calibration basis
         leftOffset = CanonicalYawPitchToRigOffset(leftYP, calLeft.basis, calLeft.invBasis);

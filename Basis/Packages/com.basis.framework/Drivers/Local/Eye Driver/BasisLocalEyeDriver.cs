@@ -57,7 +57,7 @@ public class BasisLocalEyeDriver
         _personality = BasisEyePersonality.Compute(Liveliness, Attentiveness);
     }
 
-    // === TUNABLE PARAMS FOR CTX SCORING BEHAVIOR ===
+    // === TUNABLE PARAMS FOR TARGET SCORING BEHAVIOR ===
     const float GazeRange = 2.5f; // max distance to consider gaze targets
     const float GazeRangeSquared = GazeRange * GazeRange;
     const float FalloffFactor = 1.5f; // how quickly score falls off with dist
@@ -68,6 +68,10 @@ public class BasisLocalEyeDriver
     // Social triangle mouth probability ramps linearly between these:
     const float MouthWeightNearDist = 0.10f; // if closer than this, never look at the mouth
     const float MouthWeightFullDist = 0.75f; // if farther than this, mouth is fully weighted for triangle targeting
+
+    // we track head rotation frame-to-frame so the job can compensate
+    private static quaternion _prevHeadRot;
+    private static float2 _headDeltaYP;
 
     private static int _currentTargetId; // player id or -1
     private static BasisGazeTarget _currentGazeTarget; // non-avatar target or null
@@ -115,6 +119,8 @@ public class BasisLocalEyeDriver
         _prevGazeTarget = null;
         _prevHasGazeTarget = false;
         _gazeTargetChanged = false;
+        _prevHeadRot = BasisLocalCameraDriver.Rotation;
+        _headDeltaYP = float2.zero;
 
         IsEnabled = true;
 
@@ -156,6 +162,7 @@ public class BasisLocalEyeDriver
             personality = _personality,
             calLeft = calLeft,
             calRight = calRight,
+            headDeltaYP = _headDeltaYP,
             hasGazeTarget = _hasGazeTarget,
             gazeLeftEye = _gazeLeftEye,
             gazeRightEye = _gazeRightEye,
@@ -218,6 +225,16 @@ public class BasisLocalEyeDriver
         float3 localHeadFwd = BasisLocalCameraDriver.Forward();
         quaternion localHeadRot = BasisLocalCameraDriver.Rotation;
         quaternion invLocalHeadRot = math.inverse(localHeadRot);
+
+        // The job uses how much the head rotated to compensate the eye target.
+        // This helps to emulate the vestibulo-ocular reflex (VOR)
+        quaternion prevToCurrent = math.mul(invLocalHeadRot, _prevHeadRot);
+        float3 fwd = math.mul(prevToCurrent, new float3(0, 0, 1));
+        _headDeltaYP = new float2(
+            math.atan2(fwd.x, fwd.z),
+            math.asin(math.clamp(fwd.y, -1f, 1f))
+        );
+        _prevHeadRot = localHeadRot;
 
         float bestScore = 0f;
         float bestDist = 0f;

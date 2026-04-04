@@ -28,11 +28,11 @@ public struct BasisEyePersonality
             holdMax             = math.lerp(6.0f, 1.5f, L),
             centerBias          = math.lerp(4.0f, 1.2f, L),
             centerReturnChance  = math.lerp(0.30f, 0.05f, L),
-            maxFocusedJitterRad = math.radians(math.lerp(0.5f, 3.0f, L)),
+            maxFocusedJitterRad = math.radians(math.lerp(0.15f, 1.0f, L)),
 
             holdScaleAtFullGaze = math.lerp(0.5f, 1.3f, A),
-            gazeBlendInSpeed    = math.lerp(0.2f, 1.2f, A),
-            gazeBlendOutSpeed   = math.lerp(0.8f, 2.5f, A),
+            gazeBlendInSpeed    = math.lerp(3.0f, 6.0f, A),
+            gazeBlendOutSpeed   = math.lerp(2.5f, 0.8f, A),
             socialHoldScale     = math.lerp(0.6f, 1.2f, A),
         };
     }

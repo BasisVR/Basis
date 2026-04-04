@@ -311,12 +311,9 @@ public class BasisEyeDriverDebugWindow : EditorWindow
         Handles.DrawLine(new Vector3(cx - radius, cy, 0), new Vector3(cx + radius, cy, 0));
         Handles.DrawLine(new Vector3(cx, cy - radius, 0), new Vector3(cx, cy + radius, 0));
 
-        float2 idleDeg = math.degrees(state.currentYawPitch);
         float2 socialDeg = math.degrees(state.socialCurrent);
         float2 targetDeg = math.degrees(state.targetYawPitch);
-
-        // Blended eye position (mirrors how the driver does it)
-        float2 blendedDeg = math.lerp(idleDeg, socialDeg, state.gazeBlend);
+        float2 finalDeg = math.degrees(state.finalYawPitch);
 
         // Idle saccade target
         float idleAlpha = 1f - state.gazeBlend;
@@ -334,8 +331,8 @@ public class BasisEyeDriverDebugWindow : EditorWindow
         }
 
         // Line from center to blended position
-        float bx = cx + blendedDeg.x * pxPerDeg;
-        float by = cy - blendedDeg.y * pxPerDeg;
+        float bx = cx + finalDeg.x * pxPerDeg;
+        float by = cy - finalDeg.y * pxPerDeg;
         Color eyeColor = state.phase == 0 ? HoldColor : SaccadeColor;
         Handles.color = new Color(eyeColor.r, eyeColor.g, eyeColor.b, 0.3f);
         Handles.DrawLine(new Vector3(cx, cy, 0), new Vector3(bx, by, 0));
