@@ -832,4 +832,31 @@ public static class RemoteBoneJobSystem
         outgoing = sMouthPositions[idx];
         return true;
     }
+    /// <summary>
+    /// Returns the computed outgoing/world center-eye position and rotation for an avatar by key.
+    /// </summary>
+    /// <param name="key">Avatar key used when adding the player.</param>
+    /// <param name="position">On success, the center-eye world position.</param>
+    /// <param name="rotation">On success, the center-eye world rotation.</param>
+    /// <returns><c>true</c> if the key is found; otherwise <c>false</c>.</returns>
+    public static bool GetOutGoingCenterEye(int key, out float3 position, out quaternion rotation)
+    {
+        if ((uint)key >= (uint)sKeyToIndex.Length)
+        {
+            position = default;
+            rotation = default;
+            return false;
+        }
+        int idx = sKeyToIndex[key];
+        if (idx < 0)
+        {
+            position = default;
+            rotation = default;
+            return false;
+        }
+        var frame = sOut[idx];
+        position = frame.pos_CenterEye;
+        rotation = frame.rot_CenterEye;
+        return true;
+    }
 }
