@@ -16,6 +16,9 @@ using UnityEngine.Jobs;
 ///   1) BasisFingerInterpolateJob — bilinearly interpolates targets from the grid
 ///   2) BasisFingerSlerpJob — slerps current rotations toward targets and writes transforms
 /// Follows the Simulate/Apply pattern used by BasisObjectSyncDriver and JigglePhysics.
+///
+/// Pose grid data is cached per humanoid Avatar asset. Loading the same avatar a second
+/// time copies from cache instead of re-instantiating and sampling 441 poses.
 /// </summary>
 [DefaultExecutionOrder(15001)]
 [System.Serializable]
@@ -47,7 +50,7 @@ public class BasisLocalHandDriver
     public float[] RightRing;
     public float[] RightLittle;
 
-    // --- Grid (managed, used during bake only) ---
+    // --- Grid (managed, used during bake only — cleared after native conversion) ---
 
     private BasisPoseData[] PoseGrid;
     private int GridWidth;
@@ -109,9 +112,25 @@ public class BasisLocalHandDriver
     /// <summary>
     /// Rebuilds pose atlas by sampling Unity HumanPose muscles on a hidden duplicate of the provided animator.
     /// Bakes all grid poses, converts to NativeArray, and builds the TransformAccessArray.
+    /// If the same Avatar asset was previously baked, copies from cache instead of re-sampling.
     /// </summary>
     public void ReInitialize(Animator OriginalAnimator)
     {
+        int cacheKey = BasisAvatarModelCache.GetKey(OriginalAnimator);
+
+        // --- Cache hit: copy pose grid data without instantiating a copy ---
+        if (cacheKey != 0 && BasisAvatarModelCache.TryGet(cacheKey, out var entry) && entry.HandPoseGrid != null)
+        {
+            RestoreFromCache(entry.HandPoseGrid);
+            RebuildTransformAccess();
+            return;
+        }
+
+        // --- Cache miss: full bake ---
+        GridWidth = Mathf.RoundToInt(2f / increment) + 1;
+        GridHeight = GridWidth;
+        PoseGrid = new BasisPoseData[GridWidth * GridHeight];
+
         BasisTransformMapping Mapping = new BasisTransformMapping();
         GameObject CopyOfOrigionally = GameObject.Instantiate(OriginalAnimator.gameObject);
         CopyOfOrigionally.gameObject.SetActive(false);
@@ -169,6 +188,92 @@ public class BasisLocalHandDriver
 
         BuildNativePoseGrid();
         RebuildTransformAccess();
+
+        // Store in cache for future loads of the same avatar
+        if (cacheKey != 0)
+        {
+            SaveToCache(cacheKey);
+        }
+
+        // Free managed grid — only the NativeArray is used at runtime
+        PoseGrid = null;
+    }
+
+    // ────────────────────────────────────────────────────────────
+    //  Cache save / restore
+    // ────────────────────────────────────────────────────────────
+
+    private void SaveToCache(int cacheKey)
+    {
+        int totalElements = _nativePoseGrid.Length;
+        float[] snapshot = new float[totalElements * 4];
+        for (int i = 0; i < totalElements; i++)
+        {
+            quaternion q = _nativePoseGrid[i];
+            int b = i * 4;
+            snapshot[b] = q.value.x;
+            snapshot[b + 1] = q.value.y;
+            snapshot[b + 2] = q.value.z;
+            snapshot[b + 3] = q.value.w;
+        }
+
+        var entry = BasisAvatarModelCache.GetOrCreate(cacheKey);
+        entry.HandPoseGrid = new BasisAvatarModelCache.HandPoseGridData
+        {
+            NativeGridSnapshot = snapshot,
+            GridWidth = GridWidth,
+            GridHeight = GridHeight,
+            FingerStride = _fingerStride,
+            TotalElements = totalElements,
+
+            LeftThumb = (float[])LeftThumb.Clone(),
+            LeftIndex = (float[])LeftIndex.Clone(),
+            LeftMiddle = (float[])LeftMiddle.Clone(),
+            LeftRing = (float[])LeftRing.Clone(),
+            LeftLittle = (float[])LeftLittle.Clone(),
+            RightThumb = (float[])RightThumb.Clone(),
+            RightIndex = (float[])RightIndex.Clone(),
+            RightMiddle = (float[])RightMiddle.Clone(),
+            RightRing = (float[])RightRing.Clone(),
+            RightLittle = (float[])RightLittle.Clone(),
+
+            InitialPose = Current,
+        };
+    }
+
+    private void RestoreFromCache(BasisAvatarModelCache.HandPoseGridData cached)
+    {
+        GridWidth = cached.GridWidth;
+        GridHeight = cached.GridHeight;
+        _fingerStride = cached.FingerStride;
+
+        // Restore muscle arrays
+        LeftThumb = (float[])cached.LeftThumb.Clone();
+        LeftIndex = (float[])cached.LeftIndex.Clone();
+        LeftMiddle = (float[])cached.LeftMiddle.Clone();
+        LeftRing = (float[])cached.LeftRing.Clone();
+        LeftLittle = (float[])cached.LeftLittle.Clone();
+        RightThumb = (float[])cached.RightThumb.Clone();
+        RightIndex = (float[])cached.RightIndex.Clone();
+        RightMiddle = (float[])cached.RightMiddle.Clone();
+        RightRing = (float[])cached.RightRing.Clone();
+        RightLittle = (float[])cached.RightLittle.Clone();
+
+        Current = cached.InitialPose;
+
+        // Rebuild native pose grid from cached snapshot
+        if (_nativePoseGrid.IsCreated) _nativePoseGrid.Dispose();
+        _nativePoseGrid = new NativeArray<quaternion>(cached.TotalElements, Allocator.Persistent);
+
+        float[] snap = cached.NativeGridSnapshot;
+        for (int i = 0; i < cached.TotalElements; i++)
+        {
+            int b = i * 4;
+            _nativePoseGrid[i] = new quaternion(snap[b], snap[b + 1], snap[b + 2], snap[b + 3]);
+        }
+
+        // Don't need managed grid
+        PoseGrid = null;
     }
 
     /// <summary>

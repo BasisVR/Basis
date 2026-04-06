@@ -56,7 +56,13 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> UseMaxAudioSources = new("usemaxaudiosources", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
-        /// Maximum number of OpenLipSync (neural viseme) slots.
+        /// When enabled, caps the number of OpenLipSync (neural viseme) slots to <see cref="OpenLipSyncMaxSlots"/>.
+        /// When disabled (default), slot count is unlimited — bounded only by the number of players in viseme range.
+        /// </summary>
+        public static BasisSettingsBinding<bool> UseOpenLipSyncLimit = new("useopenlipsynclimit", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
+        /// Maximum number of OpenLipSync (neural viseme) slots when <see cref="UseOpenLipSyncLimit"/> is enabled.
         /// Players beyond this limit fall back to the lighter uLipSync backend.
         /// Higher values look better in crowds but cost more CPU.
         /// </summary>
@@ -135,6 +141,19 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> DebugVisuals = new("debugvisuals", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<bool> EnableStatistics = new("enablestatistics", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<bool> DevShowBuildInfo = new("devshowbuildinfo", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> DevShowConsole = new("devshowconsole", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> DevShowEuroFilter = new("devshowfilter", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> DevShowNetStats = new("devshownetstats", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<bool> AudioDebugEnabled = new("audiodebugenabled", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> AudioDebugShowSource = new("audiodebugshowsource", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowVolume = new("audiodebugshowvolume", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowRingBuffer = new("audiodebugshowringbuffer", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowJitter = new("audiodebugshowjitter", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowSilence = new("audiodebugshowsilence", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowViseme = new("audiodebugshowviseme", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<string> MemoryAllocation = new("memoryallocation", new BasisPlatformDefault<string>
         {
@@ -219,6 +238,11 @@ namespace Basis.BasisUI
 
         // ---------------- NETWORKING ----------------
         public static BasisSettingsBinding<bool> AutoConnect = new("autoconnect", new BasisPlatformDefault<bool>(false));
+
+        // Network Euro filter parameters (remote player interpolation)
+        public static BasisSettingsBinding<float> NetEuroMinCutoff = new("neteuromincutoff", new BasisPlatformDefault<float>(0.05f));
+        public static BasisSettingsBinding<float> NetEuroBeta = new("neteurobeta", new BasisPlatformDefault<float>(2f));
+        public static BasisSettingsBinding<float> NetEuroDerivativeCutoff = new("neteuroderivativecutoff", new BasisPlatformDefault<float>(2f));
 
         // ---------------- DEVICE SWAP MODE ----------------
         /// <summary>
@@ -654,6 +678,8 @@ namespace Basis.BasisUI
             MaxVisibleAvatars.LoadBindingValue();
             UseMaxAudioSources.LoadBindingValue();
             MaxAudioSources.LoadBindingValue();
+            UseOpenLipSyncLimit.LoadBindingValue();
+            OpenLipSyncMaxSlots.LoadBindingValue();
             PoseLOD.LoadBindingValue();
             UseViewConeAvatars.LoadBindingValue();
             ViewConeAngle.LoadBindingValue();
@@ -685,6 +711,9 @@ namespace Basis.BasisUI
 
             // Networking
             AutoConnect.LoadBindingValue();
+            NetEuroMinCutoff.LoadBindingValue();
+            NetEuroBeta.LoadBindingValue();
+            NetEuroDerivativeCutoff.LoadBindingValue();
 
             // Device Swap Mode
             SwapMode.LoadBindingValue();

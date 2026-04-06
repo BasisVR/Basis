@@ -290,6 +290,7 @@ namespace Basis.Scripts.Networking.Receivers
                 BasisAudioRemoteSource.Return(AudioSourceTransform.gameObject);
             }
 
+            audioSource = null;
             AudioSourceTransform = null;
             BasisRemoteVisemeAudioDriver = null;
         }

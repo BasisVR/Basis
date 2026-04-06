@@ -386,6 +386,10 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             lipSyncGroup.SetTitle("Lip Sync");
             lipSyncGroup.SetDescription("Controls how many players use high-quality neural lip sync (OpenLipSync).\nPlayers beyond this limit fall back to the lighter uLipSync backend.");
 
+            PanelToggle toggleLimitLipSync = PanelToggle.CreateNewEntry(lipSyncGroup);
+            toggleLimitLipSync.AssignBinding(BasisSettingsDefaults.UseOpenLipSyncLimit);
+            toggleLimitLipSync.Descriptor.SetTitle("Limit OpenLipSync Slots");
+
             PanelSlider sliderLipSyncSlots = PanelSlider.CreateEntryAndBind(
                 lipSyncGroup,
                 PanelSlider.SliderSettings.Advanced("OpenLipSync Max Slots", 1, 250, true, 0, ValueDisplayMode.Raw),
@@ -394,6 +398,14 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
                 "Number of concurrent OpenLipSync (neural viseme) instances.\n" +
                 "Higher = better lip sync on more players, but more CPU.\n" +
                 "Default: 30. Players beyond this use uLipSync fallback.");
+
+            // Only show the slider when the limit toggle is enabled
+            sliderLipSyncSlots.Descriptor.SetActive(toggleLimitLipSync.Value);
+            toggleLimitLipSync.OnValueChanged += (val) =>
+            {
+                sliderLipSyncSlots.Descriptor.SetActive(val);
+                lipSyncGroup.ForceRebuild();
+            };
 
             // Hide all advanced groups by default
             audioSourceGroup.SetActive(false);

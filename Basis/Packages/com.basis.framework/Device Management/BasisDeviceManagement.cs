@@ -28,6 +28,7 @@ namespace Basis.Scripts.Device_Management
     /// This MonoBehaviour is intended to exist exactly once in a scene. Use <see cref="Instance"/> for access.
     /// It initializes players, loads settings/bindings, restores previously connected devices, and manages XR lifecycle.
     /// </remarks>
+    [DefaultExecutionOrder(-1000)]
     public class BasisDeviceManagement : MonoBehaviour
     {
         /// <summary>
@@ -636,7 +637,7 @@ namespace Basis.Scripts.Device_Management
         {
             for (int i = AllInputDevices.Count - 1; i >= 0; i--)
             {
-                var device = AllInputDevices[i];
+                BasisInput device = AllInputDevices[i];
                 if (device != null && device.SubSystemIdentifier == subsystem && device.UniqueDeviceIdentifier == id)
                 {
                     CacheDevice(device);

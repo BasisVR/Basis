@@ -24,7 +24,7 @@ using UnityEngine.InputSystem;
 public partial class BasisEventDriver : MonoBehaviour
 {
     // ── Platform flag (single #if, used as runtime bool everywhere else) ──
-    public static readonly bool IsServer =
+    public static readonly bool IsHeadlessClient =
 #if UNITY_SERVER
         true;
 #else
@@ -126,8 +126,11 @@ public partial class BasisEventDriver : MonoBehaviour
     public void OnEnable()
     {
         Instance = this;
-        if (!IsServer)
+        if (!IsHeadlessClient)
+        {
             Application.onBeforeRender += OnBeforeRender;
+        }
+
         BasisOpenLipSyncDriver.Initialize();
         BasisSceneFactory.Initalize();
         BasisObjectSyncDriver.Initalization();
@@ -151,7 +154,7 @@ public partial class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void OnDisable()
     {
-        if (!IsServer)
+        if (!IsHeadlessClient)
             Application.onBeforeRender -= OnBeforeRender;
     }
 
@@ -180,7 +183,7 @@ public partial class BasisEventDriver : MonoBehaviour
         }
         BasisNetworkManagement.SimulateNetworkCompute(unscaledDeltaTime);
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
-        if (!IsServer)
+        if (!IsHeadlessClient)
             InputSystem.Update();
         timeSinceLastUpdate += DeltaTime;
     }
@@ -347,7 +350,7 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileEnd(PROF_SHADOW_CLONE);
 
         StateOfOnRenderBefore = true;
-        if (IsServer)
+        if (IsHeadlessClient)
         {
             OnBeforeRender();
         }
@@ -396,7 +399,7 @@ public partial class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void OnDrawGizmos()
     {
-        if (!IsServer && BasisLocalPlayer.PlayerReady)
+        if (!IsHeadlessClient && BasisLocalPlayer.PlayerReady)
         {
             BasisHintOffsetGizmos.DrawAll();
         }
@@ -404,11 +407,16 @@ public partial class BasisEventDriver : MonoBehaviour
 
     public void OnDrawGizmosSelected()
     {
-        if (IsServer) return;
+        if (IsHeadlessClient)
+        {
+            return;
+        }
+
         JigglePhysics.OnDrawGizmos();
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisPlayerInteract.DrawAll();
+            BasisLocalPlayer.Instance.BasisLocalFootDriver.DrawGizmos();
         }
     }
 

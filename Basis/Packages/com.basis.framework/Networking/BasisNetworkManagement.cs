@@ -154,12 +154,9 @@ namespace Basis.Scripts.Networking
         private static float _timer;
         public static bool HasRequested;
 
-        // Parameters for Euro filter
-       // [Header(" Lower values → smoother output, more latency, Higher values → snappier output, more noise passes through")]
+        // Parameters for Euro filter (defaults; overridden at runtime by settings bindings)
         public static float MinCutoff = 0.05f;
-      //  [Header("This is the adaptivity knob. It controls how much the filter reacts to speed. Beta multiplies the filtered derivative magnitude:")]
         public static float Beta = 2;
-     //   [Header("DerivativeCutoff This controls how noisy the speed estimate itself is.Before the filter adapts, it estimates velocity:")]
         public static float DerivativeCutoff = 2;
         /// <summary>
         /// Simulates network computation step (state updates, bone drivers, profiler update).
@@ -234,7 +231,12 @@ namespace Basis.Scripts.Networking
             BasisRemoteNetworkDriver.Apply(); // completes interpolation job
             BasisRemoteNetworkDriver.BeginRead();
 #if UNITY_EDITOR
-            if (p) { s.Stop(); BasisEventDriverProfilerData.Net_RemoteDriverApplyMs = s.Elapsed.TotalMilliseconds; s.Restart(); }
+            if (p)
+            {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_RemoteDriverApplyMs = s.Elapsed.TotalMilliseconds;
+                s.Restart();
+            }
 #endif
 
             int count = BasisNetworkPlayers.ReceiverCount;
@@ -273,8 +275,10 @@ namespace Basis.Scripts.Networking
 #endif
                     continue;
                 }
-
-                receiver.Apply();
+                if (receiver.HasOverridenDestination)
+                {
+                    BasisRemoteNetworkDriver.SetFilteredHipsOverride(receiver.playerId, receiver.OverridenPosition, (quaternion)receiver.OverridenRotation);
+                }
 #if UNITY_EDITOR
                 _applied++;
 #endif
@@ -310,8 +314,15 @@ namespace Basis.Scripts.Networking
 
             BoneJobSystem = RemoteBoneJobSystem.Schedule();
 #if UNITY_EDITOR
-            if (p) { s.Stop(); BasisEventDriverProfilerData.Net_BoneJobScheduleMs = s.Elapsed.TotalMilliseconds; }
-            if (p) { BasisEventDriverProfilerData.Net_BoneJobWasIncomplete = !BoneJobSystem.IsCompleted; s = System.Diagnostics.Stopwatch.StartNew(); }
+            if (p) {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_BoneJobScheduleMs = s.Elapsed.TotalMilliseconds;
+            }
+            if (p)
+            {
+                BasisEventDriverProfilerData.Net_BoneJobWasIncomplete = !BoneJobSystem.IsCompleted;
+                s = System.Diagnostics.Stopwatch.StartNew();
+            }
 #endif
 
             RemoteBoneJobSystem.Complete(BoneJobSystem);

@@ -34,15 +34,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         private bool _hasReasonToSendAudio;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         public const int MuscleCount = 95;
-        [SerializeField]
-        public HumanPose HumanPose = new HumanPose()
-        {
-            muscles = new float[MuscleCount],
-            bodyPosition = Vector3.zero,
-            bodyRotation = Quaternion.identity,
-        };
-        [SerializeField]
-        public HumanPoseHandler PoseHandler;
         public BasisPlayer Player {get; set; }
         public bool hasID = false;
         public bool HasReasonToSendAudio
@@ -101,11 +92,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (CheckForAvatar())
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
-                // All checks pas
-                PoseHandler = new HumanPoseHandler(
-                    basisAvatar.Animator.avatar,
-                    Player.AvatarAnimatorTransform
-                );
                // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
                 NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -470,24 +471,27 @@ namespace Basis.Scripts.UI.NamePlate
             var inBuf = (writeBuffer == 0) ? inputA : inputB;
             var outBuf = (writeBuffer == 0) ? outputA : outputB;
 
-            // Gather inputs (still managed reads, but NO stall and tight struct write)
-            for (int i = 0; i < count; i++)
+            // Gather inputs via unsafe pointers to bypass NativeArray safety checks
+            unsafe
             {
-                var p = plates[i];
+                PlateInput* pIn = (PlateInput*)inBuf.GetUnsafePtr();
+                PlateOutput* pOut = (PlateOutput*)outBuf.GetUnsafePtr();
 
-                // Keep exactly your current semantics
-                var tc = p.GetTalkColorForJob();
-
-                inBuf[i] = new PlateInput
+                for (int i = 0; i < count; i++)
                 {
-                    isVisible = (ushort)(p.IsVisible ? 1 : 0),
-                    isPulsing = (ushort)(p.GetIsPulsingForJob() ? 1 : 0),
-                    startTime = p.GetTalkStartTimeForJob(),
-                    talkColor = new float4(tc.r, tc.g, tc.b, tc.a)
-                };
+                    var p = plates[i];
+                    var tc = p.GetTalkColorForJob();
 
-                // Optional: clear only the flag fields; job overwrites anyway
-                outBuf[i] = default;
+                    pIn[i] = new PlateInput
+                    {
+                        isVisible = (ushort)(p.IsVisible ? 1 : 0),
+                        isPulsing = (ushort)(p.GetIsPulsingForJob() ? 1 : 0),
+                        startTime = p.GetTalkStartTimeForJob(),
+                        talkColor = new float4(tc.r, tc.g, tc.b, tc.a)
+                    };
+
+                    pOut[i] = default;
+                }
             }
 
             var job = new NamePlatePulseJob
@@ -528,21 +532,26 @@ namespace Basis.Scripts.UI.NamePlate
 
             var outBuf = (writeBuffer == 0) ? outputA : outputB;
 
-            for (int i = 0; i < count; i++)
+            unsafe
             {
-                var p = plates[i];
+                PlateOutput* pOut = (PlateOutput*)outBuf.GetUnsafeReadOnlyPtr();
 
-                if (outBuf[i].stopPulsing != 0)
-                    p.StopPulseFromJob();
-
-                if (outBuf[i].hasChange != 0)
+                for (int i = 0; i < count; i++)
                 {
-                    float4 c = outBuf[i].color;
-                    p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
-                }
+                    var p = plates[i];
+                    PlateOutput o = pOut[i];
 
-                // Update chat message timeout
-                p.UpdateChatTimeout();
+                    if (o.stopPulsing != 0)
+                        p.StopPulseFromJob();
+
+                    if (o.hasChange != 0)
+                    {
+                        float4 c = o.color;
+                        p.ApplyColorFromJob(new Color(c.x, c.y, c.z, c.w));
+                    }
+
+                    p.UpdateChatTimeout();
+                }
             }
         }
 

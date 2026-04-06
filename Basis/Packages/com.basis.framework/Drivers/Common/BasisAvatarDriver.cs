@@ -244,11 +244,10 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.RightLittle);
             JiggleCreatorHelper(Mapping.rightHand);
 
-            //   BasisDebug.Log("Creating Collider Rigs");
-            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
-            {
-                JigglePhysics.AddJiggleCollider(Jiggle);
-            }
+            // Batch-add all colliders at once to avoid O(n²) dedup in JiggleMemoryBus.
+            // ScheduleAdd does a linear scan of pendingSceneColliderAdd for each call,
+            // so adding 32 colliders one-at-a-time when the pending list is large is expensive.
+            JigglePhysics.AddJiggleColliders(JiggleColliders);
         }
 
         /// <summary>
@@ -257,9 +256,10 @@ namespace Basis.Scripts.Drivers
         /// <param name="Parents">Transforms that will each receive a collider.</param>
         public void JiggleCreatorHelper(Transform[] Parents)
         {
-            foreach (Transform Parent in Parents)
+            int count = Parents.Length;
+            for (int i = 0; i < count; i++)
             {
-                JiggleCreatorHelper(Parent);
+                JiggleCreatorHelper(Parents[i]);
             }
         }
 
@@ -275,18 +275,16 @@ namespace Basis.Scripts.Drivers
         {
             if (Parent != null)
             {
-                JiggleColliderSerializable jiggleColliderSerializable = new JiggleColliderSerializable
+                JiggleColliders.Add(new JiggleColliderSerializable
                 {
                     collider = new JiggleCollider()
                     {
                         type = JiggleCollider.JiggleColliderType.Sphere,
                         localToWorldMatrix = Parent.localToWorldMatrix,
-                        radius = Scale / (Parent.lossyScale.magnitude / 3) // Scaled radius
+                        radius = Scale / (Parent.lossyScale.magnitude / 3)
                     },
                     transform = Parent
-                };
-
-                JiggleColliders.Add(jiggleColliderSerializable);
+                });
             }
         }
 

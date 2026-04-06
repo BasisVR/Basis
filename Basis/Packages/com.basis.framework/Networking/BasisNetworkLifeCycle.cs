@@ -19,7 +19,7 @@ public static class BasisNetworkLifeCycle
     {
         BasisDebug.Log($"Initalizing Network Connection", BasisDebug.LogTag.Networking);
         BasisNetworkManagement.mainThreadId = Thread.CurrentThread.ManagedThreadId;
-        BasisRemoteNetworkDriver.Initialize(95, Unity.Collections.Allocator.Persistent);
+        BasisRemoteNetworkDriver.Initialize(Unity.Collections.Allocator.Persistent);
         BasisAudioRemoteSource.Initalize();
         BasisNetworkIdResolver.KnownIdMap.Clear();
         BasisNetworkIdResolver.PendingResolutions.Clear();

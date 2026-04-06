@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk;
@@ -14,7 +15,7 @@ namespace Basis.Scripts.Drivers
 
         private uint _contextHandle;
 
-        // Double-buffered frames: _backFrame written by background task, _readyFrame consumed by Apply()
+        // Double-buffered frames: _backFrame written by batch task, consumed by Apply()
         private Frame _backFrame = new Frame();
         private volatile bool _hasNewResults;
 
@@ -35,15 +36,46 @@ namespace Basis.Scripts.Drivers
         private float[] _cachedVisemeWeights = new float[VisemeCount];
         private float[] _lastApplied = new float[VisemeCount];
 
-        // Background processing
-        private Task _processingTask;
-
         private bool _initialized;
         private bool _disposed;
         private bool _faceVisible = true;
 
         private const int AudioBufferSize = 48000; // 1 second at 48kHz
         private const float BlendShapeWriteEps = 0.25f;
+
+        // Reusable buffer for batch task audio — eliminates per-frame float[] allocation
+        private float[] _audioChunk = new float[AudioBufferSize];
+
+        // ────────────────────────────────────────────────────────────
+        //  Batch inference state (per-instance, set by Simulate, read by batch task)
+        // ──────────────────���─────────────────────────────────────────
+        private volatile bool _readyForInference;
+        private int _frozenSampleCount;
+
+        // ───────��────────────────────────────────────────────────────
+        //  Static batch processing — replaces per-context Task.Run()
+        //
+        //  Instead of each context spawning its own background task
+        //  (which causes thread pool saturation when 30+ contexts
+        //  all contend on the single-threaded ONNX session), all
+        //  ready contexts are collected into a batch and processed
+        //  sequentially in one background task.
+        //
+        //  This scales to any number of active contexts because:
+        //  - Only 1 thread pool task runs at a time
+        //  - No ONNX session lock contention
+        //  - Fair round-robin scheduling for all contexts
+        //  - Per-frame budget limits work per batch
+        // ──────────────────────────────────��─────────────────────��───
+        private static readonly List<BasisOpenLipSyncContext> _pendingInference = new List<BasisOpenLipSyncContext>(64);
+        private static Task _batchTask;
+
+        /// <summary>
+        /// Maximum number of contexts to process per batch task.
+        /// Contexts beyond this are deferred to the next frame.
+        /// With ~1ms per ONNX inference, 32 contexts = ~32ms background work.
+        /// </summary>
+        public static int MaxContextsPerBatch = 32;
 
         public bool IsInitialized => _initialized;
 
@@ -57,7 +89,9 @@ namespace Basis.Scripts.Drivers
         public int[] DebugVisemeToBlendShape => _visemeToBlendShape;
         public float[] DebugVisemeWeights => _cachedVisemeWeights;
         public float[] DebugLastApplied => _lastApplied;
-        public bool DebugTaskRunning => _processingTask != null && !_processingTask.IsCompleted;
+        public bool DebugTaskRunning => _batchTask != null && !_batchTask.IsCompleted;
+        public static int DebugPendingCount => _pendingInference.Count;
+        public static bool DebugBatchRunning => _batchTask != null && !_batchTask.IsCompleted;
 
         public void Initialize(BasisAvatar avatar, uint contextHandle)
         {
@@ -130,25 +164,18 @@ namespace Basis.Scripts.Drivers
         }
 
         /// <summary>
-        /// Called on the main thread. Swaps audio buffers and kicks off background
-        /// ONNX inference via Task.Run(). Does not block.
+        /// Called on the main thread. Swaps audio buffers and enqueues this context
+        /// for batch inference. Does NOT spawn its own background task.
         /// </summary>
         public void Simulate(float deltaTime)
         {
             if (!_initialized || _disposed || !_faceVisible) return;
 
-            // Don't start new work if previous task still running
-            if (_processingTask != null && !_processingTask.IsCompleted) return;
+            // Already queued for batch processing
+            if (_readyForInference) return;
 
-            // Don't start new work until Apply() has consumed previous results
+            // Don't queue new work until Apply() has consumed previous results
             if (_hasNewResults) return;
-
-            // Check for faulted task from previous frame
-            if (_processingTask?.IsFaulted == true)
-            {
-                Debug.LogWarning($"[OpenLipSync] Background task faulted: {_processingTask.Exception?.InnerException?.Message}");
-                _processingTask = null;
-            }
 
             if (Interlocked.Exchange(ref _hasNewAudio, 0) != 1) return;
 
@@ -165,9 +192,8 @@ namespace Basis.Scripts.Drivers
 
             if (frozenCount <= 0) return;
 
-            // Copy frozen audio for the background task
-            float[] audioChunk = new float[frozenCount];
-            Array.Copy(frozenBuffer, 0, audioChunk, 0, frozenCount);
+            // Copy frozen audio into reusable buffer (zero GC allocation)
+            Array.Copy(frozenBuffer, 0, _audioChunk, 0, frozenCount);
 
             // Reset write index for the now-frozen buffer
 #pragma warning disable CS0420 // Volatile.Write provides correct semantics for volatile fields
@@ -175,15 +201,85 @@ namespace Basis.Scripts.Drivers
             else Volatile.Write(ref _writeIndexB, 0);
 #pragma warning restore CS0420
 
-            // Schedule background processing
-            uint handle = _contextHandle;
-            Frame targetFrame = _backFrame;
-            _processingTask = Task.Run(() =>
+            _frozenSampleCount = frozenCount;
+            _readyForInference = true;
+
+            lock (_pendingInference)
             {
-                var result = BasisOpenLipSyncDriver.ProcessFrame(handle, audioChunk, targetFrame);
-                if (result == Result.Success)
+                _pendingInference.Add(this);
+            }
+        }
+
+        /// <summary>
+        /// Call after all individual Simulate() calls complete.
+        /// Collects all pending contexts and processes them sequentially in a single
+        /// background task. This avoids thread pool saturation and ONNX session contention
+        /// that occurs when each context spawns its own Task.Run().
+        ///
+        /// Scales to 1000+ audio sources because:
+        /// - Only in-range contexts with new audio are processed
+        /// - Single background task, no thread pool flooding
+        /// - Per-batch budget caps work per frame
+        /// </summary>
+        public static void ProcessAllPending()
+        {
+            // Check for faulted previous batch
+            if (_batchTask?.IsFaulted == true)
+            {
+                Debug.LogWarning($"[OpenLipSync] Batch inference faulted: {_batchTask.Exception?.InnerException?.Message}");
+                _batchTask = null;
+            }
+
+            // Don't start new batch while previous is still running
+            if (_batchTask != null && !_batchTask.IsCompleted) return;
+
+            BasisOpenLipSyncContext[] batch;
+            int batchCount;
+            lock (_pendingInference)
+            {
+                batchCount = _pendingInference.Count;
+                if (batchCount == 0) return;
+
+                // Cap batch size to spread work across frames
+                int take = Math.Min(batchCount, MaxContextsPerBatch);
+                batch = new BasisOpenLipSyncContext[take];
+                _pendingInference.CopyTo(0, batch, 0, take);
+                _pendingInference.RemoveRange(0, take);
+            }
+
+            _batchTask = Task.Run(() =>
+            {
+                for (int i = 0; i < batch.Length; i++)
                 {
-                    _hasNewResults = true;
+                    var ctx = batch[i];
+                    if (ctx._disposed)
+                    {
+                        ctx._readyForInference = false;
+                        continue;
+                    }
+
+                    try
+                    {
+                        var result = BasisOpenLipSyncDriver.ProcessFrame(
+                            ctx._contextHandle, ctx._audioChunk, ctx._frozenSampleCount, ctx._backFrame);
+
+                        if (result == Result.Success)
+                        {
+                            ctx._hasNewResults = true;
+                        }
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        // Expected during teardown
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogWarning($"[OpenLipSync] Batch inference error for context {ctx._contextHandle}: {ex.Message}");
+                    }
+                    finally
+                    {
+                        ctx._readyForInference = false;
+                    }
                 }
             });
         }
@@ -196,7 +292,7 @@ namespace Basis.Scripts.Drivers
         {
             if (!_initialized || _disposed || _meshRenderer == null || !_faceVisible) return;
 
-            // Pick up completed results from background task
+            // Pick up completed results from batch task
             if (_hasNewResults)
             {
                 _hasNewResults = false;
@@ -250,15 +346,17 @@ namespace Basis.Scripts.Drivers
             {
                 _initialized = false;
                 _disposed = true;
+                _readyForInference = false;
 
-                // Wait for any in-flight task to finish before releasing buffers
-                if (_processingTask != null && !_processingTask.IsCompleted)
+                // Remove from pending list if queued
+                lock (_pendingInference)
                 {
-                    try { _processingTask.Wait(500); } catch { }
+                    _pendingInference.Remove(this);
                 }
 
                 _audioBufferA = null;
                 _audioBufferB = null;
+                _audioChunk = null;
                 _backFrame = null;
             }
         }

@@ -59,6 +59,22 @@ namespace Basis.Scripts.Drivers
             }
         }
         /// <summary>
+        /// Resets this driver for object pooling without destroying the GameObject.
+        /// Performs the same cleanup as OnDestroy but keeps the component alive.
+        /// </summary>
+        public void ResetForPool()
+        {
+            Initalized = false;
+            if (BasisAudioAndVisemeDriver != null)
+            {
+                BasisAudioAndVisemeDriver.OnDestroy();
+                Drivers.Remove(BasisAudioAndVisemeDriver);
+            }
+            BasisAudioAndVisemeDriver = null;
+            BasisAudioReceiver = null;
+            AudioData = null;
+        }
+        /// <summary>
         /// Initializes the driver with a viseme processor and marks it ready.
         /// </summary>
         /// <param name="basisVisemeDriver">The viseme (lip-sync) driver to use.</param>
@@ -79,6 +95,11 @@ namespace Basis.Scripts.Drivers
                 BasisAudioAndVisemeDriver VisemeDriver = Drivers[Index];
                 VisemeDriver.Simulate(DeltaTime);
             }
+
+            // Process all pending OpenLipSync contexts in a single batched
+            // background task. This replaces per-context Task.Run() which
+            // caused thread pool saturation with many players.
+            BasisOpenLipSyncContext.ProcessAllPending();
         }
         public static void Apply()
         {

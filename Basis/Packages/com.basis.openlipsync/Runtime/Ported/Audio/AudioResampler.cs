@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace OpenLipSync.Inference.Audio
@@ -20,6 +21,18 @@ namespace OpenLipSync.Inference.Audio
         private bool _primed;
         private bool _disposed;
 
+        // ── Coefficient table cache ──
+        // The table depends only on (inputRate, outputRate, taps, phases, cutoffScale).
+        // For OpenLipSync all contexts use the same rates, so this avoids rebuilding
+        // the 49,152-float table (~196 KB) for every new context.
+        private static readonly ConcurrentDictionary<long, float[]> _coeffCache = new ConcurrentDictionary<long, float[]>();
+
+        private static long MakeCacheKey(int inputRate, int outputRate, int taps, int phases)
+        {
+            // Pack 4 ints into a single long key
+            return ((long)inputRate << 48) | ((long)(outputRate & 0xFFFF) << 32) | ((long)(taps & 0xFFFF) << 16) | (long)(phases & 0xFFFF);
+        }
+
         public AudioResampler(int inputSampleRate, int outputSampleRate, int filterTaps = 48, int numPhases = 1024, double cutoffScale = 0.9)
         {
             if (inputSampleRate <= 0) throw new ArgumentException("Input sample rate must be positive", nameof(inputSampleRate));
@@ -36,10 +49,20 @@ namespace OpenLipSync.Inference.Audio
             _filterTaps = filterTaps;
             _halfTaps = filterTaps / 2;
             _numPhases = numPhases;
-            _coeffTable = new float[_numPhases * _filterTaps];
 
-            double fc = 0.5 * Math.Min(1.0, (double)_outputSampleRate / _inputSampleRate) * cutoffScale;
-            BuildCoefficientTable(fc);
+            // Check cache before computing the expensive coefficient table
+            long key = MakeCacheKey(inputSampleRate, outputSampleRate, filterTaps, numPhases);
+            if (_coeffCache.TryGetValue(key, out float[] cached))
+            {
+                _coeffTable = cached;
+            }
+            else
+            {
+                _coeffTable = new float[_numPhases * _filterTaps];
+                double fc = 0.5 * Math.Min(1.0, (double)_outputSampleRate / _inputSampleRate) * cutoffScale;
+                BuildCoefficientTable(fc);
+                _coeffCache.TryAdd(key, _coeffTable);
+            }
 
             _time = 0.0;
             _primed = false;

@@ -1,64 +1,84 @@
 using Basis.Network.Core;
 using Basis.Network.Core.Compression;
+using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using static SerializableBasis;
+using UnityEngine.Jobs;
 using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
-using Basis.Scripts.Drivers;
 
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
+    /// <summary>
+    /// Compresses local avatar bone rotations as T-pose-relative deltas using
+    /// "smallest three" quaternion encoding.
+    ///
+    /// ExtractBoneDeltas uses a TransformAccessArray to read bone local rotations,
+    /// then a Burst-compiled IJob computes deltas and compresses the bitstream in
+    /// a single pass (BasisBoneDeltaAndCompressJob).
+    /// </summary>
     public static class BasisNetworkAvatarCompressor
     {
-        const int UnityMuscleCount = 95;
-
         static bool sInitialized;
 
-        // persistent native LUTs / buffers
-        static NativeArray<int> sOrder;         // slot -> muscle index
-        static NativeArray<byte> sBitsPerSlot;  // slot -> bit width
-        static NativeArray<int> sBitOffsets;    // slot -> bit offset in packed stream
+        // Persistent T-pose local rotations captured during calibration (indexed by HumanBodyBones 0..54)
+        static quaternion[] sTposeLocalRotations;
 
-        static NativeArray<float> sMin;         // index by muscle idx
-        static NativeArray<float> sInv;         // 1/range or 0
-        static NativeArray<float> sMax;         // min + range
+        // Scratch buffer for 54 delta quaternions (indexed by slot in BONE_WRITE_ORDER)
+        static NativeArray<quaternion> sBoneDeltas;
 
-        static NativeArray<float> sMusclesNative;   // input scratch persistent (95 floats)
-        static NativeArray<uint> sQuantized;        // per-slot quantized ints
-        static NativeArray<byte> sPacked;           // packed bitstream output
+        // Job system persistent arrays
+        static TransformAccessArray sBoneTransformAccess;
+        static NativeArray<quaternion> sCurrentLocalRotations;
+        static NativeArray<quaternion> sTposeNative;
+        static NativeArray<byte> sBpcNative;
+        static NativeArray<float> sMaxComponentNative;
+        static bool sJobArraysReady;
 
-        // Clamp debug flags (written in Burst job, logged on main thread)
-        // 0 = ok, 1 = hit min, 2 = hit max
-        static NativeArray<byte> sClampFlags;
-
-        static int sPackedBits;
-        static int sPackedBytes;
-
-        // We lock the wire format to HIGH
+        // Wire quality is locked to HIGH
         static readonly BitQuality WireQuality = BitQuality.High;
 
-        // Outbound sequence counter for unreliable avatar packets (wraps at 255→0)
+        // Outbound sequence counter
         static byte sLocalSequence;
+
+        /// <summary>
+        /// Called during local avatar calibration to capture T-pose bone rotations.
+        /// Must be called while the avatar is in T-pose.
+        /// </summary>
+        public static void CaptureTPose()
+        {
+            sTposeLocalRotations = new quaternion[55]; // HumanBodyBones 0..54
+            for (int Index = 0; Index < 55; Index++)
+            {
+                if (BasisLocalAvatarDriver.Mapping.TposeLocal.TryGetValue((HumanBodyBones)Index, out var value))
+                {
+                    sTposeLocalRotations[Index] = value.rotation;
+                }
+                else
+                {
+                    sTposeLocalRotations[Index] = quaternion.identity;
+                }
+            }
+
+            // Rebuild job arrays for the new avatar
+            BuildJobArrays();
+        }
 
         public static void Compress(BasisNetworkTransmitter transmitter, Animator animator)
         {
             Transform t = animator.transform;
-            transmitter.PoseHandler ??= new HumanPoseHandler(animator.avatar, t);
 
             EnsureInitialized();
+            // Extract deltas via main-thread Transform reads
+            ExtractBoneDeltas();
 
-            transmitter.PoseHandler.GetHumanPose(ref transmitter.HumanPose);
-
-            CompressAvatarData(transmitter.storedAvatarData, transmitter.HumanPose, animator, t);
+            CompressAvatarData(transmitter.storedAvatarData, t);
 
             var data = transmitter.SendingOutAvatarData.Count == 0 ? null : transmitter.SendingOutAvatarData.Values.ToArray();
             transmitter.storedAvatarData.LASM.AdditionalAvatarDatas = data;
@@ -67,7 +87,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             bool hasAdditional = data != null && data.Length > 0;
             byte channel = BasisNetworkCommons.GetPlayerAvatarChannelForQuality((int)WireQuality, hasAdditional);
 
-            // Write sequence byte before the LASM payload
             transmitter.AvatarSendWriter.Put(sLocalSequence);
             unchecked { sLocalSequence++; }
 
@@ -85,19 +104,14 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             EnsureInitialized();
 
-            Transform t = animator.transform;
-            var poseHandler = new HumanPoseHandler(animator.avatar, t);
-            var humanPose = new HumanPose();
-            poseHandler.GetHumanPose(ref humanPose);
+            ExtractBoneDeltas();
 
             StoredAvatarData = new BasisStoredAvatarData();
-            CompressAvatarData(StoredAvatarData, humanPose, animator, t);
+            CompressAvatarData(StoredAvatarData, animator.transform);
         }
-        public static void CompressAvatarData(BasisStoredAvatarData AvatarData, HumanPose pose, Animator animator, Transform ScaleTransform)
-        {
-            EnsureInitialized();
 
-            // Ensure payload buffer exists and is correct size for HIGH
+        static void CompressAvatarData(BasisStoredAvatarData AvatarData, Transform ScaleTransform)
+        {
             int needed = BasisAvatarBitPacking.ConvertToSize(WireQuality);
             AvatarData.LASM.DataQualityLevel = (byte)WireQuality;
             AvatarData.LASM.array ??= new byte[needed];
@@ -106,180 +120,163 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 AvatarData.LASM.array = new byte[needed];
             }
 
+            // Clear the array (bone rotation packing ORs into bytes)
+            System.Array.Clear(AvatarData.LASM.array, 0, needed);
+
             int offset = 0;
-            Transform hips = BasisLocalAvatarDriver.Mapping.Hips;
-            // Position
-            BasisUnityBitPackerExtensionsUnsafe.WritePosition(animator.bodyPosition, ref AvatarData.LASM.array, ref offset);
-            JobHandle handle = CompressAvatarMuscles_BitPacked(pose.muscles, ref AvatarData.LASM, ref offset, out int offsetForComplete);
+            if (BasisLocalAvatarDriver.Mapping.HasHips)
+            {
+                Transform hips = BasisLocalAvatarDriver.Mapping.Hips;
 
-            // Scale
-            BasisUnityBitPackerExtensionsUnsafe.CompressScale(ScaleTransform.localScale.y, ref AvatarData.LASM, ref offset);
+                hips.GetPositionAndRotation(out var hipsPos, out var hipsRot);
 
-            // Rotation
-            BasisUnityBitPackerExtensionsUnsafe.WriteCompressedQuaternionToBytes(animator.bodyRotation, ref AvatarData.LASM.array, ref offset);
+                // Position (hips world position)
+                BasisUnityBitPackerExtensionsUnsafe.WritePosition(hipsPos, ref AvatarData.LASM.array, ref offset);
 
-            Complete(handle, ref AvatarData.LASM, offsetForComplete);
+                // Bone rotations — use Burst job if arrays are ready, otherwise fallback
+                if (sJobArraysReady)
+                {
+                    CompressBoneRotationsJobified(AvatarData.LASM.array, ref offset);
+                }
+                else
+                {
+                    BasisBoneRotationUtils.CompressBoneRotations(sBoneDeltas, WireQuality, AvatarData.LASM.array, ref offset);
+                }
+
+                // Scale
+                BasisUnityBitPackerExtensionsUnsafe.CompressScale(ScaleTransform.localScale.y, ref AvatarData.LASM, ref offset);
+
+                // Hips world rotation
+                BasisUnityBitPackerExtensionsUnsafe.WriteCompressedQuaternionToBytes(hipsRot, ref AvatarData.LASM.array, ref offset);
+            }
         }
 
-        public static JobHandle CompressAvatarMuscles_BitPacked(float[] pose, ref LocalAvatarSyncMessage message, ref int offset, out int SuppliedIndex)
+        /// <summary>
+        /// Runs the delta + compression as a Burst IJob. Copies the managed byte[] to a NativeArray,
+        /// runs the job, then copies back. The Burst compilation of the encode loop is the win here.
+        /// </summary>
+        static unsafe void CompressBoneRotationsJobified(byte[] dst, ref int byteOffset)
         {
-            EnsureMusclesBuffer(UnityMuscleCount);
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
+            int rotBytes = BasisBoneRotationCompression.RotationBytes(WireQuality);
 
-            // Copy pose.muscles into persistent native buffer (95 floats)
-            unsafe
-            {
-                fixed (float* src = pose)
-                {
-                    UnsafeUtility.MemCpy(sMusclesNative.GetUnsafePtr(), src, sizeof(float) * UnityMuscleCount);
-                }
-            }
+            // Wrap the managed byte[] in a NativeArray without copy (pinned)
+            // We need to copy the relevant region into a temp native array for the job
+            var nativeDst = new NativeArray<byte>(dst.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            NativeArray<byte>.Copy(dst, nativeDst);
 
-            unsafe
+            var job = new BasisBoneDeltaAndCompressJob
             {
-                // Clear packed buffer before writing bits (important because we OR into bytes)
-                UnsafeUtility.MemClear(sPacked.GetUnsafePtr(), sPackedBytes);
-            }
-
-            // Job A: quantize each slot in parallel -> sQuantized[slot]
-            var qJob = new QuantizeJob
-            {
-                Muscles = sMusclesNative,
-                Min = sMin,
-                Inv = sInv,
-                Max = sMax,
-                Order = sOrder,
-                BitsPerSlot = sBitsPerSlot,
-                OutQuant = sQuantized,
-                ClampFlags = sClampFlags,
+                CurrentLocalRotations = sCurrentLocalRotations,
+                TposeLocalRotations = sTposeNative,
+                BitsPerComponent = sBpcNative,
+                MaxComponent = sMaxComponentNative,
+                OutputBuffer = nativeDst,
+                RotationByteOffset = byteOffset,
+                BoneCount = boneCount,
+                BoneDeltas = sBoneDeltas,
             };
 
-            // Job B: pack quantized ints into bitstream (single thread)
-            var pJob = new PackJob
-            {
-                BitsPerSlot = sBitsPerSlot,
-                BitOffsets = sBitOffsets,
-                Quant = sQuantized,
-                Packed = sPacked,
-            };
+            job.Run(); // Burst-compiled, runs immediately on this thread
 
-            JobHandle h1 = qJob.Schedule(sOrder.Length, 32);
-            JobHandle h2 = pJob.Schedule(h1);
+            // Copy result back to managed array
+            NativeArray<byte>.Copy(nativeDst, dst);
+            nativeDst.Dispose();
 
-            SuppliedIndex = offset;
-            offset += sPackedBytes;
-
-            return h2;
+            byteOffset += rotBytes;
         }
-        public static void Complete(JobHandle h2, ref LocalAvatarSyncMessage message, int SuppliedIndex)
+
+        /// <summary>
+        /// Extracts bone local rotations from the animator and computes
+        /// T-pose-relative delta quaternions for each bone.
+        /// </summary>
+        static void ExtractBoneDeltas()
         {
-            h2.Complete();
-
-            // Log clamp hits (must be main thread; Burst jobs cannot call Debug.Log)
-            // If you want to reduce spam, wrap this in DEVELOPMENT_BUILD / UNITY_EDITOR or add throttling.
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            for (int slot = 0; slot < sClampFlags.Length; slot++)
+            if (sTposeLocalRotations == null)
             {
-                byte flag = sClampFlags[slot];
-                if (flag == 0) continue;
-
-                int muscle = sOrder[slot];
-
-                if (flag == 1)
-                {
-                    BasisDebug.LogError($"[BasisNetworkAvatarCompressor] Clamp MIN hit. slot={slot} muscleIndex={muscle}");
-                }
-                else // flag == 2
-                {
-                    BasisDebug.LogError($"[BasisNetworkAvatarCompressor] Clamp MAX hit. slot={slot} muscleIndex={muscle}");
-                }
-            }
-#endif
-
-            // Copy packed bytes into final message buffer at offset
-            unsafe
-            {
-                void* srcPtr = sPacked.GetUnsafeReadOnlyPtr();
-                fixed (byte* dst = message.array)
-                {
-                    UnsafeUtility.MemCpy(dst + SuppliedIndex, srcPtr, sPackedBytes);
-                }
-            }
-        }
-        static void EnsureInitialized()
-        {
-            if (sInitialized) return;
-
-            // These must already be initialized by BasisOrderedDataSet.Initalize()
-            var minT = BasisAvatarBitPacking.MinMuscle;
-            var rangeT = BasisAvatarBitPacking.RangeMuscle;
-
-            if (minT == null || rangeT == null || minT.Length != UnityMuscleCount || rangeT.Length != UnityMuscleCount)
-            {
-                Debug.LogError("[BasisNetworkAvatarCompressor] BasisOrderedDataSet tables invalid. Call BasisOrderedDataSet.Initalize() first.");
+                BasisDebug.LogError($"Missing {nameof(sTposeLocalRotations)}");
                 return;
             }
 
-            int slots = BasisAvatarBitPacking.WRITE_ORDER.Length;
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
 
-            // ALWAYS use HIGH bits table
-            byte[] bitsManaged = BasisAvatarBitPacking.GetBitsPerSlot(WireQuality);
-
-            // Compute bit offsets + packed sizes
-            sPackedBits = 0;
-            var bitOffsManaged = new int[slots];
-            for (int i = 0; i < slots; i++)
+            // Read current local rotations and compute deltas
+            for (int slot = 0; slot < boneCount; slot++)
             {
-                bitOffsManaged[i] = sPackedBits;
-                sPackedBits += bitsManaged[i];
+                int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+
+                if (BasisLocalAvatarDriver.Mapping.GetTransform((HumanBodyBones)boneEnum, out var bone))
+                {
+                    quaternion current = bone.localRotation;
+                    sCurrentLocalRotations[slot] = current;
+
+                    quaternion tpose = sTposeLocalRotations[boneEnum];
+                    quaternion delta = math.mul(math.inverse(tpose), current);
+                    sBoneDeltas[slot] = delta;
+                }
+                else
+                {
+                    sCurrentLocalRotations[slot] = quaternion.identity;
+                    sBoneDeltas[slot] = quaternion.identity;
+                }
             }
-            sPackedBytes = (sPackedBits + 7) >> 3;
-
-            // Allocate persistent natives
-            sOrder = new NativeArray<int>(slots, Allocator.Persistent);
-            sBitsPerSlot = new NativeArray<byte>(slots, Allocator.Persistent);
-            sBitOffsets = new NativeArray<int>(slots, Allocator.Persistent);
-
-            sMin = new NativeArray<float>(UnityMuscleCount, Allocator.Persistent);
-            sInv = new NativeArray<float>(UnityMuscleCount, Allocator.Persistent);
-            sMax = new NativeArray<float>(UnityMuscleCount, Allocator.Persistent);
-
-            sPacked = new NativeArray<byte>(sPackedBytes, Allocator.Persistent);
-            sQuantized = new NativeArray<uint>(slots, Allocator.Persistent);
-
-            // Clamp debug flags
-            sClampFlags = new NativeArray<byte>(slots, Allocator.Persistent);
-
-            // Fill per-slot arrays
-            for (int i = 0; i < slots; i++)
-            {
-                sOrder[i] = BasisAvatarBitPacking.WRITE_ORDER[i];
-                sBitsPerSlot[i] = bitsManaged[i];       // <-- HIGH bits
-                sBitOffsets[i] = bitOffsManaged[i];
-                sClampFlags[i] = 0;
-            }
-
-            // Fill per-muscle LUTs
-            for (int idx = 0; idx < UnityMuscleCount; idx++)
-            {
-                float min = minT[idx];
-                float r = rangeT[idx];
-                sMin[idx] = min;
-                sInv[idx] = (r <= 0f) ? 0f : 1f / r;
-                sMax[idx] = min + r;
-            }
-
-            EnsureMusclesBuffer(UnityMuscleCount);
-
-            sInitialized = true;
         }
 
-        static void EnsureMusclesBuffer(int count)
+        /// <summary>
+        /// Builds persistent NativeArrays for the Burst compression job.
+        /// Called once per avatar change (in CaptureTPose).
+        /// </summary>
+        static void BuildJobArrays()
         {
-            if (!sMusclesNative.IsCreated || sMusclesNative.Length != count)
+            DisposeJobArrays();
+
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
+            byte[] bpcTable = BasisBoneRotationCompression.GetBpcTable(WireQuality);
+            float[] maxComp = BasisBoneRotationCompression.MAX_COMPONENT;
+
+            sCurrentLocalRotations = new NativeArray<quaternion>(boneCount, Allocator.Persistent);
+
+            // T-pose rotations in BONE_WRITE_ORDER slot order
+            sTposeNative = new NativeArray<quaternion>(boneCount, Allocator.Persistent);
+            for (int slot = 0; slot < boneCount; slot++)
             {
-                if (sMusclesNative.IsCreated) sMusclesNative.Dispose();
-                sMusclesNative = new NativeArray<float>(count, Allocator.Persistent);
+                int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+                sTposeNative[slot] = sTposeLocalRotations[boneEnum];
             }
+
+            sBpcNative = new NativeArray<byte>(boneCount, Allocator.Persistent);
+            NativeArray<byte>.Copy(bpcTable, sBpcNative, boneCount);
+
+            sMaxComponentNative = new NativeArray<float>(boneCount, Allocator.Persistent);
+            NativeArray<float>.Copy(maxComp, sMaxComponentNative, boneCount);
+
+            sJobArraysReady = true;
+        }
+
+        static void DisposeJobArrays()
+        {
+            sJobArraysReady = false;
+            if (sCurrentLocalRotations.IsCreated) sCurrentLocalRotations.Dispose();
+            if (sTposeNative.IsCreated) sTposeNative.Dispose();
+            if (sBpcNative.IsCreated) sBpcNative.Dispose();
+            if (sMaxComponentNative.IsCreated) sMaxComponentNative.Dispose();
+        }
+
+        static void EnsureInitialized()
+        {
+            if (sInitialized)
+            {
+                return;
+            }
+
+            if (!sBoneDeltas.IsCreated)
+            {
+                sBoneDeltas = new NativeArray<quaternion>(BasisBoneRotationCompression.SyncBoneCount, Allocator.Persistent);
+            }
+            // Capture T-pose bone rotations for network compression (while still in T-pose)
+            Networking.NetworkedAvatar.BasisNetworkAvatarCompressor.CaptureTPose();
+
+            sInitialized = true;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -290,118 +287,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
         public static void Dispose()
         {
-            if (sOrder.IsCreated) sOrder.Dispose();
-            if (sBitsPerSlot.IsCreated) sBitsPerSlot.Dispose();
-            if (sBitOffsets.IsCreated) sBitOffsets.Dispose();
-
-            if (sMin.IsCreated) sMin.Dispose();
-            if (sInv.IsCreated) sInv.Dispose();
-            if (sMax.IsCreated) sMax.Dispose();
-
-            if (sPacked.IsCreated) sPacked.Dispose();
-            if (sMusclesNative.IsCreated) sMusclesNative.Dispose();
-            if (sQuantized.IsCreated) sQuantized.Dispose();
-
-            if (sClampFlags.IsCreated) sClampFlags.Dispose();
-
+            DisposeJobArrays();
+            if (sBoneDeltas.IsCreated) sBoneDeltas.Dispose();
+            sTposeLocalRotations = null;
             sInitialized = false;
-        }
-
-        [BurstCompile(FloatMode = FloatMode.Default, FloatPrecision = FloatPrecision.Medium)]
-        struct QuantizeJob : IJobParallelFor
-        {
-            [ReadOnly] public NativeArray<float> Muscles;   // index by Unity muscle index
-            [ReadOnly] public NativeArray<float> Min;
-            [ReadOnly] public NativeArray<float> Inv;
-            [ReadOnly] public NativeArray<float> Max;
-
-            [ReadOnly] public NativeArray<int> Order;        // slot -> muscle idx
-            [ReadOnly] public NativeArray<byte> BitsPerSlot; // slot -> bits
-
-            public NativeArray<uint> OutQuant;               // slot -> q
-            public NativeArray<byte> ClampFlags;             // slot -> 0/1/2
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            static uint QuantN(float x01, int bits)
-            {
-                uint maxQ = (uint)((1 << bits) - 1);
-                return (uint)math.round(x01 * maxQ);
-            }
-
-            public void Execute(int slot)
-            {
-                int idx = Order[slot];
-                float v = Muscles[idx];
-
-                float min = Min[idx];
-                float inv = Inv[idx];
-                float max = Max[idx];
-
-                // Detect saturation BEFORE clamping so we only log real min/max hits.
-                byte flag = 0;
-                if (v <= min) flag = 1;
-                else if (v >= max) flag = 2;
-                ClampFlags[slot] = flag;
-
-                float clamped = math.clamp(v, min, max);
-                float norm = (inv == 0f) ? 0f : (clamped - min) * inv;
-
-                int bits = BitsPerSlot[slot];
-                OutQuant[slot] = QuantN(norm, bits);
-            }
-        }
-
-        [BurstCompile(FloatMode = FloatMode.Default, FloatPrecision = FloatPrecision.Medium)]
-        struct PackJob : IJob
-        {
-            [ReadOnly] public NativeArray<byte> BitsPerSlot; // slot -> bits
-            [ReadOnly] public NativeArray<int> BitOffsets;   // slot -> bit offset
-            [ReadOnly] public NativeArray<uint> Quant;       // slot -> q
-
-            public NativeArray<byte> Packed;                 // output bytes (pre-cleared)
-
-            public void Execute()
-            {
-                int slots = BitsPerSlot.Length;
-                for (int slot = 0; slot < slots; slot++)
-                {
-                    int bitPos = BitOffsets[slot];
-                    int bits = BitsPerSlot[slot];
-                    uint q = Quant[slot];
-                    BitWriter.WriteBits(ref Packed, bitPos, q, bits);
-                }
-            }
-        }
-
-        static class BitWriter
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public static void WriteBits(ref NativeArray<byte> dst, int bitPos, uint value, int bitCount)
-            {
-                int bytePos = bitPos >> 3;
-                int bitInByte = bitPos & 7;
-
-                uint v = value;
-                int bitsLeft = bitCount;
-
-                while (bitsLeft > 0)
-                {
-                    int room = 8 - bitInByte;
-                    int take = bitsLeft < room ? bitsLeft : room;
-
-                    uint mask = (uint)((1 << take) - 1);
-                    byte chunk = (byte)(v & mask);
-
-                    byte cur = dst[bytePos];
-                    cur = (byte)(cur | (chunk << bitInByte));
-                    dst[bytePos] = cur;
-
-                    v >>= take;
-                    bitsLeft -= take;
-                    bytePos++;
-                    bitInByte = 0;
-                }
-            }
         }
     }
 }

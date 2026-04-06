@@ -1,9 +1,13 @@
+using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
@@ -19,9 +23,7 @@ namespace Basis.Scripts.Networking.Receivers
     [Serializable]
     public class BasisNetworkReceiver : BasisNetworkPlayer
     {
-        private const int EyesAndMouthOffset = 15; // L/R up/down, L/R left/right, mouth open/smile
-        private const int EyesAndMouthCount = 6;
-        public const int EyeAndMouthCountInBytes = EyesAndMouthCount * sizeof(float);
+        public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 54
 
         // Cached delegates — created once, avoids per-frame Action/Comparison heap allocations.
         private static readonly Action<BasisAvatarBuffer> s_releaseBuffer = BasisAvatarBufferPool.Release;
@@ -43,8 +45,48 @@ namespace Basis.Scripts.Networking.Receivers
         public BasisRemotePlayer RemotePlayer;
 
         public bool hasEvents = false;
-        public float[] EyesAndMouth = new float[] { 0, 0, 0, 0, 1, 0 }; // default neutral eyes, mouth open=1 for breathing
+        /// <summary>
+        /// Scratch array for blendshape-driven eye/mouth values used by the face driver.
+        /// Not part of the bone rotation network stream — populated locally by BasisRemoteFaceManagement.
+        /// </summary>
+        public float[] EyesAndMouth = new float[] { 0, 0, 0, 0, 1, 0 };
         public float3 ApplyingScale;
+
+        /// <summary>
+        /// Latest network hips position/rotation, updated every time a buffer is enqueued.
+        /// Available before Compute() processes the queue, so calibration can
+        /// immediately position the avatar hips instead of leaving them at spawn.
+        /// Thread-safe via seqlock: writer increments version before/after writes,
+        /// reader retries if version changed or is odd (write in progress).
+        /// </summary>
+        private int _poseVersion;
+        private float3 _latestNetworkPosition;
+        private quaternion _latestNetworkRotation = quaternion.identity;
+
+        public void GetLatestNetworkPose(out float3 position, out quaternion rotation)
+        {
+            int v1, v2;
+            do
+            {
+                v1 = Volatile.Read(ref _poseVersion);
+                position = _latestNetworkPosition;
+                rotation = _latestNetworkRotation;
+                Thread.MemoryBarrier();
+                v2 = Volatile.Read(ref _poseVersion);
+            } while (v1 != v2 || (v1 & 1) != 0);
+        }
+
+        /// <summary>
+        /// T-pose local rotations for this receiver's avatar bones.
+        /// Set during calibration and passed to RemoteBoneJobSystem for the skeleton apply job.
+        /// </summary>
+        public NativeArray<quaternion> TposeLocalRotations;
+
+        /// <summary>
+        /// Bone transforms for this receiver's avatar.
+        /// Set during calibration and passed to RemoteBoneJobSystem for the skeleton apply job.
+        /// </summary>
+        public Transform[] BoneTransforms;
 
         // When true, forces re-validation of avatar/animator/transform references.
         // Set on avatar change (CalibrationComplete), init, and deinit.
@@ -208,34 +250,7 @@ namespace Basis.Scripts.Networking.Receivers
                 return;
             }
 
-            // 2b) Advance window while consumed and we have staged frames
-            while (interpolationTime >= 1f && _stagedRing.Count != 0)
-            {
-                if (HasCurrentBuffer)
-                {
-                    ReleaseCurrent();
-                }
-
-                // If we had holds, Next must be non-null here.
-                Current = Next;
-                HasCurrentBuffer = true;
-
-                HasNextBuffer = false;
-                Next = null;
-
-                interpolationTime = 0f;
-
-                TrySetLastFromStaging();
-
-                HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
-                if (!HasBufferHolds)
-                {
-                    break;
-                }
-            }
-
-            StagedCount = _stagedRing.Count;
-
+            // 2b) Trim excess staging
             while (_stagedRing.Count > BufferCapacityBeforeCleanup)
             {
                 if (_stagedRing.TryDequeueOldest(out var buf))
@@ -251,38 +266,80 @@ namespace Basis.Scripts.Networking.Receivers
 
             HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
 
-            // 3) If we have a window, compute interpolation fraction and feed the driver
+            // 3) If we have a window, advance time then slide the window forward if needed.
+            //    Adding dt BEFORE the window advance ensures excess time carries into the
+            //    next window instead of being lost to job-side clamping (which caused stalls).
             if (HasBufferHolds)
             {
-                var first = Current;
-                var last = Next;
-
-                double windowDuration = last.ServerTimeSeconds - first.ServerTimeSeconds;
-                // Catches NaN (comparison is false), negative, zero, tiny, and huge/Inf values
+                double windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
                 if (!(windowDuration > 1e-6 && windowDuration < 1e6))
                 {
-                    windowDuration = math.max(last.SecondsInterval, 1e-3);
+                    windowDuration = math.max(Next.SecondsInterval, 1e-3);
                 }
                 float rate = 1f + CatchupGain * (StagedCount - TargetJitterDepth);
                 rate = Mathf.Clamp(rate, MinPlaybackRate, MaxPlaybackRate);
+
+                // Add this frame's time FIRST
                 interpolationTime += (unscaledDeltaTime / windowDuration * (double)rate);
                 if (!math.isfinite(interpolationTime))
                 {
                     interpolationTime = 1;
                 }
-                double effectiveDt = unscaledDeltaTime * (double)rate;
-                BasisRemoteNetworkDriver.SetFrameTiming(playerId, interpolationTime, effectiveDt);
+
+                // Advance windows, preserving excess time so movement stays smooth
+                while (interpolationTime >= 1.0 && _stagedRing.Count != 0)
+                {
+                    if (HasCurrentBuffer)
+                    {
+                        ReleaseCurrent();
+                    }
+
+                    Current = Next;
+                    HasCurrentBuffer = true;
+                    HasNextBuffer = false;
+                    Next = null;
+
+                    interpolationTime -= 1.0;
+
+                    TrySetLastFromStaging();
+
+                    HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
+                    if (!HasBufferHolds)
+                    {
+                        break;
+                    }
+
+                    // Recalculate window duration for the new pair
+                    windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
+                    if (!(windowDuration > 1e-6 && windowDuration < 1e6))
+                    {
+                        windowDuration = math.max(Next.SecondsInterval, 1e-3);
+                    }
+                }
+
+                // Cap at 1.0 when stuck waiting for data (staging empty).
+                // Without this, time debt accumulates and causes fast-forward
+                // when the next packet arrives.
+                if (interpolationTime > 1.0)
+                {
+                    interpolationTime = 1.0;
+                }
+
+                StagedCount = _stagedRing.Count;
+
+                BasisRemoteNetworkDriver.SetFrameTiming(playerId, interpolationTime, unscaledDeltaTime);
 
                 if (SentLatest)
                 {
-
+                    var first = Current;
+                    var last = Next;
                     BasisRemoteNetworkDriver.SetFrameInputs(
                         playerId,
                         Player.BasisAvatar.HumanScale,
                         first.Position, last.Position,
                         first.Scale, last.Scale,
                         first.Rotation, last.Rotation,
-                         first.Muscles, last.Muscles
+                        first.BoneRotations, last.BoneRotations
                     );
                     IsDataReady = true;
                     SentLatest = false;
@@ -290,46 +347,13 @@ namespace Basis.Scripts.Networking.Receivers
             }
         }
         public bool IsDataReady = false;
-        /// <summary>
-        /// Main-thread application step. Pulls posed outputs from the driver and applies
-        /// body position/rotation/muscles to the avatar via PoseHandler.
-        /// </summary>
-        public void Apply()
-        {
-            if (!IsDataReady || !hasRequiredData) return;
-
-            BasisRemoteNetworkDriver.GetMuscleArray(playerId, out bool outscale, out var ApplyingRotation, out float3 scaledBody, ref HumanPose, EyesAndMouth, EyesAndMouthOffset, EyeAndMouthCountInBytes);
-            HumanPose.bodyPosition = scaledBody;
-            HumanPose.bodyRotation = ApplyingRotation;
-
-            if (outscale)
-            {
-                ApplyScale();
-            }
-            else if (DidLastAvatarTransformChanged)
-            {
-                ApplyScale();
-                DidLastAvatarTransformChanged = false;
-            }
-
-            PoseHandler.SetHumanPose(ref HumanPose);
-            if (HasOverridenDestination)
-            {
-                var References = RemotePlayer?.RemoteAvatarDriver?.References;
-                if (References != null && References.Hips != null)
-                {
-                    References.Hips.SetPositionAndRotation(OverridenPosition, OverridenRotation);
-                }
-            }
-        }
-        public void ApplyScale()
-        {
-            BasisRemoteNetworkDriver.GetScaleOutput(playerId, out ApplyingScale);
-            Player.AvatarTransform.localScale = ApplyingScale;
-        }
 
         public void EnQueueAvatarBuffer(BasisAvatarBuffer avatarBuffer)
         {
+            Interlocked.Increment(ref _poseVersion);
+            _latestNetworkPosition = avatarBuffer.Position;
+            _latestNetworkRotation = avatarBuffer.Rotation;
+            Interlocked.Increment(ref _poseVersion);
             PayloadQueue.Enqueue(avatarBuffer);
             System.Threading.Interlocked.Increment(ref _pendingCount);
         }
@@ -417,7 +441,6 @@ namespace Basis.Scripts.Networking.Receivers
             _serverClockSeeded = false;
             _highestSequence = 0;
             _seenPackets = 0;
-            // _stagedRing can be null if Initialize never completed, so don't Assert here—guard.
             if (_stagedRing != null)
             {
                 while (_stagedRing.TryDequeueOldest(out var buf))
@@ -434,6 +457,9 @@ namespace Basis.Scripts.Networking.Receivers
             _pendingCount = 0;
 
             ClearAndRelease();
+
+            if (TposeLocalRotations.IsCreated) TposeLocalRotations.Dispose();
+            BoneTransforms = null;
 
             if (hasEvents && RemotePlayer != null && RemotePlayer.RemoteAvatarDriver != null)
             {

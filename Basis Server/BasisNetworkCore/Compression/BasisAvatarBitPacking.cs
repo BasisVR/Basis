@@ -33,12 +33,16 @@ namespace Basis.Network.Core.Compression
             BitQuality.VeryLow => BITS_PER_SLOT_VERY_LOW,
             _ => BITS_PER_SLOT_MEDIUM
         };
-        public static int MuscleBytes(BitQuality q) => SumBitsPerSlotBytes(GetBitsPerSlot(q));
+        /// <summary>
+        /// Returns the byte count for the bone rotation bitstream at the given quality.
+        /// Named MuscleBytes for backward compatibility with server code.
+        /// </summary>
+        public static int MuscleBytes(BitQuality q) => BasisBoneRotationCompression.RotationBytes(q);
 
         public static int ConvertToSize(BitQuality q)
         {
-            // Position (12) + Muscles (variable) + Scale (2) + Rotation (16)
-            return WritePosition + MuscleBytes(q) + TailBytes;
+            // Position (12) + BoneRotations (variable) + Scale (2) + Rotation (7)
+            return BasisBoneRotationCompression.ConvertToSize(q);
         }
         // --------------------------
         // Internal helpers

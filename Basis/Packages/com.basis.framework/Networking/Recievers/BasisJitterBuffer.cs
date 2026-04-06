@@ -28,6 +28,11 @@ public class BasisJitterBuffer
 
     public int InitialBufferDepth => RemoteOpusSettings.JitterBufferSize;
 
+    // Debug properties
+    public bool Started => _started;
+    public int BufferedCount { get { lock (_lock) { return _bufferedCount; } } }
+    public int ReceivedSinceStart { get { lock (_lock) { return _receivedSinceStart; } } }
+
     public void Insert(byte sequenceNumber, byte[] data, int length, byte silenceUnits)
     {
         lock (_lock)

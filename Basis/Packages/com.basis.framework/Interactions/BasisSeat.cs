@@ -220,7 +220,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             var refs = Player.RemoteAvatarDriver.References;
             Vector3 scale = Player.AvatarTransform.localScale;
             // grab T-pose dictionary once
-            var tpose = refs.Tpose;
+            var tpose = refs.TposeFromRoot;
             // pull out the leg joints you need
             var leftUpper = tpose[HumanBodyBones.LeftUpperLeg];
             var leftLower = tpose[HumanBodyBones.LeftLowerLeg];

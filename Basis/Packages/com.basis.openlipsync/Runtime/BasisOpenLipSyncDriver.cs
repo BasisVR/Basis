@@ -7,6 +7,17 @@ using UnityEngine.AddressableAssets;
 
 public static class BasisOpenLipSyncDriver
 {
+    /// <summary>
+    /// When true, <see cref="MaxSlots"/> is enforced as a hard cap.
+    /// When false, slot count is unlimited (bounded only by players in viseme range).
+    /// Controlled by the settings toggle "Limit OpenLipSync Slots".
+    /// </summary>
+    public static bool UseSlotLimit = false;
+
+    /// <summary>
+    /// Maximum concurrent OpenLipSync contexts (only enforced when <see cref="UseSlotLimit"/> is true).
+    /// Controlled by the settings slider "OpenLipSync Max Slots".
+    /// </summary>
     public static int MaxSlots = 30;
 
     public const string ModelAddress = "Packages/com.basisvr.openlipsync/OpenLipSync/model.onnx.bytes";
@@ -48,7 +59,8 @@ public static class BasisOpenLipSyncDriver
             }
 
             _initialized = true;
-            BasisDebug.Log($"[OpenLipSync] Initialized successfully ({MaxSlots} slots available)");
+            string slotInfo = UseSlotLimit ? $"{MaxSlots} slots" : "unlimited slots";
+            BasisDebug.Log($"[OpenLipSync] Initialized successfully ({slotInfo} available)");
         }
         catch (Exception ex)
         {
@@ -84,7 +96,7 @@ public static class BasisOpenLipSyncDriver
             return true;
         }
 
-        if (_playerToContext.Count >= MaxSlots) return false;
+        if (UseSlotLimit && _playerToContext.Count >= MaxSlots) return false;
 
         uint ctx = 0;
         var result = _backend.CreateContext(ref ctx);
@@ -112,6 +124,16 @@ public static class BasisOpenLipSyncDriver
     {
         if (!_initialized || _backend == null) return Result.Unknown;
         return _backend.ProcessFrameFloat(contextHandle, audioData, stereo: false, ref frame);
+    }
+
+    /// <summary>
+    /// Overload that processes only the first <paramref name="sampleCount"/> samples
+    /// from the buffer, avoiding the need to allocate a trimmed copy.
+    /// </summary>
+    public static Result ProcessFrame(uint contextHandle, float[] audioData, int sampleCount, Frame frame)
+    {
+        if (!_initialized || _backend == null) return Result.Unknown;
+        return _backend.ProcessFrameFloat(contextHandle, new ReadOnlySpan<float>(audioData, 0, sampleCount), stereo: false, ref frame);
     }
 
     public static Result SendSignal(uint contextHandle, Signals signal, int arg1)

@@ -124,11 +124,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalRigDriver LocalRigDriver = new BasisLocalRigDriver();
 
         /// <summary>
-        /// Places a foot Down. not done yet, i give up - dooly
+        /// Locomotion-aware foot placement when no foot trackers are present.
         /// </summary>
-      //  [Header("Foot Driver")]
-       // [SerializeField]
-      //  public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
+        [Header("Foot Driver")]
+        [SerializeField]
+        public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
         /// <summary>
         /// Character controller for movement, collisions, and physics.
         /// </summary>

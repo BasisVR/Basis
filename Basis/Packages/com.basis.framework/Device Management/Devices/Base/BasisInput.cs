@@ -1,3 +1,4 @@
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -455,11 +456,36 @@ namespace Basis.Scripts.Device_Management.Devices
                 }
 
                 BasisDebug.Log($"Set Tracker State for tracker {UniqueDeviceIdentifier} with bone {Control.name} as {Control.HasTracked} | {Control.HasRigLayer}", BasisDebug.LogTag.Input);
+
+                // Recompute whether ANY FBIK trackers remain — the animator checks this
+                // flag to decide if it should drive legs. Without this, removing trackers
+                // at runtime leaves the animator suppressed forever.
+                BasisAvatarIKStageCalibration.HasFBIKTrackers = CheckAnyFBIKTrackersRemain();
             }
             else
             {
                 BasisDebug.LogError("Missing Controller Or Bone", BasisDebug.LogTag.Input);
             }
+        }
+
+        /// <summary>
+        /// Check if any full-body IK tracker bones (feet, lower legs, upper legs, hips)
+        /// still have an active tracker. Used to update HasFBIKTrackers after removal.
+        /// </summary>
+        private static bool CheckAnyFBIKTrackersRemain()
+        {
+            return IsTracked(BasisLocalBoneDriver.LeftFootControl)
+                || IsTracked(BasisLocalBoneDriver.RightFootControl)
+                || IsTracked(BasisLocalBoneDriver.LeftLowerLegControl)
+                || IsTracked(BasisLocalBoneDriver.RightLowerLegControl)
+                || IsTracked(BasisLocalBoneDriver.LeftUpperLegControl)
+                || IsTracked(BasisLocalBoneDriver.RightUpperLegControl)
+                || IsTracked(BasisLocalBoneDriver.HipsControl);
+        }
+
+        private static bool IsTracked(BasisLocalBoneControl control)
+        {
+            return control != null && control.HasTracked == BasisHasTracked.HasTracker;
         }
 
         /// <summary>

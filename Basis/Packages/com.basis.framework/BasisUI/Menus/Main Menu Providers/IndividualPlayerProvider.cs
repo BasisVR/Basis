@@ -758,6 +758,78 @@ namespace Basis.BasisUI
             debugField.SetTitle("Transmission");
             debugField.SetDescription("Waiting for data...");
 
+            // ---- Audio Debug Section ----
+            var audioDebugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            audioDebugGroup.SetTitle("Audio Debug");
+            audioDebugGroup.SetDescription("Live audio chain diagnostics. Toggle sections in Settings > Developer.");
+
+            // Toggle to show/hide the audio debug fields for this player
+            PanelToggle audioDebugToggle = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            audioDebugToggle.Descriptor.SetTitle("Show Audio Debug");
+            audioDebugToggle.Descriptor.SetDescription("Toggle live audio pipeline info for this player.");
+            audioDebugToggle.AssignBinding(BasisSettingsDefaults.AudioDebugEnabled);
+
+            // Create all the audio debug fields
+            PanelElementDescriptor audioSourceField = null;
+            PanelElementDescriptor volumeChainField = null;
+            PanelElementDescriptor ringBufferField = null;
+            PanelElementDescriptor jitterBufferField = null;
+            PanelElementDescriptor silenceField = null;
+            PanelElementDescriptor visemeField = null;
+
+            void CreateAudioDebugFields()
+            {
+                // Clear existing children below the toggle (skip index 0 which is the toggle)
+                // Create fresh fields based on current section toggles
+                if (BasisSettingsDefaults.AudioDebugShowSource.RawValue)
+                {
+                    audioSourceField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    audioSourceField.SetTitle("Audio Source");
+                    audioSourceField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowVolume.RawValue)
+                {
+                    volumeChainField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    volumeChainField.SetTitle("Volume Chain");
+                    volumeChainField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowRingBuffer.RawValue)
+                {
+                    ringBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    ringBufferField.SetTitle("Ring Buffer");
+                    ringBufferField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowJitter.RawValue)
+                {
+                    jitterBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    jitterBufferField.SetTitle("Jitter Buffer");
+                    jitterBufferField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowSilence.RawValue)
+                {
+                    silenceField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    silenceField.SetTitle("Silence Tracking");
+                    silenceField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowViseme.RawValue)
+                {
+                    visemeField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    visemeField.SetTitle("Viseme Driver");
+                    visemeField.SetDescription("...");
+                }
+            }
+
+            // Initially create fields if audio debug is enabled
+            if (BasisSettingsDefaults.AudioDebugEnabled.RawValue)
+            {
+                CreateAudioDebugFields();
+            }
+
             var updater = panel.gameObject.AddComponent<IndividualPlayerPanelUpdater>();
             updater.RemotePlayer = remotePlayer;
             updater.DebugField = debugField;
@@ -765,6 +837,39 @@ namespace Basis.BasisUI
             updater.LodField = lodField;
             updater.RangesField = rangesField;
             updater.BufferField = bufferField;
+
+            // Wire audio debug fields
+            updater.AudioSourceField = audioSourceField;
+            updater.VolumeChainField = volumeChainField;
+            updater.RingBufferField = ringBufferField;
+            updater.JitterBufferField = jitterBufferField;
+            updater.SilenceField = silenceField;
+            updater.VisemeField = visemeField;
+
+            // When toggled on/off, show/hide the audio debug fields
+            audioDebugToggle.OnValueChanged += enabled =>
+            {
+                // Destroy existing fields
+                if (audioSourceField != null) { UnityEngine.Object.Destroy(audioSourceField.gameObject); audioSourceField = null; }
+                if (volumeChainField != null) { UnityEngine.Object.Destroy(volumeChainField.gameObject); volumeChainField = null; }
+                if (ringBufferField != null) { UnityEngine.Object.Destroy(ringBufferField.gameObject); ringBufferField = null; }
+                if (jitterBufferField != null) { UnityEngine.Object.Destroy(jitterBufferField.gameObject); jitterBufferField = null; }
+                if (silenceField != null) { UnityEngine.Object.Destroy(silenceField.gameObject); silenceField = null; }
+                if (visemeField != null) { UnityEngine.Object.Destroy(visemeField.gameObject); visemeField = null; }
+
+                if (enabled)
+                {
+                    CreateAudioDebugFields();
+                }
+
+                // Re-wire updater references
+                updater.AudioSourceField = audioSourceField;
+                updater.VolumeChainField = volumeChainField;
+                updater.RingBufferField = ringBufferField;
+                updater.JitterBufferField = jitterBufferField;
+                updater.SilenceField = silenceField;
+                updater.VisemeField = visemeField;
+            };
 
             panel.Descriptor.ForceRebuild();
             panel.Descriptor.ForceRebuild();

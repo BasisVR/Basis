@@ -26,6 +26,7 @@ namespace Basis.BasisUI
 
         private static void ApplyOpenLipSyncMaxSlots()
         {
+            BasisOpenLipSyncDriver.UseSlotLimit = BasisSettingsDefaults.UseOpenLipSyncLimit.RawValue;
             BasisOpenLipSyncDriver.MaxSlots = Mathf.Max(1, (int)BasisSettingsDefaults.OpenLipSyncMaxSlots.RawValue);
         }
 
@@ -350,6 +351,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.VoiceVolume.ResetToDefault();
             BasisSettingsDefaults.AvatarVolume.ResetToDefault();
             BasisSettingsDefaults.PropVolume.ResetToDefault();
+            BasisSettingsDefaults.UseOpenLipSyncLimit.ResetToDefault();
             BasisSettingsDefaults.OpenLipSyncMaxSlots.ResetToDefault();
             SettingsProviderRemoteAudio.ResetRemoteAudioToDefaults();
         }
@@ -1102,26 +1104,158 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.VisualState.SetValue(val ? "only avatar distance" : "off");
             };
 
-            PanelElementDescriptor infoGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            infoGroup.SetTitle("Build & Environment");
-            infoGroup.SetDescription("Useful identifiers for debugging builds.");
-
-            CreateBuildInfoSection(infoGroup.ContentParent);
-
             PanelToggle toggleStatistics = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
             toggleStatistics.Descriptor.SetTitle("Enable Statistics");
             toggleStatistics.Descriptor.SetDescription("Enable network statistics recording. Takes effect on next connection.");
             toggleStatistics.AssignBinding(BasisSettingsDefaults.EnableStatistics);
 
-            // Network & Statistics (live-updating)
-            SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out var netUpdater);
+            // ---- Section Visibility Toggles ----
+            PanelElementDescriptor sectionTogglesGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            sectionTogglesGroup.SetTitle("Developer Sections");
+            sectionTogglesGroup.SetDescription("Toggle which developer sections are visible below.");
+
+            PanelToggle toggleBuildInfo = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleBuildInfo.Descriptor.SetTitle("Build & Environment");
+            toggleBuildInfo.Descriptor.SetDescription("Show build identifiers and environment info.");
+            toggleBuildInfo.AssignBinding(BasisSettingsDefaults.DevShowBuildInfo);
+
+            PanelToggle toggleConsole = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleConsole.Descriptor.SetTitle("Console Log");
+            toggleConsole.Descriptor.SetDescription("Show inline console log output.");
+            toggleConsole.AssignBinding(BasisSettingsDefaults.DevShowConsole);
+
+            PanelToggle toggleEuroFilter = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleEuroFilter.Descriptor.SetTitle("Network Euro Filter");
+            toggleEuroFilter.Descriptor.SetDescription("Show One Euro filter tuning for remote interpolation.");
+            toggleEuroFilter.AssignBinding(BasisSettingsDefaults.DevShowEuroFilter);
+
+            PanelToggle toggleNetStats = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleNetStats.Descriptor.SetTitle("Network & Statistics");
+            toggleNetStats.Descriptor.SetDescription("Show live connection and bandwidth diagnostics.");
+            toggleNetStats.AssignBinding(BasisSettingsDefaults.DevShowNetStats);
+
+            // ---- Remote Audio Debug ----
+            PanelElementDescriptor audioDebugGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            audioDebugGroup.SetTitle("Remote Audio Debug");
+            audioDebugGroup.SetDescription("Controls which audio debug sections appear in per-player panels.");
+
+            PanelToggle toggleAudioDebug = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleAudioDebug.Descriptor.SetTitle("Enable Audio Debug");
+            toggleAudioDebug.Descriptor.SetDescription("Show audio debug info in individual player panels.");
+            toggleAudioDebug.AssignBinding(BasisSettingsDefaults.AudioDebugEnabled);
+
+            PanelToggle toggleAudioSource = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleAudioSource.Descriptor.SetTitle("Audio Source");
+            toggleAudioSource.Descriptor.SetDescription("Show AudioSource state (enabled, playing, spatial settings).");
+            toggleAudioSource.AssignBinding(BasisSettingsDefaults.AudioDebugShowSource);
+
+            PanelToggle toggleVolumeChain = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleVolumeChain.Descriptor.SetTitle("Volume Chain");
+            toggleVolumeChain.Descriptor.SetDescription("Show volume multipliers (source, dampening, main, effective).");
+            toggleVolumeChain.AssignBinding(BasisSettingsDefaults.AudioDebugShowVolume);
+
+            PanelToggle toggleRingBuffer = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleRingBuffer.Descriptor.SetTitle("Ring Buffer");
+            toggleRingBuffer.Descriptor.SetDescription("Show voice ring buffer fill level and state.");
+            toggleRingBuffer.AssignBinding(BasisSettingsDefaults.AudioDebugShowRingBuffer);
+
+            PanelToggle toggleJitter = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleJitter.Descriptor.SetTitle("Jitter Buffer");
+            toggleJitter.Descriptor.SetDescription("Show jitter buffer packets, fill state, and playback status.");
+            toggleJitter.AssignBinding(BasisSettingsDefaults.AudioDebugShowJitter);
+
+            PanelToggle toggleSilence = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleSilence.Descriptor.SetTitle("Silence Tracking");
+            toggleSilence.Descriptor.SetDescription("Show silence duration and gap detection.");
+            toggleSilence.AssignBinding(BasisSettingsDefaults.AudioDebugShowSilence);
+
+            PanelToggle toggleViseme = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleViseme.Descriptor.SetTitle("Viseme Driver");
+            toggleViseme.Descriptor.SetDescription("Show viseme/lip-sync driver state.");
+            toggleViseme.AssignBinding(BasisSettingsDefaults.AudioDebugShowViseme);
+
+            // ---- Collapsible sections (toggled by section visibility) ----
+            // Helper: collect all new children added to container by a builder call
+            static List<GameObject> CollectNewChildren(RectTransform parent, int countBefore)
+            {
+                var result = new List<GameObject>();
+                for (int i = countBefore; i < parent.childCount; i++)
+                    result.Add(parent.GetChild(i).gameObject);
+                return result;
+            }
+
+            static void DestroyList(List<GameObject> list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i] != null) UnityEngine.Object.Destroy(list[i]);
+                list.Clear();
+            }
+
+            // Build & Environment
+            PanelElementDescriptor infoGroup = null;
+            void CreateBuildInfo()
+            {
+                infoGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                infoGroup.SetTitle("Build & Environment");
+                infoGroup.SetDescription("Useful identifiers for debugging builds.");
+                CreateBuildInfoSection(infoGroup.ContentParent);
+            }
+            if (BasisSettingsDefaults.DevShowBuildInfo.RawValue) CreateBuildInfo();
+            toggleBuildInfo.OnValueChanged += on =>
+            {
+                if (infoGroup != null) { UnityEngine.Object.Destroy(infoGroup.gameObject); infoGroup = null; }
+                if (on) CreateBuildInfo();
+            };
+
+            // Network Euro Filter
+            List<GameObject> euroObjects = new();
+            void CreateEuroFilter()
+            {
+                int before = container.childCount;
+                SettingsProviderNetworkTab.BuildNetworkEuroFilterGroup(container);
+                euroObjects = CollectNewChildren(container, before);
+            }
+            if (BasisSettingsDefaults.DevShowEuroFilter.RawValue) CreateEuroFilter();
+            toggleEuroFilter.OnValueChanged += on =>
+            {
+                DestroyList(euroObjects);
+                if (on) CreateEuroFilter();
+            };
+
+            // Network & Statistics
+            List<GameObject> netObjects = new();
+            void CreateNetStats()
+            {
+                int before = container.childCount;
+                SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out _);
+                netObjects = CollectNewChildren(container, before);
+            }
+            if (BasisSettingsDefaults.DevShowNetStats.RawValue) CreateNetStats();
+            toggleNetStats.OnValueChanged += on =>
+            {
+                DestroyList(netObjects);
+                if (on) CreateNetStats();
+            };
 
             // One reset button for this whole page
             AddResetPageButton(container, "Developer", ResetDeveloperDefaults);
 
-            // Inline console
-            SettingsProviderConsoleTab.BuildConsoleUI(container);
+            // Console Log (BuildConsoleUI creates 2 groups: controls + output)
+            List<GameObject> consoleObjects = new();
+            void CreateConsole()
+            {
+                int before = container.childCount;
+                SettingsProviderConsoleTab.BuildConsoleUI(container);
+                consoleObjects = CollectNewChildren(container, before);
+            }
+            if (BasisSettingsDefaults.DevShowConsole.RawValue) CreateConsole();
+            toggleConsole.OnValueChanged += on =>
+            {
+                DestroyList(consoleObjects);
+                if (on) CreateConsole();
+            };
 
             descriptor.ForceRebuild();
             return tab;
@@ -1132,6 +1266,20 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.DebugVisuals.ResetToDefault();
             BasisSettingsDefaults.VisualState.SetValue("off");
             BasisSettingsDefaults.EnableStatistics.ResetToDefault();
+            BasisSettingsDefaults.DevShowBuildInfo.ResetToDefault();
+            BasisSettingsDefaults.DevShowConsole.ResetToDefault();
+            BasisSettingsDefaults.DevShowEuroFilter.ResetToDefault();
+            BasisSettingsDefaults.DevShowNetStats.ResetToDefault();
+            BasisSettingsDefaults.NetEuroMinCutoff.ResetToDefault();
+            BasisSettingsDefaults.NetEuroBeta.ResetToDefault();
+            BasisSettingsDefaults.NetEuroDerivativeCutoff.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugEnabled.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowSource.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowVolume.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowRingBuffer.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowJitter.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowSilence.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowViseme.ResetToDefault();
         }
 
         private static void CreateBuildInfoSection(RectTransform parent)
