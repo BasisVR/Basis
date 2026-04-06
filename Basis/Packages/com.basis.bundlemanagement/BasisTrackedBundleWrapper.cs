@@ -9,7 +9,7 @@ public class BasisTrackedBundleWrapper
     public BasisLoadableBundle LoadableBundle;
     [SerializeField]
     public AssetBundle AssetBundle;
-    #if UNITY_SERVER
+    #if UNITY_BUNDLEUNLOAD
     [SerializeField]
     public bool IsBundleBackingStoreReleased = false;
     #endif
@@ -61,7 +61,7 @@ public class BasisTrackedBundleWrapper
             {
                 if (AssetBundle == null)
                 {
-                    #if UNITY_SERVER
+                    #if UNITY_BUNDLEUNLOAD
                     if (IsBundleBackingStoreReleased)
                     {
                         return true;
@@ -75,7 +75,7 @@ public class BasisTrackedBundleWrapper
                 }
                 BasisDebug.Log("Unloading Bundle " + AssetBundle.name);
                 AssetBundle.Unload(true);
-                #if UNITY_SERVER
+                #if UNITY_BUNDLEUNLOAD
                 AssetBundle = null;
                 IsBundleBackingStoreReleased = true;
                 #endif
@@ -114,7 +114,7 @@ public class BasisTrackedBundleWrapper
        // BasisDebug.Log($"DeIncremented Asset Load {LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}");
         return true;
     }
-#if UNITY_SERVER
+#if UNITY_BUNDLEUNLOAD
     public void ReleaseBundleBackingStore()
     {
 
