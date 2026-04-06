@@ -514,6 +514,30 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
 
     private static bool TryResolveHeadlessAvatarSelection(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
     {
+        if (TryResolveConfiguredHeadlessAvatar(out avatarLocation, out avatarLoadMode, out avatarPassword, out avatarSource))
+        {
+            return true;
+        }
+
+        if (TryResolveEmbeddedDefaultHeadlessAvatar(out avatarLocation, out avatarLoadMode, out avatarPassword, out avatarSource))
+        {
+            return true;
+        }
+
+        if (TryResolvePersistedHeadlessAvatar(out avatarLocation, out avatarLoadMode, out avatarPassword, out avatarSource))
+        {
+            return true;
+        }
+
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static bool TryResolveConfiguredHeadlessAvatar(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
         if (!string.IsNullOrWhiteSpace(AvatarFileLocation))
         {
             avatarLocation = AvatarFileLocation;
@@ -523,6 +547,52 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             return true;
         }
 
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static bool TryResolveEmbeddedDefaultHeadlessAvatar(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
+        var embeddedKeys = EmbeddedItems.HardcodedKeys;
+        if (embeddedKeys != null)
+        {
+            List<Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys.ItemKey> eligibleAvatars = new List<Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys.ItemKey>();
+
+            foreach (var item in embeddedKeys)
+            {
+                if (item == null ||
+                    item.Mode != BundledContentHolder.Mode.Avatar ||
+                    string.IsNullOrWhiteSpace(item.Url))
+                {
+                    continue;
+                }
+
+                eligibleAvatars.Add(item);
+            }
+
+            if (eligibleAvatars.Count > 0)
+            {
+                var selectedAvatar = eligibleAvatars[new System.Random().Next(eligibleAvatars.Count)];
+                avatarLocation = selectedAvatar.Url;
+                avatarLoadMode = ResolveAvatarLoadMode(avatarLocation, BasisPlayer.LoadModeLocal);
+                avatarPassword = selectedAvatar.Pass ?? string.Empty;
+                avatarSource = "embedded default avatar";
+                return true;
+            }
+        }
+
+        avatarLocation = string.Empty;
+        avatarLoadMode = BasisPlayer.LoadModeLocal;
+        avatarPassword = string.Empty;
+        avatarSource = string.Empty;
+        return false;
+    }
+
+    private static bool TryResolvePersistedHeadlessAvatar(out string avatarLocation, out byte avatarLoadMode, out string avatarPassword, out string avatarSource)
+    {
         if (BasisDataStore.LoadAvatar(
                 BasisLocalPlayer.LoadFileNameAndExtension,
                 BasisBeeConstants.DefaultAvatar,
