@@ -17,14 +17,14 @@ namespace Basis.Scripts.BasisCharacterController
 
         public void Enter(BasisLocalCharacterDriver ctx)
         {
-            // Fully ghost the CharacterController so it won’t push/depenetrate
+            // Disable the KCC's collision detection so it won't push/depenetrate
             if (ctx.characterController != null)
             {
                 ctx.characterController.detectCollisions = false;
                 ctx.characterController.enabled = false;
             }
 
-            // Ensure a trigger-only probe exists and matches the CC size
+            // Ensure a trigger-only probe exists and matches the KCC size
             EnsureTriggerProbe(ctx);
 
             // enable the trigger probe
@@ -38,7 +38,7 @@ namespace Basis.Scripts.BasisCharacterController
 
         public void Exit(BasisLocalCharacterDriver ctx)
         {
-            // Re-enable CC for other modes
+            // Re-enable KCC for other modes
             if (ctx.characterController != null)
             {
                 ctx.characterController.detectCollisions = true;
@@ -52,16 +52,18 @@ namespace Basis.Scripts.BasisCharacterController
 
         public void Tick(BasisLocalCharacterDriver ctx, float dt)
         {
-            // Project head forward onto horizontal plane (avoids gimbal lock near ±90° pitch)
+            Vector3 up = ctx.UpDirection;
+
+            // Project head forward onto the plane perpendicular to gravity
             Quaternion headRot = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
             Vector3 flatForward = headRot * Vector3.forward;
-            flatForward.y = 0f;
+            flatForward -= up * Vector3.Dot(flatForward, up);
             if (flatForward.sqrMagnitude < 0.0001f)
             {
                 flatForward = -(headRot * Vector3.up);
-                flatForward.y = 0f;
+                flatForward -= up * Vector3.Dot(flatForward, up);
             }
-            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
+            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, up);
 
             // Same speed model you already use
             ctx.CurrentSpeed =
@@ -72,8 +74,8 @@ namespace Basis.Scripts.BasisCharacterController
             Vector3 planar = new Vector3(ctx.MovementVector.x, 0f, ctx.MovementVector.y).normalized;
             Vector3 move = facing * planar * ctx.CurrentSpeed * dt;
 
-            // Vertical input
-            move.y = ctx.GetVerticalMovement() * ctx.CurrentSpeed * dt;
+            // Vertical input along gravity-relative up axis
+            move += up * (ctx.GetVerticalMovement() * ctx.CurrentSpeed * dt);
             ctx.HasJumpAction = false;
 
             if (ctx.MovementLock) move = Vector3.zero;
@@ -87,13 +89,13 @@ namespace Basis.Scripts.BasisCharacterController
                 _triggerBody.position = ctx.BasisLocalPlayerTransform.position;
                 _triggerBody.rotation = ctx.BasisLocalPlayerTransform.rotation;
             }
-            var cc = ctx.characterController;
-            if (cc != null && _triggerCapsule != null)
+            var kcc = ctx.characterController;
+            if (kcc != null && _triggerCapsule != null)
             {
-                _triggerCapsule.center = cc.center;
-                _triggerCapsule.radius = cc.radius;
-                _triggerCapsule.height = cc.height;
-                _triggerCapsule.direction = 1; // Y axis like CharacterController
+                _triggerCapsule.center = kcc.center;
+                _triggerCapsule.radius = kcc.radius;
+                _triggerCapsule.height = kcc.height;
+                _triggerCapsule.direction = 1; // Y axis
             }
             // Sync state
             ctx.BasisLocalPlayerTransform.GetPositionAndRotation(out ctx.CurrentPosition, out ctx.CurrentRotation);
@@ -114,14 +116,14 @@ namespace Basis.Scripts.BasisCharacterController
             _triggerCapsule = BasisHelpers.GetOrAddComponent<CapsuleCollider>(go);
             _triggerCapsule.isTrigger = true;
 
-            // Match CC dimensions so overlaps are accurate
-            var cc = ctx.characterController;
-            if (cc != null)
+            // Match KCC dimensions so overlaps are accurate
+            var kcc = ctx.characterController;
+            if (kcc != null)
             {
-                _triggerCapsule.center = cc.center;
-                _triggerCapsule.radius = cc.radius;
-                _triggerCapsule.height = cc.height;
-                _triggerCapsule.direction = 1; // Y axis like CharacterController
+                _triggerCapsule.center = kcc.center;
+                _triggerCapsule.radius = kcc.radius;
+                _triggerCapsule.height = kcc.height;
+                _triggerCapsule.direction = 1; // Y axis
             }
 
             // Make sure physics queries will consider triggers (usually true by default)

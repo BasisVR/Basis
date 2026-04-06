@@ -15,7 +15,7 @@ namespace Basis.Scripts.BasisCharacterController
     {
         public BasisLocalPlayer LocalPlayer;
         [System.NonSerialized] public BasisLocalAnimatorDriver LocalAnimatorDriver;
-        public CharacterController characterController;
+        public BasisKinematicCharacterController characterController;
         public Vector3 bottomPointLocalSpace;
         public Vector3 LastBottomPoint;
         public bool groundedPlayer;
@@ -104,6 +104,23 @@ namespace Basis.Scripts.BasisCharacterController
         public Quaternion CurrentRotation;
         public CollisionFlags Flags;
         public float radius;
+        /// <summary>
+        /// The direction gravity pulls the character. Defaults to Vector3.down.
+        /// Changing this allows the character to walk on walls/ceilings.
+        /// </summary>
+        public Vector3 GravityDirection
+        {
+            get => characterController != null ? characterController.GravityDirection : Vector3.down;
+            set
+            {
+                if (characterController != null)
+                    characterController.GravityDirection = value;
+            }
+        }
+        /// <summary>
+        /// The up direction for the character, opposite of GravityDirection.
+        /// </summary>
+        public Vector3 UpDirection => characterController != null ? characterController.UpDirection : Vector3.up;
         public Vector2 MovementVector { get; private set; }
         /// <summary>
         /// A value between 0 and 1 representing the relative speed of player movement.
@@ -158,13 +175,56 @@ namespace Basis.Scripts.BasisCharacterController
                 HasEvents = false;
             }
         }
+        /// <summary>
+        /// Ensures the KCC component exists on the player GameObject.
+        /// Migrates from Unity's CharacterController if one is still present on the prefab.
+        /// </summary>
+        private void EnsureKCC()
+        {
+            if (characterController != null) return;
+
+            GameObject go = BasisLocalPlayerTransform.gameObject;
+
+            // Check if already has KCC
+            characterController = go.GetComponent<BasisKinematicCharacterController>();
+            if (characterController != null) return;
+
+            // Migrate from legacy CharacterController if present
+            CharacterController legacy = go.GetComponent<CharacterController>();
+            float oldHeight = 2f;
+            float oldRadius = 0.3f;
+            Vector3 oldCenter = new Vector3(0f, 1f, 0f);
+            float oldSkinWidth = 0.01f;
+            float oldStepOffset = 0.3f;
+            float oldSlopeLimit = 45f;
+            if (legacy != null)
+            {
+                oldHeight = legacy.height;
+                oldRadius = legacy.radius;
+                oldCenter = legacy.center;
+                oldSkinWidth = legacy.skinWidth;
+                oldStepOffset = legacy.stepOffset;
+                oldSlopeLimit = legacy.slopeLimit;
+                UnityEngine.Object.DestroyImmediate(legacy);
+            }
+
+            characterController = go.AddComponent<BasisKinematicCharacterController>();
+            characterController.height = oldHeight;
+            characterController.radius = oldRadius;
+            characterController.center = oldCenter;
+            characterController.skinWidth = oldSkinWidth;
+            characterController.stepOffset = oldStepOffset;
+            characterController.slopeLimit = oldSlopeLimit;
+        }
         public void Initialize(BasisLocalPlayer localPlayer)
         {
             LocalPlayer = localPlayer;
             BasisLocalPlayerTransform = localPlayer.transform;
             LocalAnimatorDriver = localPlayer.LocalAnimatorDriver;
+            EnsureKCC();
             characterController.minMoveDistance = 0;
             characterController.skinWidth = 0.01f;
+            characterController.OnKCCColliderHit = OnKCCHit;
             if (!HasEvents)
             {
                 HasEvents = true;
@@ -176,11 +236,10 @@ namespace Basis.Scripts.BasisCharacterController
             SetMode(Mode.Walk);
         }
 
-        public void OnControllerColliderHit(ControllerColliderHit hit)
+        private void OnKCCHit(KCCHitInfo hit)
         {
             if (CanPushRigidbodys)
             {
-                // Check if the hit object has a Rigidbody and if it is not kinematic
                 Rigidbody body = hit.collider.attachedRigidbody;
 
                 if (body == null || body.isKinematic)
@@ -188,10 +247,9 @@ namespace Basis.Scripts.BasisCharacterController
                     return;
                 }
 
-                // Ensure we're only pushing objects in the horizontal plane
-                Vector3 pushDir = new Vector3(hit.moveDirection.x, 0, hit.moveDirection.z);
+                // Project push direction onto the plane perpendicular to gravity (horizontal)
+                Vector3 pushDir = hit.moveDirection - UpDirection * Vector3.Dot(hit.moveDirection, UpDirection);
 
-                // Apply the force to the object
                 body.AddForce(pushDir * pushPower, ForceMode.Impulse);
             }
         }
@@ -264,7 +322,7 @@ namespace Basis.Scripts.BasisCharacterController
 
             // Get the current rotation and position of the player
             Vector3 pivot = BasisLocalBoneDriver.EyeControl.OutgoingWorldData.position;
-            Vector3 upAxis = Vector3.up;
+            Vector3 upAxis = UpDirection;
 
             // Calculate direction from the pivot to the current position
             Vector3 directionToPivot = CurrentPosition - pivot;
@@ -280,7 +338,7 @@ namespace Basis.Scripts.BasisCharacterController
             BasisLocalPlayerTransform.SetPositionAndRotation(FinalRotation, rotation * CurrentRotation);
 
             float HeightOffset = (characterController.height / 2) - characterController.radius;
-            bottomPointLocalSpace = FinalRotation + (characterController.center - new Vector3(0, HeightOffset, 0));
+            bottomPointLocalSpace = FinalRotation + (characterController.center - upAxis * HeightOffset);
 
             Quaternion newRot = rotation * CurrentRotation;
             Vector3 newPos = FinalRotation;
@@ -388,16 +446,20 @@ namespace Basis.Scripts.BasisCharacterController
         }
         public void HandleMovement(float DeltaTime)
         {
-            // Cache current rotation and zero out x and z components
+            // Cache current rotation and flatten to the plane perpendicular to gravity
             currentRotation = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
-            Vector3 rotationEulerAngles = currentRotation.eulerAngles;
-            rotationEulerAngles.x = 0;
-            rotationEulerAngles.z = 0;
-
-            Quaternion flattenedRotation = Quaternion.Euler(rotationEulerAngles);
+            Vector3 up = UpDirection;
+            Vector3 flatForward = currentRotation * Vector3.forward;
+            flatForward -= up * Vector3.Dot(flatForward, up);
+            if (flatForward.sqrMagnitude < 0.0001f)
+            {
+                flatForward = -(currentRotation * Vector3.up);
+                flatForward -= up * Vector3.Dot(flatForward, up);
+            }
+            Quaternion flattenedRotation = Quaternion.LookRotation(flatForward.normalized, up);
 
             if (CrouchBlendDelta != 0) UpdateCrouchBlend(CrouchBlendDelta);
-            // Calculate horizontal movement direction
+            // Calculate horizontal movement direction (in the character's gravity-relative plane)
             Vector3 horizontalMoveDirection = new Vector3(MovementVector.x, 0, MovementVector.y).normalized;
 
             CurrentSpeed = math.lerp(MinimumMovementSpeed, MaximumMovementSpeed, MovementSpeedScale) + MinimumMovementSpeed * MovementSpeedBoost;
@@ -427,7 +489,8 @@ namespace Basis.Scripts.BasisCharacterController
 
 
             HasJumpAction = false;
-            totalMoveDirection.y = currentVerticalSpeed * DeltaTime;
+            // Apply vertical speed along the gravity up axis instead of world Y
+            totalMoveDirection += up * (currentVerticalSpeed * DeltaTime);
 
             // Move character
             Flags = characterController.Move(totalMoveDirection);
@@ -479,7 +542,7 @@ namespace Basis.Scripts.BasisCharacterController
             }
 
             // Clamp stepOffset to something sane relative to height
-            float maxStep = (finalHeight + 2f * characterController.radius) - 0.001f;
+            float maxStep = (finalHeight + 2f * radius) - 0.001f;
             maxStep = Mathf.Max(0f, maxStep);
             maxStep = Mathf.Min(maxStep, finalHeight * 0.25f);
 

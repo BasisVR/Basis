@@ -327,7 +327,7 @@ MonoBehaviour:
     SpriteMicrophoneOff: {fileID: 21300000, guid: f184b79ab72cc224e94720390fb038c2, type: 3}
     VRdesiredNormXY: {x: -0.42, y: -0.52}
     VRextraViewportPad: 0.022
-    iconHalfRU: {x: 0, y: 0}
+    IconPositionOffset: {x: 0, y: 0}
     LocalIsTransmitting: 0
     UnMutedMutedIconColorActive: {r: 1, g: 1, b: 1, a: 0.67058825}
     UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.67058825}
@@ -484,7 +484,9 @@ GameObject:
   m_Component:
   - component: {fileID: 303201899784742928}
   - component: {fileID: 4587526044252889482}
-  - component: {fileID: 5548795088377030369}
+  - component: {fileID: 8369693708823570861}
+  - component: {fileID: 3011869999757657}
+  - component: {fileID: 7825922350359905173}
   m_Layer: 3
   m_Name: LocalPlayer
   m_TagString: Untagged
@@ -520,11 +522,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 19f412872e0df964494751723e9f3838, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  PlayerPlatform: 
   DisplayName: 
   UUID: 
   SafeDisplayName: 
   BasisAvatar: {fileID: 0}
   AvatarTransform: {fileID: 0}
+  AvatarAnimatorTransform: {fileID: 0}
   PlayerSelf: {fileID: 0}
   FaceIsVisible: 0
   FaceRenderer: {fileID: 0}
@@ -541,9 +545,18 @@ MonoBehaviour:
       BasisBundleDescription:
         AssetBundleName: 
         AssetBundleDescription: 
+        AssetBundleIcon: {fileID: 0}
       BasisBundleGenerated: []
       ImageBase64: 
       DateOfCreation: 
+      Bounds:
+        m_Center: {x: 0, y: 0, z: 0}
+        m_Extents: {x: 0, y: 0, z: 0}
+      MetaData:
+        TrianglesCount: 0
+        MaterialCount: 0
+        BonesCount: 0
+        ComponentNames: []
   LocalCameraDriver: {fileID: 22857711927985140}
   LocalBoneDriver:
     ControlsLength: 0
@@ -566,17 +579,69 @@ MonoBehaviour:
       m_Active: 0
     BasisFullIKConstraint: {fileID: 0}
     timeAccumulator: 0
-    OutputkneeBendPrefLeftWeights: {x: 0, y: 0, z: 0}
-    OutputkneeBendPrefRightWeights: {x: 0, y: 0, z: 0}
-    kneeBendPrefLeftWeights: {x: 0, y: 1, z: -0.2}
-    kneeBendPrefRightWeights: {x: 0, y: 1, z: 0.2}
     elbowBendPrefLeftWeights: {x: 0, y: 1, z: 0}
     elbowBendPrefRightWeights: {x: 0, y: 1, z: 0}
     spineBendNormalWeights: {x: 0, y: 1, z: 0}
-    ScrossLeggedModifier: {x: 1.25, y: 0.25}
+  BasisLocalFootDriver:
+    predictionFactor: 0.9
+    velocityBiasFactor: 0.18
+    leadOffsetFactor: 0.6
+    maxVelocityOffsetFraction: 0.35
+    maxPredictionFraction: 0.35
+    plantedLerpSpeed: 40
+    rotationLerpSpeed: 16
+    velocitySmoothAccel: 10
+    velocitySmoothDecel: 50
+    bodyFwdRateMoving: 6
+    bodyFwdRateStationary: 2.5
+    kneeHintLerpSpeed: 10
+    maxFootTiltDegrees: 35
+    maxFootYawDegrees: 18
+    raySphereRadiusMul: 0.3
+    footHeightOffsetMul: 0.2
+    stepTriggerMul: 0.08
+    strideScaleMul: 0.06
+    stepHeightMul: 0.18
+    stepDurSlowMul: 0.3
+    stepDurFastMul: 0.18
+    fastSpeedMul: 1.2
+    stepArcLiftExp: 0.6
+    stepArcDropExp: 1.4
+    stepHeightMinFraction: 0.4
+    idleSpeedThreshold: 0.05
+    idleBoostFraction: 0.5
+    maxPlantedYawDegrees: 35
+    idealSideEnforceFraction: 0.3
+    stepTargetSideFraction: 0.15
+    footSideEnforceFraction: 0.2
+    maxVerticalDriftFraction: 0.25
+    kneeForwardPushFraction: 0.4
+    kneeMinSideFraction: 0.05
+    bodyFwdHipsWeight: 3
+    bodyFwdChestWeight: 2
+    bodyFwdHeadWeight: 1
+    hipBobFraction: 0.02
+    stanceWidth: 0
+    hipToFoot: 0
+    leftLegLen: 0
+    rightLegLen: 0
+    leftThighLen: 0
+    leftShinLen: 0
+    rightThighLen: 0
+    rightShinLen: 0
+    footLength: 0
+    ankleHeight: 0
+    stepTriggerDist: 0
+    strideScale: 0
+    stepHeightCalc: 0
+    stepDurSlow: 0
+    stepDurFast: 0
+    raySphereRadius: 0
+    footHeightOffset: 0
+    fastSpeedRef: 0
   LocalCharacterDriver:
     LocalPlayer: {fileID: 4587526044252889482}
-    characterController: {fileID: 5548795088377030369}
+    characterController: {fileID: 0}
     bottomPointLocalSpace: {x: 0, y: 0, z: 0}
     LastBottomPoint: {x: 0, y: 0, z: 0}
     groundedPlayer: 0
@@ -590,9 +655,16 @@ MonoBehaviour:
     LastWasGrounded: 1
     IsFalling: 0
     IsJumpHeld: 0
+    IsDescendHeld: 0
     HasJumpAction: 0
     jumpHeight: 1
     currentVerticalSpeed: 0
+    landingDescentSpeed: 15
+    landingRecoverySpeed: 6
+    landingImpactScale: 0.06
+    maxLandingCrouchEffect: 0.35
+    coyoteTimeDuration: 0.15
+    fallingGracePeriod: 0.1
     Rotation: {x: 0, y: 0}
     RotationSpeed: 200
     HasEvents: 0
@@ -600,6 +672,7 @@ MonoBehaviour:
     CurrentPosition: {x: 0, y: 0, z: 0}
     CurrentRotation: {x: 0, y: 0, z: 0, w: 0}
     Flags: 0
+    radius: 0
     <MovementSpeedScale>k__BackingField: 0
     <MovementSpeedBoost>k__BackingField: 0
     CrouchBlend: 1
@@ -617,6 +690,9 @@ MonoBehaviour:
       m_Bits: 456
     maxDownProbe: 3
     maxUpProbe: 1
+    DebugDrawGizmos: 1
+    DebugPointRadius: 0.03
+    DebugAxisLength: 0.12
   LocalAnimatorDriver:
     basisAnimatorVariableApply:
       Animator: {fileID: 0}
@@ -680,7 +756,6 @@ MonoBehaviour:
     centerBias: 2.5
     perEyeVarianceDeg: 0.4
     occasionalCenterReturn: 1
-    HasEyeSchedule: 0
   LocalHandDriver:
     LeftHand:
       ThumbPercentage: {x: 0, y: 0}
@@ -715,148 +790,7 @@ MonoBehaviour:
     RightMiddle: []
     RightRing: []
     RightLittle: []
-    LastLeftThumbPercentage: {x: -1.1, y: -1.1}
-    LastLeftIndexPercentage: {x: -1.1, y: -1.1}
-    LastLeftMiddlePercentage: {x: -1.1, y: -1.1}
-    LastLeftRingPercentage: {x: -1.1, y: -1.1}
-    LastLeftLittlePercentage: {x: -1.1, y: -1.1}
-    LastRightThumbPercentage: {x: -1.1, y: -1.1}
-    LastRightIndexPercentage: {x: -1.1, y: -1.1}
-    LastRightMiddlePercentage: {x: -1.1, y: -1.1}
-    LastRightRingPercentage: {x: -1.1, y: -1.1}
-    LastRightLittlePercentage: {x: -1.1, y: -1.1}
-    LeftThumbAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    LeftIndexAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    LeftMiddleAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    LeftRingAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    LeftLittleAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    RightThumbAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    RightIndexAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    RightMiddleAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    RightRingAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
-    RightLittleAdditional:
-      PoseData:
-        LeftThumb: []
-        LeftIndex: []
-        LeftMiddle: []
-        LeftRing: []
-        LeftLittle: []
-        RightThumb: []
-        RightIndex: []
-        RightMiddle: []
-        RightRing: []
-        RightLittle: []
-      Coord: {x: 0, y: 0}
     LerpSpeed: 22
-    Poses: []
   LocalVisemeDriver:
     smoothAmount: 70
     HasViseme: 
@@ -873,10 +807,13 @@ MonoBehaviour:
       BlendShapeInfos: []
       HasJob: 0
       blendShapeCount: 0
+    UseOpenLipSync: 0
+    EligibleForOpenLipSync: 0
     phonemeBlendShapeTable: []
     WasSuccessful: 0
     HashInstanceID: -1
     uLipSyncEnabledState: 1
+    InVisemeRange: 1
   FacialBlinkDriver:
     Override: 0
     meshRenderer: {fileID: 0}
@@ -894,8 +831,35 @@ MonoBehaviour:
     NextBlinkTime: 0
     BlinkStartTime: 0
     OpenStartTime: 0
---- !u!143 &5548795088377030369
-CharacterController:
+--- !u!54 &8369693708823570861
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8538648612911191307}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
+--- !u!136 &3011869999757657
+CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -909,13 +873,32 @@ CharacterController:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
+  serializedVersion: 2
+  m_Radius: 0.3
   m_Height: 2
-  m_Radius: 0.15
-  m_SlopeLimit: 65
-  m_StepOffset: 0.5
-  m_SkinWidth: 0.01
-  m_MinMoveDistance: 0.001
+  m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &7825922350359905173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8538648612911191307}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f50f4d9a7b7b5c488ef048f8e073021, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::Basis.Scripts.BasisCharacterController.BasisKinematicCharacterController
+  _height: 2
+  _radius: 0.3
+  _center: {x: 0, y: 1, z: 0}
+  _skinWidth: 0.01
+  _stepOffset: 0.3
+  _minMoveDistance: 0
+  _slopeLimit: 45
+  _detectCollisions: 1
+  _gravityDirection: {x: 0, y: -1, z: 0}
