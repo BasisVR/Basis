@@ -1385,7 +1385,7 @@ w20, w54;
             c1 = p1 + d1 * s;
             c2 = p2 + d2 * t;
         }
-        public static Vector3 CapsuleCapsuleResolve(Vector3 p1, Vector3 q1, float r1, Vector3 p2, Vector3 q2, float r2)
+        public static Vector3 CapsuleCapsuleResolve(Vector3 p1, Vector3 q1, float r1, Vector3 p2, Vector3 q2, float r2, Vector3 playerUp)
         {
             SegmentSegmentClosestPoints(p1, q1, p2, q2, out _, out _, out var c1, out var c2);
             Vector3 n = c1 - c2;
@@ -1399,9 +1399,9 @@ w20, w54;
             else
             {
                 Vector3 axis = (q2 - p2);
-                normal = Vector3.Normalize(Vector3.Cross(axis, Vector3.up));
+                normal = Vector3.Normalize(Vector3.Cross(axis, playerUp));
                 if (normal.sqrMagnitude < k_MinMag) normal = Vector3.Normalize(Vector3.Cross(axis, Vector3.right));
-                if (normal.sqrMagnitude < k_MinMag) normal = Vector3.up;
+                if (normal.sqrMagnitude < k_MinMag) normal = playerUp;
             }
 
             float d = Mathf.Sqrt(Mathf.Max(dSqr, 0f));
@@ -1437,14 +1437,14 @@ w20, w54;
 
             root.SetRotation(stream, swing * root.GetRotation(stream));
         }
-        public static Vector3 PushOutFromCapsule(Vector3 p, Vector3 a, Vector3 b, float radiusWithSkin)
+        public static Vector3 PushOutFromCapsule(Vector3 p, Vector3 a, Vector3 b, float radiusWithSkin, Vector3 playerUp)
         {
             Vector3 q = ClosestPointOnSegment(p, a, b);
             Vector3 qp = p - q;
             float dSqr = Vector3.Dot(qp, qp);
             if (dSqr >= radiusWithSkin * radiusWithSkin) return p;
             float d = Mathf.Sqrt(Mathf.Max(dSqr, k_SqrEpsilon));
-            Vector3 n = (d > 0f) ? (qp / d) : Vector3.up;
+            Vector3 n = (d > 0f) ? (qp / d) : playerUp;
             return q + n * radiusWithSkin;
         }
         /// <summary>
