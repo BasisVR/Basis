@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Basis.Scripts.UI.UI_Panels;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -50,18 +51,12 @@ namespace Basis.BasisUI
             }
 
             _loaded = true;
-
-#if UNITY_EDITOR
-            _catalog = AssetDatabase.LoadAssetAtPath<EmbeddedItemsCatalogAsset>(CatalogAssetPath);
-#else
-            if (AddressableAssets.AddressExists(CatalogAddress))
-            {
-                _catalog = Addressables.LoadAssetAsync<EmbeddedItemsCatalogAsset>(CatalogAddress).WaitForCompletion();
-            }
-#endif
+            AsyncOperationHandle<EmbeddedItemsCatalogAsset> handle = Addressables.LoadAssetAsync<EmbeddedItemsCatalogAsset>(CatalogAddress);
+            _catalog = handle.WaitForCompletion();
 
             RebuildCache();
         }
+
 
         private static void RebuildCache()
         {
