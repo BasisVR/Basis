@@ -124,11 +124,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalRigDriver LocalRigDriver = new BasisLocalRigDriver();
 
         /// <summary>
-        /// Places a foot Down. not done yet, i give up - dooly
+        /// Locomotion-aware foot placement when no foot trackers are present.
         /// </summary>
-      //  [Header("Foot Driver")]
-       // [SerializeField]
-      //  public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
+        [Header("Foot Driver")]
+        [SerializeField]
+        public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
         /// <summary>
         /// Character controller for movement, collisions, and physics.
         /// </summary>
@@ -231,7 +231,7 @@ namespace Basis.Scripts.BasisSdk.Players
             BasisLocalMicrophoneDriver.Initialize();
 #endif
 
-            BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
+            BasisScene BasisScene = FindAnyObjectByType<BasisScene>(FindObjectsInactive.Exclude);
             if (BasisScene != null)
             {
                 BasisSceneFactory.Initalize(BasisScene);
@@ -458,8 +458,8 @@ namespace Basis.Scripts.BasisSdk.Players
             // Apply Animator Weights using most current data and outside movement effectors.
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
-            // handles fingers
-            LocalHandDriver.UpdateFingers(DeltaTime);
+            // schedule finger slerp job (completed by Apply in BasisEventDriver)
+            LocalHandDriver.Simulate(DeltaTime);
 
             AfterSimulateOnLate?.Invoke();
         }

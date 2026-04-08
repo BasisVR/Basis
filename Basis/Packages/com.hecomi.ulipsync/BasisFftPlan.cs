@@ -1,5 +1,6 @@
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace uLipSync
@@ -34,13 +35,14 @@ namespace uLipSync
             return s;
         }
 
-        public static BasisFftPlan Build(int N, Allocator alloc)
+        public static unsafe BasisFftPlan Build(int N, Allocator alloc)
         {
             // N must be pow2
             int stages = Log2Pow2(N);
 
             // bit reversal indices
             var bitrev = new NativeArray<int>(N, alloc);
+            int* pBitrev = (int*)bitrev.GetUnsafePtr();
             for (int i = 0; i < N; i++)
             {
                 int x = i;
@@ -50,7 +52,7 @@ namespace uLipSync
                     r = (r << 1) | (x & 1);
                     x >>= 1;
                 }
-                bitrev[i] = r;
+                pBitrev[i] = r;
             }
 
             // twiddles per stage:
@@ -58,28 +60,31 @@ namespace uLipSync
             // pack all in one array to keep it Burst-friendly.
             int totalTw = 0;
             var stageOffsets = new NativeArray<int>(stages + 1, alloc);
+            int* pStageOffsets = (int*)stageOffsets.GetUnsafePtr();
             int len = 2;
             for (int s = 0; s < stages; s++, len <<= 1)
             {
-                stageOffsets[s] = totalTw;
+                pStageOffsets[s] = totalTw;
                 totalTw += (len >> 1);
             }
-            stageOffsets[stages] = totalTw;
+            pStageOffsets[stages] = totalTw;
 
             var twRe = new NativeArray<float>(totalTw, alloc);
             var twIm = new NativeArray<float>(totalTw, alloc);
+            float* pTwRe = (float*)twRe.GetUnsafePtr();
+            float* pTwIm = (float*)twIm.GetUnsafePtr();
 
             len = 2;
             for (int s = 0; s < stages; s++, len <<= 1)
             {
                 int half = len >> 1;
                 float ang = -2f * math.PI / len;
+                int off = pStageOffsets[s];
                 for (int j = 0; j < half; j++)
                 {
                     float a = ang * j;
-                    int idx = stageOffsets[s] + j;
-                    twRe[idx] = math.cos(a);
-                    twIm[idx] = math.sin(a);
+                    pTwRe[off + j] = math.cos(a);
+                    pTwIm[off + j] = math.sin(a);
                 }
             }
 

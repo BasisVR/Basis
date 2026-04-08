@@ -13,6 +13,17 @@ namespace Basis.BasisUI
     {
         private static string _pendingTabName;
 
+        /// <summary>
+        /// External packages can register additional settings tabs here via [RuntimeInitializeOnLoadMethod].
+        /// Each entry is (tabName, builder) where builder receives the PanelTabGroup and returns a PanelTabPage.
+        /// </summary>
+        public static readonly List<(string TabName, Func<PanelTabGroup, PanelTabPage> Builder)> ExternalTabs = new();
+
+        /// <summary>
+        /// When set by an external package, replaces the default My Avatar tab builder.
+        /// </summary>
+        public static Func<PanelTabGroup, PanelTabPage> MyAvatarTabOverride;
+
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
@@ -20,6 +31,15 @@ namespace Basis.BasisUI
 #if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.OnMicrophoneSettingsChanged += SyncUiFromSnapshot;
 #endif
+            ApplyOpenLipSyncMaxSlots();
+            BasisSettingsSystem.OnSettingsFinishedChanges += ApplyOpenLipSyncMaxSlots;
+        }
+
+        private static void ApplyOpenLipSyncMaxSlots()
+        {
+            BasisOpenLipSyncDriver.UseSlotLimit = BasisSettingsDefaults.UseOpenLipSyncLimit.RawValue;
+            BasisOpenLipSyncDriver.MaxSlots = Mathf.Max(0, (int)BasisSettingsDefaults.OpenLipSyncMaxSlots.RawValue);
+            BasisOpenLipSyncDriver.EnforceSlotLimit();
         }
 
         public static string StaticTitle => "Settings";
@@ -87,9 +107,21 @@ namespace Basis.BasisUI
             AddLazyTab(tabGroup, "Chat", () => ChatTab(tabGroup));
             AddLazyTab(tabGroup, "Body Tracking", () => SettingsProviderIK.IKTab(tabGroup));
             AddLazyTab(tabGroup, "Nameplates", () => SettingsProviderNamePlate.NamePlateTab(tabGroup));
+            AddLazyTab(tabGroup, "My Avatar", () =>
+                MyAvatarTabOverride != null
+                    ? MyAvatarTabOverride(tabGroup)
+                    : SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
             AddLazyTab(tabGroup, "Downloads & Cache", () => SettingsProviderStorage.StorageTab(tabGroup));
+            AddLazyTab(tabGroup, "Trusted URLs", () => SettingsProviderTrustedUrls.TrustedUrlsTab(tabGroup));
+          //  AddLazyTab(tabGroup, "UI Style", () => SettingsProviderUIStyle.UIStyleTab(tabGroup));
             AddLazyTab(tabGroup, "Developer", () => DeveloperTab(tabGroup));
 
+            // External package tabs (registered via SettingsProvider.ExternalTabs)
+            for (int i = 0; i < ExternalTabs.Count; i++)
+            {
+                var ext = ExternalTabs[i];
+                AddLazyTab(tabGroup, ext.TabName, () => ext.Builder(tabGroup));
+            }
 
             if (BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsView))
             {
@@ -180,7 +212,19 @@ namespace Basis.BasisUI
                 rangeGroup,
                 PanelSlider.SliderSettings.Distance("Avatar Visibility Range", 100),
                 BasisSettingsDefaults.AvatarRange);
-            
+
+            PanelSlider sliderHearingRange = PanelSlider.CreateEntryAndBind(
+    rangeGroup,
+    PanelSlider.SliderSettings.Distance("Hearing Range", 25),
+    BasisSettingsDefaults.HearingRange);
+
+#if !BASIS_DISABLE_MICROPHONE
+            PanelSlider sliderMicrophoneRange = PanelSlider.CreateEntryAndBind(
+                rangeGroup,
+                PanelSlider.SliderSettings.Distance("Microphone Range", 25),
+                BasisSettingsDefaults.MicrophoneRange);
+#endif
+
             PanelToggle toggleLimitAvatars = PanelToggle.CreateNewEntry(rangeGroup);
             toggleLimitAvatars.AssignBinding(BasisSettingsDefaults.UseMaxVisibleAvatars);
 
@@ -218,17 +262,37 @@ namespace Basis.BasisUI
                 rangeGroup.ForceRebuild();
             };
 
-            PanelSlider sliderHearingRange = PanelSlider.CreateEntryAndBind(
-                rangeGroup,
-                PanelSlider.SliderSettings.Distance("Hearing Range", 25),
-                BasisSettingsDefaults.HearingRange);
+            PanelToggle toggleLimitAudio = PanelToggle.CreateNewEntry(rangeGroup);
+            toggleLimitAudio.AssignBinding(BasisSettingsDefaults.UseMaxAudioSources);
+            toggleLimitAudio.Descriptor.SetTitle("Limit Audio Sources");
 
-#if !BASIS_DISABLE_MICROPHONE
-            PanelSlider sliderMicrophoneRange = PanelSlider.CreateEntryAndBind(
+            PanelSlider sliderMaxAudioSources = PanelSlider.CreateEntryAndBind(
                 rangeGroup,
-                PanelSlider.SliderSettings.Distance("Microphone Range", 25),
-                BasisSettingsDefaults.MicrophoneRange);
-#endif
+                PanelSlider.SliderSettings.Advanced("Max Audio Sources", 0, 250, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.MaxAudioSources);
+
+            sliderMaxAudioSources.Descriptor.SetActive(toggleLimitAudio.Value);
+
+            toggleLimitAudio.OnValueChanged += (val) =>
+            {
+                sliderMaxAudioSources.Descriptor.SetActive(val);
+                rangeGroup.ForceRebuild();
+            };
+
+            // TODO: re-enable when avatar preview is finished
+            // PanelToggle toggleAvatarPreview = PanelToggle.CreateNewEntry(rangeGroup);
+            // toggleAvatarPreview.AssignBinding(BasisSettingsDefaults.AvatarPreview);
+            // toggleAvatarPreview.Descriptor.SetTitle("Avatar Preview");
+            // toggleAvatarPreview.Descriptor.SetDescription("Show a live preview of your avatar on the HUD.");
+
+            PanelElementDescriptor interactionsGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            interactionsGroup.SetTitle("Interactions");
+
+            PanelToggle toggleDisableSeats = PanelToggle.CreateNewEntry(interactionsGroup);
+            toggleDisableSeats.AssignBinding(BasisSettingsDefaults.DisableSeats);
+            toggleDisableSeats.Descriptor.SetTitle("Disable Seats");
+            toggleDisableSeats.Descriptor.SetDescription("Prevent sitting in seats placed in the world.");
 
             SettingsProviderPlatform.BuildAutoSwapUI(container);
 
@@ -242,9 +306,13 @@ namespace Basis.BasisUI
         {
             BasisSettingsDefaults.AvatarRange.ResetToDefault();
             BasisSettingsDefaults.MaxVisibleAvatars.ResetToDefault();
+            BasisSettingsDefaults.MaxAudioSources.ResetToDefault();
+            BasisSettingsDefaults.UseMaxAudioSources.ResetToDefault();
             BasisSettingsDefaults.UseViewConeAvatars.ResetToDefault();
             BasisSettingsDefaults.ViewConeAngle.ResetToDefault();
             BasisSettingsDefaults.HearingRange.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreview.ResetToDefault();
+            BasisSettingsDefaults.DisableSeats.ResetToDefault();
             BasisSettingsDefaults.SwapMode.ResetToDefault();
 #if !BASIS_DISABLE_MICROPHONE
             BasisSettingsDefaults.MicrophoneRange.ResetToDefault();
@@ -305,7 +373,7 @@ namespace Basis.BasisUI
                 PanelSlider.SliderSettings.Percentage("Prop Volume"),
                 BasisSettingsDefaults.PropVolume);
 
-            // Remote Players (Spatial Audio)
+            // Remote Players (Spatial Audio) — includes its own Advanced toggle
             SettingsProviderRemoteAudio.BuildRemoteAudioUI(container);
 
             // One reset button for this whole page
@@ -323,6 +391,8 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.VoiceVolume.ResetToDefault();
             BasisSettingsDefaults.AvatarVolume.ResetToDefault();
             BasisSettingsDefaults.PropVolume.ResetToDefault();
+            BasisSettingsDefaults.UseOpenLipSyncLimit.ResetToDefault();
+            BasisSettingsDefaults.OpenLipSyncMaxSlots.ResetToDefault();
             SettingsProviderRemoteAudio.ResetRemoteAudioToDefaults();
         }
 
@@ -769,6 +839,32 @@ namespace Basis.BasisUI
             RectTransform container = descriptor.ContentParent;
 
 
+            // --- Accessibility: Bloom Override ---
+            PanelToggle toggleBloomOverride = PanelToggle.CreateNewEntry(container);
+            toggleBloomOverride.AssignBinding(BasisSettingsDefaults.UseBloomOverride);
+            toggleBloomOverride.Descriptor.SetTitle("Override Bloom Intensity");
+            toggleBloomOverride.Descriptor.SetDescription("Override the scene bloom intensity.");
+
+            PanelElementDescriptor bloomGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            bloomGroup.SetTitle("Bloom");
+
+            PanelSlider sliderBloomIntensity = PanelSlider.CreateEntryAndBind(
+                bloomGroup.ContentParent,
+                new PanelSlider.SliderSettings("Bloom Intensity",
+                    "",
+                    BasisSettingsDefaults.BLOOM_INTENSITY_MIN,
+                    BasisSettingsDefaults.BLOOM_INTENSITY_MAX,
+                    false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.BloomIntensity);
+
+            bloomGroup.SetActive(toggleBloomOverride.Value);
+            toggleBloomOverride.OnValueChanged += (val) =>
+            {
+                bloomGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
+
             PanelElementDescriptor qualityGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             qualityGroup.SetTitle("Quality");
@@ -813,12 +909,7 @@ namespace Basis.BasisUI
             PanelElementDescriptor renderingGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             renderingGroup.SetTitle("Rendering");
-            renderingGroup.SetDescription("Resolution, HDR and performance-related options.");
-
-            PanelDropdown dropdownHDR = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
-            dropdownHDR.Descriptor.SetTitle("HDR Support");
-            dropdownHDR.AssignEntries(new List<string> { "Off", "32bit", "64bit" });
-            dropdownHDR.AssignBinding(BasisSettingsDefaults.HDRSupport);
+            renderingGroup.SetDescription("Resolution and performance-related options.");
 
             PanelDropdown dropdownMemoryAllocation = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
             dropdownMemoryAllocation.Descriptor.SetTitle("Memory Allocation");
@@ -859,10 +950,86 @@ namespace Basis.BasisUI
             dropdownScreenMode.DropdownComponent.onValueChanged.AddListener(ScreenMode);
             dropdownScreenMode.DropdownComponent.SetValueWithoutNotify(GetIndexFromScreenMode(Screen.fullScreenMode));
 
+            // --- Mirror Quality Override ---
+            PanelToggle toggleMirrorOverride = PanelToggle.CreateNewEntry(container);
+            toggleMirrorOverride.AssignBinding(BasisSettingsDefaults.UseMirrorQualityOverride);
+            toggleMirrorOverride.Descriptor.SetTitle("Override Mirror Quality");
+            toggleMirrorOverride.Descriptor.SetDescription("Override the resolution used by mirrors.");
+
+            PanelElementDescriptor mirrorGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            mirrorGroup.SetTitle("Mirror Quality");
+
+            PanelDropdown dropdownMirrorQuality = PanelDropdown.CreateNewEntry(mirrorGroup.ContentParent);
+            dropdownMirrorQuality.Descriptor.SetTitle("Mirror Resolution");
+            dropdownMirrorQuality.AssignEntries(new List<string> { "256", "512", "1024", "2048", "4096", "8192" });
+            dropdownMirrorQuality.AssignBinding(BasisSettingsDefaults.MirrorQuality);
+
+            mirrorGroup.SetActive(toggleMirrorOverride.Value);
+            toggleMirrorOverride.OnValueChanged += (val) =>
+            {
+                mirrorGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
+
+            // --- Camera Near/Far Override ---
+            PanelToggle toggleCameraClipOverride = PanelToggle.CreateNewEntry(container);
+            toggleCameraClipOverride.AssignBinding(BasisSettingsDefaults.UseCameraClipOverride);
+            toggleCameraClipOverride.Descriptor.SetTitle("Override Camera Clip Distances");
+            toggleCameraClipOverride.Descriptor.SetDescription("Force near and far clip plane distances on the camera.");
+
+            PanelElementDescriptor cameraClipGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            cameraClipGroup.SetTitle("Camera Clip Distances");
+
+            PanelSlider sliderCameraNear = PanelSlider.CreateEntryAndBind(
+                cameraClipGroup,
+                PanelSlider.SliderSettings.Advanced("Near Clip", 0.001f, 0.1f, false, 3, ValueDisplayMode.Meters),
+                BasisSettingsDefaults.CameraClipNear);
+
+            PanelSlider sliderCameraFar = PanelSlider.CreateEntryAndBind(
+                cameraClipGroup,
+                PanelSlider.SliderSettings.Advanced("Far Clip", 10f, 5000f, true, 0, ValueDisplayMode.Meters),
+                BasisSettingsDefaults.CameraClipFar);
+
+            cameraClipGroup.SetActive(toggleCameraClipOverride.Value);
+            toggleCameraClipOverride.OnValueChanged += (val) =>
+            {
+                cameraClipGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
+
+            PanelToggle toggleAdvanced = PanelToggle.CreateNewEntry(container);
+            toggleAdvanced.Descriptor.SetTitle("Advanced");
+            toggleAdvanced.SetValueWithoutNotify(false);
+
+            PanelElementDescriptor poseLodGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            poseLodGroup.SetTitle("Pose LOD");
+            poseLodGroup.SetDescription(
+                "Reduces CPU cost by updating distant player poses less frequently.\n" +
+                "Higher values skip more frames for faraway players.\n" +
+                "At 0, every player updates every frame (most accurate, highest cost).\n" +
+                "Visible as slightly choppy animation on distant players.");
+
+            PanelSlider sliderPoseLod = PanelSlider.CreateEntryAndBind(
+                poseLodGroup,
+                PanelSlider.SliderSettings.Advanced("Pose LOD Bias", 0, 5, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.PoseLOD);
+            sliderPoseLod.Descriptor.SetDescription(
+                "0 = off (all players update every frame).\n" +
+                "1-2 = subtle reduction, barely visible.\n" +
+                "3-5 = noticeable on distant players, significant CPU savings.");
+
             PanelElementDescriptor advancedGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            advancedGroup.SetTitle("Advanced Rendering");
-            advancedGroup.SetDescription("Change how things look vs how smooth they run.");
+            advancedGroup.SetTitle("Advanced");
+            advancedGroup.SetDescription("Fine-tune rendering, LOD, and performance options.");
+
+            PanelDropdown dropdownHDR = PanelDropdown.CreateNewEntry(advancedGroup.ContentParent);
+            dropdownHDR.Descriptor.SetTitle("HDR Support");
+            dropdownHDR.AssignEntries(new List<string> { "Off", "32bit", "64bit" });
+            dropdownHDR.AssignBinding(BasisSettingsDefaults.HDRSupport);
 
             PanelSlider sliderFoveatedRendering = PanelSlider.CreateEntryAndBind(
                 advancedGroup.ContentParent,
@@ -878,24 +1045,29 @@ namespace Basis.BasisUI
                     BasisSettingsDefaults.FOV_MIN, BasisSettingsDefaults.FOV_MAX, true, 0, ValueDisplayMode.Degrees),
                 BasisSettingsDefaults.FieldOfView);
 
-            PanelElementDescriptor lodGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            lodGroup.SetTitle("LOD Bias");
-            lodGroup.SetDescription("Higher = less detail at distance, better performance.");
-
             PanelSlider sliderMeshLOD = PanelSlider.CreateEntryAndBind(
-                lodGroup.ContentParent,
-                new PanelSlider.SliderSettings("Avatar",
+                advancedGroup.ContentParent,
+                new PanelSlider.SliderSettings("Avatar LOD",
                     "",
                     0, 1, false, 3, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.AvatarMeshLOD);
 
             PanelSlider sliderGlobalMeshLOD = PanelSlider.CreateEntryAndBind(
-                lodGroup.ContentParent,
-                new PanelSlider.SliderSettings("World",
+                advancedGroup.ContentParent,
+                new PanelSlider.SliderSettings("World LOD",
                     "",
                     0, 100, true, 0, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.GlobalMeshLOD);
+
+            poseLodGroup.SetActive(false);
+            advancedGroup.SetActive(false);
+
+            toggleAdvanced.OnValueChanged += (val) =>
+            {
+                poseLodGroup.SetActive(val);
+                advancedGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
 
             // One reset button for this whole page
             AddResetPageButton(container, "Graphics", ResetGraphicsDefaults);
@@ -918,8 +1090,18 @@ namespace Basis.BasisUI
 
             BasisSettingsDefaults.FoveatedRendering.ResetToDefault();
             BasisSettingsDefaults.FieldOfView.ResetToDefault();
+            BasisSettingsDefaults.PoseLOD.ResetToDefault();
             BasisSettingsDefaults.AvatarMeshLOD.ResetToDefault();
             BasisSettingsDefaults.GlobalMeshLOD.ResetToDefault();
+
+            BasisSettingsDefaults.UseMirrorQualityOverride.ResetToDefault();
+            BasisSettingsDefaults.MirrorQuality.ResetToDefault();
+            BasisSettingsDefaults.UseCameraClipOverride.ResetToDefault();
+            BasisSettingsDefaults.CameraClipNear.ResetToDefault();
+            BasisSettingsDefaults.CameraClipFar.ResetToDefault();
+
+            BasisSettingsDefaults.UseBloomOverride.ResetToDefault();
+            BasisSettingsDefaults.BloomIntensity.ResetToDefault();
 
             // Note: Resolution & ScreenMode are not shown as BasisSettingsDefaults bindings in your snippet.
             // If you later add bindings for them, add them here.
@@ -1046,21 +1228,158 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.VisualState.SetValue(val ? "only avatar distance" : "off");
             };
 
-            PanelElementDescriptor infoGroup =
+            PanelToggle toggleStatistics = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
+            toggleStatistics.Descriptor.SetTitle("Enable Statistics");
+            toggleStatistics.Descriptor.SetDescription("Enable network statistics recording. Takes effect on next connection.");
+            toggleStatistics.AssignBinding(BasisSettingsDefaults.EnableStatistics);
+
+            // ---- Section Visibility Toggles ----
+            PanelElementDescriptor sectionTogglesGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            infoGroup.SetTitle("Build & Environment");
-            infoGroup.SetDescription("Useful identifiers for debugging builds.");
+            sectionTogglesGroup.SetTitle("Developer Sections");
+            sectionTogglesGroup.SetDescription("Toggle which developer sections are visible below.");
 
-            CreateBuildInfoSection(infoGroup.ContentParent);
+            PanelToggle toggleBuildInfo = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleBuildInfo.Descriptor.SetTitle("Build & Environment");
+            toggleBuildInfo.Descriptor.SetDescription("Show build identifiers and environment info.");
+            toggleBuildInfo.AssignBinding(BasisSettingsDefaults.DevShowBuildInfo);
 
-            // Network & Statistics (live-updating)
-            SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out var netUpdater);
+            PanelToggle toggleConsole = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleConsole.Descriptor.SetTitle("Console Log");
+            toggleConsole.Descriptor.SetDescription("Show inline console log output.");
+            toggleConsole.AssignBinding(BasisSettingsDefaults.DevShowConsole);
+
+            PanelToggle toggleEuroFilter = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleEuroFilter.Descriptor.SetTitle("Network Euro Filter");
+            toggleEuroFilter.Descriptor.SetDescription("Show One Euro filter tuning for remote interpolation.");
+            toggleEuroFilter.AssignBinding(BasisSettingsDefaults.DevShowEuroFilter);
+
+            PanelToggle toggleNetStats = PanelToggle.CreateNewEntry(sectionTogglesGroup.ContentParent);
+            toggleNetStats.Descriptor.SetTitle("Network & Statistics");
+            toggleNetStats.Descriptor.SetDescription("Show live connection and bandwidth diagnostics.");
+            toggleNetStats.AssignBinding(BasisSettingsDefaults.DevShowNetStats);
+
+            // ---- Remote Audio Debug ----
+            PanelElementDescriptor audioDebugGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            audioDebugGroup.SetTitle("Remote Audio Debug");
+            audioDebugGroup.SetDescription("Controls which audio debug sections appear in per-player panels.");
+
+            PanelToggle toggleAudioDebug = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleAudioDebug.Descriptor.SetTitle("Enable Audio Debug");
+            toggleAudioDebug.Descriptor.SetDescription("Show audio debug info in individual player panels.");
+            toggleAudioDebug.AssignBinding(BasisSettingsDefaults.AudioDebugEnabled);
+
+            PanelToggle toggleAudioSource = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleAudioSource.Descriptor.SetTitle("Audio Source");
+            toggleAudioSource.Descriptor.SetDescription("Show AudioSource state (enabled, playing, spatial settings).");
+            toggleAudioSource.AssignBinding(BasisSettingsDefaults.AudioDebugShowSource);
+
+            PanelToggle toggleVolumeChain = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleVolumeChain.Descriptor.SetTitle("Volume Chain");
+            toggleVolumeChain.Descriptor.SetDescription("Show volume multipliers (source, dampening, main, effective).");
+            toggleVolumeChain.AssignBinding(BasisSettingsDefaults.AudioDebugShowVolume);
+
+            PanelToggle toggleRingBuffer = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleRingBuffer.Descriptor.SetTitle("Ring Buffer");
+            toggleRingBuffer.Descriptor.SetDescription("Show voice ring buffer fill level and state.");
+            toggleRingBuffer.AssignBinding(BasisSettingsDefaults.AudioDebugShowRingBuffer);
+
+            PanelToggle toggleJitter = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleJitter.Descriptor.SetTitle("Jitter Buffer");
+            toggleJitter.Descriptor.SetDescription("Show jitter buffer packets, fill state, and playback status.");
+            toggleJitter.AssignBinding(BasisSettingsDefaults.AudioDebugShowJitter);
+
+            PanelToggle toggleSilence = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleSilence.Descriptor.SetTitle("Silence Tracking");
+            toggleSilence.Descriptor.SetDescription("Show silence duration and gap detection.");
+            toggleSilence.AssignBinding(BasisSettingsDefaults.AudioDebugShowSilence);
+
+            PanelToggle toggleViseme = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            toggleViseme.Descriptor.SetTitle("Viseme Driver");
+            toggleViseme.Descriptor.SetDescription("Show viseme/lip-sync driver state.");
+            toggleViseme.AssignBinding(BasisSettingsDefaults.AudioDebugShowViseme);
+
+            // ---- Collapsible sections (toggled by section visibility) ----
+            // Helper: collect all new children added to container by a builder call
+            static List<GameObject> CollectNewChildren(RectTransform parent, int countBefore)
+            {
+                var result = new List<GameObject>();
+                for (int i = countBefore; i < parent.childCount; i++)
+                    result.Add(parent.GetChild(i).gameObject);
+                return result;
+            }
+
+            static void DestroyList(List<GameObject> list)
+            {
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i] != null) UnityEngine.Object.Destroy(list[i]);
+                list.Clear();
+            }
+
+            // Build & Environment
+            PanelElementDescriptor infoGroup = null;
+            void CreateBuildInfo()
+            {
+                infoGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                infoGroup.SetTitle("Build & Environment");
+                infoGroup.SetDescription("Useful identifiers for debugging builds.");
+                CreateBuildInfoSection(infoGroup.ContentParent);
+            }
+            if (BasisSettingsDefaults.DevShowBuildInfo.RawValue) CreateBuildInfo();
+            toggleBuildInfo.OnValueChanged += on =>
+            {
+                if (infoGroup != null) { UnityEngine.Object.Destroy(infoGroup.gameObject); infoGroup = null; }
+                if (on) CreateBuildInfo();
+            };
+
+            // Network Euro Filter
+            List<GameObject> euroObjects = new();
+            void CreateEuroFilter()
+            {
+                int before = container.childCount;
+                SettingsProviderNetworkTab.BuildNetworkEuroFilterGroup(container);
+                euroObjects = CollectNewChildren(container, before);
+            }
+            if (BasisSettingsDefaults.DevShowEuroFilter.RawValue) CreateEuroFilter();
+            toggleEuroFilter.OnValueChanged += on =>
+            {
+                DestroyList(euroObjects);
+                if (on) CreateEuroFilter();
+            };
+
+            // Network & Statistics
+            List<GameObject> netObjects = new();
+            void CreateNetStats()
+            {
+                int before = container.childCount;
+                SettingsProviderNetworkTab.BuildNetworkStatsGroup(container, out _);
+                netObjects = CollectNewChildren(container, before);
+            }
+            if (BasisSettingsDefaults.DevShowNetStats.RawValue) CreateNetStats();
+            toggleNetStats.OnValueChanged += on =>
+            {
+                DestroyList(netObjects);
+                if (on) CreateNetStats();
+            };
 
             // One reset button for this whole page
             AddResetPageButton(container, "Developer", ResetDeveloperDefaults);
 
-            // Inline console
-            SettingsProviderConsoleTab.BuildConsoleUI(container);
+            // Console Log (BuildConsoleUI creates 2 groups: controls + output)
+            List<GameObject> consoleObjects = new();
+            void CreateConsole()
+            {
+                int before = container.childCount;
+                SettingsProviderConsoleTab.BuildConsoleUI(container);
+                consoleObjects = CollectNewChildren(container, before);
+            }
+            if (BasisSettingsDefaults.DevShowConsole.RawValue) CreateConsole();
+            toggleConsole.OnValueChanged += on =>
+            {
+                DestroyList(consoleObjects);
+                if (on) CreateConsole();
+            };
 
             descriptor.ForceRebuild();
             return tab;
@@ -1070,6 +1389,21 @@ namespace Basis.BasisUI
         {
             BasisSettingsDefaults.DebugVisuals.ResetToDefault();
             BasisSettingsDefaults.VisualState.SetValue("off");
+            BasisSettingsDefaults.EnableStatistics.ResetToDefault();
+            BasisSettingsDefaults.DevShowBuildInfo.ResetToDefault();
+            BasisSettingsDefaults.DevShowConsole.ResetToDefault();
+            BasisSettingsDefaults.DevShowEuroFilter.ResetToDefault();
+            BasisSettingsDefaults.DevShowNetStats.ResetToDefault();
+            BasisSettingsDefaults.NetEuroMinCutoff.ResetToDefault();
+            BasisSettingsDefaults.NetEuroBeta.ResetToDefault();
+            BasisSettingsDefaults.NetEuroDerivativeCutoff.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugEnabled.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowSource.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowVolume.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowRingBuffer.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowJitter.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowSilence.ResetToDefault();
+            BasisSettingsDefaults.AudioDebugShowViseme.ResetToDefault();
         }
 
         private static void CreateBuildInfoSection(RectTransform parent)

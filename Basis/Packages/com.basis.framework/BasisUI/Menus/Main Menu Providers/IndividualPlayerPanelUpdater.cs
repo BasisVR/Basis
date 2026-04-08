@@ -16,6 +16,14 @@ namespace Basis.BasisUI
         public PanelElementDescriptor RangesField;
         public PanelElementDescriptor BufferField;
 
+        // Audio debug fields
+        public PanelElementDescriptor AudioSourceField;
+        public PanelElementDescriptor VolumeChainField;
+        public PanelElementDescriptor DecodedBufferField;
+        public PanelElementDescriptor EncodedBufferField;
+        public PanelElementDescriptor SilenceField;
+        public PanelElementDescriptor VisemeField;
+
         private float _updateTimer;
         private const float UpdateInterval = 0.2f;
 
@@ -65,6 +73,7 @@ namespace Basis.BasisUI
                 if (LodField != null) LodField.SetDescription("No data");
                 if (RangesField != null) RangesField.SetDescription("No data");
                 UpdateBufferField();
+                UpdateAudioDebugFields();
                 return;
             }
 
@@ -75,6 +84,7 @@ namespace Basis.BasisUI
                 if (LodField != null) LodField.SetDescription("Player not found");
                 if (RangesField != null) RangesField.SetDescription("Player not found");
                 UpdateBufferField();
+                UpdateAudioDebugFields();
                 return;
             }
 
@@ -98,6 +108,7 @@ namespace Basis.BasisUI
                 if (LodField != null) LodField.SetDescription("Not in snapshot");
                 if (RangesField != null) RangesField.SetDescription("Not in snapshot");
                 UpdateBufferField();
+                UpdateAudioDebugFields();
                 return;
             }
 
@@ -154,6 +165,7 @@ namespace Basis.BasisUI
             }
 
             UpdateBufferField();
+            UpdateAudioDebugFields();
         }
 
         private void UpdateBufferField()
@@ -179,6 +191,128 @@ namespace Basis.BasisUI
                 $"Data Ready: {(dataReady ? "Yes" : "No")}");
         }
 
+        private void UpdateAudioDebugFields()
+        {
+            if (RemotePlayer == null || RemotePlayer.NetworkReceiver == null) return;
+
+            BasisAudioReceiver audio = RemotePlayer.NetworkReceiver.AudioReceiverModule;
+            if (audio == null)
+            {
+                SetAudioDebugAll("No AudioReceiverModule");
+                return;
+            }
+
+            // Audio Source
+            if (AudioSourceField != null && BasisSettingsDefaults.AudioDebugShowSource.RawValue)
+            {
+                AudioSource src = audio.audioSource;
+                if (src != null)
+                {
+                    AudioSourceField.SetDescription(
+                        $"Has Source: {audio.HasAudioSource} | Enabled: {src.enabled} | Playing: {src.isPlaying}\n" +
+                        $"Spatial: {src.spatialBlend:F2} ({(src.spatialBlend > 0.5f ? "3D" : "2D")}) | Max Dist: {src.maxDistance:F1}m\n" +
+                        $"Rolloff: {src.rolloffMode} | Spatialize: {src.spatialize} | Doppler: {src.dopplerLevel:F2}");
+                }
+                else
+                {
+                    AudioSourceField.SetDescription($"Has Source: {audio.HasAudioSource} | AudioSource: NULL");
+                }
+            }
+
+            // Volume Chain
+            if (VolumeChainField != null && BasisSettingsDefaults.AudioDebugShowVolume.RawValue)
+            {
+                AudioSource src = audio.audioSource;
+                float srcVol = src != null ? src.volume : 0f;
+                float dampen = audio.DirectionalDampeningMultiplier;
+                float listenerVol = AudioListener.volume;
+                float effective = srcVol * dampen * listenerVol;
+
+                string dampenNote = dampen < 0.5f ? " (BEHIND)" : dampen < 1f ? " (off-axis)" : "";
+                string warning = effective < 0.01f && srcVol > 0f ? "\nWARNING: Near zero!" : "";
+
+                VolumeChainField.SetDescription(
+                    $"Source: {srcVol:F2} x Dampen: {dampen:F3}{dampenNote} x Listener: {listenerVol:F2}\n" +
+                    $"Effective: {effective:F3}{warning}");
+            }
+
+            // Voice Buffer (combined jitter + decoded)
+            if (DecodedBufferField != null && BasisSettingsDefaults.AudioDebugShowRingBuffer.RawValue)
+            {
+                BasisVoiceBuffer buf = audio.VoiceBuffer;
+                if (buf != null)
+                {
+                    int frames = buf.DecodedFrameCount;
+                    int cap = buf.DecodedFrameCapacity;
+                    int samples = buf.SampleCount;
+                    float ms = samples * 1000f / RemoteOpusSettings.NetworkSampleRate;
+                    string state = buf.IsEmpty ? "EMPTY" : frames >= cap ? "FULL" : "Streaming";
+
+                    DecodedBufferField.SetDescription(
+                        $"Frames: {frames}/{cap} | {ms:F1}ms buffered\n" +
+                        $"Real Audio: {(buf.HasRealAudio ? "Yes" : "No")} | State: {state}");
+                }
+                else
+                {
+                    DecodedBufferField.SetDescription("Voice Buffer: NULL");
+                }
+            }
+
+            if (EncodedBufferField != null && BasisSettingsDefaults.AudioDebugShowJitter.RawValue)
+            {
+                BasisVoiceBuffer buf = audio.VoiceBuffer;
+                if (buf != null)
+                {
+                    int buffered = buf.EncodedBufferedCount;
+                    int received = buf.ReceivedSinceStart;
+                    int depth = buf.InitialBufferDepth;
+                    string status = !buf.Started ? "Not started"
+                        : received < depth ? $"FILLING ({received}/{depth})"
+                        : "Playing";
+
+                    EncodedBufferField.SetDescription(
+                        $"Started: {(buf.Started ? "Yes" : "No")} | Buffered: {buffered} | Received: {received}\n" +
+                        $"Init Depth: {depth} | Status: {status}\n" +
+                        $"PLC: {audio.PlcCount} | Silence Skipped: {audio.SilenceInjectedCount}");
+                }
+                else
+                {
+                    EncodedBufferField.SetDescription("Voice Buffer: NULL");
+                }
+            }
+
+            // Silence
+            if (SilenceField != null && BasisSettingsDefaults.AudioDebugShowSilence.RawValue)
+            {
+                int units = audio._silentUnits20ms;
+                float ms = units * 20f;
+                string note = ms > 2000f ? " PROLONGED" : ms > 500f ? " gap" : "";
+
+                SilenceField.SetDescription(
+                    $"Silent: {units} units ({ms:F0}ms){note}");
+            }
+
+            // Viseme
+            if (VisemeField != null && BasisSettingsDefaults.AudioDebugShowViseme.RawValue)
+            {
+                bool hasDriver = audio.BasisRemoteVisemeAudioDriver != null;
+                bool init = hasDriver && audio.BasisRemoteVisemeAudioDriver.Initalized;
+
+                VisemeField.SetDescription(
+                    $"Driver: {(hasDriver ? "Active" : "None")} | Initialized: {(init ? "Yes" : "No")}");
+            }
+        }
+
+        private void SetAudioDebugAll(string message)
+        {
+            if (AudioSourceField != null) AudioSourceField.SetDescription(message);
+            if (VolumeChainField != null) VolumeChainField.SetDescription(message);
+            if (DecodedBufferField != null) DecodedBufferField.SetDescription(message);
+            if (EncodedBufferField != null) EncodedBufferField.SetDescription(message);
+            if (SilenceField != null) SilenceField.SetDescription(message);
+            if (VisemeField != null) VisemeField.SetDescription(message);
+        }
+
         private void SetAll(string message)
         {
             if (DebugField != null) DebugField.SetDescription(message);
@@ -186,6 +320,7 @@ namespace Basis.BasisUI
             if (LodField != null) LodField.SetDescription(message);
             if (RangesField != null) RangesField.SetDescription(message);
             if (BufferField != null) BufferField.SetDescription(message);
+            SetAudioDebugAll(message);
         }
     }
 }

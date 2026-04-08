@@ -58,7 +58,7 @@ namespace Basis.BasisUI
 
         public override string Title => "Library";
         public override string IconAddress => AddressableAssets.Sprites.Library;
-        public override int Order => 1; // after Settings
+        public override int Order => 2; // after Mute
         public override bool Hidden => false;
         private static protected bool IsProtected = false; // we use this to determine if the user is admin for admin related queries on the library provider
         public static BasisMenuPanel panel;
@@ -275,6 +275,8 @@ namespace Basis.BasisUI
                 BasisDebug.LogWarning("wrapper was not provided for LoadWrapperFromDisc, creating.");
                 wrapper = CreateNewWrapperFromItem(item);
             }
+
+            await BasisLoadHandler.EnsureInitializationComplete();
 
             // If the metadata is missing on disk, remove the key and DO NOT attempt to create a bundle from it.
             if (BasisLoadHandler.IsMetaDataOnDisc(item.Url, out BasisBEEExtensionMeta info))

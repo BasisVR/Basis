@@ -32,6 +32,8 @@ public struct JiggleRigData {
     
     [NonSerialized]
     private Dictionary<Transform, JiggleTransformCachedData> transformToCachedDataMap;
+    [NonSerialized]
+    private HashSet<Transform> excludedTransformSet;
 
     private bool TryUpdateSerialization() {
         switch (serializedVersion) {
@@ -95,9 +97,12 @@ public struct JiggleRigData {
             var cachedData = transformCachedData[i];
             transformToCachedDataMap[cachedData.bone] = cachedData;
         }
+        excludedTransformSet = new HashSet<Transform>(excludedTransforms ?? Array.Empty<Transform>());
     }
 
     public bool GetIsExcluded(Transform t) {
+        if (excludedTransformSet != null) return excludedTransformSet.Contains(t);
+        if (excludedTransforms == null) return false;
         var count = excludedTransforms.Length;
         for (int i = 0; i < count; i++) {
             if (excludedTransforms[i] == t) {
@@ -208,9 +213,24 @@ public struct JiggleRigData {
     }
     
     public bool GetHasRootTransformError() => !rootBone;
-    public bool GetCacheIsValid() => transformCachedData is { Length: > 0 } && transformToCachedDataMap != null && transformToCachedDataMap.Count == transformCachedData.Length;
+    public bool GetCacheIsValid() {
+        if (transformCachedData is not { Length: > 0 } || transformToCachedDataMap == null || transformToCachedDataMap.Count != transformCachedData.Length) {
+            return false;
+        }
+        var count = transformCachedData.Length;
+        for (int i = 0; i < count; i++) {
+            if (!transformCachedData[i].bone) return false;
+        }
+        return true;
+    }
     public JiggleTransformCachedData GetCache(Transform t) {
-        return transformToCachedDataMap[t];
+        if (transformToCachedDataMap == null) {
+            throw new InvalidOperationException("JiggleRigData: Cache lookup not initialized. Call RegenerateCacheLookup() first.");
+        }
+        if (!transformToCachedDataMap.TryGetValue(t, out var cachedData)) {
+            throw new KeyNotFoundException($"JiggleRigData: Transform '{t.name}' not found in cache. Ensure it is a child of the root bone and not excluded.");
+        }
+        return cachedData;
     }
 
     /// <summary>
@@ -297,11 +317,7 @@ public struct JiggleRigData {
     
     private void DrawBone(Vector3 boneHead, Vector3 boneTail, Vector3 boneScale, JigglePointParameters jigglePointParameters, Camera cam) {
         var camForward = cam.transform.forward;
-        var fixedScreenSize = 0.01f;
-        var toCam = cam.transform.position - boneHead;
-        var distance = toCam.magnitude;
-        var scale = distance * fixedScreenSize;
-        scale = jigglePointParameters.collisionRadius * (boneScale.x + boneScale.y + boneScale.z)/3f;
+        var scale = jigglePointParameters.collisionRadius * (boneScale.x + boneScale.y + boneScale.z)/3f;
         DrawWireDisc(boneHead, camForward, scale);
         Gizmos.DrawLine(boneHead, boneTail);
         var boneDirection = (boneTail - boneHead).normalized;

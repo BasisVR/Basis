@@ -1,0 +1,20 @@
+{
+  "name": "com.basis.openlipsync",
+  "version": "0.2.0",
+  "displayName": "Basis OpenLipSync",
+  "description": "Neural network-based lip sync using ONNX Runtime TCN model, producing 15 MPEG-4 visemes. Adapted from https://github.com/BasisVR/OpenLipSync",
+  "author": {
+    "name": "Basis"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BasisVR/OpenLipSync"
+  },
+  "keywords": [
+    "lipsync",
+    "viseme",
+    "onnx",
+    "openlipsync"
+  ],
+  "license": "Apache-2.0"
+}

@@ -35,9 +35,11 @@ namespace HVR.Osushi
                 {
                     StartHttpServer(httpPort, _root, _avtr);
                 }
-                catch (Exception _)
+                catch (ThreadAbortException) { }
+                catch (ThreadInterruptedException) { }
+                catch (Exception e)
                 {
-                    // ignored
+                    UnityEngine.Debug.LogError($"[OsushiQuery] HTTP server thread died: {e}");
                 }
             });
             _httpThread.IsBackground = true;
@@ -99,16 +101,28 @@ namespace HVR.Osushi
 
             while (true)
             {
-                var ctx = listener.GetContext();
-                Console.WriteLine($"HTTP request: {ctx.Request.RawUrl}");
+                try
+                {
+                    var ctx = listener.GetContext();
+                    Console.WriteLine($"HTTP request: {ctx.Request.RawUrl}");
 
-                var res = ctx.Response;
-                var json = ctx.Request.RawUrl.EndsWith("/avatar") ? avtr : root;
-                var buffer = Encoding.UTF8.GetBytes(json);
-                res.ContentType = "application/json";
-                res.ContentLength64 = buffer.Length;
-                res.OutputStream.Write(buffer, 0, buffer.Length);
-                res.OutputStream.Close();
+                    var res = ctx.Response;
+                    var json = ctx.Request.RawUrl.EndsWith("/avatar") ? avtr : root;
+                    var buffer = Encoding.UTF8.GetBytes(json);
+                    res.ContentType = "application/json";
+                    res.ContentLength64 = buffer.Length;
+                    res.OutputStream.Write(buffer, 0, buffer.Length);
+                    res.OutputStream.Close();
+                }
+                catch (HttpListenerException e)
+                {
+                    Console.WriteLine($"[OsushiQuery] HttpListener closed: {e.Message}");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"[OsushiQuery] Request error (continuing): {e.Message}");
+                }
             }
         }
     }

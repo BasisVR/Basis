@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Basis.Network.Core;
+using Basis.Scripts.Networking;
 using UnityEngine;
 
 namespace HVR.Basis.Comms
@@ -89,7 +90,15 @@ namespace HVR.Basis.Comms
         {
             if (isWearer)
             {
-                OnSender();
+                if (BasisNetworkConnection.LocalPlayerIsConnected)
+                {
+                    OnSender();
+                }
+                else
+                {
+                    _timeLeft = 0;
+                    return;
+                }
             }
             else
             {

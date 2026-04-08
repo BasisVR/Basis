@@ -127,6 +127,7 @@ MonoBehaviour:
   BasisBundleDescription:
     AssetBundleName: Loading Avatar
     AssetBundleDescription: Avatar used While We Load
+    AssetBundleIcon: {fileID: 0}
   Animator: {fileID: 7103285763428802826}
   FaceVisemeMesh: {fileID: 8839165641088738499}
   FaceBlinkMesh: {fileID: 8839165641088738499}

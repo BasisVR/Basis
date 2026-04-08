@@ -7,6 +7,77 @@ using UnityEngine.Networking;
 
 public static class BasisIOManagement
 {
+    public static string GetCurrentCachePlatform()
+    {
+        return NormalizeCachePlatformName(Application.platform.ToString());
+    }
+
+    public static bool CachePlatformMatchesCurrent(string downloadedPlatform)
+    {
+        return string.Equals(NormalizeCachePlatformName(downloadedPlatform), GetCurrentCachePlatform(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string NormalizeCachePlatformName(string platformName)
+    {
+        if (string.IsNullOrWhiteSpace(platformName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = platformName.Trim();
+        return normalized switch
+        {
+            nameof(RuntimePlatform.WindowsEditor) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsPlayer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsServer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.LinuxEditor) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxPlayer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxServer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.OSXEditor) => "StandaloneOSX",
+            nameof(RuntimePlatform.OSXPlayer) => "StandaloneOSX",
+            nameof(RuntimePlatform.Android) => "Android",
+            nameof(RuntimePlatform.IPhonePlayer) => "iOS",
+            _ => normalized,
+        };
+    }
+
+    public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetLegacyBeeCacheFilePath(string uniqueVersion)
+    {
+        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}", BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetLegacyMetaCacheFilePath(string uniqueVersion)
+    {
+        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    private static string BuildPlatformAwareCacheFileName(string uniqueVersion, string extension, string downloadedPlatform)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueVersion))
+            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
+
+        string normalizedPlatform = string.IsNullOrWhiteSpace(downloadedPlatform)
+            ? GetCurrentCachePlatform()
+            : NormalizeCachePlatformName(downloadedPlatform);
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        {
+            normalizedPlatform = normalizedPlatform.Replace(invalidChar, '_');
+        }
+
+        return $"{uniqueVersion}.{normalizedPlatform}{extension}";
+    }
+
     public sealed class BeeDownloadResult
     {
         public BasisBundleConnector Connector { get; }
@@ -156,14 +227,14 @@ public static class BasisIOManagement
         }
 
         // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = $"{connector.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}";
+        string fileName = Path.GetFileName(GetBeeCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
             return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
 
         string localPath;
         try
         {
-            localPath = GenerateFilePath(fileName, BasisBeeConstants.AssetBundlesFolder);
+            localPath = GetBeeCacheFilePath(connector.UniqueVersion);
         }
         catch (Exception ex)
         {
@@ -227,13 +298,13 @@ public static class BasisIOManagement
         }
 
         // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = $"{connector.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}";
+        string fileName = Path.GetFileName(GetBeeCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
         {
             return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
 
         }
-        string localPath = GenerateFilePath(fileName, BasisBeeConstants.AssetBundlesFolder);
+        string localPath = GetBeeCacheFilePath(connector.UniqueVersion);
         var connectorBytes = connectorRes.Value.Data;
 
         var writeRes = await WriteBeeFileAsync(localPath, connectorBytes, null, true);

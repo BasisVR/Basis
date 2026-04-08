@@ -54,6 +54,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.openlipsync": {
+      "version": "file:com.basis.openlipsync",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.openvr": {
       "version": "file:com.basis.openvr",
       "depth": 0,
@@ -96,6 +102,12 @@
     },
     "com.basis.shim": {
       "version": "file:com.basis.shim",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
+    "com.basis.textmeshpro": {
+      "version": "file:com.basis.textmeshpro",
       "depth": 0,
       "source": "embedded",
       "dependencies": {}

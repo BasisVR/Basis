@@ -65,7 +65,7 @@ public static class ContentPoliceControl
                     if (component is UnityEngine.Component monoBehaviour)
                     {
                         string monoTypeName = monoBehaviour.GetType().FullName;
-                        if (!PoliceCheck.selectedTypes.Contains(monoTypeName))
+                        if (!PoliceCheck.ApprovedTypeNames.Contains(monoTypeName))
                         {
                             Debug.LogError($"MonoBehaviour {monoTypeName} is not approved and will be removed.");
                             GameObject.DestroyImmediate(monoBehaviour); // Destroy the unapproved MonoBehaviour immediately
@@ -137,7 +137,7 @@ public static class ContentPoliceControl
                 if (component is UnityEngine.Component monoBehaviour)
                 {
                     string monoTypeName = monoBehaviour.GetType().FullName;
-                    if (!policeCheck.selectedTypes.Contains(monoTypeName))
+                    if (!policeCheck.ApprovedTypeNames.Contains(monoTypeName))
                     {
                         Debug.LogError($"MonoBehaviour {monoTypeName} is not approved and will be removed.");
                         GameObject.DestroyImmediate(monoBehaviour); // Destroy the unapproved MonoBehaviour immediately

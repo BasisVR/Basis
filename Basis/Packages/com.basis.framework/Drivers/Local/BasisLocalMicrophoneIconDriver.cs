@@ -1,4 +1,5 @@
 #if !BASIS_DISABLE_MICROPHONE
+using Basis.Scripts.Networking.Transmitters;
 using UnityEngine;
 using Vector3 = UnityEngine.Vector3;
 
@@ -41,6 +42,8 @@ namespace Basis.Scripts.Drivers
         public Color UnMutedMutedIconColorActive = Color.white;
         public Color UnMutedMutedIconColorInactive = Color.grey;
         public Color MutedColor = Color.grey;
+        public Color ShoutColorActive = Color.yellow;
+        public Color ShoutColorInactive = new Color(0.6f, 0.6f, 0f, 1f);
 
         // Scale / FX
         public Vector3 StartingScale = Vector3.zero;
@@ -240,11 +243,22 @@ namespace Basis.Scripts.Drivers
             }
         }
 
+        public void OnShoutModeChanged()
+        {
+            RecomputeColorIntent();
+        }
+
         private void RecomputeColorIntent()
         {
             if (IsCurrentlyMuted)
             {
                 targetColor = MutedColor;
+            }
+            else if (BasisAudioTransmission.IsInShoutMode)
+            {
+                targetColor = LocalIsTransmitting
+                    ? ShoutColorActive
+                    : ShoutColorInactive;
             }
             else
             {

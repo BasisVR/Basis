@@ -414,8 +414,10 @@ namespace Basis.Network.Core {
             ushort size = GetUShort();
             if (size == 0)
                 return string.Empty;
-            
+
             int actualSize = size - 1;
+            if (actualSize > _dataSize - _position)
+                throw new ArgumentException($"String length {actualSize} exceeds available data ({_dataSize - _position} bytes).");
             string result = maxLength > 0 && NetDataWriter.uTF8Encoding.Value.GetCharCount(_data, _position, actualSize) > maxLength ?
                 string.Empty :
                 NetDataWriter.uTF8Encoding.Value.GetString(_data, _position, actualSize);
@@ -428,8 +430,10 @@ namespace Basis.Network.Core {
             ushort size = GetUShort();
             if (size == 0)
                 return string.Empty;
-            
+
             int actualSize = size - 1;
+            if (actualSize > _dataSize - _position)
+                throw new ArgumentException($"String length {actualSize} exceeds available data ({_dataSize - _position} bytes).");
             string result = NetDataWriter.uTF8Encoding.Value.GetString(_data, _position, actualSize);
             _position += actualSize;
             return result;
@@ -440,6 +444,8 @@ namespace Basis.Network.Core {
             int size = GetInt();
             if (size <= 0)
                 return string.Empty;
+            if (size > _dataSize - _position)
+                throw new ArgumentException($"String length {size} exceeds available data ({_dataSize - _position} bytes).");
             string result = NetDataWriter.uTF8Encoding.Value.GetString(_data, _position, size);
             _position += size;
             return result;

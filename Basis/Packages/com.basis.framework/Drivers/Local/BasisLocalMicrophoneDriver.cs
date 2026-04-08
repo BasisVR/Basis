@@ -601,12 +601,12 @@ public static class BasisLocalMicrophoneDriver
                 ApplyDeNoise(s);
             }
 
+            RollingRMS();
+
             if (s.UseNoiseGate)
             {
                 ApplyNoiseGate(s);
             }
-
-            RollingRMS();
 
             if (IsTransmitWorthy())
             {
@@ -778,8 +778,16 @@ public static class BasisLocalMicrophoneDriver
 
         if (_agcHoldTimer > 0f) _agcHoldTimer -= agcDecaySpeed;
 
-        // Skip updating gain if the sound is too quiet (below -50dB)
-        if (frameRms < 0.003f) return;
+        // When input is very quiet (silence/pause), release gain back toward 0 dB
+        // so the user isn't stuck at a reduced level when they start speaking again.
+        if (frameRms < 0.003f)
+        {
+            if (agcGainDb < 0f)
+            {
+                agcGainDb = Mathf.Lerp(agcGainDb, 0f, Mathf.Clamp01(release));
+            }
+            return;
+        }
 
         float neededDb = 20f * Mathf.Log10(Mathf.Max(1e-6f, targetRms) / frameRms);
         neededDb = Mathf.Clamp(neededDb, -maxGainDb, maxGainDb);

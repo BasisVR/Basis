@@ -3,7 +3,9 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Common;
+using Basis.Scripts.Networking;
 using Basis.BasisUI;
+using BasisPermissions;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
@@ -85,6 +87,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public bool IsRunHeld { get; private set; }
 
         private Vector2 manualMoveVector = Vector2.zero;
+
+        private float lastJumpPressTime = -1f;
+        private const float DoublePressWindow = 0.3f;
 
         private const float deltaCoefficient = 0.1f;
 
@@ -360,6 +365,38 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             IsJumpHeld = true;
             LocalCharacterDriver.IsJumpHeld = true;
             LocalCharacterDriver.HandleJumpRequest();
+
+            // Admin double-press fly toggle (desktop only)
+            if (!BasisDeviceManagement.IsCurrentModeVR())
+            {
+                float now = Time.unscaledTime;
+                if (now - lastJumpPressTime <= DoublePressWindow)
+                {
+                    TryToggleFlyMode();
+                    lastJumpPressTime = -1f;
+                }
+                else
+                {
+                    lastJumpPressTime = now;
+                }
+            }
+        }
+
+        private void TryToggleFlyMode()
+        {
+            if (!BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsEdit))
+            {
+                return;
+            }
+
+            if (LocalCharacterDriver.CurrentModeKind == BasisLocalCharacterDriver.Mode.Fly)
+            {
+                LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Walk);
+            }
+            else
+            {
+                LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Fly);
+            }
         }
 
         public void OnJumpActionCancelled(InputAction.CallbackContext ctx)

@@ -44,6 +44,20 @@ public static class SettingsProviderControllerConfig
             PanelSlider.SliderSettings.Advanced("Snap Turn Angle", 0, 120, true, 0, ValueDisplayMode.Degrees),
             BasisSettingsDefaults.SnapTurnAngle);
 
+        PanelSlider sliderSmoothTurnSpeed = PanelSlider.CreateEntryAndBind(
+            generalGroup,
+            PanelSlider.SliderSettings.Advanced("Smooth Turn Speed", 50, 400, true, 0, ValueDisplayMode.Raw),
+            BasisSettingsDefaults.SmoothTurnSpeed);
+
+        bool snapOn = BasisSettingsDefaults.usesnapturn.RawValue;
+        sliderSnapTurnAngle.gameObject.SetActive(snapOn);
+        sliderSmoothTurnSpeed.gameObject.SetActive(!snapOn);
+        smoothlocomotion.OnValueChanged += isOn =>
+        {
+            sliderSnapTurnAngle.gameObject.SetActive(isOn);
+            sliderSmoothTurnSpeed.gameObject.SetActive(!isOn);
+        };
+
         // Deadzone - General
         PanelElementDescriptor generalGroupDeadZone =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
@@ -118,6 +132,7 @@ public static class SettingsProviderControllerConfig
         BasisSettingsDefaults.mousesensitivty.ResetToDefault();
         BasisSettingsDefaults.usesnapturn.ResetToDefault();
         BasisSettingsDefaults.SnapTurnAngle.ResetToDefault();
+        BasisSettingsDefaults.SmoothTurnSpeed.ResetToDefault();
         BasisSettingsDefaults.ControllerDeadZone.ResetToDefault();
         BasisSettingsDefaults.Basexdeadzone.ResetToDefault();
         BasisSettingsDefaults.Extraxdeadzoneatfully.ResetToDefault();

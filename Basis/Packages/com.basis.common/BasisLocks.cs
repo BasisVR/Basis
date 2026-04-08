@@ -94,7 +94,7 @@ namespace Basis.Scripts.Common
 
                 if (!States.TryGetValue(Context, out var state))
                 {
-                    BasisDebug.Log($"no lock exists for {state}");
+                    BasisDebug.Log($"no lock exists for {Context}");
                     return false;
                 }
 

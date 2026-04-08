@@ -30,7 +30,7 @@ public class BasisCilboxBuildHook
         Scene originalScene = prefabRoot.scene;
         Transform originalParent = prefabRoot.transform.parent;
         int originalSiblingIndex = originalParent != null ? prefabRoot.transform.GetSiblingIndex() : -1;
-        Dictionary<int, string> cilboxAssemblySnapshot = CaptureCilboxAssemblySnapshot();
+        Dictionary<EntityId, string> cilboxAssemblySnapshot = CaptureCilboxAssemblySnapshot();
         List<GameObject> temporarilyDisabledRoots = new List<GameObject>();
         Scene temporaryScene = default;
         Cilbox.Cilbox temporarySceneCilbox = null;
@@ -160,9 +160,9 @@ public class BasisCilboxBuildHook
         return false;
     }
 
-    private static Dictionary<int, string> CaptureCilboxAssemblySnapshot()
+    private static Dictionary<EntityId, string> CaptureCilboxAssemblySnapshot()
     {
-        Dictionary<int, string> snapshot = new Dictionary<int, string>();
+        Dictionary<EntityId, string> snapshot = new Dictionary<EntityId, string>();
         Cilbox.Cilbox[] allCilboxes = Resources.FindObjectsOfTypeAll<Cilbox.Cilbox>();
         int length = allCilboxes.Length;
         for (int i = 0; i < length; i++)
@@ -173,7 +173,7 @@ public class BasisCilboxBuildHook
                 continue;
             }
 
-            snapshot[cilbox.GetInstanceID()] = cilbox.assemblyData;
+            snapshot[cilbox.GetEntityId()] = cilbox.assemblyData;
         }
 
         return snapshot;
@@ -262,7 +262,7 @@ public class BasisCilboxBuildHook
         return null;
     }
 
-    private static void EnsureTemporarySceneHasAssemblyData(Cilbox.Cilbox temporarySceneCilbox, Dictionary<int, string> snapshot)
+    private static void EnsureTemporarySceneHasAssemblyData(Cilbox.Cilbox temporarySceneCilbox, Dictionary<EntityId, string> snapshot)
     {
         if (temporarySceneCilbox == null)
         {
@@ -284,7 +284,7 @@ public class BasisCilboxBuildHook
                 continue;
             }
 
-            int id = cilbox.GetInstanceID();
+            EntityId id = cilbox.GetEntityId();
             if (snapshot.TryGetValue(id, out string original) && original == cilbox.assemblyData)
             {
                 continue;
@@ -319,7 +319,7 @@ public class BasisCilboxBuildHook
         }
     }
 
-    private static void RestoreExternalCilboxAssemblyData(Dictionary<int, string> snapshot, Scene keepScene)
+    private static void RestoreExternalCilboxAssemblyData(Dictionary<EntityId, string> snapshot, Scene keepScene)
     {
         Cilbox.Cilbox[] allCilboxes = Resources.FindObjectsOfTypeAll<Cilbox.Cilbox>();
         int length = allCilboxes.Length;
@@ -331,7 +331,7 @@ public class BasisCilboxBuildHook
                 continue;
             }
 
-            int id = cilbox.GetInstanceID();
+            EntityId id = cilbox.GetEntityId();
             if (!snapshot.TryGetValue(id, out string originalAssemblyData))
             {
                 continue;

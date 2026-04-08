@@ -4,6 +4,7 @@ using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.Receivers;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 
@@ -107,40 +108,66 @@ public static class BasisRemoteFaceManagement
         {
             return;
         }
+#if UNITY_EDITOR
+        bool _fp = BasisEventDriverProfilerData.Enabled;
+        System.Diagnostics.Stopwatch _fs = null;
+        if (_fp) _fs = System.Diagnostics.Stopwatch.StartNew();
+#endif
         handle.Complete();
         HasJob = false;
-        for (int Index = 0; Index < count; Index++)
+#if UNITY_EDITOR
+        if (_fp) { _fs.Stop(); BasisEventDriverProfilerData.RemoteFace_JobCompleteMs = _fs.Elapsed.TotalMilliseconds; _fs.Restart(); }
+        int _blinkWrites = 0;
+#endif
+        unsafe
         {
-            BasisNetworkReceiver receiver = snapshot[Index];
-            BasisRemotePlayer remote = receiver.RemotePlayer;
-            BasisRemoteFaceDriver Face = remote.RemoteFaceDriver;
+            EyeOutput* pEyeOut = (EyeOutput*)eyeOut.GetUnsafeReadOnlyPtr();
+            float* pBlinkOut = (float*)blinkOut.GetUnsafeReadOnlyPtr();
 
-            if (!Face.OverrideEye)
+            for (int Index = 0; Index < count; Index++)
             {
-                var e = eyeOut[Index];
+                BasisNetworkReceiver receiver = snapshot[Index];
+                BasisRemotePlayer remote = receiver.RemotePlayer;
+                BasisRemoteFaceDriver Face = remote.RemoteFaceDriver;
 
-                float[] eyes = receiver.EyesAndMouth;
-                eyes[0] = e.vL;
-                eyes[1] = e.hL;
-                eyes[2] = e.vR;
-                eyes[3] = e.hR;
-            }
-
-            if (Face.BlinkingEnabled && !Face.OverrideBlinking && Face.meshRenderer != null)
-            {
-                float w = blinkOut[Index];
-                if (!float.IsFinite(w)) w = 0f;
-
-                float weight100 = w * 100f;
-
-                // If all blendshapes get the same blink weight, this loop is unavoidable
-                // unless your driver has a "set all blink shapes" bulk method.
-                for (int b = 0; b < Face.blendShapeCount; b++)
+                // Always write eye floats (cheap, keeps state consistent across range transitions)
+                if (!Face.OverrideEye)
                 {
-                    Face.SafeSetBlendShape(Face.blendShapeIndices[b], weight100);
+                    EyeOutput e = pEyeOut[Index];
+
+                    float[] eyes = receiver.EyesAndMouth;
+                    eyes[0] = e.vL;
+                    eyes[1] = e.hL;
+                    eyes[2] = e.vR;
+                    eyes[3] = e.hR;
+                }
+
+                // Skip blink blendshape mesh writes when there is no mesh to write to
+                if (Face.BlinkingEnabled && !Face.OverrideBlinking && Face.meshRenderer != null)
+                {
+                    float w = pBlinkOut[Index];
+                    if (!float.IsFinite(w)) w = 0f;
+
+                    float weight100 = w * 100f;
+
+                    for (int b = 0; b < Face.blendShapeCount; b++)
+                    {
+                        Face.SafeSetBlendShape(Face.blendShapeIndices[b], weight100);
+                    }
+#if UNITY_EDITOR
+                    _blinkWrites++;
+#endif
                 }
             }
         }
+#if UNITY_EDITOR
+        if (_fp)
+        {
+            _fs.Stop();
+            BasisEventDriverProfilerData.RemoteFace_EyeWriteMs = _fs.Elapsed.TotalMilliseconds; // includes both eye + blink write time
+            BasisEventDriverProfilerData.RemoteFace_BlinkWriteCount = _blinkWrites;
+        }
+#endif
     }
     static void EnsureArrays(int requiredCount,double nowTime,BasisNetworkReceiver[] snapshot)
     {
@@ -185,56 +212,60 @@ public static class BasisRemoteFaceManagement
         // Seed RNGs + initialize ONLY the new slots
         uint baseSeed = (uint)UnityEngine.Random.Range(1, int.MaxValue);
 
-        for (int i = oldCap; i < newCap; i++)
+        unsafe
         {
-            uint eyeSeed = HashToNonZero(baseSeed, (uint)(i * 2 + 1));
-            uint blinkSeed = HashToNonZero(baseSeed, (uint)(i * 2 + 2));
+            EyeState* pEyeStates = (EyeState*)eyeStates.GetUnsafePtr();
+            BlinkState* pBlinkStates = (BlinkState*)blinkStates.GetUnsafePtr();
+            EyeOutput* pEyeOut = (EyeOutput*)eyeOut.GetUnsafePtr();
+            float* pBlinkOut = (float*)blinkOut.GetUnsafePtr();
 
-            // Start pose from snapshot if it exists
-            float2 startTarget = float2.zero;
-            EyeOutput startEye = default;
-
-            if (i < requiredCount && snapshot != null)
+            for (int i = oldCap; i < newCap; i++)
             {
-                var arr = snapshot[i].EyesAndMouth;
-                if (arr != null && arr.Length >= 4)
+                uint eyeSeed = HashToNonZero(baseSeed, (uint)(i * 2 + 1));
+                uint blinkSeed = HashToNonZero(baseSeed, (uint)(i * 2 + 2));
+
+                // Start pose from snapshot if it exists
+                float2 startTarget = float2.zero;
+                EyeOutput startEye = default;
+
+                if (i < requiredCount && snapshot != null)
                 {
-                    // Canonical mapping:
-                    // arr[0]=vL, arr[1]=hL, arr[2]=vR, arr[3]=hR
-                    float vL = float.IsFinite(arr[0]) ? arr[0] : 0f;
-                    float hL = float.IsFinite(arr[1]) ? arr[1] : 0f;
-                    float vR = float.IsFinite(arr[2]) ? arr[2] : 0f;
-                    float hR = float.IsFinite(arr[3]) ? arr[3] : 0f;
+                    var arr = snapshot[i].EyesAndMouth;
+                    if (arr != null && arr.Length >= 4)
+                    {
+                        float vL = float.IsFinite(arr[0]) ? arr[0] : 0f;
+                        float hL = float.IsFinite(arr[1]) ? arr[1] : 0f;
+                        float vR = float.IsFinite(arr[2]) ? arr[2] : 0f;
+                        float hR = float.IsFinite(arr[3]) ? arr[3] : 0f;
 
-                    // Job uses target.x = horiz, target.y = vert (use left eye as representative)
-                    startTarget = new float2(hL, vL);
-                    startEye = new EyeOutput { vL = vL, hL = hL, vR = vR, hR = hR };
+                        startTarget = new float2(hL, vL);
+                        startEye = new EyeOutput { vL = vL, hL = hL, vR = vR, hR = hR };
+                    }
                 }
+
+                pEyeStates[i] = new EyeState
+                {
+                    nextLookAroundTime = nowTime + Unity.Mathematics.Random.CreateFromIndex(eyeSeed)
+                        .NextFloat(MinLookAroundInterval, MaxLookAroundInterval),
+                    target = startTarget,
+                    isLooking = 0,
+                    rng = new Unity.Mathematics.Random(eyeSeed),
+                };
+
+                pBlinkStates[i] = new BlinkState
+                {
+                    nextBlinkTime = nowTime + Unity.Mathematics.Random.CreateFromIndex(blinkSeed)
+                        .NextFloat(MinBlinkInterval, MaxBlinkInterval),
+                    blinkStartTime = 0.0,
+                    openStartTime = 0.0,
+                    isClosing = 0,
+                    isOpening = 0,
+                    rng = new Unity.Mathematics.Random(blinkSeed),
+                };
+
+                pEyeOut[i] = startEye;
+                pBlinkOut[i] = 0f;
             }
-
-            eyeStates[i] = new EyeState
-            {
-                nextLookAroundTime = nowTime + Unity.Mathematics.Random.CreateFromIndex(eyeSeed)
-                    .NextFloat(MinLookAroundInterval, MaxLookAroundInterval),
-                target = startTarget,
-                isLooking = 0,
-                rng = new Unity.Mathematics.Random(eyeSeed),
-            };
-
-            blinkStates[i] = new BlinkState
-            {
-                nextBlinkTime = nowTime + Unity.Mathematics.Random.CreateFromIndex(blinkSeed)
-                    .NextFloat(MinBlinkInterval, MaxBlinkInterval),
-                blinkStartTime = 0.0,
-                openStartTime = 0.0,
-                isClosing = 0,
-                isOpening = 0,
-                rng = new Unity.Mathematics.Random(blinkSeed),
-            };
-
-            // Seed output so Apply has something sensible immediately
-            eyeOut[i] = startEye;
-            blinkOut[i] = 0f;
         }
     }
 
