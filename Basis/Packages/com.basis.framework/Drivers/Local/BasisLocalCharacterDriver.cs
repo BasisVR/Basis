@@ -175,53 +175,11 @@ namespace Basis.Scripts.BasisCharacterController
                 HasEvents = false;
             }
         }
-        /// <summary>
-        /// Ensures the KCC component exists on the player GameObject.
-        /// Migrates from Unity's CharacterController if one is still present on the prefab.
-        /// </summary>
-        private void EnsureKCC()
-        {
-            if (characterController != null) return;
-
-            GameObject go = BasisLocalPlayerTransform.gameObject;
-
-            // Check if already has KCC
-            characterController = go.GetComponent<BasisKinematicCharacterController>();
-            if (characterController != null) return;
-
-            // Migrate from legacy CharacterController if present
-            CharacterController legacy = go.GetComponent<CharacterController>();
-            float oldHeight = 2f;
-            float oldRadius = 0.3f;
-            Vector3 oldCenter = new Vector3(0f, 1f, 0f);
-            float oldSkinWidth = 0.01f;
-            float oldStepOffset = 0.3f;
-            float oldSlopeLimit = 45f;
-            if (legacy != null)
-            {
-                oldHeight = legacy.height;
-                oldRadius = legacy.radius;
-                oldCenter = legacy.center;
-                oldSkinWidth = legacy.skinWidth;
-                oldStepOffset = legacy.stepOffset;
-                oldSlopeLimit = legacy.slopeLimit;
-                UnityEngine.Object.DestroyImmediate(legacy);
-            }
-
-            characterController = go.AddComponent<BasisKinematicCharacterController>();
-            characterController.height = oldHeight;
-            characterController.radius = oldRadius;
-            characterController.center = oldCenter;
-            characterController.skinWidth = oldSkinWidth;
-            characterController.stepOffset = oldStepOffset;
-            characterController.slopeLimit = oldSlopeLimit;
-        }
         public void Initialize(BasisLocalPlayer localPlayer)
         {
             LocalPlayer = localPlayer;
             BasisLocalPlayerTransform = localPlayer.transform;
             LocalAnimatorDriver = localPlayer.LocalAnimatorDriver;
-            EnsureKCC();
             characterController.minMoveDistance = 0;
             characterController.skinWidth = 0.01f;
             characterController.OnKCCColliderHit = OnKCCHit;
