@@ -431,14 +431,7 @@ namespace Basis.Scripts.UI.UI_Panels
 
         private static void ValidateEmbeddedKeys()
         {
-            // FIX: Guard against a null hardcoded list. Previously this would throw
-            // mid-filter and leave keys.Data in a partially replaced state.
-            var hardcoded = BasisUI.EmbeddedItems.HardcodedKeys;
-            if (hardcoded == null)
-            {
-                BasisDebug.LogWarning("HardcodedKeys list is null. Skipping embedded key validation.");
-                return;
-            }
+            var hardcoded = BasisUI.EmbeddedItems.HardcodedKeys ?? System.Array.Empty<ItemKey>();
 
             var filtered = new List<ItemKey>();
 

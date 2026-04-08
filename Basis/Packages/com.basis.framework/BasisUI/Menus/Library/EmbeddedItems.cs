@@ -1,185 +1,204 @@
-
-
 using System;
+using System.Collections.Generic;
 using Basis.Scripts.UI.UI_Panels;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Basis.BasisUI
 {
-    public class EmbeddedItems
+    public static class EmbeddedItems
     {
-        /// <summary>
-        /// This is where you can define embedded items 
-        /// for the moment the addressable assets exist for:
-        /// Personal Mirror
-        /// Photo Camera
-        /// 
-        /// These are defined here for the menu only so we can spawn them locally within the LibraryProvider.cs
-        /// You can also define embedded items from a BEEUrl if desired
-        /// </summary>
-        public static ItemKey[] HardcodedKeys = new ItemKey[]
+        private const string CatalogAssetPath = "Packages/com.basis.sdk/Settings/EmbeddedItemsCatalog.asset";
+        private const string CatalogAddress = "EmbeddedItemsCatalog";
+
+        private static readonly ItemKey[] EmptyKeys = Array.Empty<ItemKey>();
+        private static readonly BasisBounds DefaultBounds = new BasisBounds(Vector3.one, Vector3.zero);
+
+        private static readonly Dictionary<string, EmbeddedItemDefinition> DefinitionByUrl = new Dictionary<string, EmbeddedItemDefinition>(StringComparer.Ordinal);
+
+        private static EmbeddedItemsCatalogAsset _catalog;
+        private static ItemKey[] _embeddedKeys = EmptyKeys;
+        private static bool _loaded;
+
+        public static EmbeddedItemsCatalogAsset Catalog
         {
-            // Example entry (uncomment and edit):
-            new ItemKey {
-                Mode = BundledContentHolder.Mode.Prop,
-                Url = "Personal Mirror",
-                Pass = "",
-                EmbeddedSettings = EmbeddedSettings.Addressable,
-                PlacementType = BundledContentHolder.PlacementType.SpawnInFrontOfPlayer,
-                PinnedSettings = PinnedSettings.Embedded,
-            },
-            new ItemKey {
-                Mode = BundledContentHolder.Mode.Prop,
-                Url = "Photo Camera",
-                Pass = "",
-                EmbeddedSettings = EmbeddedSettings.Addressable,
-                PlacementType = BundledContentHolder.PlacementType.SpawnInFrontOfPlayer,
-                PinnedSettings = PinnedSettings.Embedded,
-            },
-
-            // avatars
-            new ItemKey
+            get
             {
-                Mode = BundledContentHolder.Mode.Avatar,
-                Url = "https://cdn.yewnyx.net/basis/2026-02-25/gymcat/c84a7ca0c5ce4912ab5584c2840036de20260225.BEE",
-                Pass = "0da01980272efbe421b7ebd5d6831d657ed96f5e5317d2f88a6dfe9e7ef5ead8",
-                EmbeddedSettings = EmbeddedSettings.BEEUrl,
-            },
-            new ItemKey
-            {
-                Mode = BundledContentHolder.Mode.Avatar,
-                Url = "https://cdn.yewnyx.net/basis/2026-02-25/space/c74771ec2dd84ffda33d346ada25e39420260225.BEE",
-                Pass = "878ac54af853e1a7d864520a34ae68e8b370cedd89a42c09cd016cf9eb41dbae",
-                EmbeddedSettings = EmbeddedSettings.BEEUrl,
-            },
-            new ItemKey
-            {
-                Mode = BundledContentHolder.Mode.Avatar,
-                Url = "https://cdn.yewnyx.net/basis/2026-02-25/spaceman/f78971c1c553483a9bbe155d60f14d4e20260225.BEE",
-                Pass = "091b548e5e036a2d1829b41f829a0dab3f30a41d4d01eb9822b316fedb2934dd",
-                EmbeddedSettings = EmbeddedSettings.BEEUrl,
-            },
-            new ItemKey
-            {
-                Mode = BundledContentHolder.Mode.Avatar,
-                Url = "https://cdn.yewnyx.net/basis/2026-02-25/yun/e60b159bfa9d49b1a7f4480d5999ee0320260225.BEE",
-                Pass = "e250499a5a00ebe3ee0c5447ca41677e5a4c6d33d152fd77804a5963f384652e",
-                EmbeddedSettings = EmbeddedSettings.BEEUrl,
-            },
-            new ItemKey
-            {
-                Mode = BundledContentHolder.Mode.Avatar,
-                Url = "https://BasisFramework.b-cdn.net/Version2/Avatars/Public/leona/leona_ft/a6db519231784d34bfdc47c27e6b8d4820260226.BEE",
-                Pass = "1717b718e26eabb7d9ae1a8e2046f17d90ed4e81a548aea28e05a589ccae52e5",
-                EmbeddedSettings = EmbeddedSettings.BEEUrl,
-            },
-            /*
-                        new ItemKey
-            {
-                Mode = BundledContentHolder.Mode.Avatar,
-                Url = "LoadingAvatar",
-                Pass = "LoadingAvatar",
-                EmbeddedSettings = EmbeddedSettings.Addressable,
-            },
-            */
-        };
-
-        public static string GetAddressableSpriteForEmbeddedItem(ItemKey item)
-        {
-            if (!item.EmbeddedSettings.IsEmbedded)
-            {
-                BasisDebug.LogError($"GetSpriteForEmbeddedItem() was invoked for item = {item.Url} it is not embedded. Returning NULL.");
-                return null;
-            }
-
-            switch (item.Url)
-            {
-                case "Photo Camera":
-                    return AddressableAssets.Sprites.Camera;
-                case "Personal Mirror":
-                    return AddressableAssets.Sprites.Mirror;
-                default:
-                    BasisDebug.Log($"GetSpriteForEmbeddedItem() item = {item.Url} does not have a specified icon defined. please define it, here.");
-                    return AddressableAssets.Sprites.Items;
+                EnsureLoaded();
+                return _catalog;
             }
         }
 
-        /// <summary>
-        /// returns the sprite of a item key that is embedded
-        /// </summary>
-        public static Sprite GetSpriteForEmbeddedItem(ItemKey item)
+        public static ItemKey[] HardcodedKeys
         {
-            if (!item.EmbeddedSettings.IsEmbedded)
+            get
             {
-                BasisDebug.LogError($"GetSpriteForEmbeddedItem() was invoked for item = {item.Url} it is not embedded. Returning NULL.");
+                EnsureLoaded();
+                return _embeddedKeys;
+            }
+        }
+
+        private static void EnsureLoaded()
+        {
+            if (_loaded)
+            {
+                return;
+            }
+
+            _loaded = true;
+
+#if UNITY_EDITOR
+            _catalog = AssetDatabase.LoadAssetAtPath<EmbeddedItemsCatalogAsset>(CatalogAssetPath);
+#else
+            if (AddressableAssets.AddressExists(CatalogAddress))
+            {
+                _catalog = Addressables.LoadAssetAsync<EmbeddedItemsCatalogAsset>(CatalogAddress).WaitForCompletion();
+            }
+#endif
+
+            RebuildCache();
+        }
+
+        private static void RebuildCache()
+        {
+            DefinitionByUrl.Clear();
+
+            if (_catalog == null || _catalog.Entries == null || _catalog.Entries.Count == 0)
+            {
+                _embeddedKeys = EmptyKeys;
+                return;
+            }
+
+            var keys = new List<ItemKey>(_catalog.Entries.Count);
+
+            foreach (EmbeddedItemDefinition entry in _catalog.Entries)
+            {
+                if (entry?.Key == null || string.IsNullOrEmpty(entry.Key.Url))
+                {
+                    continue;
+                }
+
+                if (!entry.Key.EmbeddedSettings.IsEmbedded)
+                {
+                    continue;
+                }
+
+                keys.Add(entry.Key);
+                DefinitionByUrl[entry.Key.Url] = entry;
+            }
+
+            _embeddedKeys = keys.Count > 0 ? keys.ToArray() : EmptyKeys;
+        }
+
+        public static bool TryGetDefinition(ItemKey item, out EmbeddedItemDefinition definition)
+        {
+            EnsureLoaded();
+
+            if (item == null || string.IsNullOrEmpty(item.Url))
+            {
+                definition = null;
+                return false;
+            }
+
+            return DefinitionByUrl.TryGetValue(item.Url, out definition);
+        }
+
+        public static string GetAddressableSpriteForEmbeddedItem(ItemKey item)
+        {
+            if (!IsEmbeddedItem(item))
+            {
+                BasisDebug.LogError($"GetSpriteForEmbeddedItem() was invoked for item = {item?.Url} it is not embedded. Returning NULL.");
                 return null;
             }
 
-            switch (item.Url)
+            if (TryGetDefinition(item, out EmbeddedItemDefinition definition) &&
+                definition.HasCustomIconAddress &&
+                !string.IsNullOrEmpty(definition.IconAddress))
             {
-                case "Photo Camera":
-                    return AddressableAssets.GetSprite(GetAddressableSpriteForEmbeddedItem(item));
-                case "Personal Mirror":
-                    return AddressableAssets.GetSprite(GetAddressableSpriteForEmbeddedItem(item));
-                default:
-                    BasisDebug.Log($"GetSpriteForEmbeddedItem() item = {item.Url} does not have a specified icon defined. please define it, here.");
-                    break;
+                return definition.IconAddress;
+            }
+
+            return AddressableAssets.Sprites.Items;
+        }
+
+        public static Sprite GetSpriteForEmbeddedItem(ItemKey item)
+        {
+            if (!IsEmbeddedItem(item))
+            {
+                BasisDebug.LogError($"GetSpriteForEmbeddedItem() was invoked for item = {item?.Url} it is not embedded. Returning NULL.");
+                return null;
             }
 
             return AddressableAssets.GetSprite(GetAddressableSpriteForEmbeddedItem(item));
         }
 
-
-        /// <summary>
-        /// returns returns the bounds for the embedded item must be defined
-        /// </summary>
         public static BasisBounds GetBoundsForEmbeddedItem(ItemKey item)
         {
-            BasisBounds defaultBounds = new BasisBounds(Vector3.one, Vector3.zero);
-            if (!item.EmbeddedSettings.IsEmbedded)
+            if (!IsEmbeddedItem(item))
             {
-                BasisDebug.LogError($"GetBoundsForEmbeddedItem() was invoked for item = {item.Url} it is not embedded. returning default BasisBounds({defaultBounds})");
-                return defaultBounds;
+                BasisDebug.LogError($"GetBoundsForEmbeddedItem() was invoked for item = {item?.Url} it is not embedded. returning default BasisBounds({DefaultBounds})");
+                return DefaultBounds;
             }
 
-            switch (item.Url)
+            if (TryGetDefinition(item, out EmbeddedItemDefinition definition) && definition.HasCustomBounds)
             {
-                case "Photo Camera":
-                    return new BasisBounds(new Vector3(0.25f, 0.15f, 0.1f), Vector3.zero);
-                case "Personal Mirror":
-                    return new BasisBounds(new Vector3(0.5f, 0.75f, 0.1f), Vector3.zero);
-                default:
-                    BasisDebug.Log($"GetBoundsForEmbeddedItem() item = {item.Url} does not have specified bounds defined. please define it, here.");
-                    break;
+                return definition.Bounds;
             }
 
-            return defaultBounds;
+            return DefaultBounds;
         }
 
-        /// <summary>
-        /// returns the offset for an embedded item when spawned with BundledContentHolder.PlacementType.SpawnInFrontOfPlayer
-        /// </summary>
         internal static Vector3 GetOffsetForEmbeddedItem(ItemKey item, Vector3 playerPosReference, Vector3 playerPosForwardReference)
         {
-            if (!item.EmbeddedSettings.IsEmbedded)
+            if (!IsEmbeddedItem(item))
             {
-                BasisDebug.LogError($"GetOffsetForEmbeddedItem() was invoked for item = {item.Url} it is not embedded. returning playerPosReference + playerPosForwardReference * 0.5f!");
+                BasisDebug.LogError($"GetOffsetForEmbeddedItem() was invoked for item = {item?.Url} it is not embedded. returning playerPosReference + playerPosForwardReference * 0.5f!");
                 return playerPosReference + playerPosForwardReference * 0.5f;
             }
 
-            switch (item.Url)
+            if (TryGetDefinition(item, out EmbeddedItemDefinition definition) && definition.HasCustomSpawnOffset)
             {
-                case "Photo Camera":
-                    return playerPosReference + playerPosForwardReference * 0.5f;
-                case "Personal Mirror":
-                    return playerPosReference + playerPosForwardReference * 0.5f;
-                default:
-                    BasisDebug.Log($"GetOffsetForEmbeddedItem() item = {item.Url} does not have specified offset defined. please define it, here.");
-                    break;
+                return ApplyRelativeOffset(playerPosReference, playerPosForwardReference, definition.SpawnOffsetFromPlayerReference);
             }
 
-            return playerPosReference;
+            return playerPosReference + playerPosForwardReference * 0.5f;
+        }
+
+        private static bool IsEmbeddedItem(ItemKey item)
+        {
+            return item != null && item.EmbeddedSettings.IsEmbedded;
+        }
+
+        private static Vector3 ApplyRelativeOffset(Vector3 playerPosReference, Vector3 playerPosForwardReference, Vector3 relativeOffset)
+        {
+            Vector3 forward = playerPosForwardReference;
+            if (forward.sqrMagnitude <= Mathf.Epsilon)
+            {
+                forward = Vector3.forward;
+            }
+            else
+            {
+                forward.Normalize();
+            }
+
+            Vector3 right = Vector3.Cross(Vector3.up, forward);
+            if (right.sqrMagnitude <= Mathf.Epsilon)
+            {
+                right = Vector3.right;
+            }
+            else
+            {
+                right.Normalize();
+            }
+
+            return playerPosReference
+                   + (right * relativeOffset.x)
+                   + (Vector3.up * relativeOffset.y)
+                   + (forward * relativeOffset.z);
         }
     }
 }
