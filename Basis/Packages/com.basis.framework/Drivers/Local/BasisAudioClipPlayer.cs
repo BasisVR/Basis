@@ -1,5 +1,6 @@
 #if UNITY_SERVER
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Basis.Network.Core;
@@ -9,11 +10,11 @@ using UnityEngine;
 using static SerializableBasis;
 
 /// <summary>
-/// Headless audio clip player for stress testing. Loads .wav files from a directory,
+/// Headless audio clip player for stress testing. Loads .wav or .opus files from a directory,
 /// picks one randomly, Opus-encodes it, and sends it over the network as voice audio.
 /// Self-contained: has its own Opus encoder and sends directly via the network peer.
 ///
-/// Place .wav files in: {Application.dataPath}/AudioClips/
+/// Place .wav or .opus files in: {Application.dataPath}/AudioClips/
 /// If the directory is missing or empty, no audio is sent (silent headless as usual).
 ///
 /// Designed for testing what 1000+ simultaneous audio sources sound and look like.
@@ -39,13 +40,13 @@ public static class BasisAudioClipPlayer
     private static readonly int FrameSize = (int)(FrameDurationSeconds * SampleRate); // 960
 
     /// <summary>
-    /// Directory to scan for .wav files. Defaults to {Application.dataPath}/AudioClips/
+    /// Directory to scan for .wav or .opus files. Defaults to {Application.dataPath}/AudioClips/
     /// </summary>
     public static string ClipDirectory;
 
     /// <summary>
     /// Attempts to initialize the clip player. If the AudioClips directory exists and
-    /// contains .wav files, a random clip is loaded and streamed as voice audio.
+    /// contains supported audio files, a random clip is loaded and streamed as voice audio.
     /// If the directory is missing or empty, this is a no-op (silent headless as usual).
     /// </summary>
     public static bool TryInitialize()
@@ -72,17 +73,17 @@ public static class BasisAudioClipPlayer
             return false;
         }
 
-        string[] files = Directory.GetFiles(dir, "*.wav");
+        string[] files = FindSupportedAudioFiles(dir);
         if (files.Length == 0)
         {
-            BasisDebug.LogError($"[AudioClipPlayer] failed to find and .wav", BasisDebug.LogTag.Device);
+            BasisDebug.LogError("[AudioClipPlayer] Failed to find a supported audio file (.wav or .opus).", BasisDebug.LogTag.Device);
             return false;
         }
 
         string chosen = files[UnityEngine.Random.Range(0, files.Length)];
         BasisDebug.Log($"[AudioClipPlayer] Loading: {Path.GetFileName(chosen)}", BasisDebug.LogTag.Device);
 
-        clipSamples = LoadWavAsMono48k(chosen);
+        clipSamples = LoadAudioAsMono48k(chosen);
         if (clipSamples == null || clipSamples.Length == 0)
         {
             BasisDebug.LogError($"[AudioClipPlayer] Failed to load: {chosen}", BasisDebug.LogTag.Device);
@@ -226,6 +227,42 @@ public static class BasisAudioClipPlayer
     }
 
     /// <summary>
+    /// Loads a supported audio file and returns 48kHz mono float samples.
+    /// </summary>
+    private static float[] LoadAudioAsMono48k(string path)
+    {
+        string extension = Path.GetExtension(path);
+        if (string.Equals(extension, ".wav", StringComparison.OrdinalIgnoreCase))
+        {
+            return LoadWavAsMono48k(path);
+        }
+
+        if (string.Equals(extension, ".opus", StringComparison.OrdinalIgnoreCase))
+        {
+            return LoadOpusAsMono48k(path);
+        }
+
+        BasisDebug.LogWarning($"[AudioClipPlayer] Unsupported audio file extension: {extension}", BasisDebug.LogTag.Device);
+        return null;
+    }
+
+    private static string[] FindSupportedAudioFiles(string directory)
+    {
+        List<string> files = new List<string>();
+        foreach (string file in Directory.EnumerateFiles(directory))
+        {
+            string extension = Path.GetExtension(file);
+            if (string.Equals(extension, ".wav", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(extension, ".opus", StringComparison.OrdinalIgnoreCase))
+            {
+                files.Add(file);
+            }
+        }
+
+        return files.ToArray();
+    }
+
+    /// <summary>
     /// Loads a PCM WAV file and returns 48kHz mono float samples.
     /// Supports 8-bit, 16-bit, 24-bit, and 32-bit PCM WAV formats.
     /// Non-48kHz files are resampled via linear interpolation.
@@ -319,6 +356,235 @@ public static class BasisAudioClipPlayer
             BasisDebug.LogError($"[AudioClipPlayer] WAV load error: {ex.Message}", BasisDebug.LogTag.Device);
             return null;
         }
+    }
+
+    /// <summary>
+    /// Loads an Ogg Opus file and returns 48kHz mono float samples.
+    /// Supports mono and stereo Opus streams using channel mapping family 0.
+    /// </summary>
+    private static float[] LoadOpusAsMono48k(string path)
+    {
+        try
+        {
+            byte[] fileBytes = File.ReadAllBytes(path);
+            if (fileBytes.Length < 64)
+            {
+                return null;
+            }
+
+            List<byte[]> packets = ReadOggPackets(fileBytes);
+            if (packets == null || packets.Count == 0)
+            {
+                return null;
+            }
+
+            if (!TryParseOpusHead(packets[0], out int channels, out int preSkipSamples))
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Invalid OpusHead packet.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            if (channels < 1 || channels > 2)
+            {
+                BasisDebug.LogWarning($"[AudioClipPlayer] Only mono and stereo Opus streams are supported. Channels={channels}", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            int audioPacketStart = 1;
+            if (packets.Count > 1 && IsPacketNamed(packets[1], "OpusTags"))
+            {
+                audioPacketStart = 2;
+            }
+
+            if (audioPacketStart >= packets.Count)
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Opus file contains headers but no audio packets.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            const int MaxOpusFrameSize = 5760; // 120ms at 48kHz
+            float[] decodeBuffer = new float[MaxOpusFrameSize * channels];
+            List<float> monoSamples = new List<float>();
+            int remainingPreSkip = preSkipSamples;
+
+            using (var decoder = new OpusDecoder(SampleRate, channels, use_static: false))
+            {
+                for (int packetIndex = audioPacketStart; packetIndex < packets.Count; packetIndex++)
+                {
+                    byte[] packet = packets[packetIndex];
+                    if (packet.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    int decodedSamples = decoder.Decode(packet, packet.Length, decodeBuffer, MaxOpusFrameSize, false);
+                    int sampleStart = 0;
+                    if (remainingPreSkip > 0)
+                    {
+                        sampleStart = Math.Min(decodedSamples, remainingPreSkip);
+                        remainingPreSkip -= sampleStart;
+                    }
+
+                    for (int sample = sampleStart; sample < decodedSamples; sample++)
+                    {
+                        if (channels == 1)
+                        {
+                            monoSamples.Add(decodeBuffer[sample]);
+                        }
+                        else
+                        {
+                            int offset = sample * channels;
+                            monoSamples.Add((decodeBuffer[offset] + decodeBuffer[offset + 1]) * 0.5f);
+                        }
+                    }
+                }
+            }
+
+            if (remainingPreSkip > 0)
+            {
+                BasisDebug.LogWarning($"[AudioClipPlayer] Opus pre-skip exceeded decoded audio by {remainingPreSkip} samples.", BasisDebug.LogTag.Device);
+            }
+
+            return monoSamples.ToArray();
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"[AudioClipPlayer] Opus load error: {ex.Message}", BasisDebug.LogTag.Device);
+            return null;
+        }
+    }
+
+    private static List<byte[]> ReadOggPackets(byte[] fileBytes)
+    {
+        List<byte[]> packets = new List<byte[]>();
+        List<byte> packetBuffer = null;
+        int position = 0;
+
+        while (position < fileBytes.Length)
+        {
+            if (position + 27 > fileBytes.Length)
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Truncated Ogg page header.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            if (fileBytes[position] != 'O' ||
+                fileBytes[position + 1] != 'g' ||
+                fileBytes[position + 2] != 'g' ||
+                fileBytes[position + 3] != 'S')
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Invalid Ogg page signature.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            if (fileBytes[position + 4] != 0)
+            {
+                BasisDebug.LogWarning($"[AudioClipPlayer] Unsupported Ogg bitstream version: {fileBytes[position + 4]}", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            byte headerType = fileBytes[position + 5];
+            int pageSegments = fileBytes[position + 26];
+            int segmentTableOffset = position + 27;
+            int payloadOffset = segmentTableOffset + pageSegments;
+            if (payloadOffset > fileBytes.Length)
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Invalid Ogg segment table.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            int payloadSize = 0;
+            for (int index = 0; index < pageSegments; index++)
+            {
+                payloadSize += fileBytes[segmentTableOffset + index];
+            }
+
+            if (payloadOffset + payloadSize > fileBytes.Length)
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Truncated Ogg page payload.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            bool continuedPacket = (headerType & 0x01) != 0;
+            if (continuedPacket && packetBuffer == null)
+            {
+                packetBuffer = new List<byte>();
+            }
+            else if (!continuedPacket && packetBuffer != null && packetBuffer.Count > 0)
+            {
+                BasisDebug.LogWarning("[AudioClipPlayer] Encountered a non-continued page while a packet was still open.", BasisDebug.LogTag.Device);
+                return null;
+            }
+
+            packetBuffer ??= new List<byte>();
+            int payloadPosition = payloadOffset;
+
+            for (int index = 0; index < pageSegments; index++)
+            {
+                int segmentSize = fileBytes[segmentTableOffset + index];
+                if (segmentSize > 0)
+                {
+                    packetBuffer.AddRange(new ArraySegment<byte>(fileBytes, payloadPosition, segmentSize));
+                }
+
+                payloadPosition += segmentSize;
+                if (segmentSize < 255)
+                {
+                    packets.Add(packetBuffer.ToArray());
+                    packetBuffer.Clear();
+                }
+            }
+
+            position = payloadOffset + payloadSize;
+        }
+
+        if (packetBuffer != null && packetBuffer.Count > 0)
+        {
+            BasisDebug.LogWarning("[AudioClipPlayer] Ogg stream ended with an incomplete packet.", BasisDebug.LogTag.Device);
+            return null;
+        }
+
+        return packets;
+    }
+
+    private static bool TryParseOpusHead(byte[] packet, out int channels, out int preSkipSamples)
+    {
+        channels = 0;
+        preSkipSamples = 0;
+
+        if (!IsPacketNamed(packet, "OpusHead") || packet.Length < 19)
+        {
+            return false;
+        }
+
+        channels = packet[9];
+        preSkipSamples = BitConverter.ToUInt16(packet, 10);
+        int mappingFamily = packet[18];
+        if (mappingFamily != 0)
+        {
+            BasisDebug.LogWarning($"[AudioClipPlayer] Unsupported Opus channel mapping family: {mappingFamily}", BasisDebug.LogTag.Device);
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsPacketNamed(byte[] packet, string name)
+    {
+        if (packet == null || packet.Length < name.Length)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < name.Length; index++)
+        {
+            if (packet[index] != name[index])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static int DecodeInt24(byte[] data, int offset)
