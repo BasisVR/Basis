@@ -545,6 +545,9 @@ namespace SteamAudio
 #if STEAMAUDIO_ENABLED
         private void ScheduleInstance()
         {
+            // Drain deferred SteamAudioSource inits (frame-budgeted).
+            SteamAudioSource.ProcessPendingInits();
+
             // --- Gather transforms via jobs ---
             EnsureTransformArraysCreated();
             EnsureSourceCapacity(CurrentArraySource);

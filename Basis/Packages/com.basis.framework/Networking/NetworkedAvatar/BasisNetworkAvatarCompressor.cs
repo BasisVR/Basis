@@ -30,11 +30,15 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         // Persistent T-pose local rotations captured during calibration (indexed by HumanBodyBones 0..54)
         static quaternion[] sTposeLocalRotations;
 
+        // Precomputed inverses of T-pose rotations — avoids math.inverse() per bone per frame
+        static quaternion[] sInverseTposeLocalRotations;
+
         // Scratch buffer for 54 delta quaternions (indexed by slot in BONE_WRITE_ORDER)
         static NativeArray<quaternion> sBoneDeltas;
 
         // Job system persistent arrays
         static TransformAccessArray sBoneTransformAccess;
+        static NativeArray<int> sSlotRemap;
         static NativeArray<quaternion> sCurrentLocalRotations;
         static NativeArray<quaternion> sTposeNative;
         static NativeArray<byte> sBpcNative;
@@ -54,15 +58,18 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         public static void CaptureTPose()
         {
             sTposeLocalRotations = new quaternion[55]; // HumanBodyBones 0..54
+            sInverseTposeLocalRotations = new quaternion[55];
             for (int Index = 0; Index < 55; Index++)
             {
                 if (BasisLocalAvatarDriver.Mapping.TposeLocal.TryGetValue((HumanBodyBones)Index, out var value))
                 {
                     sTposeLocalRotations[Index] = value.rotation;
+                    sInverseTposeLocalRotations[Index] = math.inverse(value.rotation);
                 }
                 else
                 {
                     sTposeLocalRotations[Index] = quaternion.identity;
+                    sInverseTposeLocalRotations[Index] = quaternion.identity;
                 }
             }
 
@@ -75,8 +82,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             Transform t = animator.transform;
 
             EnsureInitialized();
-            // Extract deltas via main-thread Transform reads
-            ExtractBoneDeltas();
+            // Read bone local rotations via job (or fallback to main thread)
+            ReadBoneTransforms();
 
             CompressAvatarData(transmitter.storedAvatarData, t);
 
@@ -104,7 +111,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             EnsureInitialized();
 
-            ExtractBoneDeltas();
+            ReadBoneTransforms();
 
             StoredAvatarData = new BasisStoredAvatarData();
             CompressAvatarData(StoredAvatarData, animator.transform);
@@ -187,12 +194,37 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
 
         /// <summary>
-        /// Extracts bone local rotations from the animator and computes
-        /// T-pose-relative delta quaternions for each bone.
+        /// Reads bone local rotations into sCurrentLocalRotations.
+        /// Uses IJobParallelForTransform when job arrays are ready, otherwise falls back
+        /// to main-thread reads. Delta computation is handled by BasisBoneDeltaAndCompressJob.
+        /// </summary>
+        static void ReadBoneTransforms()
+        {
+            if (sJobArraysReady && sBoneTransformAccess.isCreated)
+            {
+                // Batch-read bone local rotations via job system
+                var readJob = new ReadBoneLocalRotationsJob
+                {
+                    SlotRemap = sSlotRemap,
+                    CurrentLocalRotations = sCurrentLocalRotations,
+                };
+                readJob.Schedule(sBoneTransformAccess).Complete();
+            }
+            else
+            {
+                // Fallback: main-thread reads (before job arrays are built)
+                ExtractBoneDeltas();
+            }
+        }
+
+        /// <summary>
+        /// Fallback: reads bone local rotations and computes deltas on the main thread.
+        /// Only used before job arrays are built. Also writes sBoneDeltas for the
+        /// non-jobified compression path (BasisBoneRotationUtils.CompressBoneRotations).
         /// </summary>
         static void ExtractBoneDeltas()
         {
-            if (sTposeLocalRotations == null)
+            if (sInverseTposeLocalRotations == null)
             {
                 BasisDebug.LogError($"Missing {nameof(sTposeLocalRotations)}");
                 return;
@@ -200,7 +232,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             int boneCount = BasisBoneRotationCompression.SyncBoneCount;
 
-            // Read current local rotations and compute deltas
             for (int slot = 0; slot < boneCount; slot++)
             {
                 int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
@@ -210,13 +241,12 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                     quaternion current = bone.localRotation;
                     sCurrentLocalRotations[slot] = current;
 
-                    quaternion tpose = sTposeLocalRotations[boneEnum];
-                    quaternion delta = math.mul(math.inverse(tpose), current);
-                    sBoneDeltas[slot] = delta;
+                    quaternion inverseTpose = sInverseTposeLocalRotations[boneEnum];
+                    sBoneDeltas[slot] = math.mul(inverseTpose, current);
                 }
                 else
                 {
-                    sCurrentLocalRotations[slot] = quaternion.identity;
+                    sCurrentLocalRotations[slot] = sTposeLocalRotations[boneEnum];
                     sBoneDeltas[slot] = quaternion.identity;
                 }
             }
@@ -250,12 +280,37 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             sMaxComponentNative = new NativeArray<float>(boneCount, Allocator.Persistent);
             NativeArray<float>.Copy(maxComp, sMaxComponentNative, boneCount);
 
+            // Build TransformAccessArray for jobified bone reads.
+            // Only valid transforms are added; missing bones get identity pre-filled.
+            var validTransforms = new System.Collections.Generic.List<Transform>(boneCount);
+            var validSlots = new System.Collections.Generic.List<int>(boneCount);
+            for (int slot = 0; slot < boneCount; slot++)
+            {
+                int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+                if (BasisLocalAvatarDriver.Mapping.GetTransform((HumanBodyBones)boneEnum, out var bone))
+                {
+                    validTransforms.Add(bone);
+                    validSlots.Add(slot);
+                }
+                else
+                {
+                    // Pre-fill missing slots with T-pose so delta = identity
+                    sCurrentLocalRotations[slot] = sTposeNative[slot];
+                }
+            }
+            sBoneTransformAccess = new TransformAccessArray(validTransforms.ToArray());
+            sSlotRemap = new NativeArray<int>(validSlots.Count, Allocator.Persistent);
+            for (int i = 0; i < validSlots.Count; i++)
+                sSlotRemap[i] = validSlots[i];
+
             sJobArraysReady = true;
         }
 
         static void DisposeJobArrays()
         {
             sJobArraysReady = false;
+            if (sBoneTransformAccess.isCreated) sBoneTransformAccess.Dispose();
+            if (sSlotRemap.IsCreated) sSlotRemap.Dispose();
             if (sCurrentLocalRotations.IsCreated) sCurrentLocalRotations.Dispose();
             if (sTposeNative.IsCreated) sTposeNative.Dispose();
             if (sBpcNative.IsCreated) sBpcNative.Dispose();

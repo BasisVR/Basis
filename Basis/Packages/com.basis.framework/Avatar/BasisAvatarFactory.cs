@@ -21,6 +21,16 @@ namespace Basis.Scripts.Avatar
     public static class BasisAvatarFactory
     {
         /// <summary>
+        /// Cached prefab for the loading/fallback avatar. Loaded once, instantiated many times.
+        /// </summary>
+        private static GameObject CachedLoadingAvatarPrefab;
+
+        public static void Initalize()
+        {
+            var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation);
+            CachedLoadingAvatarPrefab = op.WaitForCompletion();
+        }
+        /// <summary>
         /// Default loading avatar used as a fallback when no valid avatar is available.
         /// </summary>
         public static BasisLoadableBundle LoadingAvatar = new BasisLoadableBundle()
@@ -81,13 +91,13 @@ namespace Basis.Scripts.Avatar
             if (string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
             {
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
-                await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
                 ClearPlayerLoadToken(Player, token);
                 return;
             }
 
             // Fallback can happen instantly, no restriction
-            RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
+            RemoveOldAvatarAndLoadFallback(Player, Position, Rotation);
             try
             {
                 GameObject Output = null;
@@ -150,7 +160,7 @@ namespace Basis.Scripts.Avatar
                 BasisDebug.LogError($"Loading avatar failed: {e}");
                 // Only fallback if this request is still the current one.
                 if (!token.IsCancellationRequested)
-                    await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                    LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
             }
             finally
             {
@@ -170,13 +180,16 @@ namespace Basis.Scripts.Avatar
             {
                 Player.AvatarLoadErrorMessage = "Avatar address was empty or null";
                 BasisDebug.LogError("Avatar Address was empty or null! Falling back to loading avatar.");
-                await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
                 ClearPlayerLoadToken(Player, token);
                 return;
             }
 
-            // Instant fallback, not gated
-            RemoveOldAvatarAndLoadFallback(Player, LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Position, Rotation);
+            // Instant fallback while real avatar loads, skip if already on fallback
+            if (!Player.IsConsideredFallBackAvatar)
+            {
+                RemoveOldAvatarAndLoadFallback(Player, Position, Rotation);
+            }
             GameObject Output = null;
             try
             {
@@ -240,7 +253,7 @@ namespace Basis.Scripts.Avatar
                 Player.AvatarLoadErrorMessage = $"Loading avatar failed: {e.Message}";
                 BasisDebug.LogError($"Loading avatar failed: {e}");
                 if (!token.IsCancellationRequested)
-                    await LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
+                    LoadAvatarAfterError(Player, Position, Rotation); // UNGATED
             }
             finally
             {
@@ -256,12 +269,12 @@ namespace Basis.Scripts.Avatar
         /// <param name="BasisPlayer">The player to assign the avatar to.</param>
         /// <param name="Position">Spawn position for the avatar.</param>
         /// <param name="Rotation">Spawn rotation for the avatar.</param>
-        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken  Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
+        public static async Task<GameObject> DownloadAndLoadAvatar(BasisLoadableBundle BasisLoadableBundle, BasisPlayer BasisPlayer, Vector3 Position, Quaternion Rotation, CancellationToken Token, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
         {
             string UniqueID = BasisGenerateUniqueID.GenerateUniqueID();
             GameObject Output = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject,
                 BasisLoadableBundle, true, BasisPlayer.ProgressReportAvatarLoad, Token,
-                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform,false,true,MaxDownloadSizeInMB);
+                Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Avatar, BasisPlayer.transform, false, true, MaxDownloadSizeInMB);
 
             BasisPlayer.ProgressReportAvatarLoad.ReportProgress(UniqueID, 100, "Setting Position");
             return Output;
@@ -272,15 +285,13 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         /// <param name="Player">The player to assign the fallback avatar to.</param>
         /// <param name="LoadingAvatarToUse">The address of the fallback avatar.</param>
-        public static void RemoveOldAvatarAndLoadFallback(BasisPlayer Player, string LoadingAvatarToUse, Vector3 Position, Quaternion Rotation)
+        public static void RemoveOldAvatarAndLoadFallback(BasisPlayer Player, Vector3 Position, Quaternion Rotation)
         {
-            var op = Addressables.LoadAssetAsync<GameObject>(LoadingAvatarToUse);
-            var loadingAvatar = op.WaitForCompletion();
-            var inSceneLoadingAvatar = GameObject.Instantiate(loadingAvatar, Position, Rotation, Player.transform);
+            var inSceneLoadingAvatar = GameObject.Instantiate(CachedLoadingAvatarPrefab, Position, Rotation, Player.transform);
 
             if (inSceneLoadingAvatar.TryGetComponent(out BasisAvatar avatar))
             {
-                SetupPlayerAvatar(Player, avatar, inSceneLoadingAvatar, isFallback: true);
+                SetupPlayerAvatar(Player, avatar, isFallback: true);
             }
             else
             {
@@ -295,7 +306,7 @@ namespace Basis.Scripts.Avatar
         {
             if (Output.TryGetComponent(out BasisAvatar avatar))
             {
-                SetupPlayerAvatar(Player, avatar, Output, isFallback: false);
+                SetupPlayerAvatar(Player, avatar, isFallback: false);
             }
         }
 
@@ -303,7 +314,7 @@ namespace Basis.Scripts.Avatar
         /// Configures a player with a specific avatar.
         /// Handles both local and remote player cases.
         /// </summary>
-        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, GameObject rootObject, bool isFallback)
+        private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, bool isFallback)
         {
             DeleteLastAvatar(Player);
             Player.IsConsideredFallBackAvatar = isFallback;
@@ -328,14 +339,11 @@ namespace Basis.Scripts.Avatar
         /// <summary>
         /// Attempts to load the fallback avatar after a loading error.
         /// </summary>
-        public static async Task LoadAvatarAfterError(BasisPlayer Player, Vector3 Position, Quaternion Rotation)
+        public static void LoadAvatarAfterError(BasisPlayer Player, Vector3 Position, Quaternion Rotation)
         {
             try
             {
-                ChecksRequired Required = new ChecksRequired(false, false, false,true);
-                InstantiationParameters Para = InstantiationParameters(Player, Position, Rotation);
-                GameObject data = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject,
-                    LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation, Para, Required, BundledContentHolder.Selector.Avatar);
+                GameObject data = GameObject.Instantiate(CachedLoadingAvatarPrefab, Position, Rotation, Player.transform);
 
                 InitializePlayerAvatar(Player, data);
                 Player.AvatarMetaData = BasisAvatarFactory.LoadingAvatar;
@@ -368,7 +376,7 @@ namespace Basis.Scripts.Avatar
             {
                 if (Player.IsConsideredFallBackAvatar)
                 {
-                    AddressableResourceProcess.ReleaseGameobject(Player.BasisAvatar.gameObject);
+                    GameObject.Destroy(Player.BasisAvatar.gameObject);
                 }
                 else
                 {
@@ -392,7 +400,6 @@ namespace Basis.Scripts.Avatar
         {
             Player.RemoteAvatarDriver.RemoteCalibration(Player);
             Player.BasisAvatar.OnAvatarReady?.Invoke(false);
-            Player.RemoteAvatarDriver.CalibrationComplete?.Invoke();
         }
 
         /// <summary>

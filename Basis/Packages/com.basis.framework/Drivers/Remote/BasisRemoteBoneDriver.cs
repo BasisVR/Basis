@@ -507,6 +507,8 @@ public static class RemoteBoneJobSystem
     static int[] sKeyToIndex;
     /// <summary>Reverse map: internal SoA index → external key. Used for O(1) swap-back removal.</summary>
     static readonly List<int> sIndexToKey = new List<int>();
+    /// <summary>Cached array snapshot of sIndexToKey for bounds-check-free indexing in Schedule.</summary>
+    static int[] sKeyArray = System.Array.Empty<int>();
     /// <summary>Pending job handle chain.</summary>
     static JobHandle sPending;
     /// <summary>Initialization flag.</summary>
@@ -899,6 +901,13 @@ public static class RemoteBoneJobSystem
             return default;
         }
 
+        // Snapshot the key list into a plain array for bounds-check-free indexing.
+        // List<T>.get_Item has per-access bounds checks that the JIT cannot elide;
+        // array indexing in a counted loop is optimized away.
+        if (sKeyArray.Length < AuthoringLength)
+            sKeyArray = new int[Unity.Mathematics.math.max(AuthoringLength, 16)];
+        sIndexToKey.CopyTo(sKeyArray);
+
         EnsureTempBuffers(AuthoringLength);
 
         // Gather root/head/hips
@@ -963,7 +972,7 @@ public static class RemoteBoneJobSystem
         // ── Bulk-copy hips position/rotation and scale from the network driver ──
         // One unsafe bulk copy replaces per-player main-thread SetPositionAndRotation.
         BasisRemoteNetworkDriver.BulkCopyHipsAndScale(
-            sIndexToKey, AuthoringLength,
+            sKeyArray, AuthoringLength,
             sTmpHipsWorldPos, sTmpHipsWorldRot,
             sTmpAvatarScales, sTmpScaleChanged);
 
@@ -1003,13 +1012,13 @@ public static class RemoteBoneJobSystem
                 quaternion* dstBase = (quaternion*)sSkeletonDeltas.GetUnsafePtr();
                 for (int p = 0; p < AuthoringLength; p++)
                 {
-                    int playerKey = sIndexToKey[p];
-                    var slice = BasisRemoteNetworkDriver.GetFilteredBoneRotations(playerKey);
-                    if (slice.Length >= boneCount)
+                    int playerKey = sKeyArray[p];
+                    quaternion* src = BasisRemoteNetworkDriver.GetFilteredBoneRotationsPtr(playerKey);
+                    if (src != null)
                     {
                         UnsafeUtility.MemCpy(
                             dstBase + p * boneCount,
-                            NativeSliceUnsafeUtility.GetUnsafeReadOnlyPtr(slice),
+                            src,
                             bytesPerPlayer);
                     }
                 }

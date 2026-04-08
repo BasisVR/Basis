@@ -33,6 +33,9 @@ public static class BasisAvatarModelCache
         /// <summary>T-pose root-relative coords for all 55 humanoid bones (BasisTransformMapping.TposeFromRoot).</summary>
         public TposeFromRootData TposeFromRoot;
 
+        /// <summary>T-pose world-scale root-relative coords (no scale division). Used by foot IK.</summary>
+        public TposeWorldData TposeWorld;
+
         /// <summary>Which bones exist on this avatar (from AutoDetectReferences). Indexed by HumanBodyBones.</summary>
         public BonePresenceData BonePresence;
 
@@ -95,6 +98,16 @@ public static class BasisAvatarModelCache
         public float3 AvatarForward;
         public float3 AvatarUp;
         public float3 AvatarRight;
+    }
+
+    /// <summary>
+    /// Cached T-pose world-scale root-relative coordinates.
+    /// Like TposeFromRoot but without dividing by localScale, so positions are in meters.
+    /// </summary>
+    public class TposeWorldData
+    {
+        public float3[] Positions;
+        public quaternion[] Rotations;
     }
 
     /// <summary>
@@ -180,7 +193,7 @@ public static class BasisAvatarModelCache
         int key = GetKey(animator);
 
         // Cache hit: restore from arrays
-        if (key != 0 && TryGet(key, out var entry) && entry.TposeLocal != null && entry.TposeFromRoot != null)
+        if (key != 0 && TryGet(key, out var entry) && entry.TposeLocal != null && entry.TposeFromRoot != null && entry.TposeWorld != null)
         {
             RestorePosesFromCache(mapping, animator, entry);
             return;
@@ -250,6 +263,27 @@ public static class BasisAvatarModelCache
             };
         }
 
+        if (entry.TposeWorld == null)
+        {
+            var rots = new quaternion[boneCount];
+            var pos = new float3[boneCount];
+            for (int i = 0; i < boneCount; i++)
+            {
+                var bone = (HumanBodyBones)i;
+                if (mapping.TposeWorld.TryGetValue(bone, out var c))
+                {
+                    rots[i] = c.rotation;
+                    pos[i] = c.position;
+                }
+                else
+                {
+                    rots[i] = quaternion.identity;
+                    pos[i] = float3.zero;
+                }
+            }
+            entry.TposeWorld = new TposeWorldData { Rotations = rots, Positions = pos };
+        }
+
         if (entry.BonePresence == null)
         {
             var has = new bool[boneCount];
@@ -270,10 +304,12 @@ public static class BasisAvatarModelCache
         mapping.RootPosition = animator.transform.position;
         mapping.TposeFromRoot.Clear();
         mapping.TposeLocal.Clear();
+        mapping.TposeWorld.Clear();
 
         int boneCount = (int)HumanBodyBones.LastBone;
         var cachedLocal = entry.TposeLocal;
         var cachedRoot = entry.TposeFromRoot;
+        var cachedWorld = entry.TposeWorld;
 
         for (int i = 0; i < boneCount; i++)
         {
@@ -287,6 +323,11 @@ public static class BasisAvatarModelCache
             {
                 position = cachedRoot.Positions[i],
                 rotation = cachedRoot.Rotations[i]
+            };
+            mapping.TposeWorld[bone] = new Basis.Scripts.Common.BasisCalibratedCoords
+            {
+                position = cachedWorld.Positions[i],
+                rotation = cachedWorld.Rotations[i]
             };
         }
 

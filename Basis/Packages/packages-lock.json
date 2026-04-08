@@ -106,6 +106,12 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.textmeshpro": {
+      "version": "file:com.basis.textmeshpro",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
+    },
     "com.basis.vehicles": {
       "version": "file:com.basis.vehicles",
       "depth": 0,

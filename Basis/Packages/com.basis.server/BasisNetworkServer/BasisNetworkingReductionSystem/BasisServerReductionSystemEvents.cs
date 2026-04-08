@@ -994,16 +994,29 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         {
             if (msg.array == null)
             {
+                state.SerializedKeyframeLength[qi] = 0;
                 return;
             }
 
             var quality = (BitQuality)msg.DataQualityLevel;
+
+            // Guard: the message's quality must match the quality slot index.
+            // AvatarHigh may contain non-High quality data if the client sent a
+            // lower quality. Without this check, the payload would be sent on the
+            // wrong channel, causing size mismatches on the receiver (e.g. "Need 169, have 99").
+            if ((int)quality != qi)
+            {
+                state.SerializedKeyframeLength[qi] = 0;
+                return;
+            }
+
             int expectedPayload = BasisAvatarBitPacking.ConvertToSize(quality);
 
             // Skip if the array is undersized (e.g. client sent wrong quality level)
             if (msg.array.Length < expectedPayload)
             {
                 BNL.LogError($"[PreSerializeKeyframe] Array undersized for quality {quality}: got {msg.array.Length}, need {expectedPayload}. Skipping.");
+                state.SerializedKeyframeLength[qi] = 0;
                 return;
             }
 

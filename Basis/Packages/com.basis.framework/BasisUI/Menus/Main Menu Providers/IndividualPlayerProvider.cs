@@ -772,8 +772,8 @@ namespace Basis.BasisUI
             // Create all the audio debug fields
             PanelElementDescriptor audioSourceField = null;
             PanelElementDescriptor volumeChainField = null;
-            PanelElementDescriptor ringBufferField = null;
-            PanelElementDescriptor jitterBufferField = null;
+            PanelElementDescriptor decodedBufferField = null;
+            PanelElementDescriptor encodedBufferField = null;
             PanelElementDescriptor silenceField = null;
             PanelElementDescriptor visemeField = null;
 
@@ -797,16 +797,16 @@ namespace Basis.BasisUI
 
                 if (BasisSettingsDefaults.AudioDebugShowRingBuffer.RawValue)
                 {
-                    ringBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
-                    ringBufferField.SetTitle("Ring Buffer");
-                    ringBufferField.SetDescription("...");
+                    decodedBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    decodedBufferField.SetTitle("Decoded PCM");
+                    decodedBufferField.SetDescription("...");
                 }
 
                 if (BasisSettingsDefaults.AudioDebugShowJitter.RawValue)
                 {
-                    jitterBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
-                    jitterBufferField.SetTitle("Jitter Buffer");
-                    jitterBufferField.SetDescription("...");
+                    encodedBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    encodedBufferField.SetTitle("Encoded Packets");
+                    encodedBufferField.SetDescription("...");
                 }
 
                 if (BasisSettingsDefaults.AudioDebugShowSilence.RawValue)
@@ -841,8 +841,8 @@ namespace Basis.BasisUI
             // Wire audio debug fields
             updater.AudioSourceField = audioSourceField;
             updater.VolumeChainField = volumeChainField;
-            updater.RingBufferField = ringBufferField;
-            updater.JitterBufferField = jitterBufferField;
+            updater.DecodedBufferField = decodedBufferField;
+            updater.EncodedBufferField = encodedBufferField;
             updater.SilenceField = silenceField;
             updater.VisemeField = visemeField;
 
@@ -852,8 +852,8 @@ namespace Basis.BasisUI
                 // Destroy existing fields
                 if (audioSourceField != null) { UnityEngine.Object.Destroy(audioSourceField.gameObject); audioSourceField = null; }
                 if (volumeChainField != null) { UnityEngine.Object.Destroy(volumeChainField.gameObject); volumeChainField = null; }
-                if (ringBufferField != null) { UnityEngine.Object.Destroy(ringBufferField.gameObject); ringBufferField = null; }
-                if (jitterBufferField != null) { UnityEngine.Object.Destroy(jitterBufferField.gameObject); jitterBufferField = null; }
+                if (decodedBufferField != null) { UnityEngine.Object.Destroy(decodedBufferField.gameObject); decodedBufferField = null; }
+                if (encodedBufferField != null) { UnityEngine.Object.Destroy(encodedBufferField.gameObject); encodedBufferField = null; }
                 if (silenceField != null) { UnityEngine.Object.Destroy(silenceField.gameObject); silenceField = null; }
                 if (visemeField != null) { UnityEngine.Object.Destroy(visemeField.gameObject); visemeField = null; }
 
@@ -865,8 +865,8 @@ namespace Basis.BasisUI
                 // Re-wire updater references
                 updater.AudioSourceField = audioSourceField;
                 updater.VolumeChainField = volumeChainField;
-                updater.RingBufferField = ringBufferField;
-                updater.JitterBufferField = jitterBufferField;
+                updater.DecodedBufferField = decodedBufferField;
+                updater.EncodedBufferField = encodedBufferField;
                 updater.SilenceField = silenceField;
                 updater.VisemeField = visemeField;
             };

@@ -121,7 +121,20 @@ public static class BasisLoadHandler
         if (LoadedBundles.TryGetValue(loadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisTrackedBundleWrapper wrapper))
         {
             BasisDebug.Log($"Bundle On Disc Loading", BasisDebug.LogTag.Networking);
-            await wrapper.WaitForBundleLoadAsync();
+            if (wrapper.AssetBundle == null)
+            {
+                await BasisBeeManagement.HandleBundleAndMetaLoading(wrapper, report, cancellationToken, MaxDownloadSizeInMB);
+            }
+            else
+            {
+                await wrapper.WaitForBundleLoadAsync();
+            }
+
+            if (wrapper.AssetBundle == null)
+            {
+                BasisDebug.LogError("Scene bundle was not available after load attempt.");
+                return new Scene();
+            }
             BasisDebug.Log($"Bundle Loaded, Loading Scene", BasisDebug.LogTag.Networking);
             return await BasisBundleLoadAsset.LoadSceneFromBundleAsync(wrapper, makeActiveScene, report);
         }

@@ -186,10 +186,10 @@ public static class BasisPlayerSettingsManager
     {
         // Replace existing timer for this key.
         var cts = new CancellationTokenSource();
-        var prev = flushDebounce.AddOrUpdate(key, cts, (_, old) =>
+        flushDebounce.AddOrUpdate(key, cts, (_, old) =>
         {
             try { old.Cancel(); } catch { }
-            old.Dispose();
+            // Don't dispose here — the old task's finally block handles disposal.
             return cts;
         });
 

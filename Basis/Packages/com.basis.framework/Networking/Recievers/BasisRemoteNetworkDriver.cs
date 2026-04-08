@@ -60,6 +60,7 @@ public static class BasisRemoteNetworkDriver
 
     // ─── SCALE CHANGE ───
     static NativeArray<bool> _HasScaleChange;
+    static NativeArray<float3> _lastAppliedScales;
 
     // ─── BONE ROTATIONS (replaces muscles) ───
     // Flat arrays: [player0_bone0, ..., player0_bone53, player1_bone0, ...]
@@ -102,16 +103,17 @@ public static class BasisRemoteNetworkDriver
     static IntPtr _ptrPrevBoneRotations;
     static IntPtr _ptrTargetBoneRotations;
     static IntPtr _ptrPoseFilterSeeded;
+    static IntPtr _ptrSkipBones;
 
     /// <summary>
     /// Mark a player index to skip bone interpolation on the next Compute().
     /// Called from SimulateNetworkApply when PoseSkipCounter > 0.
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void SetSkipMuscles(int index, bool skip)
+    public static unsafe void SetSkipMuscles(int index, bool skip)
     {
         if (_initialized && (uint)index < FixedCapacity)
-            _skipBones[index] = skip ? (byte)1 : (byte)0;
+            ((byte*)(void*)_ptrSkipBones)[index] = skip ? (byte)1 : (byte)0;
     }
 
     // ─── TUNING ───
@@ -153,6 +155,7 @@ public static class BasisRemoteNetworkDriver
             _rotPrevFiltered[i] = quaternion.identity;
             _rotDerivFilter[i] = float2.zero;
             _HasScaleChange[i] = false;
+            _lastAppliedScales[i] = new float3(1, 1, 1);
             _humanScales[i] = 1f;
             _scaledBodyPositions[i] = float3.zero;
         }
@@ -267,6 +270,7 @@ public static class BasisRemoteNetworkDriver
             TargetRotations = _targetRotations,
             InterpolationTimes = _interpolationTimes,
             HasScaleChange = _HasScaleChange,
+            LastAppliedScales = _lastAppliedScales,
             OutputPositions = _outPositions,
             OutputScales = _outScales,
             OutputRotations = _outRotations
@@ -347,6 +351,7 @@ public static class BasisRemoteNetworkDriver
         _ptrScaledBodyPositions = (IntPtr)_scaledBodyPositions.GetUnsafeReadOnlyPtr();
         _ptrFilteredBoneRotations = (IntPtr)_filteredBoneRotations.GetUnsafeReadOnlyPtr();
         _ptrOutScales = (IntPtr)_outScales.GetUnsafeReadOnlyPtr();
+        _ptrSkipBones = (IntPtr)_skipBones.GetUnsafePtr();
     }
 
     // ─── OUTPUT GETTERS ───
@@ -374,7 +379,7 @@ public static class BasisRemoteNetworkDriver
     /// playerKeys[i] → internal SoA index; data is written to dst arrays at index i.
     /// </summary>
     public static unsafe void BulkCopyHipsAndScale(
-        List<int> playerKeys, int count,
+        int[] playerKeys, int count,
         NativeArray<float3> dstPos, NativeArray<quaternion> dstRot,
         NativeArray<float3> dstScale, NativeArray<byte> dstScaleChanged)
     {
@@ -403,16 +408,16 @@ public static class BasisRemoteNetworkDriver
     static IntPtr _ptrFilteredPositions;
 
     /// <summary>
-    /// Returns a read-only slice of the filtered bone rotation deltas for a player.
-    /// Used by RemoteBoneJobSystem to feed the skeleton apply job.
-    /// Must be called after Apply() completes.
+    /// Returns a raw pointer to the filtered bone rotation deltas for a player.
+    /// Avoids NativeSlice allocation overhead. Caller must ensure index is valid.
+    /// Must be called after Apply() completes (i.e. after BeginRead()).
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static NativeSlice<quaternion> GetFilteredBoneRotations(int index)
+    public static unsafe quaternion* GetFilteredBoneRotationsPtr(int index)
     {
         if (!_initialized || (uint)index >= FixedCapacity)
-            return default;
-        return _filteredBoneRotations.Slice(index * BoneCount, BoneCount);
+            return null;
+        return (quaternion*)(void*)_ptrFilteredBoneRotations + index * BoneCount;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -425,7 +430,7 @@ public static class BasisRemoteNetworkDriver
     /// <summary>
     /// Returns interpolated+filtered body transform outputs (hips position/rotation, scale change).
     /// Bone rotation deltas are no longer copied here — they're read directly by
-    /// RemoteBoneJobSystem via GetFilteredBoneRotations().
+    /// RemoteBoneJobSystem via GetFilteredBoneRotationsPtr().
     /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void GetBoneRotationOutputs(
@@ -474,6 +479,7 @@ public static class BasisRemoteNetworkDriver
         _humanScales = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _scaledBodyPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _HasScaleChange = new NativeArray<bool>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _lastAppliedScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _skipBones = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
 
         int flat = capacity * BoneCount;
@@ -499,7 +505,7 @@ public static class BasisRemoteNetworkDriver
         D(ref _posPrevRaw); D(ref _posPrevFiltered); D(ref _posPrevDerivFiltered);
         D(ref _rotPrevRaw); D(ref _rotPrevFiltered); D(ref _rotDerivFilter);
         D(ref _humanScales); D(ref _scaledBodyPositions);
-        D(ref _HasScaleChange); D(ref _skipBones);
+        D(ref _HasScaleChange); D(ref _lastAppliedScales); D(ref _skipBones);
         D(ref _prevBoneRotations); D(ref _targetBoneRotations);
         D(ref _outBoneRotations); D(ref _filteredBoneRotations);
         D(ref _bonePrevRaw); D(ref _bonePrevFiltered); D(ref _boneDerivFilter);
@@ -520,7 +526,8 @@ public static class BasisRemoteNetworkDriver
         [WriteOnly] public NativeArray<float3> OutputPositions;
         [WriteOnly] public NativeArray<float3> OutputScales;
         [WriteOnly] public NativeArray<quaternion> OutputRotations;
-        [WriteOnly] public NativeArray<bool> HasScaleChange;
+        public NativeArray<bool> HasScaleChange;
+        public NativeArray<float3> LastAppliedScales;
 
         public void Execute(int index)
         {
@@ -528,10 +535,16 @@ public static class BasisRemoteNetworkDriver
             if (!math.isfinite(t)) t = 0f;
             t = math.clamp(t, 0f, 1f);
             OutputPositions[index] = math.lerp(PreviousPositions[index], TargetPositions[index], t);
-            OutputScales[index] = math.lerp(PreviousScales[index], TargetScales[index], t);
+            float3 outScale = math.lerp(PreviousScales[index], TargetScales[index], t);
+            OutputScales[index] = outScale;
             OutputRotations[index] = math.normalize(math.nlerp(PreviousRotations[index], TargetRotations[index], t));
             const float scaleEpsSq = 1e-10f;
-            HasScaleChange[index] = math.lengthsq(TargetScales[index] - PreviousScales[index]) > scaleEpsSq;
+            bool changed = math.lengthsq(outScale - LastAppliedScales[index]) > scaleEpsSq;
+            HasScaleChange[index] = changed;
+            if (changed)
+            {
+                LastAppliedScales[index] = outScale;
+            }
         }
     }
 

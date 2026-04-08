@@ -111,6 +111,7 @@ MonoBehaviour:
       BasisNetworkTransmitter:
         rid: -2
       TalkingPoints: 
+      ExcludedPoints: 
       LengthOfArrays: -1
       IndexChanged: 0
   references:
@@ -168,6 +169,7 @@ GameObject:
   - component: {fileID: 4245328840218215415}
   - component: {fileID: 947700616637325904}
   - component: {fileID: 4222888336659293539}
+  - component: {fileID: 3244661821366532348}
   m_Layer: 0
   m_Name: Modules
   m_TagString: Untagged
@@ -486,6 +488,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f50dc7f6c0e1f98499b7f745e8ba81cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::SMModuleCalibration
+--- !u!114 &3244661821366532348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3197856584617865972}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd42373e464aed048bd891b65e60d79f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Basis Framework::SMModuleBloomOverrideURP
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0
@@ -886,8 +900,8 @@ MonoBehaviour:
   HoverUI: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
   pressUI: {fileID: 8300000, guid: fa511589a725a1a4c98781edd2f0f176, type: 3}
   ChatNotificationUI: {fileID: 8300000, guid: ccdb6b8ce45691e4394eeef9fe8af29c, type: 3}
-  CameraShutterSound: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
-  CameraCountdownTickSound: {fileID: 8300000, guid: 273db99ef8423064ebdc96442f286a95, type: 3}
+  CameraShutterSound: {fileID: 8300000, guid: 848ca0e3ce7b3d94ebe36ca3f3a19a6a, type: 3}
+  CameraCountdownTickSound: {fileID: 8300000, guid: 848ca0e3ce7b3d94ebe36ca3f3a19a6a, type: 3}
   AllInputDevices:
     _list: []
   BasisXRManagement:

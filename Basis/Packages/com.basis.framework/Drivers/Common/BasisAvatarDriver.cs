@@ -293,11 +293,8 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void RemoveJiggleRigColliders()
         {
-            // BasisDebug.Log("Removed Collider Rigs");
-            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
-            {
-                JigglePhysics.RemoveJiggleCollider(Jiggle);
-            }
+            // Batch-remove all colliders at once to avoid O(n²) linear scans in JiggleMemoryBus.
+            JigglePhysics.RemoveJiggleColliders(JiggleColliders);
             JiggleColliders.Clear();
         }
         // Common albedo/main texture property names across built-in/URP/custom shaders.

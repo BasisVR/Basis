@@ -392,7 +392,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
 
             PanelSlider sliderLipSyncSlots = PanelSlider.CreateEntryAndBind(
                 lipSyncGroup,
-                PanelSlider.SliderSettings.Advanced("OpenLipSync Max Slots", 1, 250, true, 0, ValueDisplayMode.Raw),
+                PanelSlider.SliderSettings.Advanced("OpenLipSync Max Slots", 0, 250, true, 0, ValueDisplayMode.Raw),
                 BasisSettingsDefaults.OpenLipSyncMaxSlots);
             sliderLipSyncSlots.Descriptor.SetDescription(
                 "Number of concurrent OpenLipSync (neural viseme) instances.\n" +

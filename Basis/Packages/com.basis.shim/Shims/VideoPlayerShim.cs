@@ -187,6 +187,24 @@ namespace Basis.Shims
                 if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
                 if (!url.StartsWith("https://")) return;
 
+                if (BasisTrustedVideoUrls.IsTrusted(url))
+                {
+                    BasisDebug.Log($"[VideoPlayerShim] Auto-accepting trusted URL \"{url}\"", BasisDebug.LogTag.Shims);
+                    AutoDenyPendingUrlRequest();
+                    videoPlayer.url = url;
+                    if (playRequestedForPendingUrl)
+                    {
+                        playRequestedForPendingUrl = false;
+                        videoPlayer.Play();
+                    }
+                    if (prepareRequestedForPendingUrl)
+                    {
+                        prepareRequestedForPendingUrl = false;
+                        videoPlayer.Prepare();
+                    }
+                    return;
+                }
+
                 BasisDebug.Log($"[VideoPlayerShim] Requesting URL \"{url}\"", BasisDebug.LogTag.Shims);
 
                 AutoDenyPendingUrlRequest();
@@ -195,6 +213,9 @@ namespace Basis.Shims
                 pendingConfirmedUrlRequestId++;
                 int requestId = pendingConfirmedUrlRequestId;
                 pendingUrlTimeoutCoroutine = StartCoroutine(ExpirePendingUrlRequest(requestId));
+
+                bool handled = false;
+
                 BasisMainMenu.Open();
                 BasisMainMenu.Instance.OpenDialogue(
                     "Video Player URL",
@@ -203,6 +224,8 @@ namespace Basis.Shims
                     "Decline",
                     accepted =>
                     {
+                        if (handled) return;
+                        handled = true;
                         if (!hasPendingConfirmedUrl || pendingConfirmedUrl != url || pendingConfirmedUrlRequestId != requestId)
                         {
                             return;
@@ -212,27 +235,29 @@ namespace Basis.Shims
                             ClearPendingUrlRequest();
                             return;
                         }
-                        BasisDebug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"", BasisDebug.LogTag.Shims);
-                        videoPlayer.url = url;
-                        hasPendingConfirmedUrl = false;
-                        pendingConfirmedUrl = string.Empty;
-                        if (pendingUrlTimeoutCoroutine != null)
-                        {
-                            StopCoroutine(pendingUrlTimeoutCoroutine);
-                            pendingUrlTimeoutCoroutine = null;
-                        }
-                        if (playRequestedForPendingUrl)
-                        {
-                            playRequestedForPendingUrl = false;
-                            videoPlayer.Play();
-                        }
-                        if (prepareRequestedForPendingUrl)
-                        {
-                            prepareRequestedForPendingUrl = false;
-                            videoPlayer.Prepare();
-                        }
+                        ApplyPendingUrl(url);
                     }
                 );
+
+                BasisMenuDialoguePanel dialogue = BasisMainMenu.Instance.Dialogue;
+                if (dialogue != null)
+                {
+                    PanelButton acceptAndSaveButton = PanelButton.CreateNew(dialogue.AcceptButton.transform.parent);
+                    acceptAndSaveButton.Descriptor.SetTitle("Accept & Save");
+                    acceptAndSaveButton.transform.SetSiblingIndex(dialogue.AcceptButton.transform.GetSiblingIndex() + 1);
+                    acceptAndSaveButton.OnClicked += () =>
+                    {
+                        if (handled) return;
+                        handled = true;
+                        if (hasPendingConfirmedUrl && pendingConfirmedUrl == url && pendingConfirmedUrlRequestId == requestId)
+                        {
+                            BasisTrustedVideoUrls.Add(url);
+                            ApplyPendingUrl(url);
+                        }
+                        BasisMainMenu.Instance.Dialogue = null;
+                        dialogue.ReleaseInstance();
+                    };
+                }
             }
         }
         public bool waitForFirstFrame
@@ -336,6 +361,29 @@ namespace Basis.Shims
         //
         // URL Confirmation Logic
         //
+        private void ApplyPendingUrl(string url)
+        {
+            BasisDebug.Log($"[VideoPlayerShim] Setting URL to \"{url}\"", BasisDebug.LogTag.Shims);
+            videoPlayer.url = url;
+            hasPendingConfirmedUrl = false;
+            pendingConfirmedUrl = string.Empty;
+            if (pendingUrlTimeoutCoroutine != null)
+            {
+                StopCoroutine(pendingUrlTimeoutCoroutine);
+                pendingUrlTimeoutCoroutine = null;
+            }
+            if (playRequestedForPendingUrl)
+            {
+                playRequestedForPendingUrl = false;
+                videoPlayer.Play();
+            }
+            if (prepareRequestedForPendingUrl)
+            {
+                prepareRequestedForPendingUrl = false;
+                videoPlayer.Prepare();
+            }
+        }
+
         private void ClearPendingUrlRequest()
         {
             hasPendingConfirmedUrl = false;

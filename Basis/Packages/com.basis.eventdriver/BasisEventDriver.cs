@@ -226,11 +226,6 @@ public partial class BasisEventDriver : MonoBehaviour
         ProfileEnd2(PROF_NET_FIRE_BEFORE_APPLY);
         ProfileBegin2();
         BasisNetworkManagement.SimulateNetworkApply();
-        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
-        ProfileBegin2();
-        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
-        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
-        ProfileEnd(PROF_NETWORK_APPLY);
 
         // ── Device management ──
         ProfileBegin(PROF_DEVICE_MANAGEMENT);
@@ -240,16 +235,6 @@ public partial class BasisEventDriver : MonoBehaviour
             BasisDeviceManagement.Instance.Simulate();
         }
         ProfileEnd(PROF_DEVICE_MANAGEMENT);
-
-        // ── Remote audio simulate ──
-        ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);
-        BasisRemoteAudioDriver.Simulate(DeltaTime);
-        ProfileEnd(PROF_REMOTE_AUDIO_SIMULATE);
-
-        // ── Nameplate schedule ──
-        ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
-        BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
-        ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
 
         // ── BTween ──
         ProfileBegin(PROF_BTWEEN);
@@ -262,12 +247,6 @@ public partial class BasisEventDriver : MonoBehaviour
         {
             BasisLocalPlayer.Instance.FacialBlinkDriver.Simulate(TimeAsDouble);
             BasisLocalPlayer.Instance.LocalVisemeDriver.Apply();
-        }
-#if STEAMAUDIO_ENABLED
-        SteamAudioManager.Schedule();
-#endif
-        if (BasisLocalPlayer.PlayerReady)
-        {
             BasisLocalPlayer.Instance.Simulate(DeltaTime);
             BasisLocalCameraDriver.Instance.Simulate();
             BasisLocalPlayer.Instance.LocalHandDriver.Apply();
@@ -275,6 +254,26 @@ public partial class BasisEventDriver : MonoBehaviour
             BasisLocalPlayer.Instance.LocalEyeDriver.Apply();
         }
         ProfileEnd(PROF_LOCAL_PLAYER);
+
+        BasisNetworkManagement.CompleteRemoteBoneJobSystemJobs();
+        ProfileEnd2(PROF_NET_SIMULATE_APPLY);
+        ProfileBegin2();
+        BasisObjectSyncDriver.CompleteScheduledRemoteLerp();
+        ProfileEnd2(PROF_NET_COMPLETE_REMOTE_LERP);
+        ProfileEnd(PROF_NETWORK_APPLY);
+
+        // ── Remote audio simulate ──
+        ProfileBegin(PROF_REMOTE_AUDIO_SIMULATE);
+        BasisRemoteAudioDriver.Simulate(DeltaTime);
+        ProfileEnd(PROF_REMOTE_AUDIO_SIMULATE);
+
+        // ── Nameplate schedule ──
+        ProfileBegin(PROF_NAMEPLATE_SCHEDULE);
+        BasisRemoteNamePlateDriver.ScheduleSimulate(TimeAsDouble);
+        ProfileEnd(PROF_NAMEPLATE_SCHEDULE);
+#if STEAMAUDIO_ENABLED
+        SteamAudioManager.Schedule();
+#endif
 
         // ── Remote face simulate (job schedule) ──
         ProfileBegin(PROF_REMOTE_FACE_SIMULATE);

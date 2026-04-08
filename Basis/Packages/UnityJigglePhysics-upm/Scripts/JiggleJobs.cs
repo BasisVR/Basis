@@ -267,7 +267,11 @@ public class JiggleJobs {
     public void ScheduleRemove(JiggleColliderSerializable collider) {
         _memoryBus.ScheduleRemove(collider);
     }
-    
+
+    public void ScheduleRemoveBatch(List<JiggleColliderSerializable> colliders) {
+        _memoryBus.ScheduleRemoveBatch(colliders);
+    }
+
     public void GetColliders(out JiggleCollider[] personalColliders, out JiggleCollider[] sceneColliders, out int personalColliderCount, out int sceneColliderCount) {
         _memoryBus.GetColliders(out personalColliders, out sceneColliders, out personalColliderCount, out sceneColliderCount);
     }
@@ -319,7 +323,7 @@ public class JiggleJobs {
     }
     
     public int GetSceneColliderCount() {
-        return _memoryBus.personalColliderCount;
+        return _memoryBus.sceneColliderCount;
     }
 
     public void OnDrawGizmos() {

@@ -68,8 +68,5 @@ public static class RemoteOpusSettings
     public static int SampleLength => NetworkSampleRate * Channels;
     //960 a single frame in opus. in unity it is 1024 for audio playback
     public static int FrameSize => Mathf.CeilToInt(SharedOpusSettings.DesiredDurationInSeconds * NetworkSampleRate);
-    public static int TotalFrameBufferSize => FrameSize * AdditionalStoredBufferData;
-
-    public static int AdditionalStoredBufferData = 16;
     public static int JitterBufferSize = 5;
 }

@@ -46,6 +46,7 @@ public struct BasisFootSimInput
     public bool groundHit;
     public float3 groundPoint;
     public float splayWhenCrouched;
+    public float3 playerUp;
 }
 
 public struct BasisFootSimParams

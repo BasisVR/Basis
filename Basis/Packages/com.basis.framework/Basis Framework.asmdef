@@ -57,6 +57,11 @@
             "name": "com.basis.openxr",
             "expression": "",
             "define": "BASIS_HAS_OPENXR"
+        },
+        {
+            "name": "com.basis.mediapipe",
+            "expression": "",
+            "define": "BASIS_HAS_MEDIAPIPE"
         }
     ],
     "noEngineReferences": false

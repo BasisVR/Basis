@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
+using BasisServerHandle;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
 
@@ -300,6 +301,22 @@ namespace BasisNetworkServer.Security
                         HandleShoutMode(peer, reader, mode == AdminRequestMode.EnableShoutMode));
                     break;
 
+                // ===== GLOBAL LOCK =====
+                case AdminRequestMode.GlobalToggleAvatars:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Avatar", BasisGlobalLockManager.ToggleAvatars()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleProps:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "Prop", BasisGlobalLockManager.ToggleProps()));
+                    break;
+
+                case AdminRequestMode.GlobalToggleWorlds:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleGlobalToggle(peer, "World", BasisGlobalLockManager.ToggleWorlds()));
+                    break;
+
                 // ===== PERMISSION EDIT =====
                 case AdminRequestMode.SetUserGroup:
                 case AdminRequestMode.SetUserNode:
@@ -412,6 +429,26 @@ namespace BasisNetworkServer.Security
             ushort id = reader.GetUShort();
             Basis.Network.Server.Generic.BasisSavedState.SetShoutMode(id, enable);
             BasisServerHandle.BasisServerHandleEvents.BroadcastShoutModeState(id, enable);
+        }
+
+        private static void HandleGlobalToggle(NetPeer peer, string contentType, bool nowLocked)
+        {
+            string state = nowLocked ? "DISABLED" : "ENABLED";
+            string notification = $"{contentType} loading has been globally {state} by an admin.";
+            BNL.Log(notification);
+
+            // Notify the admin who toggled it
+            SendBackMessage(peer, $"{contentType} loading is now {state}.");
+
+            // Notify all clients about the change
+            var writer = NetworkServer.RentWriter();
+            new AdminRequest().Serialize(writer, AdminRequestMode.MessageAll);
+            writer.Put(notification);
+            NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.AdminChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
+            NetworkServer.ReturnWriter(writer);
+
+            // Broadcast updated lock state so clients track it
+            BasisGlobalLockManager.BroadcastLockState();
         }
 
         public static void SendBackMessage(NetPeer peer, string msg)

@@ -225,64 +225,59 @@ public class BasisRemoteAudioDebugWindow : EditorWindow
 
     private void DrawRingBuffer(BasisAudioReceiver audio)
     {
-        EditorGUILayout.LabelField("Ring Buffer (Voice)", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Decoded PCM Queue", EditorStyles.boldLabel);
 
-        BasisVoiceRingBuffer ring = audio.InOrderRead;
-        if (ring == null)
+        BasisVoiceBuffer buf = audio.VoiceBuffer;
+        if (buf == null)
         {
-            EditorGUILayout.LabelField("Ring Buffer", "NULL");
+            EditorGUILayout.LabelField("Voice Buffer", "NULL");
             return;
         }
 
-        int ringCount = ring.Count;
-        int ringCap = ring.Capacity;
-        float fillPct = ringCap > 0 ? (float)ringCount / ringCap : 0f;
-        float bufferedMs = ringCount * 1000f / RemoteOpusSettings.NetworkSampleRate;
+        int frames = buf.DecodedFrameCount;
+        int cap = buf.DecodedFrameCapacity;
+        float fillPct = cap > 0 ? (float)frames / cap : 0f;
+        int samples = buf.SampleCount;
+        float bufferedMs = samples * 1000f / RemoteOpusSettings.NetworkSampleRate;
 
-        StatusLabel("Has Real Audio", ring.HasRealAudio);
+        StatusLabel("Has Real Audio", buf.HasRealAudio);
 
         EditorGUILayout.BeginHorizontal();
         EditorGUILayout.LabelField("Fill Level", GUILayout.Width(EditorGUIUtility.labelWidth));
         Rect fillBar = GUILayoutUtility.GetRect(0, 16, GUILayout.ExpandWidth(true));
-        Color fillColor = ring.IsFull ? ErrorColor : fillPct > 0.8f ? WarnColor : BarColor;
-        DrawBar(fillBar, fillPct, $"{ringCount}/{ringCap} ({fillPct:P0})", fillColor);
+        Color fillColor = frames >= cap ? ErrorColor : fillPct > 0.8f ? WarnColor : BarColor;
+        DrawBar(fillBar, fillPct, $"{frames}/{cap} frames ({fillPct:P0})", fillColor);
         EditorGUILayout.EndHorizontal();
 
         EditorGUILayout.LabelField("Buffered Audio", $"{bufferedMs:F1}ms");
-        EditorGUILayout.LabelField("State", ring.IsEmpty ? "EMPTY" : ring.IsFull ? "FULL (overwriting!)" : "Streaming");
-
-        if (ring.IsFull)
-        {
-            EditorGUILayout.HelpBox("Ring buffer is FULL - audio is being overwritten. Consumer can't keep up.", MessageType.Error);
-        }
-        else if (ring.IsEmpty && ring.HasRealAudio)
-        {
-            EditorGUILayout.HelpBox("Buffer empty but HasRealAudio flag set - possible underrun.", MessageType.Warning);
-        }
+        string state = buf.IsEmpty ? "EMPTY" : frames >= cap ? "FULL" : "Streaming";
+        EditorGUILayout.LabelField("State", state);
+        EditorGUILayout.LabelField("PLC Count", audio.PlcCount.ToString());
+        EditorGUILayout.LabelField("Silence Skipped", audio.SilenceInjectedCount.ToString());
     }
 
     private void DrawJitterBuffer(BasisAudioReceiver audio)
     {
-        EditorGUILayout.LabelField("Jitter Buffer", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("Encoded Packets (Jitter)", EditorStyles.boldLabel);
 
-        BasisJitterBuffer jitter = audio.JitterBuffer;
-        if (jitter == null)
+        BasisVoiceBuffer buf = audio.VoiceBuffer;
+        if (buf == null)
         {
-            EditorGUILayout.LabelField("Jitter Buffer", "NULL");
+            EditorGUILayout.LabelField("Voice Buffer", "NULL");
             return;
         }
 
-        StatusLabel("Started", jitter.Started);
+        StatusLabel("Started", buf.Started);
 
-        int buffered = jitter.BufferedCount;
-        int received = jitter.ReceivedSinceStart;
-        int initDepth = jitter.InitialBufferDepth;
+        int buffered = buf.EncodedBufferedCount;
+        int received = buf.ReceivedSinceStart;
+        int initDepth = buf.InitialBufferDepth;
 
         EditorGUILayout.LabelField("Buffered Packets", buffered.ToString());
         EditorGUILayout.LabelField("Received Since Start", received.ToString());
         EditorGUILayout.LabelField("Initial Depth Required", initDepth.ToString());
 
-        if (jitter.Started)
+        if (buf.Started)
         {
             if (received < initDepth)
             {

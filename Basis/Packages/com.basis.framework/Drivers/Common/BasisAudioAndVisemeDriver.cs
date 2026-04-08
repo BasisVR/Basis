@@ -80,6 +80,13 @@ namespace Basis.Scripts.Drivers
         private volatile bool _needsContext;
 
         /// <summary>
+        /// Reference to the player's AudioSource. When disabled (player not speaking),
+        /// the OpenLipSync context is released back to the pool for other speakers.
+        /// Set by BasisAudioReceiver when the audio source is loaded.
+        /// </summary>
+        public AudioSource TrackedAudioSource;
+
+        /// <summary>
         /// Table mapping phoneme strings (e.g., "A", "E") to avatar blendshape indices.
         /// </summary>
         public List<BasisPhonemeBlendShapeInfo> phonemeBlendShapeTable = new List<BasisPhonemeBlendShapeInfo>();
@@ -114,6 +121,10 @@ namespace Basis.Scripts.Drivers
             {
                 return false;
             }
+            if (Avatar.FaceVisemeMesh.sharedMesh == null)
+            {
+                return false;
+            }
             if (Avatar.FaceVisemeMesh.sharedMesh.blendShapeCount == 0)
             {
                 return false;
@@ -122,6 +133,10 @@ namespace Basis.Scripts.Drivers
             // Cache entity ID on the main thread — needed later for lazy slot
             // acquisition which can be triggered from the audio thread.
             _cachedEntityId = BasisPlayer.GetEntityId();
+
+            // Listen for slot evictions (e.g. MaxSlots lowered at runtime)
+            BasisOpenLipSyncDriver.OnSlotRevoked -= OnOpenLipSyncSlotRevoked;
+            BasisOpenLipSyncDriver.OnSlotRevoked += OnOpenLipSyncSlotRevoked;
 
             // --- OpenLipSync: release any previous context ---
             ReleaseOpenLipSyncContext();
@@ -231,6 +246,7 @@ namespace Basis.Scripts.Drivers
         {
             if (openLipSyncContext != null)
             {
+                openLipSyncContext.ZeroVisemes();
                 BasisOpenLipSyncDriver.ReleaseSlot(_cachedEntityId);
                 openLipSyncContext.Dispose();
                 openLipSyncContext = null;
@@ -238,8 +254,23 @@ namespace Basis.Scripts.Drivers
             }
         }
 
+        /// <summary>
+        /// Called by BasisOpenLipSyncDriver when this player's slot is forcefully revoked.
+        /// The backend context is already destroyed — just clean up the local state.
+        /// </summary>
+        private void OnOpenLipSyncSlotRevoked(EntityId entityId)
+        {
+            if (!entityId.Equals(_cachedEntityId) || openLipSyncContext == null) return;
+
+            openLipSyncContext.ZeroVisemes();
+            openLipSyncContext.Dispose();
+            openLipSyncContext = null;
+            UseOpenLipSync = false;
+        }
+
         public void OnDestroy()
         {
+            BasisOpenLipSyncDriver.OnSlotRevoked -= OnOpenLipSyncSlotRevoked;
             ReleaseOpenLipSyncContext();
             uLipSync.DisposeBuffers();
         }
@@ -256,9 +287,15 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
+            // Release context back to pool when audio source is inactive (player not speaking)
+            if (UseOpenLipSync && openLipSyncContext != null && TrackedAudioSource != null && !TrackedAudioSource.enabled)
+            {
+                ReleaseOpenLipSyncContext();
+            }
+
             // Lazy context acquisition on the main thread.
-            // The audio thread sets _needsContext when audio arrives while in range
-            // but no OpenLipSync context exists yet.
+            // The audio thread sets _needsContext when non-silent audio arrives
+            // while in range but no OpenLipSync context exists yet.
             if (_needsContext)
             {
                 _needsContext = false;
@@ -346,9 +383,9 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            // Signal the main thread to create an OpenLipSync context if eligible
-            // but not yet acquired. The actual creation happens in Simulate() because
-            // it requires main-thread Unity API access.
+            // Signal the main thread to acquire a pooled OpenLipSync context.
+            // ProcessAudioSamples is only called when the AudioSource is enabled
+            // (player is speaking), so any call here is a valid acquire signal.
             if (EligibleForOpenLipSync && !UseOpenLipSync)
             {
                 _needsContext = true;

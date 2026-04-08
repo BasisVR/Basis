@@ -186,6 +186,9 @@ public partial class BasisLocalFootDriver
     private BasisFootState left;
     private BasisFootState right;
     private float rayCastRange;
+    private Vector3 cachedPlayerUp = Vector3.up;
+    private Vector3 cachedPlayerFwd = Vector3.forward;
+    private Vector3 cachedPlayerRight = Vector3.right;
 
     // Legacy managed state (synced from job each frame for accessors/gizmos)
     private Vector3 smoothedVelocity;
@@ -289,13 +292,18 @@ public partial class BasisLocalFootDriver
 
         rayCastRange = Mathf.Max(leftLegLen, rightLegLen) + 0.3f;
 
+        Matrix4x4 ltw = BasisLocalPlayer.localToWorldMatrix;
+        cachedPlayerUp = ltw.MultiplyVector(Vector3.up).normalized;
+        cachedPlayerFwd = ltw.MultiplyVector(Vector3.forward).normalized;
+        cachedPlayerRight = ltw.MultiplyVector(Vector3.right).normalized;
+
         InitPose(left);
         InitPose(right);
 
         var hc = BasisLocalBoneDriver.HeadControl;
         Vector3 headPos = hc.OutgoingWorldData.position;
         Vector3 bodyFwd = avatarTransform.forward;
-        Vector3 bodyRight = Vector3.Cross(Vector3.up, bodyFwd).normalized;
+        Vector3 bodyRight = Vector3.Cross(cachedPlayerUp, bodyFwd).normalized;
 
         // Allocate job NativeArrays
         DisposeNativeArrays();
@@ -627,12 +635,16 @@ public partial class BasisLocalFootDriver
     public void Simulate(float dt)
     {
         if (!IsInitialized || dt <= 0f) return;
+        Matrix4x4 ltw = BasisLocalPlayer.localToWorldMatrix;
+        cachedPlayerUp = ltw.MultiplyVector(Vector3.up).normalized;
+        cachedPlayerFwd = ltw.MultiplyVector(Vector3.forward).normalized;
+        cachedPlayerRight = ltw.MultiplyVector(Vector3.right).normalized;
 
         // ── 1. Gather transform data + physics (main thread only) ──
         var headData = BasisLocalBoneDriver.HeadControl.OutgoingWorldData;
         var hipsData = BasisLocalBoneDriver.HipsControl.OutgoingWorldData;
         var chestCtrl = BasisLocalBoneDriver.ChestControl;
-        bool groundHit = Physics.Raycast(hips.position, Vector3.down, out RaycastHit ch, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore);
+        bool groundHit = Physics.Raycast(hips.position, -cachedPlayerUp, out RaycastHit ch, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore);
 
         // ── 2. Pack input ──
         _nativeInput[0] = new BasisFootSimInput
@@ -649,6 +661,7 @@ public partial class BasisLocalFootDriver
             groundHit = groundHit,
             groundPoint = groundHit ? (float3)ch.point : float3.zero,
             splayWhenCrouched = SplayWhenCrouchedPercentage,
+            playerUp = cachedPlayerUp,
         };
 
         // ── 3. Schedule + complete Burst job ──
@@ -694,7 +707,8 @@ public partial class BasisLocalFootDriver
     private void FinalizeStep(ref BasisFootNativeState f)
     {
         var sim = _nativeSimState[0];
-        float speed = math.length(new float3(sim.smoothedVelocity.x, 0, sim.smoothedVelocity.z));
+        float3 velFlat = (float3)ProjectHorizontal(sim.smoothedVelocity);
+        float speed = math.length(velFlat);
         float speedT = Mathf.Clamp01(speed / fastSpeedRef);
 
         f.phase = 1; // Stepping
@@ -703,32 +717,44 @@ public partial class BasisLocalFootDriver
         f.stepDur = Mathf.Lerp(stepDurSlow, stepDurFast, speedT);
 
         Vector3 targetXZ = f.predictedTargetXZ;
-        Vector3 rayOrig = targetXZ + Vector3.up * rayCastRange * 0.5f;
-        if (Physics.SphereCast(rayOrig, raySphereRadius, Vector3.down, out RaycastHit hit, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore))
+        Vector3 rayOrig = targetXZ + cachedPlayerUp * rayCastRange * 0.5f;
+        if (Physics.SphereCast(rayOrig, raySphereRadius, -cachedPlayerUp, out RaycastHit hit, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore))
         {
             f.stepTargetPos = hit.point + hit.normal * footHeightOffset;
             f.filteredNormal = hit.normal;
         }
         else
         {
-            f.stepTargetPos = new float3(targetXZ.x, hips.position.y - hipToFoot, targetXZ.z);
+            // Fallback: place foot below hips along player's down direction
+            float hipsUpComp = Vector3.Dot(hips.position, cachedPlayerUp);
+            float targetUpComp = hipsUpComp - hipToFoot;
+            Vector3 targetFlat = ProjectHorizontal(targetXZ);
+            f.stepTargetPos = targetFlat + cachedPlayerUp * targetUpComp;
         }
 
         // Enforce side
         float3 bodyFwd = sim.smoothedBodyFwd;
-        Vector3 rawR = Vector3.Cross(Vector3.up, (Vector3)(float3)bodyFwd).normalized;
+        Vector3 rawR = Vector3.Cross(cachedPlayerUp, (Vector3)(float3)bodyFwd).normalized;
         if (rawR.sqrMagnitude < 0.001f) rawR = Vector3.right;
 
         Vector3 stp = f.stepTargetPos;
-        Vector3 hGround = new Vector3(hips.position.x, stp.y, hips.position.z);
+        // Project hips onto the same up-level as the step target
+        float stpUpComp = Vector3.Dot(stp, cachedPlayerUp);
+        Vector3 hipsFlat = ProjectHorizontal(hips.position);
+        Vector3 hGround = hipsFlat + cachedPlayerUp * stpUpComp;
         EnforceSide(ref stp, hGround, rawR, f.sideSign, stanceWidth * stepTargetSideFraction);
         f.stepTargetPos = stp;
         f.stepTargetRot = FootRotation((Vector3)(float3)bodyFwd, (Vector3)(float3)f.filteredNormal);
     }
-    private static float HDist(Vector3 a, Vector3 b)
+    /// <summary>Projects a vector onto the player's horizontal plane (removes up component).</summary>
+    private Vector3 ProjectHorizontal(Vector3 v)
     {
-        float dx = a.x - b.x, dz = a.z - b.z;
-        return Mathf.Sqrt(dx * dx + dz * dz);
+        return v - cachedPlayerUp * Vector3.Dot(v, cachedPlayerUp);
+    }
+
+    private float HDist(Vector3 a, Vector3 b)
+    {
+        return ProjectHorizontal(a - b).magnitude;
     }
     /// <summary>
     /// Prevents a foot ideal from crossing to the wrong side of the body centerline.
@@ -757,8 +783,9 @@ public partial class BasisLocalFootDriver
     private float HeadYaw()
     {
         var hc = BasisLocalBoneDriver.HeadControl;
-        Vector3 fwd = hc.OutgoingWorldData.rotation * Vector3.forward; fwd.y = 0f;
-        return fwd.sqrMagnitude < 0.001f ? prevHeadYaw : Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+        Vector3 fwd = ProjectHorizontal(hc.OutgoingWorldData.rotation * Vector3.forward);
+        if (fwd.sqrMagnitude < 0.001f) return prevHeadYaw;
+        return Mathf.Atan2(Vector3.Dot(fwd, cachedPlayerRight), Vector3.Dot(fwd, cachedPlayerFwd)) * Mathf.Rad2Deg;
     }
 
     private Vector3 BodyForward()
@@ -773,8 +800,7 @@ public partial class BasisLocalFootDriver
 
         // Hips: strongest influence — the pelvis is the true body facing direction
         var hipsCtrl = BasisLocalBoneDriver.HipsControl;
-        Vector3 hipsFwd = hipsCtrl.OutgoingWorldData.rotation * Vector3.forward;
-        hipsFwd.y = 0f;
+        Vector3 hipsFwd = ProjectHorizontal(hipsCtrl.OutgoingWorldData.rotation * Vector3.forward);
         if (hipsFwd.sqrMagnitude > 0.001f)
         {
             accumulated += hipsFwd.normalized * bodyFwdHipsWeight;
@@ -785,8 +811,7 @@ public partial class BasisLocalFootDriver
         var chestCtrl = BasisLocalBoneDriver.ChestControl;
         if (chestCtrl != null)
         {
-            Vector3 chestFwd = chestCtrl.OutgoingWorldData.rotation * Vector3.forward;
-            chestFwd.y = 0f;
+            Vector3 chestFwd = ProjectHorizontal(chestCtrl.OutgoingWorldData.rotation * Vector3.forward);
             if (chestFwd.sqrMagnitude > 0.001f)
             {
                 accumulated += chestFwd.normalized * bodyFwdChestWeight;
@@ -797,7 +822,7 @@ public partial class BasisLocalFootDriver
         // Head: lightest influence — only adds a gentle bias toward look direction.
         // Ignored when looking steeply up/down (horizontal projection too short).
         Vector3 headFwd = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation * Vector3.forward;
-        Vector3 headFlat = new Vector3(headFwd.x, 0f, headFwd.z);
+        Vector3 headFlat = ProjectHorizontal(headFwd);
         if (headFlat.sqrMagnitude > 0.1f) // only when not looking steeply up/down
         {
             accumulated += headFlat.normalized * bodyFwdHeadWeight;
@@ -823,7 +848,7 @@ public partial class BasisLocalFootDriver
     {
         if (normal.sqrMagnitude < 0.001f)
         {
-            normal = Vector3.up;
+            normal = cachedPlayerUp;
         }
 
         // Project body forward onto surface plane for the foot's forward direction
@@ -837,26 +862,26 @@ public partial class BasisLocalFootDriver
 
         // Clamp tilt: blend between upright and surface-aligned
         Quaternion surfaceRot = Quaternion.LookRotation(fwd, normal);
-        Quaternion uprightRot = Quaternion.LookRotation(fwd, Vector3.up);
+        Quaternion uprightRot = Quaternion.LookRotation(fwd, cachedPlayerUp);
         float tiltAngle = Quaternion.Angle(uprightRot, surfaceRot);
         Quaternion result = tiltAngle > 0.01f ? Quaternion.Slerp(uprightRot, surfaceRot, Mathf.Clamp01(maxFootTiltDegrees / tiltAngle)) : uprightRot;
 
-        // Clamp yaw: how far the foot forward deviates from body forward on the horizontal plane
+        // Clamp yaw: how far the foot forward deviates from body forward projected onto the player's horizontal plane
         Vector3 footFwd = result * Vector3.forward;
-        Vector3 footFwdFlat = new Vector3(footFwd.x, 0f, footFwd.z);
-        Vector3 bodyFwdFlat = new Vector3(bodyFwd.x, 0f, bodyFwd.z);
+        Vector3 footFwdFlat = ProjectHorizontal(footFwd);
+        Vector3 bodyFwdFlat = ProjectHorizontal(bodyFwd);
 
         if (footFwdFlat.sqrMagnitude > 1e-6f && bodyFwdFlat.sqrMagnitude > 1e-6f)
         {
             footFwdFlat.Normalize();
             bodyFwdFlat.Normalize();
 
-            float yawAngle = Vector3.SignedAngle(bodyFwdFlat, footFwdFlat, Vector3.up);
+            float yawAngle = Vector3.SignedAngle(bodyFwdFlat, footFwdFlat, cachedPlayerUp);
             if (Mathf.Abs(yawAngle) > maxFootYawDegrees)
             {
                 float clampedYaw = Mathf.Clamp(yawAngle, -maxFootYawDegrees, maxFootYawDegrees);
                 float correction = clampedYaw - yawAngle;
-                result = Quaternion.AngleAxis(correction, Vector3.up) * result;
+                result = Quaternion.AngleAxis(correction, cachedPlayerUp) * result;
             }
         }
 
@@ -882,14 +907,21 @@ public partial class BasisLocalFootDriver
         }
         else
         {
-            Vector3 d = right.bone.position - left.bone.position;
-            d.y = 0;
-            stanceWidth = Mathf.Max(0.04f, d.magnitude);
+            stanceWidth = Mathf.Max(0.04f, ProjectHorizontal(right.bone.position - left.bone.position).magnitude);
         }
     }
     private void FallbackHipToFoot()
     {
-        hipToFoot = hips != null && left.bone != null && right.bone != null ? Mathf.Max(0.15f, Mathf.Abs(hips.position.y - (left.bone.position.y + right.bone.position.y) * 0.5f)): 0.85f;
+        if (hips != null && left.bone != null && right.bone != null)
+        {
+            float hipsAlongUp = Vector3.Dot(hips.position, cachedPlayerUp);
+            float feetAlongUp = (Vector3.Dot(left.bone.position, cachedPlayerUp) + Vector3.Dot(right.bone.position, cachedPlayerUp)) * 0.5f;
+            hipToFoot = Mathf.Max(0.15f, Mathf.Abs(hipsAlongUp - feetAlongUp));
+        }
+        else
+        {
+            hipToFoot = 0.85f;
+        }
     }
     private void FallbackLegLens(bool isLeft)
     {
@@ -915,7 +947,7 @@ public partial class BasisLocalFootDriver
         }
 
         Vector3 bp = f.bone.position;
-        if (Physics.Raycast(bp + Vector3.up * 0.3f, Vector3.down, out RaycastHit hit, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore))
+        if (Physics.Raycast(bp + cachedPlayerUp * 0.3f, -cachedPlayerUp, out RaycastHit hit, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore))
         {
             f.currentPos = f.plantedPos = f.idealPos = hit.point + hit.normal * footHeightOffset;
             f.filteredNormal = hit.normal;
@@ -923,7 +955,7 @@ public partial class BasisLocalFootDriver
         else
         {
             f.currentPos = f.plantedPos = f.idealPos = bp;
-            f.filteredNormal = Vector3.up;
+            f.filteredNormal = cachedPlayerUp;
         }
         Vector3 fwd = avatarTransform != null ? avatarTransform.forward : Vector3.forward;
         f.currentRot = f.plantedRot = FootRotation(fwd, f.filteredNormal);
@@ -1014,7 +1046,7 @@ public partial class BasisLocalFootDriver
                 float e = 1f - (1f - t) * (1f - t) * (1f - t);
                 Vector3 p = Vector3.Lerp(f.stepStartPos, f.stepTargetPos, e);
                 float lift = Mathf.Pow(t, 0.6f) * Mathf.Pow(1f - t, 1.4f) / 0.234f;
-                p.y += Mathf.Clamp01(lift) * stepHeightCalc;
+                p += cachedPlayerUp * (Mathf.Clamp01(lift) * stepHeightCalc);
                 Gizmos.DrawLine(prev, p);
                 prev = p;
             }
@@ -1033,7 +1065,7 @@ public partial class BasisLocalFootDriver
             ? $"{f.name} STEP {Mathf.Clamp01(f.stepTimer / f.stepDur):P0}"
             : $"{f.name} planted  drift:{dist * 100f:F1}cm";
         UnityEditor.Handles.color = c;
-        UnityEditor.Handles.Label(f.currentPos + Vector3.up * 0.06f, lbl);
+        UnityEditor.Handles.Label(f.currentPos + cachedPlayerUp * 0.06f, lbl);
 #endif
     }
 }

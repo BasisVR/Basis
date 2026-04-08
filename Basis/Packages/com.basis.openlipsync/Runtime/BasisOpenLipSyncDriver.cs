@@ -25,6 +25,7 @@ public static class BasisOpenLipSyncDriver
 
     private static OpenLipSyncBackend _backend;
     private static readonly Dictionary<EntityId, uint> _playerToContext = new Dictionary<EntityId, uint>();
+    private static readonly Stack<uint> _contextPool = new Stack<uint>();
     private static bool _initialized;
 
     public static bool IsInitialized => _initialized;
@@ -79,8 +80,13 @@ public static class BasisOpenLipSyncDriver
             {
                 _backend.DestroyContext(kvp.Value);
             }
+            while (_contextPool.Count > 0)
+            {
+                _backend.DestroyContext(_contextPool.Pop());
+            }
         }
         _playerToContext.Clear();
+        _contextPool.Clear();
 
         _backend?.Dispose();
         _backend = null;
@@ -97,6 +103,14 @@ public static class BasisOpenLipSyncDriver
         }
 
         if (UseSlotLimit && _playerToContext.Count >= MaxSlots) return false;
+
+        // Reuse a pooled context if available
+        if (_contextPool.Count > 0)
+        {
+            contextHandle = _contextPool.Pop();
+            _playerToContext[playerInstanceId] = contextHandle;
+            return true;
+        }
 
         uint ctx = 0;
         var result = _backend.CreateContext(ref ctx);
@@ -116,7 +130,7 @@ public static class BasisOpenLipSyncDriver
         if (_playerToContext.TryGetValue(playerInstanceId, out uint ctx))
         {
             _playerToContext.Remove(playerInstanceId);
-            _backend?.DestroyContext(ctx);
+            _contextPool.Push(ctx);
         }
     }
 
@@ -142,7 +156,43 @@ public static class BasisOpenLipSyncDriver
         return _backend.SendSignal(contextHandle, signal, arg1);
     }
 
+    /// <summary>
+    /// Fired when a slot is forcefully revoked (e.g. MaxSlots was lowered).
+    /// The listener should dispose its BasisOpenLipSyncContext and fall back to uLipSync.
+    /// The backend context is already destroyed before this fires — do NOT call ReleaseSlot.
+    /// </summary>
+    public static event Action<EntityId> OnSlotRevoked;
+
+    /// <summary>
+    /// Evicts excess contexts when UseSlotLimit is enabled and the active count exceeds MaxSlots.
+    /// Call after changing UseSlotLimit or MaxSlots.
+    /// </summary>
+    public static void EnforceSlotLimit()
+    {
+        if (!UseSlotLimit || !_initialized || _backend == null) return;
+
+        // Evict active contexts that exceed the new limit
+        while (_playerToContext.Count > MaxSlots)
+        {
+            var enumerator = _playerToContext.GetEnumerator();
+            if (!enumerator.MoveNext()) break;
+            var entityId = enumerator.Current.Key;
+            var ctx = enumerator.Current.Value;
+            _playerToContext.Remove(entityId);
+            _contextPool.Push(ctx);
+            OnSlotRevoked?.Invoke(entityId);
+        }
+
+        // Trim pooled contexts so total (active + pooled) doesn't exceed MaxSlots
+        int maxPooled = Math.Max(0, MaxSlots - _playerToContext.Count);
+        while (_contextPool.Count > maxPooled)
+        {
+            _backend.DestroyContext(_contextPool.Pop());
+        }
+    }
+
     public static int ActiveSlotCount => _playerToContext.Count;
+    public static int PooledSlotCount => _contextPool.Count;
 
     // Debug accessors
     public static int DebugMelFramesProduced => _backend?.DebugMelFramesProduced ?? 0;

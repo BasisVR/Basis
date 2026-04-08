@@ -170,21 +170,14 @@ namespace Basis.Scripts.Drivers
             );
             InBoneDriver = true;
 
-            // Immediately set hips to the latest network position/rotation
-            // so the avatar never appears at spawn origin before the job system runs.
-            if (References.Hips != null)
-            {
-                receiver.GetLatestNetworkPose(out var networkPos, out var networkRot);
-                References.Hips.SetPositionAndRotation(networkPos, networkRot);
-            }
-
             // player.RemoteBoneDriver.InitializeFromAvatar(player);
             RemotePlayer.BasisAvatar.Animator.enabled = false;
 
             SetupAvatarJiggleColliders();
             ResetAvatarAnimator();
 
-            // Fire optional callback
+            receiver.GetLatestNetworkPose(out var networkPos, out var networkRot);
+            References.Hips.SetPositionAndRotation(networkPos, networkRot);
             CalibrationComplete?.Invoke();
         }
 

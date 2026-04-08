@@ -457,7 +457,8 @@ namespace Basis.Scripts.UI.NamePlate
                 jobScheduled = false;
             }
 
-            ApplyPendingStructuralChanges();
+            if (pendingRemove.Count > 0 || pendingAdd.Count > 0)
+                ApplyPendingStructuralChanges();
 
             count = plates.Count;
             if (count == 0)
@@ -475,22 +476,19 @@ namespace Basis.Scripts.UI.NamePlate
             unsafe
             {
                 PlateInput* pIn = (PlateInput*)inBuf.GetUnsafePtr();
-                PlateOutput* pOut = (PlateOutput*)outBuf.GetUnsafePtr();
 
                 for (int i = 0; i < count; i++)
                 {
                     var p = plates[i];
-                    var tc = p.GetTalkColorForJob();
+                    bool pulsing = p.GetIsPulsingForJob();
 
                     pIn[i] = new PlateInput
                     {
-                        isVisible = (ushort)(p.IsVisible ? 1 : 0),
-                        isPulsing = (ushort)(p.GetIsPulsingForJob() ? 1 : 0),
-                        startTime = p.GetTalkStartTimeForJob(),
-                        talkColor = new float4(tc.r, tc.g, tc.b, tc.a)
+                        isVisible = (ushort)p.IsVisibleRaw,
+                        isPulsing = (ushort)(pulsing ? 1 : 0),
+                        startTime = pulsing ? p.GetTalkStartTimeForJob() : 0,
+                        talkColor = pulsing ? p.GetTalkColorFloat4ForJob() : default
                     };
-
-                    pOut[i] = default;
                 }
             }
 
@@ -504,7 +502,17 @@ namespace Basis.Scripts.UI.NamePlate
                 outputs = outBuf
             };
 
-            handle = job.Schedule(count, 64);
+            // For small counts, run inline — job system scheduling overhead
+            // exceeds the trivial per-item computation (branch + lerp).
+            if (count <= 64)
+            {
+                job.Run(count);
+                handle = default;
+            }
+            else
+            {
+                handle = job.Schedule(count, 64);
+            }
             jobScheduled = true;
         }
 

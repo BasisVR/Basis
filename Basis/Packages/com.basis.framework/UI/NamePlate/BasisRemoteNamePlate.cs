@@ -6,6 +6,7 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System.Threading;
 using TMPro;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Basis.Scripts.UI.NamePlate
@@ -21,9 +22,11 @@ namespace Basis.Scripts.UI.NamePlate
         private int _isVisible = 1; // 1 = true, 0 = false
         public bool IsVisible
         {
-            get => Interlocked.CompareExchange(ref _isVisible, 1, 1) == 1;
-            private set => Interlocked.Exchange(ref _isVisible, value ? 1 : 0);
+            get => Volatile.Read(ref _isVisible) == 1;
+            private set => Volatile.Write(ref _isVisible, value ? 1 : 0);
         }
+        /// <summary>Raw int for job gather — avoids bool→ushort conversion.</summary>
+        internal int IsVisibleRaw => Volatile.Read(ref _isVisible);
 
         public bool HasProgressBarVisible = false;
         public Mesh bakedMesh;
@@ -65,6 +68,7 @@ namespace Basis.Scripts.UI.NamePlate
         private bool isPulsingTalk;
         private double talkStartTime;
         private Color talkColorCached;
+        private float4 talkColorFloat4;
         /// <summary>
         /// can only be called once after that the text is nuked and a mesh render is just used with a filter
         /// </summary>
@@ -222,6 +226,7 @@ namespace Basis.Scripts.UI.NamePlate
                 talkColorCached = BasisRemotePlayer.OutOfRangeFromLocal
                     ? BasisRemoteNamePlateDriver.StaticOutOfRangeColor
                     : BasisRemoteNamePlateDriver.StaticIsTalkingColor;
+                talkColorFloat4 = new float4(talkColorCached.r, talkColorCached.g, talkColorCached.b, talkColorCached.a);
 
                 // Start pulse timeline
                 talkStartTime = Time.timeAsDouble;
@@ -233,7 +238,7 @@ namespace Basis.Scripts.UI.NamePlate
         }
         internal bool GetIsPulsingForJob() => isPulsingTalk;
         internal double GetTalkStartTimeForJob() => talkStartTime;
-        internal Color GetTalkColorForJob() => talkColorCached;
+        internal float4 GetTalkColorFloat4ForJob() => talkColorFloat4;
         internal void StopPulseFromJob()
         {
             isPulsingTalk = false;

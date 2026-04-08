@@ -18,7 +18,7 @@ public static class BasisNetworkEvents
             case BasisNetworkCommons.ShoutVoiceChannel:
                 BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ShoutVoice, Reader.AvailableBytes);
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleShoutAudioUpdate(Reader);
@@ -117,7 +117,7 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, false);
@@ -125,7 +125,7 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceLargeChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, true);

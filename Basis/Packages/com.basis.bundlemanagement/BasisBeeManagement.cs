@@ -52,7 +52,7 @@ public static class BasisBeeManagement
 
         if (output.Item1 == null || output.Item3 != string.Empty)
         {
-            throw new Exception($"missing Bundle Bytes Array Error Message {output.Item3}");
+            throw new Exception($"Bundle load failed for {wrapper?.LoadableBundle?.BasisRemoteBundleEncrypted?.RemoteBeeFileLocation ?? "unknown"}: {output.Item3}");
         }
         IEnumerable<AssetBundle> AssetBundles = AssetBundle.GetAllLoadedAssetBundles();
         foreach (AssetBundle assetBundle in AssetBundles)
@@ -67,6 +67,9 @@ public static class BasisBeeManagement
                 if (assetBundle != null && assetBundle.Contains(AssetToLoadName))
                 {
                     wrapper.AssetBundle = assetBundle;
+                    #if UNITY_BUNDLEUNLOAD
+                    wrapper.IsBundleBackingStoreReleased = false;
+                    #endif
                     BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
                     await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
                     return;
@@ -100,12 +103,16 @@ public static class BasisBeeManagement
             }
 
             wrapper.AssetBundle = bundleRequest.assetBundle;
+            #if UNITY_BUNDLEUNLOAD
+            wrapper.IsBundleBackingStoreReleased = false;
+            #endif
 
             await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
         }
         catch (Exception ex)
         {
             BasisDebug.LogError(ex);
+            throw;
         }
     }
     /// <summary>

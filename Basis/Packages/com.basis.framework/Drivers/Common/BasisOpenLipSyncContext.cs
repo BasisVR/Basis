@@ -152,7 +152,10 @@ namespace Basis.Scripts.Drivers
                 {
                     dstArr[w] = data[s];
                     w++;
-                    if (w >= cap) w = 0;
+                    if (w >= cap)
+                    {
+                        w = 0;
+                    }
                 }
             }
 

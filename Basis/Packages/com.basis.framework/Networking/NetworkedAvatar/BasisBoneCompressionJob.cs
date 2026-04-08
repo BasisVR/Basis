@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine.Jobs;
 using static Basis.Network.Core.Compression.BasisAvatarBitPacking;
 
 namespace Basis.Scripts.Networking.NetworkedAvatar
@@ -136,6 +137,28 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 bytePos++;
                 bitInByte = 0;
             }
+        }
+    }
+
+    /// <summary>
+    /// Reads bone local rotations from transforms via TransformAccessArray,
+    /// replacing the main-thread ExtractBoneDeltas loop.
+    /// Uses a slot remap to handle missing bones (only valid transforms
+    /// are in the TransformAccessArray).
+    /// </summary>
+    [BurstCompile]
+    public struct ReadBoneLocalRotationsJob : IJobParallelForTransform
+    {
+        /// <summary>Maps TransformAccessArray index → slot in CurrentLocalRotations.</summary>
+        [ReadOnly] public NativeArray<int> SlotRemap;
+
+        /// <summary>Output: local rotations written at remapped slot indices.</summary>
+        [NativeDisableParallelForRestriction]
+        public NativeArray<quaternion> CurrentLocalRotations;
+
+        public void Execute(int index, TransformAccess transform)
+        {
+            CurrentLocalRotations[SlotRemap[index]] = transform.localRotation;
         }
     }
 }

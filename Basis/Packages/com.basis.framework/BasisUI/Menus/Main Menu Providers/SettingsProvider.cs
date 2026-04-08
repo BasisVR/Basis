@@ -13,6 +13,17 @@ namespace Basis.BasisUI
     {
         private static string _pendingTabName;
 
+        /// <summary>
+        /// External packages can register additional settings tabs here via [RuntimeInitializeOnLoadMethod].
+        /// Each entry is (tabName, builder) where builder receives the PanelTabGroup and returns a PanelTabPage.
+        /// </summary>
+        public static readonly List<(string TabName, Func<PanelTabGroup, PanelTabPage> Builder)> ExternalTabs = new();
+
+        /// <summary>
+        /// When set by an external package, replaces the default My Avatar tab builder.
+        /// </summary>
+        public static Func<PanelTabGroup, PanelTabPage> MyAvatarTabOverride;
+
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
@@ -27,7 +38,8 @@ namespace Basis.BasisUI
         private static void ApplyOpenLipSyncMaxSlots()
         {
             BasisOpenLipSyncDriver.UseSlotLimit = BasisSettingsDefaults.UseOpenLipSyncLimit.RawValue;
-            BasisOpenLipSyncDriver.MaxSlots = Mathf.Max(1, (int)BasisSettingsDefaults.OpenLipSyncMaxSlots.RawValue);
+            BasisOpenLipSyncDriver.MaxSlots = Mathf.Max(0, (int)BasisSettingsDefaults.OpenLipSyncMaxSlots.RawValue);
+            BasisOpenLipSyncDriver.EnforceSlotLimit();
         }
 
         public static string StaticTitle => "Settings";
@@ -95,10 +107,21 @@ namespace Basis.BasisUI
             AddLazyTab(tabGroup, "Chat", () => ChatTab(tabGroup));
             AddLazyTab(tabGroup, "Body Tracking", () => SettingsProviderIK.IKTab(tabGroup));
             AddLazyTab(tabGroup, "Nameplates", () => SettingsProviderNamePlate.NamePlateTab(tabGroup));
+            AddLazyTab(tabGroup, "My Avatar", () =>
+                MyAvatarTabOverride != null
+                    ? MyAvatarTabOverride(tabGroup)
+                    : SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
             AddLazyTab(tabGroup, "Downloads & Cache", () => SettingsProviderStorage.StorageTab(tabGroup));
+            AddLazyTab(tabGroup, "Trusted URLs", () => SettingsProviderTrustedUrls.TrustedUrlsTab(tabGroup));
           //  AddLazyTab(tabGroup, "UI Style", () => SettingsProviderUIStyle.UIStyleTab(tabGroup));
             AddLazyTab(tabGroup, "Developer", () => DeveloperTab(tabGroup));
 
+            // External package tabs (registered via SettingsProvider.ExternalTabs)
+            for (int i = 0; i < ExternalTabs.Count; i++)
+            {
+                var ext = ExternalTabs[i];
+                AddLazyTab(tabGroup, ext.TabName, () => ext.Builder(tabGroup));
+            }
 
             if (BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsView))
             {
@@ -256,6 +279,21 @@ namespace Basis.BasisUI
                 rangeGroup.ForceRebuild();
             };
 
+            // TODO: re-enable when avatar preview is finished
+            // PanelToggle toggleAvatarPreview = PanelToggle.CreateNewEntry(rangeGroup);
+            // toggleAvatarPreview.AssignBinding(BasisSettingsDefaults.AvatarPreview);
+            // toggleAvatarPreview.Descriptor.SetTitle("Avatar Preview");
+            // toggleAvatarPreview.Descriptor.SetDescription("Show a live preview of your avatar on the HUD.");
+
+            PanelElementDescriptor interactionsGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            interactionsGroup.SetTitle("Interactions");
+
+            PanelToggle toggleDisableSeats = PanelToggle.CreateNewEntry(interactionsGroup);
+            toggleDisableSeats.AssignBinding(BasisSettingsDefaults.DisableSeats);
+            toggleDisableSeats.Descriptor.SetTitle("Disable Seats");
+            toggleDisableSeats.Descriptor.SetDescription("Prevent sitting in seats placed in the world.");
+
             SettingsProviderPlatform.BuildAutoSwapUI(container);
 
             // One reset button for this whole page
@@ -273,6 +311,8 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.UseViewConeAvatars.ResetToDefault();
             BasisSettingsDefaults.ViewConeAngle.ResetToDefault();
             BasisSettingsDefaults.HearingRange.ResetToDefault();
+            BasisSettingsDefaults.AvatarPreview.ResetToDefault();
+            BasisSettingsDefaults.DisableSeats.ResetToDefault();
             BasisSettingsDefaults.SwapMode.ResetToDefault();
 #if !BASIS_DISABLE_MICROPHONE
             BasisSettingsDefaults.MicrophoneRange.ResetToDefault();
@@ -799,6 +839,32 @@ namespace Basis.BasisUI
             RectTransform container = descriptor.ContentParent;
 
 
+            // --- Accessibility: Bloom Override ---
+            PanelToggle toggleBloomOverride = PanelToggle.CreateNewEntry(container);
+            toggleBloomOverride.AssignBinding(BasisSettingsDefaults.UseBloomOverride);
+            toggleBloomOverride.Descriptor.SetTitle("Override Bloom Intensity");
+            toggleBloomOverride.Descriptor.SetDescription("Override the scene bloom intensity.");
+
+            PanelElementDescriptor bloomGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            bloomGroup.SetTitle("Bloom");
+
+            PanelSlider sliderBloomIntensity = PanelSlider.CreateEntryAndBind(
+                bloomGroup.ContentParent,
+                new PanelSlider.SliderSettings("Bloom Intensity",
+                    "",
+                    BasisSettingsDefaults.BLOOM_INTENSITY_MIN,
+                    BasisSettingsDefaults.BLOOM_INTENSITY_MAX,
+                    false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.BloomIntensity);
+
+            bloomGroup.SetActive(toggleBloomOverride.Value);
+            toggleBloomOverride.OnValueChanged += (val) =>
+            {
+                bloomGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
+
             PanelElementDescriptor qualityGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             qualityGroup.SetTitle("Quality");
@@ -883,6 +949,55 @@ namespace Basis.BasisUI
             dropdownScreenMode.AssignEntries(screenModeOptions);
             dropdownScreenMode.DropdownComponent.onValueChanged.AddListener(ScreenMode);
             dropdownScreenMode.DropdownComponent.SetValueWithoutNotify(GetIndexFromScreenMode(Screen.fullScreenMode));
+
+            // --- Mirror Quality Override ---
+            PanelToggle toggleMirrorOverride = PanelToggle.CreateNewEntry(container);
+            toggleMirrorOverride.AssignBinding(BasisSettingsDefaults.UseMirrorQualityOverride);
+            toggleMirrorOverride.Descriptor.SetTitle("Override Mirror Quality");
+            toggleMirrorOverride.Descriptor.SetDescription("Override the resolution used by mirrors.");
+
+            PanelElementDescriptor mirrorGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            mirrorGroup.SetTitle("Mirror Quality");
+
+            PanelDropdown dropdownMirrorQuality = PanelDropdown.CreateNewEntry(mirrorGroup.ContentParent);
+            dropdownMirrorQuality.Descriptor.SetTitle("Mirror Resolution");
+            dropdownMirrorQuality.AssignEntries(new List<string> { "256", "512", "1024", "2048", "4096", "8192" });
+            dropdownMirrorQuality.AssignBinding(BasisSettingsDefaults.MirrorQuality);
+
+            mirrorGroup.SetActive(toggleMirrorOverride.Value);
+            toggleMirrorOverride.OnValueChanged += (val) =>
+            {
+                mirrorGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
+
+            // --- Camera Near/Far Override ---
+            PanelToggle toggleCameraClipOverride = PanelToggle.CreateNewEntry(container);
+            toggleCameraClipOverride.AssignBinding(BasisSettingsDefaults.UseCameraClipOverride);
+            toggleCameraClipOverride.Descriptor.SetTitle("Override Camera Clip Distances");
+            toggleCameraClipOverride.Descriptor.SetDescription("Force near and far clip plane distances on the camera.");
+
+            PanelElementDescriptor cameraClipGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            cameraClipGroup.SetTitle("Camera Clip Distances");
+
+            PanelSlider sliderCameraNear = PanelSlider.CreateEntryAndBind(
+                cameraClipGroup,
+                PanelSlider.SliderSettings.Advanced("Near Clip", 0.001f, 0.1f, false, 3, ValueDisplayMode.Meters),
+                BasisSettingsDefaults.CameraClipNear);
+
+            PanelSlider sliderCameraFar = PanelSlider.CreateEntryAndBind(
+                cameraClipGroup,
+                PanelSlider.SliderSettings.Advanced("Far Clip", 10f, 5000f, true, 0, ValueDisplayMode.Meters),
+                BasisSettingsDefaults.CameraClipFar);
+
+            cameraClipGroup.SetActive(toggleCameraClipOverride.Value);
+            toggleCameraClipOverride.OnValueChanged += (val) =>
+            {
+                cameraClipGroup.SetActive(val);
+                descriptor.ForceRebuild();
+            };
 
             PanelToggle toggleAdvanced = PanelToggle.CreateNewEntry(container);
             toggleAdvanced.Descriptor.SetTitle("Advanced");
@@ -978,6 +1093,15 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.PoseLOD.ResetToDefault();
             BasisSettingsDefaults.AvatarMeshLOD.ResetToDefault();
             BasisSettingsDefaults.GlobalMeshLOD.ResetToDefault();
+
+            BasisSettingsDefaults.UseMirrorQualityOverride.ResetToDefault();
+            BasisSettingsDefaults.MirrorQuality.ResetToDefault();
+            BasisSettingsDefaults.UseCameraClipOverride.ResetToDefault();
+            BasisSettingsDefaults.CameraClipNear.ResetToDefault();
+            BasisSettingsDefaults.CameraClipFar.ResetToDefault();
+
+            BasisSettingsDefaults.UseBloomOverride.ResetToDefault();
+            BasisSettingsDefaults.BloomIntensity.ResetToDefault();
 
             // Note: Resolution & ScreenMode are not shown as BasisSettingsDefaults bindings in your snippet.
             // If you later add bindings for them, add them here.

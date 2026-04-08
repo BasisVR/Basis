@@ -94,6 +94,8 @@ namespace Basis.Scripts.Networking.Receivers
         private bool _avatarDirty = true;
 
         private double interpolationTime = 0f; // 0..1 over current->next window
+        // Cached on main thread during PreCompute so ComputeData can read it off-thread.
+        internal float CachedHumanScale = 1f;
 
         public bool HasBufferHolds;
 
@@ -130,18 +132,14 @@ namespace Basis.Scripts.Networking.Receivers
         public BasisAvatarBuffer Next { get; private set; }
         public bool hasRequiredData = false;
         /// <summary>
-        /// Main-thread simulation step. Pulls packets, maintains interpolation window,
-        /// computes interpolationTime, and feeds inputs to the network driver.
+        /// Main-thread pre-pass: Unity object validation only (rare dirty path).
+        /// Caches all Unity references so the parallel phase never touches Unity APIs.
         /// </summary>
-        public void Compute(double unscaledDeltaTime)
+        public void PreCompute()
         {
-            AudioReceiverModule?.DrainAndDecode();
-
             // Re-validate avatar references only when dirty (avatar change, init, etc.)
-            // Avoids expensive Unity null checks (managed→native interop) every frame for all receivers.
             if (_avatarDirty)
             {
-                // expected briefly on join — stay dirty so we retry next frame
                 if (Player.BasisAvatar == null)
                 {
                     hasRequiredData = false;
@@ -162,16 +160,37 @@ namespace Basis.Scripts.Networking.Receivers
                     return;
                 }
                 hasRequiredData = true;
+                CachedHumanScale = Player.BasisAvatar.HumanScale;
+                if (LastAvatarsTransform != Player.AvatarTransform)
+                {
+                    LastAvatarsTransform = Player.AvatarTransform;
+                    DidLastAvatarTransformChanged = true;
+                }
                 _avatarDirty = false;
             }
+        }
+
+        /// <summary>
+        /// Main-thread post-pass after parallel ComputeData: applies AudioSource state.
+        /// Lightweight — just checks a bool per receiver.
+        /// </summary>
+        public void PostCompute()
+        {
+            AudioReceiverModule?.ApplyAudioState();
+        }
+
+        /// <summary>
+        /// Thread-safe: audio decode + packet drain + window management + interpolation + SoA writes.
+        /// Each receiver operates on its own state and writes only to its own playerId slot.
+        /// Safe to call from worker threads after PreCompute completes on main thread.
+        /// </summary>
+        public void ComputeData(double unscaledDeltaTime)
+        {
+            // Audio decode is thread-safe (per-receiver decoder/buffers, no Unity API).
+            AudioReceiverModule?.DrainAndDecodeThreadSafe();
 
             if (!hasRequiredData) return;
 
-            if (LastAvatarsTransform != Player.AvatarTransform)
-            {
-                LastAvatarsTransform = Player.AvatarTransform;
-                DidLastAvatarTransformChanged = true;
-            }
             // 1) Pull network packets, drop stale, sort by sequence, then stage
             if (System.Threading.Interlocked.Exchange(ref _pendingCount, 0) > 0)
             {
@@ -180,8 +199,6 @@ namespace Basis.Scripts.Networking.Receivers
                 {
                     if (_seenPackets >= 2)
                     {
-                        // Forward distance from highest to buffer:
-                        // [1,127] = buffer is newer, [128,255] = buffer is behind (stale)
                         byte fwd = unchecked((byte)(buffer.Sequence - _highestSequence));
                         if (fwd >= 128)
                         {
@@ -195,9 +212,6 @@ namespace Basis.Scripts.Networking.Receivers
                     }
                     else
                     {
-                        // Warmup: skip stale checking, seed highest from second packet.
-                        // First packet is initial join data with an unset sequence (0);
-                        // second packet is the first streaming update with a real server sequence.
                         if (_seenPackets == 1)
                         {
                             _highestSequence = buffer.Sequence;
@@ -208,13 +222,11 @@ namespace Basis.Scripts.Networking.Receivers
                     _pendingSort.Add(buffer);
                 }
 
-                // Sort by sequence so out-of-order arrivals are staged in correct order
                 if (_pendingSort.Count > 1)
                 {
                     _pendingSort.Sort(s_sequenceCompare);
                 }
 
-                // Enqueue sorted items into staging ring with monotonic server clock
                 for (int i = 0; i < _pendingSort.Count; i++)
                 {
                     var buffer = _pendingSort[i];
@@ -235,18 +247,17 @@ namespace Basis.Scripts.Networking.Receivers
             // 2) Ensure we have a valid interpolation window (Current -> Next)
             if (!HasCurrentBuffer)
             {
-                TrySeedFirstFromStaging();   // only takes ONE oldest
+                TrySeedFirstFromStaging();
             }
 
             if (!HasNextBuffer)
             {
-                TrySetLastFromStaging();     // only takes ONE next-oldest
+                TrySetLastFromStaging();
             }
 
             HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
             if (!HasBufferHolds)
             {
-                // It's valid to be here if we haven't received enough frames yet.
                 return;
             }
 
@@ -264,11 +275,7 @@ namespace Basis.Scripts.Networking.Receivers
             }
             StagedCount = _stagedRing.Count;
 
-            HasBufferHolds = HasCurrentBuffer && HasNextBuffer;
-
-            // 3) If we have a window, advance time then slide the window forward if needed.
-            //    Adding dt BEFORE the window advance ensures excess time carries into the
-            //    next window instead of being lost to job-side clamping (which caused stalls).
+            // 3) Advance time and slide the interpolation window forward as needed.
             if (HasBufferHolds)
             {
                 double windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
@@ -277,16 +284,14 @@ namespace Basis.Scripts.Networking.Receivers
                     windowDuration = math.max(Next.SecondsInterval, 1e-3);
                 }
                 float rate = 1f + CatchupGain * (StagedCount - TargetJitterDepth);
-                rate = Mathf.Clamp(rate, MinPlaybackRate, MaxPlaybackRate);
+                rate = math.clamp(rate, MinPlaybackRate, MaxPlaybackRate);
 
-                // Add this frame's time FIRST
                 interpolationTime += (unscaledDeltaTime / windowDuration * (double)rate);
                 if (!math.isfinite(interpolationTime))
                 {
                     interpolationTime = 1;
                 }
 
-                // Advance windows, preserving excess time so movement stays smooth
                 while (interpolationTime >= 1.0 && _stagedRing.Count != 0)
                 {
                     if (HasCurrentBuffer)
@@ -309,7 +314,6 @@ namespace Basis.Scripts.Networking.Receivers
                         break;
                     }
 
-                    // Recalculate window duration for the new pair
                     windowDuration = Next.ServerTimeSeconds - Current.ServerTimeSeconds;
                     if (!(windowDuration > 1e-6 && windowDuration < 1e6))
                     {
@@ -317,9 +321,6 @@ namespace Basis.Scripts.Networking.Receivers
                     }
                 }
 
-                // Cap at 1.0 when stuck waiting for data (staging empty).
-                // Without this, time debt accumulates and causes fast-forward
-                // when the next packet arrives.
                 if (interpolationTime > 1.0)
                 {
                     interpolationTime = 1.0;
@@ -335,7 +336,7 @@ namespace Basis.Scripts.Networking.Receivers
                     var last = Next;
                     BasisRemoteNetworkDriver.SetFrameInputs(
                         playerId,
-                        Player.BasisAvatar.HumanScale,
+                        CachedHumanScale,
                         first.Position, last.Position,
                         first.Scale, last.Scale,
                         first.Rotation, last.Rotation,
@@ -345,6 +346,16 @@ namespace Basis.Scripts.Networking.Receivers
                     SentLatest = false;
                 }
             }
+        }
+
+        /// <summary>
+        /// Legacy single-call path (calls all phases sequentially on the main thread).
+        /// </summary>
+        public void Compute(double unscaledDeltaTime)
+        {
+            PreCompute();
+            ComputeData(unscaledDeltaTime);
+            PostCompute();
         }
         public bool IsDataReady = false;
 

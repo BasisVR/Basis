@@ -212,9 +212,7 @@ namespace Basis.Scripts.BasisSdk.Players
                     AlwaysRequestedAvatar = BasisLoadedBundle;
                     AlwaysRequestedMode = CACM.loadMode;
 
-                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
-                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero, Quaternion.identity);
+                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,Vector3.zero, Quaternion.identity);
                 }
                 else
                 {
@@ -251,7 +249,7 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (IsLoadingAnAvatar)
             {
-                BasisDebug.LogWarning("We Loaded a Avatar While a Existing Avatar was loading!!", BasisDebug.LogTag.Remote);
+                return;
             }
             IsLoadingAnAvatar = true;
             if (BasisLoadableBundle == null || string.IsNullOrEmpty(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation))
@@ -273,13 +271,19 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
             }
-            else
+            else if (!IsConsideredFallBackAvatar)
             {
-                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
-                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero, Quaternion.identity);
+                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,Vector3.zero, Quaternion.identity);
             }
             IsLoadingAnAvatar = false;
+
+            // If state drifted during the load, re-evaluate immediately.
+            // Otherwise set cooldown to prevent oscillation.
+            bool stateMismatch = (InAvatarRange && IsConsideredFallBackAvatar) || (!InAvatarRange && !IsConsideredFallBackAvatar);
+            if (stateMismatch)
+            {
+                ReloadAvatar();
+            }
         }
 
         #endregion
