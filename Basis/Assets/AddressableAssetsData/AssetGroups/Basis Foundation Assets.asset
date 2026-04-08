@@ -46,6 +46,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9dd982448bb448cdb10be5d44e1b14e4
+    m_Address: EmbeddedItemsCatalog
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 0eada6da580205b4987e0befda25ca0a
     m_Address: BasisLoadingScenePrefab
     m_ReadOnly: 0
