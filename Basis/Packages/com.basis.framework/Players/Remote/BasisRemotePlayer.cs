@@ -85,12 +85,6 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool InAvatarRange = true;
 
         /// <summary>
-        /// Cooldown timer that prevents rapid avatar reload oscillation.
-        /// While positive, avatar range transitions are ignored.
-        /// </summary>
-        public float AvatarReloadCooldown = 0;
-
-        /// <summary>
         /// Current mesh LOD level (0 = closest, 3 = furthest). Set by BasisTransmissionResults.
         /// Used to control pose update frequency — distant players update less often.
         /// </summary>
@@ -218,9 +212,7 @@ namespace Basis.Scripts.BasisSdk.Players
                     AlwaysRequestedAvatar = BasisLoadedBundle;
                     AlwaysRequestedMode = CACM.loadMode;
 
-                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
-                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero, Quaternion.identity);
+                    BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,Vector3.zero, Quaternion.identity);
                 }
                 else
                 {
@@ -281,23 +273,16 @@ namespace Basis.Scripts.BasisSdk.Players
             }
             else if (!IsConsideredFallBackAvatar)
             {
-                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,
-                    BasisAvatarFactory.LoadingAvatar.BasisLocalEncryptedBundle.DownloadedBeeFileLocation,
-                    Vector3.zero, Quaternion.identity);
+                BasisAvatarFactory.RemoveOldAvatarAndLoadFallback(this,Vector3.zero, Quaternion.identity);
             }
             IsLoadingAnAvatar = false;
 
             // If state drifted during the load, re-evaluate immediately.
             // Otherwise set cooldown to prevent oscillation.
-            bool stateMismatch = (InAvatarRange && IsConsideredFallBackAvatar)
-                              || (!InAvatarRange && !IsConsideredFallBackAvatar);
+            bool stateMismatch = (InAvatarRange && IsConsideredFallBackAvatar) || (!InAvatarRange && !IsConsideredFallBackAvatar);
             if (stateMismatch)
             {
                 ReloadAvatar();
-            }
-            else
-            {
-                AvatarReloadCooldown = 1f;
             }
         }
 

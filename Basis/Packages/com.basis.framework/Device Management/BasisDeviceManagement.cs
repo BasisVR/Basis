@@ -1,11 +1,5 @@
-using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Threading.Tasks;
 using Basis.BasisUI;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Command_Line_Args;
 using Basis.Scripts.Device_Management.Devices;
@@ -14,6 +8,13 @@ using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders;
 using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Threading.Tasks;
 using uLipSync;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
@@ -264,6 +265,8 @@ namespace Basis.Scripts.Device_Management
         /// <returns>A task that completes when initialization and bindings load are finished.</returns>
         public async Task Initialize()
         {
+
+            BasisAvatarFactory.Initalize();
             BasisPlayerFactory.Initalize();
             BasisXRManagement.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
