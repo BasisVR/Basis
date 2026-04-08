@@ -65,7 +65,7 @@ namespace Basis.Scripts.Drivers
         /// Initializes TPose, references, face visibility, eye/blink drivers, and physics colliders.
         /// </summary>
         /// <param name="RemotePlayer">The remote player whose avatar is being configured.</param>
-        public void RemoteCalibration(BasisRemotePlayer RemotePlayer)
+        public void RemoteCalibration(BasisRemotePlayer RemotePlayer, Transform preFoundHips = null)
         {
             if (!IsAble(RemotePlayer))
             {
@@ -172,10 +172,11 @@ namespace Basis.Scripts.Drivers
 
             // Immediately set hips to the latest network position/rotation
             // so the avatar never appears at spawn origin before the job system runs.
-            if (References.Hips != null)
+            Transform hips = preFoundHips != null ? preFoundHips : References.Hips;
+            if (hips != null)
             {
                 receiver.GetLatestNetworkPose(out var networkPos, out var networkRot);
-                References.Hips.SetPositionAndRotation(networkPos, networkRot);
+                hips.SetPositionAndRotation(networkPos, networkRot);
             }
 
             // player.RemoteBoneDriver.InitializeFromAvatar(player);
