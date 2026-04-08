@@ -208,7 +208,7 @@ public static class BasisNetworkSpawnItem
 
         if (reference == null)
         {
-            BasisDebug.LogError($"Unable to load {loadBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}", BasisDebug.LogTag.Networking);
+            BasisDebug.LogError($"Unable to load content from {localLoadResource.CombinedURL}. This may be caused by the bundle not having a build for the current platform ({UnityEngine.Application.platform}). Check earlier log messages for details.", BasisDebug.LogTag.Networking);
             BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
             return null;
         }
