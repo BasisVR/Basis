@@ -159,6 +159,8 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> EnableStatistics = new("enablestatistics", new BasisPlatformDefault<bool>(false));
 
+        public static BasisSettingsBinding<bool> AvatarShowTextureStats = new("avatarshowtexturestats", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<bool> DevShowBuildInfo = new("devshowbuildinfo", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> DevShowConsole = new("devshowconsole", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<bool> DevShowEuroFilter = new("devshowfilter", new BasisPlatformDefault<bool>(false));

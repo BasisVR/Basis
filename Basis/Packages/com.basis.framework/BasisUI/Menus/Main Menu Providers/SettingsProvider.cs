@@ -19,6 +19,11 @@ namespace Basis.BasisUI
         /// </summary>
         public static readonly List<(string TabName, Func<PanelTabGroup, PanelTabPage> Builder)> ExternalTabs = new();
 
+        /// <summary>
+        /// When set by an external package, replaces the default My Avatar tab builder.
+        /// </summary>
+        public static Func<PanelTabGroup, PanelTabPage> MyAvatarTabOverride;
+
         [RuntimeInitializeOnLoadMethod]
         public static void AddToMenu()
         {
@@ -102,7 +107,10 @@ namespace Basis.BasisUI
             AddLazyTab(tabGroup, "Chat", () => ChatTab(tabGroup));
             AddLazyTab(tabGroup, "Body Tracking", () => SettingsProviderIK.IKTab(tabGroup));
             AddLazyTab(tabGroup, "Nameplates", () => SettingsProviderNamePlate.NamePlateTab(tabGroup));
-            AddLazyTab(tabGroup, "My Avatar", () => SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
+            AddLazyTab(tabGroup, "My Avatar", () =>
+                MyAvatarTabOverride != null
+                    ? MyAvatarTabOverride(tabGroup)
+                    : SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
             AddLazyTab(tabGroup, "Downloads & Cache", () => SettingsProviderStorage.StorageTab(tabGroup));
             AddLazyTab(tabGroup, "Trusted URLs", () => SettingsProviderTrustedUrls.TrustedUrlsTab(tabGroup));
           //  AddLazyTab(tabGroup, "UI Style", () => SettingsProviderUIStyle.UIStyleTab(tabGroup));

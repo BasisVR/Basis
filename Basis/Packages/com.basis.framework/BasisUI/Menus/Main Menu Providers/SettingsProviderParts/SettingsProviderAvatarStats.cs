@@ -29,6 +29,15 @@ namespace Basis.BasisUI
             return tab;
         }
 
+        /// <summary>
+        /// Builds texture/VRAM stats UI into the given container.
+        /// Called by SettingsProviderFaceTracking for the collapsible texture section.
+        /// </summary>
+        public static void PopulateStatsInto(RectTransform container)
+        {
+            PopulateStats(container);
+        }
+
         static void PopulateStats(RectTransform container)
         {
             BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;

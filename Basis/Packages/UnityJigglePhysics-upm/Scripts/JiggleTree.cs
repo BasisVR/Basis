@@ -134,6 +134,7 @@ public class JiggleTree {
         rootID = bones[0].GetEntityId();
         if (hasJiggleTreeStruct) {
             jiggleTreeJobData.Set(rootID, this.points, this.parameters);
+            jiggleTreeJobData.colliderCount = (uint)this.personalColliders.Length;
         }
 
         dirty = false;

@@ -700,23 +700,24 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 newPersonalColliders += command.tree.personalColliders.Length;
             }
 
-            if (transformCount + newTransforms >= transformCapacity) {
-                ReadIn();
-                ResizeTransformCapacity(Mathf.NextPowerOfTwo(transformCount+newTransforms+1));
-                WriteOut();
-                return;
-            }
-            if (treeCount + newTrees >= treeCapacity) {
-                ReadIn();
-                ResizeTreeCapacity(Mathf.NextPowerOfTwo(treeCount+newTrees+1));
-                WriteOut();
-                return;
-            }
-            if (personalColliderCount + newPersonalColliders >= personalColliderCapacity) {
-                ReadIn();
-                ResizePersonalColliderCapacity(Mathf.NextPowerOfTwo(personalColliderCount+newPersonalColliders+1));
-                WriteOut();
-                return;
+            {
+                bool needsResize = false;
+                if (transformCount + newTransforms >= transformCapacity) {
+                    if (!needsResize) { ReadIn(); needsResize = true; }
+                    ResizeTransformCapacity(Mathf.NextPowerOfTwo(transformCount+newTransforms+1));
+                }
+                if (treeCount + newTrees >= treeCapacity) {
+                    if (!needsResize) { ReadIn(); needsResize = true; }
+                    ResizeTreeCapacity(Mathf.NextPowerOfTwo(treeCount+newTrees+1));
+                }
+                if (personalColliderCount + newPersonalColliders >= personalColliderCapacity) {
+                    if (!needsResize) { ReadIn(); needsResize = true; }
+                    ResizePersonalColliderCapacity(Mathf.NextPowerOfTwo(personalColliderCount+newPersonalColliders+1));
+                }
+                if (needsResize) {
+                    WriteOut();
+                    return;
+                }
             }
 
             for (int i = 0; i < commandCount; i++) {

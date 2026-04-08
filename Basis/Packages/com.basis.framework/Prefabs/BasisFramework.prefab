@@ -500,52 +500,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd42373e464aed048bd891b65e60d79f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Basis Framework::SMModuleBloomOverrideURP
---- !u!1 &6119793183538522913
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2812536138555409600}
-  - component: {fileID: 5379351567469843305}
-  m_Layer: 0
-  m_Name: BasisMediaPipeManagement
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &2812536138555409600
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6119793183538522913}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 7986300708970645016}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5379351567469843305
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6119793183538522913}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cbdd5f655a58b4e47bc6a52b636814e6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: BasisMediaPipe::Basis.MediaPipe.BasisMediaPipeManagement
-  IsDeviceBooted: 0
-  DeviceMode: 0
 --- !u!1 &6119941615115968628
 GameObject:
   m_ObjectHideFlags: 0
@@ -924,7 +878,6 @@ Transform:
   - {fileID: 107293932942259222}
   - {fileID: 5008986784888565646}
   - {fileID: 7300246790383044665}
-  - {fileID: 2812536138555409600}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &-8771156173352421049
@@ -962,7 +915,7 @@ MonoBehaviour:
   - {fileID: -1434852531052301144}
   - {fileID: 508802122937325065}
   - {fileID: -3484738083713026149}
-  - {fileID: 5379351567469843305}
+  - {fileID: 6223159200201450764}
   - {fileID: -3061024371983229343}
   BasisLockToInputs: []
   PreviouslyConnectedDevices: []
@@ -1075,6 +1028,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsDeviceBooted: 0
   DeviceMode: 0
+  BasisHeadlessInput: {fileID: 0}
 --- !u!114 &8988764245560573337
 MonoBehaviour:
   m_ObjectHideFlags: 0

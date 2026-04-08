@@ -47,6 +47,8 @@ namespace HVR.Basis.Comms
         private bool _eyeFollowDriverApplicable;
         private bool _trackingActive;
         private bool _eyeTrackingParametersActive;
+        public bool IsTrackingActive => _trackingActive;
+        public bool IsEyeTrackingParametersActive => _eyeTrackingParametersActive;
         private float _lastEyeParameterSampleTime = float.NegativeInfinity;
         private bool _registeredSourceAddresses;
         private FaceTrackingActivityRelay _activityRelay;

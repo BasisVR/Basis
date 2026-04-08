@@ -319,7 +319,7 @@ public class JiggleJobs {
     }
     
     public int GetSceneColliderCount() {
-        return _memoryBus.personalColliderCount;
+        return _memoryBus.sceneColliderCount;
     }
 
     public void OnDrawGizmos() {
