@@ -276,18 +276,9 @@ public partial class BasisLocalFootDriver
         MeasureFromCalibration(mapping);
         StoreBaseMeasurements();
 
-        // ── 2. Derive ALL step parameters from measurements ──
-        DeriveStepParameters();
-
-        // ── 3. Apply to foot states ──
-        left.thighLen = leftThighLen;
-        left.shinLen = leftShinLen;
-        left.legLength = leftLegLen;
-        right.thighLen = rightThighLen;
-        right.shinLen = rightShinLen;
-        right.legLength = rightLegLen;
-
-        rayCastRange = Mathf.Max(leftLegLen, rightLegLen) + 0.3f;
+        // ── 2. Apply current scale immediately ──
+        // ApplyScaleToMeasurements derives step params and syncs foot states.
+        ApplyScaleToMeasurements(BasisHeightDriver.ScaledToMatchValue);
 
         InitPose(left);
         InitPose(right);
@@ -438,7 +429,10 @@ public partial class BasisLocalFootDriver
     }
     private void MeasureFromCalibration(BasisTransformMapping mapping)
     {
-        var tpose = mapping.TposeFromRoot;
+        // Use TposeWorld: root-relative positions at world scale (not divided by localScale).
+        // TposeFromRoot uses InverseTransformPoint which divides by root scale, giving mesh-unit
+        // values that require ScaledToMatchValue correction. TposeWorld gives meters directly.
+        var tpose = mapping.TposeWorld;
         bool hasHips = TryTP(tpose, HumanBodyBones.Hips, out Vector3 tH);
         bool hasLUL = TryTP(tpose, HumanBodyBones.LeftUpperLeg, out Vector3 tLUL);
         bool hasRUL = TryTP(tpose, HumanBodyBones.RightUpperLeg, out Vector3 tRUL);

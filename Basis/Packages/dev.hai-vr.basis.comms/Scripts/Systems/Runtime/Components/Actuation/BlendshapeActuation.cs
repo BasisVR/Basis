@@ -30,6 +30,7 @@ namespace HVR.Basis.Comms
         private FaceTrackingActivityRelay _activityRelay;
         private bool _isWearer;
         private bool _trackingActive;
+        public bool IsTrackingActive => _trackingActive;
 
         #region NetworkingFields
         // Can be null due to:

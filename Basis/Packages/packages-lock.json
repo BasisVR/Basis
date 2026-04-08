@@ -106,6 +106,14 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.basis.tmp": {
+      "version": "file:com.basis.tmp",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.textmeshpro": "3.0.0"
+      }
+    },
     "com.basis.vehicles": {
       "version": "file:com.basis.vehicles",
       "depth": 0,
@@ -453,6 +461,14 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       },
       "url": "https://packages.unity.com"
+    },
+    "com.unity.textmeshpro": {
+      "version": "5.0.0",
+      "depth": 1,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.ugui": "2.0.0"
+      }
     },
     "com.unity.timeline": {
       "version": "1.8.12",

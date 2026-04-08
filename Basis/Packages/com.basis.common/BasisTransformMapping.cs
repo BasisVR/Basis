@@ -519,6 +519,12 @@ namespace Basis.Scripts.Common
         // All captured bones (skip missing/null)
         public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeFromRoot = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeLocal = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        /// <summary>
+        /// Root-relative positions at world scale (no division by localScale).
+        /// Unlike TposeFromRoot which uses InverseTransformPoint (divides by scale),
+        /// these give correct meter values regardless of the avatar root's localScale.
+        /// </summary>
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeWorld = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public Quaternion RootRotation; // rotation during calibration
         public Vector3 RootPosition;
         public Vector3 AvatarForwards;
@@ -531,6 +537,9 @@ namespace Basis.Scripts.Common
             RootPosition = animator.transform.position;
 
             TposeFromRoot.Clear();
+            TposeWorld.Clear();
+
+            Quaternion invRootRot = Quaternion.Inverse(RootRotation);
 
             // Iterate all humanoid enum values except the sentinel LastBone
             for (int i = (int)HumanBodyBones.Hips; i < (int)HumanBodyBones.LastBone; i++)
@@ -539,16 +548,14 @@ namespace Basis.Scripts.Common
                 var t = animator.GetBoneTransform(bone);
                 if (t == null)
                 {
-                    TposeFromRoot[bone] = new BasisCalibratedCoords
+                    BasisCalibratedCoords zero = new BasisCalibratedCoords
                     {
                         position = Vector3.zero,
                         rotation = Quaternion.identity,
                     };
-                    TposeLocal[bone] = new BasisCalibratedCoords
-                    {
-                        position = Vector3.zero,
-                        rotation = Quaternion.identity,
-                    };
+                    TposeFromRoot[bone] = zero;
+                    TposeLocal[bone] = zero;
+                    TposeWorld[bone] = zero;
                     continue;
                 }
 
@@ -559,7 +566,10 @@ namespace Basis.Scripts.Common
                 Vector3 localPos = animator.transform.InverseTransformPoint(wPos);
 
                 // Rotation relative to animator root rotation
-                Quaternion localRot = Quaternion.Inverse(RootRotation) * wRot;
+                Quaternion localRot = invRootRot * wRot;
+
+                // World-scale root-relative position (root-aligned but NOT divided by localScale)
+                Vector3 worldScalePos = invRootRot * (wPos - RootPosition);
 
                 TposeFromRoot[bone] = new BasisCalibratedCoords
                 {
@@ -570,6 +580,11 @@ namespace Basis.Scripts.Common
                 {
                     position = LPos,
                     rotation = LRot
+                };
+                TposeWorld[bone] = new BasisCalibratedCoords
+                {
+                    position = worldScalePos,
+                    rotation = localRot
                 };
             }
             if (TryComputeForwardUpFromTpose(this, out var fwd, out var up,out var right))

@@ -55,6 +55,11 @@ namespace BasisNetworkCore.Serializable
 
             EnableShoutMode,    // admin: enable shout mode for a player (non-spatialized broadcast voice)
             DisableShoutMode,   // admin: disable shout mode for a player
+
+            GlobalToggleAvatars, // admin: toggle global avatar loading lock
+            GlobalToggleProps,   // admin: toggle global prop loading lock
+            GlobalToggleWorlds,  // admin: toggle global world loading lock
+            GlobalGetLockState,  // server→client: current global lock state
         }
     }
 }

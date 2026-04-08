@@ -60,6 +60,7 @@ public static class BasisRemoteNetworkDriver
 
     // ─── SCALE CHANGE ───
     static NativeArray<bool> _HasScaleChange;
+    static NativeArray<float3> _lastAppliedScales;
 
     // ─── BONE ROTATIONS (replaces muscles) ───
     // Flat arrays: [player0_bone0, ..., player0_bone53, player1_bone0, ...]
@@ -153,6 +154,7 @@ public static class BasisRemoteNetworkDriver
             _rotPrevFiltered[i] = quaternion.identity;
             _rotDerivFilter[i] = float2.zero;
             _HasScaleChange[i] = false;
+            _lastAppliedScales[i] = new float3(1, 1, 1);
             _humanScales[i] = 1f;
             _scaledBodyPositions[i] = float3.zero;
         }
@@ -267,6 +269,7 @@ public static class BasisRemoteNetworkDriver
             TargetRotations = _targetRotations,
             InterpolationTimes = _interpolationTimes,
             HasScaleChange = _HasScaleChange,
+            LastAppliedScales = _lastAppliedScales,
             OutputPositions = _outPositions,
             OutputScales = _outScales,
             OutputRotations = _outRotations
@@ -474,6 +477,7 @@ public static class BasisRemoteNetworkDriver
         _humanScales = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _scaledBodyPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _HasScaleChange = new NativeArray<bool>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _lastAppliedScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _skipBones = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
 
         int flat = capacity * BoneCount;
@@ -499,7 +503,7 @@ public static class BasisRemoteNetworkDriver
         D(ref _posPrevRaw); D(ref _posPrevFiltered); D(ref _posPrevDerivFiltered);
         D(ref _rotPrevRaw); D(ref _rotPrevFiltered); D(ref _rotDerivFilter);
         D(ref _humanScales); D(ref _scaledBodyPositions);
-        D(ref _HasScaleChange); D(ref _skipBones);
+        D(ref _HasScaleChange); D(ref _lastAppliedScales); D(ref _skipBones);
         D(ref _prevBoneRotations); D(ref _targetBoneRotations);
         D(ref _outBoneRotations); D(ref _filteredBoneRotations);
         D(ref _bonePrevRaw); D(ref _bonePrevFiltered); D(ref _boneDerivFilter);
@@ -520,7 +524,8 @@ public static class BasisRemoteNetworkDriver
         [WriteOnly] public NativeArray<float3> OutputPositions;
         [WriteOnly] public NativeArray<float3> OutputScales;
         [WriteOnly] public NativeArray<quaternion> OutputRotations;
-        [WriteOnly] public NativeArray<bool> HasScaleChange;
+        public NativeArray<bool> HasScaleChange;
+        public NativeArray<float3> LastAppliedScales;
 
         public void Execute(int index)
         {
@@ -528,10 +533,16 @@ public static class BasisRemoteNetworkDriver
             if (!math.isfinite(t)) t = 0f;
             t = math.clamp(t, 0f, 1f);
             OutputPositions[index] = math.lerp(PreviousPositions[index], TargetPositions[index], t);
-            OutputScales[index] = math.lerp(PreviousScales[index], TargetScales[index], t);
+            float3 outScale = math.lerp(PreviousScales[index], TargetScales[index], t);
+            OutputScales[index] = outScale;
             OutputRotations[index] = math.normalize(math.nlerp(PreviousRotations[index], TargetRotations[index], t));
             const float scaleEpsSq = 1e-10f;
-            HasScaleChange[index] = math.lengthsq(TargetScales[index] - PreviousScales[index]) > scaleEpsSq;
+            bool changed = math.lengthsq(outScale - LastAppliedScales[index]) > scaleEpsSq;
+            HasScaleChange[index] = changed;
+            if (changed)
+            {
+                LastAppliedScales[index] = outScale;
+            }
         }
     }
 

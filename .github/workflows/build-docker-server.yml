@@ -153,6 +153,7 @@ jobs:
           path: ${{ env.projectPath }}/Library
           key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-${{ hashFiles(env.projectPath) }}
           restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-
+          enableCrossOsArchive: true
       - name: "Sanitize headless project (Linux)"
         if: runner.os == 'Linux'
         shell: bash

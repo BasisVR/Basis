@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
@@ -304,6 +305,34 @@ namespace Basis.BasisUI
                     BasisNetworkModeration.DisableShoutMode(target.playerId);
                 });
 
+            // --- Global lock group ---
+            PanelElementDescriptor lockGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            lockGroup.SetTitle("Global Content Locks");
+            lockGroup.SetDescription("Globally disable loading for all non-admin players. Everyone is notified.");
+
+            PanelToggle avatarLock = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            avatarLock.Descriptor.SetTitle("Lock Avatars");
+            avatarLock.Descriptor.SetDescription("Prevents all non-admin avatar loading over the network.");
+            avatarLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalAvatarsLocked);
+            avatarLock.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleAvatars();
+
+            PanelToggle propLock = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            propLock.Descriptor.SetTitle("Lock Props");
+            propLock.Descriptor.SetDescription("Prevents all non-admin prop loading over the network.");
+            propLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalPropsLocked);
+            propLock.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleProps();
+
+            PanelToggle worldLock = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            worldLock.Descriptor.SetTitle("Lock Worlds");
+            worldLock.Descriptor.SetDescription("Prevents all non-admin world loading over the network.");
+            worldLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalWorldsLocked);
+            worldLock.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleWorlds();
+
+            controller.AvatarLockToggle = avatarLock;
+            controller.PropLockToggle = propLock;
+            controller.WorldLockToggle = worldLock;
+
             // Permissions section
             SettingsProviderPermissionsTab.BuildPermissionsUI(container, tab.gameObject);
 
@@ -363,6 +392,10 @@ namespace Basis.BasisUI
             public PanelTextField ReasonField;
             public PanelTextField SearchField;
 
+            public PanelToggle AvatarLockToggle;
+            public PanelToggle PropLockToggle;
+            public PanelToggle WorldLockToggle;
+
             public BasisNetworkPlayer SelectedPlayer;
             private string _searchQuery = string.Empty;
 
@@ -379,6 +412,7 @@ namespace Basis.BasisUI
             {
                 BasisNetworkPlayer.OnRemotePlayerJoined += OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayersChanged;
+                BasisNetworkModeration.OnGlobalLockStateChanged += OnGlobalLockStateChanged;
                 RebuildPlayerList();
             }
 
@@ -386,8 +420,16 @@ namespace Basis.BasisUI
             {
                 BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
+                BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
 
                 ClearPlayerButtons();
+            }
+
+            private void OnGlobalLockStateChanged(bool avatars, bool props, bool worlds)
+            {
+                if (AvatarLockToggle != null) AvatarLockToggle.SetValueWithoutNotify(avatars);
+                if (PropLockToggle != null) PropLockToggle.SetValueWithoutNotify(props);
+                if (WorldLockToggle != null) WorldLockToggle.SetValueWithoutNotify(worlds);
             }
 
             private void OnRemotePlayersChanged(BasisNetworkPlayer _p1, BasisRemotePlayer _p2)
@@ -441,6 +483,7 @@ namespace Basis.BasisUI
                 }
 
                 ApplyFilter();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(PlayerListParent);
             }
 
             private void ApplyFilter()

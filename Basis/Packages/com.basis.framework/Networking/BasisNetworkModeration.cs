@@ -183,6 +183,10 @@ public static class BasisNetworkModeration
                 HandleShoutModeChanged(reader, mode == AdminRequestMode.EnableShoutMode);
                 break;
 
+            case AdminRequestMode.GlobalGetLockState:
+                HandleGlobalLockState(reader);
+                break;
+
             default:
                 BasisDebug.LogError($"Unhandled admin command: {mode}", BasisDebug.LogTag.Networking);
                 break;
@@ -427,6 +431,56 @@ public static class BasisNetworkModeration
     }
 
     #endregion
+
+    #region Global Lock State
+
+    /// <summary>
+    /// Current global lock state received from the server.
+    /// </summary>
+    public static bool GlobalAvatarsLocked { get; private set; }
+    public static bool GlobalPropsLocked { get; private set; }
+    public static bool GlobalWorldsLocked { get; private set; }
+
+    /// <summary>
+    /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked.
+    /// </summary>
+    public static event Action<bool, bool, bool> OnGlobalLockStateChanged;
+
+    private static void HandleGlobalLockState(NetDataReader reader)
+    {
+        GlobalAvatarsLocked = reader.GetBool();
+        GlobalPropsLocked = reader.GetBool();
+        GlobalWorldsLocked = reader.GetBool();
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}", BasisDebug.LogTag.Networking);
+        OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global avatar loading.
+    /// </summary>
+    public static void GlobalToggleAvatars()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleAvatars);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global prop loading.
+    /// </summary>
+    public static void GlobalToggleProps()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleProps);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global world loading.
+    /// </summary>
+    public static void GlobalToggleWorlds()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleWorlds);
+    }
+
+    #endregion
+
     public static bool TryTeleportToPlayer(ushort netId)
     {
         if (BasisNetworkPlayers.Players.TryGetValue(netId, out var player) && ValidateForAnimator(player))

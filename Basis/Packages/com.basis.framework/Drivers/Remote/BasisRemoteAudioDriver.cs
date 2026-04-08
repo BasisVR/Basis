@@ -16,12 +16,14 @@ namespace Basis.Scripts.Drivers
         /// <summary>
         /// Viseme (lip-sync) analysis driver processing audio samples each frame.
         /// </summary>
-        [SerializeReference] public BasisAudioAndVisemeDriver BasisAudioAndVisemeDriver = null;
+        [SerializeReference]
+        public BasisAudioAndVisemeDriver BasisAudioAndVisemeDriver = new BasisAudioAndVisemeDriver();
 
         /// <summary>
         /// Remote audio receiver that decodes and mixes network voice.
         /// </summary>
-        [SerializeReference] public BasisAudioReceiver BasisAudioReceiver = null;
+        [SerializeReference]
+        public BasisAudioReceiver BasisAudioReceiver = new BasisAudioReceiver();
 
         /// <summary>
         /// Optional callback invoked after audio is processed:
@@ -45,8 +47,8 @@ namespace Basis.Scripts.Drivers
             if (Initalized)
             {
                 int length = data.Length;
-                BasisAudioReceiver?.OnAudioFilterRead(data, channels, length);
-                BasisAudioAndVisemeDriver?.ProcessAudioSamples(data, channels, length);
+                BasisAudioReceiver.OnAudioFilterRead(data, channels, length);
+                BasisAudioAndVisemeDriver.ProcessAudioSamples(data, channels, length);
                 AudioData?.Invoke(data, channels);
             }
         }

@@ -1,4 +1,5 @@
 using Basis.BTween;
+using Basis.Scripts.Drivers;
 using UnityEngine;
 
 namespace Basis.BasisUI
@@ -64,6 +65,7 @@ namespace Basis.BasisUI
 
             Instance = new BasisMainMenu();
             BasisCursorManagement.UnlockCursor(nameof(BasisMainMenu));
+            SetMicrophoneIconHudVisible(false);
         }
         public static void OpenWithProvider(string ProviderTitle)
         {
@@ -102,6 +104,17 @@ namespace Basis.BasisUI
             Instance.Release();
             Instance = null;
             BasisCursorManagement.LockCursor(nameof(BasisMainMenu));
+            SetMicrophoneIconHudVisible(true);
+        }
+
+        private static void SetMicrophoneIconHudVisible(bool visible)
+        {
+#if !BASIS_DISABLE_MICROPHONE
+            if (BasisLocalCameraDriver.Instance != null)
+            {
+                BasisLocalCameraDriver.Instance.microphoneIconDriver.HardEnableVisuals(visible);
+            }
+#endif
         }
 
         public static BasisMenuPanel CreateActiveMenu(BasisMenuPanel.PanelData data, string style, BasisMenuActionProvider<BasisMainMenu> provider = null)

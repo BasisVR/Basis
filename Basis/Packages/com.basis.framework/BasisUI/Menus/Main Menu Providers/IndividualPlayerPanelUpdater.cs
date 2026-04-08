@@ -19,8 +19,8 @@ namespace Basis.BasisUI
         // Audio debug fields
         public PanelElementDescriptor AudioSourceField;
         public PanelElementDescriptor VolumeChainField;
-        public PanelElementDescriptor RingBufferField;
-        public PanelElementDescriptor JitterBufferField;
+        public PanelElementDescriptor DecodedBufferField;
+        public PanelElementDescriptor EncodedBufferField;
         public PanelElementDescriptor SilenceField;
         public PanelElementDescriptor VisemeField;
 
@@ -225,59 +225,59 @@ namespace Basis.BasisUI
                 AudioSource src = audio.audioSource;
                 float srcVol = src != null ? src.volume : 0f;
                 float dampen = audio.DirectionalDampeningMultiplier;
-                float mainVol = SMModuleAudio.ActiveMainVolume;
-                float effective = srcVol * dampen * mainVol;
+                float listenerVol = AudioListener.volume;
+                float effective = srcVol * dampen * listenerVol;
 
                 string dampenNote = dampen < 0.5f ? " (BEHIND)" : dampen < 1f ? " (off-axis)" : "";
                 string warning = effective < 0.01f && srcVol > 0f ? "\nWARNING: Near zero!" : "";
 
                 VolumeChainField.SetDescription(
-                    $"Source: {srcVol:F2} x Dampen: {dampen:F3}{dampenNote} x Main: {mainVol:F2}\n" +
+                    $"Source: {srcVol:F2} x Dampen: {dampen:F3}{dampenNote} x Listener: {listenerVol:F2}\n" +
                     $"Effective: {effective:F3}{warning}");
             }
 
-            // Ring Buffer
-            if (RingBufferField != null && BasisSettingsDefaults.AudioDebugShowRingBuffer.RawValue)
+            // Voice Buffer (combined jitter + decoded)
+            if (DecodedBufferField != null && BasisSettingsDefaults.AudioDebugShowRingBuffer.RawValue)
             {
-                BasisVoiceRingBuffer ring = audio.InOrderRead;
-                if (ring != null)
+                BasisVoiceBuffer buf = audio.VoiceBuffer;
+                if (buf != null)
                 {
-                    int count = ring.Count;
-                    int cap = ring.Capacity;
-                    float pct = cap > 0 ? (count * 100f / cap) : 0f;
-                    float ms = count * 1000f / RemoteOpusSettings.NetworkSampleRate;
-                    string state = ring.IsEmpty ? "EMPTY" : ring.IsFull ? "FULL (overwriting!)" : "Streaming";
+                    int frames = buf.DecodedFrameCount;
+                    int cap = buf.DecodedFrameCapacity;
+                    int samples = buf.SampleCount;
+                    float ms = samples * 1000f / RemoteOpusSettings.NetworkSampleRate;
+                    string state = buf.IsEmpty ? "EMPTY" : frames >= cap ? "FULL" : "Streaming";
 
-                    RingBufferField.SetDescription(
-                        $"Samples: {count}/{cap} ({pct:F0}%) | {ms:F1}ms buffered\n" +
-                        $"Real Audio: {(ring.HasRealAudio ? "Yes" : "No")} | State: {state}");
+                    DecodedBufferField.SetDescription(
+                        $"Frames: {frames}/{cap} | {ms:F1}ms buffered\n" +
+                        $"Real Audio: {(buf.HasRealAudio ? "Yes" : "No")} | State: {state}");
                 }
                 else
                 {
-                    RingBufferField.SetDescription("Ring Buffer: NULL");
+                    DecodedBufferField.SetDescription("Voice Buffer: NULL");
                 }
             }
 
-            // Jitter Buffer
-            if (JitterBufferField != null && BasisSettingsDefaults.AudioDebugShowJitter.RawValue)
+            if (EncodedBufferField != null && BasisSettingsDefaults.AudioDebugShowJitter.RawValue)
             {
-                BasisJitterBuffer jitter = audio.JitterBuffer;
-                if (jitter != null)
+                BasisVoiceBuffer buf = audio.VoiceBuffer;
+                if (buf != null)
                 {
-                    int buffered = jitter.BufferedCount;
-                    int received = jitter.ReceivedSinceStart;
-                    int depth = jitter.InitialBufferDepth;
-                    string status = !jitter.Started ? "Not started"
+                    int buffered = buf.EncodedBufferedCount;
+                    int received = buf.ReceivedSinceStart;
+                    int depth = buf.InitialBufferDepth;
+                    string status = !buf.Started ? "Not started"
                         : received < depth ? $"FILLING ({received}/{depth})"
                         : "Playing";
 
-                    JitterBufferField.SetDescription(
-                        $"Started: {(jitter.Started ? "Yes" : "No")} | Buffered: {buffered} | Received: {received}\n" +
-                        $"Init Depth: {depth} | Status: {status}");
+                    EncodedBufferField.SetDescription(
+                        $"Started: {(buf.Started ? "Yes" : "No")} | Buffered: {buffered} | Received: {received}\n" +
+                        $"Init Depth: {depth} | Status: {status}\n" +
+                        $"PLC: {audio.PlcCount} | Silence Skipped: {audio.SilenceInjectedCount}");
                 }
                 else
                 {
-                    JitterBufferField.SetDescription("Jitter Buffer: NULL");
+                    EncodedBufferField.SetDescription("Voice Buffer: NULL");
                 }
             }
 
@@ -307,8 +307,8 @@ namespace Basis.BasisUI
         {
             if (AudioSourceField != null) AudioSourceField.SetDescription(message);
             if (VolumeChainField != null) VolumeChainField.SetDescription(message);
-            if (RingBufferField != null) RingBufferField.SetDescription(message);
-            if (JitterBufferField != null) JitterBufferField.SetDescription(message);
+            if (DecodedBufferField != null) DecodedBufferField.SetDescription(message);
+            if (EncodedBufferField != null) EncodedBufferField.SetDescription(message);
             if (SilenceField != null) SilenceField.SetDescription(message);
             if (VisemeField != null) VisemeField.SetDescription(message);
         }

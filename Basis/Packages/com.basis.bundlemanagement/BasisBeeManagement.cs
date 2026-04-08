@@ -67,6 +67,9 @@ public static class BasisBeeManagement
                 if (assetBundle != null && assetBundle.Contains(AssetToLoadName))
                 {
                     wrapper.AssetBundle = assetBundle;
+                    #if UNITY_BUNDLEUNLOAD
+                    wrapper.IsBundleBackingStoreReleased = false;
+                    #endif
                     BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
                     await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
                     return;
@@ -100,6 +103,9 @@ public static class BasisBeeManagement
             }
 
             wrapper.AssetBundle = bundleRequest.assetBundle;
+            #if UNITY_BUNDLEUNLOAD
+            wrapper.IsBundleBackingStoreReleased = false;
+            #endif
 
             await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
         }

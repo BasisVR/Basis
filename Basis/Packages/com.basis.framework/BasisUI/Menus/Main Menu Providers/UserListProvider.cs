@@ -22,7 +22,7 @@ namespace Basis.BasisUI
         public static string StaticTitle = "Players";
         public override string Title => StaticTitle;
         public override string IconAddress => AddressableAssets.Sprites.Avatars;
-        public override int Order => 3;
+        public override int Order => 4;
         public override bool Hidden => !BasisNetworkConnection.LocalPlayerIsConnected;
 
         private UserListController _controller;

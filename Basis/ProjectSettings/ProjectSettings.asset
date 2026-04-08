@@ -839,7 +839,7 @@ PlayerSettings:
     Nintendo Switch: 
     PS4: 
     QNX: 
-    Server: 
+    Server: UNITY_BUNDLEUNLOAD;
     Standalone: STEAMAUDIO_ENABLED;USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS;BASIS_OPENVR_SUPPORTED;AUDIOLINK;AUDIOLINK_V1;SETTINGS_MANAGER_UNIVERSAL;BASIS_FRAMEWORK_EXISTS;LITENETLIB_SPANS;Basis_VOLUMETRIC_SUPPORTED
     WebGL: STEAMAUDIO_ENABLED
     Windows Store Apps: USE_INPUT_SYSTEM_POSE_CONTROL;USE_STICK_CONTROL_THUMBSTICKS
@@ -947,6 +947,7 @@ PlayerSettings:
   captureStartupLogs: {}
   activeInputHandler: 1
   windowsGamepadBackendHint: 0
+  enableDirectStorage: 0
   cloudProjectId: 119fdfcf-36b9-4c45-a3e2-7da2705a7ef7
   framebufferDepthMemorylessMode: 2
   qualitySettingsNames: []

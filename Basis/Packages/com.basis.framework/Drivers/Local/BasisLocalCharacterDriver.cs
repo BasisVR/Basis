@@ -94,7 +94,6 @@ namespace Basis.Scripts.BasisCharacterController
         }
 
         public Vector2 Rotation;
-        public float RotationSpeed = 200;
         public bool HasEvents = false;
         public float pushPower = 1f;
         private const float CrouchDeltaCoefficient = 0.01f;
@@ -258,7 +257,7 @@ namespace Basis.Scripts.BasisCharacterController
             }
             else
             {
-                rotationAmount = Rotation.x * RotationSpeed * DeltaTime;
+                rotationAmount = Rotation.x * SMModuleControllerSettings.SmoothTurnSpeed * DeltaTime;
             }
 
 
