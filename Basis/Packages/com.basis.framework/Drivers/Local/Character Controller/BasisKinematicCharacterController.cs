@@ -33,9 +33,9 @@ namespace Basis.Scripts.BasisCharacterController
         [SerializeField] private Vector3 _gravityDirection = Vector3.down;
 
         // Runtime Info
-        private Rigidbody _rigidbody;
-        private CapsuleCollider _capsule;
-        private bool _isGrounded;
+        public Rigidbody _rigidbody;
+        public CapsuleCollider _capsule;
+        public bool isGrounded;
         private Vector3 _groundNormal = Vector3.up;
         private CollisionFlags _lastFlags;
 
@@ -117,8 +117,6 @@ namespace Basis.Scripts.BasisCharacterController
             }
         }
 
-        public bool isGrounded => _isGrounded;
-
         /// <summary>
         /// The ground surface normal from the last Move() call. Only valid when isGrounded is true.
         /// </summary>
@@ -151,20 +149,11 @@ namespace Basis.Scripts.BasisCharacterController
 
         #region UNITY LIFECYCLE
 
-        private void Awake()
+        public void PlayerInitialize()
         {
             // Ensure gravity direction is valid (may be zero if deserialized from a fresh component)
             if (_gravityDirection.sqrMagnitude < 0.0001f)
                 _gravityDirection = Vector3.down;
-
-            _rigidbody = GetComponent<Rigidbody>();
-            _rigidbody.isKinematic = true;
-            _rigidbody.useGravity = false;
-            _rigidbody.interpolation = RigidbodyInterpolation.None;
-            _rigidbody.collisionDetectionMode = CollisionDetectionMode.Discrete;
-            _rigidbody.constraints = RigidbodyConstraints.FreezeAll;
-
-            _capsule = GetComponent<CapsuleCollider>();
             SyncCapsule();
         }
 
@@ -192,7 +181,7 @@ namespace Basis.Scripts.BasisCharacterController
             if (!enabled || !_detectCollisions)
             {
                 transform.position += motion;
-                _isGrounded = false;
+                isGrounded = false;
                 return _lastFlags;
             }
 
@@ -210,7 +199,7 @@ namespace Basis.Scripts.BasisCharacterController
             bool movingDown = verticalComponent < 0f;
 
             // ── Grounded behaviour: slope projection + ground snap ──────
-            if (_isGrounded && movingDown)
+            if (isGrounded && movingDown)
             {
                 float groundDot = Vector3.Dot(_groundNormal, up);
                 bool walkableSlope = groundDot >= cosSlope;
@@ -238,7 +227,7 @@ namespace Basis.Scripts.BasisCharacterController
                 pos = SimpleMove(pos, horizontalMotion, ref _lastFlags, up, cosSlope, isHorizontal: true);
 
                 // If grounded and slide made little horizontal progress, try stepping up
-                if (_isGrounded && _stepOffset > 0f && movingDown)
+                if (isGrounded && _stepOffset > 0f && movingDown)
                 {
                     Vector3 traveled = pos - beforeSlide;
                     Vector3 horizontalTraveled = traveled - up * Vector3.Dot(traveled, up);
@@ -266,7 +255,7 @@ namespace Basis.Scripts.BasisCharacterController
             transform.position = pos;
 
             // snap to ground
-            if (_isGrounded && verticalComponent <= 0f)
+            if (isGrounded && verticalComponent <= 0f)
             {
                 pos = GroundSnap(pos, up, cosSlope);
                 transform.position = pos;
@@ -515,7 +504,7 @@ namespace Basis.Scripts.BasisCharacterController
         {
             if (!_detectCollisions || !enabled)
             {
-                _isGrounded = false;
+                isGrounded = false;
                 _groundNormal = UpDirection;
                 return;
             }
@@ -542,7 +531,7 @@ namespace Basis.Scripts.BasisCharacterController
                 QueryTriggerInteraction.Ignore
             );
 
-            _isGrounded = false;
+            isGrounded = false;
             _groundNormal = up;
             float cosSlope = Mathf.Cos(_slopeLimit * Mathf.Deg2Rad);
             float closestDist = float.MaxValue;
@@ -554,7 +543,7 @@ namespace Basis.Scripts.BasisCharacterController
                 if (dotUp >= cosSlope && _hitBuffer[i].distance < closestDist)
                 {
                     closestDist = _hitBuffer[i].distance;
-                    _isGrounded = true;
+                    isGrounded = true;
                     _groundNormal = _hitBuffer[i].normal;
                 }
             }

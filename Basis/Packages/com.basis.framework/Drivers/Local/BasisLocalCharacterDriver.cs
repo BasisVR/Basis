@@ -179,6 +179,7 @@ namespace Basis.Scripts.BasisCharacterController
             LocalPlayer = localPlayer;
             BasisLocalPlayerTransform = localPlayer.transform;
             LocalAnimatorDriver = localPlayer.LocalAnimatorDriver;
+            characterController.PlayerInitialize();
             characterController.minMoveDistance = 0;
             characterController.skinWidth = 0.01f;
             characterController.OnKCCColliderHit = OnKCCHit;
