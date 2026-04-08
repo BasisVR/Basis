@@ -277,6 +277,15 @@ jobs:
         with:
           name: ${{ matrix.artifactName }}
           path: headless
+      - name: Replace libopus for amd64 headless artifact
+        if: matrix.archSuffix == 'amd64'
+        shell: bash
+        run: |
+          set -eux
+          plugin_dir="headless/${{ matrix.artifactDir }}/HeadlessLinuxServer_Data/Plugins"
+          test -f "$plugin_dir/opus.so"
+          rm -f "$plugin_dir/libopus.so"
+          cp "$plugin_dir/opus.so" "$plugin_dir/libopus.so"
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
