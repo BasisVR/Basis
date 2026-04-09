@@ -332,6 +332,8 @@ MonoBehaviour:
     UnMutedMutedIconColorActive: {r: 1, g: 1, b: 1, a: 0.67058825}
     UnMutedMutedIconColorInactive: {r: 0.5, g: 0.5, b: 0.5, a: 0.67058825}
     MutedColor: {r: 1, g: 0, b: 0, a: 0.67058825}
+    ShoutColorActive: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+    ShoutColorInactive: {r: 0.6, g: 0.6, b: 0, a: 1}
     StartingScale: {x: 0, y: 0, z: 0}
     largerScale: {x: 0, y: 0, z: 0}
     MuteSound: {fileID: 8300000, guid: 5b9ed5013ea1941499840ac97ad2b8e9, type: 3}
@@ -340,6 +342,8 @@ MonoBehaviour:
     duration: 0.35
     halfDuration: 0
     CameraDriver: {fileID: 22857711927985140}
+  avatarPreviewDriver:
+    CameraFieldOfView: 40
 --- !u!114 &3806033592985501336
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -631,6 +635,7 @@ MonoBehaviour:
     rightShinLen: 0
     footLength: 0
     ankleHeight: 0
+    upperLegToFootVertical: 0
     stepTriggerDist: 0
     strideScale: 0
     stepHeightCalc: 0
@@ -641,7 +646,7 @@ MonoBehaviour:
     fastSpeedRef: 0
   LocalCharacterDriver:
     LocalPlayer: {fileID: 4587526044252889482}
-    characterController: {fileID: 0}
+    characterController: {fileID: 7825922350359905173}
     bottomPointLocalSpace: {x: 0, y: 0, z: 0}
     LastBottomPoint: {x: 0, y: 0, z: 0}
     groundedPlayer: 0
@@ -666,7 +671,6 @@ MonoBehaviour:
     coyoteTimeDuration: 0.15
     fallingGracePeriod: 0.1
     Rotation: {x: 0, y: 0}
-    RotationSpeed: 200
     HasEvents: 0
     pushPower: 1
     CurrentPosition: {x: 0, y: 0, z: 0}
@@ -678,7 +682,7 @@ MonoBehaviour:
     CrouchBlend: 1
     CrouchBlendDelta: 0
     CanPushRigidbodys: 0
-    BasisLocalPlayerTransform: {fileID: 0}
+    BasisLocalPlayerTransform: {fileID: 303201899784742928}
     CurrentSpeed: 0
   LocalSeatDriver:
     UseDefaultMasking: 1
@@ -809,6 +813,7 @@ MonoBehaviour:
       blendShapeCount: 0
     UseOpenLipSync: 0
     EligibleForOpenLipSync: 0
+    TrackedAudioSource: {fileID: 0}
     phonemeBlendShapeTable: []
     WasSuccessful: 0
     HashInstanceID: -1
@@ -902,3 +907,6 @@ MonoBehaviour:
   _slopeLimit: 45
   _detectCollisions: 1
   _gravityDirection: {x: 0, y: -1, z: 0}
+  _rigidbody: {fileID: 8369693708823570861}
+  _capsule: {fileID: 3011869999757657}
+  isGrounded: 0

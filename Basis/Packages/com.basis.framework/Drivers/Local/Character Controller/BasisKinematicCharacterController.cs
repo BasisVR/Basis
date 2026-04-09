@@ -6,31 +6,25 @@ namespace Basis.Scripts.BasisCharacterController
     /// A kinematic character controller that replaces Unity's built-in CharacterController.
     /// Uses a CapsuleCollider + kinematic Rigidbody so that the player can be rotated
     /// freely, enabling custom gravity directions (not Y-axis locked).
-    ///
-    /// TODO
-    /// Add Rotate to Gravity
-    /// Add Flight/Noclip exposure for worlds
-    /// MAYBE add native swimming!
-    /// 
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     [RequireComponent(typeof(CapsuleCollider))]
     public class BasisKinematicCharacterController : MonoBehaviour
     {
         // Capsule Collider
-        [SerializeField] private float _height = 2f;
-        [SerializeField] private float _radius = 0.3f;
-        [SerializeField] private Vector3 _center = new Vector3(0f, 1f, 0f);
+        public float _height = 2f;
+        public float _radius = 0.3f;
+        public Vector3 _center = new Vector3(0f, 1f, 0f);
 
         // CharacterController Parameters
-        [SerializeField] private float _skinWidth = 0.01f;
-        [SerializeField] private float _stepOffset = 0.3f;
-        [SerializeField] private float _minMoveDistance = 0f;
-        [SerializeField] private float _slopeLimit = 45f;
-        [SerializeField] private bool _detectCollisions = true;
+        public float _skinWidth = 0.01f;
+        public float _stepOffset = 0.3f;
+        public float _minMoveDistance = 0f;
+        public float _slopeLimit = 45f;
+        public bool _detectCollisions = true;
 
-        //Gravity
-        [SerializeField] private Vector3 _gravityDirection = Vector3.down;
+        // Gravity
+        public Vector3 _gravityDirection = Vector3.down;
 
         // Runtime Info
         public Rigidbody _rigidbody;
@@ -40,6 +34,9 @@ namespace Basis.Scripts.BasisCharacterController
         private CollisionFlags _lastFlags;
 
         // Collision
+        // 16 hits/overlaps covers worst-case scenarios for capsule casts in typical
+        // game environments. NonAlloc silently drops excess results but 16 is generous —
+        // most casts hit 1-3 colliders. Increase only if levels have extreme collider density.
         private const int MaxHits = 16;
         private const int MaxOverlaps = 16;
         private const int MaxDepenetrationIterations = 4;
@@ -49,6 +46,13 @@ namespace Basis.Scripts.BasisCharacterController
         private const float GroundProbeExtra = 0.04f;
         public delegate void KCCColliderHit(KCCHitInfo hit);
         public KCCColliderHit OnKCCColliderHit;
+
+        // Cached collision mask — rebuilt once per Move() instead of per-cast.
+        private int _collisionMask;
+        private bool _collisionMaskDirty = true;
+
+        // Cached per-Move() to avoid repeated Transform property access.
+        private Quaternion _cachedRotation;
 
         //Public Get Set
 
@@ -112,8 +116,7 @@ namespace Basis.Scripts.BasisCharacterController
             set
             {
                 _detectCollisions = value;
-                if (_capsule != null)
-                    _capsule.enabled = value;
+                _capsule.enabled = value;
             }
         }
 
@@ -159,7 +162,6 @@ namespace Basis.Scripts.BasisCharacterController
 
         private void SyncCapsule()
         {
-            if (_capsule == null) return;
             _capsule.direction = 1; // Y-axis
             _capsule.center = _center;
             _capsule.radius = _radius;
@@ -177,6 +179,7 @@ namespace Basis.Scripts.BasisCharacterController
         public CollisionFlags Move(Vector3 motion)
         {
             _lastFlags = CollisionFlags.None;
+            _collisionMaskDirty = true; // Refresh mask once per Move()
 
             if (!enabled || !_detectCollisions)
             {
@@ -185,9 +188,12 @@ namespace Basis.Scripts.BasisCharacterController
                 return _lastFlags;
             }
 
+            // Cache rotation once per Move() — used by GetCapsuleEnds, GroundProbe, Depenetrate.
+            transform.GetPositionAndRotation(out Vector3 pos, out _cachedRotation);
+
             if (motion.sqrMagnitude < _minMoveDistance * _minMoveDistance)
             {
-                GroundProbe();
+                GroundProbe(pos);
                 return _lastFlags;
             }
 
@@ -217,8 +223,6 @@ namespace Basis.Scripts.BasisCharacterController
                     verticalMotion = Vector3.zero;
                 }
             }
-
-            Vector3 pos = transform.position;
 
             // ── Horizontal movement with step-up fallback ───────────────
             if (horizontalMotion.sqrMagnitude > 0.00001f)
@@ -252,21 +256,20 @@ namespace Basis.Scripts.BasisCharacterController
                 pos = SimpleMove(pos, verticalMotion, ref _lastFlags, up, cosSlope, isHorizontal: false);
             }
 
-            transform.position = pos;
-
             // snap to ground
             if (isGrounded && verticalComponent <= 0f)
             {
                 pos = GroundSnap(pos, up, cosSlope);
-                transform.position = pos;
             }
 
             // Depenetration if clipping with a collider
             pos = Depenetrate(pos);
+
+            // Single transform write per Move() call
             transform.position = pos;
 
             // Ground probe
-            GroundProbe();
+            GroundProbe(pos);
 
             return _lastFlags;
         }
@@ -331,10 +334,6 @@ namespace Basis.Scripts.BasisCharacterController
 
             return position;
         }
-
-        // Step Offset
-
-        // kill me please this took a while to debug, had to look at old braxy tutorials :)
 
         private bool TryStepUp(ref Vector3 pos, Vector3 horizontalMotion, Vector3 up, float cosSlope)
         {
@@ -420,10 +419,6 @@ namespace Basis.Scripts.BasisCharacterController
             return true;
         }
 
-        //Ground Snapping
-
-        // Add ground Friction, its almost 1am im not doing that tonight
-
         /// <summary>
         /// When grounded and not jumping, cast downward to anchor the character
         /// to the ground surface. Prevents floating over small bumps and slopes.
@@ -461,8 +456,6 @@ namespace Basis.Scripts.BasisCharacterController
             return position;
         }
 
-        // Depenetration Helper
-
         private Vector3 Depenetrate(Vector3 position)
         {
             for (int iter = 0; iter < MaxDepenetrationIterations; iter++)
@@ -483,7 +476,7 @@ namespace Basis.Scripts.BasisCharacterController
                     if (other == _capsule) continue;
 
                     if (Physics.ComputePenetration(
-                            _capsule, position, transform.rotation,
+                            _capsule, position, _cachedRotation,
                             other, other.transform.position, other.transform.rotation,
                             out Vector3 dir, out float dist))
                     {
@@ -498,9 +491,7 @@ namespace Basis.Scripts.BasisCharacterController
             return position;
         }
 
-        // Ground Detection
-
-        private void GroundProbe()
+        private void GroundProbe(Vector3 pos)
         {
             if (!_detectCollisions || !enabled)
             {
@@ -510,10 +501,9 @@ namespace Basis.Scripts.BasisCharacterController
             }
 
             Vector3 up = UpDirection;
-            Vector3 pos = transform.position;
 
             // Cast a small sphere downward from the bottom of the capsule
-            Vector3 worldCenter = pos + transform.rotation * _center;
+            Vector3 worldCenter = pos + _cachedRotation * _center;
             float halfHeight = (_height * 0.5f) - _radius;
             Vector3 bottom = worldCenter - up * halfHeight;
 
@@ -554,9 +544,8 @@ namespace Basis.Scripts.BasisCharacterController
 
         private void GetCapsuleEnds(Vector3 position, out Vector3 point1, out Vector3 point2)
         {
-            Quaternion rot = transform.rotation;
-            Vector3 worldCenter = position + rot * _center;
-            Vector3 capsuleUp = rot * Vector3.up;
+            Vector3 worldCenter = position + _cachedRotation * _center;
+            Vector3 capsuleUp = _cachedRotation * Vector3.up;
             float halfHeight = (_height * 0.5f) - _radius;
             if (halfHeight < 0f) halfHeight = 0f;
             point1 = worldCenter + capsuleUp * halfHeight;
@@ -565,14 +554,28 @@ namespace Basis.Scripts.BasisCharacterController
 
         private int GetCollisionMask()
         {
-            int layer = gameObject.layer;
-            int mask = 0;
-            for (int i = 0; i < 32; i++)
+            if (_collisionMaskDirty)
             {
-                if (!Physics.GetIgnoreLayerCollision(layer, i))
-                    mask |= (1 << i);
+                int layer = gameObject.layer;
+                int mask = 0;
+                for (int i = 0; i < 32; i++)
+                {
+                    if (!Physics.GetIgnoreLayerCollision(layer, i))
+                        mask |= (1 << i);
+                }
+                _collisionMask = mask;
+                _collisionMaskDirty = false;
             }
-            return mask;
+            return _collisionMask;
+        }
+
+        /// <summary>
+        /// Call if the object's layer or physics layer collision matrix changes at runtime.
+        /// The mask is automatically refreshed at the start of each Move() call.
+        /// </summary>
+        public void InvalidateCollisionMask()
+        {
+            _collisionMaskDirty = true;
         }
 
         private bool FindClosestHit(int hitCount, out RaycastHit closest)
@@ -613,9 +616,9 @@ namespace Basis.Scripts.BasisCharacterController
             info.moveLength = moveDist;
             OnKCCColliderHit(info);
         }
-    }
 
-    #endregion
+        #endregion
+    }
 
     /// <summary>
     /// Hit information passed to the KCC collision callback, mirroring ControllerColliderHit.
