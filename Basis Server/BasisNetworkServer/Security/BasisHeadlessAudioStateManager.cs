@@ -23,23 +23,35 @@ namespace BasisNetworkServer.Security
         public static void SendStateToPeer(NetPeer peer)
         {
             NetDataWriter writer = NetworkServer.RentWriter();
-            new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetHeadlessAudioState);
-            writer.Put(HeadlessAudioOff);
-            NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
-            NetworkServer.ReturnWriter(writer);
+            try
+            {
+                new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetHeadlessAudioState);
+                writer.Put(HeadlessAudioOff);
+                NetworkServer.TrySend(peer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
+            }
+            finally
+            {
+                NetworkServer.ReturnWriter(writer);
+            }
         }
 
         public static void BroadcastState()
         {
             NetDataWriter writer = NetworkServer.RentWriter();
-            new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetHeadlessAudioState);
-            writer.Put(HeadlessAudioOff);
-            NetworkServer.BroadcastMessageToClients(
-                writer,
-                BasisNetworkCommons.AdminChannel,
-                NetworkServer.PeerSnapshot,
-                DeliveryMethod.ReliableOrdered);
-            NetworkServer.ReturnWriter(writer);
+            try
+            {
+                new AdminRequest().Serialize(writer, AdminRequestMode.GlobalGetHeadlessAudioState);
+                writer.Put(HeadlessAudioOff);
+                NetworkServer.BroadcastMessageToClients(
+                    writer,
+                    BasisNetworkCommons.AdminChannel,
+                    NetworkServer.PeerSnapshot,
+                    DeliveryMethod.ReliableOrdered);
+            }
+            finally
+            {
+                NetworkServer.ReturnWriter(writer);
+            }
         }
     }
 }
