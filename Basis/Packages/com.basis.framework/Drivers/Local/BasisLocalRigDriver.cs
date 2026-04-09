@@ -423,7 +423,8 @@ namespace Basis.Scripts.Drivers
             bool footDriverReady = footDriver.IsInitialized;
 
             bool StationaryTimer = stationaryTimer >= StationaryDelaySeconds;
-            bool FootDriverStateAndStationary = footDriverReady && StationaryTimer;
+            bool footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
+            bool FootDriverStateAndStationary = footDriverReady && StationaryTimer && footIKSetting;
             // Per-foot: want foot IK only when that foot has no tracker and not locomoting
             bool leftWantIK = FootDriverStateAndStationary && !leftHasTracker;
             bool rightWantIK = FootDriverStateAndStationary && !rightHasTracker;

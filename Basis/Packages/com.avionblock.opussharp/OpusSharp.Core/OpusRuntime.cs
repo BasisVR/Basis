@@ -6,12 +6,7 @@ namespace OpusSharp.Core
     {
         public static bool ShouldUseStaticImports(bool? useStatic)
         {
-            if (useStatic.HasValue)
-            {
-                return useStatic.Value;
-            }
-
-            return IsStaticallyLinkedPlatform();
+            return useStatic ?? IsStaticallyLinkedPlatform();
         }
 
         private static bool IsStaticallyLinkedPlatform()

@@ -365,6 +365,61 @@ public class JiggleJobs {
                 }
             }
         }
+
+        // Draw scene and personal colliders (spheres, capsules, planes).
+        _memoryBus.GetColliders(out var personalColliders, out var sceneColliders,
+            out var personalColliderCount, out var sceneColliderCount);
+        DrawColliderArray(personalColliders, personalColliderCount);
+        DrawColliderArray(sceneColliders, sceneColliderCount);
+    }
+
+    private static void DrawColliderArray(JiggleCollider[] colliders, int count) {
+        for (int i = 0; i < count; i++) {
+            var collider = colliders[i];
+            if (!collider.enabled) continue;
+            var position = (Vector3)collider.localToWorldMatrix.c3.xyz;
+            Gizmos.color = new Color(0.854902f, 0.6470588f, 0.1254902f, 1f);
+            switch (collider.type) {
+                case JiggleCollider.JiggleColliderType.Sphere:
+                    Gizmos.DrawWireSphere(position, collider.worldRadius);
+                    break;
+                case JiggleCollider.JiggleColliderType.Capsule: {
+                    var axisDir = (Vector3)collider.GetWorldAxis();
+                    var halfHeight = collider.worldHeight * 0.5f;
+                    var r = collider.worldRadius;
+                    var top = position + axisDir * halfHeight;
+                    var bottom = position - axisDir * halfHeight;
+                    Gizmos.DrawWireSphere(top, r);
+                    Gizmos.DrawWireSphere(bottom, r);
+                    var right = Vector3.Cross(axisDir, Vector3.forward).normalized;
+                    if (right.magnitude < 0.01f) right = Vector3.Cross(axisDir, Vector3.right).normalized;
+                    var forward = Vector3.Cross(axisDir, right).normalized;
+                    Gizmos.DrawLine(top + right * r, bottom + right * r);
+                    Gizmos.DrawLine(top - right * r, bottom - right * r);
+                    Gizmos.DrawLine(top + forward * r, bottom + forward * r);
+                    Gizmos.DrawLine(top - forward * r, bottom - forward * r);
+                    break;
+                }
+                case JiggleCollider.JiggleColliderType.Plane: {
+                    var up = ((Vector4)collider.localToWorldMatrix.c1).normalized;
+                    var upDir = new Vector3(up.x, up.y, up.z);
+                    var right = Vector3.Cross(upDir, Vector3.forward).normalized;
+                    if (right.magnitude < 0.01f) right = Vector3.Cross(upDir, Vector3.right).normalized;
+                    var fwd = Vector3.Cross(upDir, right).normalized;
+                    var size = 2f;
+                    var p1 = position + (right + fwd) * size;
+                    var p2 = position + (right - fwd) * size;
+                    var p3 = position + (-right - fwd) * size;
+                    var p4 = position + (-right + fwd) * size;
+                    Gizmos.DrawLine(p1, p2);
+                    Gizmos.DrawLine(p2, p3);
+                    Gizmos.DrawLine(p3, p4);
+                    Gizmos.DrawLine(p4, p1);
+                    Gizmos.DrawLine(position, position + upDir * size * 0.5f);
+                    break;
+                }
+            }
+        }
     }
 }
 

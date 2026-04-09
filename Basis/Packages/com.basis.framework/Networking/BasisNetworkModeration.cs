@@ -187,6 +187,10 @@ public static class BasisNetworkModeration
                 HandleGlobalLockState(reader);
                 break;
 
+            case AdminRequestMode.GlobalGetHeadlessAudioState:
+                HandleGlobalHeadlessAudioState(reader);
+                break;
+
             default:
                 BasisDebug.LogError($"Unhandled admin command: {mode}", BasisDebug.LogTag.Networking);
                 break;
@@ -446,6 +450,18 @@ public static class BasisNetworkModeration
     /// </summary>
     public static event Action<bool, bool, bool> OnGlobalLockStateChanged;
 
+    /// <summary>
+    /// Current headless audio state received from the server.
+    /// True means headless clients should keep BasisAudioClipPlayer off.
+    /// </summary>
+    public static bool GlobalHeadlessAudioOff { get; private set; }
+
+    /// <summary>
+    /// Fired when the global headless audio state changes.
+    /// Parameter: headlessAudioOff.
+    /// </summary>
+    public static event Action<bool> OnGlobalHeadlessAudioStateChanged;
+
     private static void HandleGlobalLockState(NetDataReader reader)
     {
         GlobalAvatarsLocked = reader.GetBool();
@@ -477,6 +493,23 @@ public static class BasisNetworkModeration
     public static void GlobalToggleWorlds()
     {
         SendAdminRequest(AdminRequestMode.GlobalToggleWorlds);
+    }
+
+    private static void HandleGlobalHeadlessAudioState(NetDataReader reader)
+    {
+        GlobalHeadlessAudioOff = reader.GetBool();
+        BasisDebug.Log($"Global headless audio state updated - Headless audio off: {GlobalHeadlessAudioOff}", BasisDebug.LogTag.Networking);
+        OnGlobalHeadlessAudioStateChanged?.Invoke(GlobalHeadlessAudioOff);
+    }
+
+    /// <summary>
+    /// Admin: Set headless audio clip playback state for headless clients.
+    /// </summary>
+    public static void SetGlobalHeadlessAudio(bool headlessAudioOff)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessAudio,
+            w => w.Put(headlessAudioOff));
     }
 
     #endregion

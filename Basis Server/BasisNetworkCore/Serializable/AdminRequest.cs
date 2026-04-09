@@ -60,6 +60,8 @@ namespace BasisNetworkCore.Serializable
             GlobalToggleProps,   // admin: toggle global prop loading lock
             GlobalToggleWorlds,  // admin: toggle global world loading lock
             GlobalGetLockState,  // server→client: current global lock state
+            GlobalGetHeadlessAudioState, // server→client: current global headless audio state
+            SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
         }
     }
 }

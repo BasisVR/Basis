@@ -4,9 +4,9 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 #if !UNITY_SERVER
-using OpusSharp.Core;
 #endif
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using static SerializableBasis;
 
@@ -66,9 +66,9 @@ namespace Basis.Scripts.Networking.Receivers
             BasisAudioReceiver.silentData ??= new float[RemoteOpusSettings.FrameSize];
 
 #if UNITY_IOS && !UNITY_EDITOR
-            entry.Receiver.decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
+            entry.Receiver.decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #else
-            entry.Receiver.decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+            entry.Receiver.decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 
             // Add AudioSource directly to BasisDeviceManagement.Instance

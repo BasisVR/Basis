@@ -371,18 +371,11 @@ namespace SteamAudio
         private void Update()
         {
             if (!mInitialized) return;
-            // If you're chasing absolute perf: prefer "dirty update" over per-frame updates.
-            if (AllowsUpdateParameters && mAudioEngineSource != null)
-            {
-                ForceUpdate();
-            }
         }
         public void ForceUpdate()
         {
             if (!mInitialized || mAudioEngineSource == null) return;
             mAudioEngineSource.UpdateParameters(this);
-            // If UpdateParameters can affect sim flags/models, dirty cache:
-            MarkCacheDirty();
         }
 
         private void OnDrawGizmosSelected()

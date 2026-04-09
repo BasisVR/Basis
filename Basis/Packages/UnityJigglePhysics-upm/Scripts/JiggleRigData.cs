@@ -32,8 +32,6 @@ public struct JiggleRigData {
     
     [NonSerialized]
     private Dictionary<Transform, JiggleTransformCachedData> transformToCachedDataMap;
-    [NonSerialized]
-    private HashSet<Transform> excludedTransformSet;
 
     private bool TryUpdateSerialization() {
         switch (serializedVersion) {
@@ -97,12 +95,9 @@ public struct JiggleRigData {
             var cachedData = transformCachedData[i];
             transformToCachedDataMap[cachedData.bone] = cachedData;
         }
-        excludedTransformSet = new HashSet<Transform>(excludedTransforms ?? Array.Empty<Transform>());
     }
 
     public bool GetIsExcluded(Transform t) {
-        if (excludedTransformSet != null) return excludedTransformSet.Contains(t);
-        if (excludedTransforms == null) return false;
         var count = excludedTransforms.Length;
         for (int i = 0; i < count; i++) {
             if (excludedTransforms[i] == t) {
@@ -224,6 +219,7 @@ public struct JiggleRigData {
         return true;
     }
     public JiggleTransformCachedData GetCache(Transform t) {
+#if UNITY_EDITOR
         if (transformToCachedDataMap == null) {
             throw new InvalidOperationException("JiggleRigData: Cache lookup not initialized. Call RegenerateCacheLookup() first.");
         }
@@ -231,6 +227,9 @@ public struct JiggleRigData {
             throw new KeyNotFoundException($"JiggleRigData: Transform '{t.name}' not found in cache. Ensure it is a child of the root bone and not excluded.");
         }
         return cachedData;
+#else
+        return transformToCachedDataMap[t];
+#endif
     }
 
     /// <summary>

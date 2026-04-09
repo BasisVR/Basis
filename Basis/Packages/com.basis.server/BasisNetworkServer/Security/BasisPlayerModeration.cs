@@ -317,6 +317,11 @@ namespace BasisNetworkServer.Security
                         HandleGlobalToggle(peer, "World", BasisGlobalLockManager.ToggleWorlds()));
                     break;
 
+                case AdminRequestMode.SetGlobalHeadlessAudio:
+                    Require(peer, PermNodes.ModerationHeadlessAudio, () =>
+                        HandleHeadlessAudioSet(peer, reader));
+                    break;
+
                 // ===== PERMISSION EDIT =====
                 case AdminRequestMode.SetUserGroup:
                 case AdminRequestMode.SetUserNode:
@@ -442,6 +447,26 @@ namespace BasisNetworkServer.Security
 
             // Broadcast updated lock state so clients track it
             BasisGlobalLockManager.BroadcastLockState();
+        }
+
+        private static void HandleHeadlessAudioSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set headless audio clip playback: missing state value.");
+                return;
+            }
+
+            bool headlessAudioOff = reader.GetBool();
+            bool changed = BasisHeadlessAudioStateManager.SetHeadlessAudio(headlessAudioOff);
+            string state = headlessAudioOff ? "OFF" : "ON";
+            string notification = changed
+                ? $"Headless audio clip playback is now {state}."
+                : $"Headless audio clip playback was already {state}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisHeadlessAudioStateManager.BroadcastState();
         }
 
         private static void HandleShoutMode(NetPeer peer, NetPacketReader reader, bool enable)

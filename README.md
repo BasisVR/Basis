@@ -21,11 +21,9 @@ Our goal is to help equip VR Creators, so we can accelerate the growth of VR.
 
 <img src="./Basis/Images/Banner.png" alt="Banner" width="550" height="155">
 
-We are actively working on Basis. If you like what you see, please consider contributing to the GitHub in any way you can.
+We are actively working on Basis. If you like what you see, please consider contributing in any way you can.
 
  ## How you can Contribute
-
-After a year of development, we have only recently put Basis on GitHub, which means that while everything is operational, we still have to work on fixing plenty of bugs.
 
 Do you have a suggestion for improving Basis? Please fork the repo and create a pull request! You can also open an issue with the tag “improvement”.
 Not sure how to contribute, but still wanting to help out? Consider donating! We appreciate any help possible.

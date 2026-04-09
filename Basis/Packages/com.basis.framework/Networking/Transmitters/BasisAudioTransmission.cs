@@ -2,9 +2,6 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Profiler;
-#if !UNITY_SERVER
-using OpusSharp.Core;
-#endif
 using static SerializableBasis;
 
 namespace Basis.Scripts.Networking.Transmitters
@@ -13,7 +10,7 @@ namespace Basis.Scripts.Networking.Transmitters
     public class BasisAudioTransmission
     {
 #if !UNITY_SERVER
-        public OpusEncoder encoder;
+        public OpusSharp.Core.Interfaces.IOpusEncoder encoder;
 #endif
         public BasisNetworkPlayer NetworkedPlayer;
         public BasisLocalPlayer Local;
@@ -60,23 +57,22 @@ namespace Basis.Scripts.Networking.Transmitters
         private void InitializeEncoder()
         {
 #if UNITY_IOS && !UNITY_EDITOR
-            encoder = new OpusEncoder(
-                LocalOpusSettings.MicrophoneSampleRate,
-                LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication,
-                use_static: true
-            );
+            encoder = new OpusSharp.Core.Static.OpusEncoder(
+    LocalOpusSettings.MicrophoneSampleRate,
+    LocalOpusSettings.Channels,
+    LocalOpusSettings.OpusApplication
+);
 #else
-            encoder = new OpusEncoder(
+
+            encoder = new OpusSharp.Core.Dynamic.OpusEncoder(
                 LocalOpusSettings.MicrophoneSampleRate,
                 LocalOpusSettings.Channels,
-                LocalOpusSettings.OpusApplication,
-                use_static: false
+                LocalOpusSettings.OpusApplication
             );
 #endif
 
-            encoder.Ctl(EncoderCTL.OPUS_SET_BITRATE, 32000);
-            encoder.Ctl(EncoderCTL.OPUS_SET_COMPLEXITY, 5);
+            encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_BITRATE, 32000);
+            encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_COMPLEXITY, 5);
         }
 #endif
 

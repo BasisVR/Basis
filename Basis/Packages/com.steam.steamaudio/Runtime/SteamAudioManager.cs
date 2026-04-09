@@ -670,6 +670,7 @@ namespace SteamAudio
                 }
 
                 src.UpdateOutputs(SimulationFlags.Direct);
+                src.ForceUpdate();
             }
 
             // --- Reflections/Pathing timing logic unchanged ---
@@ -691,6 +692,7 @@ namespace SteamAudio
                         if (src == null) continue;
 
                         src.UpdateOutputs(SimulationFlags.Reflections | SimulationFlags.Pathing);
+                        src.ForceUpdate();
                     }
                 }
 

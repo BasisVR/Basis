@@ -145,6 +145,16 @@ namespace Basis.Network.Vehicles
                 ApplyRemoteExtrasToParts(_remoteEngineRevs01, _remoteSteerRatio);
             }
         }
+        public override void OnServerOwnershipDestroyed()
+        {
+            // Eject local player from the seat before the vehicle is removed
+            if (SeatSync != null && SeatSync.IsLocallyEntered())
+            {
+                BasisLocalPlayer.Instance?.LocalSeatDriver?.Stand();
+            }
+            // Destroy the vehicle since ownership has been released
+            Destroy(gameObject);
+        }
         public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
             int expectedMin = BasisVehicleNetCodec.MinPacketSize + BasisVehicleWheelNetCodec.ExtraBytes(_wheelCount, _steerCount, SpinBits, SteerBits, EngineBits, SteerRatioBits);

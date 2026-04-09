@@ -3,10 +3,6 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
-#if !UNITY_SERVER
-using OpusSharp.Core;
-using OpusSharp.Core.Extensions;
-#endif
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -42,7 +38,7 @@ namespace Basis.Scripts.Networking.Receivers
         public static int outputSampleRate;
 
 #if !UNITY_SERVER
-        public OpusDecoder decoder;
+        public OpusSharp.Core.Interfaces.IOpusDecoder decoder;
 #endif
 
         private float[] _inputScratch;
@@ -265,9 +261,10 @@ namespace Basis.Scripts.Networking.Receivers
             BasisNetworkReceiver = networkedPlayer;
 
 #if UNITY_IOS && !UNITY_EDITOR
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
+            // iOS requires statically linked Opus library
+            decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #else
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+            decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 #endif
         }
@@ -376,8 +373,8 @@ namespace Basis.Scripts.Networking.Receivers
 #if !UNITY_SERVER
                 if (decoder != null)
                 {
-                    try { OpusDecoderExtensions.SetGain(decoder, 256); }
-                    catch (OpusException) { }
+                    try { OpusSharp.Core.Extensions.OpusDecoderExtensions.SetGain(decoder, 256); }
+                    catch (OpusSharp.Core.OpusException) { }
                 }
 #endif
                 BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
@@ -405,9 +402,9 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 try
                 {
-                    OpusDecoderExtensions.SetGain(decoder, gain);
+                    OpusSharp.Core.Extensions.OpusDecoderExtensions.SetGain(decoder, gain);
                 }
-                catch (OpusException ex)
+                catch (OpusSharp.Core.OpusException ex)
                 {
                     BasisDebug.LogWarning($"Failed to set decoder gain: {ex.Message}", BasisDebug.LogTag.Voice);
                 }

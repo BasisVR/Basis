@@ -228,6 +228,11 @@ public static class SettingsProviderIK
         collisionsToggle.AssignBinding(BasisSettingsDefaults.FBIKCollisionsEnabled);
         collisionsToggle.Descriptor.SetDescription("Enables virtual capsule collision between elbows and chest to prevent arm clipping through the body.");
 
+        var footIKToggle = PanelToggle.CreateNewEntry(colliderParent);
+        footIKToggle.Descriptor.SetTitle("Foot IK");
+        footIKToggle.AssignBinding(BasisSettingsDefaults.FootIKEnabled);
+        footIKToggle.Descriptor.SetDescription("Enables procedural foot placement when standing still without foot trackers.");
+
         var protectElbowToggle = PanelToggle.CreateNewEntry(colliderParent);
         protectElbowToggle.Descriptor.SetTitle("Protect Elbow");
         protectElbowToggle.AssignBinding(BasisSettingsDefaults.FBIKProtectElbow);
@@ -505,6 +510,7 @@ public static class SettingsProviderIK
         // IK Collider & Tuning
         BasisSettingsDefaults.FBIKAdvancedVisible.ResetToDefault();
         BasisSettingsDefaults.FBIKCollisionsEnabled.ResetToDefault();
+        BasisSettingsDefaults.FootIKEnabled.ResetToDefault();
         BasisSettingsDefaults.FBIKProtectElbow.ResetToDefault();
         BasisSettingsDefaults.FBIKUseHandCapsule.ResetToDefault();
         BasisSettingsDefaults.FBIKChestRadius.ResetToDefault();

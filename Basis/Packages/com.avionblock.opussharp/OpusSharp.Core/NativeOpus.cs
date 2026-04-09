@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using OpusSharp.Core.SafeHandlers;
 using System.Runtime.InteropServices;
                                    

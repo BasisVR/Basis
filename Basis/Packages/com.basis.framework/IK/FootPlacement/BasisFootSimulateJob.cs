@@ -75,7 +75,12 @@ public struct BasisFootSimulateJob : IJob
         }
         else
         {
-            groundUpComponent = hipsUpComponent - p.hipToFoot;
+            // hipToFoot measures Hips→Foot bone, but the ground is ankleHeight
+            // below the Foot bone.  Subtract the full distance so the fallback
+            // ground level matches what a successful raycast would produce.
+            // Then add footHeightOffset, just like raycasted positions do, so
+            // the feet don't hover above the floor when the raycast misses.
+            groundUpComponent = hipsUpComponent - p.hipToFoot - p.ankleHeight + p.footHeightOffset;
             airborne = true;
         }
 

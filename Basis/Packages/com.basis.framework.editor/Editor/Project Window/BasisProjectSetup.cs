@@ -87,9 +87,9 @@ public partial class BasisProjectSetup : EditorWindow
     private bool? _hasIl2cppStandalone;
     private bool? _hasIl2cppAndroid;
 
-    // Quality presets (1=Desktop, 2=Quest/Android)
-    private const int QUALITY_DESKTOP = 1;
-    private const int QUALITY_ANDROID = 2;
+    // Quality presets — must match indices in BasisQualitySettingsGuard
+    private const int QUALITY_DESKTOP = 0;
+    private const int QUALITY_ANDROID = 1;
 
     // Package manager state
     private bool? _metaXrInstalled;          // null = unknown (scanning), true/false known

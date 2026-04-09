@@ -7,7 +7,6 @@ PACKAGES="Packages/org.basisvr.generator.equals-3.2.0.tgz:
         Packages/org.basisvr.simplebase-4.0.2.tgz:
         Packages/org.basisvr.bouncycastle-2.5.0.tgz"
 SUBFOLDERS="Packages/com.basis.sdk:
-        Packages/com.basis.odinserializer:
         Packages/UnityJigglePhysics-upm:
         Packages/com.basis.bundlemanagement:
         Packages/com.basis.server"
@@ -26,32 +25,46 @@ if [[ "$1" == "full" ]]; then
 
   # Need this for framework (But only framework)
   SUBFOLDERS+=":Packages/com.avionblock.opussharp:
-              Packages/com.basis.bundlemanagement:
               Packages/com.basis.common:
-              Packages/com.basis.console:
               Packages/com.basis.eventdriver:
               Packages/com.basis.examples:
               Packages/com.basis.framework:
               Packages/com.basis.framework.editor:
               Packages/com.basis.gizmos:
-              Packages/com.basis.visualtrackers:
+              Packages/com.basis.openlipsync:
               Packages/com.basis.openvr:
               Packages/com.basis.openxr:
+              Packages/com.basis.pooltable:
               Packages/com.basis.profilerintergration:
               Packages/com.basis.settings:
               Packages/com.basis.shim:
+              Packages/com.basis.textmeshpro:
+              Packages/com.basis.vehicles:
+              Packages/com.basis.visualtrackers:
+              Packages/com.basis.zeromessenger:
               Packages/com.cnlohr.cilbox:
               Packages/com.cqf.urpvolumetricfog:
               Packages/com.hecomi.ulipsync:
-              Packages/com.steam.steamvr:
+              Packages/com.keviniglesias.basicmotions:
+              Packages/com.llealloo.audiolink:
               Packages/com.steam.steamaudio:
+              Packages/com.steam.steamvr:
+              Packages/com.unity.3rdpersondemo:
+              Packages/com.unity.render-pipelines.core:
+              Packages/com.unity.render-pipelines.universal:
+              Packages/com.unity.xr.openxr:
               Packages/com.xiph.rnnoise:
+              Packages/dev.hai-vr.basis.comms:
+              Packages/HVRBasisNDMF:
+              Packages/nuget.meamod.dns:
+              Assets/AddressableAssetsData:
+              Assets/Basis:
+              Assets/MetaXR:
+              Assets/Oculus:
+              Assets/Plugins:
               Assets/Resources:
               Assets/StreamingAssets:
-              Assets/Plugins:
-              Assets/AddressableAssetsData:
-              Assets/XR:
-              Assets/Basis"
+              Assets/XR"
 
   EXTRASUBFOLDERS+="ProjectSettings"
 

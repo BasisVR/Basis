@@ -93,7 +93,11 @@ public class JiggleTree {
         this.parameters = parameters.ToArray();
         this.personalColliders = personalColliders.ToArray();
         this.personalColliderTransforms = personalColliderTransforms.ToArray();
+#if UNITY_6000_4_OR_NEWER
         rootID = bones[0].GetEntityId();
+#else
+        rootID = bones[0].GetInstanceID();
+#endif
     }
 
     public void Set(List<Transform> bones, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Transform> personalColliderTransforms, List<JiggleCollider> personalColliders, List<Vector3> restPositions, List<Quaternion> restRotations) {
@@ -123,10 +127,14 @@ public class JiggleTree {
             this.personalColliderTransforms = personalColliderTransforms.ToArray();
         }
 
+#if UNITY_6000_4_OR_NEWER
         rootID = bones[0].GetEntityId();
+#else
+        rootID = bones[0].GetInstanceID();
+#endif
+        
         if (hasJiggleTreeStruct) {
-            jiggleTreeJobData.Set(rootID, this.points, this.parameters);
-            jiggleTreeJobData.colliderCount = (uint)this.personalColliders.Length;
+            jiggleTreeJobData.Set(rootID, this.points, this.parameters, personalCollidersCount);
         }
 
         dirty = false;

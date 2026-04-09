@@ -29,40 +29,19 @@ public struct JiggleJobPrepareRender : IJob {
     public void Execute() {
         float3 min = Vector3.one * 10000f;
         float3 max = Vector3.one * -10000f;
+        int currentCount = 0;
 
         for (int i = 0; i < personalColliderCount; i++) {
             var collider = personalColliders[i];
-            if (collider.type != JiggleCollider.JiggleColliderType.Sphere) {
-                continue;
-            }
-            min = math.min(min, collider.localToWorldMatrix.c3.xyz - new float3(1f)*collider.worldRadius);
-            max = math.max(max, collider.localToWorldMatrix.c3.xyz + new float3(1f)*collider.worldRadius);
-            var matrix = collider.localToWorldMatrix;
-            var scaleAdjust = float4x4.Scale(collider.radius*2f);
-            JiggleRenderInstancer.GPUChunk chunk = new() {
-                matrix = math.mul(matrix,scaleAdjust),
-                color = new float4(1f, 0.5490196f, 0f, 1f)
-            };
-            sphereChunks[i] = chunk;
+            if (!collider.enabled) continue;
+            currentCount = AppendColliderChunks(collider, currentCount, new float4(1f, 0.5490196f, 0f, 1f), ref min, ref max);
         }
 
         for (int i = 0; i < sceneColliderCount; i++) {
             var collider = sceneColliders[i];
-            if (collider.type != JiggleCollider.JiggleColliderType.Sphere) {
-                continue;
-            }
-            min = math.min(min, collider.localToWorldMatrix.c3.xyz - new float3(1f)*collider.worldRadius);
-            max = math.max(max, collider.localToWorldMatrix.c3.xyz + new float3(1f)*collider.worldRadius);
-            var matrix = collider.localToWorldMatrix;
-            var scaleAdjust = float4x4.Scale(2f*collider.radius);
-            var chunk = new JiggleRenderInstancer.GPUChunk() {
-                matrix = math.mul(matrix, scaleAdjust),
-                color = new float4(0.5450981f, 0f, 0f, 1f)
-            };
-            sphereChunks[i + personalColliderCount] = chunk;
+            if (!collider.enabled) continue;
+            currentCount = AppendColliderChunks(collider, currentCount, new float4(0.5450981f, 0f, 0f, 1f), ref min, ref max);
         }
-
-        int currentCount = personalColliderCount + sceneColliderCount;
         for (var i = 0; i < treeCount; i++) {
             var tree = trees[i];
             for(var o=0;o<tree.pointCount;o++) {
@@ -87,6 +66,50 @@ public struct JiggleJobPrepareRender : IJob {
 
         sphereCount.Value = currentCount;
         sphereBounds.Value = new Bounds(Vector3.zero, math.max(math.abs(max), math.abs(min))*2f);
+    }
+
+    private int AppendColliderChunks(JiggleCollider collider, int index, float4 color, ref float3 min, ref float3 max) {
+        var position = collider.localToWorldMatrix.c3.xyz;
+        switch (collider.type) {
+            case JiggleCollider.JiggleColliderType.Sphere: {
+                var r = collider.worldRadius;
+                min = math.min(min, position - new float3(r));
+                max = math.max(max, position + new float3(r));
+                var scaleAdjust = float4x4.Scale(collider.radius * 2f);
+                sphereChunks[index] = new JiggleRenderInstancer.GPUChunk {
+                    matrix = math.mul(collider.localToWorldMatrix, scaleAdjust),
+                    color = color
+                };
+                return index + 1;
+            }
+            case JiggleCollider.JiggleColliderType.Capsule: {
+                var axisDir = collider.GetWorldAxis();
+                var halfHeight = collider.worldHeight * 0.5f;
+                var top = position + axisDir * halfHeight;
+                var bottom = position - axisDir * halfHeight;
+                var r = collider.worldRadius;
+                min = math.min(min, math.min(top, bottom) - new float3(r));
+                max = math.max(max, math.max(top, bottom) + new float3(r));
+                var scaleAdjust = float4x4.Scale(collider.radius * 2f);
+                // Top cap sphere.
+                var topMatrix = collider.localToWorldMatrix;
+                topMatrix.c3 = new float4(top, 1f);
+                sphereChunks[index] = new JiggleRenderInstancer.GPUChunk {
+                    matrix = math.mul(topMatrix, scaleAdjust),
+                    color = color
+                };
+                // Bottom cap sphere.
+                var bottomMatrix = collider.localToWorldMatrix;
+                bottomMatrix.c3 = new float4(bottom, 1f);
+                sphereChunks[index + 1] = new JiggleRenderInstancer.GPUChunk {
+                    matrix = math.mul(bottomMatrix, scaleAdjust),
+                    color = color
+                };
+                return index + 2;
+            }
+            default:
+                return index;
+        }
     }
 
     public void Dispose() {

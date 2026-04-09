@@ -488,15 +488,19 @@ namespace Basis.Scripts.BasisCharacterController
 
             float halfHeight = finalHeight * 0.5f;
 
-            // Keep capsule bottom aligned with floor
+            // Offset the capsule down by skinWidth so the collider bottom
+            // (including its skin shell) sits flush with the floor instead
+            // of hovering skinWidth above it.
+            float skinCompensation = characterController.skinWidth;
+
             if (BasisLocalBoneDriver.HasEye)
             {
                 var outgoing = BasisLocalBoneDriver.EyeControl.OutGoingData.position;
-                characterController.center = new Vector3(outgoing.x, halfHeight, outgoing.z);
+                characterController.center = new Vector3(outgoing.x, halfHeight - skinCompensation, outgoing.z);
             }
             else
             {
-                characterController.center = new Vector3(0f, halfHeight, 0f);
+                characterController.center = new Vector3(0f, halfHeight - skinCompensation, 0f);
             }
 
             // Clamp stepOffset to something sane relative to height
