@@ -179,3 +179,8 @@ https://avionblock.github.io/OpusSharp/api/OpusSharp.Core.html
 ## Opus License
 
 https://opus-codec.org/license/
+
+## Support The Creator
+Kofi Donations only go through to SineVector241. Sponsoring hasn't been setup yet...
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Z8Z0MLA2P)
