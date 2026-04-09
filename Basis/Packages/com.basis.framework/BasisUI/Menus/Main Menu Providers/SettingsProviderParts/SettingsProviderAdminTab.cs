@@ -329,9 +329,16 @@ namespace Basis.BasisUI
             worldLock.SetValueWithoutNotify(BasisNetworkModeration.GlobalWorldsLocked);
             worldLock.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleWorlds();
 
+            PanelToggle headlessAudioToggle = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            headlessAudioToggle.Descriptor.SetTitle("Headless audio off");
+            headlessAudioToggle.Descriptor.SetDescription("Silences headless BasisAudioClipPlayer clients over the network.");
+            headlessAudioToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessAudioOff);
+            headlessAudioToggle.OnValueChanged += _ => BasisNetworkModeration.GlobalToggleHeadlessAudio();
+
             controller.AvatarLockToggle = avatarLock;
             controller.PropLockToggle = propLock;
             controller.WorldLockToggle = worldLock;
+            controller.HeadlessAudioToggle = headlessAudioToggle;
 
             // Permissions section
             SettingsProviderPermissionsTab.BuildPermissionsUI(container, tab.gameObject);
@@ -395,6 +402,7 @@ namespace Basis.BasisUI
             public PanelToggle AvatarLockToggle;
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
+            public PanelToggle HeadlessAudioToggle;
 
             public BasisNetworkPlayer SelectedPlayer;
             private string _searchQuery = string.Empty;
@@ -413,6 +421,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerJoined += OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged += OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
                 RebuildPlayerList();
             }
 
@@ -421,6 +430,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
 
                 ClearPlayerButtons();
             }
@@ -430,6 +440,11 @@ namespace Basis.BasisUI
                 if (AvatarLockToggle != null) AvatarLockToggle.SetValueWithoutNotify(avatars);
                 if (PropLockToggle != null) PropLockToggle.SetValueWithoutNotify(props);
                 if (WorldLockToggle != null) WorldLockToggle.SetValueWithoutNotify(worlds);
+            }
+
+            private void OnGlobalHeadlessAudioStateChanged(bool headlessAudioOff)
+            {
+                if (HeadlessAudioToggle != null) HeadlessAudioToggle.SetValueWithoutNotify(headlessAudioOff);
             }
 
             private void OnRemotePlayersChanged(BasisNetworkPlayer _p1, BasisRemotePlayer _p2)

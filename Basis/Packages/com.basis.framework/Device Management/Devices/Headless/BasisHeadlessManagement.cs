@@ -54,6 +54,9 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private bool reconnectScheduled;
     private bool configuredAvatarApplied;
     private bool strictMemoryCleanupInProgress;
+    private bool headlessAudioPolicyKnown;
+    private bool headlessAudioOff;
+    private bool headlessAudioControlReady;
 
     /// <summary>
     /// Scene change hook used in headless to aggressively strip visuals and free memory.
@@ -496,12 +499,16 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         reconnectCts = new CancellationTokenSource();
         ActiveInstance = this;
         strictMemoryCleanupInProgress = false;
+        headlessAudioControlReady = false;
         BasisHeadlessRuntimeStatus.Reset();
         LoadOrCreateConfigXml();
         ApplyRuntimeConfiguration();
         BasisNetworkConnection.HeadlessReconnectSuppressed = false;
         BasisNetworkConnection.OnDisconnectedAfterReboot -= OnDisconnectedAfterReboot;
         BasisNetworkConnection.OnDisconnectedAfterReboot += OnDisconnectedAfterReboot;
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
+        ResetServerHeadlessAudioPolicy();
 
         if (BasisLocalPlayer.PlayerReady && BasisLocalPlayer.Instance != null)
         {
@@ -543,6 +550,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         SceneManager.activeSceneChanged -= OnSceneLoadeded;
         CancelReconnectLoop();
         StopHealthEndpoint();
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+        ResetServerHeadlessAudioPolicy();
         BasisAudioClipPlayer.DeInitialize();
         BasisHeadlessRuntimeStatus.MarkStopping();
         BasisLocalPlayer.OnLocalPlayerInitalized -= OnLocalPlayerReadyForHeadless;
@@ -556,9 +565,8 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     private void InitalizeLocalPlayerReadyNess()
     {
         EnsureHeadlessInput();
-
-        // If AudioClips directory has .wav files, stream a random one as voice audio
-        BasisAudioClipPlayer.TryInitialize();
+        headlessAudioControlReady = true;
+        ApplyServerHeadlessAudioPolicy();
 
         _ = ApplyConfiguredAvatarAsync();
     }
@@ -802,6 +810,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
             return;
         }
 
+        ResetServerHeadlessAudioPolicy();
         reconnectScheduled = false;
         BasisHeadlessRuntimeStatus.MarkConnecting();
         BasisNetworkManagement.Instance.Ip = Ip;
@@ -882,6 +891,7 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     {
         string message = TryReadDisconnectMessage(disconnectInfo);
         BasisHeadlessRuntimeStatus.MarkDisconnected(disconnectInfo, message);
+        ResetServerHeadlessAudioPolicy();
 
         if (!ShouldRetry(disconnectInfo))
         {
@@ -1031,8 +1041,41 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         BasisNetworkConnection.HeadlessReconnectSuppressed = true;
         CancelReconnectLoop();
         StopHealthEndpoint();
+        BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+        ResetServerHeadlessAudioPolicy();
         BasisHeadlessRuntimeStatus.MarkStopping();
         BasisDebug.Log(nameof(StopSDK), BasisDebug.LogTag.Device);
+    }
+
+    private void OnGlobalHeadlessAudioStateChanged(bool shouldDisableHeadlessAudio)
+    {
+        headlessAudioPolicyKnown = true;
+        headlessAudioOff = shouldDisableHeadlessAudio;
+        ApplyServerHeadlessAudioPolicy();
+    }
+
+    private void ResetServerHeadlessAudioPolicy()
+    {
+        headlessAudioPolicyKnown = false;
+        headlessAudioOff = false;
+        BasisAudioClipPlayer.DeInitialize();
+    }
+
+    private void ApplyServerHeadlessAudioPolicy()
+    {
+        if (!headlessAudioControlReady || !headlessAudioPolicyKnown)
+        {
+            BasisAudioClipPlayer.DeInitialize();
+            return;
+        }
+
+        if (headlessAudioOff)
+        {
+            BasisAudioClipPlayer.DeInitialize();
+            return;
+        }
+
+        BasisAudioClipPlayer.TryInitialize();
     }
 
     /// <inheritdoc/>

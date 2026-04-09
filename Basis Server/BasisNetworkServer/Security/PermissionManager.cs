@@ -52,6 +52,7 @@ namespace BasisPermissions
         public const string ModerationTeleport = "basis.moderation.teleport";
         public const string ModerationShout = "basis.moderation.shout";
         public const string ModerationGlobalLock = "basis.moderation.globallock";
+        public const string ModerationHeadlessAudio = "basis.moderation.headlessaudio";
 
         public const string PermissionsView = "basis.permissions.view";
         public const string PermissionsEdit = "basis.permissions.edit";
@@ -760,6 +761,7 @@ namespace BasisPermissions
                     adm.Nodes.Add(PermNodes.ModerationTeleport);
                     adm.Nodes.Add(PermNodes.ModerationShout);
                     adm.Nodes.Add(PermNodes.ModerationGlobalLock);
+                    adm.Nodes.Add(PermNodes.ModerationHeadlessAudio);
                     adm.Nodes.Add(PermNodes.PermissionsView);
 
                     _store.Groups["moderator"] = adm;
