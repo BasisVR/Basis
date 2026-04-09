@@ -302,7 +302,7 @@ namespace Basis.Scripts.BasisSdk.Interactions
             InputConstraint.sources = new BasisConstraintSourceData[] { new() { weight = 1f } };
             InputConstraint.Enabled = false;
 
-            headPauseRequestName = $"{nameof(BasisPickupInteractable)}-{gameObject.GetInstanceID()}";
+            headPauseRequestName = $"{nameof(BasisPickupInteractable)}-{gameObject.GetEntityId()}";
 
             AsyncOperationHandle<Material> op = Addressables.LoadAssetAsync<Material>(k_LoadMaterialAddress);
             ColliderHighlightMat = op.WaitForCompletion();

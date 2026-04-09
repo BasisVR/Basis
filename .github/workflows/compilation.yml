@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       secret-is-set: ${{ steps.secret-is-set.outputs.defined }}
+      android-secret-is-set: ${{ steps.android-secret-is-set.outputs.defined }}
     steps:
       - name: Check if secret is set, then set variable
         id: secret-is-set
@@ -20,6 +21,15 @@ jobs:
           TMP_SECRET2: ${{ secrets.UNITY_EMAIL }}
           TMP_SECRET3: ${{ secrets.UNITY_PASSWORD }}
         if: "${{ env.TMP_SECRET1 != '' && env.TMP_SECRET2 != '' && env.TMP_SECRET3 != '' }}"
+        run: echo "defined=true" >> $GITHUB_OUTPUT
+      - name: Check if Android secrets are set, then set variable
+        id: android-secret-is-set
+        env:
+          TMP_SECRET1: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          TMP_SECRET2: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          TMP_SECRET3: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          TMP_SECRET4: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+        if: "${{ env.TMP_SECRET1 != '' && env.TMP_SECRET2 != '' && env.TMP_SECRET3 != '' && env.TMP_SECRET4 != '' }}"
         run: echo "defined=true" >> $GITHUB_OUTPUT
 
   build-client:
@@ -36,7 +46,6 @@ jobs:
       matrix:
         targetPlatform:
           - StandaloneLinux64
-          - Android
         buildPlatform:
           - ubuntu-latest
         include:
@@ -117,15 +126,6 @@ jobs:
           customParameters: ${{ startsWith(matrix.targetPlatform, 'Standalone') && '-standaloneBuildSubtarget Player' || '' }}
           versioning: Custom
           version: ${{ steps.version.outputs.gitversion }}
-          # TODO: make a decision on how we want to increment this.
-          #  This number was chosen to be slightly larger than the version code used for 0.056B.
-          androidVersionCode: 55
-          androidExportType: androidPackage
-          androidKeystoreName: BasisQuest # This file won't exist, but this property needs to exist.
-          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
-          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
           linux64RemoveExecutableExtension: false
       - name: "Save Library Cache"
         uses: actions/cache/save@v3
@@ -190,12 +190,106 @@ jobs:
           files: |
             ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }}.zip
             ${{ github.workspace }}/Basis Unity ${{ matrix.targetPlatform }} Symbols.zip
+  build-client-android:
+    name: Build client for Android
+    timeout-minutes: 100
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # to allow us to manage cache
+    env:
+      projectPath: Basis
+      buildName: Basis Unity
+    needs: [check-secret]
+    if: needs.check-secret.outputs.secret-is-set == 'true' && needs.check-secret.outputs.android-secret-is-set == 'true'
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+      - name: "Checkout repository"
+        timeout-minutes: 10
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Restore Library cache"
+        id: restore-cache
+        timeout-minutes: 10
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: Library-${{ env.projectPath }}-Android-client-${{ hashFiles(env.projectPath) }}
+          restore-keys: Library-${{ env.projectPath }}-Android-client-
+      - name: "Create version string"
+        id: version
+        run: echo "gitversion=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+      - name: "Build Unity project"
+        timeout-minutes: 100
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          buildName: ${{ env.buildName }}
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: Android
+          customParameters: ""
+          versioning: Custom
+          version: ${{ steps.version.outputs.gitversion }}
+          # TODO: make a decision on how we want to increment this.
+          #  This number was chosen to be slightly larger than the version code used for 0.056B.
+          androidVersionCode: 55
+          androidExportType: androidPackage
+          androidKeystoreName: BasisQuest # This file won't exist, but this property needs to exist.
+          androidKeystoreBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          androidKeystorePass: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          androidKeyaliasName: ${{ secrets.ANDROID_KEYALIAS_NAME }}
+          androidKeyaliasPass: ${{ secrets.ANDROID_KEYALIAS_PASS }}
+          linux64RemoveExecutableExtension: false
+      - name: "Save Library Cache"
+        uses: actions/cache/save@v3
+        if: always() && github.ref_name == 'developer'
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+      - name: "Only retain latest cache"
+        if: always() && github.ref_name == 'developer'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OLD_CACHE_IDS=$(gh cache list --sort created_at --key Library-${{ env.projectPath }}-Android-client- --json id --jq '.[1:] | map(.id) | @sh')
+          for cache_id in $OLD_CACHE_IDS; do
+            echo "Deleting cache id: $cache_id"
+            gh cache delete $cache_id
+          done
+      - name: "Upload client artifact"
+        timeout-minutes: 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: Basis-Client-Android
+          path: |
+            build/Android
+            !build/Android/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
+      - name: "Upload client symbols artifact"
+        timeout-minutes: 4
+        uses: actions/upload-artifact@v4
+        with:
+          name: Basis-Symbols-Client-Android
+          path: |
+            build/Android/${{ env.buildName }}_BackUpThisFolder_ButDontShipItWithYourGame
       - name: "Release client apk"
-        if: github.ref_type == 'tag' && matrix.targetPlatform == 'Android'
+        if: github.ref_type == 'tag'
         timeout-minutes: 5
         uses: "softprops/action-gh-release@v2"
         with:
-          files: build/${{ matrix.targetPlatform }}/${{ env.buildName }}.apk
+          files: build/Android/${{ env.buildName }}.apk
 
   build-server:
     name: Build server on Ubuntu

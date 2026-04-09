@@ -134,6 +134,9 @@ namespace Basis.Scripts.Drivers
 
             Calibration(player);
 
+            // Capture T-pose bone rotations for network compression (while still in T-pose)
+            Networking.NetworkedAvatar.BasisNetworkAvatarCompressor.CaptureTPose();
+
             player.LocalBoneDriver.RemoveAllListeners();
             BasisLocalEyeDriver.Initalize();
             LocalRenderMeshSettings(BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, player.BasisAvatar.FaceVisemeMesh);
@@ -154,7 +157,7 @@ namespace Basis.Scripts.Drivers
 
             ComputeOffsets(player.LocalBoneDriver);
 
-            // player.BasisLocalFootDriver.InitializeVariables();
+            player.BasisLocalFootDriver.InitializeVariables();
 
             player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator);
             player.LocalAnimatorDriver.Initialize(player);
@@ -309,7 +312,7 @@ namespace Basis.Scripts.Drivers
             var Avatar = LocalPlayer.BasisAvatar;
             FindSkinnedMeshRenders(LocalPlayer);
             BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref Mapping);
-            Mapping.RecordPoses(LocalPlayer.BasisAvatar.Animator);
+            BasisAvatarModelCache.RecordPosesCached(Mapping, LocalPlayer.BasisAvatar.Animator);
             LocalPlayer.FaceIsVisible = false;
 
             if (Avatar == null)

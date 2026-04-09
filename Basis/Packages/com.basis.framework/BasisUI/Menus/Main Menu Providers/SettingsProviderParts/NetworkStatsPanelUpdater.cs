@@ -12,7 +12,12 @@ namespace Basis.BasisUI
         public PanelElementDescriptor PingField;
         public PanelElementDescriptor PlayersField;
         public PanelElementDescriptor TransmissionField;
+        public PanelElementDescriptor BandwidthField;
         public PanelElementDescriptor MetaField;
+
+        private long _lastBytesSent;
+        private long _lastBytesReceived;
+        private float _bandwidthTimer;
 
         private float _updateTimer;
         private const float UpdateInterval = 0.25f;
@@ -115,6 +120,41 @@ namespace Basis.BasisUI
                 }
             }
 
+            // Bandwidth
+            if (BandwidthField != null)
+            {
+                if (!connected || BasisNetworkConnection.NetworkClient?.client == null)
+                {
+                    BandwidthField.SetDescription("N/A");
+                    _lastBytesSent = 0;
+                    _lastBytesReceived = 0;
+                    _bandwidthTimer = 0f;
+                }
+                else
+                {
+                    var stats = BasisNetworkConnection.NetworkClient.client.Statistics;
+                    long totalSent = stats.BytesSent;
+                    long totalRecv = stats.BytesReceived;
+
+                    _bandwidthTimer += UpdateInterval;
+                    long deltaSent = totalSent - _lastBytesSent;
+                    long deltaRecv = totalRecv - _lastBytesReceived;
+
+                    float sentPerSec = _bandwidthTimer > 0 ? deltaSent / _bandwidthTimer : 0;
+                    float recvPerSec = _bandwidthTimer > 0 ? deltaRecv / _bandwidthTimer : 0;
+
+                    _lastBytesSent = totalSent;
+                    _lastBytesReceived = totalRecv;
+                    _bandwidthTimer = 0f;
+
+                    BandwidthField.SetDescription(
+                        $"Sent: {FormatBytes(totalSent)} ({FormatRate(sentPerSec)})\n" +
+                        $"Recv: {FormatBytes(totalRecv)} ({FormatRate(recvPerSec)})\n" +
+                        $"Packets: {stats.PacketsSent} sent / {stats.PacketsReceived} recv\n" +
+                        $"Packet Loss: {stats.PacketLoss}");
+                }
+            }
+
             // Server Metadata
             if (MetaField != null)
             {
@@ -125,6 +165,20 @@ namespace Basis.BasisUI
                     $"Increase Rate: {meta.IncreaseRate:F4}\n" +
                     $"Slowest Send Rate: {meta.SlowestSendRate:F2}s");
             }
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes < 1024) return $"{bytes} B";
+            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+            return $"{bytes / (1024.0 * 1024.0):F2} MB";
+        }
+
+        private static string FormatRate(float bytesPerSec)
+        {
+            if (bytesPerSec < 1024) return $"{bytesPerSec:F0} B/s";
+            if (bytesPerSec < 1024 * 1024) return $"{bytesPerSec / 1024.0:F1} KB/s";
+            return $"{bytesPerSec / (1024.0 * 1024.0):F2} MB/s";
         }
     }
 }

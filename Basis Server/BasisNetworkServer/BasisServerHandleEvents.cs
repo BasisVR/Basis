@@ -267,6 +267,7 @@ namespace BasisServerHandle
                 BasisNetworkOwnership.SendOutOwnershipInformation(newPeer);
                 BasisNetworkPIPCamera.SendPIPStateToPeer(newPeer);
                 BasisNetworkContentShare.SendAllSpheresToPeer(newPeer);
+                BasisNetworkServer.Security.BasisGlobalLockManager.SendLockStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
             }
             else
@@ -293,6 +294,24 @@ namespace BasisServerHandle
             ClientAvatarChangeMessage ClientAvatarChangeMessage = new ClientAvatarChangeMessage();
             ClientAvatarChangeMessage.Deserialize(Reader);
             Reader.Recycle();
+
+            // Global avatar lock: reject network broadcast but still save state locally
+            if (BasisNetworkServer.Security.BasisGlobalLockManager.AvatarsLocked)
+            {
+                bool isAdmin = false;
+                if (NetworkServer.AuthIdentity.NetIDToUUID(Peer, out string uuid))
+                {
+                    isAdmin = PermissionIntegration.HasValidRequirement(uuid, PermNodes.All);
+                }
+
+                if (!isAdmin)
+                {
+                    BNL.Log($"Avatar loading is globally disabled. Rejected avatar change from peer {Peer.Id}");
+                    BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(Peer, "Avatar loading is currently disabled by an admin.");
+                    return;
+                }
+            }
+
             ServerAvatarChangeMessage serverAvatarChangeMessage = new ServerAvatarChangeMessage
             {
                 clientAvatarChangeMessage = ClientAvatarChangeMessage,
@@ -640,6 +659,7 @@ namespace BasisServerHandle
                 {
                     syncState = new LocalAvatarSyncMessage
                     {
+                        DataQualityLevel = (byte)Basis.Network.Core.Compression.BasisAvatarBitPacking.BitQuality.High,
                         array = new byte[NetworkServer.HighQualityLength],
                         AdditionalAvatarDatas = null,
                         AdditionalAvatarDataSize = 0,
@@ -709,9 +729,17 @@ namespace BasisServerHandle
             LocalLoadResource.UUIDOfCreator = UUID;
             Reader.Recycle();
 
+            bool isAdmin = PermissionIntegration.HasValidRequirement(UUID, PermNodes.All);
+
             switch (LocalLoadResource.Mode)
             {
                 case 0:
+                    if (!isAdmin && BasisNetworkServer.Security.BasisGlobalLockManager.PropsLocked)
+                    {
+                        BNL.Log($"Prop loading is globally disabled. Rejected request from {UUID}");
+                        BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(Peer, "Prop loading is currently disabled by an admin.");
+                        return;
+                    }
                     if (PermissionIntegration.HasValidRequirement(UUID, PermNodes.ResourceLoadProp) == false)
                     {
                         BNL.LogError($"Invalid Request To Load Gameobject From {UUID}");
@@ -719,6 +747,12 @@ namespace BasisServerHandle
                     }
                     break;
                 case 1:
+                    if (!isAdmin && BasisNetworkServer.Security.BasisGlobalLockManager.WorldsLocked)
+                    {
+                        BNL.Log($"World loading is globally disabled. Rejected request from {UUID}");
+                        BasisNetworkServer.Security.BasisPlayerModeration.SendBackMessage(Peer, "World loading is currently disabled by an admin.");
+                        return;
+                    }
                     if (PermissionIntegration.HasValidRequirement(UUID, PermNodes.ResourceLoadWorld) == false)
                     {
                         BNL.LogError($"Invalid Request To Load Scene From {UUID}");

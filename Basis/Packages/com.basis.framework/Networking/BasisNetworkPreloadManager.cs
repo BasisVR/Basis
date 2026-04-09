@@ -29,6 +29,8 @@ public static class BasisNetworkPreloadManager
     /// </summary>
     public static readonly ConcurrentDictionary<string, PreloadedResource> PreloadedResources = new();
 
+    private static CancellationTokenSource _cts = new CancellationTokenSource();
+
     public class PreloadedResource
     {
         public LocalLoadResource LoadResource;
@@ -74,7 +76,9 @@ public static class BasisNetworkPreloadManager
             };
 
             BasisProgressReport report = new BasisProgressReport();
-            CancellationToken cancel = default;
+            CancellationToken cancel = _cts.Token;
+
+            await BasisLoadHandler.EnsureInitializationComplete();
 
             // Check if the full BEE file is already on disk
             bool isOnDisc = BasisLoadHandler.IsMetaDataOnDisc(resource.CombinedURL, out BasisBEEExtensionMeta metaInfo);
@@ -260,6 +264,9 @@ public static class BasisNetworkPreloadManager
     /// </summary>
     public static void Reset()
     {
+        _cts.Cancel();
+        _cts.Dispose();
+        _cts = new CancellationTokenSource();
         PreloadedResources.Clear();
     }
 }

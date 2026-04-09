@@ -244,11 +244,10 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.RightLittle);
             JiggleCreatorHelper(Mapping.rightHand);
 
-            //   BasisDebug.Log("Creating Collider Rigs");
-            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
-            {
-                JigglePhysics.AddJiggleCollider(Jiggle);
-            }
+            // Batch-add all colliders at once to avoid O(n²) dedup in JiggleMemoryBus.
+            // ScheduleAdd does a linear scan of pendingSceneColliderAdd for each call,
+            // so adding 32 colliders one-at-a-time when the pending list is large is expensive.
+            JigglePhysics.AddJiggleColliders(JiggleColliders);
         }
 
         /// <summary>
@@ -257,9 +256,10 @@ namespace Basis.Scripts.Drivers
         /// <param name="Parents">Transforms that will each receive a collider.</param>
         public void JiggleCreatorHelper(Transform[] Parents)
         {
-            foreach (Transform Parent in Parents)
+            int count = Parents.Length;
+            for (int i = 0; i < count; i++)
             {
-                JiggleCreatorHelper(Parent);
+                JiggleCreatorHelper(Parents[i]);
             }
         }
 
@@ -275,18 +275,16 @@ namespace Basis.Scripts.Drivers
         {
             if (Parent != null)
             {
-                JiggleColliderSerializable jiggleColliderSerializable = new JiggleColliderSerializable
+                JiggleColliders.Add(new JiggleColliderSerializable
                 {
                     collider = new JiggleCollider()
                     {
                         type = JiggleCollider.JiggleColliderType.Sphere,
                         localToWorldMatrix = Parent.localToWorldMatrix,
-                        radius = Scale / (Parent.lossyScale.magnitude / 3) // Scaled radius
+                        radius = Scale / (Parent.lossyScale.magnitude / 3)
                     },
                     transform = Parent
-                };
-
-                JiggleColliders.Add(jiggleColliderSerializable);
+                });
             }
         }
 
@@ -295,11 +293,8 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void RemoveJiggleRigColliders()
         {
-            // BasisDebug.Log("Removed Collider Rigs");
-            foreach (JiggleColliderSerializable Jiggle in JiggleColliders)
-            {
-                JigglePhysics.RemoveJiggleCollider(Jiggle);
-            }
+            // Batch-remove all colliders at once to avoid O(n²) linear scans in JiggleMemoryBus.
+            JigglePhysics.RemoveJiggleColliders(JiggleColliders);
             JiggleColliders.Clear();
         }
         // Common albedo/main texture property names across built-in/URP/custom shaders.
@@ -417,9 +412,9 @@ namespace Basis.Scripts.Drivers
                 {
                     LocalShadowClone.sharedMesh = source.sharedMesh;
                     blendShapeCount = source.sharedMesh.blendShapeCount;
-                    for (int i = 0; i < blendShapeCount; i++)
+                    for (int Index = 0; Index < blendShapeCount; Index++)
                     {
-                        LocalShadowClone.SetBlendShapeWeight(i, source.GetBlendShapeWeight(i));
+                        LocalShadowClone.SetBlendShapeWeight(Index, source.GetBlendShapeWeight(Index));
                     }
                 }
                 if (source.sharedMaterials != null)
@@ -444,6 +439,7 @@ namespace Basis.Scripts.Drivers
                 ShadowCloneSyncs.Add(new BasisShadowCloneBlendshapeSync(source, LocalShadowClone, blendShapeCount));
             }
         }
+        public static bool hasBlendShapeJobScheduled = false;
         public static void ScheduleReadBlendShapes(float epsilon = 0.001f)
         {
             for (int s = 0; s < ShadowCloneSyncs.Count; s++)
@@ -451,13 +447,19 @@ namespace Basis.Scripts.Drivers
                 var sync = ShadowCloneSyncs[s];
 
                 if (sync.Source == null || sync.Clone == null)
+                {
                     continue;
-
+                }
+                if (hasBlendShapeJobScheduled)
+                {
+                    sync.Handle.Complete();
+                    hasBlendShapeJobScheduled = false;
+                }
                 int count = sync.Count;
 
-                for (int i = 0; i < count; i++)
+                for (int Index = 0; Index < count; Index++)
                 {
-                    sync.Current[i] = sync.Source.GetBlendShapeWeight(i);
+                    sync.Current[Index] = sync.Source.GetBlendShapeWeight(Index);
                 }
 
                 // Schedule job
@@ -471,6 +473,7 @@ namespace Basis.Scripts.Drivers
 
                 // Batch size can be tuned; 32 is a decent start
                 sync.Handle = job.Schedule(count, 32);
+                hasBlendShapeJobScheduled = true;
             }
         }
         public static void ApplyShadowCloneBlendShapes()
@@ -483,24 +486,27 @@ namespace Basis.Scripts.Drivers
                 {
                     continue;
                 }
-
-                sync.Handle.Complete();
+                if (hasBlendShapeJobScheduled)
+                {
+                    sync.Handle.Complete();
+                    hasBlendShapeJobScheduled = false;
+                }
 
                 int count = sync.Count;
-                for (int i = 0; i < count; i++)
+                for (int Index = 0; Index < count; Index++)
                 {
-                    if (sync.ChangedMask[i] != 0)
+                    if (sync.ChangedMask[Index] != 0)
                     {
-                        sync.Clone.SetBlendShapeWeight(i, sync.Previous[i]);
+                        sync.Clone.SetBlendShapeWeight(Index, sync.Previous[Index]);
                     }
                 }
             }
         }
         private static bool TryGetFirstColor(Material mat, out Color value, out string foundProp)
         {
-            for (int i = 0; i < ColorProps.Length; i++)
+            for (int Index = 0; Index < ColorProps.Length; Index++)
             {
-                string p = ColorProps[i];
+                string p = ColorProps[Index];
                 if (mat.HasProperty(p))
                 {
                     value = mat.GetColor(p);

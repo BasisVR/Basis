@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -154,12 +155,24 @@ namespace Basis.Scripts.Networking
         private static float _timer;
         public static bool HasRequested;
 
-        // Parameters for Euro filter
-       // [Header(" Lower values → smoother output, more latency, Higher values → snappier output, more noise passes through")]
+        // Shared state for Parallel.For to avoid closure allocation per frame.
+        // Written on main thread before Parallel.For, read by worker threads.
+        static BasisNetworkReceiver[] s_parallelSnapshot;
+        static double s_parallelDeltaTime;
+        static readonly Action<int> s_parallelComputeBody = ParallelComputeBody;
+        // Leave headroom for Unity's job worker threads.
+        static readonly ParallelOptions s_parallelOptions = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Max(1, Environment.ProcessorCount - 2)
+        };
+        static void ParallelComputeBody(int i)
+        {
+            s_parallelSnapshot[i].ComputeData(s_parallelDeltaTime);
+        }
+
+        // Parameters for Euro filter (defaults; overridden at runtime by settings bindings)
         public static float MinCutoff = 0.05f;
-      //  [Header("This is the adaptivity knob. It controls how much the filter reacts to speed. Beta multiplies the filtered derivative magnitude:")]
         public static float Beta = 2;
-     //   [Header("DerivativeCutoff This controls how noisy the speed estimate itself is.Before the filter adapts, it estimates velocity:")]
         public static float DerivativeCutoff = 2;
         /// <summary>
         /// Simulates network computation step (state updates, bone drivers, profiler update).
@@ -186,16 +199,45 @@ namespace Basis.Scripts.Networking
             }
 
             BasisRemoteNetworkDriver.BeginWrite();
-            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
+
+            int receiverCount = BasisNetworkPlayers.ReceiverCount;
+            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+
+            // Phase 1 (main thread, lightweight): Unity object validation + cache.
+            // Only does real work when _avatarDirty is set (avatar change/init).
+            ushort largestId = 0;
+            for (int i = 0; i < receiverCount; i++)
             {
-                var rec = BasisNetworkPlayers.ReceiversSnapshot[Index];
-                rec.Compute(UnscaledDeltaTime);
-                ushort id = rec.playerId;
-                if (id > BasisNetworkPlayers.LargestNetworkReceiverID)
+                var rec = snapshot[i];
+                rec.PreCompute();
+                if (rec.playerId > largestId)
+                    largestId = rec.playerId;
+            }
+            BasisNetworkPlayers.LargestNetworkReceiverID = largestId;
+
+            // Phase 2 (parallel): Audio decode + packet processing + window management +
+            // interpolation + SoA writes. All per-receiver state, no shared-state conflicts.
+            if (receiverCount > 16)
+            {
+                s_parallelSnapshot = snapshot;
+                s_parallelDeltaTime = UnscaledDeltaTime;
+                Parallel.For(0, receiverCount, s_parallelOptions, s_parallelComputeBody);
+            }
+            else
+            {
+                for (int i = 0; i < receiverCount; i++)
                 {
-                    BasisNetworkPlayers.LargestNetworkReceiverID = id;
+                    snapshot[i].ComputeData(UnscaledDeltaTime);
                 }
             }
+
+            // Phase 3 (main thread, lightweight): Apply AudioSource state changes.
+            // Just checks a bool per receiver — only receivers that decoded audio do work.
+            for (int i = 0; i < receiverCount; i++)
+            {
+                snapshot[i].PostCompute();
+            }
+
             BasisRemoteNetworkDriver.Compute();
             Basis.Scripts.Networking.Receivers.BasisShoutAudioDriver.DrainAll();
             BasisNetworkProfiler.Update();
@@ -221,16 +263,130 @@ namespace Basis.Scripts.Networking
                 return;
             }
 
-            BasisRemoteNetworkDriver.Apply();
-            BasisRemoteNetworkDriver.BeginRead();
-            for (int Index = 0; Index < BasisNetworkPlayers.ReceiverCount; Index++)
+#if UNITY_EDITOR
+            bool p = BasisEventDriverProfilerData.Enabled;
+            System.Diagnostics.Stopwatch s = null;
+            if (p)
             {
-                BasisNetworkPlayers.ReceiversSnapshot[Index].Apply();
+                // Check if the interpolation job (scheduled in Update) finished before we need it
+                BasisEventDriverProfilerData.Net_InterpolationJobWasIncomplete = !BasisRemoteNetworkDriver.oneEuroJob.IsCompleted;
+                s = System.Diagnostics.Stopwatch.StartNew();
             }
+#endif
+            BasisRemoteNetworkDriver.Apply(); // completes interpolation job
+            BasisRemoteNetworkDriver.BeginRead();
+#if UNITY_EDITOR
+            if (p)
+            {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_RemoteDriverApplyMs = s.Elapsed.TotalMilliseconds;
+                s.Restart();
+            }
+#endif
+
+            int count = BasisNetworkPlayers.ReceiverCount;
+            var snapshot = BasisNetworkPlayers.ReceiversSnapshot;
+            bool poseLodEnabled = SMModuleDistanceBasedReductions.PoseLODBias > 0f;
+#if UNITY_EDITOR
+            int _skipped = 0, _applied = 0;
+            int _lod0 = 0, _lod1 = 0, _lod2 = 0, _lod3 = 0;
+#endif
+
+            for (int Index = 0; Index < count; Index++)
+            {
+                var receiver = snapshot[Index];
+                var remote = receiver.RemotePlayer;
+
+#if UNITY_EDITOR
+                if (p)
+                {
+                    switch (math.clamp(remote.CurrentLodLevel, 0, 3))
+                    {
+                        case 0: _lod0++; break;
+                        case 1: _lod1++; break;
+                        case 2: _lod2++; break;
+                        case 3: _lod3++; break;
+                    }
+                }
+#endif
+
+                // LOD-based frame skipping: distant players update pose less often
+                if (poseLodEnabled && remote.PoseSkipCounter > 0)
+                {
+                    remote.PoseSkipCounter--;
+                    BasisRemoteNetworkDriver.SetSkipMuscles(receiver.playerId, true);
+#if UNITY_EDITOR
+                    _skipped++;
+#endif
+                    continue;
+                }
+                if (receiver.HasOverridenDestination)
+                {
+                    BasisRemoteNetworkDriver.SetFilteredHipsOverride(receiver.playerId, receiver.OverridenPosition, (quaternion)receiver.OverridenRotation);
+                }
+#if UNITY_EDITOR
+                _applied++;
+#endif
+
+                if (poseLodEnabled)
+                {
+                    int lod = math.clamp(remote.CurrentLodLevel, 0, 3);
+                    remote.PoseSkipCounter = SMModuleDistanceBasedReductions.PoseSkipByLod[lod];
+                }
+                BasisRemoteNetworkDriver.SetSkipMuscles(receiver.playerId, false);
+            }
+#if UNITY_EDITOR
+            if (p)
+            {
+                BasisEventDriverProfilerData.PoseLod_Applied = _applied;
+                BasisEventDriverProfilerData.PoseLod_Skipped = _skipped;
+                BasisEventDriverProfilerData.PoseLod_Lod0 = _lod0;
+                BasisEventDriverProfilerData.PoseLod_Lod1 = _lod1;
+                BasisEventDriverProfilerData.PoseLod_Lod2 = _lod2;
+                BasisEventDriverProfilerData.PoseLod_Lod3 = _lod3;
+                BasisEventDriverProfilerData.PoseLod_Bias = SMModuleDistanceBasedReductions.PoseLODBias;
+            }
+#endif
+#if UNITY_EDITOR
+            if (p)
+            {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_ReceiverApplyLoopMs = s.Elapsed.TotalMilliseconds;
+                BasisEventDriverProfilerData.Net_ReceiverCount = count;
+                s.Restart();
+            }
+#endif
 
             BoneJobSystem = RemoteBoneJobSystem.Schedule();
-
+#if UNITY_EDITOR
+            if (p) {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_BoneJobScheduleMs = s.Elapsed.TotalMilliseconds;
+            }
+            if (p)
+            {
+                BasisEventDriverProfilerData.Net_BoneJobWasIncomplete = !BoneJobSystem.IsCompleted;
+                s = System.Diagnostics.Stopwatch.StartNew();
+            }
+#endif
+        }
+        public static void CompleteRemoteBoneJobSystemJobs()
+        {
+            if (!NetworkRunning)
+            {
+                return;
+            }
+#if UNITY_EDITOR
+            bool p = BasisEventDriverProfilerData.Enabled;
+            System.Diagnostics.Stopwatch s = System.Diagnostics.Stopwatch.StartNew();
+#endif
             RemoteBoneJobSystem.Complete(BoneJobSystem);
+#if UNITY_EDITOR
+            if (p) {
+                s.Stop();
+                BasisEventDriverProfilerData.Net_BoneJobCompleteMs = s.Elapsed.TotalMilliseconds;
+            }
+#endif
         }
 
         #endregion

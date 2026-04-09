@@ -64,7 +64,8 @@ public static class BasisNetworkModeration
 
     public static void SendBan(string uuid, string reason)
     {
-        if (ValidateString(uuid, nameof(uuid)) && ValidateString(reason, nameof(reason)))
+        if (string.IsNullOrWhiteSpace(reason)) reason = "An admin banned you";
+        if (ValidateString(uuid, nameof(uuid)))
         {
             SendAdminRequest(AdminRequestMode.Ban,
                 w => w.Put(uuid),
@@ -74,7 +75,8 @@ public static class BasisNetworkModeration
 
     public static void SendIPBan(string uuid, string reason)
     {
-        if (ValidateString(uuid, nameof(uuid)) && ValidateString(reason, nameof(reason)))
+        if (string.IsNullOrWhiteSpace(reason)) reason = "An admin banned you";
+        if (ValidateString(uuid, nameof(uuid)))
         {
             SendAdminRequest(AdminRequestMode.IpAndBan,
                 w => w.Put(uuid),
@@ -84,7 +86,8 @@ public static class BasisNetworkModeration
 
     public static void SendKick(string uuid, string reason)
     {
-        if (ValidateString(uuid, nameof(uuid)) && ValidateString(reason, nameof(reason)))
+        if (string.IsNullOrWhiteSpace(reason)) reason = "An admin kicked you";
+        if (ValidateString(uuid, nameof(uuid)))
         {
             SendAdminRequest(AdminRequestMode.Kick,
                 w => w.Put(uuid),
@@ -178,6 +181,10 @@ public static class BasisNetworkModeration
             case AdminRequestMode.EnableShoutMode:
             case AdminRequestMode.DisableShoutMode:
                 HandleShoutModeChanged(reader, mode == AdminRequestMode.EnableShoutMode);
+                break;
+
+            case AdminRequestMode.GlobalGetLockState:
+                HandleGlobalLockState(reader);
                 break;
 
             default:
@@ -424,11 +431,66 @@ public static class BasisNetworkModeration
     }
 
     #endregion
+
+    #region Global Lock State
+
+    /// <summary>
+    /// Current global lock state received from the server.
+    /// </summary>
+    public static bool GlobalAvatarsLocked { get; private set; }
+    public static bool GlobalPropsLocked { get; private set; }
+    public static bool GlobalWorldsLocked { get; private set; }
+
+    /// <summary>
+    /// Fired when the global lock state changes. Parameters: avatarsLocked, propsLocked, worldsLocked.
+    /// </summary>
+    public static event Action<bool, bool, bool> OnGlobalLockStateChanged;
+
+    private static void HandleGlobalLockState(NetDataReader reader)
+    {
+        GlobalAvatarsLocked = reader.GetBool();
+        GlobalPropsLocked = reader.GetBool();
+        GlobalWorldsLocked = reader.GetBool();
+        BasisDebug.Log($"Global lock state updated - Avatars: {GlobalAvatarsLocked}, Props: {GlobalPropsLocked}, Worlds: {GlobalWorldsLocked}", BasisDebug.LogTag.Networking);
+        OnGlobalLockStateChanged?.Invoke(GlobalAvatarsLocked, GlobalPropsLocked, GlobalWorldsLocked);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global avatar loading.
+    /// </summary>
+    public static void GlobalToggleAvatars()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleAvatars);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global prop loading.
+    /// </summary>
+    public static void GlobalToggleProps()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleProps);
+    }
+
+    /// <summary>
+    /// Admin: Toggle global world loading.
+    /// </summary>
+    public static void GlobalToggleWorlds()
+    {
+        SendAdminRequest(AdminRequestMode.GlobalToggleWorlds);
+    }
+
+    #endregion
+
     public static bool TryTeleportToPlayer(ushort netId)
     {
         if (BasisNetworkPlayers.Players.TryGetValue(netId, out var player) && ValidateForAnimator(player))
         {
             Transform hips = player.Player.BasisAvatar.Animator.GetBoneTransform(HumanBodyBones.Hips);
+            if (hips == null)
+            {
+                BasisDebug.LogError($"Teleport failed: Avatar has no Hips bone for player {netId}");
+                return false;
+            }
             BasisLocalPlayer.Instance.Teleport(hips.position, Quaternion.identity);
             return true;
         }

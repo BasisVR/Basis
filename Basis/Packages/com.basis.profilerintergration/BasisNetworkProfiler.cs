@@ -29,6 +29,26 @@ namespace Basis.Scripts.Profiler
         public const string AudioRecipientsMessageText = "Audio Recipients Message";
         public const string AvatarChangeMessageText = "Avatar Change Message";
         public const string ServerAvatarDataMessageText = "Server Avatar Data Message";
+        public const string DisconnectionMessageText = "Disconnection Message";
+        public const string ShoutVoiceMessageText = "Shout Voice Message";
+        public const string GetOwnershipMessageText = "Get Ownership Message";
+        public const string ChangeOwnershipMessageText = "Change Ownership Message";
+        public const string RemoveOwnershipMessageText = "Remove Ownership Message";
+        public const string PlayerAvatarMessageText = "Player Avatar Message";
+        public const string NetIDAssignMessageText = "Net ID Assign Message";
+        public const string NetIDAssignsMessageText = "Net ID Assigns Message";
+        public const string LoadResourceMessageText = "Load Resource Message";
+        public const string UnloadResourceMessageText = "Unload Resource Message";
+        public const string AdminMessageText = "Admin Message";
+        public const string ContentShareMessageText = "Content Share Message";
+        public const string ContentShareCleanupMessageText = "Content Share Cleanup Message";
+        public const string ChatMessageText = "Chat Message";
+        public const string StoreDatabaseMessageText = "Store Database Message";
+        public const string ServerStatisticsMessageText = "Server Statistics Message";
+        public const string CameraPIPStateMessageText = "Camera PIP State Message";
+        public const string CameraPIPPositionMessageText = "Camera PIP Position Message";
+        public const string SpawnPreloadedMessageText = "Spawn Preloaded Message";
+        public const string EventsMessageText = "Events Message";
 
         // Profiler counters (per-type; sampled via Update())
         private static readonly ProfilerCounter<long> AudioSegmentDataMessageCounter = new(Category, AudioSegmentDataMessageText, ProfilerMarkerDataUnit.Bytes);
@@ -49,8 +69,28 @@ namespace Basis.Scripts.Profiler
         private static readonly ProfilerCounter<long> AudioRecipientsMessageCounter = new(Category, AudioRecipientsMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> AvatarChangeMessageCounter = new(Category, AvatarChangeMessageText, ProfilerMarkerDataUnit.Bytes);
         private static readonly ProfilerCounter<long> ServerAvatarDataMessageCounter = new(Category, ServerAvatarDataMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> DisconnectionMessageCounter = new(Category, DisconnectionMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ShoutVoiceMessageCounter = new(Category, ShoutVoiceMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> GetOwnershipMessageCounter = new(Category, GetOwnershipMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ChangeOwnershipMessageCounter = new(Category, ChangeOwnershipMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> RemoveOwnershipMessageCounter = new(Category, RemoveOwnershipMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> PlayerAvatarMessageCounter = new(Category, PlayerAvatarMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> NetIDAssignMessageCounter = new(Category, NetIDAssignMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> NetIDAssignsMessageCounter = new(Category, NetIDAssignsMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> LoadResourceMessageCounter = new(Category, LoadResourceMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> UnloadResourceMessageCounter = new(Category, UnloadResourceMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> AdminMessageCounter = new(Category, AdminMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ContentShareMessageCounter = new(Category, ContentShareMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ContentShareCleanupMessageCounter = new(Category, ContentShareCleanupMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ChatMessageCounter = new(Category, ChatMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> StoreDatabaseMessageCounter = new(Category, StoreDatabaseMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> ServerStatisticsMessageCounter = new(Category, ServerStatisticsMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> CameraPIPStateMessageCounter = new(Category, CameraPIPStateMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> CameraPIPPositionMessageCounter = new(Category, CameraPIPPositionMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> SpawnPreloadedMessageCounter = new(Category, SpawnPreloadedMessageText, ProfilerMarkerDataUnit.Bytes);
+        private static readonly ProfilerCounter<long> EventsMessageCounter = new(Category, EventsMessageText, ProfilerMarkerDataUnit.Bytes);
 
-        private const int CounterCount = 18;
+        private const int CounterCount = 38;
         private static readonly long[] counters = new long[CounterCount];
 
         public static void Update()
@@ -73,6 +113,26 @@ namespace Basis.Scripts.Profiler
             SampleAndReset(AudioRecipientsMessageCounter, BasisNetworkProfilerCounter.AudioRecipients);
             SampleAndReset(AvatarChangeMessageCounter, BasisNetworkProfilerCounter.AvatarChange);
             SampleAndReset(ServerAvatarDataMessageCounter, BasisNetworkProfilerCounter.ServerAvatarData);
+            SampleAndReset(DisconnectionMessageCounter, BasisNetworkProfilerCounter.Disconnection);
+            SampleAndReset(ShoutVoiceMessageCounter, BasisNetworkProfilerCounter.ShoutVoice);
+            SampleAndReset(GetOwnershipMessageCounter, BasisNetworkProfilerCounter.GetOwnership);
+            SampleAndReset(ChangeOwnershipMessageCounter, BasisNetworkProfilerCounter.ChangeOwnership);
+            SampleAndReset(RemoveOwnershipMessageCounter, BasisNetworkProfilerCounter.RemoveOwnership);
+            SampleAndReset(PlayerAvatarMessageCounter, BasisNetworkProfilerCounter.PlayerAvatar);
+            SampleAndReset(NetIDAssignMessageCounter, BasisNetworkProfilerCounter.NetIDAssign);
+            SampleAndReset(NetIDAssignsMessageCounter, BasisNetworkProfilerCounter.NetIDAssigns);
+            SampleAndReset(LoadResourceMessageCounter, BasisNetworkProfilerCounter.LoadResource);
+            SampleAndReset(UnloadResourceMessageCounter, BasisNetworkProfilerCounter.UnloadResource);
+            SampleAndReset(AdminMessageCounter, BasisNetworkProfilerCounter.Admin);
+            SampleAndReset(ContentShareMessageCounter, BasisNetworkProfilerCounter.ContentShare);
+            SampleAndReset(ContentShareCleanupMessageCounter, BasisNetworkProfilerCounter.ContentShareCleanup);
+            SampleAndReset(ChatMessageCounter, BasisNetworkProfilerCounter.Chat);
+            SampleAndReset(StoreDatabaseMessageCounter, BasisNetworkProfilerCounter.StoreDatabase);
+            SampleAndReset(ServerStatisticsMessageCounter, BasisNetworkProfilerCounter.ServerStatistics);
+            SampleAndReset(CameraPIPStateMessageCounter, BasisNetworkProfilerCounter.CameraPIPState);
+            SampleAndReset(CameraPIPPositionMessageCounter, BasisNetworkProfilerCounter.CameraPIPPosition);
+            SampleAndReset(SpawnPreloadedMessageCounter, BasisNetworkProfilerCounter.SpawnPreloaded);
+            SampleAndReset(EventsMessageCounter, BasisNetworkProfilerCounter.Events);
         }
         private static void SampleAndReset(ProfilerCounter<long> counter, BasisNetworkProfilerCounter index)
         {
@@ -81,6 +141,7 @@ namespace Basis.Scripts.Profiler
         }
 
         // prefer passing long to avoid truncation of small floats
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
         public static void AddToCounter(BasisNetworkProfilerCounter counter, long value)
         {
             Interlocked.Add(ref counters[(int)counter], value);

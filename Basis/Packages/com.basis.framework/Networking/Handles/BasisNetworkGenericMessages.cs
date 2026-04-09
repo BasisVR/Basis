@@ -225,29 +225,36 @@ public static class BasisNetworkGenericMessages
         LocalLoadResource LocalLoadResource = new LocalLoadResource();
         LocalLoadResource.Deserialize(reader);
 
-        // Check the load strategy before spawning
-        switch (LocalLoadResource.LoadStrategy)
+        try
         {
-            case 2: // Synchronized - download, report readiness, wait for spawn signal
-                await BasisNetworkPreloadManager.HandleSynchronizedPreload(LocalLoadResource);
-                return;
-        }
+            // Check the load strategy before spawning
+            switch (LocalLoadResource.LoadStrategy)
+            {
+                case 2: // Synchronized - download, report readiness, wait for spawn signal
+                    await BasisNetworkPreloadManager.HandleSynchronizedPreload(LocalLoadResource);
+                    return;
+            }
 
-        // LoadStrategy 0 (Immediate) - existing behavior
-        switch (LocalLoadResource.Mode)
+            // LoadStrategy 0 (Immediate) - existing behavior
+            switch (LocalLoadResource.Mode)
+            {
+                case 0:
+                    await BasisNetworkSpawnItem.SpawnGameObject(LocalLoadResource, BundledContentHolder.Selector.Prop);
+                    break;
+                case 1:
+                    await BasisNetworkSpawnItem.SpawnScene(LocalLoadResource);
+                    break;
+                case 2:
+                    await BasisNetworkSpawnItem.SpawnGameObject(LocalLoadResource, BundledContentHolder.Selector.Avatar);
+                    break;
+                default:
+                    BNL.LogError($"tried to Load Mode {LocalLoadResource.Mode}");
+                    break;
+            }
+        }
+        catch (OperationCanceledException)
         {
-            case 0:
-                await BasisNetworkSpawnItem.SpawnGameObject(LocalLoadResource, BundledContentHolder.Selector.Prop);
-                break;
-            case 1:
-                await BasisNetworkSpawnItem.SpawnScene(LocalLoadResource);
-                break;
-            case 2:
-                await BasisNetworkSpawnItem.SpawnGameObject(LocalLoadResource, BundledContentHolder.Selector.Avatar);
-                break;
-            default:
-                BNL.LogError($"tried to Load Mode {LocalLoadResource.Mode}");
-                break;
+            BasisDebug.Log($"Load cancelled for {LocalLoadResource.LoadedNetID} (disconnected)", BasisDebug.LogTag.Networking);
         }
     }
 
@@ -259,7 +266,14 @@ public static class BasisNetworkGenericMessages
     {
         SpawnPreloadedMessage spawnMsg = new SpawnPreloadedMessage();
         spawnMsg.Deserialize(reader);
-        await BasisNetworkPreloadManager.HandleSpawnPreloaded(spawnMsg);
+        try
+        {
+            await BasisNetworkPreloadManager.HandleSpawnPreloaded(spawnMsg);
+        }
+        catch (OperationCanceledException)
+        {
+            BasisDebug.Log($"Spawn cancelled for preloaded {spawnMsg.LoadedNetID} (disconnected)", BasisDebug.LogTag.Networking);
+        }
     }
     public static async Task UnloadResourceMessage(NetPacketReader reader, DeliveryMethod Method)
     {

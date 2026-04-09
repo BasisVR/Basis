@@ -16,14 +16,16 @@ public static class BasisNetworkEvents
         switch (channel)
         {
             case BasisNetworkCommons.ShoutVoiceChannel:
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ShoutVoice, Reader.AvailableBytes);
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleShoutAudioUpdate(Reader);
 #endif
                 break;
             case BasisNetworkCommons.AuthIdentityChannel:
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Authentication, Reader.AvailableBytes);
                 AuthIdentityMessage(peer, Reader, channel);
                 break;
             case BasisNetworkCommons.DisconnectionChannel:
@@ -32,6 +34,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Disconnection, Reader.AvailableBytes);
                 BasisNetworkHandleRemoval.HandleDisconnection(Reader);
                 Reader.Recycle();
                 break;
@@ -79,6 +82,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.GetOwnership, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     BasisNetworkGenericMessages.HandleOwnershipResponse(Reader);
@@ -91,6 +95,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ChangeOwnership, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     BasisNetworkGenericMessages.HandleOwnershipTransfer(Reader);
@@ -103,6 +108,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.RemoveOwnership, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     BasisNetworkGenericMessages.HandleOwnershipRemove(Reader);
@@ -111,7 +117,7 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, false);
@@ -119,7 +125,7 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceLargeChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
                 await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, true);
@@ -146,6 +152,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerAvatar, Reader.AvailableBytes);
                 BasisNetworkHandleAvatar.HandleAvatarUpdate(Reader, channel);
                 Reader.Recycle();
                 break;
@@ -181,6 +188,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.NetIDAssigns, Reader.AvailableBytes);
                     BasisNetworkGenericMessages.MassNetIDAssign(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -193,6 +201,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.NetIDAssign, Reader.AvailableBytes);
                     BasisNetworkGenericMessages.NetIDAssign(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -205,6 +214,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(async () =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.LoadResource, Reader.AvailableBytes);
                     await BasisNetworkGenericMessages.LoadResourceMessage(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -217,6 +227,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(async () =>
                 {
+                   BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.UnloadResource, Reader.AvailableBytes);
                    await BasisNetworkGenericMessages.UnloadResourceMessage(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -229,6 +240,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Admin, Reader.AvailableBytes);
                     BasisNetworkModeration.AdminMessage(Reader);
                     Reader.Recycle();
                 });
@@ -241,6 +253,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShare, Reader.AvailableBytes);
                     BasisContentShareManager.HandleContentShareMessage(Reader);
                     Reader.Recycle();
                 });
@@ -253,6 +266,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShareCleanup, Reader.AvailableBytes);
                     BasisContentShareManager.HandleContentShareCleanup(Reader);
                     Reader.Recycle();
                 });
@@ -265,6 +279,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Chat, Reader.AvailableBytes);
                     BasisNetworkHandleChat.HandleServerChatMessage(Reader);
                     Reader.Recycle();
                 });
@@ -275,6 +290,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerMetaData, Reader.AvailableBytes);
                 ServerMetaDataMessage SMDM = new ServerMetaDataMessage();
                 SMDM.Deserialize(Reader);
                 Reader.Recycle();
@@ -291,6 +307,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.StoreDatabase, Reader.AvailableBytes);
                 DatabasePrimativeMessage DatabasePrimativeMessage = new DatabasePrimativeMessage();
                 DatabasePrimativeMessage.Deserialize(Reader);
                 Reader.Recycle();
@@ -302,6 +319,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerStatistics, Reader.AvailableBytes);
                 IncomingData(Reader);
                 Reader.Recycle();
                 break;
@@ -311,6 +329,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.CameraPIPState, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     CameraPIPStateMessage pipState = new CameraPIPStateMessage();
@@ -326,6 +345,7 @@ public static class BasisNetworkEvents
                     return;
                 }
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.CameraPIPPosition, Reader.AvailableBytes);
                     CameraPIPPositionMessage pipPos = new CameraPIPPositionMessage();
                     pipPos.Deserialize(Reader);
                     Reader.Recycle();
@@ -343,6 +363,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(async () =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SpawnPreloaded, Reader.AvailableBytes);
                     await BasisNetworkGenericMessages.SpawnPreloadedMessage(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -354,6 +375,7 @@ public static class BasisNetworkEvents
                     return;
                 }
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Events, Reader.AvailableBytes);
                     byte eventType = Reader.GetByte();
                     switch (eventType)
                     {
@@ -488,12 +510,15 @@ public static class BasisNetworkEvents
                 BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
 #else
-            if (disconnectInfo.AdditionalData.TryGetString(out string Reason))
+            if (disconnectInfo.AdditionalData != null && disconnectInfo.AdditionalData.TryGetString(out string Reason))
             {
                 BasisMainMenu.Open();
-                BasisMainMenu.Instance.OpenDialogue("Server Connection", Reason, "ok", value =>
+                if (BasisMainMenu.Instance != null)
                 {
-                });
+                    BasisMainMenu.Instance.OpenDialogue("Server Connection", Reason, "ok", value =>
+                    {
+                    });
+                }
                 BasisDebug.LogError(Reason);
             }
             else
@@ -519,9 +544,12 @@ public static class BasisNetworkEvents
             BasisDebug.LogError(disconnectInfo.Reason.ToString());
 #else
             BasisMainMenu.Open();
-            BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
-              {
-              });
+            if (BasisMainMenu.Instance != null)
+            {
+                BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+                {
+                });
+            }
 
             BasisDebug.LogError(disconnectInfo.Reason.ToString());
 #endif

@@ -22,6 +22,6 @@ SOFTWARE.
 
 -----------------------------------------------------------------------
 
-This project includes code from third-party projects licensed under the Apache License 2.0. For details, see `Assets/third_party/plugins/SteamAudio/LICENSE`.
+This project includes code from third-party projects licensed under the Apache License 2.0. For details, see `Basis/Packages/com.steam.steamaudio/LICENSE.md`.
 
-This project includes third-party trademarks as described in `Assets/third_party/plugins/SteamAudio/TRADEMARK_RIGHTS.md`. For more details, see `Assets/third_party/plugins/SteamAudio/TRADEMARK_RIGHTS.md`.
+This project includes third-party trademarks as described in `Basis/Packages/com.steam.steamaudio/TRADEMARK_RIGHTS.md`. For more details, see `Basis/Packages/com.steam.steamaudio/TRADEMARK_RIGHTS.md`.

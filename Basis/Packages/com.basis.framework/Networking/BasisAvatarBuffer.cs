@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Basis.Network.Core.Compression;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine.Assertions;
@@ -9,13 +10,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
     [Serializable]
     public class BasisAvatarBuffer : IDisposable
     {
-        public const int MuscleCount = 95;
+        public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 51 (excludes Hips, Eyes, Jaw)
         public byte Sequence;
         public double ServerTimeSeconds;
         public quaternion Rotation = quaternion.identity;
         public float3 Scale = new float3(1f, 1f, 1f);
         public float3 Position = new float3(0f, 0f, 0f);
-        public NativeArray<float> Muscles;
+        /// <summary>
+        /// 54 bone delta rotations (T-pose-relative, avatar-agnostic).
+        /// Indexed by slot in BasisBoneRotationCompression.BONE_WRITE_ORDER.
+        /// </summary>
+        public NativeArray<quaternion> BoneRotations;
         public double SecondsInterval = 0.01;
 
         public bool IsDisposed = false;
@@ -27,18 +32,18 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureAllocated()
         {
-            if (!Muscles.IsCreated || Muscles.Length != MuscleCount)
+            if (!BoneRotations.IsCreated || BoneRotations.Length != BoneCount)
             {
-                if (Muscles.IsCreated)
-                    Muscles.Dispose();
+                if (BoneRotations.IsCreated)
+                    BoneRotations.Dispose();
 
-                Muscles = new NativeArray<float>(MuscleCount, Allocator.Persistent);
+                BoneRotations = new NativeArray<quaternion>(BoneCount, Allocator.Persistent);
             }
         }
 
         /// <summary>
         /// Called when the buffer is checked OUT of the pool.
-        /// Does defaults + ensures muscles exist.
+        /// Does defaults + ensures bone rotation array exists.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void ResetForReuse()
@@ -53,9 +58,6 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             Scale = new float3(1f, 1f, 1f);
             Position = new float3(0f, 0f, 0f);
             SecondsInterval = 0.01;
-
-            // IMPORTANT: do NOT clear muscles unless you actually need it.
-            // If you need deterministic muscles, clear explicitly at the write site.
         }
 
         public void Dispose()
@@ -63,10 +65,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (IsDisposed)
                 return;
 
-            if (Muscles.IsCreated)
+            if (BoneRotations.IsCreated)
             {
-                Muscles.Dispose();
-                Muscles = default;
+                BoneRotations.Dispose();
+                BoneRotations = default;
             }
 
             IsDisposed = true;
@@ -172,9 +174,10 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 return;
             }
 #else
-            // In release builds, skip the expensive Interlocked.Exchange — use a plain write.
-            // Double-release is a bug caught during development; no need for atomic overhead in production.
-            item.PooledFlag = 1;
+            if (Interlocked.Exchange(ref item.PooledFlag, 1) == 1)
+            {
+                return;
+            }
 #endif
 
             // IMPORTANT:

@@ -10,11 +10,19 @@ public class SMModuleIcons : BasisSettingsBase
     private static string K_MICROPHONE_ICON => BasisSettingsDefaults.MicrophoneIcon.BindingKey;
     private static string K_MICROPHONE_ICON_OFFSET_X => BasisSettingsDefaults.MicrophoneIconOffsetX.BindingKey;
     private static string K_MICROPHONE_ICON_OFFSET_Y => BasisSettingsDefaults.MicrophoneIconOffsetY.BindingKey;
+    private static string K_AVATAR_PREVIEW => BasisSettingsDefaults.AvatarPreview.BindingKey;
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
         if (BasisLocalCameraDriver.Instance == null)
             return;
+
+        if (matchedSettingName == K_AVATAR_PREVIEW)
+        {
+            bool enabled = optionValue == "true";
+            BasisLocalCameraDriver.Instance.avatarPreviewDriver.SetEnabled(enabled);
+            return;
+        }
 
         if (BasisLocalCameraDriver.Instance.microphoneIconDriver == null)
             return;

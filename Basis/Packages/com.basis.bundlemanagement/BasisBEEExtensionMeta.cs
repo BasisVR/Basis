@@ -7,4 +7,5 @@ public class BasisBEEExtensionMeta
     [SerializeField]
     public BasisStoredEncryptedBundle StoredLocal = new BasisStoredEncryptedBundle();//where we got bundle file from
     public string UniqueVersion;
+    public string DownloadedPlatform;
 }

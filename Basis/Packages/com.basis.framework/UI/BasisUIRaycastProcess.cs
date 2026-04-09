@@ -1,3 +1,4 @@
+using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 
@@ -62,6 +63,12 @@ namespace Basis.Scripts.UI
 
                 if (input.HasRaycaster)
                 {
+                    // Skip ray-based UI events when direct finger touch is active for this device
+                    if (BasisDirectTouch.Instance != null && BasisDirectTouch.Instance.IsDeviceTouching(input))
+                    {
+                        continue;
+                    }
+
                     var eventData = input.BasisUIRaycast.CurrentEventData;
                     if (eventData == null)
                     {

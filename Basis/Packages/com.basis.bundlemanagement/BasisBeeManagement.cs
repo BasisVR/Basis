@@ -5,6 +5,13 @@ using System.Threading.Tasks;
 using UnityEngine;
 public static class BasisBeeManagement
 {
+    private static bool HasCompatibleDownloadedPlatform(BasisBEEExtensionMeta metaInfo)
+    {
+        return metaInfo != null &&
+               !string.IsNullOrEmpty(metaInfo.DownloadedPlatform) &&
+               BasisIOManagement.CachePlatformMatchesCurrent(metaInfo.DownloadedPlatform);
+    }
+
     /// <summary>
     /// this allows obtaining the entire bee file
     /// </summary>
@@ -16,9 +23,16 @@ public static class BasisBeeManagement
     {
         bool IsMetaOnDisc = BasisLoadHandler.IsMetaDataOnDisc(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisBEEExtensionMeta MetaInfo);
         bool didForceRedownload = false;
+        bool shouldUseOnDiskMeta = IsMetaOnDisc;
+
+        if (shouldUseOnDiskMeta && !HasCompatibleDownloadedPlatform(MetaInfo) && !string.IsNullOrEmpty(MetaInfo.DownloadedPlatform))
+        {
+            BasisDebug.Log($"Cached bundle platform {MetaInfo.DownloadedPlatform} does not match {Application.platform}. Forcing re-download.", BasisDebug.LogTag.Event);
+            shouldUseOnDiskMeta = false;
+        }
 
         (BasisBundleGenerated, byte[], string) output;
-        if (IsMetaOnDisc)
+        if (shouldUseOnDiskMeta)
         {
             BasisDebug.Log("Process On Disc Meta Data Async", BasisDebug.LogTag.Event);
             output = await BasisBundleManagement.LocalLoadBundleConnector(wrapper, MetaInfo.StoredLocal, report, cancellationToken);
@@ -38,7 +52,7 @@ public static class BasisBeeManagement
 
         if (output.Item1 == null || output.Item3 != string.Empty)
         {
-            throw new Exception($"missing Bundle Bytes Array Error Message {output.Item3}");
+            throw new Exception($"Bundle load failed for {wrapper?.LoadableBundle?.BasisRemoteBundleEncrypted?.RemoteBeeFileLocation ?? "unknown"}: {output.Item3}");
         }
         IEnumerable<AssetBundle> AssetBundles = AssetBundle.GetAllLoadedAssetBundles();
         foreach (AssetBundle assetBundle in AssetBundles)
@@ -53,8 +67,11 @@ public static class BasisBeeManagement
                 if (assetBundle != null && assetBundle.Contains(AssetToLoadName))
                 {
                     wrapper.AssetBundle = assetBundle;
+                    #if UNITY_BUNDLEUNLOAD
+                    wrapper.IsBundleBackingStoreReleased = false;
+                    #endif
                     BasisDebug.Log($"we already have this AssetToLoadName in our loaded bundles using that instead! {AssetToLoadName}");
-                    await SaveMetaIfNeeded(wrapper, IsMetaOnDisc, didForceRedownload);
+                    await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
                     return;
                 }
             }
@@ -63,20 +80,45 @@ public static class BasisBeeManagement
         try
         {
             AssetBundleCreateRequest bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
+            if (bundleRequest == null || bundleRequest.assetBundle == null)
+            {
+                if (shouldUseOnDiskMeta && !didForceRedownload)
+                {
+                    BasisDebug.Log("Cached bundle bytes failed to load; forcing re-download.", BasisDebug.LogTag.Event);
+                    output = await BasisBundleManagement.DownloadLoadBundleConnector(wrapper, report, cancellationToken, MaxDownloadSizeInBytes);
+                    didForceRedownload = true;
+
+                    if (output.Item1 == null || output.Item2 == null || output.Item2.Length == 0 || !string.IsNullOrEmpty(output.Item3))
+                    {
+                        throw new Exception($"Unable to reload bundle after cache mismatch. {output.Item3}");
+                    }
+
+                    bundleRequest = await BasisEncryptionToData.GenerateBundleFromFile(wrapper.LoadableBundle.UnlockPassword, output.Item2, output.Item1.AssetBundleCRC, report);
+                }
+
+                if (bundleRequest == null || bundleRequest.assetBundle == null)
+                {
+                    throw new Exception("AssetBundle creation failed after attempting to refresh the cached bundle.");
+                }
+            }
 
             wrapper.AssetBundle = bundleRequest.assetBundle;
+            #if UNITY_BUNDLEUNLOAD
+            wrapper.IsBundleBackingStoreReleased = false;
+            #endif
 
-            await SaveMetaIfNeeded(wrapper, IsMetaOnDisc, didForceRedownload);
+            await SaveMetaIfNeeded(wrapper, shouldUseOnDiskMeta, didForceRedownload, output.Item1.Platform);
         }
         catch (Exception ex)
         {
             BasisDebug.LogError(ex);
+            throw;
         }
     }
     /// <summary>
     /// Saves or updates on-disc metadata when it is missing or was refreshed by a forced re-download.
     /// </summary>
-    private static async Task SaveMetaIfNeeded(BasisTrackedBundleWrapper wrapper, bool wasMetaOnDisc, bool didForceRedownload)
+    private static async Task SaveMetaIfNeeded(BasisTrackedBundleWrapper wrapper, bool wasMetaOnDisc, bool didForceRedownload, string downloadedPlatform)
     {
         if (!wasMetaOnDisc || didForceRedownload)
         {
@@ -85,6 +127,7 @@ public static class BasisBeeManagement
                 StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted,
                 StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
                 UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
+                DownloadedPlatform = downloadedPlatform,
             };
 
             await BasisLoadHandler.AddDiscInfo(newDiscInfo);
@@ -124,6 +167,7 @@ public static class BasisBeeManagement
                 StoredRemote = wrapper.LoadableBundle.BasisRemoteBundleEncrypted,
                 StoredLocal = wrapper.LoadableBundle.BasisLocalEncryptedBundle,
                 UniqueVersion = wrapper.LoadableBundle.BasisBundleConnector.UniqueVersion,
+                DownloadedPlatform = BasisIOManagement.GetCurrentCachePlatform(),
             };
 
             await BasisLoadHandler.AddDiscInfo(newDiscInfo);

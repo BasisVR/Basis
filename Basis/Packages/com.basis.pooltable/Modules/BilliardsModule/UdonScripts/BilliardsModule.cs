@@ -317,7 +317,7 @@ public class BilliardsModule : MonoBehaviour
             tableModels[i]._Init();
         }
 
-        cameraOverrideModule = GameObject.FindFirstObjectByType<CameraOverrideModule>();
+        cameraOverrideModule = GameObject.FindAnyObjectByType<CameraOverrideModule>();
 
         resetCachedData();
 

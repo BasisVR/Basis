@@ -517,7 +517,14 @@ namespace Basis.Scripts.Common
         }
 
         // All captured bones (skip missing/null)
-        public Dictionary<HumanBodyBones, BasisCalibratedCoords> Tpose = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeFromRoot = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeLocal = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        /// <summary>
+        /// Root-relative positions at world scale (no division by localScale).
+        /// Unlike TposeFromRoot which uses InverseTransformPoint (divides by scale),
+        /// these give correct meter values regardless of the avatar root's localScale.
+        /// </summary>
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeWorld = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public Quaternion RootRotation; // rotation during calibration
         public Vector3 RootPosition;
         public Vector3 AvatarForwards;
@@ -529,7 +536,10 @@ namespace Basis.Scripts.Common
             RootRotation = animator.transform.rotation;
             RootPosition = animator.transform.position;
 
-            Tpose.Clear();
+            TposeFromRoot.Clear();
+            TposeWorld.Clear();
+
+            Quaternion invRootRot = Quaternion.Inverse(RootRotation);
 
             // Iterate all humanoid enum values except the sentinel LastBone
             for (int i = (int)HumanBodyBones.Hips; i < (int)HumanBodyBones.LastBone; i++)
@@ -538,25 +548,42 @@ namespace Basis.Scripts.Common
                 var t = animator.GetBoneTransform(bone);
                 if (t == null)
                 {
-                    Tpose[bone] = new BasisCalibratedCoords
+                    BasisCalibratedCoords zero = new BasisCalibratedCoords
                     {
                         position = Vector3.zero,
                         rotation = Quaternion.identity,
                     };
+                    TposeFromRoot[bone] = zero;
+                    TposeLocal[bone] = zero;
+                    TposeWorld[bone] = zero;
                     continue;
                 }
 
                 t.GetPositionAndRotation(out var wPos, out var wRot);
+                t.GetLocalPositionAndRotation(out var LPos, out var LRot);
 
                 // Position in animator-local space (handles parent translation & scaling)
                 Vector3 localPos = animator.transform.InverseTransformPoint(wPos);
 
                 // Rotation relative to animator root rotation
-                Quaternion localRot = Quaternion.Inverse(RootRotation) * wRot;
+                Quaternion localRot = invRootRot * wRot;
 
-                Tpose[bone] = new BasisCalibratedCoords
+                // World-scale root-relative position (root-aligned but NOT divided by localScale)
+                Vector3 worldScalePos = invRootRot * (wPos - RootPosition);
+
+                TposeFromRoot[bone] = new BasisCalibratedCoords
                 {
                     position = localPos,
+                    rotation = localRot
+                };
+                TposeLocal[bone] = new BasisCalibratedCoords
+                {
+                    position = LPos,
+                    rotation = LRot
+                };
+                TposeWorld[bone] = new BasisCalibratedCoords
+                {
+                    position = worldScalePos,
                     rotation = localRot
                 };
             }
@@ -584,7 +611,7 @@ namespace Basis.Scripts.Common
             upLocal = Vector3.up;
             rightLocal = Vector3.right;
 
-            if (refs == null || refs.Tpose == null || refs.Tpose.Count == 0)
+            if (refs == null || refs.TposeFromRoot == null || refs.TposeFromRoot.Count == 0)
                 return false;
 
             // ---------
@@ -593,7 +620,7 @@ namespace Basis.Scripts.Common
             static bool TryGet(BasisTransformMapping r, HumanBodyBones b, out Vector3 p)
             {
                 p = default;
-                if (r.Tpose.TryGetValue(b, out var c))
+                if (r.TposeFromRoot.TryGetValue(b, out var c))
                 {
                     p = c.position;
                     // Your RecordPoses stores missing bones as (0, identity). Treat that as invalid.

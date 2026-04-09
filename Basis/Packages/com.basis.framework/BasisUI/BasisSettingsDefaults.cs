@@ -47,10 +47,41 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<bool> UseMaxVisibleAvatars = new("usemaxvisibleavatars", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
+        /// Maximum number of remote players allowed to have active audio sources at once.
+        /// 0 = unlimited (all in-range players get audio).
+        /// Players beyond this limit lose their audio source.
+        /// Closest players get priority; currently-active sources are sticky to prevent popping.
+        /// </summary>
+        public static BasisSettingsBinding<float> MaxAudioSources = new("maxaudiosources", new BasisPlatformDefault<float>(0));
+        public static BasisSettingsBinding<bool> UseMaxAudioSources = new("usemaxaudiosources", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
+        /// When enabled, caps the number of OpenLipSync (neural viseme) slots to <see cref="OpenLipSyncMaxSlots"/>.
+        /// When disabled (default), slot count is unlimited — bounded only by the number of players in viseme range.
+        /// </summary>
+        public static BasisSettingsBinding<bool> UseOpenLipSyncLimit = new("useopenlipsynclimit", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
+        /// Maximum number of OpenLipSync (neural viseme) slots when <see cref="UseOpenLipSyncLimit"/> is enabled.
+        /// Players beyond this limit fall back to the lighter uLipSync backend.
+        /// Higher values look better in crowds but cost more CPU.
+        /// </summary>
+        public static BasisSettingsBinding<float> OpenLipSyncMaxSlots = new("openlipsyncmaxslots", new BasisPlatformDefault<float>(30));
+
+        /// <summary>
         /// When enabled, only remote players within the local player's view cone
         /// (based on camera forward direction) will show their real avatar.
         /// Players outside the cone fall back to the default avatar.
         /// </summary>
+        /// <summary>
+        /// Controls how aggressively distant players skip pose updates.
+        /// 0 = off (every player updates every frame).
+        /// 1 = gentle (LOD 3 skips every other frame).
+        /// 4 = default (LOD 3 updates every 8th frame).
+        /// 8 = aggressive (LOD 3 updates every 32nd frame).
+        /// </summary>
+        public static BasisSettingsBinding<float> PoseLOD = new("poselod", new BasisPlatformDefault<float>(0));
+
         public static BasisSettingsBinding<bool> UseViewConeAvatars = new("useviewconeavatars", new BasisPlatformDefault<bool>(false));
 
         /// <summary>
@@ -72,6 +103,8 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<string> DominantHand = new("dominanthand", new BasisPlatformDefault<string>("right"));
 
         public static BasisSettingsBinding<bool> usesnapturn = new("usesnapturn", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<float> SmoothTurnSpeed = new("smoothturnspeed", new BasisPlatformDefault<float>(200f));
 
         public static BasisSettingsBinding<string> QualityLevel = new("qualitylevel", new BasisPlatformDefault<string>
         {
@@ -97,6 +130,21 @@ namespace Basis.BasisUI
             other = "64bit"
         });
 
+        // ---------------- ACCESSIBILITY ----------------
+        /// <summary>
+        /// When enabled, the bloom intensity override is applied via a high-priority global Volume.
+        /// </summary>
+        public static BasisSettingsBinding<bool> UseBloomOverride = new("usebloomoverride", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
+        /// Bloom intensity override. 0 = bloom disabled, 1 = default scene bloom.
+        /// Only applied when <see cref="UseBloomOverride"/> is enabled.
+        /// </summary>
+        public static BasisSettingsBinding<float> BloomIntensity = new("bloomintensity", new BasisPlatformDefault<float>(1f));
+
+        public const float BLOOM_INTENSITY_MIN = 0f;
+        public const float BLOOM_INTENSITY_MAX = 5f;
+
         public static BasisSettingsBinding<bool> MicrophoneDenoiser = new("voicedenoiser", new BasisPlatformDefault<bool>
         {
             windows = true,
@@ -109,6 +157,23 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> DebugVisuals = new("debugvisuals", new BasisPlatformDefault<bool>(false));
 
+        public static BasisSettingsBinding<bool> EnableStatistics = new("enablestatistics", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<bool> AvatarShowTextureStats = new("avatarshowtexturestats", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<bool> DevShowBuildInfo = new("devshowbuildinfo", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> DevShowConsole = new("devshowconsole", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> DevShowEuroFilter = new("devshowfilter", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> DevShowNetStats = new("devshownetstats", new BasisPlatformDefault<bool>(false));
+
+        public static BasisSettingsBinding<bool> AudioDebugEnabled = new("audiodebugenabled", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<bool> AudioDebugShowSource = new("audiodebugshowsource", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowVolume = new("audiodebugshowvolume", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowRingBuffer = new("audiodebugshowringbuffer", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowJitter = new("audiodebugshowjitter", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowSilence = new("audiodebugshowsilence", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<bool> AudioDebugShowViseme = new("audiodebugshowviseme", new BasisPlatformDefault<bool>(false));
+
         public static BasisSettingsBinding<string> MemoryAllocation = new("memoryallocation", new BasisPlatformDefault<string>
         {
             windows = "Dynamic",
@@ -116,6 +181,8 @@ namespace Basis.BasisUI
             linux = "Dynamic",
             other = "Dynamic"
         });
+
+        public static BasisSettingsBinding<bool> AvatarPreview = new("avatarpreview", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<string> MicrophoneIcon = new("microphoneicon", new BasisPlatformDefault<string>("alwaysvisible"));
 
@@ -193,6 +260,11 @@ namespace Basis.BasisUI
         // ---------------- NETWORKING ----------------
         public static BasisSettingsBinding<bool> AutoConnect = new("autoconnect", new BasisPlatformDefault<bool>(false));
 
+        // Network Euro filter parameters (remote player interpolation)
+        public static BasisSettingsBinding<float> NetEuroMinCutoff = new("neteuromincutoff", new BasisPlatformDefault<float>(0.05f));
+        public static BasisSettingsBinding<float> NetEuroBeta = new("neteurobeta", new BasisPlatformDefault<float>(2f));
+        public static BasisSettingsBinding<float> NetEuroDerivativeCutoff = new("neteuroderivativecutoff", new BasisPlatformDefault<float>(2f));
+
         // ---------------- DEVICE SWAP MODE ----------------
         /// <summary>
         /// Controls how the system handles switching between VR and Desktop modes.
@@ -203,6 +275,9 @@ namespace Basis.BasisUI
 
         public const string SwapMode_Shutdown = "Shutdown Runtime";
         public const string SwapMode_AutoSwap = "Auto Swap";
+
+        // ---------------- INTERACTIONS ----------------
+        public static BasisSettingsBinding<bool> DisableSeats = new("disableseats", new BasisPlatformDefault<bool>(false));
 
         // ---------------- NOTIFICATIONS ----------------
         public static BasisSettingsBinding<bool> JoinNotifications = new("joinnotifications", new BasisPlatformDefault<bool>(false));
@@ -552,6 +627,34 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<float> AgcRelease = new("agcrelease", new BasisPlatformDefault<float>(0.01f)); // 0..1
 
+        // ---------------- UI STYLE PALETTE ----------------
+        public static BasisSettingsBinding<string> UIPaletteBG1 = new("ui_palette_bg1", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteBG2 = new("ui_palette_bg2", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteBG3 = new("ui_palette_bg3", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteLayer = new("ui_palette_layer", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteAccent = new("ui_palette_accent", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteFont1 = new("ui_palette_font1", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteFont2 = new("ui_palette_font2", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteFont3 = new("ui_palette_font3", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteInputField = new("ui_palette_inputfield", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteButton = new("ui_palette_button", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteWhite = new("ui_palette_white", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteClear = new("ui_palette_clear", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteBlack = new("ui_palette_black", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteSuccess = new("ui_palette_success", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteCaution = new("ui_palette_caution", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteDanger = new("ui_palette_danger", new BasisPlatformDefault<string>(""));
+        public static BasisSettingsBinding<string> UIPaletteScrollbar = new("ui_palette_scrollbar", new BasisPlatformDefault<string>(""));
+
+        // ---------------- MIRROR ----------------
+        public static BasisSettingsBinding<bool> UseMirrorQualityOverride = new("usemirrorqualityoverride", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<string> MirrorQuality = new("mirrorquality", new BasisPlatformDefault<string>("2048"));
+
+        // ---------------- CAMERA CLIP OVERRIDE ----------------
+        public static BasisSettingsBinding<bool> UseCameraClipOverride = new("usecameraclipoverride", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> CameraClipNear = new("cameraclipnear", new BasisPlatformDefault<float>(0.01f));
+        public static BasisSettingsBinding<float> CameraClipFar = new("cameraclipfar", new BasisPlatformDefault<float>(1000f));
+
         // Noise Gate
         public static BasisSettingsBinding<bool> UseNoiseGate = new("usenoisegate", new BasisPlatformDefault<bool>(false));
         public static BasisSettingsBinding<float> NoiseGateThreshold = new("noisegatethreshold", new BasisPlatformDefault<float>(0.01f)); // RMS threshold
@@ -597,6 +700,7 @@ namespace Basis.BasisUI
             InvertMouse.LoadBindingValue();
             DominantHand.LoadBindingValue();
             usesnapturn.LoadBindingValue();
+            SmoothTurnSpeed.LoadBindingValue();
 
             // Avatar / IK / Body
             SelectedHeight.LoadBindingValue();
@@ -606,6 +710,11 @@ namespace Basis.BasisUI
             AvatarRange.LoadBindingValue();
             UseMaxVisibleAvatars.LoadBindingValue();
             MaxVisibleAvatars.LoadBindingValue();
+            UseMaxAudioSources.LoadBindingValue();
+            MaxAudioSources.LoadBindingValue();
+            UseOpenLipSyncLimit.LoadBindingValue();
+            OpenLipSyncMaxSlots.LoadBindingValue();
+            PoseLOD.LoadBindingValue();
             UseViewConeAvatars.LoadBindingValue();
             ViewConeAngle.LoadBindingValue();
             SelectedBone.LoadBindingValue();
@@ -628,6 +737,15 @@ namespace Basis.BasisUI
             VSync.LoadBindingValue();
             VSyncCapFps.LoadBindingValue();
 
+            // Mirror
+            UseMirrorQualityOverride.LoadBindingValue();
+            MirrorQuality.LoadBindingValue();
+
+            // Camera Clip Override
+            UseCameraClipOverride.LoadBindingValue();
+            CameraClipNear.LoadBindingValue();
+            CameraClipFar.LoadBindingValue();
+
             // LOD / Download limits
             AvatarDownloadSize.LoadBindingValue();
             CacheMaxSizeGB.LoadBindingValue();
@@ -636,6 +754,9 @@ namespace Basis.BasisUI
 
             // Networking
             AutoConnect.LoadBindingValue();
+            NetEuroMinCutoff.LoadBindingValue();
+            NetEuroBeta.LoadBindingValue();
+            NetEuroDerivativeCutoff.LoadBindingValue();
 
             // Device Swap Mode
             SwapMode.LoadBindingValue();
@@ -645,6 +766,7 @@ namespace Basis.BasisUI
             LeaveNotifications.LoadBindingValue();
 
             // UI
+            AvatarPreview.LoadBindingValue();
             MicrophoneIcon.LoadBindingValue();
             MicrophoneIconOffsetX.LoadBindingValue();
             MicrophoneIconOffsetY.LoadBindingValue();
@@ -833,6 +955,25 @@ namespace Basis.BasisUI
             RAReflections.LoadBindingValue();
             RAReflectionsMixLevel.LoadBindingValue();
             RAApplyHRTFToReflections.LoadBindingValue();
+
+            // UI Style Palette
+            UIPaletteBG1.LoadBindingValue();
+            UIPaletteBG2.LoadBindingValue();
+            UIPaletteBG3.LoadBindingValue();
+            UIPaletteLayer.LoadBindingValue();
+            UIPaletteAccent.LoadBindingValue();
+            UIPaletteFont1.LoadBindingValue();
+            UIPaletteFont2.LoadBindingValue();
+            UIPaletteFont3.LoadBindingValue();
+            UIPaletteInputField.LoadBindingValue();
+            UIPaletteButton.LoadBindingValue();
+            UIPaletteWhite.LoadBindingValue();
+            UIPaletteClear.LoadBindingValue();
+            UIPaletteBlack.LoadBindingValue();
+            UIPaletteSuccess.LoadBindingValue();
+            UIPaletteCaution.LoadBindingValue();
+            UIPaletteDanger.LoadBindingValue();
+            UIPaletteScrollbar.LoadBindingValue();
         }
     }
 }

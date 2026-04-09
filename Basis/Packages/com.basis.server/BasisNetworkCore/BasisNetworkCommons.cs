@@ -10,7 +10,12 @@ namespace Basis.Network.Core
         public const int NetworkIntervalPoll = 2;
         public const int PingInterval = 1500;
         public const int ReceivePollingTime = 50000;
-        public const int PacketPoolSize = 4096;
+        /// <summary>
+        /// LiteNetLib packet pool size. Must be large enough to avoid allocating new NetPacket
+        /// objects during high-throughput send loops. With 1000 players at ~4M sends/sec,
+        /// packets cycle through pool rapidly. 65536 keeps the pool warm and avoids GC pressure.
+        /// </summary>
+        public const int PacketPoolSize = 65536;
         /// <summary>
         /// when adding a new message we need to increase this
         /// will function up to 64

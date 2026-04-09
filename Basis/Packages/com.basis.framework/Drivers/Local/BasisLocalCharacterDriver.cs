@@ -32,9 +32,20 @@ namespace Basis.Scripts.BasisCharacterController
         public bool LastWasGrounded = true;
         public bool IsFalling;
         public bool IsJumpHeld = false;
+        public bool IsDescendHeld = false;
         public bool HasJumpAction = false;
         public float jumpHeight = 1.0f; // Jump height set to 1 meter
         public float currentVerticalSpeed = 0f; // Vertical speed of the character
+        /// <summary>
+        /// Temporary hips offset applied on landing to simulate impact absorption.
+        /// Eases toward <see cref="landingCrouchTarget"/> then recovers to zero.
+        /// </summary>
+        [System.NonSerialized] public float landingCrouchEffect;
+        [System.NonSerialized] public float landingCrouchTarget;
+        [SerializeField] public float landingDescentSpeed = 15f;
+        [SerializeField] public float landingRecoverySpeed = 6f;
+        [SerializeField] public float landingImpactScale = 0.06f;
+        [SerializeField] public float maxLandingCrouchEffect = 0.35f;
         /// <summary>
         /// Duration in seconds after leaving the ground during which the player can still jump.
         /// Helps with unreliable grounded detection on slopes and near ledges.
@@ -83,7 +94,6 @@ namespace Basis.Scripts.BasisCharacterController
         }
 
         public Vector2 Rotation;
-        public float RotationSpeed = 200;
         public bool HasEvents = false;
         public float pushPower = 1f;
         private const float CrouchDeltaCoefficient = 0.01f;
@@ -196,6 +206,22 @@ namespace Basis.Scripts.BasisCharacterController
             }
             LastBottomPoint = bottomPointLocalSpace;
             CalculateCharacterSize();
+            // Two-phase landing impact: ease into dip, then ease back up
+            if (landingCrouchTarget > 0f)
+            {
+                // Phase 1: descend toward peak impact
+                landingCrouchEffect = Mathf.Lerp(landingCrouchEffect, landingCrouchTarget, landingDescentSpeed * DeltaTime);
+                if (landingCrouchTarget - landingCrouchEffect < 0.01f)
+                {
+                    landingCrouchTarget = 0f;
+                }
+            }
+            else if (landingCrouchEffect > 0f)
+            {
+                // Phase 2: recover back to standing
+                landingCrouchEffect = Mathf.Lerp(landingCrouchEffect, 0f, landingRecoverySpeed * DeltaTime);
+                if (landingCrouchEffect < 0.001f) landingCrouchEffect = 0f;
+            }
             // Delegate movement, gravity, and ground checking to the active mode.
             if (CurrentMode != null)
             {
@@ -231,7 +257,7 @@ namespace Basis.Scripts.BasisCharacterController
             }
             else
             {
-                rotationAmount = Rotation.x * RotationSpeed * DeltaTime;
+                rotationAmount = Rotation.x * SMModuleControllerSettings.SmoothTurnSpeed * DeltaTime;
             }
 
 
@@ -265,8 +291,8 @@ namespace Basis.Scripts.BasisCharacterController
         public float GetVerticalMovement()
         {
             float moveLocal = BasisLocalInputActions.Instance.MoveLocalUpDown.action.ReadValue<float>();
-            float ascend = IsJumpHeld ? 1.0f : 0.0f; // This works for both VR and desktop.
-            float descend = BasisLocalInputActions.Instance.IsCrouchHeld ? -1.0f : 0.0f; // No crouch button in VR.
+            float ascend = IsJumpHeld ? 1.0f : 0.0f;
+            float descend = (IsDescendHeld || BasisLocalInputActions.Instance.IsCrouchHeld) ? -1.0f : 0.0f;
             return Mathf.Clamp(moveLocal + ascend + descend, -1.0f, 1.0f);
         }
 
@@ -288,8 +314,10 @@ namespace Basis.Scripts.BasisCharacterController
 
                 if (!LastWasGrounded)
                 {
+                    float fallSpeed = Mathf.Abs(currentVerticalSpeed);
+                    landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
                     JustLanded?.Invoke();
-                    currentVerticalSpeed = 0f; // Reset vertical speed on landing
+                    currentVerticalSpeed = 0f;
                 }
             }
             else

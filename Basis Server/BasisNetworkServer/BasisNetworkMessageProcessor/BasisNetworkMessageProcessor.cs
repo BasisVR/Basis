@@ -8,11 +8,16 @@ using BasisNetworkServer.Security;
 using BasisPermissions;
 using BasisServerHandle;
 using System;
+using System.Collections.Concurrent;
 using static BasisNetworkCore.Serializable.SerializableBasis;
 using static BasisPermissions.PermissionManager;
 
 public static class BasisNetworkMessageProcessor
 {
+    private const int MaxErrorsBeforeWarning = 50;
+    private static readonly ConcurrentDictionary<int, int> _peerErrorCounts = new();
+
+    public static void ClearPeerErrors(int peerId) => _peerErrorCounts.TryRemove(peerId, out _);
     public static void ProcessMessage(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
         BasisNetworkStatistics.RecordInbound(channel, reader.AvailableBytes);
@@ -194,17 +199,37 @@ public static class BasisNetworkMessageProcessor
                     break;
 
                 default:
-                    BNL.LogError($"Unknown channel: {channel} ({reader.AvailableBytes} bytes remaining)");
-                    reader.Recycle(); // prevent leaks on unknown messages
+                    int errorCount = _peerErrorCounts.AddOrUpdate(peer.Id, 1, (_, c) => c + 1);
+                    if (errorCount <= 5 || errorCount % 100 == 0)
+                    {
+                        BNL.LogError($"Unknown channel: {channel} ({reader.AvailableBytes} bytes remaining) from peer {peer.Id} (error #{errorCount})");
+                    }
+                    reader.Recycle();
+                    if (errorCount >= MaxErrorsBeforeWarning)
+                    {
+                        BNL.LogError($"Peer {peer.Id} ({peer.Address}) has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
+                        BasisPlayerModeration.SendBackMessage(peer, "The server has detected an issue with your client or connection. You may experience problems.");
+                        _peerErrorCounts.TryRemove(peer.Id, out _);
+                    }
                     break;
             }
         }
         catch (Exception ex)
         {
-            BNL.LogError(
-                $"[Error] Exception in ProcessMessage\nPeer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
-            );
+            int errorCount = _peerErrorCounts.AddOrUpdate(peer.Id, 1, (_, c) => c + 1);
+            if (errorCount <= 5 || errorCount % 100 == 0)
+            {
+                BNL.LogError(
+                    $"[Error] Exception in ProcessMessage (error #{errorCount})\nPeer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
+                );
+            }
             reader.Recycle();
+            if (errorCount >= MaxErrorsBeforeWarning)
+            {
+                BNL.LogError($"Peer {peer.Id} ({peer.Address}) has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
+                BasisPlayerModeration.SendBackMessage(peer, "The server has detected an issue with your client or connection. You may experience problems.");
+                _peerErrorCounts.TryRemove(peer.Id, out _);
+            }
         }
     }
     private static bool TryWithPermission(NetPeer peer, NetPacketReader reader, string permNode, out string uuid)

@@ -1,7 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using Basis.Scripts.Networking.Receivers;
+using BasisPermissions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -319,9 +322,10 @@ namespace Basis.BasisUI
             PlatformDescriptor.SetTitle("Platform");
             PlatformDescriptor.SetDescription(remotePlayer.PlayerPlatform);
 
-            var uuidField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, infoGroup.ContentParent);
-            uuidField.SetTitle("UUID");
-            uuidField.SetDescription(remotePlayer.UUID);
+            var uuidField = PanelTextField.CreateNewEntry(infoGroup.ContentParent);
+            uuidField.Descriptor.SetTitle("UUID");
+            uuidField.SetValueWithoutNotify(remotePlayer.UUID);
+            uuidField._inputField.readOnly = true;
 
             // ---- Highlight beacon controls ----
             var locateGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
@@ -546,6 +550,206 @@ namespace Basis.BasisUI
             bufferField.SetTitle("Buffer State");
             bufferField.SetDescription("...");
 
+            // ---- Admin moderation section (only visible to admins) ----
+            if (BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsView))
+            {
+                string targetUUID = remotePlayer.UUID;
+
+                var adminGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+                adminGroup.SetTitle("Admin");
+                adminGroup.SetDescription("Moderation actions for this player.");
+
+                PanelButton kickBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                kickBtn.Descriptor.SetTitle("Kick");
+                kickBtn.Descriptor.SetDescription("Disconnect this player from the server.");
+                kickBtn.OnClicked += () =>
+                {
+                    BasisMainMenu.Instance.OpenDialogue(
+                        "Kick player?",
+                        $"Kick {remotePlayer.DisplayName}?",
+                        "Kick", "Cancel",
+                        confirmed => { if (confirmed) BasisNetworkModeration.SendKick(targetUUID, ""); });
+                };
+
+                PanelButton banBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                banBtn.Descriptor.SetTitle("Ban");
+                banBtn.Descriptor.SetDescription("Ban this player by UUID.");
+                banBtn.OnClicked += () =>
+                {
+                    BasisMainMenu.Instance.OpenDialogue(
+                        "Ban player?",
+                        $"Ban {remotePlayer.DisplayName}? This may be irreversible.",
+                        "Ban", "Cancel",
+                        confirmed => { if (confirmed) BasisNetworkModeration.SendBan(targetUUID, ""); });
+                };
+
+                PanelButton ipBanBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                ipBanBtn.Descriptor.SetTitle("IP Ban");
+                ipBanBtn.Descriptor.SetDescription("IP-ban this player. Affects all accounts on their connection.");
+                ipBanBtn.OnClicked += () =>
+                {
+                    BasisMainMenu.Instance.OpenDialogue(
+                        "IP ban player?",
+                        $"IP-ban {remotePlayer.DisplayName}? This can affect multiple accounts.",
+                        "IP Ban", "Cancel",
+                        confirmed => { if (confirmed) BasisNetworkModeration.SendIPBan(targetUUID, ""); });
+                };
+
+                PanelButton teleportToBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                teleportToBtn.Descriptor.SetTitle("Teleport To");
+                teleportToBtn.Descriptor.SetDescription("Teleport yourself to this player's location.");
+                teleportToBtn.OnClicked += () =>
+                {
+                    if (BasisNetworkPlayers.PlayerToNetworkedPlayer(remotePlayer, out BasisNetworkPlayer np))
+                        BasisNetworkModeration.TryTeleportToPlayer(np.playerId);
+                };
+
+                PanelButton teleportHereBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                teleportHereBtn.Descriptor.SetTitle("Teleport Here");
+                teleportHereBtn.Descriptor.SetDescription("Teleport this player to your location.");
+                teleportHereBtn.OnClicked += () =>
+                {
+                    if (BasisNetworkPlayers.PlayerToNetworkedPlayer(remotePlayer, out BasisNetworkPlayer np))
+                        BasisNetworkModeration.TeleportHere(np.playerId);
+                };
+
+                PanelButton shoutBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                bool isShouting = false;
+                if (BasisNetworkPlayers.PlayerToNetworkedPlayer(remotePlayer, out BasisNetworkPlayer shoutNp))
+                    isShouting = BasisShoutAudioDriver.IsInShoutMode(shoutNp.playerId);
+                shoutBtn.Descriptor.SetTitle(isShouting ? "Disable Shout Mode" : "Enable Shout Mode");
+                shoutBtn.Descriptor.SetDescription("Toggle non-spatialized broadcast voice for this player.");
+                shoutBtn.OnClicked += () =>
+                {
+                    if (BasisNetworkPlayers.PlayerToNetworkedPlayer(remotePlayer, out BasisNetworkPlayer np))
+                    {
+                        bool active = BasisShoutAudioDriver.IsInShoutMode(np.playerId);
+                        if (active)
+                            BasisNetworkModeration.DisableShoutMode(np.playerId);
+                        else
+                            BasisNetworkModeration.EnableShoutMode(np.playerId);
+                        shoutBtn.Descriptor.SetTitle(active ? "Enable Shout Mode" : "Disable Shout Mode");
+                    }
+                };
+
+                PanelTextField msgField = PanelTextField.CreateNewEntry(adminGroup.ContentParent);
+                msgField.Descriptor.SetTitle("Message");
+                msgField.Descriptor.SetDescription("Send a message directly to this player.");
+
+                PanelButton sendMsgBtn = PanelButton.CreateNew(adminGroup.ContentParent);
+                sendMsgBtn.Descriptor.SetTitle("Send Message");
+                sendMsgBtn.Descriptor.SetDescription("Delivers the message above to this player.");
+                sendMsgBtn.OnClicked += () =>
+                {
+                    string msg = msgField.Value;
+                    if (string.IsNullOrWhiteSpace(msg))
+                    {
+                        BasisDebug.LogError("Message is empty.");
+                        return;
+                    }
+                    if (BasisNetworkPlayers.PlayerToNetworkedPlayer(remotePlayer, out BasisNetworkPlayer np))
+                    {
+                        BasisNetworkModeration.SendMessage(np.playerId, msg);
+                        msgField.SetValueWithoutNotify(string.Empty);
+                    }
+                };
+
+                // ---- Per-user permissions ----
+                var permGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, adminGroup.ContentParent);
+                permGroup.SetTitle("Permissions");
+                permGroup.SetDescription("Add or remove individual permission nodes for this player.");
+
+                var knownNodes = new System.Collections.Generic.List<string>
+                {
+                    PermNodes.All,
+                    PermNodes.protection,
+                    PermNodes.ModerationKick,
+                    PermNodes.ModerationBan,
+                    PermNodes.ModerationIpBan,
+                    PermNodes.ModerationUnban,
+                    PermNodes.ModerationUnbanIp,
+                    PermNodes.ModerationMessage,
+                    PermNodes.ModerationMessageAll,
+                    PermNodes.ModerationTeleport,
+                    PermNodes.ModerationShout,
+                    PermNodes.PlayerModeration,
+                    PermNodes.PermissionsView,
+                    PermNodes.PermissionsEdit,
+                    PermNodes.ResourceLoadWorld,
+                    PermNodes.ResourceUnloadWorld,
+                    PermNodes.ResourceLoadProp,
+                    PermNodes.ResourceUnloadProp,
+                    PermNodes.ResourceLoadAvatar,
+                    PermNodes.ResourceUnloadAvatar,
+                    PermNodes.OwnershipTransfer,
+                    PermNodes.OwnershipRemove,
+                    PermNodes.OwnershipGet,
+                    PermNodes.ContentShareCreate,
+                    PermNodes.ContentShareDelete,
+                    PermNodes.ConfigurationEditor,
+                    PermNodes.ServerStats,
+                };
+
+                PanelDropdown nodeDropdown = PanelDropdown.CreateNewEntry(permGroup.ContentParent);
+                nodeDropdown.Descriptor.SetTitle("Permission Node");
+                nodeDropdown.AssignEntries(knownNodes);
+
+                PanelTextField customNodeField = PanelTextField.CreateNewEntry(permGroup.ContentParent);
+                customNodeField.Descriptor.SetTitle("Custom Node");
+                customNodeField.Descriptor.SetDescription("Or type a custom node (overrides dropdown).");
+
+                PanelButton addNodeBtn = PanelButton.CreateNew(permGroup.ContentParent);
+                addNodeBtn.Descriptor.SetTitle("Grant Permission");
+                addNodeBtn.Descriptor.SetDescription("Add the selected permission node to this player.");
+                addNodeBtn.OnClicked += () =>
+                {
+                    string node = !string.IsNullOrWhiteSpace(customNodeField.Value)
+                        ? customNodeField.Value
+                        : nodeDropdown.SelectedString;
+                    if (string.IsNullOrWhiteSpace(node)) return;
+                    BasisNetworkModeration.SetUserNode(targetUUID, node, true);
+                };
+
+                PanelButton removeNodeBtn = PanelButton.CreateNew(permGroup.ContentParent);
+                removeNodeBtn.Descriptor.SetTitle("Revoke Permission");
+                removeNodeBtn.Descriptor.SetDescription("Remove the selected permission node from this player.");
+                removeNodeBtn.OnClicked += () =>
+                {
+                    string node = !string.IsNullOrWhiteSpace(customNodeField.Value)
+                        ? customNodeField.Value
+                        : nodeDropdown.SelectedString;
+                    if (string.IsNullOrWhiteSpace(node)) return;
+                    BasisNetworkModeration.SetUserNode(targetUUID, node, false);
+                };
+
+                // ---- Group assignment ----
+                var groupSection = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, adminGroup.ContentParent);
+                groupSection.SetTitle("Groups");
+                groupSection.SetDescription("Add or remove this player from permission groups.");
+
+                PanelTextField groupField = PanelTextField.CreateNewEntry(groupSection.ContentParent);
+                groupField.Descriptor.SetTitle("Group Name");
+                groupField.Descriptor.SetDescription("Name of the permission group.");
+
+                PanelButton addGroupBtn = PanelButton.CreateNew(groupSection.ContentParent);
+                addGroupBtn.Descriptor.SetTitle("Add to Group");
+                addGroupBtn.OnClicked += () =>
+                {
+                    string group = groupField.Value;
+                    if (string.IsNullOrWhiteSpace(group)) return;
+                    BasisNetworkModeration.SetUserGroup(targetUUID, group, true);
+                };
+
+                PanelButton removeGroupBtn = PanelButton.CreateNew(groupSection.ContentParent);
+                removeGroupBtn.Descriptor.SetTitle("Remove from Group");
+                removeGroupBtn.OnClicked += () =>
+                {
+                    string group = groupField.Value;
+                    if (string.IsNullOrWhiteSpace(group)) return;
+                    BasisNetworkModeration.SetUserGroup(targetUUID, group, false);
+                };
+            }
+
             var debugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
             debugGroup.SetTitle("Debug");
             debugGroup.SetDescription("Live diagnostics for voice/range checks (optional).");
@@ -554,6 +758,78 @@ namespace Basis.BasisUI
             debugField.SetTitle("Transmission");
             debugField.SetDescription("Waiting for data...");
 
+            // ---- Audio Debug Section ----
+            var audioDebugGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);
+            audioDebugGroup.SetTitle("Audio Debug");
+            audioDebugGroup.SetDescription("Live audio chain diagnostics. Toggle sections in Settings > Developer.");
+
+            // Toggle to show/hide the audio debug fields for this player
+            PanelToggle audioDebugToggle = PanelToggle.CreateNewEntry(audioDebugGroup.ContentParent);
+            audioDebugToggle.Descriptor.SetTitle("Show Audio Debug");
+            audioDebugToggle.Descriptor.SetDescription("Toggle live audio pipeline info for this player.");
+            audioDebugToggle.AssignBinding(BasisSettingsDefaults.AudioDebugEnabled);
+
+            // Create all the audio debug fields
+            PanelElementDescriptor audioSourceField = null;
+            PanelElementDescriptor volumeChainField = null;
+            PanelElementDescriptor decodedBufferField = null;
+            PanelElementDescriptor encodedBufferField = null;
+            PanelElementDescriptor silenceField = null;
+            PanelElementDescriptor visemeField = null;
+
+            void CreateAudioDebugFields()
+            {
+                // Clear existing children below the toggle (skip index 0 which is the toggle)
+                // Create fresh fields based on current section toggles
+                if (BasisSettingsDefaults.AudioDebugShowSource.RawValue)
+                {
+                    audioSourceField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    audioSourceField.SetTitle("Audio Source");
+                    audioSourceField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowVolume.RawValue)
+                {
+                    volumeChainField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    volumeChainField.SetTitle("Volume Chain");
+                    volumeChainField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowRingBuffer.RawValue)
+                {
+                    decodedBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    decodedBufferField.SetTitle("Decoded PCM");
+                    decodedBufferField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowJitter.RawValue)
+                {
+                    encodedBufferField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    encodedBufferField.SetTitle("Encoded Packets");
+                    encodedBufferField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowSilence.RawValue)
+                {
+                    silenceField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    silenceField.SetTitle("Silence Tracking");
+                    silenceField.SetDescription("...");
+                }
+
+                if (BasisSettingsDefaults.AudioDebugShowViseme.RawValue)
+                {
+                    visemeField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, audioDebugGroup.ContentParent);
+                    visemeField.SetTitle("Viseme Driver");
+                    visemeField.SetDescription("...");
+                }
+            }
+
+            // Initially create fields if audio debug is enabled
+            if (BasisSettingsDefaults.AudioDebugEnabled.RawValue)
+            {
+                CreateAudioDebugFields();
+            }
+
             var updater = panel.gameObject.AddComponent<IndividualPlayerPanelUpdater>();
             updater.RemotePlayer = remotePlayer;
             updater.DebugField = debugField;
@@ -561,6 +837,39 @@ namespace Basis.BasisUI
             updater.LodField = lodField;
             updater.RangesField = rangesField;
             updater.BufferField = bufferField;
+
+            // Wire audio debug fields
+            updater.AudioSourceField = audioSourceField;
+            updater.VolumeChainField = volumeChainField;
+            updater.DecodedBufferField = decodedBufferField;
+            updater.EncodedBufferField = encodedBufferField;
+            updater.SilenceField = silenceField;
+            updater.VisemeField = visemeField;
+
+            // When toggled on/off, show/hide the audio debug fields
+            audioDebugToggle.OnValueChanged += enabled =>
+            {
+                // Destroy existing fields
+                if (audioSourceField != null) { UnityEngine.Object.Destroy(audioSourceField.gameObject); audioSourceField = null; }
+                if (volumeChainField != null) { UnityEngine.Object.Destroy(volumeChainField.gameObject); volumeChainField = null; }
+                if (decodedBufferField != null) { UnityEngine.Object.Destroy(decodedBufferField.gameObject); decodedBufferField = null; }
+                if (encodedBufferField != null) { UnityEngine.Object.Destroy(encodedBufferField.gameObject); encodedBufferField = null; }
+                if (silenceField != null) { UnityEngine.Object.Destroy(silenceField.gameObject); silenceField = null; }
+                if (visemeField != null) { UnityEngine.Object.Destroy(visemeField.gameObject); visemeField = null; }
+
+                if (enabled)
+                {
+                    CreateAudioDebugFields();
+                }
+
+                // Re-wire updater references
+                updater.AudioSourceField = audioSourceField;
+                updater.VolumeChainField = volumeChainField;
+                updater.DecodedBufferField = decodedBufferField;
+                updater.EncodedBufferField = encodedBufferField;
+                updater.SilenceField = silenceField;
+                updater.VisemeField = visemeField;
+            };
 
             panel.Descriptor.ForceRebuild();
             panel.Descriptor.ForceRebuild();

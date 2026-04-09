@@ -227,11 +227,11 @@ namespace Basis.Scripts.Networking
                 return false;
             }
 
-            int instance = basisPlayer.GetInstanceID();
+            int instance = basisPlayer.GetEntityId();
             foreach (var nPlayer in Players.Values)
             {
                 if (nPlayer?.Player == null) continue;
-                if (nPlayer.Player.GetInstanceID() == instance)
+                if (nPlayer.Player.GetEntityId() == instance)
                 {
                     networkedPlayer = nPlayer;
                     return true;

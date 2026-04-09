@@ -140,7 +140,7 @@ public class ShaderVariantFinderWindow : EditorWindow
                     {
                         if (mat == null) continue;
 
-                        int id = mat.GetInstanceID();
+                        int id = mat.GetEntityId();
                         bool mOpen = GetFoldout(materialFoldout, id);
                         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                         {
