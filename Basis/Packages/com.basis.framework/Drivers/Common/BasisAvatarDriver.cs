@@ -230,18 +230,18 @@ namespace Basis.Scripts.Drivers
             JiggleCreatorHelper(Mapping.leftFoot, 0.015f);
             JiggleCreatorHelper(Mapping.rightFoot, 0.015f);
 
-            JiggleCreatorHelper(Mapping.LeftThumb);
-            JiggleCreatorHelper(Mapping.LeftIndex);
-            JiggleCreatorHelper(Mapping.LeftMiddle);
-            JiggleCreatorHelper(Mapping.LeftRing);
-            JiggleCreatorHelper(Mapping.LeftLittle);
+            JiggleCreatorHelperCapsule(Mapping.LeftThumb);
+            JiggleCreatorHelperCapsule(Mapping.LeftIndex);
+            JiggleCreatorHelperCapsule(Mapping.LeftMiddle);
+            JiggleCreatorHelperCapsule(Mapping.LeftRing);
+            JiggleCreatorHelperCapsule(Mapping.LeftLittle);
             JiggleCreatorHelper(Mapping.leftHand);
 
-            JiggleCreatorHelper(Mapping.RightThumb);
-            JiggleCreatorHelper(Mapping.RightIndex);
-            JiggleCreatorHelper(Mapping.RightMiddle);
-            JiggleCreatorHelper(Mapping.RightRing);
-            JiggleCreatorHelper(Mapping.RightLittle);
+            JiggleCreatorHelperCapsule(Mapping.RightThumb);
+            JiggleCreatorHelperCapsule(Mapping.RightIndex);
+            JiggleCreatorHelperCapsule(Mapping.RightMiddle);
+            JiggleCreatorHelperCapsule(Mapping.RightRing);
+            JiggleCreatorHelperCapsule(Mapping.RightLittle);
             JiggleCreatorHelper(Mapping.rightHand);
 
             // Batch-add all colliders at once to avoid O(n²) dedup in JiggleMemoryBus.
@@ -260,6 +260,59 @@ namespace Basis.Scripts.Drivers
             for (int i = 0; i < count; i++)
             {
                 JiggleCreatorHelper(Parents[i]);
+            }
+        }
+
+        /// <summary>
+        /// Creates capsule jiggle colliders along consecutive bone pairs in an array (e.g. finger bones).
+        /// Each pair of consecutive transforms gets a capsule spanning the bone length.
+        /// The last bone in the array receives a sphere collider for the tip.
+        /// </summary>
+        /// <param name="Parents">Ordered bone transforms (e.g. proximal, intermediate, distal).</param>
+        /// <param name="Radius">Base radius for the capsule/sphere. Default is <c>0.005</c>.</param>
+        public void JiggleCreatorHelperCapsule(Transform[] Parents, float Radius = 0.005f)
+        {
+            int count = Parents.Length;
+            for (int i = 0; i < count; i++)
+            {
+                if (Parents[i] == null) continue;
+
+                if (i < count - 1 && Parents[i + 1] != null)
+                {
+                    float boneLength = Vector3.Distance(Parents[i].position, Parents[i + 1].position);
+                    Vector3 boneDir = (Parents[i + 1].position - Parents[i].position).normalized;
+
+                    // Determine which local axis best aligns with the bone direction.
+                    float dotX = Mathf.Abs(Vector3.Dot(boneDir, Parents[i].right));
+                    float dotY = Mathf.Abs(Vector3.Dot(boneDir, Parents[i].up));
+                    float dotZ = Mathf.Abs(Vector3.Dot(boneDir, Parents[i].forward));
+
+                    JiggleCollider.CapsuleAxis axis;
+                    if (dotX >= dotY && dotX >= dotZ) axis = JiggleCollider.CapsuleAxis.X;
+                    else if (dotY >= dotZ) axis = JiggleCollider.CapsuleAxis.Y;
+                    else axis = JiggleCollider.CapsuleAxis.Z;
+
+                    Vector3 lossyScale = Parents[i].lossyScale;
+                    float avgScale = (Mathf.Abs(lossyScale.x) + Mathf.Abs(lossyScale.y) + Mathf.Abs(lossyScale.z)) / 3f;
+
+                    JiggleColliders.Add(new JiggleColliderSerializable
+                    {
+                        collider = new JiggleCollider()
+                        {
+                            type = JiggleCollider.JiggleColliderType.Capsule,
+                            localToWorldMatrix = Parents[i].localToWorldMatrix,
+                            radius = Radius / avgScale,
+                            height = boneLength / avgScale,
+                            capsuleAxis = axis
+                        },
+                        transform = Parents[i]
+                    });
+                }
+                else
+                {
+                    // Tip bone: sphere collider for the fingertip.
+                    JiggleCreatorHelper(Parents[i], Radius);
+                }
             }
         }
 

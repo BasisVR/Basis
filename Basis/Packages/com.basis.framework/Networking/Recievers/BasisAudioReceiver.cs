@@ -5,7 +5,10 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 #if !UNITY_SERVER
 using OpusSharp.Core;
+using OpusSharp.Core.Interfaces;
 using OpusSharp.Core.Extensions;
+using Dynamic = OpusSharp.Core.Dynamic;
+using Static = OpusSharp.Core.Static;
 #endif
 using System;
 using System.Runtime.CompilerServices;
@@ -42,7 +45,7 @@ namespace Basis.Scripts.Networking.Receivers
         public static int outputSampleRate;
 
 #if !UNITY_SERVER
-        public OpusDecoder decoder;
+        public IOpusDecoder decoder;
 #endif
 
         private float[] _inputScratch;
@@ -265,9 +268,10 @@ namespace Basis.Scripts.Networking.Receivers
             BasisNetworkReceiver = networkedPlayer;
 
 #if UNITY_IOS && !UNITY_EDITOR
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: true);
+            // iOS requires statically linked Opus library
+            decoder = new Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #else
-            decoder = new OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels, use_static: false);
+            decoder = new Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
 #endif
 #endif
         }

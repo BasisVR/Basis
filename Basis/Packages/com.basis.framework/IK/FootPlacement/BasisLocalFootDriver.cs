@@ -534,16 +534,38 @@ public partial class BasisLocalFootDriver
         }
 
         // ── Ankle height (distance from foot bone to ground plane in T-pose) ──
+        // Must be root-independent: TposeFromRoot positions include the root bone's
+        // offset from ground, which varies wildly between avatar formats.  Using an
+        // absolute Y made ankleHeight huge for avatars whose root sits below the
+        // ground plane, pushing footHeightOffset to its 0.05 m clamp and lifting
+        // the IK target well above the real floor → knees bend while standing.
+        // Fix: measure foot-to-toe Y difference (root offset cancels out).
         if (hasLF && hasRF)
         {
-            // In T-pose, the lowest point is roughly foot Y minus a small offset
-            // The foot bone sits at the ankle, ground is at Y=0 in root space
             float avgFootY = (tLF.y + tRF.y) * 0.5f;
-            ankleHeight = Mathf.Max(0.01f, avgFootY);
+
+            if (hasLT || hasRT)
+            {
+                // Toe bones sit near the ground — use them as the reference
+                float groundRefY;
+                if (hasLT && hasRT)
+                    groundRefY = (tLT.y + tRT.y) * 0.5f;
+                else if (hasLT)
+                    groundRefY = tLT.y;
+                else
+                    groundRefY = tRT.y;
+
+                ankleHeight = Mathf.Max(0.01f, avgFootY - groundRefY);
+            }
+            else
+            {
+                // No toe bones: estimate from leg proportions (also root-independent)
+                ankleHeight = Mathf.Max(0.01f, hipToFoot * 0.05f);
+            }
         }
         else
         {
-            ankleHeight = hipToFoot * 0.05f;
+            ankleHeight = Mathf.Max(0.01f, hipToFoot * 0.05f);
         }
 
         // Sanity
@@ -631,6 +653,32 @@ public partial class BasisLocalFootDriver
         }
 
         ApplyScaleToMeasurements(BasisHeightDriver.ScaledToMatchValue);
+
+        // Re-snap planted feet to ground with the now-correct footHeightOffset.
+        // InitPose runs before ApplyScaleAndHeight, so the initial foot positions
+        // used stale (unscaled) measurements.  Without this re-snap the feet stay
+        // at the wrong height until a step is triggered, causing a visible crouch.
+        ReSnapFoot(left);
+        ReSnapFoot(right);
+
+        if (_nativeFeet.IsCreated)
+        {
+            _nativeFeet[0] = FootStateToNative(left);
+            _nativeFeet[1] = FootStateToNative(right);
+        }
+    }
+
+    private void ReSnapFoot(BasisFootState f)
+    {
+        if (f.bone == null) return;
+
+        Vector3 origin = f.bone.position + cachedPlayerUp * 0.3f;
+        if (Physics.Raycast(origin, -cachedPlayerUp, out RaycastHit hit, rayCastRange, groundLayers, QueryTriggerInteraction.Ignore))
+        {
+            Vector3 snapped = hit.point + hit.normal * footHeightOffset;
+            f.currentPos = f.plantedPos = f.idealPos = snapped;
+            f.filteredNormal = hit.normal;
+        }
     }
     public void Simulate(float dt)
     {

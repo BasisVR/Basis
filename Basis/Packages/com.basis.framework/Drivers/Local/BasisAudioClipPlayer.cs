@@ -37,6 +37,7 @@ public static class BasisAudioClipPlayer
     private const int SampleRate = 48000;
     private const int Channels = 1;
     private const float FrameDurationSeconds = 0.02f; // 20ms
+    private const float PlaybackGain = 0.3f;
     private static readonly int FrameSize = (int)(FrameDurationSeconds * SampleRate); // 960
 
     /// <summary>
@@ -181,7 +182,7 @@ public static class BasisAudioClipPlayer
                 // Fill frame from clip (looping)
                 for (int i = 0; i < FrameSize; i++)
                 {
-                    frameBuffer[i] = clipSamples[clipPosition];
+                    frameBuffer[i] = clipSamples[clipPosition] * PlaybackGain;
                     clipPosition++;
                     if (clipPosition >= clipSamples.Length)
                     {

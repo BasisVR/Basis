@@ -403,6 +403,7 @@ namespace Basis.BasisUI
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
             public PanelToggle HeadlessAudioToggle;
+            public PanelToggle HeadlessAudioToggle;
 
             public BasisNetworkPlayer SelectedPlayer;
             private string _searchQuery = string.Empty;
@@ -422,6 +423,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged += OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
                 RebuildPlayerList();
             }
 
@@ -430,6 +432,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
 
                 ClearPlayerButtons();
@@ -440,6 +443,11 @@ namespace Basis.BasisUI
                 if (AvatarLockToggle != null) AvatarLockToggle.SetValueWithoutNotify(avatars);
                 if (PropLockToggle != null) PropLockToggle.SetValueWithoutNotify(props);
                 if (WorldLockToggle != null) WorldLockToggle.SetValueWithoutNotify(worlds);
+            }
+
+            private void OnGlobalHeadlessAudioStateChanged(bool headlessAudioOff)
+            {
+                if (HeadlessAudioToggle != null) HeadlessAudioToggle.SetValueWithoutNotify(headlessAudioOff);
             }
 
             private void OnGlobalHeadlessAudioStateChanged(bool headlessAudioOff)
