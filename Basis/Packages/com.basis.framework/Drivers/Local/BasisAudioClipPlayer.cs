@@ -44,9 +44,9 @@ public static class BasisAudioClipPlayer
     /// </summary>
     public static string ClipDirectory;
 
-#if !UNITY_SERVER
+
     public static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
-#endif
+
     /// <summary>
     /// Attempts to initialize the clip player. If the AudioClips directory exists and
     /// contains supported audio files, a random clip is loaded and streamed as voice audio.
