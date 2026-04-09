@@ -309,6 +309,7 @@ namespace Basis.Scripts.Drivers
             }
 
             timeAccumulator += Mathf.Max(deltaTime, 1e-6f);
+            Vector3 cachedPlayerUp = localPlayer.LocalCharacterDriver.UpDirection;
 
             BasisFullBodyData data = BasisFullIKConstraint.data;
 
@@ -375,7 +376,7 @@ namespace Basis.Scripts.Drivers
                 hipsRot = EuroRot[S_Hips] ? fRotHips.Filter(hipsRot, timeAccumulator) : FallbackRot(ref sRotHips, hipsRot, deltaTime);
             }
 
-            hipsPos.y -= localPlayer.LocalCharacterDriver.landingCrouchEffect;
+            hipsPos -= cachedPlayerUp * localPlayer.LocalCharacterDriver.landingCrouchEffect;
             data.PositionHips = hipsPos;
             data.RotationHips = hipsRot;
 
@@ -525,9 +526,7 @@ namespace Basis.Scripts.Drivers
                 bool hipsHaveTracker = BasisLocalBoneDriver.HipsControl.HasTracked == BasisHasTracked.HasTracker;
                 if (!hipsHaveTracker)
                 {
-                    data.PositionHips = new Vector3(data.PositionHips.x,
-                        data.PositionHips.y + footDriver.ComputeHipBob() * footIKBlendWeight,
-                        data.PositionHips.z);
+                    data.PositionHips += cachedPlayerUp * (footDriver.ComputeHipBob() * footIKBlendWeight);
                 }
             }
 
@@ -568,7 +567,7 @@ namespace Basis.Scripts.Drivers
             }
             else if (footIKBlendWeightLeft > 0.001f && footDriverReady)
             {
-                Quaternion targetRotL = ComputeKneeHintRotation(data.PositionHips, data.LeftFootPosition, footDriver.LeftKneeHint);
+                Quaternion targetRotL = ComputeKneeHintRotation(data.PositionHips, data.LeftFootPosition, footDriver.LeftKneeHint, cachedPlayerUp);
                 float kneeRotAlpha = 1f - Mathf.Exp(-8f * deltaTime);
                 smoothedLeftKneeRot = Quaternion.Slerp(smoothedLeftKneeRot, targetRotL, kneeRotAlpha);
                 data.PositionLeftLowerLeg = footDriver.LeftKneeHint;
@@ -602,7 +601,7 @@ namespace Basis.Scripts.Drivers
             }
             else if (footIKBlendWeightRight > 0.001f && footDriverReady)
             {
-                Quaternion targetRotR = ComputeKneeHintRotation(data.PositionHips, data.RightFootPosition, footDriver.RightKneeHint);
+                Quaternion targetRotR = ComputeKneeHintRotation(data.PositionHips, data.RightFootPosition, footDriver.RightKneeHint, cachedPlayerUp);
                 float kneeRotAlpha = 1f - Mathf.Exp(-8f * deltaTime);
                 smoothedRightKneeRot = Quaternion.Slerp(smoothedRightKneeRot, targetRotR, kneeRotAlpha);
 
@@ -743,6 +742,7 @@ namespace Basis.Scripts.Drivers
             data.KneeBendPrefRight = (hipsRot * Vector3.right);
 
             data.SpineBendNormal = (fwd * spineBendNormalWeights.x + outR * spineBendNormalWeights.y + up * spineBendNormalWeights.z).normalized;
+            data.PlayerUp = cachedPlayerUp;
             // Commit & evaluate
             BasisFullIKConstraint.data = data;
 
@@ -1094,7 +1094,7 @@ namespace Basis.Scripts.Drivers
         /// Forward = knee→foot direction, Up = derived from the bend plane.
         /// This prevents snapping that occurs with Quaternion.identity.
         /// </summary>
-        private static Quaternion ComputeKneeHintRotation(Vector3 hip, Vector3 foot, Vector3 kneeHint)
+        private static Quaternion ComputeKneeHintRotation(Vector3 hip, Vector3 foot, Vector3 kneeHint, Vector3 playerUp)
         {
             Vector3 kneeToFoot = foot - kneeHint;
             Vector3 kneeToHip = hip - kneeHint;
@@ -1110,7 +1110,7 @@ namespace Basis.Scripts.Drivers
             Vector3 up = Vector3.Cross(fwd, bendNormal);
 
             if (up.sqrMagnitude < 1e-8f)
-                up = Vector3.up;
+                up = playerUp;
             else
                 up.Normalize();
 

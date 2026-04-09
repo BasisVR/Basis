@@ -509,8 +509,9 @@ namespace Basis.Scripts.Drivers
         /// <returns>Offset vector applied to the base position.</returns>
         public float3 CalculateFallbackOffset(HumanBodyBones bone, float fallbackHeight, float3 heightPercentage)
         {
+            Vector3 playerUp = BasisLocalPlayer.localToWorldMatrix.MultiplyVector(Vector3.up).normalized;
             Vector3 height = fallbackHeight * heightPercentage;
-            return bone == HumanBodyBones.Hips ? math.mul(height, -Vector3.up) : math.mul(height, Vector3.up);
+            return bone == HumanBodyBones.Hips ? math.mul(height, -playerUp) : math.mul(height, playerUp);
         }
 
         /// <summary>

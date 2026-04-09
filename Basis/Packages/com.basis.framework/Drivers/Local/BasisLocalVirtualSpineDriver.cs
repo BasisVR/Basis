@@ -137,6 +137,11 @@ public class BasisLocalVirtualSpineDriver
         float dt = Time.deltaTime;
         Matrix4x4 parentMatrix = BasisLocalPlayer.localToWorldMatrix;
 
+        // OutGoingData is in local space where Y is always the character's up axis,
+        // regardless of world orientation. Use Vector3.up for all local-space operations.
+        // (World-space player up is handled by the rig driver / FBIK animation job.)
+        Vector3 worldUp = Vector3.up;
+
         // =========================
         // 1) HEAD & NECK (top cues)
         // =========================
@@ -146,27 +151,19 @@ public class BasisLocalVirtualSpineDriver
         neck.OutGoingData.rotation = SmoothSlerp(neck.OutGoingData.rotation, head.OutGoingData.rotation, NeckRotationSpeed, dt);
 
         // Positions for head/neck come from their tracker-driven targets + offsets
-        ApplyPositionControl(head, parentMatrix, torsoLock: false);
-        ApplyPositionControl(neck, parentMatrix, torsoLock: false);
+        ApplyPositionControl(head, parentMatrix, torsoLock: false, worldUp);
+        ApplyPositionControl(neck, parentMatrix, torsoLock: false, worldUp);
 
         Vector3 neckPosWorld = neck.OutGoingData.position;
-
-        // ===========================================
-        // 2) HIPS: build from neck and preserved span
-        // ===========================================
-        // Determine a stable world up
-        Vector3 worldUp = parentMatrix.MultiplyVector(Vector3.up).normalized;
-        if (worldUp.sqrMagnitude < 1e-6f) worldUp = Vector3.up;
 
         // Preserve total length neck→hips, except when overridden.
         Vector3 idealHips = HipsFreezeToTpose ? hips.TposeLocalScaled.position : neckPosWorld - worldUp * _lenTotal;
 
         // Add small forward bias using head yaw, which also applies to the hips, except when overridden.
-        Quaternion headYaw = HipsFreezeToTpose ? Quaternion.identity : ExtractYawRotation(head.OutGoingData.rotation);
+        Quaternion headYaw = HipsFreezeToTpose ? Quaternion.identity : ExtractYawRotation(head.OutGoingData.rotation, worldUp);
         idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale);
 
-
-        // Blend XZ with tracked hips for authority retention
+        // Blend horizontal position with tracked hips for authority retention
         Vector3 trackedHips = hips.Target.OutGoingData.position;
         Vector3 blendedHips = idealHips;
         if (HipsXZFollowBlend > 0f)
@@ -177,14 +174,14 @@ public class BasisLocalVirtualSpineDriver
 
         // Hips rotation follows head yaw, damped.
         Quaternion hipsYawTarget = headYaw;
-        hips.OutGoingData.rotation = ExtractYawRotation(SmoothSlerp(hips.OutGoingData.rotation, hipsYawTarget, HipsRotationSpeed, dt));
+        hips.OutGoingData.rotation = ExtractYawRotation(SmoothSlerp(hips.OutGoingData.rotation, hipsYawTarget, HipsRotationSpeed, dt), worldUp);
         hips.OutGoingData.position = blendedHips;
         hips.ApplyWorldAndLast(parentMatrix);
 
         // =======================================================
         // 3) Fill the middle: chest & spine positions and yaws
         // =======================================================
-        Quaternion neckYaw = ExtractYawRotation(neck.OutGoingData.rotation);
+        Quaternion neckYaw = ExtractYawRotation(neck.OutGoingData.rotation, worldUp);
         Quaternion hipsYaw = hips.OutGoingData.rotation; // already yaw-only
 
         Vector3 neckToHips = hips.OutGoingData.position - neck.OutGoingData.position;
@@ -193,8 +190,8 @@ public class BasisLocalVirtualSpineDriver
         if (distNeckToHips < 1e-5f)
         {
             // Guard: fall back to tracker-driven positions
-            ApplyPositionControl(chest, parentMatrix, torsoLock: true);
-            ApplyPositionControl(spine, parentMatrix, torsoLock: true);
+            ApplyPositionControl(chest, parentMatrix, torsoLock: true, worldUp);
+            ApplyPositionControl(spine, parentMatrix, torsoLock: true, worldUp);
         }
         else
         {
@@ -211,15 +208,15 @@ public class BasisLocalVirtualSpineDriver
 
             // Smooth rotations
             chest.OutGoingData.rotation = ExtractYawRotation(
-                SmoothSlerp(chest.OutGoingData.rotation, chestYawTarget, ChestRotationSpeed, dt)
+                SmoothSlerp(chest.OutGoingData.rotation, chestYawTarget, ChestRotationSpeed, dt), worldUp
             );
             spine.OutGoingData.rotation = ExtractYawRotation(
-                SmoothSlerp(spine.OutGoingData.rotation, spineYawTarget, SpineRotationSpeed, dt)
+                SmoothSlerp(spine.OutGoingData.rotation, spineYawTarget, SpineRotationSpeed, dt), worldUp
             );
 
-            // Apply positions with offsets (torsoLock removes vertical offset)
-            ApplyPositionWithGivenBase(chest, parentMatrix, chestPos, torsoLock: true);
-            ApplyPositionWithGivenBase(spine, parentMatrix, spinePos, torsoLock: true);
+            // Apply positions with offsets (torsoLock removes up-axis offset)
+            ApplyPositionWithGivenBase(chest, parentMatrix, chestPos, torsoLock: true, worldUp);
+            ApplyPositionWithGivenBase(spine, parentMatrix, spinePos, torsoLock: true, worldUp);
         }
 
         // Finalize head/neck
@@ -229,18 +226,21 @@ public class BasisLocalVirtualSpineDriver
 
     /// <summary>
     /// Applies tracker-driven position plus offset for a bone control,
-    /// optionally locking vertical to TPose baseline and yaw-only rotation.
+    /// optionally locking the up-axis component to TPose baseline and yaw-only rotation.
     /// </summary>
-    private void ApplyPositionControl(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, bool torsoLock)
+    private void ApplyPositionControl(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, bool torsoLock, Vector3 up)
     {
         Quaternion rot = boneControl.Target.OutGoingData.rotation;
-        if (torsoLock) rot = ExtractYawRotation(rot);
+        if (torsoLock) rot = ExtractYawRotation(rot, up);
 
         Vector3 localOffset = boneControl.ScaledOffset;
         if (torsoLock) localOffset.y = 0f;
 
         Vector3 desired = boneControl.Target.OutGoingData.position + (rot * localOffset);
-        if (torsoLock) desired.y = boneControl.TposeLocalScaled.position.y;
+        if (torsoLock)
+        {
+            desired.y = boneControl.TposeLocalScaled.position.y;
+        }
 
         boneControl.OutGoingData.position = desired;
         boneControl.ApplyWorldAndLast(parentMatrix);
@@ -249,16 +249,19 @@ public class BasisLocalVirtualSpineDriver
     /// <summary>
     /// Applies position using a provided world base position and the control's yaw/offset rules.
     /// </summary>
-    private void ApplyPositionWithGivenBase(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, Vector3 basePositionWorld, bool torsoLock)
+    private void ApplyPositionWithGivenBase(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, Vector3 basePositionWorld, bool torsoLock, Vector3 up)
     {
         Quaternion rot = boneControl.OutGoingData.rotation;
-        if (torsoLock) rot = ExtractYawRotation(rot);
+        if (torsoLock) rot = ExtractYawRotation(rot, up);
 
         Vector3 localOffset = boneControl.ScaledOffset;
         if (torsoLock) localOffset.y = 0f;
 
         Vector3 desired = basePositionWorld + (rot * localOffset);
-        if (torsoLock) desired.y = boneControl.TposeLocalScaled.position.y;
+        if (torsoLock)
+        {
+            desired.y = boneControl.TposeLocalScaled.position.y;
+        }
 
         boneControl.OutGoingData.position = desired;
         boneControl.ApplyWorldAndLast(parentMatrix);
@@ -274,14 +277,14 @@ public class BasisLocalVirtualSpineDriver
     }
 
     /// <summary>
-    /// Extracts yaw-only rotation (around global up) from a full quaternion.
+    /// Extracts yaw-only rotation (around the given up axis) from a full quaternion.
     /// </summary>
-    private static Quaternion ExtractYawRotation(Quaternion rotation)
+    private static Quaternion ExtractYawRotation(Quaternion rotation, Vector3 up)
     {
         Vector3 f = rotation * Vector3.forward;
-        f.y = 0f;
+        f -= up * Vector3.Dot(f, up); // project onto plane perpendicular to up
         if (f.sqrMagnitude < 1e-6f) f = Vector3.forward;
         f.Normalize();
-        return Quaternion.LookRotation(f, Vector3.up);
+        return Quaternion.LookRotation(f, up);
     }
 }
