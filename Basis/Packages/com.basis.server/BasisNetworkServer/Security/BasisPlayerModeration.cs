@@ -317,9 +317,9 @@ namespace BasisNetworkServer.Security
                         HandleGlobalToggle(peer, "World", BasisGlobalLockManager.ToggleWorlds()));
                     break;
 
-                case AdminRequestMode.GlobalToggleHeadlessAudio:
+                case AdminRequestMode.SetGlobalHeadlessAudio:
                     Require(peer, PermNodes.ModerationHeadlessAudio, () =>
-                        HandleHeadlessAudioToggle(peer, BasisHeadlessAudioStateManager.ToggleHeadlessAudio()));
+                        HandleHeadlessAudioSet(peer, reader));
                     break;
 
                 // ===== PERMISSION EDIT =====
@@ -449,10 +449,21 @@ namespace BasisNetworkServer.Security
             BasisGlobalLockManager.BroadcastLockState();
         }
 
-        private static void HandleHeadlessAudioToggle(NetPeer peer, bool headlessAudioOff)
+        private static void HandleHeadlessAudioSet(NetPeer peer, NetPacketReader reader)
         {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set headless audio clip playback: missing state value.");
+                return;
+            }
+
+            bool headlessAudioOff = reader.GetBool();
+            bool changed = BasisHeadlessAudioStateManager.SetHeadlessAudio(headlessAudioOff);
             string state = headlessAudioOff ? "OFF" : "ON";
-            string notification = $"Headless audio clip playback is now {state}.";
+            string notification = changed
+                ? $"Headless audio clip playback is now {state}."
+                : $"Headless audio clip playback was already {state}.";
+
             BNL.Log(notification);
             SendBackMessage(peer, notification);
             BasisHeadlessAudioStateManager.BroadcastState();

@@ -62,6 +62,7 @@ namespace BasisNetworkCore.Serializable
             GlobalGetLockState,  // server→client: current global lock state
             GlobalToggleHeadlessAudio, // admin: toggle headless audio clip playback for headless clients
             GlobalGetHeadlessAudioState, // server→client: current global headless audio state
+            SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
         }
     }
 }

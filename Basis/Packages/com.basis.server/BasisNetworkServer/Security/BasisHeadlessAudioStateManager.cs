@@ -13,18 +13,11 @@ namespace BasisNetworkServer.Security
 
         public static bool HeadlessAudioOff => Interlocked.CompareExchange(ref _headlessAudioOff, 0, 0) == 1;
 
-        public static bool ToggleHeadlessAudio()
+        public static bool SetHeadlessAudio(bool headlessAudioOff)
         {
-            int prev;
-            int next;
-            do
-            {
-                prev = _headlessAudioOff;
-                next = prev == 0 ? 1 : 0;
-            }
-            while (Interlocked.CompareExchange(ref _headlessAudioOff, next, prev) != prev);
-
-            return next == 1;
+            int requestedValue = headlessAudioOff ? 1 : 0;
+            int previousValue = Interlocked.Exchange(ref _headlessAudioOff, requestedValue);
+            return previousValue != requestedValue;
         }
 
         public static void SendStateToPeer(NetPeer peer)

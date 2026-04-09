@@ -503,11 +503,13 @@ public static class BasisNetworkModeration
     }
 
     /// <summary>
-    /// Admin: Toggle headless audio clip playback for headless clients.
+    /// Admin: Set headless audio clip playback state for headless clients.
     /// </summary>
-    public static void GlobalToggleHeadlessAudio()
+    public static void SetGlobalHeadlessAudio(bool headlessAudioOff)
     {
-        SendAdminRequest(AdminRequestMode.GlobalToggleHeadlessAudio);
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessAudio,
+            w => w.Put(headlessAudioOff));
     }
 
     #endregion
