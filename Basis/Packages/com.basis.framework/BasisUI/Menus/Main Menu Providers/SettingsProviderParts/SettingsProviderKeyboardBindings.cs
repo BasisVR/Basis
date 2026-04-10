@@ -209,47 +209,36 @@ public static class SettingsProviderKeyboardBindings
 
         PanelToggle header = PanelToggle.CreateNewEntry(group.ContentParent);
         header.Descriptor.SetTitle(title);
+        header.SetValueWithoutNotify(startExpanded);
 
-        bool contentBuilt = false;
+        RectTransform root = group.rectTransform;
+        RectTransform cp = group.ContentParent;
+        int rootStart = root.childCount;
+        int cpStart = cp.childCount;
         Transform headerTransform = header.transform;
 
-        void SetContentVisible(bool visible)
-        {
-            RectTransform parent = group.ContentParent;
-            for (int i = 0; i < parent.childCount; i++)
-            {
-                Transform child = parent.GetChild(i);
-                if (child != headerTransform)
-                    child.gameObject.SetActive(visible);
-            }
-        }
+        buildContent(group);
 
-        header.OnValueChanged += visible =>
+        void SetContentActive(bool active)
         {
-            if (visible)
+            for (int i = rootStart; i < root.childCount; i++)
+                root.GetChild(i).gameObject.SetActive(active);
+
+            if (cp != root)
             {
-                if (!contentBuilt)
+                for (int i = cpStart; i < cp.childCount; i++)
                 {
-                    contentBuilt = true;
-                    buildContent(group);
+                    Transform child = cp.GetChild(i);
+                    if (child != headerTransform)
+                        child.gameObject.SetActive(active);
                 }
-                SetContentVisible(true);
-            }
-            else
-            {
-                SetContentVisible(false);
             }
             group.ForceRebuild();
-        };
-
-        if (startExpanded)
-        {
-            buildContent(group);
-            contentBuilt = true;
-            header.SetValueWithoutNotify(true);
         }
 
-        SetContentVisible(header.Value);
+        SetContentActive(header.Value);
+
+        header.OnValueChanged += SetContentActive;
     }
 
     private static string GetPartLabel(string actionName, string partName)
