@@ -17,7 +17,7 @@ MonoBehaviour:
       Mode: 2
       PlacementType: 1
       Url: Personal Mirror
-      Pass: ''
+      Pass: 
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 1
@@ -37,7 +37,7 @@ MonoBehaviour:
       Mode: 2
       PlacementType: 1
       Url: Photo Camera
-      Pass: ''
+      Pass: 
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 1
@@ -56,8 +56,8 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: 'https://cdn.yewnyx.net/basis/2026-02-25/gymcat/c84a7ca0c5ce4912ab5584c2840036de20260225.BEE'
-      Pass: '0da01980272efbe421b7ebd5d6831d657ed96f5e5317d2f88a6dfe9e7ef5ead8'
+      Url: https://cdn.yewnyx.net/basis/2026-02-25/gymcat/c84a7ca0c5ce4912ab5584c2840036de20260225.BEE
+      Pass: 0da01980272efbe421b7ebd5d6831d657ed96f5e5317d2f88a6dfe9e7ef5ead8
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0
@@ -66,7 +66,7 @@ MonoBehaviour:
         NetworkType: 0
         IsEphemeral: 1
     HasCustomIconAddress: 0
-    IconAddress: ''
+    IconAddress: 
     HasCustomBounds: 0
     Bounds:
       m_Center: {x: 1, y: 1, z: 1}
@@ -76,8 +76,8 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: 'https://cdn.yewnyx.net/basis/2026-02-25/space/c74771ec2dd84ffda33d346ada25e39420260225.BEE'
-      Pass: '878ac54af853e1a7d864520a34ae68e8b370cedd89a42c09cd016cf9eb41dbae'
+      Url: https://cdn.yewnyx.net/basis/2026-02-25/space/c74771ec2dd84ffda33d346ada25e39420260225.BEE
+      Pass: 878ac54af853e1a7d864520a34ae68e8b370cedd89a42c09cd016cf9eb41dbae
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0
@@ -86,7 +86,7 @@ MonoBehaviour:
         NetworkType: 0
         IsEphemeral: 1
     HasCustomIconAddress: 0
-    IconAddress: ''
+    IconAddress: 
     HasCustomBounds: 0
     Bounds:
       m_Center: {x: 1, y: 1, z: 1}
@@ -96,8 +96,8 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: 'https://cdn.yewnyx.net/basis/2026-02-25/spaceman/f78971c1c553483a9bbe155d60f14d4e20260225.BEE'
-      Pass: '091b548e5e036a2d1829b41f829a0dab3f30a41d4d01eb9822b316fedb2934dd'
+      Url: https://cdn.yewnyx.net/basis/2026-02-25/spaceman/f78971c1c553483a9bbe155d60f14d4e20260225.BEE
+      Pass: 091b548e5e036a2d1829b41f829a0dab3f30a41d4d01eb9822b316fedb2934dd
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0
@@ -106,7 +106,7 @@ MonoBehaviour:
         NetworkType: 0
         IsEphemeral: 1
     HasCustomIconAddress: 0
-    IconAddress: ''
+    IconAddress: 
     HasCustomBounds: 0
     Bounds:
       m_Center: {x: 1, y: 1, z: 1}
@@ -116,8 +116,8 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: 'https://cdn.yewnyx.net/basis/2026-02-25/yun/e60b159bfa9d49b1a7f4480d5999ee0320260225.BEE'
-      Pass: 'e250499a5a00ebe3ee0c5447ca41677e5a4c6d33d152fd77804a5963f384652e'
+      Url: https://cdn.yewnyx.net/basis/2026-02-25/yun/e60b159bfa9d49b1a7f4480d5999ee0320260225.BEE
+      Pass: e250499a5a00ebe3ee0c5447ca41677e5a4c6d33d152fd77804a5963f384652e
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0
@@ -126,7 +126,7 @@ MonoBehaviour:
         NetworkType: 0
         IsEphemeral: 1
     HasCustomIconAddress: 0
-    IconAddress: ''
+    IconAddress: 
     HasCustomBounds: 0
     Bounds:
       m_Center: {x: 1, y: 1, z: 1}
@@ -136,8 +136,8 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: 'https://BasisFramework.b-cdn.net/Version2/Avatars/Public/leona/leona_ft/a6db519231784d34bfdc47c27e6b8d4820260226.BEE'
-      Pass: '1717b718e26eabb7d9ae1a8e2046f17d90ed4e81a548aea28e05a589ccae52e5'
+      Url: https://BasisFramework.b-cdn.net/bee2/thirdpartyavatars/leon_ft2/leona_light.BEE
+      Pass: 699619ffb406025f6cef778194658467f404b5fe63c808c0925f1c307314a604
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0
@@ -146,7 +146,7 @@ MonoBehaviour:
         NetworkType: 0
         IsEphemeral: 1
     HasCustomIconAddress: 0
-    IconAddress: ''
+    IconAddress: 
     HasCustomBounds: 0
     Bounds:
       m_Center: {x: 1, y: 1, z: 1}
