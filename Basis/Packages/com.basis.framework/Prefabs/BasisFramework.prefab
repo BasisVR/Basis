@@ -566,6 +566,7 @@ MonoBehaviour:
   MiddleMouseScroll: {fileID: 3017921969231114889, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MiddleMouseScrollClick: {fileID: -4813832520851000306, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MoveLocalUpDown: {fileID: -8761834997978577808, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
+  OpenChat: {fileID: 6276339513826019528, guid: 5e4c3601c6a155f43af19da3bdd35a64, type: 3}
   MouseSensitivity: 1
   JoystickSensitivity: 1
   KeyboardSensitivity: 5
@@ -1028,7 +1029,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsDeviceBooted: 0
   DeviceMode: 0
-  BasisHeadlessInput: {fileID: 0}
 --- !u!114 &8988764245560573337
 MonoBehaviour:
   m_ObjectHideFlags: 0
