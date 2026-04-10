@@ -631,15 +631,38 @@ namespace Basis.Shims
 
         private static string GetGameObjectPath(GameObject gameObject)
         {
-            string path = gameObject.name;
-            Transform current = gameObject.transform.parent;
-            while (current != null)
+            if (gameObject == null)
             {
-                path = $"{current.name}/{path}";
+                return string.Empty;
+            }
+
+            List<int> siblingIndices = new List<int>();
+            Transform current = gameObject.transform;
+            while (current.parent != null)
+            {
+                siblingIndices.Add(current.GetSiblingIndex());
                 current = current.parent;
             }
 
-            return path;
+            GameObject[] roots = gameObject.scene.GetRootGameObjects();
+            int rootIndex = -1;
+            int rootCount = roots.Length;
+            for (int i = 0; i < rootCount; i++)
+            {
+                if (roots[i] == current.gameObject)
+                {
+                    rootIndex = i;
+                    break;
+                }
+            }
+
+            if (rootIndex < 0)
+            {
+                return string.Empty;
+            }
+
+            siblingIndices.Reverse();
+            return siblingIndices.Count == 0 ? $"r{rootIndex}" : $"r{rootIndex}/{string.Join("/", siblingIndices)}";
         }
 
         private static GameObject ResolveGameObject(Scene scene, string path)
@@ -649,20 +672,19 @@ namespace Basis.Shims
                 return null;
             }
 
-            string[] parts = path.Split('/');
-            GameObject current = null;
             GameObject[] roots = scene.GetRootGameObjects();
-            int rootCount = roots.Length;
-            for (int i = 0; i < rootCount; i++)
+            string[] parts = path.Split('/');
+            if (parts.Length == 0 || parts[0].Length <= 1 || parts[0][0] != 'r' || !int.TryParse(parts[0].Substring(1), out int rootIndex))
             {
-                GameObject root = roots[i];
-                if (root != null && root.name == parts[0])
-                {
-                    current = root;
-                    break;
-                }
+                return null;
             }
 
+            if (rootIndex < 0 || rootIndex >= roots.Length)
+            {
+                return null;
+            }
+
+            Transform current = roots[rootIndex]?.transform;
             if (current == null)
             {
                 return null;
@@ -670,16 +692,19 @@ namespace Basis.Shims
 
             for (int partIndex = 1; partIndex < parts.Length; partIndex++)
             {
-                Transform child = current.transform.Find(parts[partIndex]);
-                if (child == null)
+                if (!int.TryParse(parts[partIndex], out int siblingIndex) || siblingIndex < 0 || siblingIndex >= current.childCount)
                 {
                     return null;
                 }
 
-                current = child.gameObject;
+                current = current.GetChild(siblingIndex);
+                if (current == null)
+                {
+                    return null;
+                }
             }
 
-            return current;
+            return current.gameObject;
         }
 
         private static Component ResolveComponent(Scene scene, string gameObjectPath, string componentTypeName, int componentOrdinal)
