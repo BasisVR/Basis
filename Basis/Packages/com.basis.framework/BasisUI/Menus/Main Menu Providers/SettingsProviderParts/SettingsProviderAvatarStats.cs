@@ -24,6 +24,7 @@ namespace Basis.BasisUI
                 Object.Destroy(scanButton.gameObject);
                 PopulateStats(container);
                 LayoutRebuilder.ForceRebuildLayoutImmediate(container);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(tabGroup.Descriptor.ContentParent);
                 descriptor.ForceRebuild();
             };
 
@@ -38,6 +39,7 @@ namespace Basis.BasisUI
         public static void PopulateStatsInto(RectTransform container)
         {
             PopulateStats(container);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(container);
         }
 
         static void PopulateStats(RectTransform container)
