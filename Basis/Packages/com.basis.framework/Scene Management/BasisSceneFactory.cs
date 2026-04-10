@@ -169,7 +169,30 @@ public static class BasisSceneFactory
         {
             return;
         }
-        ProbeReferenceVolume.instance.SetActiveScene(scene);
+        // Find ProbeVolumePerSceneData directly in the scene hierarchy.
+        // SetActiveScene uses a GUID-based lookup that can fail for bundle-loaded scenes
+        // or if the component hasn't registered yet due to enable ordering.
+        ProbeVolumePerSceneData perSceneData = null;
+        GameObject[] rootObjects = scene.GetRootGameObjects();
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            perSceneData = rootObjects[i].GetComponentInChildren<ProbeVolumePerSceneData>(true);
+            if (perSceneData != null)
+            {
+                break;
+            }
+        }
+        if (perSceneData == null || perSceneData.bakingSet == null)
+        {
+            return;
+        }
+        // Switch baking set if it differs from the current one
+        ProbeReferenceVolume.instance.SetActiveBakingSet(perSceneData.bakingSet);
+        // Re-trigger registration so this scene's cells are queued for loading.
+        // Handles same-baking-set (where SetActiveBakingSet is a no-op)
+        // and timing issues (where OnEnable ran before the baking set was correct).
+        perSceneData.enabled = false;
+        perSceneData.enabled = true;
         ProbeReferenceVolume.instance.PerformPendingOperations();
         BasisDebug.Log("Forced adaptive probe volume baking set load for scene: " + scene.name, BasisDebug.LogTag.Scene);
     }
