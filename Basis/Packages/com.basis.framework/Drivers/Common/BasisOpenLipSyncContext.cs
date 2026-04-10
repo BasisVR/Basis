@@ -69,6 +69,7 @@ namespace Basis.Scripts.Drivers
         // ──────────────────────────────────��─────────────────────��───
         private static readonly List<BasisOpenLipSyncContext> _pendingInference = new List<BasisOpenLipSyncContext>(64);
         private static Task _batchTask;
+        private static BasisOpenLipSyncContext[] _cachedBatch;
 
         /// <summary>
         /// Maximum number of contexts to process per batch task.
@@ -237,22 +238,26 @@ namespace Basis.Scripts.Drivers
             if (_batchTask != null && !_batchTask.IsCompleted) return;
 
             BasisOpenLipSyncContext[] batch;
-            int batchCount;
+            int take;
             lock (_pendingInference)
             {
-                batchCount = _pendingInference.Count;
+                int batchCount = _pendingInference.Count;
                 if (batchCount == 0) return;
 
                 // Cap batch size to spread work across frames
-                int take = Math.Min(batchCount, MaxContextsPerBatch);
-                batch = new BasisOpenLipSyncContext[take];
+                take = Math.Min(batchCount, MaxContextsPerBatch);
+                // Reuse cached batch array to avoid per-frame allocation.
+                if (_cachedBatch == null || _cachedBatch.Length < take)
+                    _cachedBatch = new BasisOpenLipSyncContext[Math.Max(take, MaxContextsPerBatch)];
+                batch = _cachedBatch;
                 _pendingInference.CopyTo(0, batch, 0, take);
                 _pendingInference.RemoveRange(0, take);
             }
 
+            int batchLen = take; // capture for the lambda (batch array may be larger than take)
             _batchTask = Task.Run(() =>
             {
-                for (int i = 0; i < batch.Length; i++)
+                for (int i = 0; i < batchLen; i++)
                 {
                     var ctx = batch[i];
                     if (ctx._disposed)

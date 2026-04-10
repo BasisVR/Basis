@@ -757,7 +757,10 @@ public static class BasisLocalMicrophoneDriver
         rmsValues[rmsIndex] = currentMeanSq;
         rmsIndex = (rmsIndex + 1) % LocalOpusSettings.rmsWindowSize;
 
-        float averagePower = rmsValues.Average();
+        float averagePower = 0f;
+        for (int i = 0; i < rmsValues.Length; i++)
+            averagePower += rmsValues[i];
+        averagePower /= rmsValues.Length;
 
         averageRms = Mathf.Sqrt(averagePower);
     }

@@ -4,8 +4,8 @@ using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.Compression;
 using Basis.Scripts.Networking.Transmitters;
 using Basis.Scripts.Profiler;
-using System.Linq;
 using Unity.Collections;
+using static SerializableBasis;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -45,11 +45,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         static NativeArray<float> sMaxComponentNative;
         static bool sJobArraysReady;
 
+        // Persistent NativeArray for jobified compression output — avoids per-frame TempJob allocation.
+        static NativeArray<byte> sJobOutputBuffer;
+
         // Wire quality is locked to HIGH
         static readonly BitQuality WireQuality = BitQuality.High;
 
         // Outbound sequence counter
         static byte sLocalSequence;
+
+        // Cached array for additional avatar data — avoids .ToArray() allocation per frame.
+        static AdditionalAvatarData[] sCachedAdditionalData;
 
         /// <summary>
         /// Called during local avatar calibration to capture T-pose bone rotations.
@@ -87,7 +93,19 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
             CompressAvatarData(transmitter.storedAvatarData, t);
 
-            var data = transmitter.SendingOutAvatarData.Count == 0 ? null : transmitter.SendingOutAvatarData.Values.ToArray();
+            int additionalCount = transmitter.SendingOutAvatarData.Count;
+            AdditionalAvatarData[] data;
+            if (additionalCount == 0)
+            {
+                data = null;
+            }
+            else
+            {
+                if (sCachedAdditionalData == null || sCachedAdditionalData.Length != additionalCount)
+                    sCachedAdditionalData = new AdditionalAvatarData[additionalCount];
+                transmitter.SendingOutAvatarData.Values.CopyTo(sCachedAdditionalData, 0);
+                data = sCachedAdditionalData;
+            }
             transmitter.storedAvatarData.LASM.AdditionalAvatarDatas = data;
             transmitter.storedAvatarData.LASM.LinkedAvatarIndex = transmitter.LastLinkedAvatarIndex;
 
@@ -167,10 +185,13 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             int boneCount = BasisBoneRotationCompression.SyncBoneCount;
             int rotBytes = BasisBoneRotationCompression.RotationBytes(WireQuality);
 
-            // Wrap the managed byte[] in a NativeArray without copy (pinned)
-            // We need to copy the relevant region into a temp native array for the job
-            var nativeDst = new NativeArray<byte>(dst.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-            NativeArray<byte>.Copy(dst, nativeDst);
+            // Reuse persistent NativeArray to avoid per-frame TempJob allocation + deallocation.
+            if (!sJobOutputBuffer.IsCreated || sJobOutputBuffer.Length < dst.Length)
+            {
+                if (sJobOutputBuffer.IsCreated) sJobOutputBuffer.Dispose();
+                sJobOutputBuffer = new NativeArray<byte>(dst.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            }
+            NativeArray<byte>.Copy(dst, sJobOutputBuffer, dst.Length);
 
             var job = new BasisBoneDeltaAndCompressJob
             {
@@ -178,7 +199,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 TposeLocalRotations = sTposeNative,
                 BitsPerComponent = sBpcNative,
                 MaxComponent = sMaxComponentNative,
-                OutputBuffer = nativeDst,
+                OutputBuffer = sJobOutputBuffer,
                 RotationByteOffset = byteOffset,
                 BoneCount = boneCount,
                 BoneDeltas = sBoneDeltas,
@@ -187,8 +208,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             job.Run(); // Burst-compiled, runs immediately on this thread
 
             // Copy result back to managed array
-            NativeArray<byte>.Copy(nativeDst, dst);
-            nativeDst.Dispose();
+            NativeArray<byte>.Copy(sJobOutputBuffer, 0, dst, 0, dst.Length);
 
             byteOffset += rotBytes;
         }
@@ -344,6 +364,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             DisposeJobArrays();
             if (sBoneDeltas.IsCreated) sBoneDeltas.Dispose();
+            if (sJobOutputBuffer.IsCreated) sJobOutputBuffer.Dispose();
             sTposeLocalRotations = null;
             sInitialized = false;
         }
