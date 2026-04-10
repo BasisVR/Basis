@@ -21,6 +21,10 @@ namespace OpenLipSync.Inference.Audio
         private bool _primed;
         private bool _disposed;
 
+        // Cached output list and array to avoid per-call allocation.
+        private readonly List<float> _outputList = new List<float>();
+        private float[] _outputArray = Array.Empty<float>();
+
         // ── Coefficient table cache ──
         // The table depends only on (inputRate, outputRate, taps, phases, cutoffScale).
         // For OpenLipSync all contexts use the same rates, so this avoids rebuilding
@@ -94,7 +98,7 @@ namespace OpenLipSync.Inference.Audio
 
             if (_buffer.Count < _filterTaps) return Array.Empty<float>();
 
-            var output = new List<float>(input.Length > 0 ? (int)Math.Ceiling(input.Length / _inputPerOutput) + 8 : 0);
+            _outputList.Clear();
 
             while (true)
             {
@@ -117,7 +121,7 @@ namespace OpenLipSync.Inference.Audio
                 {
                     sum += _buffer[leftIndex + t] * _coeffTable[coeffBase + t];
                 }
-                output.Add((float)sum);
+                _outputList.Add((float)sum);
 
                 _time += _inputPerOutput;
             }
@@ -130,7 +134,14 @@ namespace OpenLipSync.Inference.Audio
                 if (_time < 0) _time = 0;
             }
 
-            return output.Count == 0 ? Array.Empty<float>() : output.ToArray();
+            int count = _outputList.Count;
+            if (count == 0) return Array.Empty<float>();
+
+            // Reuse the cached array if it's the right size, otherwise resize once.
+            if (_outputArray.Length != count)
+                _outputArray = new float[count];
+            _outputList.CopyTo(_outputArray);
+            return _outputArray;
         }
 
         private void BuildCoefficientTable(double fc)

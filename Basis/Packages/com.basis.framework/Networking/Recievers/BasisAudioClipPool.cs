@@ -9,6 +9,9 @@ public static class BasisAudioClipPool
 
     private static Queue<AudioClip> pool = new Queue<AudioClip>();
 
+    // Cached buffer for resetting clips — avoids allocating a new float[] per Get().
+    private static float[] _resetBuffer;
+
     /// <summary>
     /// Gets an AudioClip from the pool or creates a new one if pool is empty.
     /// </summary>
@@ -17,11 +20,14 @@ public static class BasisAudioClipPool
         if (pool.Count > 0)
         {
             AudioClip clip = pool.Dequeue();
-            float[] emptySamples = new float[clip.samples * clip.channels];
+            int needed = clip.samples * clip.channels;
+            if (_resetBuffer == null || _resetBuffer.Length < needed)
+            {
+                _resetBuffer = new float[needed];
+                Array.Fill(_resetBuffer, 1.0f);
+            }
 
-            Array.Fill(emptySamples, 1.0f);
-
-            clip.SetData(emptySamples, 0);
+            clip.SetData(_resetBuffer, 0);
             clip.name = $"player [{LinkedPlayer}]";
             return clip;
         }
