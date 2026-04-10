@@ -30,10 +30,10 @@ public static class BasisQualitySettingsGuard
     private static void OnPlayModeChanged(PlayModeStateChange state)
     {
         if (state == PlayModeStateChange.EnteredEditMode)
+        {
             EditorApplication.delayCall += Validate;
+        }
     }
-
-    [MenuItem("Basis/Quality Settings/Validate Now")]
     public static void Validate()
     {
         if (NamesMatch(QualitySettings.names))
@@ -43,21 +43,25 @@ public static class BasisQualitySettingsGuard
             ? "(empty)"
             : string.Join(", ", QualitySettings.names);
 
-        Debug.LogWarning(
+        BasisDebug.LogWarning(
             $"[BasisQualitySettingsGuard] Quality levels are wrong.\n" +
             $"  Expected: [{string.Join(", ", ExpectedNames)}]\n" +
             $"  Actual:   [{actual}]\n" +
             $"  Regenerating...");
 
         if (Regenerate())
-            Debug.Log("[BasisQualitySettingsGuard] Quality settings regenerated successfully.");
+        {
+            BasisDebug.Log("[BasisQualitySettingsGuard] Quality settings regenerated successfully.");
+        }
     }
 
     [MenuItem("Basis/Quality Settings/Force Regenerate")]
     public static void ForceRegenerate()
     {
         if (Regenerate())
-            Debug.Log("[BasisQualitySettingsGuard] Quality settings force-regenerated successfully.");
+        {
+            BasisDebug.Log("[BasisQualitySettingsGuard] Quality settings force-regenerated successfully.");
+        }
     }
 
     private static bool NamesMatch(string[] names)

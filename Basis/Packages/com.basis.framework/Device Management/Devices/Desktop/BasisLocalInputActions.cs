@@ -117,6 +117,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 }
             }
 
+            SettingsProviderKeyboardBindings.LoadBindingOverrides(Input.actions);
+
             if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
 

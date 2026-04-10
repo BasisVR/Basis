@@ -1,5 +1,6 @@
 using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
@@ -15,105 +16,115 @@ public static class SettingsProviderControllerConfig
         PanelElementDescriptor descriptor = tab.Descriptor;
         RectTransform container = descriptor.ContentParent;
 
-        // Gameplay & Input
-        PanelElementDescriptor generalGroup =
-            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        generalGroup.SetTitle("Gameplay & Input");
-        generalGroup.SetDescription("General controls and comfort settings.");
-
-        PanelDropdown dropdownDominantHand = PanelDropdown.CreateNewEntry(generalGroup);
-        dropdownDominantHand.Descriptor.SetTitle("Dominant Hand");
-        dropdownDominantHand.AssignEntries(new List<string> { BasisDominantHand.Right, BasisDominantHand.Left });
-        dropdownDominantHand.AssignBinding(BasisSettingsDefaults.DominantHand);
-
-        PanelToggle toggleInvertMouse = PanelToggle.CreateNewEntry(generalGroup);
-        toggleInvertMouse.Descriptor.SetTitle("Invert Mouse");
-        toggleInvertMouse.AssignBinding(BasisSettingsDefaults.InvertMouse);
-
-        PanelSlider mousesensitivty = PanelSlider.CreateEntryAndBind(
-            generalGroup,
-            PanelSlider.SliderSettings.Advanced("Mouse Sensitivity", 0, 2f, false, 2, ValueDisplayMode.Percentage),
-            BasisSettingsDefaults.mousesensitivty);
-
-        PanelToggle smoothlocomotion = PanelToggle.CreateNewEntry(generalGroup);
-        smoothlocomotion.Descriptor.SetTitle("Use Snap Turn Locomotion");
-        smoothlocomotion.AssignBinding(BasisSettingsDefaults.usesnapturn);
-
-        PanelSlider sliderSnapTurnAngle = PanelSlider.CreateEntryAndBind(
-            generalGroup,
-            PanelSlider.SliderSettings.Advanced("Snap Turn Angle", 0, 120, true, 0, ValueDisplayMode.Degrees),
-            BasisSettingsDefaults.SnapTurnAngle);
-
-        PanelSlider sliderSmoothTurnSpeed = PanelSlider.CreateEntryAndBind(
-            generalGroup,
-            PanelSlider.SliderSettings.Advanced("Smooth Turn Speed", 50, 400, true, 0, ValueDisplayMode.Raw),
-            BasisSettingsDefaults.SmoothTurnSpeed);
-
-        bool snapOn = BasisSettingsDefaults.usesnapturn.RawValue;
-        sliderSnapTurnAngle.gameObject.SetActive(snapOn);
-        sliderSmoothTurnSpeed.gameObject.SetActive(!snapOn);
-        smoothlocomotion.OnValueChanged += isOn =>
+        // Gameplay & Input (starts expanded)
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, "Gameplay & Input", "General controls and comfort settings.", group =>
         {
-            sliderSnapTurnAngle.gameObject.SetActive(isOn);
-            sliderSmoothTurnSpeed.gameObject.SetActive(!isOn);
-        };
+            PanelDropdown dropdownDominantHand = PanelDropdown.CreateNewEntry(group);
+            dropdownDominantHand.Descriptor.SetTitle("Dominant Hand");
+            dropdownDominantHand.AssignEntries(new List<string> { BasisDominantHand.Right, BasisDominantHand.Left });
+            dropdownDominantHand.AssignBinding(BasisSettingsDefaults.DominantHand);
+
+            PanelToggle toggleInvertMouse = PanelToggle.CreateNewEntry(group);
+            toggleInvertMouse.Descriptor.SetTitle("Invert Mouse");
+            toggleInvertMouse.AssignBinding(BasisSettingsDefaults.InvertMouse);
+
+            PanelSlider mousesensitivty = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("Mouse Sensitivity", 0, 2f, false, 2, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.mousesensitivty);
+
+            PanelToggle smoothlocomotion = PanelToggle.CreateNewEntry(group);
+            smoothlocomotion.Descriptor.SetTitle("Use Snap Turn Locomotion");
+            smoothlocomotion.AssignBinding(BasisSettingsDefaults.usesnapturn);
+
+            PanelSlider sliderSnapTurnAngle = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("Snap Turn Angle", 0, 120, true, 0, ValueDisplayMode.Degrees),
+                BasisSettingsDefaults.SnapTurnAngle);
+
+            PanelSlider sliderSmoothTurnSpeed = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("Smooth Turn Speed", 50, 400, true, 0, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.SmoothTurnSpeed);
+
+            bool snapOn = BasisSettingsDefaults.usesnapturn.RawValue;
+            sliderSnapTurnAngle.gameObject.SetActive(snapOn);
+            sliderSmoothTurnSpeed.gameObject.SetActive(!snapOn);
+            smoothlocomotion.OnValueChanged += isOn =>
+            {
+                sliderSnapTurnAngle.gameObject.SetActive(isOn);
+                sliderSmoothTurnSpeed.gameObject.SetActive(!isOn);
+            };
+        }, startExpanded: true);
 
         // Deadzone - General
-        PanelElementDescriptor generalGroupDeadZone =
-            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        generalGroupDeadZone.SetTitle("General");
-        generalGroupDeadZone.SetDescription("Basic filtering applied to the whole stick. (excluding look)");
-
-        PanelSlider controllerDeadZoneSlider = PanelSlider.CreateEntryAndBind(
-            generalGroupDeadZone,
-            PanelSlider.SliderSettings.Advanced("Radial Dead Zone", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
-            BasisSettingsDefaults.ControllerDeadZone);
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, "General Deadzone", "Basic filtering applied to the whole stick. (excluding look)", group =>
+        {
+            PanelSlider controllerDeadZoneSlider = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("Radial Dead Zone", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.ControllerDeadZone);
+            controllerDeadZoneSlider.OnValueChanged += _ => UpdatePreview();
+        });
 
         // Horizontal Comfort
-        PanelElementDescriptor horizontalGroup =
-            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        horizontalGroup.SetTitle("Horizontal (Yaw) Comfort");
-        horizontalGroup.SetDescription("Prevents forward/back stick pressure from causing accidental left/right drift (\"butterfly wings\").");
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, "Horizontal (Yaw) Comfort",
+            "Prevents forward/back stick pressure from causing accidental left/right drift (\"butterfly wings\").", group =>
+        {
+            PanelSlider minHorizontalDeadZoneSlider = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("X Dead Zone (Min)", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.Basexdeadzone);
 
-        PanelSlider minHorizontalDeadZoneSlider = PanelSlider.CreateEntryAndBind(
-            horizontalGroup,
-            PanelSlider.SliderSettings.Advanced("X Dead Zone (Min)", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
-            BasisSettingsDefaults.Basexdeadzone);
+            PanelSlider horizontalGateStrengthSlider = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("X Gate (At Full Y)", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.Extraxdeadzoneatfully);
 
-        PanelSlider horizontalGateStrengthSlider = PanelSlider.CreateEntryAndBind(
-            horizontalGroup,
-            PanelSlider.SliderSettings.Advanced("X Gate (At Full Y)", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
-            BasisSettingsDefaults.Extraxdeadzoneatfully);
+            PanelSlider wingCurveSlider = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("Gate Curve", 0f, 3f, false, 3, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.Wingexponent);
 
-        PanelSlider wingCurveSlider = PanelSlider.CreateEntryAndBind(
-            horizontalGroup,
-            PanelSlider.SliderSettings.Advanced("Gate Curve", 0f, 3f, false, 3, ValueDisplayMode.Percentage),
-            BasisSettingsDefaults.Wingexponent);
+            minHorizontalDeadZoneSlider.OnValueChanged += _ => UpdatePreview();
+            horizontalGateStrengthSlider.OnValueChanged += _ => UpdatePreview();
+            wingCurveSlider.OnValueChanged += _ => UpdatePreview();
+        });
 
         // Vertical
-        PanelElementDescriptor verticalGroup =
-            PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        verticalGroup.SetTitle("Vertical (Pitch / Other)");
-        verticalGroup.SetDescription("look joystick Y Dead Zone");
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, "Vertical (Pitch / Other)", "Look joystick Y Dead Zone.", group =>
+        {
+            PanelSlider verticalDeadZoneSlider = PanelSlider.CreateEntryAndBind(
+                group,
+                PanelSlider.SliderSettings.Advanced("Look Y Dead Zone", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
+                BasisSettingsDefaults.Ydeadzone);
+            verticalDeadZoneSlider.OnValueChanged += _ => UpdatePreview();
+        });
 
-        PanelSlider verticalDeadZoneSlider = PanelSlider.CreateEntryAndBind(
-            verticalGroup,
-            PanelSlider.SliderSettings.Advanced("Look Y Dead Zone", 0f, 1f, false, 3, ValueDisplayMode.Percentage),
-            BasisSettingsDefaults.Ydeadzone);
-
-        controllerDeadZoneSlider.OnValueChanged += _ => UpdatePreview();
-        minHorizontalDeadZoneSlider.OnValueChanged += _ => UpdatePreview();
-        horizontalGateStrengthSlider.OnValueChanged += _ => UpdatePreview();
-        verticalDeadZoneSlider.OnValueChanged += _ => UpdatePreview();
-        wingCurveSlider.OnValueChanged += _ => UpdatePreview();
+        // Keyboard Bindings & Remapping
+        SettingsProviderKeyboardBindings.BuildKeyboardBindingsUI(tab);
 
         // Action Bindings
-        BuildBindingsUI(tab);
+        SettingsProviderKeyboardBindings.CreateCollapsibleSection(
+            container, $"Action Bindings ({BasisDeviceManagement.StaticCurrentMode})",
+            "Choose an action to edit its bound roles.", group =>
+        {
+            BuildBindingsUI(group.ContentParent);
+        });
 
         SettingsProvider.AddResetPageButton(container, "Controls", () =>
         {
             ResetControlsDefaults();
             BasisActionDriver.ResetBindingsToDefaultsAsyncIgnored();
+            var instance = BasisLocalInputActions.Instance;
+            if (instance != null && instance.Input != null && instance.Input.actions != null)
+            {
+                SettingsProviderKeyboardBindings.ResetAllBindings(instance.Input.actions);
+            }
         });
 
         descriptor.ForceRebuild();
@@ -139,10 +150,9 @@ public static class SettingsProviderControllerConfig
         BasisSettingsDefaults.Wingexponent.ResetToDefault();
         BasisSettingsDefaults.Ydeadzone.ResetToDefault();
     }
-    private static void BuildBindingsUI(PanelTabPage tab)
-    {
-        RectTransform container = tab.Descriptor.ContentParent;
 
+    private static void BuildBindingsUI(RectTransform container)
+    {
         var roles = (BasisBoneTrackedRole[])Enum.GetValues(typeof(BasisBoneTrackedRole));
         var roleNames = roles.Select(r => PrettyEnumName(r.ToString())).ToArray();
 
@@ -153,7 +163,7 @@ public static class SettingsProviderControllerConfig
         var actionNames = actions.Select(a => PrettyEnumName(a.ToString())).ToList();
 
         var selectorGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        selectorGroup.SetTitle($"Select Action For {BasisDeviceManagement.StaticCurrentMode}" );
+        selectorGroup.SetTitle($"Select Action For {BasisDeviceManagement.StaticCurrentMode}");
         selectorGroup.SetDescription("Choose an action to edit its bound roles.");
 
         PanelDropdown actionDropdown = PanelDropdown.CreateNewEntry(selectorGroup.ContentParent);
@@ -220,6 +230,7 @@ public static class SettingsProviderControllerConfig
 
         updatingUI = false;
     }
+
     private static string PrettyEnumName(string raw)
     {
         if (string.IsNullOrEmpty(raw)) { return raw; }

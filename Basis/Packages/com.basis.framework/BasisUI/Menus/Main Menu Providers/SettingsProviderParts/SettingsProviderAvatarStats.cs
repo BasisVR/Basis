@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Players;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Basis.BasisUI
 {
@@ -22,6 +23,7 @@ namespace Basis.BasisUI
             {
                 Object.Destroy(scanButton.gameObject);
                 PopulateStats(container);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(container);
                 descriptor.ForceRebuild();
             };
 

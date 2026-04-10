@@ -173,9 +173,19 @@ namespace BasisDidLink
                 }
 
                 BytesMessage SignatureBytes = new BytesMessage();
-                SignatureBytes.Deserialize(reader, out byte[] SigBytes);
+                if (!SignatureBytes.Deserialize(reader, out byte[] SigBytes))
+                {
+                    BNL.LogError($"Malformed auth response from peer {newPeer.Id}: bad signature data");
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "Malformed auth response: bad signature data");
+                    return;
+                }
                 BytesMessage FragmentBytes = new BytesMessage();
-                FragmentBytes.Deserialize(reader, out byte[] FragBytes);
+                if (!FragmentBytes.Deserialize(reader, out byte[] FragBytes))
+                {
+                    BNL.LogError($"Malformed auth response from peer {newPeer.Id}: bad fragment data");
+                    BasisServerHandleEvents.RejectWithReason(newPeer, "Malformed auth response: bad fragment data");
+                    return;
+                }
 
                 Signature Sig = new Signature(SigBytes);
                 string FragmentAsString = UnpackString(FragBytes);
