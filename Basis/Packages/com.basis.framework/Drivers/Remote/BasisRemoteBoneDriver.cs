@@ -901,11 +901,19 @@ public static class RemoteBoneJobSystem
             return default;
         }
 
+        // Complete any still-pending jobs from the previous frame so the safety
+        // system doesn't complain about the old ApplyMouthJob (reader of sOut)
+        // conflicting with the new BasisRemoteBoneJob (writer of sOut).
+        CompletePending();
+
         // Snapshot the key list into a plain array for bounds-check-free indexing.
         // List<T>.get_Item has per-access bounds checks that the JIT cannot elide;
         // array indexing in a counted loop is optimized away.
         if (sKeyArray.Length < AuthoringLength)
+        {
             sKeyArray = new int[Unity.Mathematics.math.max(AuthoringLength, 16)];
+        }
+
         sIndexToKey.CopyTo(sKeyArray);
 
         EnsureTempBuffers(AuthoringLength);
