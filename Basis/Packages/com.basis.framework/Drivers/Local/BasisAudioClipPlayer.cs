@@ -44,9 +44,9 @@ public static class BasisAudioClipPlayer
     /// </summary>
     public static string ClipDirectory;
 
-#if !UNITY_SERVER
-    public static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
-#endif
+
+    private static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
+
     /// <summary>
     /// Attempts to initialize the clip player. If the AudioClips directory exists and
     /// contains supported audio files, a random clip is loaded and streamed as voice audio.
@@ -152,6 +152,8 @@ public static class BasisAudioClipPlayer
         clipSamples = null;
         clipPosition = 0;
 
+        decoder?.Dispose();
+        decoder = null;
         encoder?.Dispose();
         encoder = null;
     }
@@ -424,9 +426,9 @@ public static class BasisAudioClipPlayer
             int remainingPreSkip = preSkipSamples;
 #if UNITY_IOS && !UNITY_EDITOR
             // iOS requires statically linked Opus library
-            decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
+            decoder = new OpusSharp.Core.Static.OpusDecoder(SampleRate, channels);
 #else
-            decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
+            decoder = new OpusSharp.Core.Dynamic.OpusDecoder(SampleRate, channels);
 #endif
             for (int packetIndex = audioPacketStart; packetIndex < packets.Count; packetIndex++)
             {
