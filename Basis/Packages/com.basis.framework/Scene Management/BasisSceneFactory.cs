@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
@@ -160,6 +161,17 @@ public static class BasisSceneFactory
         {
             BasisLocalPlayer = GameObject.FindAnyObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
         }
+        ForceLoadProbeVolumeData(scene.gameObject.scene);
+    }
+    private static void ForceLoadProbeVolumeData(Scene scene)
+    {
+        if (!ProbeReferenceVolume.instance.isInitialized)
+        {
+            return;
+        }
+        ProbeReferenceVolume.instance.SetActiveScene(scene);
+        ProbeReferenceVolume.instance.PerformPendingOperations();
+        BasisDebug.Log("Forced adaptive probe volume baking set load for scene: " + scene.name, BasisDebug.LogTag.Scene);
     }
     public static void LoadCameraProperties(Camera Camera)
     {
