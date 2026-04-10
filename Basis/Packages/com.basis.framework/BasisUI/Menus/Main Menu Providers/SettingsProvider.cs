@@ -184,7 +184,7 @@ namespace Basis.BasisUI
 
                         resetAction?.Invoke();
                         BasisMainMenu.Close();
-                        BasisMainMenu.OpenWithProvider(StaticTitle);
+                        OpenToTab(pageName);
                     });
             };
         }
@@ -330,18 +330,18 @@ namespace Basis.BasisUI
             descriptor.SetTitle("Audio Settings");
             RectTransform container = descriptor.ContentParent;
 
-            PanelSlider sliderMainVolume = PanelSlider.CreateAndBind(
-                container,
-                PanelSlider.SliderSettings.Percentage("Main Volume"),
-                BasisSettingsDefaults.MainVolume);
-            sliderMainVolume.Descriptor.SetTitle("Master Volume");
-            sliderMainVolume.Descriptor.SetDescription("Overall game volume.");
-
             // MIXER GROUP
             PanelElementDescriptor mixerGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             mixerGroup.SetTitle("Volume Mixer");
             mixerGroup.SetDescription("Control individual channel volumes.");
+
+            PanelSlider sliderMainVolume = PanelSlider.CreateEntryAndBind(
+                mixerGroup,
+                PanelSlider.SliderSettings.Percentage("Main Volume"),
+                BasisSettingsDefaults.MainVolume);
+            sliderMainVolume.Descriptor.SetTitle("Master Volume");
+            sliderMainVolume.Descriptor.SetDescription("Overall game volume.");
 
             PanelSlider sliderMenuVolume = PanelSlider.CreateEntryAndBind(
                 mixerGroup,
@@ -839,32 +839,6 @@ namespace Basis.BasisUI
             RectTransform container = descriptor.ContentParent;
 
 
-            // --- Accessibility: Bloom Override ---
-            PanelToggle toggleBloomOverride = PanelToggle.CreateNewEntry(container);
-            toggleBloomOverride.AssignBinding(BasisSettingsDefaults.UseBloomOverride);
-            toggleBloomOverride.Descriptor.SetTitle("Override Bloom Intensity");
-            toggleBloomOverride.Descriptor.SetDescription("Override the scene bloom intensity.");
-
-            PanelElementDescriptor bloomGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            bloomGroup.SetTitle("Bloom");
-
-            PanelSlider sliderBloomIntensity = PanelSlider.CreateEntryAndBind(
-                bloomGroup.ContentParent,
-                new PanelSlider.SliderSettings("Bloom Intensity",
-                    "",
-                    BasisSettingsDefaults.BLOOM_INTENSITY_MIN,
-                    BasisSettingsDefaults.BLOOM_INTENSITY_MAX,
-                    false, 2, ValueDisplayMode.Raw),
-                BasisSettingsDefaults.BloomIntensity);
-
-            bloomGroup.SetActive(toggleBloomOverride.Value);
-            toggleBloomOverride.OnValueChanged += (val) =>
-            {
-                bloomGroup.SetActive(val);
-                descriptor.ForceRebuild();
-            };
-
             PanelElementDescriptor qualityGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             qualityGroup.SetTitle("Quality");
@@ -906,6 +880,14 @@ namespace Basis.BasisUI
                 fpsInput.lineType = TMP_InputField.LineType.SingleLine;
             }
 
+            fpsCapField.Descriptor.SetActive(dropdownVSync.Value == "Capped");
+
+            dropdownVSync.OnValueChanged += (val) =>
+            {
+                fpsCapField.Descriptor.SetActive(val == "Capped");
+                qualityGroup.ForceRebuild();
+            };
+
             PanelElementDescriptor renderingGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             renderingGroup.SetTitle("Rendering");
@@ -915,11 +897,6 @@ namespace Basis.BasisUI
             dropdownMemoryAllocation.Descriptor.SetTitle("Memory Allocation");
             dropdownMemoryAllocation.AssignEntries(new List<string> { "Dynamic", "256", "512", "1024", "2048", "4096", "8192" });
             dropdownMemoryAllocation.AssignBinding(BasisSettingsDefaults.MemoryAllocation);
-
-            PanelSlider sliderRenderResolution = PanelSlider.CreateEntryAndBind(
-                renderingGroup.ContentParent,
-                new PanelSlider.SliderSettings("Render Scale", "", 0, 1.5f, false, 3, ValueDisplayMode.percentageFromZero),
-                BasisSettingsDefaults.RenderResolution);
 
             dropdownResolution = PanelDropdown.CreateNewEntry(renderingGroup.ContentParent);
             dropdownResolution.Descriptor.SetTitle("Resolution");
@@ -951,36 +928,64 @@ namespace Basis.BasisUI
             dropdownScreenMode.DropdownComponent.SetValueWithoutNotify(GetIndexFromScreenMode(Screen.fullScreenMode));
 
             // --- Mirror Quality Override ---
-            PanelToggle toggleMirrorOverride = PanelToggle.CreateNewEntry(container);
-            toggleMirrorOverride.AssignBinding(BasisSettingsDefaults.UseMirrorQualityOverride);
-            toggleMirrorOverride.Descriptor.SetTitle("Override Mirror Quality");
-            toggleMirrorOverride.Descriptor.SetDescription("Override the resolution used by mirrors.");
-
             PanelElementDescriptor mirrorGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             mirrorGroup.SetTitle("Mirror Quality");
+
+            PanelToggle toggleMirrorOverride = PanelToggle.CreateNewEntry(mirrorGroup.ContentParent);
+            toggleMirrorOverride.AssignBinding(BasisSettingsDefaults.UseMirrorQualityOverride);
+            toggleMirrorOverride.Descriptor.SetTitle("Override Mirror Quality");
+            toggleMirrorOverride.Descriptor.SetDescription("Override the resolution used by mirrors.");
 
             PanelDropdown dropdownMirrorQuality = PanelDropdown.CreateNewEntry(mirrorGroup.ContentParent);
             dropdownMirrorQuality.Descriptor.SetTitle("Mirror Resolution");
             dropdownMirrorQuality.AssignEntries(new List<string> { "256", "512", "1024", "2048", "4096", "8192" });
             dropdownMirrorQuality.AssignBinding(BasisSettingsDefaults.MirrorQuality);
 
-            mirrorGroup.SetActive(toggleMirrorOverride.Value);
+            dropdownMirrorQuality.Descriptor.SetActive(toggleMirrorOverride.Value);
             toggleMirrorOverride.OnValueChanged += (val) =>
             {
-                mirrorGroup.SetActive(val);
+                dropdownMirrorQuality.Descriptor.SetActive(val);
+                mirrorGroup.ForceRebuild();
+                descriptor.ForceRebuild();
+            };
+
+            // --- Accessibility: Bloom Override ---
+            PanelElementDescriptor bloomGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            bloomGroup.SetTitle("Bloom");
+
+            PanelToggle toggleBloomOverride = PanelToggle.CreateNewEntry(bloomGroup.ContentParent);
+            toggleBloomOverride.AssignBinding(BasisSettingsDefaults.UseBloomOverride);
+            toggleBloomOverride.Descriptor.SetTitle("Override Bloom Intensity");
+            toggleBloomOverride.Descriptor.SetDescription("Override the scene bloom intensity.");
+
+            PanelSlider sliderBloomIntensity = PanelSlider.CreateEntryAndBind(
+                bloomGroup.ContentParent,
+                new PanelSlider.SliderSettings("Bloom Intensity",
+                    "",
+                    BasisSettingsDefaults.BLOOM_INTENSITY_MIN,
+                    BasisSettingsDefaults.BLOOM_INTENSITY_MAX,
+                    false, 2, ValueDisplayMode.Raw),
+                BasisSettingsDefaults.BloomIntensity);
+
+            sliderBloomIntensity.Descriptor.SetActive(toggleBloomOverride.Value);
+            toggleBloomOverride.OnValueChanged += (val) =>
+            {
+                sliderBloomIntensity.Descriptor.SetActive(val);
+                bloomGroup.ForceRebuild();
                 descriptor.ForceRebuild();
             };
 
             // --- Camera Near/Far Override ---
-            PanelToggle toggleCameraClipOverride = PanelToggle.CreateNewEntry(container);
-            toggleCameraClipOverride.AssignBinding(BasisSettingsDefaults.UseCameraClipOverride);
-            toggleCameraClipOverride.Descriptor.SetTitle("Override Camera Clip Distances");
-            toggleCameraClipOverride.Descriptor.SetDescription("Force near and far clip plane distances on the camera.");
-
             PanelElementDescriptor cameraClipGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             cameraClipGroup.SetTitle("Camera Clip Distances");
+
+            PanelToggle toggleCameraClipOverride = PanelToggle.CreateNewEntry(cameraClipGroup.ContentParent);
+            toggleCameraClipOverride.AssignBinding(BasisSettingsDefaults.UseCameraClipOverride);
+            toggleCameraClipOverride.Descriptor.SetTitle("Override Camera Clip Distances");
+            toggleCameraClipOverride.Descriptor.SetDescription("Force near and far clip plane distances on the camera.");
 
             PanelSlider sliderCameraNear = PanelSlider.CreateEntryAndBind(
                 cameraClipGroup,
@@ -992,31 +997,27 @@ namespace Basis.BasisUI
                 PanelSlider.SliderSettings.Advanced("Far Clip", 10f, 5000f, true, 0, ValueDisplayMode.Meters),
                 BasisSettingsDefaults.CameraClipFar);
 
-            cameraClipGroup.SetActive(toggleCameraClipOverride.Value);
+            sliderCameraNear.Descriptor.SetActive(toggleCameraClipOverride.Value);
+            sliderCameraFar.Descriptor.SetActive(toggleCameraClipOverride.Value);
             toggleCameraClipOverride.OnValueChanged += (val) =>
             {
-                cameraClipGroup.SetActive(val);
+                sliderCameraNear.Descriptor.SetActive(val);
+                sliderCameraFar.Descriptor.SetActive(val);
+                cameraClipGroup.ForceRebuild();
                 descriptor.ForceRebuild();
             };
-
-            PanelToggle toggleAdvanced = PanelToggle.CreateNewEntry(container);
-            toggleAdvanced.Descriptor.SetTitle("Advanced");
-            toggleAdvanced.SetValueWithoutNotify(false);
 
             PanelElementDescriptor poseLodGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             poseLodGroup.SetTitle("Pose LOD");
-            poseLodGroup.SetDescription(
-                "Reduces CPU cost by updating distant player poses less frequently.\n" +
-                "Higher values skip more frames for faraway players.\n" +
-                "At 0, every player updates every frame (most accurate, highest cost).\n" +
-                "Visible as slightly choppy animation on distant players.");
+            poseLodGroup.SetDescription("Control how frequently distant player poses update.");
 
             PanelSlider sliderPoseLod = PanelSlider.CreateEntryAndBind(
-                poseLodGroup,
+                poseLodGroup.ContentParent,
                 PanelSlider.SliderSettings.Advanced("Pose LOD Bias", 0, 5, true, 0, ValueDisplayMode.Raw),
                 BasisSettingsDefaults.PoseLOD);
             sliderPoseLod.Descriptor.SetDescription(
+                "Reduces CPU cost by updating distant player poses less frequently.\n" +
                 "0 = off (all players update every frame).\n" +
                 "1-2 = subtle reduction, barely visible.\n" +
                 "3-5 = noticeable on distant players, significant CPU savings.");
@@ -1025,6 +1026,15 @@ namespace Basis.BasisUI
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
             advancedGroup.SetTitle("Advanced");
             advancedGroup.SetDescription("Fine-tune rendering, LOD, and performance options.");
+
+            PanelToggle toggleAdvanced = PanelToggle.CreateNewEntry(advancedGroup.ContentParent);
+            toggleAdvanced.Descriptor.SetTitle("Show Advanced Settings");
+            toggleAdvanced.SetValueWithoutNotify(false);
+
+            PanelSlider sliderRenderResolution = PanelSlider.CreateEntryAndBind(
+                advancedGroup.ContentParent,
+                new PanelSlider.SliderSettings("Render Scale", "", 0, 1.5f, false, 3, ValueDisplayMode.percentageFromZero),
+                BasisSettingsDefaults.RenderResolution);
 
             PanelDropdown dropdownHDR = PanelDropdown.CreateNewEntry(advancedGroup.ContentParent);
             dropdownHDR.Descriptor.SetTitle("HDR Support");
@@ -1059,13 +1069,22 @@ namespace Basis.BasisUI
                     0, 100, true, 0, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.GlobalMeshLOD);
 
-            poseLodGroup.SetActive(false);
-            advancedGroup.SetActive(false);
+            sliderRenderResolution.Descriptor.SetActive(false);
+            dropdownHDR.Descriptor.SetActive(false);
+            sliderFoveatedRendering.Descriptor.SetActive(false);
+            sliderFieldOfView.Descriptor.SetActive(false);
+            sliderMeshLOD.Descriptor.SetActive(false);
+            sliderGlobalMeshLOD.Descriptor.SetActive(false);
 
             toggleAdvanced.OnValueChanged += (val) =>
             {
-                poseLodGroup.SetActive(val);
-                advancedGroup.SetActive(val);
+                sliderRenderResolution.Descriptor.SetActive(val);
+                dropdownHDR.Descriptor.SetActive(val);
+                sliderFoveatedRendering.Descriptor.SetActive(val);
+                sliderFieldOfView.Descriptor.SetActive(val);
+                sliderMeshLOD.Descriptor.SetActive(val);
+                sliderGlobalMeshLOD.Descriptor.SetActive(val);
+                advancedGroup.ForceRebuild();
                 descriptor.ForceRebuild();
             };
 

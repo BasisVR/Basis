@@ -87,7 +87,7 @@ namespace BasisServerHandle
                 }
                 else
                 {
-                    BNL.LogError($"Failed to remove peer: {id}");
+                    BNL.Log($"Peer {id} was not in AuthenticatedPeers (likely rejected before auth completed).");
                 }
 
                 if (NetworkServer.AuthenticatedPeers.IsEmpty)
@@ -174,7 +174,11 @@ namespace BasisServerHandle
                 if (NetworkServer.Configuration.UseAuth)
                 {
                     BytesMessage authMessage = new BytesMessage();
-                    authMessage.Deserialize(ConReq.Data, out byte[] AuthBytes);
+                    if (!authMessage.Deserialize(ConReq.Data, out byte[] AuthBytes))
+                    {
+                        RejectWithReason(ConReq, "Malformed auth payload");
+                        return;
+                    }
                     if (NetworkServer.Auth.IsAuthenticated(AuthBytes) == false)
                     {
                         RejectWithReason(ConReq, "Authentication failed, Auth rejected");

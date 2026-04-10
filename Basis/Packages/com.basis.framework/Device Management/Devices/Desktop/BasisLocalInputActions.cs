@@ -51,6 +51,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScrollClick;
 
         public InputActionReference MoveLocalUpDown;
+        public InputActionReference OpenChat;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -115,6 +116,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     InputUser.PerformPairingWithDevice(device, user);
                 }
             }
+
+            SettingsProviderKeyboardBindings.LoadBindingOverrides(Input.actions);
 
             if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
@@ -185,6 +188,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
             MoveLocalUpDown.action.Enable();
+            OpenChat.action.Enable();
         }
 
         private void DisableActions()
@@ -206,6 +210,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             MiddleMouseScroll?.action?.Disable();
             MiddleMouseScrollClick?.action?.Disable();
             MoveLocalUpDown?.action?.Disable();
+            OpenChat?.action?.Disable();
         }
 
         private void AddCallbacks()
@@ -256,6 +261,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
 
+            OpenChat.action.performed += OnOpenChatPerformed;
+            OpenChat.action.canceled += OnOpenChatCancelled;
+
             BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
         }
 
@@ -287,6 +295,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             SafeRemoveCallbacks(DesktopSwitch, OnSwitchDesktop, OnSwitchDesktop);
             SafeRemoveCallbacks(VRSwitch, OnSwitchOpenVR);
             SafeRemoveCallbacks(XRSwitch, OnSwitchOpenXR);
+            SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
 
             BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
@@ -446,6 +455,16 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         }
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnOpenChatPerformed(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance.IsTyping() == false)
+            {
+                SettingsProvider.OpenToTab("Chat");
+            }
+        }
+
+        public void OnOpenChatCancelled(InputAction.CallbackContext ctx) { }
 
         public void OnTabPerformed(InputAction.CallbackContext ctx)
         {

@@ -25,9 +25,9 @@ public static class SettingsProviderPlatform
         infoGroup.SetTitle("Device Mode");
         infoGroup.SetDescription("The active device mode for this session.");
 
-        PanelPasswordField currentModeField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
+       var currentModeField = PanelTextField.CreateNew(infoGroup.ContentParent);
         currentModeField.Descriptor.SetTitle("Active Mode");
-        currentModeField.SetPassword(currentMode);
+        currentModeField.SetValue(currentMode);
 
         BasisDeviceManagement dm = BasisDeviceManagement.Instance;
 
@@ -35,9 +35,9 @@ public static class SettingsProviderPlatform
         // Soft-swap status (only relevant when VR SDKs are compiled in)
         if (dm != null && dm.IsSoftSwapped)
         {
-            PanelPasswordField softSwapField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
+            var softSwapField = PanelTextField.CreateNew(infoGroup.ContentParent);
             softSwapField.Descriptor.SetTitle("VR Runtime");
-            softSwapField.SetPassword($"{dm.AutoSwapPreviousVRMode} (kept alive)");
+            softSwapField.SetValue($"{dm.AutoSwapPreviousVRMode} (kept alive)");
         }
 #endif
 

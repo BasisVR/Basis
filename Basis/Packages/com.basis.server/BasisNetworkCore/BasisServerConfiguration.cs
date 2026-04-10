@@ -15,7 +15,7 @@ public class Configuration
     public bool UseNativeSockets = true;
     public bool NatPunchEnabled = false;
     public int PingInterval = 1500;
-    public int DisconnectTimeout = 6000;
+    public int DisconnectTimeout = 30000;
     public bool SimulatePacketLoss = false;
     public bool SimulateLatency = false;
     public int SimulationPacketLossChance = 10;

@@ -162,12 +162,6 @@
         "com.unity.mathematics": "1.2.5"
       }
     },
-    "com.keviniglesias.basicmotions": {
-      "version": "file:com.keviniglesias.basicmotions",
-      "depth": 0,
-      "source": "embedded",
-      "dependencies": {}
-    },
     "com.llealloo.audiolink": {
       "version": "file:com.llealloo.audiolink",
       "depth": 0,

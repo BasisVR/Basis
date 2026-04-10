@@ -479,6 +479,7 @@ public class BasisLocalHandDriver
 
     public void PutAvatarIntoTPose(Animator Anim)
     {
+        Anim.logWarnings = false;
         if (BasisLocalAvatarDriver.SavedruntimeAnimatorController == null)
         {
             BasisLocalAvatarDriver.SavedruntimeAnimatorController = Anim.runtimeAnimatorController;

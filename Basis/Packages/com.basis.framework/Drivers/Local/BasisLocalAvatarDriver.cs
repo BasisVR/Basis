@@ -292,19 +292,13 @@ namespace Basis.Scripts.Drivers
         /// <returns>Eye height value.</returns>
         public float ActiveAvatarEyeHeight()
         {
-            if (BasisLocalPlayer.Instance.BasisAvatar != null)
+            var localPlayer = BasisLocalPlayer.Instance;
+            if (localPlayer?.BasisAvatar != null)
             {
-                // Prefer the actual eye bone height from T-pose calibration data.
-                // The authored AvatarEyePosition.x (e.g. from NDMF/VRChat viewpoint)
-                // does NOT include Animator.humanScale, but bone world positions do.
-                // When humanScale != 1 this mismatch causes the avatar to be scaled
-                // to the wrong size, floating 10-20 cm above the floor.
-                var eye = BasisLocalBoneDriver.EyeControl;
-                if (eye != null && eye.TposeLocal.position.y > 0.1f)
-                {
-                    return eye.TposeLocal.position.y;
-                }
-                return BasisLocalPlayer.Instance.BasisAvatar.AvatarEyePosition.x;
+                // Use the authored/avatar-configured eye height here.
+                // This value is user-editable and survives avatar swap ordering,
+                // while rig/control data can be stale during recalibration.
+                return localPlayer.BasisAvatar.AvatarEyePosition.x;
             }
             else
             {
