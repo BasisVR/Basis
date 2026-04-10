@@ -11,6 +11,12 @@ using UnityEngine.SceneManagement;
 
 public class BasisCilboxBuildHook
 {
+    private sealed class CilboxProxyReferenceSnapshot
+    {
+        public CilboxProxy Proxy;
+        public Cilbox.Cilbox Box;
+    }
+
     [Serializable]
     private sealed class PlayModeSceneCapture
     {
@@ -146,6 +152,7 @@ public class BasisCilboxBuildHook
         Transform originalParent = prefabRoot.transform.parent;
         int originalSiblingIndex = originalParent != null ? prefabRoot.transform.GetSiblingIndex() : -1;
         Dictionary<EntityId, string> cilboxAssemblySnapshot = CaptureCilboxAssemblySnapshot();
+        List<CilboxProxyReferenceSnapshot> proxyReferenceSnapshot = CaptureProxyReferences(prefabRoot);
         List<GameObject> temporarilyDisabledRoots = new List<GameObject>();
         Scene temporaryScene = default;
         GameObject temporaryCilboxHost = null;
@@ -188,6 +195,8 @@ public class BasisCilboxBuildHook
                 int siblingIndex = Mathf.Clamp(originalSiblingIndex, 0, originalParent.childCount - 1);
                 prefabRoot.transform.SetSiblingIndex(siblingIndex);
             }
+
+            RestoreProxyReferences(proxyReferenceSnapshot);
 
             if (temporaryCilboxHost != null)
             {
@@ -610,6 +619,57 @@ public class BasisCilboxBuildHook
             cilbox.assemblyData = originalAssemblyData;
             cilbox.ForceReinit();
             EditorUtility.SetDirty(cilbox);
+        }
+    }
+
+    private static List<CilboxProxyReferenceSnapshot> CaptureProxyReferences(GameObject root)
+    {
+        List<CilboxProxyReferenceSnapshot> snapshot = new List<CilboxProxyReferenceSnapshot>();
+        if (root == null)
+        {
+            return snapshot;
+        }
+
+        CilboxProxy[] proxies = root.GetComponentsInChildren<CilboxProxy>(true);
+        int length = proxies.Length;
+        for (int i = 0; i < length; i++)
+        {
+            CilboxProxy proxy = proxies[i];
+            if (proxy == null)
+            {
+                continue;
+            }
+
+            snapshot.Add(
+                new CilboxProxyReferenceSnapshot
+                {
+                    Proxy = proxy,
+                    Box = proxy.box
+                }
+            );
+        }
+
+        return snapshot;
+    }
+
+    private static void RestoreProxyReferences(List<CilboxProxyReferenceSnapshot> snapshot)
+    {
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        int length = snapshot.Count;
+        for (int i = 0; i < length; i++)
+        {
+            CilboxProxyReferenceSnapshot entry = snapshot[i];
+            if (entry?.Proxy == null || entry.Proxy.box == entry.Box)
+            {
+                continue;
+            }
+
+            entry.Proxy.box = entry.Box;
+            EditorUtility.SetDirty(entry.Proxy);
         }
     }
 }
