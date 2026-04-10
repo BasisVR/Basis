@@ -426,9 +426,9 @@ public static class BasisAudioClipPlayer
             int remainingPreSkip = preSkipSamples;
 #if UNITY_IOS && !UNITY_EDITOR
             // iOS requires statically linked Opus library
-            decoder = new OpusSharp.Core.Static.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
+            decoder = new OpusSharp.Core.Static.OpusDecoder(SampleRate, channels);
 #else
-            decoder = new OpusSharp.Core.Dynamic.OpusDecoder(RemoteOpusSettings.NetworkSampleRate, RemoteOpusSettings.Channels);
+            decoder = new OpusSharp.Core.Dynamic.OpusDecoder(SampleRate, channels);
 #endif
             for (int packetIndex = audioPacketStart; packetIndex < packets.Count; packetIndex++)
             {
