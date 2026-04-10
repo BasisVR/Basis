@@ -15,7 +15,7 @@ PluginImporter:
       enabled: 1
       settings:
         AndroidLibraryDependee: UnityLibrary
-        AndroidSharedLibraryType: Executable
+        AndroidSharedLibraryType: SharedLibrary
         CPU: X86_64
         Is16KbAligned: true
     Any:
