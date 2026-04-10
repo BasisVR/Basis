@@ -90,7 +90,33 @@ public class BasisFrameRateVisualization : MonoBehaviour
 
     private int AppendInt(int val, int index)
     {
-        return Append(buffer, val.ToString(), index); // Temporary GC? → Replace below if needed
+        if (val < 0)
+        {
+            buffer[index++] = '-';
+            val = -val;
+        }
+        if (val == 0)
+        {
+            buffer[index++] = '0';
+            return index;
+        }
+        int start = index;
+        while (val > 0)
+        {
+            buffer[index++] = (char)('0' + val % 10);
+            val /= 10;
+        }
+        // Reverse digits in-place
+        int end = index - 1;
+        while (start < end)
+        {
+            char tmp = buffer[start];
+            buffer[start] = buffer[end];
+            buffer[end] = tmp;
+            start++;
+            end--;
+        }
+        return index;
     }
 
     // Manual float format (no ToString → no garbage)
