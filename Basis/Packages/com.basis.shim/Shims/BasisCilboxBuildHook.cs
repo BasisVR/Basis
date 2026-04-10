@@ -23,6 +23,7 @@ public class BasisCilboxBuildHook
         public string ScenePath;
         public string SceneName;
         public int SceneIndex;
+        public bool HasPersistedCapture;
         public string CapturedCallsJson;
     }
 
@@ -30,6 +31,12 @@ public class BasisCilboxBuildHook
     private sealed class PlayModeSceneCaptureCollection
     {
         public PlayModeSceneCapture[] Scenes;
+    }
+
+    private sealed class PlayModeSceneCaptureLoadResult
+    {
+        public bool Found;
+        public List<object> CapturedCalls;
     }
 
     private const string PlayModeCaptureSessionKey = "BasisCilboxBuildHook.PlayModeSceneCaptures";
@@ -87,6 +94,7 @@ public class BasisCilboxBuildHook
                         ScenePath = scene.path,
                         SceneName = scene.name,
                         SceneIndex = sceneIndex,
+                        HasPersistedCapture = true,
                         CapturedCallsJson = CilboxUnityEventRebinder.SerializeCapturedCalls(capturedPersistentCalls)
                     }
                 );
@@ -125,7 +133,16 @@ public class BasisCilboxBuildHook
             try
             {
                 Dictionary<EntityId, string> cilboxAssemblySnapshot = CaptureCilboxAssemblySnapshot();
-                List<object> capturedPersistentCalls = LoadCapturedCallsForScene(collection, scene, sceneIndex);
+                PlayModeSceneCaptureLoadResult captureResult = LoadCapturedCallsForScene(collection, scene, sceneIndex);
+                if (!captureResult.Found)
+                {
+                    Debug.LogWarning(
+                        $"[{nameof(BasisCilboxBuildHook)}] Skipping play-mode cilbox processing for scene {scene.name} because no persisted UnityEvent capture was found."
+                    );
+                    continue;
+                }
+
+                List<object> capturedPersistentCalls = captureResult.CapturedCalls;
                 Debug.Log(
                     $"[{nameof(BasisCilboxBuildHook)}] Play-mode processing scene {scene.name}: captured {capturedPersistentCalls.Count} cilbox UnityEvent calls."
                 );
@@ -280,14 +297,35 @@ public class BasisCilboxBuildHook
             return null;
         }
 
-        return JsonUtility.FromJson<PlayModeSceneCaptureCollection>(json);
+        try
+        {
+            return JsonUtility.FromJson<PlayModeSceneCaptureCollection>(json);
+        }
+        catch (ArgumentException ex)
+        {
+            Debug.LogError($"[{nameof(BasisCilboxBuildHook)}] Failed to deserialize {PlayModeCaptureSessionKey}: {ex}");
+            SessionState.EraseString(PlayModeCaptureSessionKey);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[{nameof(BasisCilboxBuildHook)}] Unexpected error while deserializing {PlayModeCaptureSessionKey}: {ex}");
+            SessionState.EraseString(PlayModeCaptureSessionKey);
+            return null;
+        }
     }
 
-    private static List<object> LoadCapturedCallsForScene(PlayModeSceneCaptureCollection collection, Scene scene, int sceneIndex)
+    private static PlayModeSceneCaptureLoadResult LoadCapturedCallsForScene(PlayModeSceneCaptureCollection collection, Scene scene, int sceneIndex)
     {
+        PlayModeSceneCaptureLoadResult result = new PlayModeSceneCaptureLoadResult
+        {
+            Found = false,
+            CapturedCalls = new List<object>()
+        };
+
         if (collection?.Scenes == null)
         {
-            return new List<object>();
+            return result;
         }
 
         int captureCount = collection.Scenes.Length;
@@ -307,10 +345,17 @@ public class BasisCilboxBuildHook
                 continue;
             }
 
-            return CilboxUnityEventRebinder.DeserializeCapturedCalls(sceneCapture.CapturedCallsJson);
+            if (!sceneCapture.HasPersistedCapture)
+            {
+                return result;
+            }
+
+            result.Found = true;
+            result.CapturedCalls = CilboxUnityEventRebinder.DeserializeCapturedCalls(sceneCapture.CapturedCallsJson);
+            return result;
         }
 
-        return new List<object>();
+        return result;
     }
 
     private static void CleanupStaleCilboxHelpers()
