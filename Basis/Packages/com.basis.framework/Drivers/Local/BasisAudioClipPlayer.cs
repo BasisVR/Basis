@@ -45,7 +45,7 @@ public static class BasisAudioClipPlayer
     public static string ClipDirectory;
 
 
-    public static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
+    private static OpusSharp.Core.Interfaces.IOpusDecoder decoder;
 
     /// <summary>
     /// Attempts to initialize the clip player. If the AudioClips directory exists and
@@ -152,6 +152,8 @@ public static class BasisAudioClipPlayer
         clipSamples = null;
         clipPosition = 0;
 
+        decoder?.Dispose();
+        decoder = null;
         encoder?.Dispose();
         encoder = null;
     }
