@@ -133,7 +133,10 @@ namespace BasisServerHandle
         public static void RejectWithReason(NetPeer request, string reason)
         {
             ushort id = (ushort)request.Id;
-            byte[] reasonBytes = System.Text.Encoding.UTF8.GetBytes(reason ?? string.Empty);
+            NetDataWriter writer = NetworkServer.RentWriter();
+            writer.Put(reason ?? string.Empty);
+            byte[] reasonBytes = writer.CopyData();
+            NetworkServer.ReturnWriter(writer);
             NetworkServer.AuthenticatedPeers.TryRemove(id, out _);
             NetworkServer.RebuildPeerSnapshot();
             request.Disconnect(reasonBytes);

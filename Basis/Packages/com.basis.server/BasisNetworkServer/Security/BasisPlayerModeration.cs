@@ -323,7 +323,7 @@ namespace BasisNetworkServer.Security
                     break;
 
                 case AdminRequestMode.SetGlobalHeadlessDisallow:
-                    Require(peer, PermNodes.ModerationKick, () =>
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleHeadlessDisallowSet(peer, reader));
                     break;
 
