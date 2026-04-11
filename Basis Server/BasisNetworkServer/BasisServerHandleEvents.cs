@@ -136,8 +136,10 @@ namespace BasisServerHandle
             writer.Put(reason ?? string.Empty);
             byte[] reasonBytes = writer.CopyData();
             NetworkServer.ReturnWriter(writer);
-            NetworkServer.AuthenticatedPeers.TryRemove(id, out _);
-            NetworkServer.RebuildPeerSnapshot();
+            if (NetworkServer.AuthenticatedPeers.TryRemove(id, out _))
+            {
+                NetworkServer.RebuildPeerSnapshot();
+            }
             request.Disconnect(reasonBytes);
             BNL.LogError($"Rejected after accept with reason: {reason}");
         }
