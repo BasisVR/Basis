@@ -119,6 +119,7 @@ public class BasisCilboxBuildHook
         if (collection?.Scenes == null || collection.Scenes.Length == 0)
         {
             Debug.Log($"[{nameof(BasisCilboxBuildHook)}] No captured cilbox UnityEvent data was available for play mode.");
+            return;
         }
 
         int sceneCount = SceneManager.sceneCount;
@@ -375,7 +376,7 @@ public class BasisCilboxBuildHook
                 continue;
             }
 
-            if (go.name == "CilboxDirtier" || go.name.StartsWith("CilboxAsm ", StringComparison.Ordinal))
+            if (string.Equals(go.name, "CilboxDirtier", StringComparison.Ordinal) || go.name.StartsWith("CilboxAsm ", StringComparison.Ordinal))
             {
                 UnityEngine.Object.DestroyImmediate(go);
             }
