@@ -14,6 +14,8 @@ namespace OpusSharp.Core
     {
 #if UNITY_IOS && !UNITY_EDITOR
         private const string DllName = "__Internal";
+#elif UNITY_ANDROID && !UNITY_EDITOR
+        private const string DllName = "libopus.so";
 #else
         private const string DllName = "opus";
 #endif

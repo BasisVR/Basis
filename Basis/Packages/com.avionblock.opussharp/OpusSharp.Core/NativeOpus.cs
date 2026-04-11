@@ -12,7 +12,11 @@ namespace OpusSharp.Core
     /// </summary>
     public static partial class NativeOpus
     {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        private const string DllName = "libopus.so";
+#else
         private const string DllName = "opus";
+#endif
 
         //Encoder
         /// <summary>
