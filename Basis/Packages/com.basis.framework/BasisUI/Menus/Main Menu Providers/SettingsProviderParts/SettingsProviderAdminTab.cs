@@ -335,10 +335,17 @@ namespace Basis.BasisUI
             headlessAudioToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessAudioOff);
             headlessAudioToggle.OnValueChanged += value => BasisNetworkModeration.SetGlobalHeadlessAudio(value);
 
+            PanelToggle disallowHeadlessToggle = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            disallowHeadlessToggle.Descriptor.SetTitle("Disallow headless");
+            disallowHeadlessToggle.Descriptor.SetDescription("Disconnects connected headless clients and blocks new headless clients while enabled.");
+            disallowHeadlessToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessDisallowed);
+            disallowHeadlessToggle.OnValueChanged += value => BasisNetworkModeration.SetGlobalHeadlessDisallow(value);
+
             controller.AvatarLockToggle = avatarLock;
             controller.PropLockToggle = propLock;
             controller.WorldLockToggle = worldLock;
             controller.HeadlessAudioToggle = headlessAudioToggle;
+            controller.HeadlessDisallowToggle = disallowHeadlessToggle;
 
             // Permissions section
             SettingsProviderPermissionsTab.BuildPermissionsUI(container, tab.gameObject);
@@ -403,6 +410,7 @@ namespace Basis.BasisUI
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
             public PanelToggle HeadlessAudioToggle;
+            public PanelToggle HeadlessDisallowToggle;
 
             public BasisNetworkPlayer SelectedPlayer;
             private string _searchQuery = string.Empty;
@@ -422,6 +430,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged += OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged += OnGlobalHeadlessDisallowStateChanged;
                 RebuildPlayerList();
             }
 
@@ -431,7 +440,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
-                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
 
                 ClearPlayerButtons();
             }
@@ -446,6 +455,11 @@ namespace Basis.BasisUI
             private void OnGlobalHeadlessAudioStateChanged(bool headlessAudioOff)
             {
                 if (HeadlessAudioToggle != null) HeadlessAudioToggle.SetValueWithoutNotify(headlessAudioOff);
+            }
+
+            private void OnGlobalHeadlessDisallowStateChanged(bool headlessDisallowed)
+            {
+                if (HeadlessDisallowToggle != null) HeadlessDisallowToggle.SetValueWithoutNotify(headlessDisallowed);
             }
 
             private void OnRemotePlayersChanged(BasisNetworkPlayer _p1, BasisRemotePlayer _p2)

@@ -85,6 +85,11 @@ namespace BasisDidLink
 
                 if (readyMessage.WasDeserializedCorrectly())
                 {
+                    if (BasisServerHandleEvents.RejectIfHeadlessDisallowed(newPeer, readyMessage.playerMetaDataMessage))
+                    {
+                        return;
+                    }
+
                     string UUID = readyMessage.playerMetaDataMessage.playerUUID;
                     Did playerDid = new Did(UUID);
                     if (BasisPlayerModeration.IsBanned(UUID))

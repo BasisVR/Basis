@@ -322,6 +322,11 @@ namespace BasisNetworkServer.Security
                         HandleHeadlessAudioSet(peer, reader));
                     break;
 
+                case AdminRequestMode.SetGlobalHeadlessDisallow:
+                    Require(peer, PermNodes.ModerationKick, () =>
+                        HandleHeadlessDisallowSet(peer, reader));
+                    break;
+
                 // ===== PERMISSION EDIT =====
                 case AdminRequestMode.SetUserGroup:
                 case AdminRequestMode.SetUserNode:
@@ -474,6 +479,32 @@ namespace BasisNetworkServer.Security
             BNL.Log(notification);
             SendBackMessage(peer, notification);
             BasisHeadlessAudioStateManager.BroadcastState();
+        }
+
+        private static void HandleHeadlessDisallowSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set headless connection policy: missing state value.");
+                return;
+            }
+
+            bool disallowHeadless = reader.GetBool();
+            bool changed = BasisHeadlessConnectionPolicyManager.SetDisallowHeadless(disallowHeadless);
+            string state = disallowHeadless ? "DISALLOWED" : "ALLOWED";
+            string notification = changed
+                ? $"Headless clients are now {state}."
+                : $"Headless clients were already {state}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+
+            if (disallowHeadless)
+            {
+                BasisHeadlessConnectionPolicyManager.DisconnectConnectedHeadlessPeers();
+            }
+
+            BasisHeadlessConnectionPolicyManager.BroadcastState();
         }
 
         public static void SendBackMessage(NetPeer peer, string msg)

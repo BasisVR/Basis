@@ -132,13 +132,24 @@ namespace BasisServerHandle
         }
         public static void RejectWithReason(NetPeer request, string reason)
         {
-            ushort Id =(ushort)request.Id;
-            NetDataWriter writer = NetworkServer.RentWriter();
-            writer.Put(reason);
-            NetworkServer.AuthenticatedPeers.TryRemove(Id, out _);
-            request.Disconnect();
-            NetworkServer.ReturnWriter(writer);
+            ushort id = (ushort)request.Id;
+            byte[] reasonBytes = System.Text.Encoding.UTF8.GetBytes(reason ?? string.Empty);
+            NetworkServer.AuthenticatedPeers.TryRemove(id, out _);
+            NetworkServer.RebuildPeerSnapshot();
+            request.Disconnect(reasonBytes);
             BNL.LogError($"Rejected after accept with reason: {reason}");
+        }
+
+        public static bool RejectIfHeadlessDisallowed(NetPeer peer, ClientMetaDataMessage metaData)
+        {
+            if (!BasisHeadlessConnectionPolicyManager.HeadlessDisallowed ||
+                !BasisHeadlessConnectionPolicyManager.IsHeadlessClient(metaData))
+            {
+                return false;
+            }
+
+            RejectWithReason(peer, BasisHeadlessConnectionPolicyManager.DisallowedReason);
+            return true;
         }
         #endregion
 
@@ -201,6 +212,11 @@ namespace BasisServerHandle
 
                     if (readyMessage.WasDeserializedCorrectly())
                     {
+                        if (RejectIfHeadlessDisallowed(newPeer, readyMessage.playerMetaDataMessage))
+                        {
+                            return;
+                        }
+
                         OnNetworkAccepted(newPeer, readyMessage, readyMessage.playerMetaDataMessage.playerUUID);
                     }
                 }
@@ -270,6 +286,7 @@ namespace BasisServerHandle
                 BasisNetworkContentShare.SendAllSpheresToPeer(newPeer);
                 BasisNetworkServer.Security.BasisGlobalLockManager.SendLockStateToPeer(newPeer);
                 BasisNetworkServer.Security.BasisHeadlessAudioStateManager.SendStateToPeer(newPeer);
+                BasisNetworkServer.Security.BasisHeadlessConnectionPolicyManager.SendStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
             }
             else

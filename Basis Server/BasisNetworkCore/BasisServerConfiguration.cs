@@ -56,6 +56,7 @@ public class Configuration
     public bool DisableReadUnlessAdminPersistentFlag = false;
     public bool UseNetworkFinalCompression = false;
     public bool EnableBSRProfiling = false;
+    public bool DisallowHeadless = false;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>
