@@ -84,10 +84,25 @@ namespace Basis.BasisUI
             {
                 int receiverCount = BasisNetworkPlayers.ReceiverCount;
                 int totalPlayers = BasisNetworkPlayers.Players.Count;
+                int headlessPlayers = 0;
+                foreach (var entry in BasisNetworkPlayers.Players)
+                {
+                    switch (entry.Value?.Player?.PlayerPlatform)
+                    {
+                        case "Headless":
+                        case "WindowsServer":
+                        case "LinuxServer":
+                        case "OSXServer":
+                            headlessPlayers++;
+                            break;
+                    }
+                }
+                int realPlayers = totalPlayers - headlessPlayers;
                 ServerMetaDataMessage meta = BasisNetworkManagement.ServerMetaDataMessage;
                 int capacity = meta.PeerLimit;
                 PlayersField.SetDescription(
                     $"Total: {totalPlayers} | Remote: {receiverCount}\n" +
+                    $"Real: {realPlayers} | Headless: {headlessPlayers}\n" +
                     $"Server Capacity: {capacity}");
             }
 
