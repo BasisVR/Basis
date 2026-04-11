@@ -1,8 +1,6 @@
 using TMPro;
 using UnityEngine;
 using Basis.Scripts.Networking;
-using System;
-
 public class BasisFrameRateVisualization : MonoBehaviour
 {
     public TextMeshProUGUI fpsText;
@@ -13,7 +11,7 @@ public class BasisFrameRateVisualization : MonoBehaviour
     private float nextTimeUpdate;
 
     // Reusable character buffer — adjust size if needed
-    private char[] buffer = new char[160];
+    private char[] buffer = new char[192];
 
     void Update()
     {
@@ -62,6 +60,13 @@ public class BasisFrameRateVisualization : MonoBehaviour
                 buffer[idx++] = '/';
                 idx = AppendInt(peerLimit, idx);
             }
+
+            int headlessCount = CountHeadlessUsers();
+            if (headlessCount > 0)
+            {
+                idx = Append(buffer, " Headless:", idx);
+                idx = AppendInt(headlessCount, idx);
+            }
         }
 
         idx = Append(buffer, " FPS:", idx);
@@ -69,6 +74,24 @@ public class BasisFrameRateVisualization : MonoBehaviour
 
         // We don't convert to string → no GC
         fpsText.SetCharArray(buffer, 0, idx);
+    }
+
+    private static int CountHeadlessUsers()
+    {
+        int headlessCount = 0;
+        foreach (var entry in BasisNetworkPlayers.Players)
+        {
+            switch (entry.Value?.Player?.PlayerPlatform)
+            {
+                case "Headless":
+                case "WindowsServer":
+                case "LinuxServer":
+                case "OSXServer":
+                    headlessCount++;
+                    break;
+            }
+        }
+        return headlessCount;
     }
 
 
