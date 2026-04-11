@@ -83,10 +83,11 @@ namespace Basis.BasisUI
             if (PlayersField != null)
             {
                 int receiverCount = BasisNetworkPlayers.ReceiverCount;
-                int totalPlayers = BasisNetworkPlayers.Players.Count;
+                int totalPlayers = 0;
                 int headlessPlayers = 0;
                 foreach (var entry in BasisNetworkPlayers.Players)
                 {
+                    totalPlayers++; // We could have players leave during the count so better to just count them all the same time.
                     switch (entry.Value?.Player?.PlayerPlatform)
                     {
                         case "Headless":
