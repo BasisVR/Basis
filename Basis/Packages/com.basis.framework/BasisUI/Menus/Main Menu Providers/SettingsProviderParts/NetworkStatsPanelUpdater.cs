@@ -93,18 +93,34 @@ namespace Basis.BasisUI
                     totalPlayers++; // We could have players leave during the count so better to just count them all the same time.
                     string playerPlatform = entry.Value?.Player?.PlayerPlatform;
                     string aggregatePlatform = NormalizePlatformAggregate(playerPlatform);
-
-                    platformCounts[aggregatePlatform] = platformCounts.GetValueOrDefault(aggregatePlatform) + 1;
-
+                    bool isHeadless = false;
                     switch (playerPlatform)
                     {
                         case "Headless":
+                            headlessPlayers++;
+                            isHeadless = true;
+                            platformCounts["Headless"] = platformCounts.GetValueOrDefault("Headless") + 1;
+                            break;
                         case "WindowsServer":
+                            headlessPlayers++;
+                            isHeadless = true;
+                            platformCounts["WindowsServer"] = platformCounts.GetValueOrDefault("WindowsServer") + 1;
+                            break;
                         case "LinuxServer":
+                            headlessPlayers++;
+                            isHeadless = true;
+                            platformCounts["LinuxServer"] = platformCounts.GetValueOrDefault("LinuxServer") + 1;
+                            break;
                         case "OSXServer":
                             headlessPlayers++;
+                            isHeadless = true;
+                            platformCounts["macOSServer"] = platformCounts.GetValueOrDefault("macOSServer") + 1;
                             break;
                     }
+                    if (!isHeadless)
+                        platformCounts[aggregatePlatform] = platformCounts.GetValueOrDefault(aggregatePlatform) + 1;
+
+                    
                 }
                 int realPlayers = totalPlayers - headlessPlayers;
                 ServerMetaDataMessage meta = BasisNetworkManagement.ServerMetaDataMessage;
@@ -125,6 +141,9 @@ namespace Basis.BasisUI
                     AppendPlatformCount(description, platformCounts, "Linux", ref hasAppendedPlatform);
                     AppendPlatformCount(description, platformCounts, "Android", ref hasAppendedPlatform);
                     AppendPlatformCount(description, platformCounts, "iOS", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Windows Server", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "Linux Server", ref hasAppendedPlatform);
+                    AppendPlatformCount(description, platformCounts, "macOS Server", ref hasAppendedPlatform);
                     AppendPlatformCount(description, platformCounts, "Headless", ref hasAppendedPlatform);
                     AppendPlatformCount(description, platformCounts, "Unknown", ref hasAppendedPlatform);
 
@@ -242,6 +261,18 @@ namespace Basis.BasisUI
                 return "Unknown";
             }
 
+            switch (platform)
+            {
+                case "WindowsServer":
+                    return "Windows Server";
+                case "LinuxServer":
+                    return "Linux Server";
+                case "OSXServer":
+                    return "macOS Server";
+                case "Headless":
+                    return "Headless";
+            }
+
             return BasisIOManagement.NormalizeCachePlatformName(platform) switch
             {
                 "StandaloneWindows64" => "Windows",
@@ -249,7 +280,6 @@ namespace Basis.BasisUI
                 "StandaloneOSX" => "macOS",
                 "Android" => "Android",
                 "iOS" => "iOS",
-                "Headless" => "Headless",
                 _ => UserListProvider.GetPlatformLabel(platform)
             };
         }
