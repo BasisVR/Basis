@@ -2,8 +2,6 @@ using Basis.Scripts.Networking;
 using Basis.Network.Core;
 using System.Collections.Generic;
 using System.Text;
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using static SerializableBasis;
 
