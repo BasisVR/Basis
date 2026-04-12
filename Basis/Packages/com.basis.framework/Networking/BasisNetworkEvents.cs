@@ -486,9 +486,9 @@ public static class BasisNetworkEvents
 #if UNITY_SERVER
             string reason = null;
             if (disconnectInfo.AdditionalData != null &&
-                disconnectInfo.AdditionalData.TryGetString(out string parsedReason))
+                !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
             {
-                reason = parsedReason;
+                reason = disconnectInfo.AdditionalData.PeekString();
             }
 
             if (!string.IsNullOrEmpty(reason))
@@ -510,8 +510,9 @@ public static class BasisNetworkEvents
                 BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
             }
 #else
-            if (disconnectInfo.AdditionalData != null && disconnectInfo.AdditionalData.TryGetString(out string Reason))
+            if (disconnectInfo.AdditionalData != null && !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
             {
+                string Reason = disconnectInfo.AdditionalData.PeekString();
                 BasisMainMenu.Open();
                 if (BasisMainMenu.Instance != null)
                 {

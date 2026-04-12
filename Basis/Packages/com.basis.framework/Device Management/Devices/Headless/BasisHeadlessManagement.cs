@@ -1046,10 +1046,9 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
     {
         try
         {
-            if (disconnectInfo.AdditionalData != null &&
-                disconnectInfo.AdditionalData.TryGetString(out string message))
+            if (disconnectInfo.AdditionalData != null)
             {
-                return message;
+                return disconnectInfo.AdditionalData.PeekString();
             }
         }
         catch
