@@ -120,6 +120,8 @@ namespace Cilbox
 			"UnityEngine.Transform",
 			"UnityEngine.UI.*",
 			"UnityEngine.Vector*",
+            "UnityEngine.Application*",
+            "UnityEngine.RuntimePlatform*"
         };
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
