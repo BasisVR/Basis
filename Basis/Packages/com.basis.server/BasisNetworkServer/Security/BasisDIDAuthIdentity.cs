@@ -85,8 +85,9 @@ namespace BasisDidLink
 
                 if (readyMessage.WasDeserializedCorrectly())
                 {
-                    if (BasisServerHandleEvents.RejectIfHeadlessDisallowed(newPeer, readyMessage.playerMetaDataMessage))
+                    if (BasisServerHandleEvents.IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
                     {
+                        BasisServerHandleEvents.RejectWithReason(newPeer, reason);
                         return;
                     }
 

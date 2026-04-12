@@ -144,15 +144,16 @@ namespace BasisServerHandle
             BNL.LogError($"Rejected after accept with reason: {reason}");
         }
 
-        public static bool RejectIfHeadlessDisallowed(NetPeer peer, ClientMetaDataMessage metaData)
+        public static bool IsHeadlessDisallowed(ClientMetaDataMessage metaData, out string reason)
         {
             if (!BasisHeadlessConnectionPolicyManager.HeadlessDisallowed ||
                 !BasisHeadlessConnectionPolicyManager.IsHeadlessClient(metaData))
             {
+                reason = null;
                 return false;
             }
 
-            RejectWithReason(peer, BasisHeadlessConnectionPolicyManager.DisallowedReason);
+            reason = BasisHeadlessConnectionPolicyManager.DisallowedReason;
             return true;
         }
         #endregion
@@ -207,10 +208,9 @@ namespace BasisServerHandle
                     BytesMessage authMessage = new BytesMessage();
                     authMessage.Deserialize(ConReq.Data, out byte[] UnusedBytes);
                 }
-                NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
-
                 if (NetworkServer.Configuration.UseAuthIdentity)
                 {
+                    NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
                     NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, newPeer);
                 }
                 else
@@ -220,11 +220,17 @@ namespace BasisServerHandle
 
                     if (readyMessage.WasDeserializedCorrectly())
                     {
-                        if (RejectIfHeadlessDisallowed(newPeer, readyMessage.playerMetaDataMessage))
+                        if (IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
                         {
+                            RejectWithReason(ConReq, reason);
                             return;
                         }
+                    }
 
+                    NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
+
+                    if (readyMessage.WasDeserializedCorrectly())
+                    {
                         OnNetworkAccepted(newPeer, readyMessage, readyMessage.playerMetaDataMessage.playerUUID);
                     }
                 }
