@@ -18,7 +18,7 @@ namespace Basis.Scripts.BasisCharacterController
         void Exit(BasisLocalCharacterDriver ctx);
 
         // Per-frame simulation of displacement and vertical speed
-        // Should call CharacterController.Move when Collision==Solid, or set transform directly when Ghost
+        // Should call BasisKinematicCharacterController.Move when Collision==Solid, or set transform directly when Ghost
         void Tick(BasisLocalCharacterDriver ctx, float deltaTime);
     }
 }

@@ -14,7 +14,7 @@ namespace Basis.Scripts.BasisCharacterController
         {
             if (ctx.characterController != null)
             {
-                ctx.characterController.detectCollisions = true;  // solid, but no gravity
+                ctx.characterController.detectCollisions = true;
                 ctx.characterController.enabled = true;
             }
             ctx.currentVerticalSpeed = 0f;
@@ -24,16 +24,18 @@ namespace Basis.Scripts.BasisCharacterController
 
         public void Tick(BasisLocalCharacterDriver ctx, float dt)
         {
-            // Project head forward onto horizontal plane (avoids gimbal lock near ±90° pitch)
+            Vector3 up = ctx.UpDirection;
+
+            // Project head forward onto the plane perpendicular to gravity
             Quaternion headRot = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
             Vector3 flatForward = headRot * Vector3.forward;
-            flatForward.y = 0f;
+            flatForward -= up * Vector3.Dot(flatForward, up);
             if (flatForward.sqrMagnitude < 0.0001f)
             {
                 flatForward = -(headRot * Vector3.up);
-                flatForward.y = 0f;
+                flatForward -= up * Vector3.Dot(flatForward, up);
             }
-            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
+            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, up);
 
             // Planar
             Vector3 planar = new Vector3(ctx.MovementVector.x, 0, ctx.MovementVector.y).normalized;
@@ -44,8 +46,8 @@ namespace Basis.Scripts.BasisCharacterController
 
             Vector3 move = facing * planar * ctx.CurrentSpeed * dt;
 
-            // ===== Vertical input (held) =====
-            move.y = ctx.GetVerticalMovement() * ctx.CurrentSpeed * dt;
+            // Vertical input along gravity-relative up axis
+            move += up * (ctx.GetVerticalMovement() * ctx.CurrentSpeed * dt);
 
             // Clear tap
             ctx.HasJumpAction = false;

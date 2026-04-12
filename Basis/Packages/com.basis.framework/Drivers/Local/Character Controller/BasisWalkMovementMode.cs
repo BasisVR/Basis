@@ -27,16 +27,18 @@ namespace Basis.Scripts.BasisCharacterController
                 ctx.UpdateCrouchBlend(ctx.CrouchBlendDelta);
             }
 
-            // Project head forward onto horizontal plane (avoids gimbal lock near ±90° pitch)
+            Vector3 up = ctx.UpDirection;
+
+            // Project head forward onto the plane perpendicular to gravity (avoids gimbal lock near ±90° pitch)
             Quaternion headRot = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
             Vector3 flatForward = headRot * Vector3.forward;
-            flatForward.y = 0f;
+            flatForward -= up * Vector3.Dot(flatForward, up);
             if (flatForward.sqrMagnitude < 0.0001f)
             {
                 flatForward = -(headRot * Vector3.up);
-                flatForward.y = 0f;
+                flatForward -= up * Vector3.Dot(flatForward, up);
             }
-            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
+            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, up);
 
             Vector3 inputDir = new Vector3(ctx.MovementVector.x, 0, ctx.MovementVector.y).normalized;
 
@@ -47,7 +49,6 @@ namespace Basis.Scripts.BasisCharacterController
 
             // Ground & gravity
             ctx.GroundCheck(dt);
-
 
             if (ctx.CanJump && ctx.HasJumpAction && !ctx.MovementLock)
             {
@@ -61,14 +62,17 @@ namespace Basis.Scripts.BasisCharacterController
             }
 
             ctx.currentVerticalSpeed = Mathf.Max(ctx.currentVerticalSpeed, -Mathf.Abs(ctx.gravityValue));
+
             ctx.HasJumpAction = false;
 
-            move.y = ctx.currentVerticalSpeed * dt;
+            // Apply vertical speed along gravity-relative up axis instead of world Y
+            move += up * (ctx.currentVerticalSpeed * dt);
 
             if (ctx.MovementLock)
             {
-                move.x = 0;
-                move.z = 0;
+                // Zero out horizontal component but keep vertical (gravity)
+                Vector3 verticalPart = up * Vector3.Dot(move, up);
+                move = verticalPart;
             }
 
             ctx.Flags = ctx.characterController.Move(move);
