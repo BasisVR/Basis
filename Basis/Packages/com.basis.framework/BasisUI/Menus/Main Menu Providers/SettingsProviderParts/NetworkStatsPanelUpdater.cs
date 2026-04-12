@@ -93,32 +93,8 @@ namespace Basis.BasisUI
                     totalPlayers++; // We could have players leave during the count so better to just count them all the same time.
                     string playerPlatform = entry.Value?.Player?.PlayerPlatform;
                     string aggregatePlatform = NormalizePlatformAggregate(playerPlatform);
-                    bool isHeadless = false;
-                    switch (playerPlatform)
-                    {
-                        case "Headless":
-                            headlessPlayers++;
-                            isHeadless = true;
-                            platformCounts["Headless"] = platformCounts.GetValueOrDefault("Headless") + 1;
-                            break;
-                        case "WindowsServer":
-                            headlessPlayers++;
-                            isHeadless = true;
-                            platformCounts["WindowsServer"] = platformCounts.GetValueOrDefault("WindowsServer") + 1;
-                            break;
-                        case "LinuxServer":
-                            headlessPlayers++;
-                            isHeadless = true;
-                            platformCounts["LinuxServer"] = platformCounts.GetValueOrDefault("LinuxServer") + 1;
-                            break;
-                        case "OSXServer":
-                            headlessPlayers++;
-                            isHeadless = true;
-                            platformCounts["macOSServer"] = platformCounts.GetValueOrDefault("macOSServer") + 1;
-                            break;
-                    }
-                    if (!isHeadless)
-                        platformCounts[aggregatePlatform] = platformCounts.GetValueOrDefault(aggregatePlatform) + 1;
+
+                    platformCounts[aggregatePlatform] = platformCounts.GetValueOrDefault(aggregatePlatform) + 1;
 
                     
                 }
@@ -155,7 +131,7 @@ namespace Basis.BasisUI
                         }
 
                         description.Append(platformCount.Key);
-                        description.Append(':');
+                        description.Append(":");
                         description.Append(platformCount.Value);
                         hasAppendedPlatform = true;
                     }
@@ -297,7 +273,7 @@ namespace Basis.BasisUI
             }
 
             description.Append(platform);
-            description.Append(':');
+            description.Append(": ");
             description.Append(count);
             hasAppendedPlatform = true;
             platformCounts.Remove(platform);
