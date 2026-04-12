@@ -189,11 +189,7 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
-#if UNITY_SERVER
-            PlayerPlatform = BasisConstants.Headless;
-#else
             PlayerPlatform = Application.platform.ToString();
-#endif
 
 #if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction += LocalVisemeDriver.OnPausedEvent;
