@@ -161,14 +161,14 @@ namespace HVR.Basis.Comms
             bool stateChanged = _isTrackingActive != isTrackingActive;
             _isTrackingActive = isTrackingActive;
 
-            if (stateChanged)
-            {
-                TrackingStateChanged?.Invoke(isTrackingActive);
-            }
-
             if (submitToNetwork && _isWearer && featureInterpolator != null)
             {
                 featureInterpolator.SubmitAbsolute(0, isTrackingActive ? 1f : 0f);
+            }
+
+            if (stateChanged)
+            {
+                TrackingStateChanged?.Invoke(isTrackingActive);
             }
         }
     }
