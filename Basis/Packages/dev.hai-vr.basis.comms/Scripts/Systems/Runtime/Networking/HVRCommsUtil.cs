@@ -53,7 +53,6 @@ namespace HVR.Basis.Comms
         public const float InactivityTimeoutSeconds = 0.5f;
 
         [HideInInspector] [SerializeField] private BasisAvatar avatar;
-        [HideInInspector] [SerializeField] private AcquisitionService acquisition;
 
         [NonSerialized] internal MutualizedFeatureInterpolator featureInterpolator;
 
@@ -62,6 +61,7 @@ namespace HVR.Basis.Comms
         private float _lastActivityTime = float.NegativeInfinity;
 
         public bool IsTrackingActive => _isTrackingActive;
+        public event Action<bool> TrackingStateChanged;
 
         public static FaceTrackingActivityRelay GetOrCreate(BasisAvatar avatar)
         {
@@ -91,11 +91,6 @@ namespace HVR.Basis.Comms
             if (avatar == null)
             {
                 avatar = HVRCommsUtil.GetAvatar(this);
-            }
-
-            if (acquisition == null)
-            {
-                acquisition = AcquisitionService.SceneInstance;
             }
         }
 
@@ -166,9 +161,9 @@ namespace HVR.Basis.Comms
             bool stateChanged = _isTrackingActive != isTrackingActive;
             _isTrackingActive = isTrackingActive;
 
-            if (acquisition != null && (stateChanged || submitToNetwork))
+            if (stateChanged)
             {
-                acquisition.Submit(ActivityAddressId, isTrackingActive ? 1f : 0f);
+                TrackingStateChanged?.Invoke(isTrackingActive);
             }
 
             if (submitToNetwork && _isWearer && featureInterpolator != null)

@@ -86,7 +86,11 @@ namespace HVR.Basis.Comms
             _eyeTrackingParametersActive = false;
             _lastEyeParameterSampleTime = float.NegativeInfinity;
 
-            acquisition.RegisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
+            if (_activityRelay != null)
+            {
+                _activityRelay.TrackingStateChanged -= OnTrackingActivityUpdated;
+                _activityRelay.TrackingStateChanged += OnTrackingActivityUpdated;
+            }
             if (isWearer)
             {
                 acquisition.RegisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
@@ -151,11 +155,15 @@ namespace HVR.Basis.Comms
         {
             if (acquisition != null)
             {
-                acquisition.UnregisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
                 if (_registeredSourceAddresses)
                 {
                     acquisition.UnregisterAddresses(_sourceEyeAddresses, OnAddressUpdated);
                 }
+            }
+
+            if (_activityRelay != null)
+            {
+                _activityRelay.TrackingStateChanged -= OnTrackingActivityUpdated;
             }
 
             ClearRemoteOverrides();
@@ -214,14 +222,8 @@ namespace HVR.Basis.Comms
             }
         }
 
-        private void OnTrackingActivityUpdated(int address, float value)
+        private void OnTrackingActivityUpdated(bool isTrackingActive)
         {
-            if (address != FaceTrackingActivityRelay.ActivityAddressId)
-            {
-                return;
-            }
-
-            bool isTrackingActive = value >= 0.5f;
             if (_trackingActive == isTrackingActive)
             {
                 return;
@@ -345,6 +347,11 @@ namespace HVR.Basis.Comms
 
         private void SetBuiltInEyeFollowDriverOverriden(bool value)
         {
+            if (!_eyeFollowDriverApplicable)
+            {
+                return;
+            }
+
             BasisLocalEyeDriver.Override = value;
         }
 
