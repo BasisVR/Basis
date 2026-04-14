@@ -377,7 +377,7 @@ namespace Basis.Scripts.Networking.Receivers
                     catch (OpusSharp.Core.OpusException) { }
                 }
 #endif
-                BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
+              //  BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
                 return;
             }
             audioSource.spatialize = spatialize;

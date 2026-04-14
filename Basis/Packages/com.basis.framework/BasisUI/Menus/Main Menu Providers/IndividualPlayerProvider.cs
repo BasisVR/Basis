@@ -487,11 +487,14 @@ namespace Basis.BasisUI
             {
                 var s = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
                 s.AvatarInteraction = !s.AvatarInteraction;
-                await BasisPlayerSettingsManager.SetPlayerSettings(s);
+               await BasisPlayerSettingsManager.SetPlayerSettings(s);
 
                 toggleInteractionsBtn.Descriptor.SetTitle(s.AvatarInteraction ? "Disable Interactions" : "Enable Interactions");
 
-                if (remotePlayer != null) remotePlayer.ReloadAvatar();
+                if (remotePlayer != null)
+                {
+                    remotePlayer.ReloadAvatar();
+                }
             };
 
             var chatGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, root);

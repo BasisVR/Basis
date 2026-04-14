@@ -92,7 +92,12 @@ namespace Basis.BasisUI
                 {
                     totalPlayers++; // We could have players leave during the count so better to just count them all the same time.
                     string playerPlatform = entry.Value?.Player?.PlayerPlatform;
-                    string aggregatePlatform = NormalizePlatformAggregate(playerPlatform);
+                    string aggregatePlatform = NormalizePlatformAggregate(playerPlatform, out bool isHeadless);
+
+                    if (isHeadless)
+                    {
+                        headlessPlayers++;
+                    }
 
                     platformCounts[aggregatePlatform] = platformCounts.GetValueOrDefault(aggregatePlatform) + 1;
 
@@ -230,8 +235,9 @@ namespace Basis.BasisUI
             return $"{bytesPerSec / (1024.0 * 1024.0):F2} MB/s";
         }
 
-        private static string NormalizePlatformAggregate(string platform)
+        private static string NormalizePlatformAggregate(string platform, out bool isHeadless)
         {
+            isHeadless = false;
             if (string.IsNullOrWhiteSpace(platform))
             {
                 return "Unknown";
@@ -240,12 +246,16 @@ namespace Basis.BasisUI
             switch (platform)
             {
                 case "WindowsServer":
+                    isHeadless = true;
                     return "Windows Server";
                 case "LinuxServer":
+                    isHeadless = true;
                     return "Linux Server";
                 case "OSXServer":
+                    isHeadless = true;
                     return "macOS Server";
                 case "Headless":
+                    isHeadless = true;
                     return "Headless";
             }
 

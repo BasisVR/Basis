@@ -390,7 +390,6 @@ public partial class BasisEventDriver : MonoBehaviour
         BasisLocalMicrophoneDriver.StopProcessingThread();
 #endif
         BasisRemoteNamePlateDriver.Dispose();
-        await BasisPlayerSettingsManager.FlushAllNow();
     }
 
     /// <summary>
