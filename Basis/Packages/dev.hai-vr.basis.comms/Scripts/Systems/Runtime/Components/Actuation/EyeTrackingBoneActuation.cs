@@ -345,7 +345,18 @@ namespace HVR.Basis.Comms
 
         private void SetBuiltInEyeFollowDriverOverriden(bool value)
         {
+            if (!_eyeFollowDriverApplicable)
+            {
+                return;
+            }
+
             BasisLocalEyeDriver.Override = value;
+
+            BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;
+            if (localPlayer != null && localPlayer.FacialBlinkDriver != null)
+            {
+                localPlayer.FacialBlinkDriver.SetOverride(value);
+            }
         }
 
         private void SubmitCurrentEyeStateToNetwork()
