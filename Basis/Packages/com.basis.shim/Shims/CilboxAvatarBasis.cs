@@ -23,7 +23,9 @@ namespace Cilbox
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
-			"Basis.Shims.*",
+			"Basis.Shims.BasisNet*", // Restrictive, only used as a type and for events.
+			"Basis.Shims.BasisCilboxInstantiateShim", // Restrictive, only used as a type and for Instantiate methods.
+			"Basis.Shims.BasisDebugPropsShim", // Restrictive, only used as a type and for logging methods.
 
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
