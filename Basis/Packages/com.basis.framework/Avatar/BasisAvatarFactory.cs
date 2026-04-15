@@ -451,7 +451,7 @@ namespace Basis.Scripts.Avatar
         public static void SetupRemoteAvatar(BasisRemotePlayer Player)
         {
             Player.RemoteAvatarDriver.RemoteCalibration(Player);
-            Player.BasisAvatar.OnAvatarReady?.Invoke(false);
+            Player.BasisAvatar.NotifyAvatarReady(false);
         }
 
         /// <summary>
@@ -460,7 +460,7 @@ namespace Basis.Scripts.Avatar
         public static void SetupLocalAvatar(BasisLocalPlayer Player)
         {
             Player.LocalAvatarDriver.InitialLocalCalibration(Player);
-            Player.BasisAvatar.OnAvatarReady?.Invoke(true);
+            Player.BasisAvatar.NotifyAvatarReady(true);
             BasisLocalAvatarDriver.CalibrationComplete?.Invoke();
         }
 
