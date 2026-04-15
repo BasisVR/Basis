@@ -497,16 +497,19 @@ namespace Basis.BasisUI
                 if (hasAnyInfo || bypassOn)
                 {
                     var perfField = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, avatarGroup.ContentParent);
-                    perfField.SetTitle("Performance Filter");
+                    perfField.SetTitle(BasisLocalization.Get("menu.individualPlayer.perfFilter.title"));
 
                     string description;
                     if (bypassOn)
                     {
-                        description = "Bypassed for this player — performance limits ignored until you toggle off or reconnect.";
+                        description = BasisLocalization.Get("menu.individualPlayer.perfFilter.bypassedDescription");
                     }
                     else if (perf.Blocked)
                     {
-                        description = "Avatar blocked: " + (perf.BlockReason ?? "unknown reason");
+                        // Reason string is built by BasisAvatarPerformanceLimits in English —
+                        // the prefix is the only localizable part. Full translation would
+                        // require threading the metric + actual/limit through the table.
+                        description = BasisLocalization.Get("menu.individualPlayer.perfFilter.blockedPrefix") + (perf.BlockReason ?? string.Empty);
                     }
                     else
                     {
@@ -520,12 +523,12 @@ namespace Basis.BasisUI
                         if (perf.CollidersTrimmed > 0) parts.Add($"-{perf.CollidersTrimmed} colliders");
                         if (perf.JiggleRigsTrimmed > 0) parts.Add($"-{perf.JiggleRigsTrimmed} jiggle rigs");
                         if (perf.JiggleCollidersTrimmed > 0) parts.Add($"-{perf.JiggleCollidersTrimmed} jiggle colliders");
-                        description = "Trimmed by performance filter: " + string.Join(", ", parts);
+                        description = BasisLocalization.Get("menu.individualPlayer.perfFilter.trimmedPrefix") + string.Join(", ", parts);
                     }
                     perfField.SetDescription(description);
 
                     PanelToggle bypassPlayerToggle = PanelToggle.CreateNewEntry(perfField.ContentParent);
-                    bypassPlayerToggle.Descriptor.SetTitle("Bypass Limits For This Player");
+                    bypassPlayerToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.perfFilter.bypassToggle"));
                     bypassPlayerToggle.SetValueWithoutNotify(bypassOn);
                     bypassPlayerToggle.OnValueChanged += on =>
                     {

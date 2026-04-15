@@ -28,7 +28,7 @@ public static class SettingsProviderPerformanceLimits
         PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
         PanelElementDescriptor descriptor = tab.Descriptor;
         descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-        descriptor.SetTitle("Performance Limits");
+        descriptor.SetTitle(BasisLocalization.Get("settings.tab.performancelimits"));
 
         RectTransform container = descriptor.ContentParent;
         _layoutRoot = container;
@@ -42,14 +42,11 @@ public static class SettingsProviderPerformanceLimits
         // limit change.
         PanelElementDescriptor bypassGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        bypassGroup.SetTitle("Session Bypass");
-        bypassGroup.SetDescription(
-            "Temporarily ignores every performance limit for this session only. " +
-            "Resets on relaunch — never saved to disc. Useful when you want to see " +
-            "a specific avatar at its full fidelity without editing your saved caps.");
+        bypassGroup.SetTitle(BasisLocalization.Get("settings.perf.sessionBypass.title"));
+        bypassGroup.SetDescription(BasisLocalization.Get("settings.perf.sessionBypass.description"));
 
         PanelToggle bypassToggle = PanelToggle.CreateNewEntry(bypassGroup.ContentParent);
-        bypassToggle.Descriptor.SetTitle("Bypass All Performance Limits");
+        bypassToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.perf.sessionBypass.toggle"));
         bypassToggle.SetValueWithoutNotify(BasisAvatarPerformanceLimits.BypassAllLimits);
         bypassToggle.OnValueChanged += on =>
         {
@@ -63,24 +60,18 @@ public static class SettingsProviderPerformanceLimits
         // only texture memory is on by default at 512 MB.
         PanelElementDescriptor intro =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        intro.SetTitle("Avatar Performance Limits");
-        intro.SetDescription(
-            "Opt-in filters applied to remote avatars as they load. Trim limits destroy " +
-            "excess extras (animators, lights, particles, trails, lines, cloth, jiggle " +
-            "rigs, unity colliders) so the avatar still renders. Hard-block limits " +
-            "(triangles, bounds, texture memory, material slots, bones, skinned/basic " +
-            "meshes) fall back to the loading mesh instead — meshes aren't trimmed " +
-            "because deleting one usually destroys the body or head. Sensible defaults " +
-            "are on; raise or disable any limit below.");
+        intro.SetTitle(BasisLocalization.Get("settings.perf.intro.title"));
+        intro.SetDescription(BasisLocalization.Get("settings.perf.intro.description"));
 
         // ---------------- Geometry ----------------
         PanelElementDescriptor geometry =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        geometry.SetTitle("Geometry");
-        geometry.SetDescription("Raw polygon and skeleton counts from the asset bundle header.");
+        geometry.SetTitle(BasisLocalization.Get("settings.perf.group.geometry"));
+        geometry.SetDescription(BasisLocalization.Get("settings.perf.group.geometry.description"));
 
         AddLimitPair(geometry.ContentParent,
-            "Limit Triangles", "Max Triangles",
+            BasisLocalization.Get("settings.perf.triangles.toggle"),
+            BasisLocalization.Get("settings.perf.triangles.slider"),
             BasisSettingsDefaults.UsePerfLimitTriangles,
             BasisSettingsDefaults.MaxPerfTriangles,
             1000, 2_000_000, true, displayMode: ValueDisplayMode.Compact);
@@ -89,7 +80,8 @@ public static class SettingsProviderPerformanceLimits
         // principle, and the bounds check is there to catch 50 m-tall monster
         // bundles rather than tune small avatars.
         AddLimitPair(geometry.ContentParent,
-            "Limit Bounds Size (m)", "Max Bounds Diagonal (m)",
+            BasisLocalization.Get("settings.perf.boundsSize.toggle"),
+            BasisLocalization.Get("settings.perf.boundsSize.slider"),
             BasisSettingsDefaults.UsePerfLimitBoundsSize,
             BasisSettingsDefaults.MaxPerfBoundsSize,
             10f, 50f, false, decimals: 1);
@@ -99,7 +91,8 @@ public static class SettingsProviderPerformanceLimits
         // "per avatar" is explicit because bones is the one limit where users
         // reasonably ask whether it sums across the room or counts per-player.
         AddLimitPair(geometry.ContentParent,
-            "Hard-block Bones", "Max Skinned Bones (per avatar)",
+            BasisLocalization.Get("settings.perf.bones.toggle"),
+            BasisLocalization.Get("settings.perf.bones.slider"),
             BasisSettingsDefaults.UsePerfLimitBones,
             BasisSettingsDefaults.MaxPerfBones,
             16, 16384, true, displayMode: ValueDisplayMode.Compact);
@@ -107,28 +100,32 @@ public static class SettingsProviderPerformanceLimits
         // ---------------- Meshes & Materials ----------------
         PanelElementDescriptor meshes =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        meshes.SetTitle("Meshes & Materials");
+        meshes.SetTitle(BasisLocalization.Get("settings.perf.group.meshesMaterials"));
 
         AddLimitPair(meshes.ContentParent,
-            "Limit Skinned Meshes", "Max Skinned Meshes",
+            BasisLocalization.Get("settings.perf.skinnedMeshes.toggle"),
+            BasisLocalization.Get("settings.perf.skinnedMeshes.slider"),
             BasisSettingsDefaults.UsePerfLimitSkinnedMeshes,
             BasisSettingsDefaults.MaxPerfSkinnedMeshes,
             1, 64, true);
 
         AddLimitPair(meshes.ContentParent,
-            "Limit Basic Meshes", "Max Basic Meshes",
+            BasisLocalization.Get("settings.perf.basicMeshes.toggle"),
+            BasisLocalization.Get("settings.perf.basicMeshes.slider"),
             BasisSettingsDefaults.UsePerfLimitBasicMeshes,
             BasisSettingsDefaults.MaxPerfBasicMeshes,
             1, 128, true);
 
         AddLimitPair(meshes.ContentParent,
-            "Limit Material Slots", "Max Material Slots",
+            BasisLocalization.Get("settings.perf.materialSlots.toggle"),
+            BasisLocalization.Get("settings.perf.materialSlots.slider"),
             BasisSettingsDefaults.UsePerfLimitMaterialSlots,
             BasisSettingsDefaults.MaxPerfMaterialSlots,
             1, 256, true);
 
         AddLimitPair(meshes.ContentParent,
-            "Limit Texture Memory", "Max Texture Memory (MB)",
+            BasisLocalization.Get("settings.perf.textureMemory.toggle"),
+            BasisLocalization.Get("settings.perf.textureMemory.slider"),
             BasisSettingsDefaults.UsePerfLimitTextureMemory,
             BasisSettingsDefaults.MaxPerfTextureMemoryMB,
             8, 4096, true);
@@ -136,10 +133,11 @@ public static class SettingsProviderPerformanceLimits
         // ---------------- Physics ----------------
         PanelElementDescriptor physics =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        physics.SetTitle("Physics & Jiggle");
+        physics.SetTitle(BasisLocalization.Get("settings.perf.group.physics"));
 
         AddLimitPair(physics.ContentParent,
-            "Limit Jiggle Bones", "Max Jiggle Bones",
+            BasisLocalization.Get("settings.perf.jiggleBones.toggle"),
+            BasisLocalization.Get("settings.perf.jiggleBones.slider"),
             BasisSettingsDefaults.UsePerfLimitJiggleBones,
             BasisSettingsDefaults.MaxPerfJiggleBones,
             0, 128, true);
@@ -154,13 +152,15 @@ public static class SettingsProviderPerformanceLimits
         //     0, 64, true);
 
         AddLimitPair(physics.ContentParent,
-            "Limit Colliders", "Max Colliders",
+            BasisLocalization.Get("settings.perf.colliders.toggle"),
+            BasisLocalization.Get("settings.perf.colliders.slider"),
             BasisSettingsDefaults.UsePerfLimitColliders,
             BasisSettingsDefaults.MaxPerfColliders,
             0, 128, true);
 
         AddLimitPair(physics.ContentParent,
-            "Limit Unity Cloth", "Max Unity Cloth",
+            BasisLocalization.Get("settings.perf.cloth.toggle"),
+            BasisLocalization.Get("settings.perf.cloth.slider"),
             BasisSettingsDefaults.UsePerfLimitCloth,
             BasisSettingsDefaults.MaxPerfCloth,
             0, 16, true);
@@ -168,7 +168,7 @@ public static class SettingsProviderPerformanceLimits
         // ---------------- Effects ----------------
         PanelElementDescriptor effects =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        effects.SetTitle("Effects");
+        effects.SetTitle(BasisLocalization.Get("settings.perf.group.effects"));
 
         // UnityEngine.Light is not in AvatarContentPoliceSelector.asset, so the
         // content police strips every Light on a downloaded remote avatar before
@@ -181,19 +181,22 @@ public static class SettingsProviderPerformanceLimits
         //     0, 32, true);
 
         AddLimitPair(effects.ContentParent,
-            "Limit Particle Systems", "Max Particle Systems",
+            BasisLocalization.Get("settings.perf.particleSystems.toggle"),
+            BasisLocalization.Get("settings.perf.particleSystems.slider"),
             BasisSettingsDefaults.UsePerfLimitParticleSystems,
             BasisSettingsDefaults.MaxPerfParticleSystems,
             0, 128, true);
 
         AddLimitPair(effects.ContentParent,
-            "Limit Trail Renderers", "Max Trail Renderers",
+            BasisLocalization.Get("settings.perf.trailRenderers.toggle"),
+            BasisLocalization.Get("settings.perf.trailRenderers.slider"),
             BasisSettingsDefaults.UsePerfLimitTrailRenderers,
             BasisSettingsDefaults.MaxPerfTrailRenderers,
             0, 64, true);
 
         AddLimitPair(effects.ContentParent,
-            "Limit Line Renderers", "Max Line Renderers",
+            BasisLocalization.Get("settings.perf.lineRenderers.toggle"),
+            BasisLocalization.Get("settings.perf.lineRenderers.slider"),
             BasisSettingsDefaults.UsePerfLimitLineRenderers,
             BasisSettingsDefaults.MaxPerfLineRenderers,
             0, 64, true);
@@ -201,16 +204,20 @@ public static class SettingsProviderPerformanceLimits
         // ---------------- Runtime ----------------
         PanelElementDescriptor runtime =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        runtime.SetTitle("Runtime");
-        runtime.SetDescription("The remote driver disables the root Animator, but child Animators still tick.");
+        runtime.SetTitle(BasisLocalization.Get("settings.perf.group.runtime"));
+        runtime.SetDescription(BasisLocalization.Get("settings.perf.group.runtime.description"));
 
         AddLimitPair(runtime.ContentParent,
-            "Limit Animators", "Max Animators",
+            BasisLocalization.Get("settings.perf.animators.toggle"),
+            BasisLocalization.Get("settings.perf.animators.slider"),
             BasisSettingsDefaults.UsePerfLimitAnimators,
             BasisSettingsDefaults.MaxPerfAnimators,
             1, 32, true);
 
-        SettingsProvider.AddResetPageButton(container, "Performance Limits", ResetPerformanceLimitDefaults);
+        // Use the same tabKey we registered with AddLazyTab — it drives both the
+        // reset button label and the "navigate back to this tab" hop after the
+        // reset. Hardcoded English would show that literal string in JP/NL.
+        SettingsProvider.AddResetPageButton(container, "settings.tab.performancelimits", ResetPerformanceLimitDefaults);
 
         descriptor.ForceRebuild();
         return tab;

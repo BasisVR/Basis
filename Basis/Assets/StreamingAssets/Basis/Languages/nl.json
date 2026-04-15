@@ -2441,6 +2441,190 @@
         {
             "key": "ui.yes",
             "value": "Ja"
+        },
+        {
+            "key": "settings.tab.performancelimits",
+            "value": "Prestatielimieten"
+        },
+        {
+            "key": "settings.perf.sessionBypass.title",
+            "value": "Sessie Bypass"
+        },
+        {
+            "key": "settings.perf.sessionBypass.description",
+            "value": "Negeert tijdelijk alle prestatielimieten voor alleen deze sessie. Wordt gereset bij opnieuw opstarten — nooit opgeslagen op schijf. Handig als je een specifieke avatar in volledige kwaliteit wilt zien zonder je opgeslagen limieten aan te passen."
+        },
+        {
+            "key": "settings.perf.sessionBypass.toggle",
+            "value": "Alle Prestatielimieten Omzeilen"
+        },
+        {
+            "key": "settings.perf.intro.title",
+            "value": "Avatar Prestatielimieten"
+        },
+        {
+            "key": "settings.perf.intro.description",
+            "value": "Opt-in filters die worden toegepast op externe avatars tijdens het laden. Trimlimieten verwijderen overtollige extra's (animators, lichten, particles, trails, lijnen, cloth, jiggle rigs, Unity colliders) zodat de avatar nog steeds wordt weergegeven. Hard-block limieten (driehoeken, grenzen, textuurgeheugen, materiaalslots, botten, skinned/basis meshes) vallen in plaats daarvan terug op de laad-mesh — meshes worden niet getrimd omdat het verwijderen ervan meestal het lichaam of hoofd vernietigt. Verstandige standaardwaarden staan aan; verhoog of schakel elke limiet hieronder uit."
+        },
+        {
+            "key": "settings.perf.group.geometry",
+            "value": "Geometrie"
+        },
+        {
+            "key": "settings.perf.group.geometry.description",
+            "value": "Ruwe polygoon- en skelettellingen uit de asset bundle header."
+        },
+        {
+            "key": "settings.perf.group.meshesMaterials",
+            "value": "Meshes & Materialen"
+        },
+        {
+            "key": "settings.perf.group.physics",
+            "value": "Physics & Jiggle"
+        },
+        {
+            "key": "settings.perf.group.effects",
+            "value": "Effecten"
+        },
+        {
+            "key": "settings.perf.group.runtime",
+            "value": "Runtime"
+        },
+        {
+            "key": "settings.perf.group.runtime.description",
+            "value": "De remote driver schakelt de root Animator uit, maar child Animators blijven tikken."
+        },
+        {
+            "key": "settings.perf.triangles.toggle",
+            "value": "Driehoeken Beperken"
+        },
+        {
+            "key": "settings.perf.triangles.slider",
+            "value": "Max Driehoeken"
+        },
+        {
+            "key": "settings.perf.boundsSize.toggle",
+            "value": "Grensgrootte Beperken (m)"
+        },
+        {
+            "key": "settings.perf.boundsSize.slider",
+            "value": "Max Grens Diagonaal (m)"
+        },
+        {
+            "key": "settings.perf.bones.toggle",
+            "value": "Botten Hard Blokkeren"
+        },
+        {
+            "key": "settings.perf.bones.slider",
+            "value": "Max Skinned Botten (per avatar)"
+        },
+        {
+            "key": "settings.perf.skinnedMeshes.toggle",
+            "value": "Skinned Meshes Beperken"
+        },
+        {
+            "key": "settings.perf.skinnedMeshes.slider",
+            "value": "Max Skinned Meshes"
+        },
+        {
+            "key": "settings.perf.basicMeshes.toggle",
+            "value": "Basis Meshes Beperken"
+        },
+        {
+            "key": "settings.perf.basicMeshes.slider",
+            "value": "Max Basis Meshes"
+        },
+        {
+            "key": "settings.perf.materialSlots.toggle",
+            "value": "Materiaalslots Beperken"
+        },
+        {
+            "key": "settings.perf.materialSlots.slider",
+            "value": "Max Materiaalslots"
+        },
+        {
+            "key": "settings.perf.textureMemory.toggle",
+            "value": "Textuurgeheugen Beperken"
+        },
+        {
+            "key": "settings.perf.textureMemory.slider",
+            "value": "Max Textuurgeheugen (MB)"
+        },
+        {
+            "key": "settings.perf.jiggleBones.toggle",
+            "value": "Jiggle Botten Beperken"
+        },
+        {
+            "key": "settings.perf.jiggleBones.slider",
+            "value": "Max Jiggle Botten"
+        },
+        {
+            "key": "settings.perf.colliders.toggle",
+            "value": "Colliders Beperken"
+        },
+        {
+            "key": "settings.perf.colliders.slider",
+            "value": "Max Colliders"
+        },
+        {
+            "key": "settings.perf.cloth.toggle",
+            "value": "Unity Cloth Beperken"
+        },
+        {
+            "key": "settings.perf.cloth.slider",
+            "value": "Max Unity Cloth"
+        },
+        {
+            "key": "settings.perf.particleSystems.toggle",
+            "value": "Particle Systems Beperken"
+        },
+        {
+            "key": "settings.perf.particleSystems.slider",
+            "value": "Max Particle Systems"
+        },
+        {
+            "key": "settings.perf.trailRenderers.toggle",
+            "value": "Trail Renderers Beperken"
+        },
+        {
+            "key": "settings.perf.trailRenderers.slider",
+            "value": "Max Trail Renderers"
+        },
+        {
+            "key": "settings.perf.lineRenderers.toggle",
+            "value": "Line Renderers Beperken"
+        },
+        {
+            "key": "settings.perf.lineRenderers.slider",
+            "value": "Max Line Renderers"
+        },
+        {
+            "key": "settings.perf.animators.toggle",
+            "value": "Animators Beperken"
+        },
+        {
+            "key": "settings.perf.animators.slider",
+            "value": "Max Animators"
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.title",
+            "value": "Prestatiefilter"
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.bypassedDescription",
+            "value": "Omzeild voor deze speler — prestatielimieten worden genegeerd tot je uitschakelt of opnieuw verbindt."
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.blockedPrefix",
+            "value": "Avatar geblokkeerd: "
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.trimmedPrefix",
+            "value": "Getrimd door prestatiefilter: "
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.bypassToggle",
+            "value": "Limieten Omzeilen Voor Deze Speler"
         }
     ]
 }
