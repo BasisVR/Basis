@@ -37,6 +37,22 @@ namespace Basis
 
 			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
+
+		[Obsolete("Use the direct interactable component instead. This is a shim for the old system and should be removed at a later point.")]
+		public static BasisInteractableShim MakeInteractable( object o )
+		{
+			// Actually needs to be CilboxProxies.
+			GameObject go = null;
+			if( o is CilboxProxy )
+				go = ((CilboxProxy)o).gameObject;
+			else
+				go = ((MonoBehaviour)o).gameObject;
+
+			BasisInteractableShim bi;
+			if( go.TryGetComponent<BasisInteractableShim>( out bi ) ) return bi;
+
+			return go.AddComponent<BasisInteractableShim>();
+		}
 	}
 
 
