@@ -191,3 +191,5 @@ MonoBehaviour:
   - UnityEngine.AudioEchoFilter
   - UnityEngine.AudioDistortionFilter
   - Cilbox.CilboxAvatarBasis
+  - Basis.Shims.BasisNetworkShim
+  - Basis.Shims.VideoPlayerShim
