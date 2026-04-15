@@ -37,21 +37,6 @@ namespace Basis
 
 			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
-
-		public static BasisInteractableShim MakeInteractable( object o )
-		{
-			// Actually needs to be CilboxProxies.
-			GameObject go = null;
-			if( o is CilboxProxy )
-				go = ((CilboxProxy)o).gameObject;
-			else
-				go = ((MonoBehaviour)o).gameObject;
-
-			BasisInteractableShim bi;
-			if( go.TryGetComponent<BasisInteractableShim>( out bi ) ) return bi;
-
-			return go.AddComponent<BasisInteractableShim>();
-		}
 	}
 
 
