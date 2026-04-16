@@ -47,7 +47,7 @@ public class BasisPropSDKInspector : Editor
             Button docButton = DocumentationButton(rootElement, "Open Prop Documentation");
             docButton.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Open Documentation", "Yes I want to open the documentation", "no send me back"))
+                if (EditorUtility.DisplayDialog("Open Documentation", "Proceed in opening the documentation in a web browser?", "Yes", "No"))
                 {
                     Application.OpenURL(BasisSDKConstants.PropDocumentationURL);
                 }
@@ -125,7 +125,7 @@ public class BasisPropSDKInspector : Editor
             {
                 ImageBytes = BasisTextureCompression.ToPngBytes(Image);
             }
-            Debug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+            Debug.Log($"Building Prop Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
             (bool success, string message) = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, BasisProp, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
             EditorUtility.ClearProgressBar();
@@ -153,9 +153,10 @@ public class BasisPropSDKInspector : Editor
         }
         else
         {
-            EditorUtility.DisplayDialog("Prop Build Error",
-                $"Please resolve the following issues before building:\n{string.Join("\n", errors.ConvertAll(e => e.Message))}",
-                "OK");
+            if (!EditorUtility.DisplayDialog("Prop Build Error", $"Please resolve the following issues, or consult the documentation. \n {string.Join("\n", errors.ConvertAll(e => e.Message))}", "OK", "Open Documentation"))
+            {
+                Application.OpenURL(BasisSDKConstants.PropDocumentationURL);
+            }
         }
     }
 

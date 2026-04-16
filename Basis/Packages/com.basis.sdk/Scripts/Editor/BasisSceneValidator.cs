@@ -160,7 +160,7 @@ public class BasisSceneValidator
             if (assetBundleObject.UseCustomPassword && string.IsNullOrEmpty(assetBundleObject.UserSelectedPassword))
             {
                 errors.Add(new BasisValidationIssue(
-                    "Can not have custom password be empty!",
+                    "The custom password is not allowed to be empty.",
                     ValidationCategory.Security, null
                 ));
             }

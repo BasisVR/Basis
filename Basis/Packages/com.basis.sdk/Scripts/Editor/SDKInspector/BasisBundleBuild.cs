@@ -27,7 +27,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please install build target for " + Targets[Index].ToString());
             }
         }
 
@@ -150,7 +150,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please install build target for " + Targets[Index].ToString());
             }
         }
 
@@ -546,11 +546,11 @@ public static class BasisBundleBuild
             string FilePath = Path.Combine(buildOutDir, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
-            EditorUtility.DisplayProgressBar("Saving Generated BEE file", "Saving Generated BEE file", 100);
+            EditorUtility.DisplayProgressBar("Saving Generated .BEE file", "Saving Generated .BEE file", 100);
 
             await AssetBundleBuilder.SaveFileAsync(buildOutDir, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
 
-            EditorUtility.DisplayProgressBar("Finshed File Combining", "Finshed File Combining", 100);
+            EditorUtility.DisplayProgressBar("Finished File Combining", "Finished File Combining", 100);
 
             DeleteFolders(buildOutDir);
 
@@ -596,9 +596,9 @@ public static class BasisBundleBuild
     private static string EnsureBuildOutputDirectory(string rootOutDir, string folderName, bool deleteIfExists)
     {
         if (string.IsNullOrEmpty(rootOutDir))
-            throw new ArgumentException("rootOutDir is null/empty", nameof(rootOutDir));
+            throw new ArgumentException("rootOutDir is null or empty", nameof(rootOutDir));
         if (string.IsNullOrEmpty(folderName))
-            throw new ArgumentException("folderName is null/empty", nameof(folderName));
+            throw new ArgumentException("folderName is null or empty", nameof(folderName));
 
         string buildOutDir = Path.Combine(rootOutDir, folderName);
 

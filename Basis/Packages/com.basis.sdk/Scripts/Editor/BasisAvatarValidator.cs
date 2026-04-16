@@ -165,7 +165,7 @@ public class BasisAvatarValidator
                 EditorUtility.SetDirty(child.gameObject);
             }
         }
-        BasisDebug.Log($"Removed a total of {removedCount} missing scripts.", BasisDebug.LogTag.Editor);
+        BasisDebug.Log($"Removed a total of {removedCount} missing script(s).", BasisDebug.LogTag.Editor);
     }
 
     public bool ValidateAvatar(out List<BasisValidationIssue> errors, out List<BasisValidationIssue> warnings, out List<string> passes)
@@ -213,7 +213,7 @@ public class BasisAvatarValidator
                 errors.Add(new BasisValidationIssue(
                     "Animator exists but has no Avatar (Humanoid avatar not generated).", ValidationCategory.Configuration,
                     FixTryCreateHumanoidAvatarOnSourceModels,
-                    "Set source model(s) to Humanoid + Create Avatar"
+                    "Set source model(s) to Humanoid and Create Avatar"
                 ));
             }
         }
@@ -222,7 +222,7 @@ public class BasisAvatarValidator
             errors.Add(new BasisValidationIssue(
                 "Animator is missing.", ValidationCategory.MissingReference,
                 FixAddOrAssignAnimator,
-                "Add/Assign Animator"
+                "Add or assign Animator"
             ));
         }
 
@@ -287,7 +287,7 @@ public class BasisAvatarValidator
             if(assetBundleObject.UseCustomPassword && (assetBundleObject.UserSelectedPassword == null ||  assetBundleObject.UserSelectedPassword == ""))
             {
                 errors.Add(new BasisValidationIssue(
-                    "Can not have custom password be empty!",
+                    "The custom password is not allowed to be empty.",
                     ValidationCategory.Security,
                     null));
             }
@@ -331,7 +331,7 @@ public class BasisAvatarValidator
                 errors.Add(new BasisValidationIssue(
                     $"Duplicate name found: {entry.Key} ({entry.Value} times)", ValidationCategory.Configuration,
                     FixDisableDoNotAutoRenameBones,
-                    "Allow auto-rename bones"
+                    "Allow auto-renaming bones"
                 ));
             }
             else

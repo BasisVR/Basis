@@ -48,7 +48,7 @@ public class BasisSceneSDKInspector : Editor
             Button docButton = DocumentationButton(rootElement, "Open Scene Documentation");
             docButton.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Open Documentation", "Yes I want to open the documentation", "no send me back"))
+                if (EditorUtility.DisplayDialog("Open Documentation", "Proceed in opening the documentation in a web browser?", "Yes", "No"))
                 {
                     Application.OpenURL(BasisSDKConstants.SceneDocumentationURL);
                 }
@@ -234,9 +234,10 @@ public class BasisSceneSDKInspector : Editor
         }
         else
         {
-            EditorUtility.DisplayDialog("Scene Build Error",
-                $"Please resolve the following issues before building:\n{string.Join("\n", errors.ConvertAll(e => e.Message))}",
-                "OK");
+            if (!EditorUtility.DisplayDialog("Scene Build Error", $"Please resolve the following issues, or consult the documentation. \n {string.Join("\n", errors.ConvertAll(e => e.Message))}", "OK", "Open Documentation"))
+            {
+                Application.OpenURL(BasisSDKConstants.SceneDocumentationURL);
+            }
         }
     }
 

@@ -92,7 +92,7 @@ namespace LinkerGenerator
             AddCilboxWhitelistedTypeAssemblies(assemblies);
 
             // Final filtering pass (removes editor/test/invalid like GUID:...)
-            if (Cancelable("Link.xml", 0.92f, "Filtering + sorting assemblies...")) return;
+            if (Cancelable("Link.xml", 0.92f, "Filtering and sorting assemblies...")) return;
             var sorted = new List<string>(assemblies.Count);
             foreach (var a in assemblies)
             {
