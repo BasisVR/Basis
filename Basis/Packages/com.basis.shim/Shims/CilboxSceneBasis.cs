@@ -135,6 +135,7 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
+			"UnityEngine.Quaternion*",
 
 			// System fields
 			"System.Array.*",
@@ -233,7 +234,7 @@ namespace Cilbox
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
 			switch(sType)
 			{

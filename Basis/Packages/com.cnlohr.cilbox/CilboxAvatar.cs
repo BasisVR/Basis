@@ -115,7 +115,7 @@ namespace Cilbox
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
 			t = null;
             return false;

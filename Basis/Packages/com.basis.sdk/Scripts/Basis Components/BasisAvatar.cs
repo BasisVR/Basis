@@ -63,7 +63,7 @@ namespace Basis.Scripts.BasisSdk
         /// <summary>
         /// True if this avatar is owned by the local player.
         /// </summary>
-        public bool IsOwnedLocally;
+        public bool IsOwnedLocally { get; set; }
 
         /// <summary>
         /// True once avatar setup has completed and readiness callbacks have fired for this instance.
@@ -117,7 +117,7 @@ namespace Basis.Scripts.BasisSdk
         /// <summary>
         /// Event triggered when the avatar is ready for further initialization or data queries.
         /// </summary>
-        public OnReady OnAvatarReady;
+        public OnReady OnAvatarReady {get; set;}
 
         /// <summary>
         /// Marks this avatar as ready and notifies listeners with the owner locality.
@@ -130,31 +130,42 @@ namespace Basis.Scripts.BasisSdk
             OnAvatarReady?.Invoke(isOwner);
         }
 
-        public static GameObject GetGameObject (object o)
+        public static GameObject GetGameObject(object o)
         {
             GameObject currentGameobject = null;
             if (o is GameObject go)
             {
                 currentGameobject = go;
             }
-            if (o is Component c)
+            else if (o is Component c)
             {
                 currentGameobject = c.gameObject;
             }
-            while (currentGameobject.transform.parent != null)
+
+            if (currentGameobject == null)
             {
-                if (currentGameobject.TryGetComponent<BasisAvatar>( out BasisAvatar _ ) )
+                Debug.LogError($"Object {o} is not a GameObject or Component.");
+                return null;
+            }
+
+            while (currentGameobject != null)
+            {
+                if (currentGameobject.TryGetComponent<BasisAvatar>(out _))
                 {
                     return currentGameobject;
                 }
-                else
-                {
-                    currentGameobject = currentGameobject.transform.parent.gameObject;
-                }
-            }
-            Debug.LogError( $"Object {o} is not part of an avatar hierarchy." );
-            return null;
 
+                Transform parent = currentGameobject.transform.parent;
+                if (parent == null)
+                {
+                    break;
+                }
+
+                currentGameobject = parent.gameObject;
+            }
+
+            Debug.LogError($"Object {o} is not part of an avatar hierarchy.");
+            return null;
         }
 
         /// <summary>

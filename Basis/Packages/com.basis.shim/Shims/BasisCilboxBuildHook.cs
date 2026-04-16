@@ -17,6 +17,13 @@ public class BasisCilboxBuildHook
         //Debug.Log("BasisCilboxBuildHook initialized.");
         BasisAssetBundlePipeline.OnBeforeBuildPrefab -= HandleBeforeBuildPrefab;
         BasisAssetBundlePipeline.OnBeforeBuildPrefab += HandleBeforeBuildPrefab;
+        BasisAvatarSDKInspector.OnBeforeTestInEditor -= HandleBeforeTestInEditor;
+        BasisAvatarSDKInspector.OnBeforeTestInEditor += HandleBeforeTestInEditor;
+    }
+
+    private static void HandleBeforeTestInEditor(GameObject prefabRoot)
+    {
+        HandleBeforeBuildPrefab(prefabRoot, null);
     }
 
     private static void HandleBeforeBuildPrefab(GameObject prefabRoot, BasisAssetBundleObject settings)

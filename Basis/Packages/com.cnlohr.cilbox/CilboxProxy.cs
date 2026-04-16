@@ -229,7 +229,7 @@ namespace Cilbox
 					continue;
 				}
 				Type t = o.GetType();
-				if(box.GetComponentTypeOverride( t.FullName, out Type overrideType )) {
+				if(box.GetTypeOverride( t.FullName, out Type overrideType )) {
 					Debug.Log( $"RuntimeProxyLoad: Override {t.FullName} with {overrideType.FullName}" );
 					t = overrideType;
 					if(typeof(CilboxShim).IsAssignableFrom(t) && fieldsObjects[i] is Component gameObjectComponent)
