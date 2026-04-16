@@ -16,6 +16,7 @@ namespace Cilbox
 	{
 		public StackElement [] fields;
 		public List< UnityEngine.Object > fieldsObjects;  // This is generally only held during saving and loading, not in use.
+		[NonSerialized] private List< UnityEngine.Object > runtimeFieldsObjects;
 
 		public CilboxClass cls;
 		public Cilbox box;
@@ -219,10 +220,12 @@ namespace Cilbox
 
 			cls = box.GetClass( className );
 
+			runtimeFieldsObjects = fieldsObjects != null ? new List<UnityEngine.Object>(fieldsObjects) : new List<UnityEngine.Object>();
+
 			// First thing: Go through any references that are prohibited.
-			for( int i = 0; i < fieldsObjects.Count; i++ )
+			for( int i = 0; i < runtimeFieldsObjects.Count; i++ )
 			{
-				UnityEngine.Object o = fieldsObjects[i];
+				UnityEngine.Object o = runtimeFieldsObjects[i];
 				if (o == null)
 				{
 					// If it's null, there's nothing to safety-check.
@@ -232,7 +235,7 @@ namespace Cilbox
 				if(box.GetComponentTypeOverride( t.FullName, out Type overrideType )) {
 					Debug.Log( $"RuntimeProxyLoad: Override {t.FullName} with {overrideType.FullName}" );
 					t = overrideType;
-					if(typeof(CilboxShim).IsAssignableFrom(t) && fieldsObjects[i] is Component gameObjectComponent)
+					if(typeof(CilboxShim).IsAssignableFrom(t) && runtimeFieldsObjects[i] is Component gameObjectComponent)
 					{
 						GameObject gameObject = gameObjectComponent.gameObject;
 						Component component;
@@ -242,7 +245,7 @@ namespace Cilbox
 						{
 							component = gameObject.AddComponent(t);
 						}
-						fieldsObjects[i] = component;
+						runtimeFieldsObjects[i] = component;
 					}
 				}
 				if( t == typeof( CilboxProxy ) )
@@ -252,7 +255,7 @@ namespace Cilbox
 				else if( !box.CheckTypeAllowed( t.FullName ) )
 				{
 					Debug.LogWarning( $"Contraband found in script {className} field ID {i}: {o.GetType()}" );
-					fieldsObjects[i] = null;
+					runtimeFieldsObjects[i] = null;
 				}
 			}
 
@@ -341,6 +344,7 @@ namespace Cilbox
 
 
 			proxyWasSetup = true;
+			runtimeFieldsObjects = null;
 			if (verboseLogging)
 				Debug.Log( $"RuntimeProxyLoad complete for class {className}" );
 		}
@@ -349,6 +353,7 @@ namespace Cilbox
 		// Returns: true if is object, otherwise is primitive.
 		private bool LoadObjectFromSerializee( Serializee s, out object oOut, String rootFieldName, Type inType, bool root )
 		{
+			List<UnityEngine.Object> objectSlots = runtimeFieldsObjects ?? fieldsObjects;
 			Dictionary< String, Serializee > dict = s.AsMap();
 
 			Serializee setype;
@@ -361,7 +366,8 @@ namespace Cilbox
 					int iFO;
 					if( dict.TryGetValue( "fo", out seFO ) &&
 						Int32.TryParse( seFO.AsString(), out iFO ) &&
-						iFO < fieldsObjects.Count )
+						objectSlots != null &&
+						iFO < objectSlots.Count )
 					{
 						if (dict.TryGetValue("or", out var seOr))
 						{
@@ -373,7 +379,7 @@ namespace Cilbox
 							}
 						}
 
-						UnityEngine.Object o = fieldsObjects[iFO];
+						UnityEngine.Object o = objectSlots[iFO];
 
 						//Debug.Log( $"LOADING FIELD: {i} with {o}" );
 						if( o )
@@ -384,7 +390,7 @@ namespace Cilbox
 							oOut = o;
 
 							// Remove reference out of the fieldsObjects array.
-							fieldsObjects[iFO] = null;
+							objectSlots[iFO] = null;
 
 							return true;
 						}
@@ -392,7 +398,8 @@ namespace Cilbox
 					}
 					else
 					{
-						Debug.LogWarning( $"Failure to load object in field id:{rootFieldName} of {className} (slot parse failed or out of range, fieldsObjects count={fieldsObjects.Count})");
+						int objectSlotCount = objectSlots != null ? objectSlots.Count : 0;
+						Debug.LogWarning( $"Failure to load object in field id:{rootFieldName} of {className} (slot parse failed or out of range, fieldsObjects count={objectSlotCount})");
 					}
 				}
 				else if( sT[0] == 'a' )
