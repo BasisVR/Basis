@@ -185,7 +185,7 @@ namespace Basis.Shims
 
                 if (url == videoPlayer.url) return;
                 if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
-                if (!url.StartsWith("https://")) return;
+                if (!url.StartsWith("https://") && !url.StartsWith("http://")) return;
 
                 if (BasisTrustedVideoUrls.IsTrusted(url))
                 {
