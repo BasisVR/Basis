@@ -84,7 +84,7 @@ public static class SettingsProviderTrustedUrls
 
         SettingsProvider.AddResetPageButton(container, "settings.tab.trustedurls", () =>
         {
-            BasisTrustedVideoUrls.ClearAll();
+            BasisTrustedVideoUrls.Reset();
         });
 
         descriptor.ForceRebuild();
