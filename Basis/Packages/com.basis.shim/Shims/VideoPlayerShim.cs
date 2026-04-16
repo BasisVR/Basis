@@ -2,6 +2,7 @@ using UnityEngine;
 using Cilbox;
 using UnityEngine.Video;
 using Basis.BasisUI;
+using System;
 using System.Collections;
 
 namespace Basis.Shims
@@ -187,6 +188,16 @@ namespace Basis.Shims
                 if(hasPendingConfirmedUrl && url == pendingConfirmedUrl) return;
                 if (!url.StartsWith("https://") && !url.StartsWith("http://")) return;
 
+                Uri uri = null;
+                try
+                {
+                    uri = new Uri(url);
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"[VideoPlayerShim] Failed to parse URL: {e}", BasisDebug.LogTag.Shims);
+                }
+
                 if (BasisTrustedVideoUrls.IsTrusted(url))
                 {
                     BasisDebug.Log($"[VideoPlayerShim] Auto-accepting trusted URL \"{url}\"", BasisDebug.LogTag.Shims);
@@ -214,50 +225,48 @@ namespace Basis.Shims
                 int requestId = pendingConfirmedUrlRequestId;
                 pendingUrlTimeoutCoroutine = StartCoroutine(ExpirePendingUrlRequest(requestId));
 
-                bool handled = false;
-
                 BasisMainMenu.Open();
-                BasisMainMenu.Instance.OpenDialogue(
-                    "Video Player URL",
-                    $"Do you want to load this video?\n{url}",
-                    "Accept",
-                    "Decline",
-                    accepted =>
+                BasisMenuURLPromptPanel.CreateNew(
+                    url,
+                    response =>
                     {
-                        if (handled) return;
-                        handled = true;
+                        BasisDebug.Log($"[VideoPlayerShim] URL Prompt Result: {(response.Accepted ? "Accepted" : "Declined")} {(response.RememberChoice ? "Remembered" : "")} {response.Scope}", BasisDebug.LogTag.Shims);
                         if (!hasPendingConfirmedUrl || pendingConfirmedUrl != url || pendingConfirmedUrlRequestId != requestId)
                         {
                             return;
                         }
-                        if (!accepted)
+                        if (!response.Accepted)
                         {
                             ClearPendingUrlRequest();
                             return;
                         }
+                        if(response.RememberChoice)
+                        {
+                            switch (response.Scope)
+                            {
+                                case BasisMenuURLPromptPanel.RememberChoiceScope.URL:
+                                    BasisTrustedVideoUrls.Add(url);
+                                    break;
+                                case BasisMenuURLPromptPanel.RememberChoiceScope.Hostname:
+                                    BasisTrustedVideoUrls.Add(uri.Scheme + "://" + uri.Host + "/*");
+                                    break;
+                                case BasisMenuURLPromptPanel.RememberChoiceScope.Domain:
+                                    string[] parts = uri.Host.Split('.');
+                                    string domain;
+                                    if(parts.Length >= 2)
+                                    {
+                                        domain = parts[parts.Length - 2] + "." + parts[parts.Length - 1];
+                                    } else
+                                    {
+                                        domain = uri.Host;
+                                    }
+                                    BasisTrustedVideoUrls.Add(uri.Scheme + "://*." + domain + "/*");
+                                    break;
+                            }
+                        }
                         ApplyPendingUrl(url);
                     }
                 );
-
-                BasisMenuDialoguePanel dialogue = BasisMainMenu.Instance.Dialogue;
-                if (dialogue != null)
-                {
-                    PanelButton acceptAndSaveButton = PanelButton.CreateNew(dialogue.AcceptButton.transform.parent);
-                    acceptAndSaveButton.Descriptor.SetTitle("Accept & Save");
-                    acceptAndSaveButton.transform.SetSiblingIndex(dialogue.AcceptButton.transform.GetSiblingIndex() + 1);
-                    acceptAndSaveButton.OnClicked += () =>
-                    {
-                        if (handled) return;
-                        handled = true;
-                        if (hasPendingConfirmedUrl && pendingConfirmedUrl == url && pendingConfirmedUrlRequestId == requestId)
-                        {
-                            BasisTrustedVideoUrls.Add(url);
-                            ApplyPendingUrl(url);
-                        }
-                        BasisMainMenu.Instance.Dialogue = null;
-                        dialogue.ReleaseInstance();
-                    };
-                }
             }
         }
         public bool waitForFirstFrame
