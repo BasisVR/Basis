@@ -127,6 +127,7 @@ namespace Basis.BasisUI
                     ? MyAvatarTabOverride(tabGroup)
                     : SettingsProviderAvatarStats.AvatarStatsTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.downloadscache", () => SettingsProviderStorage.StorageTab(tabGroup));
+            AddLazyTab(tabGroup, "settings.tab.performancelimits", () => SettingsProviderPerformanceLimits.PerformanceLimitsTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.trustedurls", () => SettingsProviderTrustedUrls.TrustedUrlsTab(tabGroup));
           //  AddLazyTab(tabGroup, "settings.tab.uistyle", () => SettingsProviderUIStyle.UIStyleTab(tabGroup));
             AddLazyTab(tabGroup, "settings.tab.developer", () => DeveloperTab(tabGroup));

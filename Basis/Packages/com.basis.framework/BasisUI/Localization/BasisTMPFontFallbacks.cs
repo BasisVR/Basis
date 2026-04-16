@@ -81,6 +81,142 @@ namespace Basis.BasisUI
                 "Noto Sans",
                 "Roboto",
             }),
+            ("Basis Fallback - Arabic", new[]
+            {
+                // Windows 10/11 (Segoe UI ships Arabic, Tahoma/Arial too)
+                "Segoe UI",
+                "Tahoma",
+                "Arial",
+                "Traditional Arabic",
+                "Simplified Arabic",
+                "Sakkal Majalla",
+                "Arabic Typesetting",
+                // Urdu Nastaliq shaping
+                "Urdu Typesetting",
+                "Jameel Noori Nastaleeq",
+                // macOS
+                "Geeza Pro",
+                "Al Nile",
+                "Damascus",
+                "Beirut",
+                "Baghdad",
+                // Linux / Noto
+                "Noto Sans Arabic",
+                "Noto Naskh Arabic",
+                "Noto Nastaliq Urdu",
+                "Amiri",
+                "KacstBook",
+                "KacstOne",
+                // Android
+                "Droid Arabic Naskh",
+                "Droid Sans Arabic",
+            }),
+            ("Basis Fallback - Devanagari", new[]
+            {
+                // Windows 10/11
+                "Nirmala UI",
+                "Mangal",
+                "Aparajita",
+                "Kokila",
+                "Utsaah",
+                // macOS
+                "Kohinoor Devanagari",
+                "Devanagari MT",
+                "Devanagari Sangam MN",
+                "Shree Devanagari 714",
+                "ITF Devanagari",
+                // Linux / Noto
+                "Noto Sans Devanagari",
+                "Lohit Devanagari",
+                "Samyak Devanagari",
+                "FreeSans",
+                // Android
+                "Droid Sans Devanagari",
+            }),
+            ("Basis Fallback - Bengali", new[]
+            {
+                // Windows 10/11
+                "Nirmala UI",
+                "Vrinda",
+                "Shonar Bangla",
+                // macOS
+                "Kohinoor Bangla",
+                "Bangla MN",
+                "Bangla Sangam MN",
+                // Linux / Noto
+                "Noto Sans Bengali",
+                "Lohit Bengali",
+                "Mukti Narrow",
+                "FreeSans",
+                // Android
+                "Droid Sans Bengali",
+            }),
+            ("Basis Fallback - Thai", new[]
+            {
+                // Windows 10/11
+                "Leelawadee UI",
+                "Leelawadee",
+                "Tahoma",
+                "Microsoft Sans Serif",
+                "Angsana New",
+                "Cordia New",
+                // macOS
+                "Thonburi",
+                "Ayuthaya",
+                "Krungthep",
+                "Silom",
+                "Sukhumvit Set",
+                // Linux / Noto
+                "Noto Sans Thai",
+                "Garuda",
+                "Kinnari",
+                "Norasi",
+                "Loma",
+                // Android
+                "Droid Sans Thai",
+            }),
+            ("Basis Fallback - Hebrew", new[]
+            {
+                // Windows 10/11
+                "Segoe UI",
+                "Tahoma",
+                "Arial",
+                "David",
+                "Narkisim",
+                "FrankRuehl",
+                "Gisha",
+                // macOS
+                "Arial Hebrew",
+                "Lucida Grande",
+                "New Peninim MT",
+                "Corsiva Hebrew",
+                // Linux / Noto
+                "Noto Sans Hebrew",
+                "DejaVu Sans",
+                "FreeSans",
+                // Android
+                "Droid Sans Hebrew",
+            }),
+            ("Basis Fallback - Cyrillic", new[]
+            {
+                // Windows 10/11
+                "Segoe UI",
+                "Tahoma",
+                "Arial",
+                "Calibri",
+                // macOS
+                "Helvetica Neue",
+                "Helvetica",
+                "Lucida Grande",
+                // Linux / Noto
+                "DejaVu Sans",
+                "Liberation Sans",
+                "Noto Sans",
+                "FreeSans",
+                // Android
+                "Roboto",
+                "Droid Sans",
+            }),
         };
 
 #if !BASIS_DISABLE_TMP_FALLBACKS

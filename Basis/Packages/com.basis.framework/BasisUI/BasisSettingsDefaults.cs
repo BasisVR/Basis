@@ -57,6 +57,21 @@ namespace Basis.BasisUI
         /// </summary>
         public static BasisSettingsBinding<bool> EnableOSC = new("enableosc", new BasisPlatformDefault<bool>(true));
 
+        /// <summary>
+        /// User-facing toggle for face tracking. When disabled, the blendshape actuation
+        /// driving the avatar's facial expressions is held inactive even if face tracking
+        /// data is flowing, and the face tracking diagnostics panel is collapsed.
+        /// </summary>
+        public static BasisSettingsBinding<bool> EnableFaceTracking = new("enablefacetracking", new BasisPlatformDefault<bool>(true));
+
+        /// <summary>
+        /// User-facing toggle for eye tracking. When disabled, the eye tracking bone
+        /// actuation is held inactive so incoming eye parameters do not drive the avatar's
+        /// eye bones, and the eye tracking diagnostics panel is collapsed. The procedural
+        /// natural eye look keeps running.
+        /// </summary>
+        public static BasisSettingsBinding<bool> EnableEyeTracking = new("enableeyetracking", new BasisPlatformDefault<bool>(true));
+
         public static BasisSettingsBinding<float> AvatarRange = new("avatarrange", new BasisPlatformDefault<float>(25));
 
         /// <summary>
@@ -269,6 +284,79 @@ namespace Basis.BasisUI
         /// gate can be the largest of the three.
         /// </summary>
         public static BasisSettingsBinding<float> MaxConcurrentAvatarAddressables = new("maxconcurrentavataraddressables", new BasisPlatformDefault<float>(25));
+
+        // ---------------- AVATAR PERFORMANCE LIMITS ----------------
+        // Client-side safety net that inspects the pre-download metadata header on each
+        // remote avatar bundle and swaps the avatar for the fallback when any enabled
+        // limit is exceeded. Every limit ships as an opt-in pair: a Use* bool gate plus
+        // a Max* threshold. All Use* flags default to false so out-of-the-box behavior
+        // on modern hardware is unchanged — this only kicks in when the user opts in.
+        // Changing any value at runtime re-evaluates every currently-loaded remote
+        // avatar (see SMModuleAvatarPerformanceLimits).
+
+        public static BasisSettingsBinding<bool> UsePerfLimitTriangles = new("useperflimittriangles", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfTriangles = new("maxperftriangles", new BasisPlatformDefault<float>(200000));
+
+        public static BasisSettingsBinding<bool> UsePerfLimitBoundsSize = new("useperflimitboundssize", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfBoundsSize = new("maxperfboundssize", new BasisPlatformDefault<float>(10f));
+
+        // Texture memory defaults on — 512 MB is generous for a single avatar but
+        // catches the 2–4 GB outliers that trip out-of-memory on lower-end hardware.
+        public static BasisSettingsBinding<bool> UsePerfLimitTextureMemory = new("useperflimittexturememory", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfTextureMemoryMB = new("maxperftexturememorymb", new BasisPlatformDefault<float>(512));
+
+        public static BasisSettingsBinding<bool> UsePerfLimitSkinnedMeshes = new("useperflimitskinnedmeshes", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfSkinnedMeshes = new("maxperfskinnedmeshes", new BasisPlatformDefault<float>(8));
+
+        public static BasisSettingsBinding<bool> UsePerfLimitBasicMeshes = new("useperflimitbasicmeshes", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfBasicMeshes = new("maxperfbasicmeshes", new BasisPlatformDefault<float>(16));
+
+        public static BasisSettingsBinding<bool> UsePerfLimitMaterialSlots = new("useperflimitmaterialslots", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfMaterialSlots = new("maxperfmaterialslots", new BasisPlatformDefault<float>(32));
+
+        public static BasisSettingsBinding<bool> UsePerfLimitJiggleBones = new("useperflimitjigglebones", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfJiggleBones = new("maxperfjigglebones", new BasisPlatformDefault<float>(32));
+
+        public static BasisSettingsBinding<bool> UsePerfLimitJiggleColliders = new("useperflimitjigglecolliders", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfJiggleColliders = new("maxperfjigglecolliders", new BasisPlatformDefault<float>(16));
+
+        // Animators default on at 1 — extras are a common perf trap (every child
+        // Animator ticks every frame). Excess Animators are trimmed, not blocked.
+        public static BasisSettingsBinding<bool> UsePerfLimitAnimators = new("useperflimitanimators", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfAnimators = new("maxperfanimators", new BasisPlatformDefault<float>(1));
+
+        // Hard-block cap on skinned bone count. Unlike the others this one is intended
+        // as a guard rail for the genuinely bad bundles (tens of thousands of bones)
+        // rather than as a daily-driver cap, hence the high default.
+        public static BasisSettingsBinding<bool> UsePerfLimitBones = new("useperflimitbones", new BasisPlatformDefault<bool>(false));
+        public static BasisSettingsBinding<float> MaxPerfBones = new("maxperfbones", new BasisPlatformDefault<float>(4096));
+
+        // Lights default on at 0 — dynamic Light components on an avatar force an
+        // extra pass per frame; not safe at crowd scale, so trim them all by default.
+        public static BasisSettingsBinding<bool> UsePerfLimitLights = new("useperflimitlights", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfLights = new("maxperflights", new BasisPlatformDefault<float>(0));
+
+        // Particles default on at 1 — one ambient system is fine, more is a hand
+        // grenade in a crowd. Trimmed, not blocked.
+        public static BasisSettingsBinding<bool> UsePerfLimitParticleSystems = new("useperflimitparticlesystems", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfParticleSystems = new("maxperfparticlesystems", new BasisPlatformDefault<float>(1));
+
+        // Trails default on at 1.
+        public static BasisSettingsBinding<bool> UsePerfLimitTrailRenderers = new("useperflimittrailrenderers", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfTrailRenderers = new("maxperftrailrenderers", new BasisPlatformDefault<float>(1));
+
+        // Line renderers default on at 1.
+        public static BasisSettingsBinding<bool> UsePerfLimitLineRenderers = new("useperflimitlinerenderers", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfLineRenderers = new("maxperflinerenderers", new BasisPlatformDefault<float>(1));
+
+        // Cloth defaults on at 1 — Unity Cloth is CPU-expensive per instance.
+        public static BasisSettingsBinding<bool> UsePerfLimitCloth = new("useperflimitcloth", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfCloth = new("maxperfcloth", new BasisPlatformDefault<float>(1));
+
+        // Unity colliders default on at 1 — physics colliders on an avatar
+        // aren't free. Jiggle colliders are a separate limit.
+        public static BasisSettingsBinding<bool> UsePerfLimitColliders = new("useperflimitcolliders", new BasisPlatformDefault<bool>(true));
+        public static BasisSettingsBinding<float> MaxPerfColliders = new("maxperfcolliders", new BasisPlatformDefault<float>(1));
 
         public static BasisSettingsBinding<float> AvatarMeshLOD = new("avatarmeshlod", new BasisPlatformDefault<float>
         {
@@ -785,6 +873,8 @@ namespace Basis.BasisUI
             SitStand.LoadBindingValue();
             EnableFBT.LoadBindingValue();
             EnableOSC.LoadBindingValue();
+            EnableFaceTracking.LoadBindingValue();
+            EnableEyeTracking.LoadBindingValue();
 
             // Rendering / Graphics
             QualityLevel.LoadBindingValue();

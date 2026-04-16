@@ -97,7 +97,11 @@ namespace Basis.Scripts.Drivers
             // This enables direct bone transform writes (no SetHumanPose needed).
             CaptureReceiverBoneData(RemotePlayer);
 
-            // Initialize any jiggle rigs
+            // Initialize any jiggle rigs. Performance-limit enforcement lives in
+            // BasisAvatarPerformanceLimits.TrimExcessComponents (called earlier by
+            // BasisAvatarFactory.InitializePlayerAvatar), so by the time we get
+            // here the tree has already been trimmed to the allowed count — this
+            // loop just wires up whatever's left.
             var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
             int length = JiggleRigs.Length;
             for (int Index = 0; Index < length; Index++)

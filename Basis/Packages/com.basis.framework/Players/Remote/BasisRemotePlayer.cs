@@ -164,7 +164,51 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool TempBlocked;
 
         /// <summary>
+        /// Client-side performance gate: set when the avatar's metadata header tripped
+        /// one of the user's configured performance limits in
+        /// <see cref="Basis.Scripts.Avatar.BasisAvatarPerformanceLimits"/>. Unlike
+        /// <see cref="IsBlocked"/> this is automatically cleared when the user relaxes
+        /// the relevant limit (the settings bridge reloads the avatar). Not persisted.
+        /// </summary>
+        [System.NonSerialized]
+        public bool IsBlockedByPerformance;
+
+        /// <summary>
+        /// Human-readable reason string for the current performance block
+        /// (e.g. "Exceeds triangles limit (250k > 200k)"). Null when not blocked.
+        /// Drives nameplate / info panel messaging.
+        /// </summary>
+        [System.NonSerialized]
+        public string PerformanceBlockReason;
+
+        /// <summary>
+        /// Full per-player result of the last avatar performance pass — hard-block
+        /// status plus counts of components destroyed by each trim category. Filled
+        /// in after every successful load by <see cref="Basis.Scripts.Avatar.BasisAvatarFactory"/>
+        /// (trim categories) and <see cref="Basis.Scripts.Drivers.BasisRemoteAvatarDriver"/>
+        /// (jiggle rig ingestion). Read by the individual player menu so the local
+        /// user can see exactly what the filter did to this specific remote avatar.
+        /// </summary>
+        [System.NonSerialized]
+        public Basis.Scripts.Avatar.BasisAvatarPerformanceLimits.PerformanceInfo LastPerformanceInfo;
+
+        /// <summary>
+        /// Per-player override that tells the avatar performance filter to treat this
+        /// remote as if no limits were enabled. Set from the individual-player menu
+        /// so the local user can look at a specific avatar at full fidelity without
+        /// touching their global caps or the session-wide
+        /// <see cref="Basis.Scripts.Avatar.BasisAvatarPerformanceLimits.BypassAllLimits"/>
+        /// toggle. Deliberately <see cref="System.NonSerializedAttribute"/> — resets
+        /// to false every launch, every reconnect, and every fresh player join, so
+        /// there's no accidental "I forgot I disabled the filter for Alice".
+        /// </summary>
+        [System.NonSerialized]
+        public bool BypassPerformanceLimits;
+
+        /// <summary>
         /// Effective block state: local persisted block OR remote session temp block.
+        /// Performance blocks are deliberately not folded in here because they don't
+        /// hide the player entirely — only swap the avatar mesh for the fallback.
         /// </summary>
         public bool IsEffectivelyBlocked => IsBlocked || TempBlocked;
 
@@ -324,7 +368,31 @@ namespace Basis.Scripts.BasisSdk.Players
 
                 bool effectivelyBlocked = IsEffectivelyBlocked;
 
-                if (BasisPlayerSettingsData.AvatarVisible && !effectivelyBlocked && InAvatarRange && !HasFailedAvatarLoadGlobally)
+                // Pre-load performance gate. Inspect the metadata header and refuse to
+                // download/instantiate avatars that exceed any enabled limit. Skipped
+                // for the fallback/loading avatar itself — otherwise a silly MaxBones=0
+                // setting would block the fallback and leave the player headless.
+                // Also skipped when this player has the per-player session bypass
+                // enabled from the individual-player menu.
+                BasisAvatarPerformanceLimits.Result perfResult =
+                    (BasisAvatarFactory.IsLoadingAvatar(BasisLoadableBundle) || BypassPerformanceLimits)
+                        ? BasisAvatarPerformanceLimits.Result.Pass
+                        : BasisAvatarPerformanceLimits.Evaluate(BasisLoadableBundle.BasisBundleConnector);
+                IsBlockedByPerformance = perfResult.Blocked;
+                PerformanceBlockReason = perfResult.Blocked ? perfResult.Reason : null;
+
+                // Reset the per-player performance report for this load. Trim counts
+                // and jiggle ingestion stats are filled in later by BasisAvatarFactory
+                // and BasisRemoteAvatarDriver respectively. We record the hard-block
+                // result here so the individual-player menu has something to show even
+                // if the avatar never makes it past the Evaluate gate.
+                LastPerformanceInfo = new BasisAvatarPerformanceLimits.PerformanceInfo
+                {
+                    Blocked = perfResult.Blocked,
+                    BlockReason = perfResult.Reason,
+                };
+
+                if (BasisPlayerSettingsData.AvatarVisible && !effectivelyBlocked && !IsBlockedByPerformance && InAvatarRange && !HasFailedAvatarLoadGlobally)
                 {
                     await BasisAvatarFactory.LoadAvatarRemote(this, Mode, BasisLoadableBundle, Vector3.zero, Quaternion.identity);
                 }
@@ -354,7 +422,10 @@ namespace Basis.Scripts.BasisSdk.Players
             // always fire since blocked players never advance past the fallback branch).
             // Same reasoning applies to HasFailedAvatarLoadGlobally: once we've given up,
             // the player is pinned to the fallback until the user manually toggles them.
-            if (IsEffectivelyBlocked || HasFailedAvatarLoadGlobally)
+            // Performance-blocked players are also pinned to the fallback until the user
+            // relaxes the relevant limit, at which point SMModuleAvatarPerformanceLimits
+            // reloads them directly.
+            if (IsEffectivelyBlocked || HasFailedAvatarLoadGlobally || IsBlockedByPerformance)
             {
                 return;
             }

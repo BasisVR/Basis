@@ -22,43 +22,101 @@ namespace HVR.Basis.Comms
 
             RectTransform container = descriptor.ContentParent;
 
-            // ── Face Tracking Status ──
-            PanelElementDescriptor statusGroup =
+            // ── Tracking Master Switches ──
+            PanelElementDescriptor trackingTogglesGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            statusGroup.SetTitle("Face Tracking");
-            statusGroup.SetDescription("Live state of the face tracking pipeline. Press Refresh to poll current values.");
+            trackingTogglesGroup.SetTitle("Tracking");
+            trackingTogglesGroup.SetDescription("Enable or disable face tracking and eye tracking on your avatar. Turning a feature off also collapses its diagnostics panel.");
 
-            PanelButton refreshButton = PanelButton.CreateNew(statusGroup.ContentParent);
-            refreshButton.Descriptor.SetTitle("Refresh");
-            refreshButton.Descriptor.SetDescription("Poll the current face tracking state from all components.");
+            PanelToggle toggleFaceTracking = PanelToggle.CreateNewEntry(trackingTogglesGroup.ContentParent);
+            toggleFaceTracking.Descriptor.SetTitle("Face Tracking");
+            toggleFaceTracking.Descriptor.SetDescription("Drive your avatar's facial blendshapes from face tracking data.");
+            toggleFaceTracking.AssignBinding(BasisSettingsDefaults.EnableFaceTracking);
 
-            var fieldFTActive = CreateInfoField(statusGroup.ContentParent, "Face Tracking Active", "...");
-            var fieldOSC = CreateInfoField(statusGroup.ContentParent, "OSC Acquisition", "...");
-            var fieldBlendshapeActive = CreateInfoField(statusGroup.ContentParent, "Blendshape Tracking", "...");
-            var fieldActuatedAddresses = CreateInfoField(statusGroup.ContentParent, "Actuated Addresses", "...");
+            PanelToggle toggleEyeTracking = PanelToggle.CreateNewEntry(trackingTogglesGroup.ContentParent);
+            toggleEyeTracking.Descriptor.SetTitle("Eye Tracking");
+            toggleEyeTracking.Descriptor.SetDescription("Drive your avatar's eye bones from eye tracking data. The natural eye look keeps running when disabled.");
+            toggleEyeTracking.AssignBinding(BasisSettingsDefaults.EnableEyeTracking);
 
-            // ── Eye Tracking ──
-            PanelElementDescriptor eyeGroup =
-                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            eyeGroup.SetTitle("Eye Tracking");
-            eyeGroup.SetDescription("State of the eye tracking bone actuation and the natural eye driver.");
+            // ── Collapsible Face Tracking Status ──
+            PanelElementDescriptor faceTrackingSection = null;
+            void CreateFaceTrackingSection()
+            {
+                faceTrackingSection = PanelElementDescriptor.CreateNew(
+                    PanelElementDescriptor.ElementStyles.Group, container);
+                faceTrackingSection.SetTitle("Face Tracking");
+                faceTrackingSection.SetDescription("Live state of the face tracking pipeline. Press Refresh to poll current values.");
 
-            var fieldEyeOverride = CreateInfoField(eyeGroup.ContentParent, "Eye Override", "...");
-            var fieldEyeDriverEnabled = CreateInfoField(eyeGroup.ContentParent, "Eye Driver Enabled", "...");
-            var fieldEyeParamsActive = CreateInfoField(eyeGroup.ContentParent, "Eye Params Active", "...");
-            var fieldEyeLeftX = CreateInfoField(eyeGroup.ContentParent, "Eye Left X", "...");
-            var fieldEyeRightX = CreateInfoField(eyeGroup.ContentParent, "Eye Right X", "...");
-            var fieldEyeY = CreateInfoField(eyeGroup.ContentParent, "Eye Y", "...");
+                PanelButton refreshButton = PanelButton.CreateNew(faceTrackingSection.ContentParent);
+                refreshButton.Descriptor.SetTitle("Refresh");
+                refreshButton.Descriptor.SetDescription("Poll the current face tracking state from all components.");
 
-            refreshButton.OnClicked += () => RefreshState(
-                fieldFTActive, fieldOSC, fieldBlendshapeActive, fieldActuatedAddresses,
-                fieldEyeOverride, fieldEyeDriverEnabled, fieldEyeParamsActive,
-                fieldEyeLeftX, fieldEyeRightX, fieldEyeY);
+                var fieldFTActive = CreateInfoField(faceTrackingSection.ContentParent, "Face Tracking Active", "...");
+                var fieldOSC = CreateInfoField(faceTrackingSection.ContentParent, "OSC Acquisition", "...");
+                var fieldBlendshapeActive = CreateInfoField(faceTrackingSection.ContentParent, "Blendshape Tracking", "...");
+                var fieldActuatedAddresses = CreateInfoField(faceTrackingSection.ContentParent, "Actuated Addresses", "...");
 
-            RefreshState(
-                fieldFTActive, fieldOSC, fieldBlendshapeActive, fieldActuatedAddresses,
-                fieldEyeOverride, fieldEyeDriverEnabled, fieldEyeParamsActive,
-                fieldEyeLeftX, fieldEyeRightX, fieldEyeY);
+                void Refresh() => RefreshFaceState(fieldFTActive, fieldOSC, fieldBlendshapeActive, fieldActuatedAddresses);
+                refreshButton.OnClicked += Refresh;
+                Refresh();
+            }
+
+            if (BasisSettingsDefaults.EnableFaceTracking.RawValue)
+            {
+                CreateFaceTrackingSection();
+            }
+
+            toggleFaceTracking.OnValueChanged += on =>
+            {
+                if (faceTrackingSection != null)
+                {
+                    Object.Destroy(faceTrackingSection.gameObject);
+                    faceTrackingSection = null;
+                }
+                if (on) CreateFaceTrackingSection();
+            };
+
+            // ── Collapsible Eye Tracking Status ──
+            PanelElementDescriptor eyeTrackingSection = null;
+            void CreateEyeTrackingSection()
+            {
+                eyeTrackingSection = PanelElementDescriptor.CreateNew(
+                    PanelElementDescriptor.ElementStyles.Group, container);
+                eyeTrackingSection.SetTitle("Eye Tracking");
+                eyeTrackingSection.SetDescription("State of the eye tracking bone actuation and the natural eye driver.");
+
+                PanelButton refreshButton = PanelButton.CreateNew(eyeTrackingSection.ContentParent);
+                refreshButton.Descriptor.SetTitle("Refresh");
+                refreshButton.Descriptor.SetDescription("Poll the current eye tracking state from all components.");
+
+                var fieldEyeOverride = CreateInfoField(eyeTrackingSection.ContentParent, "Eye Override", "...");
+                var fieldEyeDriverEnabled = CreateInfoField(eyeTrackingSection.ContentParent, "Eye Driver Enabled", "...");
+                var fieldEyeParamsActive = CreateInfoField(eyeTrackingSection.ContentParent, "Eye Params Active", "...");
+                var fieldEyeLeftX = CreateInfoField(eyeTrackingSection.ContentParent, "Eye Left X", "...");
+                var fieldEyeRightX = CreateInfoField(eyeTrackingSection.ContentParent, "Eye Right X", "...");
+                var fieldEyeY = CreateInfoField(eyeTrackingSection.ContentParent, "Eye Y", "...");
+
+                void Refresh() => RefreshEyeState(
+                    fieldEyeOverride, fieldEyeDriverEnabled, fieldEyeParamsActive,
+                    fieldEyeLeftX, fieldEyeRightX, fieldEyeY);
+                refreshButton.OnClicked += Refresh;
+                Refresh();
+            }
+
+            if (BasisSettingsDefaults.EnableEyeTracking.RawValue)
+            {
+                CreateEyeTrackingSection();
+            }
+
+            toggleEyeTracking.OnValueChanged += on =>
+            {
+                if (eyeTrackingSection != null)
+                {
+                    Object.Destroy(eyeTrackingSection.gameObject);
+                    eyeTrackingSection = null;
+                }
+                if (on) CreateEyeTrackingSection();
+            };
 
             // ── Section Toggles ──
             PanelElementDescriptor sectionTogglesGroup =
@@ -131,28 +189,20 @@ namespace HVR.Basis.Comms
             return tab;
         }
 
-        static void RefreshState(
+        static void RefreshFaceState(
             PanelElementDescriptor ftActive,
             PanelElementDescriptor oscAcquisition,
             PanelElementDescriptor blendshapeActive,
-            PanelElementDescriptor actuatedAddresses,
-            PanelElementDescriptor eyeOverride,
-            PanelElementDescriptor eyeDriverEnabled,
-            PanelElementDescriptor eyeParamsActive,
-            PanelElementDescriptor eyeLeftX,
-            PanelElementDescriptor eyeRightX,
-            PanelElementDescriptor eyeY)
+            PanelElementDescriptor actuatedAddresses)
         {
             BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;
             var avatar = localPlayer != null ? localPlayer.BasisAvatar : null;
 
-            // Face tracking activity relay
             FaceTrackingActivityRelay relay = avatar != null
                 ? avatar.GetComponentInChildren<FaceTrackingActivityRelay>(true)
                 : null;
             ftActive.SetDescription(relay != null ? relay.IsTrackingActive.ToString() : "No relay found");
 
-            // OSC acquisition
             OSCAcquisition oscAcq = avatar != null
                 ? avatar.GetComponentInChildren<OSCAcquisition>(true)
                 : null;
@@ -161,7 +211,6 @@ namespace HVR.Basis.Comms
             else
                 oscAcquisition.SetDescription("No component");
 
-            // Blendshape actuation
             BlendshapeActuation blendshape = avatar != null
                 ? avatar.GetComponentInChildren<BlendshapeActuation>(true)
                 : null;
@@ -176,12 +225,22 @@ namespace HVR.Basis.Comms
                 blendshapeActive.SetDescription("No component");
                 actuatedAddresses.SetDescription("--");
             }
+        }
 
-            // Eye driver statics
+        static void RefreshEyeState(
+            PanelElementDescriptor eyeOverride,
+            PanelElementDescriptor eyeDriverEnabled,
+            PanelElementDescriptor eyeParamsActive,
+            PanelElementDescriptor eyeLeftX,
+            PanelElementDescriptor eyeRightX,
+            PanelElementDescriptor eyeY)
+        {
+            BasisLocalPlayer localPlayer = BasisLocalPlayer.Instance;
+            var avatar = localPlayer != null ? localPlayer.BasisAvatar : null;
+
             eyeOverride.SetDescription(BasisLocalEyeDriver.Override.ToString());
             eyeDriverEnabled.SetDescription(BasisLocalEyeDriver.IsEnabled.ToString());
 
-            // Eye tracking bone actuation
             EyeTrackingBoneActuation eyeActuation = avatar != null
                 ? avatar.GetComponentInChildren<EyeTrackingBoneActuation>(true)
                 : null;

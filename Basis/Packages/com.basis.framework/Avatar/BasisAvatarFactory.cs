@@ -329,12 +329,32 @@ namespace Basis.Scripts.Avatar
         }
 
         /// <summary>
-        /// Initializes a player's avatar with the given prefab instance.
+        /// Initializes a player's avatar with the given prefab instance. For non-local
+        /// avatars, runs the performance-limit trim pass before setup so excess
+        /// components are gone before the avatar driver caches renderer/component
+        /// references. The resulting trim counts are stashed on the remote player so
+        /// the individual-player menu can show exactly what got removed.
         /// </summary>
         private static void InitializePlayerAvatar(BasisPlayer Player, GameObject Output)
         {
             if (Output.TryGetComponent(out BasisAvatar avatar))
             {
+                if (!Player.IsLocal && Player is BasisRemotePlayer remote)
+                {
+                    // Per-player session bypass short-circuits the trim entirely,
+                    // mirroring the Evaluate skip in BasisRemotePlayer.CreateAvatar.
+                    // Leaving LastPerformanceInfo at its freshly-reset default lets
+                    // the UI show a clean "no filter applied" state for this player.
+                    var trimInfo = remote.BypassPerformanceLimits
+                        ? default(BasisAvatarPerformanceLimits.PerformanceInfo)
+                        : BasisAvatarPerformanceLimits.TrimExcessComponents(Output);
+
+                    // Only the success path (non-blocked, non-fallback) reaches here,
+                    // so CreateAvatar's freshly-reset LastPerformanceInfo has Blocked
+                    // = false and all counts = 0. Overwrite with the trim result; the
+                    // jiggle rig count is written later by RemoteCalibration.
+                    remote.LastPerformanceInfo = trimInfo;
+                }
                 SetupPlayerAvatar(Player, avatar, isFallback: false);
             }
         }

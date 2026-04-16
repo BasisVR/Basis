@@ -15,7 +15,14 @@ namespace Basis.BasisUI
         Meters,
         Degrees,
         percentageFromZero,
-        MemorySize
+        MemorySize,
+        /// <summary>
+        /// SI-style short form: 1k / 10k / 32.5k / 1.2M. Decimals are only shown
+        /// when the scaled value isn't a whole number, so clean round values stay
+        /// clean. Intended for large integer sliders like triangle / bone counts
+        /// where "2000000" is unreadable but "2M" is obvious at a glance.
+        /// </summary>
+        Compact
     }
 
     public class PanelSlider : PanelDataComponent<float>, IPointerDownHandler, IPointerUpHandler
@@ -350,6 +357,9 @@ namespace Basis.BasisUI
                 case ValueDisplayMode.MemorySize:
                     next = FormatMemorySize(Value * 1024 * 1024, Settings.DecimalPlaces);
                     break;
+                case ValueDisplayMode.Compact:
+                    next = FormatCompact(Value);
+                    break;
                 default:
                     return;
             }
@@ -375,6 +385,29 @@ namespace Basis.BasisUI
             }
 
             return bytes.ToString($"0.{new string('#', decimalPlaces)}") + " " + units[unitIndex];
+        }
+
+        /// <summary>
+        /// SI-style short number (<c>Compact</c> display mode).
+        ///   < 1000        → plain integer
+        ///   1k – 999k     → "1k" / "32.5k" (one decimal only when non-zero)
+        ///   &gt;= 1M      → "1M" / "2.5M"
+        /// Negative values are formatted the same way with a leading minus.
+        /// </summary>
+        private static string FormatCompact(float value)
+        {
+            float abs = Mathf.Abs(value);
+            if (abs >= 1_000_000f)
+            {
+                float scaled = value / 1_000_000f;
+                return scaled.ToString(scaled % 1f == 0f ? "0" : "0.#", CultureInfo.InvariantCulture) + "M";
+            }
+            if (abs >= 1000f)
+            {
+                float scaled = value / 1000f;
+                return scaled.ToString(scaled % 1f == 0f ? "0" : "0.#", CultureInfo.InvariantCulture) + "k";
+            }
+            return value.ToString("0", CultureInfo.InvariantCulture);
         }
     }
 }
