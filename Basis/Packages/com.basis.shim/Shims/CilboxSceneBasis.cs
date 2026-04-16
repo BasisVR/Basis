@@ -135,7 +135,10 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
-			"UnityEngine.Quaternion*",
+			"UnityEngine.Quaternion.x",
+			"UnityEngine.Quaternion.y",
+			"UnityEngine.Quaternion.z",
+			"UnityEngine.Quaternion.w",
 
 			// System fields
 			"System.Array.*",

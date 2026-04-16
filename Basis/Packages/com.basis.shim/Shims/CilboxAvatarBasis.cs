@@ -130,8 +130,6 @@ namespace Cilbox
 			"Basis.Shims.BasisAvatarShim.laughterBlendTarget",
 			"Basis.Shims.BasisAvatarShim.AnimatorHumanScale",
 			"Basis.Shims.BasisAvatarShim.IsOwnedLocally",
-			"Basis.Shims.BasisAvatarShim.Renders",
-			"Basis.Shims.BasisAvatarShim.ProcessingAvatarOptions",
 			"Basis.Shims.BasisAvatarShim.HumanScale",
 			"Basis.Scripts.BasisSdk.BasisProcessingAvatarOptions.doNotAutoRenameBones",
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",

@@ -147,7 +147,7 @@ namespace Basis.Shims
             return avatar.TryGetLinkedPlayer(out Id);
         }
 
-        public void NotifyAvatarReady(bool isOwner)
+        private void NotifyAvatarReady(bool isOwner)
         {
             if (avatar == null)
             {
