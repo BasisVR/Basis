@@ -9,7 +9,8 @@
         "Cilbox",
         "BasisSDK",
         "Basis Framework",
-        "BasisSDKEditor"
+        "BasisSDKEditor",
+        "HVR.Basis.Comms"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

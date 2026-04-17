@@ -102,6 +102,8 @@
         <type fullname="UnityEngine.UI.Toggle+ToggleEvent" preserve="all"/>
     </assembly>
     <assembly fullname="BasisShims">
+        <type fullname="Basis.Shims.BasisOscShim" preserve="all"/>
+        <type fullname="Basis.Shims.BasisOscShim+OscMessageEvent" preserve="all"/>
         <type fullname="Basis.BasisImageDownloader" preserve="all"/>
         <type fullname="Basis.BasisInteractableShim" preserve="all"/>
         <type fullname="Basis.BasisInteractableShim+ClickEvent" preserve="all"/>
@@ -115,6 +117,11 @@
         <type fullname="Basis.BasisUrl" preserve="all"/>
         <type fullname="Basis.IBasisImageDownload" preserve="all"/>
         <type fullname="Basis.SafeUtil" preserve="all"/>
+    </assembly>
+    <assembly fullname="HVR.Basis.Comms">
+        <type fullname="HVR.Basis.Comms.OSC.OscData" preserve="all"/>
+        <type fullname="HVR.Basis.Comms.OSC.OscDataKind" preserve="all"/>
+        <type fullname="HVR.Basis.Comms.OSC.OscMessage" preserve="all"/>
     </assembly>
     <assembly fullname="Basis Framework">
         <type fullname="Basis.BasisNetworkBehaviour" preserve="all"/>

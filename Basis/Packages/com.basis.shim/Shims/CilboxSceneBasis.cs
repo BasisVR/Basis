@@ -27,6 +27,9 @@ namespace Cilbox
 			"BasisNetworkCommon+EventTiming",
 			"BasisSDKMirror",
 			"BasisSDKMirror+MirrorClearFlags",
+			"HVR.Basis.Comms.OSC.OscData",
+			"HVR.Basis.Comms.OSC.OscDataKind",
+			"HVR.Basis.Comms.OSC.OscMessage",
 			"Basis.Shims.*",
 
 			// Cilbox types

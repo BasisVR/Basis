@@ -23,6 +23,9 @@ namespace Cilbox
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
+			"HVR.Basis.Comms.OSC.OscData",
+			"HVR.Basis.Comms.OSC.OscDataKind",
+			"HVR.Basis.Comms.OSC.OscMessage",
 			"Basis.Shims.*",
 
 			// Cilbox types

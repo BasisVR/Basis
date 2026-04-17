@@ -23,11 +23,16 @@ namespace Cilbox
 			"Basis.SafeUtil",
 			"Basis.Scripts.BasisSdk.Players.BasisLocalPlayer",
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
+			"HVR.Basis.Comms.OSC.OscData",
+			"HVR.Basis.Comms.OSC.OscDataKind",
+			"HVR.Basis.Comms.OSC.OscMessage",
 			"Basis.Shims.BasisNet*", // Restrictive, only used as a type and for events.
 			"Basis.Shims.BasisAvatarShim",
 			"Basis.Shims.BasisAvatarShim+OnReady",
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
 			"Basis.Shims.BasisCilboxInstantiateShim", // Restrictive, only used as a type and for Instantiate methods.
+			"Basis.Shims.BasisOscShim",
+			"Basis.Shims.BasisOscShim+OscMessageEvent",
 			"Basis.Shims.BasisDebugPropsShim", // Restrictive, only used as a type and for logging methods.
 
 			// Cilbox types

@@ -9,16 +9,14 @@ namespace HVR.Osushi
 {
     internal class OsushiQuery
     {
-        private readonly string _root;
-        private readonly string _avtr;
+        private readonly Func<string, string> _responseResolver;
         private bool _isStarted;
         private ServiceDiscovery _serviceDiscovery;
         private Thread _httpThread;
 
-        public OsushiQuery(string root, string avtr)
+        public OsushiQuery(Func<string, string> responseResolver)
         {
-            _root = root;
-            _avtr = avtr;
+            _responseResolver = responseResolver;
         }
 
         public void Start()
@@ -33,7 +31,7 @@ namespace HVR.Osushi
             {
                 try
                 {
-                    StartHttpServer(httpPort, _root, _avtr);
+                    StartHttpServer(httpPort, _responseResolver);
                 }
                 catch (ThreadAbortException)
                 {
@@ -95,7 +93,7 @@ namespace HVR.Osushi
             return port;
         }
 
-        static void StartHttpServer(int port, string root, string avtr)
+        static void StartHttpServer(int port, Func<string, string> responseResolver)
         {
             if (!HttpListener.IsSupported)
             {
@@ -117,7 +115,7 @@ namespace HVR.Osushi
                     BasisDebug.Log($"HTTP request: {ctx.Request.RawUrl}", BasisDebug.LogTag.LocalNetwork);
 
                     var res = ctx.Response;
-                    var json = ctx.Request.RawUrl.EndsWith("/avatar") ? avtr : root;
+                    var json = responseResolver(ctx.Request.RawUrl);
                     var buffer = Encoding.UTF8.GetBytes(json);
                     res.ContentType = "application/json";
                     res.ContentLength64 = buffer.Length;

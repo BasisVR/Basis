@@ -1,0 +1,433 @@
+using System.Collections.Concurrent;
+using System.Collections;
+using System.Reflection;
+using Basis.Shims;
+using Basis.Scripts.BasisSdk;
+using Cilbox;
+using HVR.Basis.Comms;
+using HVR.Basis.Comms.OSC;
+using HVR.Basis.Comms.OSC.Lyuma;
+using NUnit.Framework;
+using UnityEngine;
+using Object = UnityEngine.Object;
+
+namespace HVR.Basis.Comms.Tests
+{
+    public class OscBridgeTests
+    {
+        [Test]
+        public void SimpleOsc_EncodesAndDecodes_SymbolAndMidi()
+        {
+            byte[] buffer = new byte[1024];
+            int offset = 0;
+            SimpleOSC.OSCMessage outbound = new SimpleOSC.OSCMessage
+            {
+                path = "/test",
+                arguments = new object[]
+                {
+                    new SimpleOSC.OSCSymbol { value = "symbolic" },
+                    new SimpleOSC.OSCMidi { port = 1, status = 2, data1 = 3, data2 = 4 },
+                }
+            };
+
+            SimpleOSC.EncodeOSCInto(buffer, ref offset, outbound);
+
+            ConcurrentQueue<SimpleOSC.OSCMessage> queue = new ConcurrentQueue<SimpleOSC.OSCMessage>();
+            SimpleOSC.DecodeOSCInto(queue, buffer, 0, offset);
+
+            Assert.That(queue.TryDequeue(out SimpleOSC.OSCMessage inbound), Is.True);
+            Assert.That(inbound.typeTag, Is.EqualTo(",Sm"));
+            Assert.That(((SimpleOSC.OSCSymbol)inbound.arguments[0]).value, Is.EqualTo("symbolic"));
+
+            SimpleOSC.OSCMidi midi = (SimpleOSC.OSCMidi)inbound.arguments[1];
+            Assert.That(midi.port, Is.EqualTo(1));
+            Assert.That(midi.status, Is.EqualTo(2));
+            Assert.That(midi.data1, Is.EqualTo(3));
+            Assert.That(midi.data2, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void OscMessage_ConvertsAllSupportedDataKinds()
+        {
+            SimpleOSC.OSCMessage raw = new SimpleOSC.OSCMessage
+            {
+                path = "/avatar/parameters/Test",
+                typeTag = ",TFNiftsSbrhdcm[is]I",
+                arguments = new object[]
+                {
+                    true,
+                    false,
+                    null,
+                    7,
+                    2.5f,
+                    new SimpleOSC.TimeTag { secs = 1, nsecs = 2 },
+                    "text",
+                    new SimpleOSC.OSCSymbol { value = "symbol" },
+                    new byte[] { 9, 8 },
+                    new SimpleOSC.OSCColor { r = 1, g = 2, b = 3, a = 4 },
+                    99L,
+                    10.5d,
+                    (uint)65,
+                    new SimpleOSC.OSCMidi { port = 5, status = 6, data1 = 7, data2 = 8 },
+                    new object[] { 3, "nested" },
+                    SimpleOSC.Impulse.IMPULSE,
+                }
+            };
+
+            OscMessage message = OscMessage.FromRaw(raw);
+
+            Assert.That(message.Path, Is.EqualTo("/avatar/parameters/Test"));
+            Assert.That(message.NormalizedPath, Is.EqualTo("Test"));
+            Assert.That(message.Arguments.Length, Is.EqualTo(16));
+            Assert.That(message.Arguments[0].Kind, Is.EqualTo(OscDataKind.Boolean));
+            Assert.That(message.Arguments[1].Kind, Is.EqualTo(OscDataKind.Boolean));
+            Assert.That(message.Arguments[2].Kind, Is.EqualTo(OscDataKind.Nil));
+            Assert.That(message.Arguments[3].Kind, Is.EqualTo(OscDataKind.Int32));
+            Assert.That(message.Arguments[4].Kind, Is.EqualTo(OscDataKind.Float32));
+            Assert.That(message.Arguments[5].Kind, Is.EqualTo(OscDataKind.TimeTag));
+            Assert.That(message.Arguments[6].Kind, Is.EqualTo(OscDataKind.String));
+            Assert.That(message.Arguments[7].Kind, Is.EqualTo(OscDataKind.Symbol));
+            Assert.That(message.Arguments[8].Kind, Is.EqualTo(OscDataKind.Blob));
+            Assert.That(message.Arguments[9].Kind, Is.EqualTo(OscDataKind.Color));
+            Assert.That(message.Arguments[10].Kind, Is.EqualTo(OscDataKind.Int64));
+            Assert.That(message.Arguments[11].Kind, Is.EqualTo(OscDataKind.Float64));
+            Assert.That(message.Arguments[12].Kind, Is.EqualTo(OscDataKind.Char));
+            Assert.That(message.Arguments[13].Kind, Is.EqualTo(OscDataKind.Midi));
+            Assert.That(message.Arguments[14].Kind, Is.EqualTo(OscDataKind.Array));
+            Assert.That(message.Arguments[15].Kind, Is.EqualTo(OscDataKind.Impulse));
+            Assert.That(message.Arguments[14].Elements[1].StringValue, Is.EqualTo("nested"));
+        }
+
+        [Test]
+        public void BasisOscShim_FiltersExactAndPrefixSubscriptions()
+        {
+            GameObject go = new GameObject("OscShimTest");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.Subscribe("/exact");
+                shim.SubscribePrefix("/prefix/");
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/nope", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/exact", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/prefix/value", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(2));
+
+                shim.enabled = false;
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/exact", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_NormalizesAvatarParameterSubscriptions()
+        {
+            GameObject go = new GameObject("OscShimNormalizeTest");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.Subscribe("Face/Smile");
+                shim.SubscribePrefix("FT/");
+
+                Assert.That(shim.IsSubscribed("/avatar/parameters/Face/Smile"), Is.True);
+                Assert.That(shim.IsPrefixSubscribed("/avatar/parameters/FT/"), Is.True);
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void CilboxWhitelists_AllowDirectOscTypes()
+        {
+            Assert.That(new CilboxSceneBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscMessage"), Is.True);
+            Assert.That(new CilboxPropBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscData"), Is.True);
+            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscDataKind"), Is.True);
+            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim"), Is.True);
+        }
+
+        [Test]
+        public void BasisOscService_PublishesValuesIntoNodeMap()
+        {
+            DestroySceneInstance();
+            BasisOscService.PublishValues("Custom/TestNode", new[]
+            {
+                OscData.Float32(0.5f),
+                OscData.String("hello"),
+            });
+
+            System.Type serverType = GetServerType();
+            Assert.That(serverType, Is.Not.Null);
+
+            FieldInfo sceneInstanceField = GetSceneInstanceField(serverType);
+            Assert.That(sceneInstanceField, Is.Not.Null);
+
+            MonoBehaviour sceneInstance = (MonoBehaviour)sceneInstanceField.GetValue(null);
+            Assert.That(sceneInstance, Is.Not.Null);
+
+            try
+            {
+                FieldInfo rootField = serverType.GetField("_oscQueryRoot", BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.That(rootField, Is.Not.Null);
+                object rootNode = rootField.GetValue(sceneInstance);
+                Assert.That(rootNode, Is.Not.Null);
+
+                object leaf = ResolveNode(rootNode, "avatar", "parameters", "Custom", "TestNode");
+                Assert.That(leaf, Is.Not.Null);
+
+                System.Type nodeType = leaf.GetType();
+                Assert.That((string)nodeType.GetField("FULL_PATH").GetValue(leaf), Is.EqualTo("/avatar/parameters/Custom/TestNode"));
+                Assert.That((string)nodeType.GetField("TYPE").GetValue(leaf), Is.EqualTo(",fs"));
+
+                IList values = (IList)nodeType.GetField("VALUE").GetValue(leaf);
+                Assert.That(values.Count, Is.EqualTo(2));
+                Assert.That(values[0], Is.EqualTo(0.5f));
+                Assert.That(values[1], Is.EqualTo("hello"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(sceneInstance.gameObject);
+                sceneInstanceField.SetValue(null, null);
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_LocalAvatarPublishesIntoAvatarNamespace()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("AvatarPublisher");
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = true;
+
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                shim.PublishValue("Face/Smile", OscData.Float32(1f));
+
+                object leaf = ResolveNode(GetQueryRoot(), "avatar", "parameters", "Face", "Smile");
+                Assert.That(leaf, Is.Not.Null);
+                Assert.That((string)leaf.GetType().GetField("FULL_PATH").GetValue(leaf), Is.EqualTo("/avatar/parameters/Face/Smile"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_RemoteAvatarDoesNotPublish()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("RemoteAvatarPublisher");
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                shim.PublishValue("Blocked", OscData.Float32(1f));
+
+                Assert.That(GetSceneInstanceField(GetServerType()).GetValue(null), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_PropPublishesWithInstanceScopedPath()
+        {
+            DestroySceneInstance();
+            GameObject goA = new GameObject("Prop");
+            GameObject goB = new GameObject("Prop");
+
+            try
+            {
+                BasisProp propA = goA.AddComponent<BasisProp>();
+                propA.AssignNetworkGUIDIdentifier("prop-one");
+                BasisOscShim shimA = goA.AddComponent<BasisOscShim>();
+
+                BasisProp propB = goB.AddComponent<BasisProp>();
+                propB.AssignNetworkGUIDIdentifier("prop-two");
+                BasisOscShim shimB = goB.AddComponent<BasisOscShim>();
+
+                shimA.PublishValue("Status", OscData.String("alpha"));
+                shimB.PublishValue("Status", OscData.String("beta"));
+
+                object leafA = ResolveNode(GetQueryRoot(), "prop", "prop-one", "parameters", "Status");
+                object leafB = ResolveNode(GetQueryRoot(), "prop", "prop-two", "parameters", "Status");
+
+                Assert.That(leafA, Is.Not.Null);
+                Assert.That(leafB, Is.Not.Null);
+                Assert.That(leafA, Is.Not.SameAs(leafB));
+            }
+            finally
+            {
+                Object.DestroyImmediate(goA);
+                Object.DestroyImmediate(goB);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_ScenePublishesWithScopedPath_AndQueryBranchResolves()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("ScenePublisher");
+
+            try
+            {
+                BasisScene scene = go.AddComponent<BasisScene>();
+                scene.AssignNetworkGUIDIdentifier("scene-one");
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+
+                shim.PublishValue("Environment/Ambient", OscData.String("night"));
+
+                object leaf = ResolveNode(GetQueryRoot(), "scene", "scene-one", "parameters", "Environment", "Ambient");
+                Assert.That(leaf, Is.Not.Null);
+
+                object sceneInstance = GetSceneInstanceField(GetServerType()).GetValue(null);
+                MethodInfo responseResolver = GetServerType().GetMethod("GetOscQueryResponse", BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.That(responseResolver, Is.Not.Null);
+
+                string json = (string)responseResolver.Invoke(sceneInstance, new object[] { "/scene/scene-one" });
+                StringAssert.Contains("\"FULL_PATH\": \"/scene/scene-one\"", json);
+                StringAssert.Contains("\"Ambient\"", json);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void PublishValues_BuildsSimpleOscCompatibleArguments()
+        {
+            System.Type serverType = typeof(BasisOscService).Assembly.GetType("HVR.Basis.Comms.OSCAcquisitionServer");
+            Assert.That(serverType, Is.Not.Null);
+
+            MethodInfo buildOscArguments = serverType.GetMethod("BuildOscArguments", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(buildOscArguments, Is.Not.Null);
+
+            object[] arguments = (object[])buildOscArguments.Invoke(null, new object[]
+            {
+                new[]
+                {
+                    OscData.Float32(1.25f),
+                    OscData.Symbol("sym"),
+                    OscData.Midi(1, 2, 3, 4),
+                    OscData.ArrayValue(OscData.Int32(7), OscData.String("nested")),
+                    OscData.Impulse(),
+                    OscData.Nil(),
+                }
+            });
+
+            byte[] buffer = new byte[1024];
+            int offset = 0;
+            SimpleOSC.OSCMessage outbound = new SimpleOSC.OSCMessage
+            {
+                path = "/publish/test",
+                arguments = arguments,
+            };
+
+            SimpleOSC.EncodeOSCInto(buffer, ref offset, outbound);
+
+            ConcurrentQueue<SimpleOSC.OSCMessage> queue = new ConcurrentQueue<SimpleOSC.OSCMessage>();
+            SimpleOSC.DecodeOSCInto(queue, buffer, 0, offset);
+
+            Assert.That(queue.TryDequeue(out SimpleOSC.OSCMessage inbound), Is.True);
+            Assert.That(inbound.typeTag, Is.EqualTo(",fSm[is]IN"));
+            Assert.That(((SimpleOSC.OSCSymbol)inbound.arguments[1]).value, Is.EqualTo("sym"));
+            Assert.That(((object[])inbound.arguments[3]).Length, Is.EqualTo(2));
+        }
+
+        private static object ResolveNode(object rootNode, params string[] path)
+        {
+            object current = rootNode;
+            for (int i = 0; i < path.Length; i++)
+            {
+                IDictionary contents = (IDictionary)current.GetType().GetField("CONTENTS").GetValue(current);
+                current = contents[path[i]];
+                if (current == null)
+                {
+                    return null;
+                }
+            }
+
+            return current;
+        }
+
+        private static System.Type GetServerType()
+        {
+            return typeof(BasisOscService).Assembly.GetType("HVR.Basis.Comms.OSCAcquisitionServer");
+        }
+
+        private static FieldInfo GetSceneInstanceField(System.Type serverType)
+        {
+            return serverType.GetField("_sceneInstance", BindingFlags.NonPublic | BindingFlags.Static);
+        }
+
+        private static object GetQueryRoot()
+        {
+            System.Type serverType = GetServerType();
+            MonoBehaviour sceneInstance = (MonoBehaviour)GetSceneInstanceField(serverType).GetValue(null);
+            Assert.That(sceneInstance, Is.Not.Null);
+
+            FieldInfo rootField = serverType.GetField("_oscQueryRoot", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.That(rootField, Is.Not.Null);
+            return rootField.GetValue(sceneInstance);
+        }
+
+        private static void DestroySceneInstance()
+        {
+            System.Type serverType = GetServerType();
+            if (serverType == null)
+            {
+                return;
+            }
+
+            FieldInfo sceneInstanceField = GetSceneInstanceField(serverType);
+            if (sceneInstanceField == null)
+            {
+                return;
+            }
+
+            MonoBehaviour sceneInstance = (MonoBehaviour)sceneInstanceField.GetValue(null);
+            if (sceneInstance != null)
+            {
+                Object.DestroyImmediate(sceneInstance.gameObject);
+                sceneInstanceField.SetValue(null, null);
+            }
+        }
+    }
+}
