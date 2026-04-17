@@ -269,7 +269,8 @@ namespace HVR.Basis.Comms.OSC
                     object[] nested = new object[Elements?.Length ?? 0];
                     for (int i = 0; i < nested.Length; i++)
                     {
-                        nested[i] = Elements[i].ToQueryValue();
+                        OscData element = Elements[i];
+                        nested[i] = element != null ? element.ToQueryValue() : null;
                     }
                     return nested;
                 default:
@@ -332,7 +333,8 @@ namespace HVR.Basis.Comms.OSC
                     object[] nested = new object[Elements?.Length ?? 0];
                     for (int i = 0; i < nested.Length; i++)
                     {
-                        nested[i] = Elements[i].ToOscArgument();
+                        OscData element = Elements[i];
+                        nested[i] = element != null ? element.ToOscArgument() : null;
                     }
                     return nested;
                 default:

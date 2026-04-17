@@ -53,8 +53,12 @@ namespace HVR.Basis.Comms
                 _client.Start();
                 _client.SetReceiverOscPort(ExternalProgramReceiverPort);
 
-                EnsureOscQueryRoot();
-                _osushi = new OsushiQuery(GetOscQueryResponse);
+                lock (_queryLock)
+                {
+                    EnsureOscQueryRoot();
+                    _osushi = new OsushiQuery(GetOscQueryResponse);
+                }
+
                 _osushi.Start();
                 _running = true;
 

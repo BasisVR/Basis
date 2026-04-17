@@ -182,32 +182,36 @@ namespace Basis.Shims
         {
             prefix = null;
 
-            BasisAvatar avatar = GetComponent<BasisAvatar>() ?? GetComponentInParent<BasisAvatar>(true);
-            if (avatar != null)
+            for (Transform current = transform; current != null; current = current.parent)
             {
-                if (!avatar.IsOwnedLocally)
+                BasisProp prop = current.GetComponent<BasisProp>();
+                if (prop != null)
                 {
-                    return false;
+                    prefix = PropPublishPrefix + "/" + GetScopedContentIdentifier(prop) + "/parameters";
+                    return true;
                 }
 
-                prefix = AvatarPublishPrefix;
-                return true;
+                BasisScene sceneOnTransform = current.GetComponent<BasisScene>();
+                if (sceneOnTransform != null)
+                {
+                    prefix = ScenePublishPrefix + "/" + GetScopedContentIdentifier(sceneOnTransform) + "/parameters";
+                    return true;
+                }
+
+                BasisAvatar avatar = current.GetComponent<BasisAvatar>();
+                if (avatar != null)
+                {
+                    if (!avatar.IsOwnedLocally)
+                    {
+                        return false;
+                    }
+
+                    prefix = AvatarPublishPrefix;
+                    return true;
+                }
             }
 
-            BasisProp prop = GetComponent<BasisProp>() ?? GetComponentInParent<BasisProp>(true);
-            if (prop != null)
-            {
-                prefix = PropPublishPrefix + "/" + GetScopedContentIdentifier(prop) + "/parameters";
-                return true;
-            }
-
-            BasisScene scene = GetComponent<BasisScene>() ?? GetComponentInParent<BasisScene>(true);
-            if (scene == null)
-            {
-                BasisScene.SceneTraversalFindBasisScene(gameObject, out scene);
-            }
-
-            if (scene != null)
+            if (BasisScene.SceneTraversalFindBasisScene(gameObject, out BasisScene scene))
             {
                 prefix = ScenePublishPrefix + "/" + GetScopedContentIdentifier(scene) + "/parameters";
                 return true;

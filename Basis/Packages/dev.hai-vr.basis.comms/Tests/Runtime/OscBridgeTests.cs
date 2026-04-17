@@ -162,6 +162,30 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void OscData_ArrayConversions_HandleNullNestedElements()
+        {
+            OscData data = OscData.ArrayValue(OscData.Int32(7), null, OscData.String("x"));
+            MethodInfo toQueryValue = typeof(OscData).GetMethod("ToQueryValue", BindingFlags.NonPublic | BindingFlags.Instance);
+            MethodInfo toOscArgument = typeof(OscData).GetMethod("ToOscArgument", BindingFlags.NonPublic | BindingFlags.Instance);
+
+            Assert.That(toQueryValue, Is.Not.Null);
+            Assert.That(toOscArgument, Is.Not.Null);
+
+            object[] queryValue = (object[])toQueryValue.Invoke(data, null);
+            object[] oscArgument = (object[])toOscArgument.Invoke(data, null);
+
+            Assert.That(queryValue.Length, Is.EqualTo(3));
+            Assert.That(queryValue[0], Is.EqualTo(7));
+            Assert.That(queryValue[1], Is.Null);
+            Assert.That(queryValue[2], Is.EqualTo("x"));
+
+            Assert.That(oscArgument.Length, Is.EqualTo(3));
+            Assert.That(oscArgument[0], Is.EqualTo(7));
+            Assert.That(oscArgument[1], Is.Null);
+            Assert.That(oscArgument[2], Is.EqualTo("x"));
+        }
+
+        [Test]
         public void CilboxWhitelists_AllowDirectOscTypes()
         {
             Assert.That(new CilboxSceneBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscMessage"), Is.True);
@@ -294,6 +318,38 @@ namespace HVR.Basis.Comms.Tests
             {
                 Object.DestroyImmediate(goA);
                 Object.DestroyImmediate(goB);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_PropUnderRemoteAvatar_PublishesToPropNamespace()
+        {
+            DestroySceneInstance();
+            GameObject avatarRoot = new GameObject("RemoteAvatarRoot");
+            GameObject propChild = new GameObject("PropChild");
+            propChild.transform.SetParent(avatarRoot.transform, false);
+
+            try
+            {
+                BasisAvatar avatar = avatarRoot.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisProp prop = propChild.AddComponent<BasisProp>();
+                prop.AssignNetworkGUIDIdentifier("prop-under-remote-avatar");
+
+                BasisOscShim shim = propChild.AddComponent<BasisOscShim>();
+                shim.PublishValue("Status", OscData.String("held"));
+
+                object propLeaf = ResolveNode(GetQueryRoot(), "prop", "prop-under-remote-avatar", "parameters", "Status");
+                Assert.That(propLeaf, Is.Not.Null);
+
+                object avatarLeaf = ResolveNode(GetQueryRoot(), "avatar", "parameters", "Status");
+                Assert.That(avatarLeaf, Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(avatarRoot);
                 DestroySceneInstance();
             }
         }
