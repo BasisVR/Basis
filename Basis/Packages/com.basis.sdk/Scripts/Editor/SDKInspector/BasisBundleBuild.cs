@@ -252,13 +252,21 @@ public static class BasisBundleBuild
     }
     public static BasisBundleConnector.BasisMetaData GenerateMetaData(GameObject root)
     {
+        // Perf-bound counts (triangles, bones, SMR/MF/animator/etc. component counts)
+        // enumerate with includeInactive=false so hidden variant / toggle / backup
+        // GameObjects don't inflate the numbers the performance filter uses to
+        // decide whether an avatar is "too heavy". Memory-bound counts (material,
+        // texture memory) still enumerate with includeInactive=true because
+        // materials and textures stay loaded in memory regardless of whether the
+        // renderer that references them is enabled.
 
         BasisBundleConnector.BasisMetaData meta = new BasisBundleConnector.BasisMetaData();
         long triangleCount = 0;
         long materialCount = 0;
         long bonesCount = 0;
         Dictionary<string, int> componentCounts = new Dictionary<string, int>();
-        var meshFilters = root.GetComponentsInChildren<MeshFilter>(true);
+
+        var meshFilters = root.GetComponentsInChildren<MeshFilter>(false);
         foreach (var mf in meshFilters)
         {
             if (mf.sharedMesh != null)
@@ -267,7 +275,13 @@ public static class BasisBundleBuild
                 triangleCount += mf.sharedMesh.triangles.Length / 3;
             }
         }
-        var skinnedMeshes = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+
+        // Dedupe skinned bones across all SMRs. Every SMR's bones[] array points at
+        // the same skeleton Transforms, so summing smr.bones.Length multiplied the
+        // real skeleton size by SMR count — an avatar with one 100-bone skeleton
+        // and five SMRs used to report 500 bones. HashSet lookup is O(n) total.
+        var skinnedMeshes = root.GetComponentsInChildren<SkinnedMeshRenderer>(false);
+        HashSet<Transform> uniqueBones = new HashSet<Transform>();
         foreach (var smr in skinnedMeshes)
         {
             if (smr.sharedMesh != null)
@@ -278,13 +292,23 @@ public static class BasisBundleBuild
 
             if (smr.bones != null)
             {
-                bonesCount += smr.bones.Length;
+                for (int i = 0; i < smr.bones.Length; i++)
+                {
+                    Transform bone = smr.bones[i];
+                    if (bone != null)
+                    {
+                        uniqueBones.Add(bone);
+                    }
+                }
             }
         }
-        var renderers = root.GetComponentsInChildren<Renderer>(true);
-        HashSet<Material> uniqueMaterials = new HashSet<Material>();
+        bonesCount = uniqueBones.Count;
 
-        foreach (var r in renderers)
+        // Materials + textures: memory-bound, so include inactive renderers. A
+        // hidden outfit variant's textures still sit in GPU/CPU memory.
+        var allRenderers = root.GetComponentsInChildren<Renderer>(true);
+        HashSet<Material> uniqueMaterials = new HashSet<Material>();
+        foreach (var r in allRenderers)
         {
             foreach (var mat in r.sharedMaterials)
             {
@@ -295,7 +319,26 @@ public static class BasisBundleBuild
             }
         }
         materialCount = uniqueMaterials.Count;
-        var components = root.GetComponentsInChildren<Component>(true);
+
+        long textureMemoryBytes = 0;
+        HashSet<Texture> uniqueTextures = new HashSet<Texture>();
+        foreach (var mat in uniqueMaterials)
+        {
+            int[] texturePropertyIds = mat.GetTexturePropertyNameIDs();
+            for (int i = 0; i < texturePropertyIds.Length; i++)
+            {
+                Texture tex = mat.GetTexture(texturePropertyIds[i]);
+                if (tex != null && uniqueTextures.Add(tex))
+                {
+                    textureMemoryBytes += UnityEngine.Profiling.Profiler.GetRuntimeMemorySizeLong(tex);
+                }
+            }
+        }
+
+        // Component counts: perf-bound. An inactive Animator doesn't tick, an
+        // inactive Light doesn't render, an inactive ParticleSystem doesn't
+        // simulate — none of them should push the avatar past a perf limit.
+        var components = root.GetComponentsInChildren<Component>(false);
         foreach (var comp in components)
         {
             if (comp == null)
@@ -318,6 +361,7 @@ public static class BasisBundleBuild
         meta.TrianglesCount = triangleCount;
         meta.MaterialCount = materialCount;
         meta.BonesCount = bonesCount;
+        meta.TextureMemoryBytes = textureMemoryBytes;
         meta.ComponentNames = componentCounts
             .Select(kvp => new BasisBundleConnector.BasisComponentName
             {

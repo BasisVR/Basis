@@ -120,6 +120,8 @@ namespace Cilbox
 			"UnityEngine.Transform",
 			"UnityEngine.UI.*",
 			"UnityEngine.Vector*",
+            "UnityEngine.Application*",
+            "UnityEngine.RuntimePlatform*"
         };
 
 		static HashSet<String> whiteListFields = new HashSet<String>(){
@@ -133,6 +135,10 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
+			"UnityEngine.Quaternion.x",
+			"UnityEngine.Quaternion.y",
+			"UnityEngine.Quaternion.z",
+			"UnityEngine.Quaternion.w",
 
 			// System fields
 			"System.Array.*",
@@ -204,6 +210,25 @@ namespace Cilbox
 
 			if( name.Contains( "Invoke" ) ) return false;
 
+			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native
+			// browser — the exact payload behind the reported prop exploit. Deny it
+			// explicitly so this never works from cilbox regardless of how the
+			// Application type ends up whitelisted.
+			if( declaringType == typeof(UnityEngine.Application) && name == "OpenURL" )
+				return false;
+
+			// Redirect every UnityEngine.Object.Instantiate variant through the
+			// sanitizing shim so spawned prefabs are scrubbed (disallowed components
+			// destroyed, persistent UnityEvent listeners killed) while parked under a
+			// disabled host before they become active in hierarchy.
+			if( declaringType == typeof(UnityEngine.Object) &&
+				( name == "Instantiate" || name == "InstantiateAsync" ) )
+			{
+				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
+					usage, name, parametersIn, genericArgumentsIn, fullSignature );
+				return mi != null;
+			}
+
 			if( whiteListMethods.TryGetValue( declaringType, out var allowed ) )
 			{
 				if( !allowed.Contains( name ) ) return false;
@@ -212,7 +237,7 @@ namespace Cilbox
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
 			switch(sType)
 			{

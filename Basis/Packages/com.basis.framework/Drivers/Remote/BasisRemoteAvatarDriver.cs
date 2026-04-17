@@ -97,7 +97,11 @@ namespace Basis.Scripts.Drivers
             // This enables direct bone transform writes (no SetHumanPose needed).
             CaptureReceiverBoneData(RemotePlayer);
 
-            // Initialize any jiggle rigs
+            // Initialize any jiggle rigs. Performance-limit enforcement lives in
+            // BasisAvatarPerformanceLimits.TrimExcessComponents (called earlier by
+            // BasisAvatarFactory.InitializePlayerAvatar), so by the time we get
+            // here the tree has already been trimmed to the allowed count — this
+            // loop just wires up whatever's left.
             var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
             int length = JiggleRigs.Length;
             for (int Index = 0; Index < length; Index++)
@@ -176,7 +180,20 @@ namespace Basis.Scripts.Drivers
             SetupAvatarJiggleColliders();
             ResetAvatarAnimator();
 
-            receiver.GetLatestNetworkPose(out var networkPos, out var networkRot);
+            // Apply scale BEFORE hips: SetPositionAndRotation bakes the parent
+            // lossyScale into the hips localPosition, so the root must already be
+            // at its network scale when we snap the hips. If we skipped this, the
+            // avatar would spawn at prefab scale (1,1,1) and the hips would land
+            // under the wrong parent scale until UpdateAllAvatarsJob produced a
+            // HasScaleChange tick — visible as "scale wrong when a player joins".
+            receiver.GetLatestNetworkPose(out var networkPos, out var networkRot, out var networkScale);
+            RemotePlayer.BasisAvatar.Animator.transform.localScale = networkScale;
+            // Seed the job system's scale-tracking slots to the same value.
+            // Without this, the first UpdateAllAvatarsJob tick (before
+            // SetFrameInputs seeds the real interp window) would compute outScale
+            // from stale prev/target scales and ApplyAvatarScaleJob would clobber
+            // the value we just wrote.
+            BasisRemoteNetworkDriver.SeedScaleState(receiver.playerId, networkScale);
             References.Hips.SetPositionAndRotation(networkPos, networkRot);
             CalibrationComplete?.Invoke();
         }

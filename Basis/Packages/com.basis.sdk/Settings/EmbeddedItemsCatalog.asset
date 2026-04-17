@@ -136,8 +136,28 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: https://BasisFramework.b-cdn.net/bee2/thirdpartyavatars/leon_ft2/leona_light.BEE
-      Pass: 699619ffb406025f6cef778194658467f404b5fe63c808c0925f1c307314a604
+      Url: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/leona2/leona_light_dx11-20260412.BEE
+      Pass: d075d828b15eab1c9d77d164702e5ab6f7220aa7e3bfdb064725cf3c9139332d
+      EmbeddedSettings:
+        IsEmbedded: 1
+        SourceType: 0
+      PinnedSettings:
+        IsPinned: 0
+        NetworkType: 0
+        IsEphemeral: 1
+    HasCustomIconAddress: 0
+    IconAddress: 
+    HasCustomBounds: 0
+    Bounds:
+      m_Center: {x: 1, y: 1, z: 1}
+      m_Extents: {x: 0, y: 0, z: 0}
+    HasCustomSpawnOffset: 0
+    SpawnOffsetFromPlayerReference: {x: 0, y: 0, z: 0.5}
+  - Key:
+      Mode: 0
+      PlacementType: 0
+      Url: https://drive.google.com/uc?export=download&id=10pe5tC6Ah2LM6P9NnUFMo2nvTYvGSwCA
+      Pass: 43800ee3f6c319a16d4234141585bdb09b2b579df6d63a4c0e6b67595a76a409
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0

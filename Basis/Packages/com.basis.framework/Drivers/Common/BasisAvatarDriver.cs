@@ -2,6 +2,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System.Collections.Generic;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -493,7 +494,7 @@ namespace Basis.Scripts.Drivers
             }
         }
         public static bool hasBlendShapeJobScheduled = false;
-        public static void ScheduleReadBlendShapes(float epsilon = 0.001f)
+        public static unsafe void ScheduleReadBlendShapes(float epsilon = 0.001f)
         {
             for (int s = 0; s < ShadowCloneSyncs.Count; s++)
             {
@@ -510,9 +511,11 @@ namespace Basis.Scripts.Drivers
                 }
                 int count = sync.Count;
 
+                float* pCurrent = (float*)sync.Current.GetUnsafePtr();
+                SkinnedMeshRenderer source = sync.Source;
                 for (int Index = 0; Index < count; Index++)
                 {
-                    sync.Current[Index] = sync.Source.GetBlendShapeWeight(Index);
+                    pCurrent[Index] = source.GetBlendShapeWeight(Index);
                 }
 
                 // Schedule job
@@ -529,9 +532,10 @@ namespace Basis.Scripts.Drivers
                 hasBlendShapeJobScheduled = true;
             }
         }
-        public static void ApplyShadowCloneBlendShapes()
+        public static unsafe void ApplyShadowCloneBlendShapes()
         {
-            for (int s = 0; s < ShadowCloneSyncs.Count; s++)
+            int syncCount = ShadowCloneSyncs.Count;
+            for (int s = 0; s < syncCount; s++)
             {
                 var sync = ShadowCloneSyncs[s];
 
@@ -546,11 +550,14 @@ namespace Basis.Scripts.Drivers
                 }
 
                 int count = sync.Count;
+                var clone = sync.Clone;
+                byte* changedMask = (byte*)sync.ChangedMask.GetUnsafeReadOnlyPtr();
+                float* previous = (float*)sync.Previous.GetUnsafeReadOnlyPtr();
                 for (int Index = 0; Index < count; Index++)
                 {
-                    if (sync.ChangedMask[Index] != 0)
+                    if (changedMask[Index] != 0)
                     {
-                        sync.Clone.SetBlendShapeWeight(Index, sync.Previous[Index]);
+                        clone.SetBlendShapeWeight(Index, previous[Index]);
                     }
                 }
             }

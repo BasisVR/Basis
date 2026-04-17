@@ -17,7 +17,8 @@ namespace Basis.BasisUI
         {
             BasisMenuBase<BasisMainMenu>.AddProvider(new ServersProvider());
         }
-        public static string TitleStatic = "Servers";
+        public const string TitleKey = "menu.provider.servers";
+        public static string TitleStatic => BasisLocalization.Get(TitleKey);
         public override string Title => TitleStatic;
         public override string IconAddress => AddressableAssets.Sprites.Servers;
         public override int Order => 3;
@@ -49,41 +50,41 @@ namespace Basis.BasisUI
             container = layout.ContentParent;
 
             usernameField = PanelTextField.CreateNewEntry(container);
-            usernameField.Descriptor.SetTitle("Username");
+            usernameField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.username"));
             usernameField.SetValueWithoutNotify(BasisDataStore.LoadString(LoadFileName, string.Empty));
 
             connectButton = PanelButton.CreateNew(container);
-            connectButton.Descriptor.SetTitle("Connect");
+            connectButton.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.connect"));
             connectButton.Descriptor.SetHeight(80);
             connectButton.OnClicked += () => _ = OnConnectButton();
 
             advancedToggle = PanelToggle.CreateNewEntry(container);
-            advancedToggle.Descriptor.SetTitle("Advanced");
+            advancedToggle.Descriptor.SetTitle(BasisLocalization.Get("ui.advanced"));
             advancedToggle.SetValueWithoutNotify(false);
 
             // Advanced options created below the toggle so they appear under it
             ipAddressField = PanelTextField.CreateNewEntry(container);
-            ipAddressField.Descriptor.SetTitle("IP Address");
+            ipAddressField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.ipAddress"));
 
             useLocalhost = PanelButton.CreateNew(container);
-            useLocalhost.Descriptor.SetTitle("Use \"Localhost\"");
+            useLocalhost.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.useLocalhost"));
             useLocalhost.OnClicked += () => ipAddressField.SetValueWithoutNotify("localhost");
 
             portField = PanelTextField.CreateNewEntry(container);
-            portField.Descriptor.SetTitle("Port");
+            portField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.port"));
 
             passwordField = PanelPasswordField.CreateNewEntry(container);
-            passwordField.Descriptor.SetTitle("Password");
+            passwordField.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.password"));
             passwordField.SetPassword("default_password");
 
             hostModeToggle = PanelToggle.CreateNewEntry(container);
-            hostModeToggle.Descriptor.SetTitle("Host Mode");
-            hostModeToggle.Descriptor.SetDescription("Run a local server and connect to it.");
+            hostModeToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.hostMode"));
+            hostModeToggle.Descriptor.SetDescription(BasisLocalization.Get("menu.servers.hostMode.description"));
             hostModeToggle.OnValueChanged += UseHostMode;
 
             autoConnectToggle = PanelToggle.CreateNewEntry(container);
-            autoConnectToggle.Descriptor.SetTitle("Auto Connect");
-            autoConnectToggle.Descriptor.SetDescription("Automatically connect to the last server on startup.");
+            autoConnectToggle.Descriptor.SetTitle(BasisLocalization.Get("menu.servers.autoConnect"));
+            autoConnectToggle.Descriptor.SetDescription(BasisLocalization.Get("menu.servers.autoConnect.description"));
             autoConnectToggle.AssignBinding(BasisSettingsDefaults.AutoConnect);
 
             ipAddressField.gameObject.SetActive(false);
@@ -168,14 +169,14 @@ namespace Basis.BasisUI
 
             try
             {
-                Info.SetTitle("Connecting");
-                Info.SetDescription("Initializing...");
+                Info.SetTitle(BasisLocalization.Get("menu.servers.status.connecting"));
+                Info.SetDescription(BasisLocalization.Get("menu.servers.status.initializing"));
 
                 string userName = usernameField._inputField.text;
                 if (string.IsNullOrEmpty(userName))
                 {
-                    Info.SetTitle("Error");
-                    Info.SetDescription("Display Name Was Empty");
+                    Info.SetTitle(BasisLocalization.Get("ui.error"));
+                    Info.SetDescription(BasisLocalization.Get("menu.servers.error.emptyName"));
                     return;
                 }
                 if (ushort.TryParse(portField.Value, out var port))
@@ -190,8 +191,8 @@ namespace Basis.BasisUI
                 // If currently connected, disconnect + wait for reboot completion
                 if (BasisNetworkConnection.LocalPlayerIsConnected)
                 {
-                    Info.SetTitle("Disconnecting");
-                    Info.SetDescription("Disconnecting...");
+                    Info.SetTitle(BasisLocalization.Get("menu.servers.status.disconnecting"));
+                    Info.SetDescription(BasisLocalization.Get("menu.servers.status.disconnecting"));
                     BasisDebug.Log("Disconnecting From Current Connection", BasisDebug.LogTag.Networking);
 
                     // Start waiting BEFORE you trigger the chain that will raise the event.
@@ -208,22 +209,22 @@ namespace Basis.BasisUI
                     BasisNetworkLifeCycle.Initalize(BasisNetworkManagement.Instance);
                 }
 
-                Info.SetTitle("Connecting");
-                Info.SetDescription("Preparing...");
+                Info.SetTitle(BasisLocalization.Get("menu.servers.status.connecting"));
+                Info.SetDescription(BasisLocalization.Get("menu.servers.status.preparing"));
                 BasisLocalPlayer.Instance.DisplayName = userName;
                 BasisLocalPlayer.Instance.SetSafeDisplayname();
                 BasisDataStore.SaveString(BasisLocalPlayer.Instance.DisplayName, LoadFileName);
 
                 if (BasisNetworkManagement.Instance == null)
                 {
-                    Info.SetTitle("Error");
-                    Info.SetDescription("Networking Layer was Not Created!");
+                    Info.SetTitle(BasisLocalization.Get("ui.error"));
+                    Info.SetDescription(BasisLocalization.Get("menu.servers.error.noNetworkLayer"));
                     BasisDebug.LogError("Missing Networking layer!");
                     return;
                 }
 
-                Info.SetTitle("Connecting");
-                Info.SetDescription("Loading Asset Bundle...");
+                Info.SetTitle(BasisLocalization.Get("menu.servers.status.connecting"));
+                Info.SetDescription(BasisLocalization.Get("menu.servers.status.loadingBundle"));
 
                 BasisNetworkManagement.Instance.Port = port;
                 BasisNetworkManagement.Instance.Ip = ipAddressField.Value;
@@ -240,14 +241,14 @@ namespace Basis.BasisUI
             }
             catch (TimeoutException tex)
             {
-                Info.SetTitle("Error");
-                Info.SetDescription("Disconnect/reboot timed out.");
+                Info.SetTitle(BasisLocalization.Get("ui.error"));
+                Info.SetDescription(BasisLocalization.Get("menu.servers.error.timeout"));
                 BasisDebug.LogError(tex.ToString());
             }
             catch (System.Exception ex)
             {
-                Info.SetTitle("Error");
-                Info.SetDescription("Connection failed.");
+                Info.SetTitle(BasisLocalization.Get("ui.error"));
+                Info.SetDescription(BasisLocalization.Get("menu.servers.error.connectFailed"));
                 BasisDebug.LogError(ex.ToString());
             }
             finally
@@ -278,7 +279,7 @@ namespace Basis.BasisUI
 
         public void UseHostMode(bool value)
         {
-            connectButton.Descriptor.SetTitle(value ? "Host" : "Connect");
+            connectButton.Descriptor.SetTitle(BasisLocalization.Get(value ? "menu.servers.host" : "menu.servers.connect"));
         }
     }
 }

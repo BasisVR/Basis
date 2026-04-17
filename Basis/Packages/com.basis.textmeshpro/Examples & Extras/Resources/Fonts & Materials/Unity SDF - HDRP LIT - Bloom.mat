@@ -118,7 +118,7 @@ Material:
     - _ScaleX: 1
     - _ScaleY: 1
     - _ShaderFlags: 0
-    - _Sharpness: 0
+    - _Sharpness: 0.5
     - _SpecularPower: 0
     - _SrcBlend: 1
     - _Stencil: 0

@@ -118,6 +118,12 @@ public partial class BasisEventDriver : MonoBehaviour
 
     public static bool StateOfOnRenderBefore = false;
 
+    /// <summary>
+    /// Time For Jiggles
+    /// </summary>
+    private double accumulatedTime;
+    private double fixedTime;
+
     // ── Lifecycle ───────────────────────────────────────────────
 
     /// <summary>
@@ -166,6 +172,7 @@ public partial class BasisEventDriver : MonoBehaviour
     /// </summary>
     public void Update()
     {
+
         DeltaTime = Time.deltaTime;
         unscaledDeltaTime = Time.unscaledDeltaTime;
         realtimeSinceStartupAsDouble = Time.realtimeSinceStartupAsDouble;
@@ -181,6 +188,10 @@ public partial class BasisEventDriver : MonoBehaviour
             try { action.Invoke(); }
             catch (Exception ex) { Debug.LogError($"MainThread action failed: {ex}"); }
         }
+        // Player join/leave work is budgeted separately so a mass disconnect
+        // (hundreds of players at once) can't chain N synchronous GameObject.Destroy
+        // calls in a single frame and stall the renderer.
+        BasisNetworkHandleRemoval.ProcessLifecycleQueue(BasisNetworkHandleRemoval.LifecycleBudgetPerFrame);
         BasisNetworkManagement.SimulateNetworkCompute(unscaledDeltaTime);
         BasisObjectSyncDriver.ScheduleRemoteLerp(DeltaTime);
         if (!IsHeadlessClient)
@@ -301,7 +312,17 @@ public partial class BasisEventDriver : MonoBehaviour
 
         // ── JigglePhysics schedule ──
         ProfileBegin(PROF_JIGGLE_SCHEDULE);
-        JigglePhysics.ScheduleSimulate(fixedTimeAsDouble, TimeAsDouble, fixedDeltaTime);
+        var fixedDeltaTime = Time.fixedDeltaTime;
+        accumulatedTime += Time.deltaTime;
+        if (accumulatedTime > fixedDeltaTime)
+        {
+            while (accumulatedTime > fixedDeltaTime)
+            {
+                fixedTime += fixedDeltaTime;
+                accumulatedTime -= fixedDeltaTime;
+            }
+            JigglePhysics.ScheduleSimulate(fixedTime, TimeAsDouble, fixedDeltaTime);
+        }
         ProfileEnd(PROF_JIGGLE_SCHEDULE);
 
         // ── Network transmit (reads bone results via GetOutGoingMouth) ──
@@ -390,7 +411,6 @@ public partial class BasisEventDriver : MonoBehaviour
         BasisLocalMicrophoneDriver.StopProcessingThread();
 #endif
         BasisRemoteNamePlateDriver.Dispose();
-        await BasisPlayerSettingsManager.FlushAllNow();
     }
 
     /// <summary>

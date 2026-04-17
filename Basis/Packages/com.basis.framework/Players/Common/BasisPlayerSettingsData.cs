@@ -41,16 +41,23 @@ public class BasisPlayerSettingsData
     public bool ChatVisible = true;
 
     /// <summary>
-    /// Version number of the settings schema. Used to upgrade old files gracefully.
-    /// Defaults to <c>3</c>.
+    /// Whether this player is blocked. A blocked player has their audio muted,
+    /// their avatar hidden, and their nameplate hidden on the local client.
+    /// Defaults to <c>false</c>.
     /// </summary>
-    public int Version = 3;
+    public bool IsBlocked = false;
 
     /// <summary>
-    /// A static default settings instance (volume 1.0, avatar visible, avatar interaction enabled, chat visible).
+    /// Version number of the settings schema. Used to upgrade old files gracefully.
+    /// Defaults to <c>4</c>.
+    /// </summary>
+    public int Version = 4;
+
+    /// <summary>
+    /// A static default settings instance (volume 1.0, avatar visible, avatar interaction enabled, chat visible, not blocked).
     /// Useful as a baseline when creating new profiles or repairing corrupted files.
     /// </summary>
-    public static readonly BasisPlayerSettingsData Default = new BasisPlayerSettingsData("", 1.0f, true, true, true);
+    public static readonly BasisPlayerSettingsData Default = new BasisPlayerSettingsData("", 1.0f, true, true, true, false);
 
     /// <summary>
     /// Creates a new player settings record with explicit values.
@@ -60,12 +67,14 @@ public class BasisPlayerSettingsData
     /// <param name="avatarVisible">Whether the avatar should be visible.</param>
     /// <param name="avatarInteraction">Whether the avatar can be interacted with.</param>
     /// <param name="chatVisible">Whether chat messages from this player are visible.</param>
-    public BasisPlayerSettingsData(string uuid, float volumeLevel, bool avatarVisible, bool avatarInteraction, bool chatVisible = true)
+    /// <param name="isBlocked">Whether this player is blocked (audio/avatar/nameplate hidden).</param>
+    public BasisPlayerSettingsData(string uuid, float volumeLevel, bool avatarVisible, bool avatarInteraction, bool chatVisible = true, bool isBlocked = false)
     {
         UUID = uuid;
         VolumeLevel = volumeLevel;
         AvatarVisible = avatarVisible;
         AvatarInteraction = avatarInteraction;
         ChatVisible = chatVisible;
+        IsBlocked = isBlocked;
     }
 }

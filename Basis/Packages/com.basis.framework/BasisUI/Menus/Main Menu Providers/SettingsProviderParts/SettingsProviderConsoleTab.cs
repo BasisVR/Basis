@@ -67,10 +67,10 @@ namespace Basis.BasisUI
             // -----------------------
             PanelElementDescriptor controlsGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            controlsGroup.SetTitle("Console");
+            controlsGroup.SetTitle(BasisLocalization.Get("settings.developer.console"));
 
             PanelToggle collapseToggle = PanelToggle.CreateNewEntry(controlsGroup.ContentParent);
-            collapseToggle.Descriptor.SetTitle("Collapse");
+            collapseToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.console.collapse"));
             collapseToggle.SetValueWithoutNotify(_showCollapsedLogs);
             collapseToggle.OnValueChanged += v =>
             {
@@ -79,7 +79,7 @@ namespace Basis.BasisUI
             };
 
             PanelToggle updatingToggle = PanelToggle.CreateNewEntry(controlsGroup.ContentParent);
-            updatingToggle.Descriptor.SetTitle("Live Updates");
+            updatingToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.console.liveUpdates"));
             updatingToggle.SetValueWithoutNotify(_isUpdating);
             updatingToggle.OnValueChanged += v =>
             {
@@ -88,13 +88,13 @@ namespace Basis.BasisUI
             };
 
             PanelDropdown filterDropdown = PanelDropdown.CreateNewEntry(controlsGroup.ContentParent);
-            filterDropdown.Descriptor.SetTitle("Filter");
+            filterDropdown.Descriptor.SetTitle(BasisLocalization.Get("settings.console.filter"));
             filterDropdown.AssignEntries(new List<string> { "All", "Errors", "Warnings", "Logs" });
             filterDropdown.DropdownComponent.SetValueWithoutNotify(GetFilterIndex());
             filterDropdown.DropdownComponent.onValueChanged.AddListener(OnFilterChanged);
 
             PanelButton clearBtn = PanelButton.CreateNew(controlsGroup.ContentParent);
-            clearBtn.Descriptor.SetTitle("Clear Logs");
+            clearBtn.Descriptor.SetTitle(BasisLocalization.Get("settings.console.clearLogs"));
             clearBtn.OnClicked += () =>
             {
                 BasisLogManager.ClearLogs();
@@ -103,7 +103,7 @@ namespace Basis.BasisUI
             };
 
             PanelButton crashBtn = PanelButton.CreateNew(controlsGroup.ContentParent);
-            crashBtn.Descriptor.SetTitle("Open Latest Crash Report");
+            crashBtn.Descriptor.SetTitle(BasisLocalization.Get("settings.console.openCrashReport"));
             crashBtn.OnClicked += OpenLatestCrashReportFolder;
 
             // -----------------------
@@ -111,7 +111,7 @@ namespace Basis.BasisUI
             // -----------------------
             PanelElementDescriptor outputGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            outputGroup.SetTitle("Output");
+            outputGroup.SetTitle(BasisLocalization.Get("settings.console.output"));
 
             EnsureSingleText(outputGroup.ContentParent);
 

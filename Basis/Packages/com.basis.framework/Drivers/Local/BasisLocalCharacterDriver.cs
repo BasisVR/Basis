@@ -1,4 +1,5 @@
 using Basis.Scripts.Animator_Driver;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
@@ -315,7 +316,11 @@ namespace Basis.Scripts.BasisCharacterController
                 if (!LastWasGrounded)
                 {
                     float fallSpeed = Mathf.Abs(currentVerticalSpeed);
-                    landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
+                    // Suppress hip dip in FBT to avoid fighting real hip tracker data on landing.
+                    if (!(BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue))
+                    {
+                        landingCrouchTarget = Mathf.Clamp(fallSpeed * landingImpactScale, 0f, maxLandingCrouchEffect);
+                    }
                     JustLanded?.Invoke();
                     currentVerticalSpeed = 0f;
                 }

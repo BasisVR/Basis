@@ -149,9 +149,29 @@ public static class BasisNetworkModeration
     {
         if (ValidateString(message, nameof(message)))
         {
-            BasisMainMenu.Close();
-            BasisMainMenu.Open();
-            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value => { });
+            // Remember whether the main menu was already open so we can return to the exact
+            // prior state when the user dismisses the popup, instead of dropping them back
+            // on a bare main menu (or a hotbar they weren't looking at).
+            bool menuWasAlreadyOpen = BasisMainMenu.Instance != null;
+
+            if (!menuWasAlreadyOpen)
+            {
+                BasisMainMenu.Open();
+            }
+            else if (BasisMainMenu.Instance.Dialogue)
+            {
+                // OpenDialogue refuses to stack; release the existing one first.
+                BasisMainMenu.Instance.Dialogue.ReleaseInstance();
+            }
+
+            BasisMainMenu.Instance.OpenDialogue("admin", message, "ok", value =>
+            {
+                // If we opened the menu solely to show this popup, close it again on dismiss.
+                if (!menuWasAlreadyOpen)
+                {
+                    BasisMainMenu.Close();
+                }
+            });
             BasisDebug.LogError(message);
         }
     }
@@ -189,6 +209,10 @@ public static class BasisNetworkModeration
 
             case AdminRequestMode.GlobalGetHeadlessAudioState:
                 HandleGlobalHeadlessAudioState(reader);
+                break;
+
+            case AdminRequestMode.GlobalGetHeadlessDisallowState:
+                HandleGlobalHeadlessDisallowState(reader);
                 break;
 
             default:
@@ -462,6 +486,18 @@ public static class BasisNetworkModeration
     /// </summary>
     public static event Action<bool> OnGlobalHeadlessAudioStateChanged;
 
+    /// <summary>
+    /// Current headless connection policy received from the server.
+    /// True means headless clients are not allowed to remain connected.
+    /// </summary>
+    public static bool GlobalHeadlessDisallowed { get; private set; }
+
+    /// <summary>
+    /// Fired when the global headless disallow state changes.
+    /// Parameter: headlessDisallowed.
+    /// </summary>
+    public static event Action<bool> OnGlobalHeadlessDisallowStateChanged;
+
     private static void HandleGlobalLockState(NetDataReader reader)
     {
         GlobalAvatarsLocked = reader.GetBool();
@@ -502,6 +538,13 @@ public static class BasisNetworkModeration
         OnGlobalHeadlessAudioStateChanged?.Invoke(GlobalHeadlessAudioOff);
     }
 
+    private static void HandleGlobalHeadlessDisallowState(NetDataReader reader)
+    {
+        GlobalHeadlessDisallowed = reader.GetBool();
+        BasisDebug.Log($"Global headless connection policy updated - Headless disallowed: {GlobalHeadlessDisallowed}", BasisDebug.LogTag.Networking);
+        OnGlobalHeadlessDisallowStateChanged?.Invoke(GlobalHeadlessDisallowed);
+    }
+
     /// <summary>
     /// Admin: Set headless audio clip playback state for headless clients.
     /// </summary>
@@ -510,6 +553,16 @@ public static class BasisNetworkModeration
         SendAdminRequest(
             AdminRequestMode.SetGlobalHeadlessAudio,
             w => w.Put(headlessAudioOff));
+    }
+
+    /// <summary>
+    /// Admin: Allow or disallow headless clients from remaining connected.
+    /// </summary>
+    public static void SetGlobalHeadlessDisallow(bool headlessDisallowed)
+    {
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalHeadlessDisallow,
+            w => w.Put(headlessDisallowed));
     }
 
     #endregion

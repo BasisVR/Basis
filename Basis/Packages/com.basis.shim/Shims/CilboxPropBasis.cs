@@ -40,6 +40,7 @@ namespace Cilbox
 			"System.DateTime",
 			"System.DateTimeOffset",
 			"System.DayOfWeek",
+			"System.Delegate",
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
@@ -107,6 +108,7 @@ namespace Cilbox
 			"UnityEngine.Vector*.y",
 			"UnityEngine.Vector*.z",
 			"UnityEngine.Vector*.w",
+			"UnityEngine.Quaternion*",
 
 			// System fields
 			"System.Array.*",
@@ -190,6 +192,27 @@ namespace Cilbox
 
 			if( name.Contains( "Invoke" ) ) return false;
 
+			// UnityEngine.Application.OpenURL opens an arbitrary URL in the native
+			// browser — the exact payload behind the reported prop exploit. Deny it
+			// explicitly so this never works from cilbox regardless of how the
+			// Application type ends up whitelisted.
+			if( declaringType == typeof(UnityEngine.Application) && name == "OpenURL" )
+				return false;
+
+			// UnityEngine.Object.Instantiate spawns a prefab tree verbatim, so the clone
+			// can carry UnityEvents that execute outside the sandbox (e.g. Button.onClick
+			// -> Application.OpenURL). Redirect every Instantiate variant through the
+			// sanitizing shim: it spawns under a disabled host, scrubs disallowed
+			// components via the prop content-police selector, and kills all persistent
+			// UnityEvent listeners before the clone becomes active in hierarchy.
+			if( declaringType == typeof(UnityEngine.Object) &&
+				( name == "Instantiate" || name == "InstantiateAsync" ) )
+			{
+				mi = Basis.Shims.BasisCilboxInstantiateShim.ResolveShim(
+					usage, name, parametersIn, genericArgumentsIn, fullSignature );
+				return mi != null;
+			}
+
 			if( methodWhitelist.TryGetValue( declaringType, out var allowed ) )
 			{
 				if( !allowed.Contains( name ) ) return false;
@@ -198,11 +221,10 @@ namespace Cilbox
 			return true;
 		}
 
-        public override bool GetComponentTypeOverride(string sType, out Type t)
+        public override bool GetTypeOverride(string sType, out Type t)
         {
 			switch(sType)
 			{
-				
 				case "UnityEngine.Video.VideoPlayer":
 					t = typeof(Basis.Shims.VideoPlayerShim);
 					return true;

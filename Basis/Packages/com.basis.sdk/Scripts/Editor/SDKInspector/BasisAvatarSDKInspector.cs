@@ -15,8 +15,11 @@ using Basis.Scripts.BasisSdk.Players;
 [CustomEditor(typeof(BasisAvatar))]
 public partial class BasisAvatarSDKInspector : Editor
 {
+    private const string PendingTestInEditorAvatarIdSessionKey = "BasisAvatarSDKInspector.PendingTestInEditorAvatarId";
+
     public delegate void BeforeTestInEditorHandler(GameObject clone);
     public static BeforeTestInEditorHandler OnBeforeTestInEditor;
+    private static BasisAvatar ScheduledTestInEditorAvatar;
 
     public static event Action<BasisAvatarSDKInspector> InspectorGuiCreated;
     public static event Action ButtonClicked;
@@ -32,6 +35,71 @@ public partial class BasisAvatarSDKInspector : Editor
     private Label resultLabel; // Store the result label for later clearing
     public string Error;
     public BasisAvatarValidator BasisAvatarValidator;
+
+    [InitializeOnLoadMethod]
+    private static void InitializeTestInEditorHooks()
+    {
+        EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    private static void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state != PlayModeStateChange.EnteredPlayMode || !HasPendingTestInEditorAvatarId())
+        {
+            return;
+        }
+
+        EditorApplication.delayCall -= TryExecutePendingTestInEditor;
+        EditorApplication.delayCall += TryExecutePendingTestInEditor;
+    }
+
+    private static void TryExecutePendingTestInEditor()
+    {
+        string pendingAvatarId = GetPendingTestInEditorAvatarId();
+        if (string.IsNullOrEmpty(pendingAvatarId))
+        {
+            return;
+        }
+
+        if (!GlobalObjectId.TryParse(pendingAvatarId, out GlobalObjectId avatarId))
+        {
+            ClearPendingTestInEditorAvatarId();
+            return;
+        }
+
+        BasisAvatar avatar = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(avatarId) as BasisAvatar;
+        ClearPendingTestInEditorAvatarId();
+        if (avatar == null)
+        {
+            BasisDebug.LogError("Unable to resolve the pending avatar for Test In Editor.", BasisDebug.LogTag.Editor);
+            return;
+        }
+
+        RequestAvatarLoad(avatar);
+    }
+
+    private static bool HasPendingTestInEditorAvatarId()
+    {
+        return SessionState.GetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", false);
+    }
+
+    private static string GetPendingTestInEditorAvatarId()
+    {
+        return SessionState.GetString(PendingTestInEditorAvatarIdSessionKey, string.Empty);
+    }
+
+    private static void SetPendingTestInEditorAvatarId(string avatarId)
+    {
+        SessionState.SetString(PendingTestInEditorAvatarIdSessionKey, avatarId ?? string.Empty);
+        SessionState.SetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", !string.IsNullOrEmpty(avatarId));
+    }
+
+    private static void ClearPendingTestInEditorAvatarId()
+    {
+        SessionState.EraseString(PendingTestInEditorAvatarIdSessionKey);
+        SessionState.SetBool(PendingTestInEditorAvatarIdSessionKey + ".Exists", false);
+    }
     private void OnEnable()
     {
         visualTree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(BasisSDKConstants.AvataruxmlPath);
@@ -513,9 +581,10 @@ public partial class BasisAvatarSDKInspector : Editor
     {
         if (!Application.isPlaying)
         {
-            bool result = EditorUtility.DisplayDialog("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now? once done you will need to press it again! please also make sure you have a floor in your scene!", "yes", "no");
+            bool result = EditorUtility.DisplayDialog("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now and run Test In Editor automatically? please also make sure you have a floor in your scene!", "yes", "no");
             if (result)
             {
+                SetPendingTestInEditorAvatarId(GlobalObjectId.GetGlobalObjectIdSlow(Avatar).ToString());
                 EditorApplication.EnterPlaymode();
             }
         }
@@ -526,33 +595,49 @@ public partial class BasisAvatarSDKInspector : Editor
     }
     public void RequestAvatarLoad()
     {
+        RequestAvatarLoad(Avatar);
+    }
+
+    private static void RequestAvatarLoad(BasisAvatar avatar)
+    {
 #if BASIS_FRAMEWORK_EXISTS
         if (BasisLocalPlayer.PlayerReady)
         {
             BasisDebug.Log("Player Ready Loading", BasisDebug.LogTag.Editor);
-            LoadAvatar();
+            LoadAvatar(avatar);
         }
         else
         {
-            ScheduleCallback = true;
+            ScheduledTestInEditorAvatar = avatar;
             BasisDebug.Log("Scheduling Load Avatar", BasisDebug.LogTag.Editor);
-            BasisLocalPlayer.OnLocalPlayerInitalized += LoadAvatar;
+            BasisLocalPlayer.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+            BasisLocalPlayer.OnLocalPlayerInitalized += LoadScheduledAvatar;
         }
 #endif
     }
-    public bool ScheduleCallback = false;
-    public async void LoadAvatar()
+
+    private static void LoadScheduledAvatar()
     {
 #if BASIS_FRAMEWORK_EXISTS
-        if (ScheduleCallback)
+        BasisLocalPlayer.OnLocalPlayerInitalized -= LoadScheduledAvatar;
+        if (ScheduledTestInEditorAvatar == null)
         {
-            BasisLocalPlayer.OnLocalPlayerInitalized -= LoadAvatar;
-            ScheduleCallback = false;
+            return;
         }
+
+        BasisAvatar avatar = ScheduledTestInEditorAvatar;
+        ScheduledTestInEditorAvatar = null;
+        LoadAvatar(avatar);
+#endif
+    }
+
+    private static async void LoadAvatar(BasisAvatar avatar)
+    {
+#if BASIS_FRAMEWORK_EXISTS
         BasisDebug.Log("LoadAvatar Called", BasisDebug.LogTag.Editor);
 
         var jigglesToReset = new List<MonoBehaviour>();
-        foreach (MonoBehaviour jiggle in Avatar.gameObject.GetComponentsInChildren<MonoBehaviour>(false))
+        foreach (MonoBehaviour jiggle in avatar.gameObject.GetComponentsInChildren<MonoBehaviour>(false))
         {
             if (jiggle != null
                 && jiggle.GetType().FullName == "GatorDragonGames.JigglePhysics.JiggleRig"
@@ -565,18 +650,18 @@ public partial class BasisAvatarSDKInspector : Editor
         if (jigglesToReset.Count > 0)
         {
             BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. We will disable the avatar in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
-            Avatar.gameObject.SetActive(false);
+            avatar.gameObject.SetActive(false);
             // It's a bit of a hack, but waiting three frames works.
             await Awaitable.NextFrameAsync();
             await Awaitable.NextFrameAsync();
             await Awaitable.NextFrameAsync();
-            inSceneItem = GameObject.Instantiate(Avatar.gameObject);
-            Avatar.gameObject.SetActive(true);
+            inSceneItem = GameObject.Instantiate(avatar.gameObject);
+            avatar.gameObject.SetActive(true);
             inSceneItem.SetActive(true);
         }
         else
         {
-            inSceneItem = GameObject.Instantiate(Avatar.gameObject);
+            inSceneItem = GameObject.Instantiate(avatar.gameObject);
         }
 
         BasisAssetBundlePipeline.DestroyEditorOnlyInAvatar(inSceneItem);

@@ -24,8 +24,8 @@ namespace Basis.BasisUI
             // ─────────────── LISTENER DIRECTIONAL DAMPENING (always visible) ───────────────
             PanelElementDescriptor listenerDampenGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            listenerDampenGroup.SetTitle("Remote Players");
-            listenerDampenGroup.SetDescription("Reduces volume of players behind you. Helps in crowded environments.");
+            listenerDampenGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.remotePlayers"));
+            listenerDampenGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.remotePlayers.description"));
 
             PanelSlider sliderListenerConeAngle = PanelSlider.CreateEntryAndBind(
                 listenerDampenGroup,
@@ -34,7 +34,7 @@ namespace Basis.BasisUI
 
             PanelSlider sliderListenerDampenAmount = PanelSlider.CreateEntryAndBind(
                 listenerDampenGroup,
-                PanelSlider.SliderSettings.Advanced("Max Dampening", 1f, 45f, true, 0, ValueDisplayMode.Percentage),
+                PanelSlider.SliderSettings.Advanced("Max Dampening", 1f, 95f, true, 0, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.RAListenerDampenAmount);
 
             // Dampen amount only visible when cone angle < 360 (otherwise no dampening occurs)
@@ -49,8 +49,8 @@ namespace Basis.BasisUI
             // ─────────────── AUDIO SOURCE GROUP (advanced) ───────────────
             PanelElementDescriptor audioSourceGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            audioSourceGroup.SetTitle("Audio Source");
-            audioSourceGroup.SetDescription("Unity AudioSource spatial settings for remote voice playback.");
+            audioSourceGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.audioSource"));
+            audioSourceGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.audioSource.description"));
 
             PanelSlider sliderMinDistance = PanelSlider.CreateEntryAndBind(
                 audioSourceGroup,
@@ -58,12 +58,12 @@ namespace Basis.BasisUI
                 BasisSettingsDefaults.RAMinDistance);
 
             PanelDropdown dropdownRolloffMode = PanelDropdown.CreateNewEntry(audioSourceGroup);
-            dropdownRolloffMode.Descriptor.SetTitle("Rolloff Mode");
+            dropdownRolloffMode.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.rolloffMode"));
             dropdownRolloffMode.AssignEntries(new List<string> { "Logarithmic", "Linear", "Custom" });
             dropdownRolloffMode.AssignBinding(BasisSettingsDefaults.RARolloffMode);
 
             PanelDropdown dropdownCurvePreset = PanelDropdown.CreateNewEntry(audioSourceGroup);
-            dropdownCurvePreset.Descriptor.SetTitle("Rolloff Curve Preset");
+            dropdownCurvePreset.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.curvePreset"));
             dropdownCurvePreset.AssignEntries(new List<string> { "Default", "Sharp Falloff", "Gradual", "Inverse Square", "Flat", "User Defined" });
             dropdownCurvePreset.AssignBinding(BasisSettingsDefaults.RARolloffCurvePreset);
 
@@ -135,20 +135,20 @@ PanelSlider sliderPriority = PanelSlider.CreateEntryAndBind(
             // ─────────────── STEAM AUDIO - HRTF GROUP (advanced) ───────────────
             PanelElementDescriptor hrtfGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            hrtfGroup.SetTitle("HRTF / Binaural");
-            hrtfGroup.SetDescription("Head-related transfer function settings for 3D audio.");
+            hrtfGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.hrtf"));
+            hrtfGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.hrtf.description"));
 
             PanelToggle toggleDirectBinaural = PanelToggle.CreateNewEntry(hrtfGroup);
-            toggleDirectBinaural.Descriptor.SetTitle("Direct Binaural (HRTF)");
+            toggleDirectBinaural.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.directBinaural"));
             toggleDirectBinaural.AssignBinding(BasisSettingsDefaults.RADirectBinaural);
 
             /*
 PanelToggle togglePerspectiveCorrection = PanelToggle.CreateNewEntry(hrtfGroup);
-togglePerspectiveCorrection.Descriptor.SetTitle("Perspective Correction");
+togglePerspectiveCorrection.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.perspectiveCorrection"));
 togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCorrection);
 */
             PanelDropdown dropdownInterpolation = PanelDropdown.CreateNewEntry(hrtfGroup);
-            dropdownInterpolation.Descriptor.SetTitle("HRTF Interpolation");
+            dropdownInterpolation.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.hrtfInterpolation"));
             dropdownInterpolation.AssignEntries(new List<string> { "Nearest", "Bilinear" });
             dropdownInterpolation.AssignBinding(BasisSettingsDefaults.RAInterpolation);
             // HRTF sub-settings only visible when Direct Binaural is enabled
@@ -165,15 +165,15 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── STEAM AUDIO - PROPAGATION GROUP ───────────────
             PanelElementDescriptor propagationGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            propagationGroup.SetTitle("Sound Propagation");
-            propagationGroup.SetDescription("Distance attenuation and air absorption simulation.");
+            propagationGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.propagation"));
+            propagationGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.propagation.description"));
 
             PanelToggle toggleDistanceAttenuation = PanelToggle.CreateNewEntry(propagationGroup);
-            toggleDistanceAttenuation.Descriptor.SetTitle("Distance Attenuation");
+            toggleDistanceAttenuation.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.distanceAttenuation"));
             toggleDistanceAttenuation.AssignBinding(BasisSettingsDefaults.RADistanceAttenuation);
 
             PanelDropdown dropdownDistanceAttenuationInput = PanelDropdown.CreateNewEntry(propagationGroup);
-            dropdownDistanceAttenuationInput.Descriptor.SetTitle("Attenuation Mode");
+            dropdownDistanceAttenuationInput.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.attenuationMode"));
             dropdownDistanceAttenuationInput.AssignEntries(new List<string> { "Curve Driven", "Physics Based" });
             dropdownDistanceAttenuationInput.AssignBinding(BasisSettingsDefaults.RADistanceAttenuationInput);
 
@@ -187,11 +187,11 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             };
 
             PanelToggle toggleAirAbsorption = PanelToggle.CreateNewEntry(propagationGroup);
-            toggleAirAbsorption.Descriptor.SetTitle("Air Absorption");
+            toggleAirAbsorption.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.airAbsorption"));
             toggleAirAbsorption.AssignBinding(BasisSettingsDefaults.RAAirAbsorption);
 
             PanelDropdown dropdownAirAbsorptionInput = PanelDropdown.CreateNewEntry(propagationGroup);
-            dropdownAirAbsorptionInput.Descriptor.SetTitle("Air Absorption Mode");
+            dropdownAirAbsorptionInput.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.airAbsorptionMode"));
             dropdownAirAbsorptionInput.AssignEntries(new List<string> { "Simulation Defined", "User Defined" });
             dropdownAirAbsorptionInput.AssignBinding(BasisSettingsDefaults.RAAirAbsorptionInput);
 
@@ -241,11 +241,11 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── STEAM AUDIO - DIRECTIVITY GROUP ───────────────
             PanelElementDescriptor directivityGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            directivityGroup.SetTitle("Directivity");
-            directivityGroup.SetDescription("Controls how directional voice sources sound (dipole pattern).");
+            directivityGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.directivity"));
+            directivityGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.directivity.description"));
 
             PanelToggle toggleDirectivity = PanelToggle.CreateNewEntry(directivityGroup);
-            toggleDirectivity.Descriptor.SetTitle("Directivity");
+            toggleDirectivity.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.directivity"));
             toggleDirectivity.AssignBinding(BasisSettingsDefaults.RADirectivity);
 
             PanelSlider sliderDipoleWeight = PanelSlider.CreateEntryAndBind(
@@ -272,15 +272,15 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── STEAM AUDIO - OCCLUSION GROUP ───────────────
             PanelElementDescriptor occlusionGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            occlusionGroup.SetTitle("Occlusion");
-            occlusionGroup.SetDescription("Controls how walls and objects block sound.");
+            occlusionGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.occlusion"));
+            occlusionGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.occlusion.description"));
 
             PanelToggle toggleOcclusion = PanelToggle.CreateNewEntry(occlusionGroup);
-            toggleOcclusion.Descriptor.SetTitle("Occlusion");
+            toggleOcclusion.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.occlusion"));
             toggleOcclusion.AssignBinding(BasisSettingsDefaults.RAOcclusion);
 
             PanelDropdown dropdownOcclusionType = PanelDropdown.CreateNewEntry(occlusionGroup);
-            dropdownOcclusionType.Descriptor.SetTitle("Occlusion Type");
+            dropdownOcclusionType.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.occlusionType"));
             dropdownOcclusionType.AssignEntries(new List<string> { "Raycast", "Volumetric" });
             dropdownOcclusionType.AssignBinding(BasisSettingsDefaults.RAOcclusionType);
 
@@ -310,15 +310,15 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── STEAM AUDIO - TRANSMISSION GROUP ───────────────
             PanelElementDescriptor transmissionGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            transmissionGroup.SetTitle("Transmission");
-            transmissionGroup.SetDescription("Controls sound passing through walls and surfaces.");
+            transmissionGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.transmission"));
+            transmissionGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.transmission.description"));
 
             PanelToggle toggleTransmission = PanelToggle.CreateNewEntry(transmissionGroup);
-            toggleTransmission.Descriptor.SetTitle("Transmission");
+            toggleTransmission.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.transmission"));
             toggleTransmission.AssignBinding(BasisSettingsDefaults.RATransmission);
 
             PanelDropdown dropdownTransmissionType = PanelDropdown.CreateNewEntry(transmissionGroup);
-            dropdownTransmissionType.Descriptor.SetTitle("Transmission Type");
+            dropdownTransmissionType.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.transmissionType"));
             dropdownTransmissionType.AssignEntries(new List<string> { "Frequency Independent", "Frequency Dependent" });
             dropdownTransmissionType.AssignBinding(BasisSettingsDefaults.RATransmissionType);
 
@@ -341,8 +341,8 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── STEAM AUDIO - MIX GROUP ───────────────
             PanelElementDescriptor mixGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            mixGroup.SetTitle("Mix");
-            mixGroup.SetDescription("Direct sound mix level.");
+            mixGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.mix"));
+            mixGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.mix.description"));
 
             PanelSlider sliderDirectMixLevel = PanelSlider.CreateEntryAndBind(
                 mixGroup,
@@ -352,11 +352,11 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── STEAM AUDIO - REFLECTIONS GROUP ───────────────
             PanelElementDescriptor reflectionsGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            reflectionsGroup.SetTitle("Reflections");
-            reflectionsGroup.SetDescription("Environment reflections on voice audio. Requires baked scene data for best results.");
+            reflectionsGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.reflections"));
+            reflectionsGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.reflections.description"));
 
             PanelToggle toggleReflections = PanelToggle.CreateNewEntry(reflectionsGroup);
-            toggleReflections.Descriptor.SetTitle("Reflections");
+            toggleReflections.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.reflections"));
             toggleReflections.AssignBinding(BasisSettingsDefaults.RAReflections);
 
             PanelSlider sliderReflectionsMixLevel = PanelSlider.CreateEntryAndBind(
@@ -365,7 +365,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
                 BasisSettingsDefaults.RAReflectionsMixLevel);
 
             PanelToggle toggleApplyHRTFToReflections = PanelToggle.CreateNewEntry(reflectionsGroup);
-            toggleApplyHRTFToReflections.Descriptor.SetTitle("Apply HRTF to Reflections");
+            toggleApplyHRTFToReflections.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.applyHrtfReflections"));
             toggleApplyHRTFToReflections.AssignBinding(BasisSettingsDefaults.RAApplyHRTFToReflections);
 
             // Reflections sub-settings only visible when reflections is enabled
@@ -383,12 +383,12 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             // ─────────────── LIP SYNC GROUP (advanced) ───────────────
             PanelElementDescriptor lipSyncGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            lipSyncGroup.SetTitle("Lip Sync");
-            lipSyncGroup.SetDescription("Controls how many players use high-quality neural lip sync (OpenLipSync).\nPlayers beyond this limit fall back to the lighter uLipSync backend.");
+            lipSyncGroup.SetTitle(BasisLocalization.Get("settings.remoteAudio.lipSync"));
+            lipSyncGroup.SetDescription(BasisLocalization.Get("settings.remoteAudio.lipSync.description"));
 
             PanelToggle toggleLimitLipSync = PanelToggle.CreateNewEntry(lipSyncGroup);
             toggleLimitLipSync.AssignBinding(BasisSettingsDefaults.UseOpenLipSyncLimit);
-            toggleLimitLipSync.Descriptor.SetTitle("Limit OpenLipSync Slots");
+            toggleLimitLipSync.Descriptor.SetTitle(BasisLocalization.Get("settings.remoteAudio.limitLipSync"));
 
             PanelSlider sliderLipSyncSlots = PanelSlider.CreateEntryAndBind(
                 lipSyncGroup,
@@ -417,7 +417,7 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
             lipSyncGroup.SetActive(false);
 
             PanelToggle advancedToggle = PanelToggle.CreateNewEntry(listenerDampenGroup);
-            advancedToggle.Descriptor.SetTitle("Advanced");
+            advancedToggle.Descriptor.SetTitle(BasisLocalization.Get("ui.advanced"));
             advancedToggle.SetValueWithoutNotify(false);
             advancedToggle.OnValueChanged += (val) =>
             {
@@ -511,7 +511,9 @@ togglePerspectiveCorrection.AssignBinding(BasisSettingsDefaults.RAPerspectiveCor
         public static void ApplyRemoteAudioTo(BasisAudioReceiver receiver)
         {
             if (receiver == null || receiver.audioSource == null)
+            {
                 return;
+            }
 
             AudioSource source = receiver.audioSource;
 

@@ -110,7 +110,11 @@ namespace HVR.Basis.Comms
         public void OnHVRAvatarReady(bool isWearer)
         {
             _isWearer = isWearer;
-            acquisition.RegisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
+            if (_activityRelay != null)
+            {
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+                _activityRelay.OnTrackingActivityChanged += OnTrackingActivityUpdated;
+            }
             _trackingActive = _activityRelay != null && _activityRelay.IsTrackingActive;
 
             var allDefinitions = definitions
@@ -285,24 +289,19 @@ namespace HVR.Basis.Comms
                 avatar.OnAvatarReady -= OnHVRAvatarReady;
             }
 
-            if (acquisition != null)
+            if (_activityRelay != null)
             {
-                acquisition.UnregisterAddresses(new[] { FaceTrackingActivityRelay.ActivityAddressId }, OnTrackingActivityUpdated);
-                if (_isWearer && _addessIdToBaseIndex.Count > 0)
-                {
-                    acquisition.UnregisterAddresses(_addessIdToBaseIndex.Keys.ToArray(), OnAddressUpdated);
-                }
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+            }
+
+            if (acquisition != null && _isWearer && _addessIdToBaseIndex.Count > 0)
+            {
+                acquisition.UnregisterAddresses(_addessIdToBaseIndex.Keys.ToArray(), OnAddressUpdated);
             }
         }
 
-        private void OnTrackingActivityUpdated(int address, float value)
+        private void OnTrackingActivityUpdated(bool isTrackingActive)
         {
-            if (address != FaceTrackingActivityRelay.ActivityAddressId)
-            {
-                return;
-            }
-
-            bool isTrackingActive = value >= 0.5f;
             if (_trackingActive == isTrackingActive)
             {
                 return;

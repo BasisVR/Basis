@@ -139,6 +139,12 @@ namespace Basis.Network.Core
         public const byte EventType_CameraShutterSound = 0;
         /// <summary>Camera countdown started — remote clients replay the tick/shutter timing.</summary>
         public const byte EventType_CameraCountdown = 1;
+        /// <summary>
+        /// Session-scoped "temp block" notification. Sender tells a specific target peer
+        /// that it has (or has not) blocked them locally, so the target can mirror the
+        /// block and hide the sender's avatar/audio/nameplate on their client. Not persisted.
+        /// </summary>
+        public const byte EventType_PlayerTempBlock = 2;
 
         // ── Per-quality avatar channels (ushort playerID, for IDs >255) ──
         // Same layout as byte-ID channels: base + quality * 2 + hasAdditional

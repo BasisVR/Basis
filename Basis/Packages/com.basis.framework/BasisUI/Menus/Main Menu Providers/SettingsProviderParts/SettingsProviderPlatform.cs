@@ -22,11 +22,11 @@ public static class SettingsProviderPlatform
         // Current mode info
         PanelElementDescriptor infoGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        infoGroup.SetTitle("Device Mode");
-        infoGroup.SetDescription("The active device mode for this session.");
+        infoGroup.SetTitle(BasisLocalization.Get("settings.platform.deviceMode"));
+        infoGroup.SetDescription(BasisLocalization.Get("settings.platform.deviceMode.description"));
 
        var currentModeField = PanelTextField.CreateNew(infoGroup.ContentParent);
-        currentModeField.Descriptor.SetTitle("Active Mode");
+        currentModeField.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.activeMode"));
         currentModeField.SetValue(currentMode);
 
         BasisDeviceManagement dm = BasisDeviceManagement.Instance;
@@ -36,7 +36,7 @@ public static class SettingsProviderPlatform
         if (dm != null && dm.IsSoftSwapped)
         {
             var softSwapField = PanelTextField.CreateNew(infoGroup.ContentParent);
-            softSwapField.Descriptor.SetTitle("VR Runtime");
+            softSwapField.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.vrRuntime"));
             softSwapField.SetValue($"{dm.AutoSwapPreviousVRMode} (kept alive)");
         }
 #endif
@@ -64,15 +64,15 @@ public static class SettingsProviderPlatform
                 string suffix = isActive ? " [ACTIVE]" : "";
 
                 PanelButton modeButton = PanelButton.CreateNew(infoGroup.ContentParent);
-                modeButton.Descriptor.SetTitle($"Switch To {displayName}{suffix}");
+                modeButton.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.switchTo", displayName) + suffix);
                 modeButton.Descriptor.SetDescription(GetModeDescription(capturedMode));
                 modeButton.OnClicked += () =>
                 {
                     if (isActive) return;
-                    BasisMainMenu.Instance.OpenDialogue($"Switch To {displayName}",
-                        $"Are you sure you want to switch to {displayName}?",
-                        $"Switch To {displayName}",
-                        "Cancel",
+                    BasisMainMenu.Instance.OpenDialogue(BasisLocalization.Get("settings.platform.switchTo", displayName),
+                        BasisLocalization.Get("settings.platform.switchTo.confirm", displayName),
+                        BasisLocalization.Get("settings.platform.switchTo", displayName),
+                        BasisLocalization.Get("ui.cancel"),
                         async value =>
                         {
                             if (!value) return;
@@ -88,15 +88,12 @@ public static class SettingsProviderPlatform
 #if BASIS_HAS_OPENVR || BASIS_HAS_OPENXR
         PanelElementDescriptor autoSwapGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        autoSwapGroup.SetTitle("Swap Mode");
-        autoSwapGroup.SetDescription(
-            "Controls how the system handles switching between VR and Desktop modes.");
+        autoSwapGroup.SetTitle(BasisLocalization.Get("settings.platform.swapMode.title"));
+        autoSwapGroup.SetDescription(BasisLocalization.Get("settings.platform.swapMode.description"));
 
         PanelDropdown dropdownSwapMode = PanelDropdown.CreateNewEntry(autoSwapGroup);
-        dropdownSwapMode.Descriptor.SetTitle("Swap Mode");
-        dropdownSwapMode.Descriptor.SetDescription(
-            "Shutdown Runtime: full XR restart on swap.\n" +
-            "Auto Swap: automatically swap based on headset presence.");
+        dropdownSwapMode.Descriptor.SetTitle(BasisLocalization.Get("settings.platform.swapMode.title"));
+        dropdownSwapMode.Descriptor.SetDescription(BasisLocalization.Get("settings.platform.swapMode.dropdown.description"));
         dropdownSwapMode.AssignEntries(new System.Collections.Generic.List<string>
         {
             BasisSettingsDefaults.SwapMode_Shutdown,

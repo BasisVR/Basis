@@ -1,4 +1,5 @@
 using Basis.Shims;
+using Basis.Scripts.BasisSdk;
 using System;
 using UnityEngine.Networking;
 using UnityEngine;
@@ -38,6 +39,7 @@ namespace Basis
 			return mb.gameObject.AddComponent<BasisNetworkShim>();
 		}
 
+		[Obsolete("Use the direct interactable component instead. This is a shim for the old system and should be removed at a later point.")]
 		public static BasisInteractableShim MakeInteractable( object o )
 		{
 			// Actually needs to be CilboxProxies.

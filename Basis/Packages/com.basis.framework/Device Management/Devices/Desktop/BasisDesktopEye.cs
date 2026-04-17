@@ -49,8 +49,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         /// Stores look input delta from the mouse or input system.
         /// </summary>
         public Vector2 LookRotationVector = Vector2.zero;
-
-        private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         private readonly BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
 
         /// <summary>

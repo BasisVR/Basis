@@ -47,8 +47,15 @@ public class BasisCilboxBuildHook
         BasisAssetBundlePipeline.OnBeforeBuildPrefab -= HandleBeforeBuildPrefab;
         BasisAssetBundlePipeline.OnBeforeBuildPrefab += HandleBeforeBuildPrefab;
 
+        BasisAvatarSDKInspector.OnBeforeTestInEditor -= HandleBeforeTestInEditor;
+        BasisAvatarSDKInspector.OnBeforeTestInEditor += HandleBeforeTestInEditor;
         EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+    }
+
+    private static void HandleBeforeTestInEditor(GameObject prefabRoot)
+    {
+        HandleBeforeBuildPrefab(prefabRoot, null);
     }
 
     private static void OnPlayModeStateChanged(PlayModeStateChange state)

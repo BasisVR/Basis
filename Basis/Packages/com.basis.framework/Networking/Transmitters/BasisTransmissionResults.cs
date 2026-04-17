@@ -382,24 +382,9 @@ public partial class BasisTransmissionResults
         bool microphoneChange = IndexChanged || AnyMicrophoneRangeChanged;
         bool lodChange = IndexChanged || AnyLodRangeChanged;
 
-        // Re-check avatar changes: the cap or view-cone enforcement may have
-        // changed AvatarRange entries beyond what the distance job flagged.
-        bool avatarChange = IndexChanged || AnyAvatarRangeChanged;
-        if (!avatarChange && (SMModuleDistanceBasedReductions.UseMaxVisibleAvatars || SMModuleDistanceBasedReductions.UseViewConeAvatars))
-        {
-            unsafe
-            {
-                bool* pAvatarRange = (bool*)AvatarRange.GetUnsafeReadOnlyPtr();
-                for (int i = 0; i < receiverCount; i++)
-                {
-                    if (pAvatarRange[i] != snapshot[i].RemotePlayer.InAvatarRange)
-                    {
-                        avatarChange = true;
-                        break;
-                    }
-                }
-            }
-        }
+        // Avatar range is always evaluated per-player in the loop below — the debounce
+        // logic needs to run every tick so pending transitions can commit on the
+        // tick their timer expires, not only when some other avatar flag also flipped.
 
         // Single-pass post-processing: hearing, audio range, dampening, avatar, LOD.
         // Merging these loops avoids repeated cache-miss traversals of the same
@@ -450,19 +435,43 @@ public partial class BasisTransmissionResults
                 // the hearing distance — too far to see mouth shapes.
                 audio.visemeDriver.InVisemeRange = pDistanceSq[i] < visemeRangeSq;
 
-                if (avatarChange)
+                // Avatar range transition with debounce. Always runs (not gated on
+                // avatarChange) so a pending transition started on a previous tick can
+                // continue to tick forward even when no other avatar state changed.
+                //
+                // View-cone and avatar-cap logic can cause rapid flips (e.g. the local
+                // player rotating their head, or a crowd shifting around the cap limit).
+                // Without this debounce, each flip tears down the real avatar, swaps to
+                // the loading avatar, and re-enters the download queue — which is the
+                // "avatars randomly fall back under load" symptom.
                 {
                     bool inRange = pAvatarRange[i];
-                    if (remote.InAvatarRange != inRange)
+                    if (inRange != remote.InAvatarRange)
                     {
-                        // Always keep InAvatarRange up to date so CreateAvatar uses correct state
-                        remote.InAvatarRange = inRange;
-
-                        // Only trigger reload when not loading and cooldown expired
-                        if (!remote.IsLoadingAnAvatar && (inRange || !remote.IsConsideredFallBackAvatar))
+                        float now = Time.unscaledTime;
+                        if (!remote.PendingRangeActive || remote.PendingRangeTarget != inRange)
                         {
-                            remote.ReloadAvatar();
+                            // New transition (or target changed mid-debounce) — restart the timer.
+                            remote.PendingRangeActive = true;
+                            remote.PendingRangeTarget = inRange;
+                            remote.PendingRangeCommitTime = now + BasisRemotePlayer.AvatarRangeDebounceSeconds;
                         }
+                        else if (now >= remote.PendingRangeCommitTime)
+                        {
+                            // Target has remained stable for the debounce window — commit.
+                            remote.InAvatarRange = inRange;
+                            remote.PendingRangeActive = false;
+
+                            if (!remote.IsLoadingAnAvatar && (inRange || !remote.IsConsideredFallBackAvatar))
+                            {
+                                remote.ReloadAvatar();
+                            }
+                        }
+                    }
+                    else if (remote.PendingRangeActive)
+                    {
+                        // The flip reverted before the debounce expired — discard it.
+                        remote.PendingRangeActive = false;
                     }
                 }
 

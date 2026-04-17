@@ -1,8 +1,8 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using Basis.Scripts.Networking;
 using System;
-
 public class BasisFrameRateVisualization : MonoBehaviour
 {
     public TextMeshProUGUI fpsText;
@@ -15,10 +15,56 @@ public class BasisFrameRateVisualization : MonoBehaviour
     // Reusable character buffer — adjust size if needed
     private char[] buffer = new char[160];
 
+    // Throttle redraws to 10 Hz. SetCharArray forces a TMP vertex/layout
+    // rebuild, and the user can't read FPS updates faster than this anyway.
+    private const float RedrawInterval = 0.1f;
+    private float _redrawTimer;
+
+    private bool _cascadeFrozen;
+
+    /// <summary>
+    /// The panel Title label lives inside Title → Title Content → Panel Element Base,
+    /// each with a ContentSizeFitter. Without this, every 10 Hz SetCharArray cascades
+    /// a layout rebuild up through all of them, which shows up as multi-percent cost
+    /// in LayoutRebuilder.PerformLayoutCalculation/Control on the profiler.
+    /// Walking up and pinning each ancestor's current size into a LayoutElement
+    /// (then disabling its CSF) stops the cascade at the main menu panel root.
+    /// </summary>
+    private void FreezeAncestorCascade()
+    {
+        if (_cascadeFrozen || fpsText == null) return;
+        _cascadeFrozen = true;
+
+        Transform t = fpsText.transform;
+        int depth = 0;
+        while (t != null && depth < 5)
+        {
+            if (t is RectTransform rt && rt.TryGetComponent(out ContentSizeFitter csf) && csf.enabled)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+                if (!rt.TryGetComponent(out LayoutElement le))
+                {
+                    le = rt.gameObject.AddComponent<LayoutElement>();
+                }
+                le.preferredHeight = rt.rect.height;
+                le.minHeight = rt.rect.height;
+                csf.enabled = false;
+            }
+            t = t.parent;
+            depth++;
+        }
+    }
+
     void Update()
     {
         float dt = Time.unscaledDeltaTime;
+        // Keep smoothing the delta every frame so the displayed value stays accurate.
         deltaTime += (dt - deltaTime) * 0.1f;
+
+        _redrawTimer += dt;
+        if (_redrawTimer < RedrawInterval) return;
+        _redrawTimer -= RedrawInterval;
+
         float fps = 1f / deltaTime;
 
         // Only fetch system time once per second
@@ -69,8 +115,11 @@ public class BasisFrameRateVisualization : MonoBehaviour
 
         // We don't convert to string → no GC
         fpsText.SetCharArray(buffer, 0, idx);
-    }
 
+        // First tick with real content is present — freeze the ancestor CSF
+        // chain so subsequent ticks don't cascade layout rebuilds.
+        FreezeAncestorCascade();
+    }
 
     // -------- Helpers (no GC) --------
 

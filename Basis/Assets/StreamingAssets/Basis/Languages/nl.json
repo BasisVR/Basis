@@ -1,0 +1,2802 @@
+{
+    "code": "nl",
+    "nativeName": "Nederlands",
+    "entries": [
+        {
+            "key": "calibration.additionalHeight",
+            "value": "Extra Spelerslengte"
+        },
+        {
+            "key": "calibration.calibrate",
+            "value": "Kalibreren"
+        },
+        {
+            "key": "calibration.bodyTrackingSettings",
+            "value": "Lichaamstracking-instellingen"
+        },
+        {
+            "key": "calibration.calibrating",
+            "value": "Aan het kalibreren"
+        },
+        {
+            "key": "calibration.decreaseHeight",
+            "value": "Lengte Verlagen"
+        },
+        {
+            "key": "calibration.increaseHeight",
+            "value": "Lengte Verhogen"
+        },
+        {
+            "key": "calibration.pitch.down",
+            "value": "Kijk OMLAAG, druk op triggers"
+        },
+        {
+            "key": "calibration.pitch.forward",
+            "value": "Kijk VOORUIT, druk op triggers"
+        },
+        {
+            "key": "calibration.pitch.up",
+            "value": "Kijk OMHOOG, druk op triggers"
+        },
+        {
+            "key": "calibration.pitchLabel",
+            "value": "Pitch Kalibratie: {0}"
+        },
+        {
+            "key": "calibration.pullTriggers",
+            "value": "Druk op Triggers om te Kalibreren"
+        },
+        {
+            "key": "library.availablePlatforms",
+            "value": "Beschikbare Platforms"
+        },
+        {
+            "key": "library.beeFilePassword",
+            "value": "BEE-bestand Wachtwoord:"
+        },
+        {
+            "key": "library.beeFilePassword.description",
+            "value": "Dit is het wachtwoord dat is gegenereerd met jouw BEE-bestand."
+        },
+        {
+            "key": "library.beeFileUrl",
+            "value": "BEE-bestand URL:"
+        },
+        {
+            "key": "library.beeFileUrl.description",
+            "value": "De directe link naar het BEE-bestand."
+        },
+        {
+            "key": "library.bonesCount",
+            "value": "Aantal Botten"
+        },
+        {
+            "key": "library.creationDate",
+            "value": "Aanmaakdatum"
+        },
+        {
+            "key": "library.delete",
+            "value": "Verwijderen"
+        },
+        {
+            "key": "library.dialog.add.addButton",
+            "value": "Toevoegen"
+        },
+        {
+            "key": "library.dialog.add.checkingMetadata",
+            "value": "BEE-metadata controleren..."
+        },
+        {
+            "key": "library.dialog.add.urlDescription",
+            "value": "Dit moet een directe link naar jouw BEE-bestand zijn."
+        },
+        {
+            "key": "library.dialog.add.validating",
+            "value": "BEE-bestand valideren"
+        },
+        {
+            "key": "library.dialog.add.validationError",
+            "value": "BEE Validatiefout"
+        },
+        {
+            "key": "library.dialog.add.validationErrorBody",
+            "value": "Kon BEE-bestand niet valideren: {0}"
+        },
+        {
+            "key": "library.dialog.avatarUnreachable.body",
+            "value": "De avatar is nog steeds geladen, maar het externe bestand kon niet worden bereikt."
+        },
+        {
+            "key": "library.dialog.avatarUnreachable.title",
+            "value": "Avatarbestand Onbereikbaar"
+        },
+        {
+            "key": "library.addNewContent",
+            "value": "Nieuwe Inhoud Toevoegen"
+        },
+        {
+            "key": "library.pinned",
+            "value": "Vastgemaakt"
+        },
+        {
+            "key": "library.pin",
+            "value": "Vastmaken"
+        },
+        {
+            "key": "library.embeddedItem",
+            "value": "Ingebed Item"
+        },
+        {
+            "key": "library.noDescription",
+            "value": "Er is geen beschrijving opgegeven."
+        },
+        {
+            "key": "library.allPlatformsEmbedded",
+            "value": "Alle - Ingebed Item"
+        },
+        {
+            "key": "library.notAvailable",
+            "value": "N.v.t."
+        },
+        {
+            "key": "library.alreadyInAvatar",
+            "value": "Je draagt deze avatar al"
+        },
+        {
+            "key": "library.load",
+            "value": "Laden"
+        },
+        {
+            "key": "library.sceneAlreadyLoaded",
+            "value": "Je kunt slechts 1 instantie van een scène laden."
+        },
+        {
+            "key": "library.despawn",
+            "value": "Despawnen"
+        },
+        {
+            "key": "library.spawn",
+            "value": "Spawnen"
+        },
+        {
+            "key": "library.syncSpawn",
+            "value": "Synchroon Spawnen"
+        },
+        {
+            "key": "library.spawnedCount",
+            "value": "({0} gespawnd)"
+        },
+        {
+            "key": "library.select",
+            "value": "Selecteren"
+        },
+        {
+            "key": "library.deselect",
+            "value": "Deselecteren"
+        },
+        {
+            "key": "library.networkType.local",
+            "value": "Alleen Ik"
+        },
+        {
+            "key": "library.networkType.networked",
+            "value": "Iedereen (Direct)"
+        },
+        {
+            "key": "library.networkType.local.description",
+            "value": "Als het item op lokaal staat, is het alleen zichtbaar en interactief voor jou."
+        },
+        {
+            "key": "library.networkType.networked.description",
+            "value": "Het item wordt onmiddellijk bij alle verbonden spelers gespawnd."
+        },
+        {
+            "key": "library.networkType.synchronized.description",
+            "value": "Wordt gedownload naar alle spelers en vervolgens gelijktijdig gespawnd zodra iedereen klaar is. Heeft een timeout van 5 minuten voor trage verbindingen."
+        },
+        {
+            "key": "library.networkType.unknown.description",
+            "value": "Onbekend netwerktype."
+        },
+        {
+            "key": "library.instantiated.createdAgoBy",
+            "value": "{0} geleden aangemaakt door {1}"
+        },
+        {
+            "key": "library.dialog.add.title",
+            "value": "Nieuwe Inhoud Toevoegen"
+        },
+        {
+            "key": "library.dialog.add.description",
+            "value": "Geef de URL en het wachtwoord op voor je BEE-bestand. Zorg ervoor dat je URL en wachtwoord correct zijn, anders wordt het item niet opgenomen in je bibliotheek."
+        },
+        {
+            "key": "library.dialog.add.urlPlaceholder",
+            "value": "URL"
+        },
+        {
+            "key": "library.dialog.add.passwordPlaceholder",
+            "value": "Wachtwoord invoeren"
+        },
+        {
+            "key": "library.dialog.add.error.emptyUrl",
+            "value": "URL mag niet leeg zijn."
+        },
+        {
+            "key": "library.dialog.add.error.invalidUrlFormat",
+            "value": "URL-formaat is ongeldig."
+        },
+        {
+            "key": "library.dialog.add.error.invalidUrlScheme",
+            "value": "URL moet beginnen met http:// of https://"
+        },
+        {
+            "key": "library.dialog.add.error.emptyPassword",
+            "value": "Wachtwoord mag niet leeg zijn."
+        },
+        {
+            "key": "library.dialog.add.error.duplicateEntry",
+            "value": "Er bestaat al een item met deze URL in je bibliotheek."
+        },
+        {
+            "key": "library.dialog.add.error.unknown",
+            "value": "Onbekende validatiefout."
+        },
+        {
+            "key": "library.dialog.loading.title",
+            "value": "Even geduld"
+        },
+        {
+            "key": "library.dialog.loading.description",
+            "value": "Je inhoud wordt momenteel geladen, even geduld..."
+        },
+        {
+            "key": "library.dialog.loading.progress",
+            "value": "Laden {0}% - {1}"
+        },
+        {
+            "key": "library.dialog.remove.title",
+            "value": "{0} verwijderen?"
+        },
+        {
+            "key": "library.dialog.remove.body",
+            "value": "Weet je zeker dat je dit {0} wilt verwijderen?"
+        },
+        {
+            "key": "library.dialog.share.title",
+            "value": "{0} delen?"
+        },
+        {
+            "key": "library.dialog.share.body",
+            "value": "Weet je zeker dat je dit {0} wilt delen met iedereen op de server?"
+        },
+        {
+            "key": "library.dialog.legacy.title",
+            "value": "Inhoudstype Opgeven"
+        },
+        {
+            "key": "library.dialog.legacy.description",
+            "value": "Je inhoud is gemarkeerd als verouderd. Geef aan welk type inhoud je toevoegt."
+        },
+        {
+            "key": "library.dialog.legacy.whyShowing.description",
+            "value": "BEE-bestanden bevatten nu metadata over de inhoud. Dit wordt gebruikt om informatie over je BEE-bestand te bepalen, wat belangrijk zal zijn voor toekomstige functies. Overweeg je inhoud bij te werken om deze metadata op te nemen."
+        },
+        {
+            "key": "library.dialog.legacy.contentType",
+            "value": "Inhoudstype"
+        },
+        {
+            "key": "library.dialog.legacy.contentType.description",
+            "value": "Welke inhoud voeg je toe?"
+        },
+        {
+            "key": "library.dialog.legacy.whyShowing",
+            "value": "Waarom wordt dit getoond?"
+        },
+        {
+            "key": "library.ephemeralMode",
+            "value": "Vluchtige Modus"
+        },
+        {
+            "key": "library.ephemeralMode.description",
+            "value": "Dit item is alleen zichtbaar voor mensen die zich momenteel in de instantie bevinden. Latere deelnemers kunnen dit niet zien."
+        },
+        {
+            "key": "library.loading",
+            "value": "Laden..."
+        },
+        {
+            "key": "library.materialCount",
+            "value": "Aantal Materialen"
+        },
+        {
+            "key": "library.networkType",
+            "value": "Netwerktype"
+        },
+        {
+            "key": "library.remove",
+            "value": "Verwijderen"
+        },
+        {
+            "key": "library.share",
+            "value": "Delen"
+        },
+        {
+            "key": "library.tab.avatars",
+            "value": "Avatars"
+        },
+        {
+            "key": "library.tab.instantiated",
+            "value": "Geïnstantieerd"
+        },
+        {
+            "key": "library.tab.props",
+            "value": "Props"
+        },
+        {
+            "key": "library.tab.worlds",
+            "value": "Werelden"
+        },
+        {
+            "key": "library.teleportTo",
+            "value": "Teleporteren Naar"
+        },
+        {
+            "key": "library.triangleCount",
+            "value": "Aantal Driehoeken"
+        },
+        {
+            "key": "library.uniqueVersion",
+            "value": "Unieke Versie:"
+        },
+        {
+            "key": "library.uniqueVersion.description",
+            "value": "Het unieke versienummer van de basis-bundle."
+        },
+        {
+            "key": "menu.exit.dialog.body",
+            "value": "Weet je zeker dat je Basis wilt sluiten?"
+        },
+        {
+            "key": "menu.exit.dialog.confirm",
+            "value": "Basis Afsluiten"
+        },
+        {
+            "key": "menu.exit.dialog.title",
+            "value": "Basis VR"
+        },
+        {
+            "key": "menu.individualPlayer.addToGroup",
+            "value": "Aan Groep Toevoegen"
+        },
+        {
+            "key": "menu.individualPlayer.admin.description",
+            "value": "Moderatie-acties voor deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.audio.description",
+            "value": "Overschrijf het stemvolume van deze speler alleen voor jou."
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug",
+            "value": "Audio Debug"
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.decodedPcm",
+            "value": "Gedecodeerde PCM"
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.description",
+            "value": "Live audioketendiagnostiek. Schakel secties in via Instellingen > Ontwikkelaar."
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.encodedPackets",
+            "value": "Gecodeerde Pakketten"
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.silence",
+            "value": "Stilte Tracking"
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.source",
+            "value": "Audiobron"
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.viseme",
+            "value": "Viseme Stuurprogramma"
+        },
+        {
+            "key": "menu.individualPlayer.audioDebug.volumeChain",
+            "value": "Volumeketen"
+        },
+        {
+            "key": "menu.individualPlayer.avatar",
+            "value": "Avatar"
+        },
+        {
+            "key": "menu.individualPlayer.avatar.description",
+            "value": "Schakelaars voor zichtbaarheid en interactie."
+        },
+        {
+            "key": "menu.individualPlayer.avatarLoadError",
+            "value": "Avatar Laadfout"
+        },
+        {
+            "key": "menu.individualPlayer.ban",
+            "value": "Verbannen"
+        },
+        {
+            "key": "menu.individualPlayer.ban.description",
+            "value": "Verban deze speler op UUID."
+        },
+        {
+            "key": "menu.individualPlayer.ban.dialog.body",
+            "value": "{0} verbannen? Dit kan onomkeerbaar zijn."
+        },
+        {
+            "key": "menu.individualPlayer.ban.dialog.title",
+            "value": "Speler verbannen?"
+        },
+        {
+            "key": "menu.individualPlayer.block",
+            "value": "Blokkeren"
+        },
+        {
+            "key": "menu.individualPlayer.block.button.description",
+            "value": "Dempt audio, verbergt de avatar en verbergt de naamplaat voor deze speler, alleen in jouw client."
+        },
+        {
+            "key": "menu.individualPlayer.block.description",
+            "value": "Blokkeer deze speler. Hun audio, avatar en naamplaat worden verborgen in jouw client."
+        },
+        {
+            "key": "menu.individualPlayer.blockButton",
+            "value": "Speler Blokkeren"
+        },
+        {
+            "key": "menu.individualPlayer.bufferState",
+            "value": "Bufferstatus"
+        },
+        {
+            "key": "menu.individualPlayer.chat.description",
+            "value": "Bepaal de zichtbaarheid van chatberichten voor deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.clearHighlights",
+            "value": "Alle Markeringen Wissen"
+        },
+        {
+            "key": "menu.individualPlayer.clearHighlights.description",
+            "value": "Verwijder elk actief baken."
+        },
+        {
+            "key": "menu.individualPlayer.customNode",
+            "value": "Aangepast Knooppunt"
+        },
+        {
+            "key": "menu.individualPlayer.customNode.description",
+            "value": "Of typ een aangepast knooppunt (overschrijft dropdown)."
+        },
+        {
+            "key": "menu.individualPlayer.debug",
+            "value": "Debug"
+        },
+        {
+            "key": "menu.individualPlayer.debug.description",
+            "value": "Live diagnostiek voor stem/bereikcontroles (optioneel)."
+        },
+        {
+            "key": "menu.individualPlayer.disableInteractions",
+            "value": "Interacties Uitschakelen"
+        },
+        {
+            "key": "menu.individualPlayer.distance",
+            "value": "Afstand"
+        },
+        {
+            "key": "menu.individualPlayer.enableInteractions",
+            "value": "Interacties Inschakelen"
+        },
+        {
+            "key": "menu.individualPlayer.grantPermission",
+            "value": "Machtiging Verlenen"
+        },
+        {
+            "key": "menu.individualPlayer.grantPermission.description",
+            "value": "Voeg het geselecteerde machtigingsknooppunt toe aan deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.groupName",
+            "value": "Groepsnaam"
+        },
+        {
+            "key": "menu.individualPlayer.groupName.description",
+            "value": "Naam van de machtigingsgroep."
+        },
+        {
+            "key": "menu.individualPlayer.groups",
+            "value": "Groepen"
+        },
+        {
+            "key": "menu.individualPlayer.groups.description",
+            "value": "Voeg deze speler toe aan of verwijder hem uit machtigingsgroepen."
+        },
+        {
+            "key": "menu.individualPlayer.hideAvatar",
+            "value": "Avatar Verbergen"
+        },
+        {
+            "key": "menu.individualPlayer.hideChat",
+            "value": "Chat Verbergen"
+        },
+        {
+            "key": "menu.individualPlayer.highlight",
+            "value": "Speler Markeren"
+        },
+        {
+            "key": "menu.individualPlayer.highlight.description",
+            "value": "Schakel een verticaal baken boven deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.ipBan",
+            "value": "IP-verbanning"
+        },
+        {
+            "key": "menu.individualPlayer.ipBan.description",
+            "value": "IP-verban deze speler. Dit heeft invloed op alle accounts op hun verbinding."
+        },
+        {
+            "key": "menu.individualPlayer.ipBan.dialog.body",
+            "value": "{0} IP-verbannen? Dit kan invloed hebben op meerdere accounts."
+        },
+        {
+            "key": "menu.individualPlayer.ipBan.dialog.title",
+            "value": "Speler IP-verbannen?"
+        },
+        {
+            "key": "menu.individualPlayer.kick",
+            "value": "Schoppen"
+        },
+        {
+            "key": "menu.individualPlayer.kick.description",
+            "value": "Verbreek de verbinding van deze speler met de server."
+        },
+        {
+            "key": "menu.individualPlayer.kick.dialog.body",
+            "value": "{0} schoppen?"
+        },
+        {
+            "key": "menu.individualPlayer.kick.dialog.title",
+            "value": "Speler schoppen?"
+        },
+        {
+            "key": "menu.individualPlayer.locate",
+            "value": "Lokaliseren"
+        },
+        {
+            "key": "menu.individualPlayer.locate.description",
+            "value": "Markeer deze speler met een zichtbaar baken in de wereld."
+        },
+        {
+            "key": "menu.individualPlayer.meshLod",
+            "value": "Mesh LOD Niveau"
+        },
+        {
+            "key": "menu.individualPlayer.message",
+            "value": "Bericht"
+        },
+        {
+            "key": "menu.individualPlayer.message.description",
+            "value": "Stuur een bericht rechtstreeks naar deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.name",
+            "value": "Naam"
+        },
+        {
+            "key": "menu.individualPlayer.network",
+            "value": "Netwerk"
+        },
+        {
+            "key": "menu.individualPlayer.network.description",
+            "value": "Live netwerkstatus voor deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.permissionNode",
+            "value": "Machtigingsknooppunt"
+        },
+        {
+            "key": "menu.individualPlayer.permissions",
+            "value": "Machtigingen"
+        },
+        {
+            "key": "menu.individualPlayer.permissions.description",
+            "value": "Voeg individuele machtigingsknooppunten toe of verwijder ze voor deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.pin",
+            "value": "Vastmaken"
+        },
+        {
+            "key": "menu.individualPlayer.pin.button.description",
+            "value": "Houd deze speler bovenaan je lijst voor snelle toegang."
+        },
+        {
+            "key": "menu.individualPlayer.pin.description",
+            "value": "Vastgemaakte spelers worden bovenaan de Spelerslijst gesorteerd."
+        },
+        {
+            "key": "menu.individualPlayer.pinButton",
+            "value": "Speler Vastmaken"
+        },
+        {
+            "key": "menu.individualPlayer.platform",
+            "value": "Platform"
+        },
+        {
+            "key": "menu.individualPlayer.player",
+            "value": "Speler"
+        },
+        {
+            "key": "menu.individualPlayer.player.description",
+            "value": "Per-speler overschrijvingen (volume, avatarzichtbaarheid, interacties)."
+        },
+        {
+            "key": "menu.individualPlayer.playerId",
+            "value": "Speler-ID"
+        },
+        {
+            "key": "menu.individualPlayer.ranges",
+            "value": "Bereiken"
+        },
+        {
+            "key": "menu.individualPlayer.removeFromGroup",
+            "value": "Uit Groep Verwijderen"
+        },
+        {
+            "key": "menu.individualPlayer.removeHighlight",
+            "value": "Markering Verwijderen"
+        },
+        {
+            "key": "menu.individualPlayer.revokePermission",
+            "value": "Machtiging Intrekken"
+        },
+        {
+            "key": "menu.individualPlayer.revokePermission.description",
+            "value": "Verwijder het geselecteerde machtigingsknooppunt van deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.sendMessage",
+            "value": "Bericht Verzenden"
+        },
+        {
+            "key": "menu.individualPlayer.sendMessage.description",
+            "value": "Bezorgt het bovenstaande bericht aan deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.shout.description",
+            "value": "Schakel niet-ruimtelijke uitzendstem voor deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.shout.disable",
+            "value": "Schreeuwmodus Uitschakelen"
+        },
+        {
+            "key": "menu.individualPlayer.shout.enable",
+            "value": "Schreeuwmodus Inschakelen"
+        },
+        {
+            "key": "menu.individualPlayer.showAudioDebug",
+            "value": "Audio Debug Tonen"
+        },
+        {
+            "key": "menu.individualPlayer.showAudioDebug.description",
+            "value": "Schakel live audiopijplijn-info voor deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.showAvatar",
+            "value": "Avatar Tonen"
+        },
+        {
+            "key": "menu.individualPlayer.showChat",
+            "value": "Chat Tonen"
+        },
+        {
+            "key": "menu.individualPlayer.teleportHere",
+            "value": "Hierheen Teleporteren"
+        },
+        {
+            "key": "menu.individualPlayer.teleportHere.description",
+            "value": "Teleporteer deze speler naar jouw locatie."
+        },
+        {
+            "key": "menu.individualPlayer.teleportTo",
+            "value": "Teleporteren Naar"
+        },
+        {
+            "key": "menu.individualPlayer.teleportTo.description",
+            "value": "Teleporteer jezelf naar de locatie van deze speler."
+        },
+        {
+            "key": "menu.individualPlayer.toggleAvatar.description",
+            "value": "Schakelt de weergave van de avatar van deze speler in jouw client."
+        },
+        {
+            "key": "menu.individualPlayer.toggleChat.description",
+            "value": "Schakelt of chatberichten van deze speler boven hun naamplaat verschijnen."
+        },
+        {
+            "key": "menu.individualPlayer.toggleInteractions.description",
+            "value": "Schakelt of deze avatar met jou kan interacteren."
+        },
+        {
+            "key": "menu.individualPlayer.transmission",
+            "value": "Transmissie"
+        },
+        {
+            "key": "menu.individualPlayer.unblock",
+            "value": "Speler Deblokkeren"
+        },
+        {
+            "key": "menu.individualPlayer.unpin",
+            "value": "Speler Losmaken"
+        },
+        {
+            "key": "menu.individualPlayer.volumeNormal",
+            "value": "Normaal bereik"
+        },
+        {
+            "key": "menu.individualPlayer.volumeOver",
+            "value": "Boven 100% (kan clippen / vervormen)"
+        },
+        {
+            "key": "menu.individualPlayer.volumeOverride",
+            "value": "Spelervolume Overschrijving"
+        },
+        {
+            "key": "menu.individualPlayer.waitingForData",
+            "value": "Wachten op gegevens..."
+        },
+        {
+            "key": "menu.main.title",
+            "value": "Hoofdmenu"
+        },
+        {
+            "key": "menu.players.header",
+            "value": "Online Spelers ({0})"
+        },
+        {
+            "key": "menu.players.header.description",
+            "value": "Klik op een speler om hun profiel te bekijken."
+        },
+        {
+            "key": "menu.players.header.filtered",
+            "value": "Online Spelers ({0}/{1})"
+        },
+        {
+            "key": "menu.players.pinned",
+            "value": "Vastgemaakt"
+        },
+        {
+            "key": "menu.players.search.byName",
+            "value": "Filter op weergavenaam."
+        },
+        {
+            "key": "menu.players.search.byUuid",
+            "value": "Filter op speler-UUID."
+        },
+        {
+            "key": "menu.players.searchMode",
+            "value": "Zoekmodus"
+        },
+        {
+            "key": "menu.players.you",
+            "value": "{0} (Jij)"
+        },
+        {
+            "key": "menu.provider.calibration",
+            "value": "Kalibratie"
+        },
+        {
+            "key": "menu.provider.exit",
+            "value": "Afsluiten"
+        },
+        {
+            "key": "menu.provider.individualPlayer",
+            "value": "Individuele Speler"
+        },
+        {
+            "key": "menu.provider.library",
+            "value": "Bibliotheek"
+        },
+        {
+            "key": "menu.provider.mute",
+            "value": "Dempen"
+        },
+        {
+            "key": "menu.provider.players",
+            "value": "Spelers"
+        },
+        {
+            "key": "menu.provider.respawn",
+            "value": "Herstart"
+        },
+        {
+            "key": "menu.provider.servers",
+            "value": "Servers"
+        },
+        {
+            "key": "menu.provider.shoutModeOff",
+            "value": "Schreeuwmodus Uit"
+        },
+        {
+            "key": "menu.provider.unmute",
+            "value": "Dempen Opheffen"
+        },
+        {
+            "key": "menu.servers.autoConnect",
+            "value": "Automatisch Verbinden"
+        },
+        {
+            "key": "menu.servers.autoConnect.description",
+            "value": "Automatisch verbinden met de laatste server bij het opstarten."
+        },
+        {
+            "key": "menu.servers.connect",
+            "value": "Verbinden"
+        },
+        {
+            "key": "menu.servers.error.connectFailed",
+            "value": "Verbinding mislukt."
+        },
+        {
+            "key": "menu.servers.error.emptyName",
+            "value": "Weergavenaam Was Leeg"
+        },
+        {
+            "key": "menu.servers.error.noNetworkLayer",
+            "value": "Netwerklaag is Niet Aangemaakt!"
+        },
+        {
+            "key": "menu.servers.error.timeout",
+            "value": "Verbreken/herstarten time-out."
+        },
+        {
+            "key": "menu.servers.host",
+            "value": "Host"
+        },
+        {
+            "key": "menu.servers.hostMode",
+            "value": "Hostmodus"
+        },
+        {
+            "key": "menu.servers.hostMode.description",
+            "value": "Voer een lokale server uit en maak er verbinding mee."
+        },
+        {
+            "key": "menu.servers.ipAddress",
+            "value": "IP-adres"
+        },
+        {
+            "key": "menu.servers.password",
+            "value": "Wachtwoord"
+        },
+        {
+            "key": "menu.servers.port",
+            "value": "Poort"
+        },
+        {
+            "key": "menu.servers.status.connecting",
+            "value": "Verbinden"
+        },
+        {
+            "key": "menu.servers.status.disconnecting",
+            "value": "Verbinding verbreken..."
+        },
+        {
+            "key": "menu.servers.status.initializing",
+            "value": "Initialiseren..."
+        },
+        {
+            "key": "menu.servers.status.loadingBundle",
+            "value": "Asset Bundle laden..."
+        },
+        {
+            "key": "menu.servers.status.preparing",
+            "value": "Voorbereiden..."
+        },
+        {
+            "key": "menu.servers.useLocalhost",
+            "value": "Gebruik \"Localhost\""
+        },
+        {
+            "key": "menu.servers.username",
+            "value": "Gebruikersnaam"
+        },
+        {
+            "key": "settings.admin.actions",
+            "value": "Acties"
+        },
+        {
+            "key": "settings.admin.actions.description",
+            "value": "Moderatie + hulpprogramma-acties."
+        },
+        {
+            "key": "settings.admin.autoRefresh",
+            "value": "Spelerslijst Automatisch Vernieuwen"
+        },
+        {
+            "key": "settings.admin.autoRefresh.description",
+            "value": "Bouwt de lijst automatisch opnieuw wanneer spelers binnenkomen of weggaan. Uitschakelen in drukke instanties om herbouwkosten te vermijden."
+        },
+        {
+            "key": "settings.admin.banUuid",
+            "value": "Verbannen (UUID)"
+        },
+        {
+            "key": "settings.admin.banUuid.description",
+            "value": "Verbant op UUID met het reden/berichtveld."
+        },
+        {
+            "key": "settings.admin.description",
+            "value": "Moderatiehulpmiddelen en snelle hulpprogramma's."
+        },
+        {
+            "key": "settings.admin.disableShout.description",
+            "value": "Verwijdert niet-ruimtelijke uitzendstem van de geselecteerde speler."
+        },
+        {
+            "key": "settings.admin.enableShout.description",
+            "value": "Verleent niet-ruimtelijke uitzendstem aan de geselecteerde speler."
+        },
+        {
+            "key": "settings.admin.ipBanUuid",
+            "value": "IP Verbannen (UUID)"
+        },
+        {
+            "key": "settings.admin.ipBanUuid.description",
+            "value": "IP-verbant op UUID met het reden/berichtveld."
+        },
+        {
+            "key": "settings.admin.kickUuid",
+            "value": "Schoppen (UUID)"
+        },
+        {
+            "key": "settings.admin.kickUuid.description",
+            "value": "Schopt op UUID met het reden/berichtveld."
+        },
+        {
+            "key": "settings.admin.players.description",
+            "value": "Klik op een speler om hen te targeten (vult UUID)."
+        },
+        {
+            "key": "settings.admin.reason",
+            "value": "Reden / Bericht"
+        },
+        {
+            "key": "settings.admin.reason.description",
+            "value": "Reden voor moderatieacties, of berichtinhoud."
+        },
+        {
+            "key": "settings.admin.refreshPlayers",
+            "value": "Spelerslijst Vernieuwen"
+        },
+        {
+            "key": "settings.admin.refreshPlayers.description",
+            "value": "Bouwt de lijst opnieuw op vanuit de huidige netwerkstatus."
+        },
+        {
+            "key": "settings.admin.sendAll",
+            "value": "Bericht naar Allen Verzenden"
+        },
+        {
+            "key": "settings.admin.sendAll.description",
+            "value": "Verstuurt het bericht naar alle spelers."
+        },
+        {
+            "key": "settings.admin.sendMessageUuid",
+            "value": "Bericht Verzenden (UUID)"
+        },
+        {
+            "key": "settings.admin.sendMessageUuid.description",
+            "value": "Verzendt het bericht naar de doelspeler (vereist UUID -> netwerk-id opzoeking)."
+        },
+        {
+            "key": "settings.admin.target",
+            "value": "Doel"
+        },
+        {
+            "key": "settings.admin.target.description",
+            "value": "UUID kan worden ingevuld door hierboven een speler te selecteren."
+        },
+        {
+            "key": "settings.admin.teleportAll",
+            "value": "Allen Teleporteren Naar Doel"
+        },
+        {
+            "key": "settings.admin.teleportAll.description",
+            "value": "Teleporteert iedereen naar de locatie van de geselecteerde speler."
+        },
+        {
+            "key": "settings.admin.teleportHere",
+            "value": "Speler Hierheen Teleporteren"
+        },
+        {
+            "key": "settings.admin.teleportHere.description",
+            "value": "Teleporteert de geselecteerde speler naar jouw locatie."
+        },
+        {
+            "key": "settings.admin.teleportTo",
+            "value": "Naar Speler Teleporteren"
+        },
+        {
+            "key": "settings.admin.teleportTo.description",
+            "value": "Teleporteert jou naar de locatie van de geselecteerde speler."
+        },
+        {
+            "key": "settings.admin.title",
+            "value": "Beheer & Moderatie"
+        },
+        {
+            "key": "settings.admin.unbanUuid",
+            "value": "Verbanning Opheffen (UUID)"
+        },
+        {
+            "key": "settings.admin.unbanUuid.description",
+            "value": "Verwijdert verbanning op UUID."
+        },
+        {
+            "key": "settings.admin.uuidTarget",
+            "value": "UUID / Doel"
+        },
+        {
+            "key": "settings.admin.uuidTarget.description",
+            "value": "Speler-UUID (of plak een UUID)."
+        },
+        {
+            "key": "settings.audio.avatarVolume",
+            "value": "Avatarvolume"
+        },
+        {
+            "key": "settings.audio.mainVolume",
+            "value": "Hoofdvolume"
+        },
+        {
+            "key": "settings.audio.masterVolume",
+            "value": "Mastervolume"
+        },
+        {
+            "key": "settings.audio.masterVolume.description",
+            "value": "Algemeen spelvolume."
+        },
+        {
+            "key": "settings.audio.mediaVolume",
+            "value": "Mediavolume"
+        },
+        {
+            "key": "settings.audio.menuVolume",
+            "value": "Menuvolume"
+        },
+        {
+            "key": "settings.audio.mixer.description",
+            "value": "Bedien individuele kanaalvolumes."
+        },
+        {
+            "key": "settings.audio.mixer.title",
+            "value": "Volumemixer"
+        },
+        {
+            "key": "settings.audio.propVolume",
+            "value": "Propvolume"
+        },
+        {
+            "key": "settings.audio.title",
+            "value": "Audio-instellingen"
+        },
+        {
+            "key": "settings.audio.voiceVolume",
+            "value": "Stemvolume"
+        },
+        {
+            "key": "settings.audio.worldVolume",
+            "value": "Wereldvolume"
+        },
+        {
+            "key": "settings.bodyTracking.advanced",
+            "value": "Geavanceerde IK-instellingen"
+        },
+        {
+            "key": "settings.bodyTracking.advanced.description",
+            "value": "Toon geavanceerde collider-, schouder- en wervelkolominstellingsparameters."
+        },
+        {
+            "key": "settings.bodyTracking.colliders.description",
+            "value": "Bedieningselementen voor IK-botsingdetectie en wervelkolom/schouder-instellingsparameters"
+        },
+        {
+            "key": "settings.bodyTracking.colliders.title",
+            "value": "IK Colliders & Afstemming"
+        },
+        {
+            "key": "settings.bodyTracking.collisionsEnabled",
+            "value": "Botsingen Ingeschakeld"
+        },
+        {
+            "key": "settings.bodyTracking.customScale",
+            "value": "Aangepaste Schaal"
+        },
+        {
+            "key": "settings.bodyTracking.customScale.description",
+            "value": "Schakelt handmatige overschrijving van automatische lichaamsschaling in."
+        },
+        {
+            "key": "settings.bodyTracking.debugInfo",
+            "value": "Debug Info"
+        },
+        {
+            "key": "settings.bodyTracking.debugInfo.description",
+            "value": "Toon live hoogte-, schaling- en kalibratiegegevens."
+        },
+        {
+            "key": "settings.bodyTracking.description",
+            "value": "Fijnafstemming voor avatarschaling, kalibratie en IK-afvlakking"
+        },
+        {
+            "key": "settings.bodyTracking.disableAnimFbt",
+            "value": "Animaties Uitschakelen in FBT"
+        },
+        {
+            "key": "settings.bodyTracking.fbt",
+            "value": "Volledige Lichaamstracking"
+        },
+        {
+            "key": "settings.bodyTracking.footIk",
+            "value": "Voet-IK"
+        },
+        {
+            "key": "settings.bodyTracking.heightDebug.description",
+            "value": "Huidige waarden van het hoogtestuurprogramma en kalibratiesysteem."
+        },
+        {
+            "key": "settings.bodyTracking.heightDebug.title",
+            "value": "Hoogte & Kalibratie Debug"
+        },
+        {
+            "key": "settings.bodyTracking.ikMode",
+            "value": "Volledige Lichaam IK-modus"
+        },
+        {
+            "key": "settings.bodyTracking.osc",
+            "value": "OSC (Gezicht / Parameters)"
+        },
+        {
+            "key": "settings.bodyTracking.refreshDebug",
+            "value": "Debug-gegevens Vernieuwen"
+        },
+        {
+            "key": "settings.bodyTracking.seatedMode",
+            "value": "Zittende / Staande Modus"
+        },
+        {
+            "key": "settings.bodyTracking.spineLockMode",
+            "value": "Wervelkolomvergrendelingsmodus"
+        },
+        {
+            "key": "settings.chat.group.description",
+            "value": "Stuur een tekstbericht dat boven je naamplaat verschijnt."
+        },
+        {
+            "key": "settings.chat.joinNotifications",
+            "value": "Meldingen bij Binnenkomen"
+        },
+        {
+            "key": "settings.chat.leaveNotifications",
+            "value": "Meldingen bij Vertrek"
+        },
+        {
+            "key": "settings.chat.message",
+            "value": "Chatbericht"
+        },
+        {
+            "key": "settings.chat.notifications.description",
+            "value": "Schakel binnenkomen- en vertrekmeldingen."
+        },
+        {
+            "key": "settings.chat.notifications.title",
+            "value": "Meldingen"
+        },
+        {
+            "key": "settings.console.clearLogs",
+            "value": "Logboeken Wissen"
+        },
+        {
+            "key": "settings.console.collapse",
+            "value": "Samenvouwen"
+        },
+        {
+            "key": "settings.console.filter",
+            "value": "Filter"
+        },
+        {
+            "key": "settings.console.liveUpdates",
+            "value": "Live Updates"
+        },
+        {
+            "key": "settings.console.openCrashReport",
+            "value": "Laatste Crashrapport Openen"
+        },
+        {
+            "key": "settings.console.output",
+            "value": "Uitvoer"
+        },
+        {
+            "key": "settings.controls.action",
+            "value": "Actie"
+        },
+        {
+            "key": "settings.controls.actionBindings.description",
+            "value": "Kies een actie om de gekoppelde rollen te bewerken."
+        },
+        {
+            "key": "settings.controls.actionBindings.title",
+            "value": "Actie Koppelingen ({0})"
+        },
+        {
+            "key": "settings.controls.dominantHand",
+            "value": "Dominante Hand"
+        },
+        {
+            "key": "settings.controls.gameplay.description",
+            "value": "Algemene bediening en comfortinstellingen."
+        },
+        {
+            "key": "settings.controls.gameplay.title",
+            "value": "Gameplay & Invoer"
+        },
+        {
+            "key": "settings.controls.gateCurve",
+            "value": "Gate Curve"
+        },
+        {
+            "key": "settings.controls.generalDeadzone.description",
+            "value": "Basisfiltering toegepast op de hele stick. (exclusief kijken)"
+        },
+        {
+            "key": "settings.controls.generalDeadzone.title",
+            "value": "Algemene Dode Zone"
+        },
+        {
+            "key": "settings.controls.invertMouse",
+            "value": "Muis Omkeren"
+        },
+        {
+            "key": "settings.controls.lookYDeadZone",
+            "value": "Kijk Y Dode Zone"
+        },
+        {
+            "key": "settings.controls.mouseSensitivity",
+            "value": "Muisgevoeligheid"
+        },
+        {
+            "key": "settings.controls.pitchComfort.description",
+            "value": "Kijk-joystick Y Dode Zone."
+        },
+        {
+            "key": "settings.controls.pitchComfort.title",
+            "value": "Verticaal (Pitch / Overig)"
+        },
+        {
+            "key": "settings.controls.radialDeadZone",
+            "value": "Radiale Dode Zone"
+        },
+        {
+            "key": "settings.controls.roles",
+            "value": "Rollen"
+        },
+        {
+            "key": "settings.controls.smoothTurnSpeed",
+            "value": "Vloeiende Draaisnelheid"
+        },
+        {
+            "key": "settings.controls.snapTurn",
+            "value": "Snap Turn Beweging Gebruiken"
+        },
+        {
+            "key": "settings.controls.snapTurnAngle",
+            "value": "Snap Turn Hoek"
+        },
+        {
+            "key": "settings.controls.xDeadZoneMin",
+            "value": "X Dode Zone (Min)"
+        },
+        {
+            "key": "settings.controls.xGateFullY",
+            "value": "X Gate (Bij Volle Y)"
+        },
+        {
+            "key": "settings.controls.yawComfort.description",
+            "value": "Voorkomt dat voorwaarts/achterwaartse stickdruk per ongeluk links/rechts afdrijving veroorzaakt (\"vlindervleugels\")."
+        },
+        {
+            "key": "settings.controls.yawComfort.title",
+            "value": "Horizontaal (Yaw) Comfort"
+        },
+        {
+            "key": "settings.developer.audioDebug.enable",
+            "value": "Audio Debug Inschakelen"
+        },
+        {
+            "key": "settings.developer.audioDebug.enable.description",
+            "value": "Toon audio debug-info in individuele spelerspanelen."
+        },
+        {
+            "key": "settings.developer.audioDebug.jitter",
+            "value": "Jitter Buffer"
+        },
+        {
+            "key": "settings.developer.audioDebug.jitter.description",
+            "value": "Toon jitter-bufferpakketten, vulstatus en afspeelstatus."
+        },
+        {
+            "key": "settings.developer.audioDebug.ringBuffer",
+            "value": "Ring Buffer"
+        },
+        {
+            "key": "settings.developer.audioDebug.ringBuffer.description",
+            "value": "Toon vulniveau en status van stemringbuffer."
+        },
+        {
+            "key": "settings.developer.audioDebug.silence.description",
+            "value": "Toon stilteduur en gatdetectie."
+        },
+        {
+            "key": "settings.developer.audioDebug.source.description",
+            "value": "Toon AudioSource-status (ingeschakeld, spelend, ruimtelijke instellingen)."
+        },
+        {
+            "key": "settings.developer.audioDebug.viseme.description",
+            "value": "Toon viseme/lip-sync stuurprogrammastatus."
+        },
+        {
+            "key": "settings.developer.audioDebug.volumeChain.description",
+            "value": "Toon volumevermenigvuldigers (bron, demping, hoofd, effectief)."
+        },
+        {
+            "key": "settings.developer.avatarDistance",
+            "value": "Avatarafstand"
+        },
+        {
+            "key": "settings.developer.avatarDistance.description",
+            "value": "Toon avatar-zichtbaarheidsbereikcirkel bij je voeten."
+        },
+        {
+            "key": "settings.developer.boneTracking",
+            "value": "Bot Tracking"
+        },
+        {
+            "key": "settings.developer.boneTracking.description",
+            "value": "Toon bolgizmo's bij gevolgde botposities."
+        },
+        {
+            "key": "settings.developer.buildInfo",
+            "value": "Build & Omgeving"
+        },
+        {
+            "key": "settings.developer.buildInfo.description",
+            "value": "Toon build-ID's en omgevingsinfo."
+        },
+        {
+            "key": "settings.developer.buildInfo.section.description",
+            "value": "Nuttige identificaties voor het debuggen van builds."
+        },
+        {
+            "key": "settings.developer.console",
+            "value": "Consolelogboek"
+        },
+        {
+            "key": "settings.developer.console.description",
+            "value": "Toon inline console log uitvoer."
+        },
+        {
+            "key": "settings.developer.disableLogging",
+            "value": "Basis Logging Uitschakelen"
+        },
+        {
+            "key": "settings.developer.disableLogging.description",
+            "value": "Onderdruk alle BasisDebug log-, waarschuwings- en fout-uitvoer."
+        },
+        {
+            "key": "settings.developer.enableStatistics",
+            "value": "Statistieken Inschakelen"
+        },
+        {
+            "key": "settings.developer.enableStatistics.description",
+            "value": "Schakel netwerkstatistieken-opname in. Wordt van kracht bij volgende verbinding."
+        },
+        {
+            "key": "settings.developer.euroFilter",
+            "value": "Netwerk Euro Filter"
+        },
+        {
+            "key": "settings.developer.euroFilter.description",
+            "value": "Toon One Euro filter-afstemming voor externe interpolatie."
+        },
+        {
+            "key": "settings.developer.netStats",
+            "value": "Netwerk & Statistieken"
+        },
+        {
+            "key": "settings.developer.netStats.description",
+            "value": "Toon live verbinding en bandbreedtediagnostiek."
+        },
+        {
+            "key": "settings.developer.remoteAudioDebug.description",
+            "value": "Bepaalt welke audio-debugsecties verschijnen in per-spelerpanelen."
+        },
+        {
+            "key": "settings.developer.remoteAudioDebug.title",
+            "value": "Externe Audio Debug"
+        },
+        {
+            "key": "settings.developer.sections.description",
+            "value": "Schakel welke ontwikkelaarssecties hieronder zichtbaar zijn."
+        },
+        {
+            "key": "settings.developer.sections.title",
+            "value": "Ontwikkelaarssecties"
+        },
+        {
+            "key": "settings.developer.title",
+            "value": "Ontwikkelaar & Debug"
+        },
+        {
+            "key": "settings.developer.visualHelpers.description",
+            "value": "Schakel individuele debug-visualisaties."
+        },
+        {
+            "key": "settings.developer.visualHelpers.title",
+            "value": "Visuele Helpers"
+        },
+        {
+            "key": "settings.general.avatarRange",
+            "value": "Avatarzichtbaarheidsbereik"
+        },
+        {
+            "key": "settings.general.disableSeats",
+            "value": "Stoelen Uitschakelen"
+        },
+        {
+            "key": "settings.general.disableSeats.description",
+            "value": "Voorkom dat er wordt gezeten in stoelen die in de wereld zijn geplaatst."
+        },
+        {
+            "key": "settings.general.hearingRange",
+            "value": "Hoorbereik"
+        },
+        {
+            "key": "settings.general.interactions.title",
+            "value": "Interacties"
+        },
+        {
+            "key": "settings.general.language.description",
+            "value": "Open het menu opnieuw om een taalwijziging toe te passen."
+        },
+        {
+            "key": "settings.general.language.title",
+            "value": "Taal"
+        },
+        {
+            "key": "settings.general.language.help_translate.title",
+            "value": "Help ons vertalen!"
+        },
+        {
+            "key": "settings.general.language.help_translate.description",
+            "value": "Taalbestanden staan in StreamingAssets/Basis/Languages. Kopieer en.json, vertaal de waarden en stuur een pull request in."
+        },
+        {
+            "key": "settings.general.limitAudio",
+            "value": "Audiobronnen Beperken"
+        },
+        {
+            "key": "settings.general.limitAvatars",
+            "value": "Avatars Beperken"
+        },
+        {
+            "key": "settings.general.maxAudio",
+            "value": "Max Audiobronnen"
+        },
+        {
+            "key": "settings.general.maxAvatars",
+            "value": "Max Avatars"
+        },
+        {
+            "key": "settings.general.microphoneRange",
+            "value": "Microfoonbereik"
+        },
+        {
+            "key": "settings.general.ranges.description",
+            "value": "Zichtbaarheids- en hoorbereiken."
+        },
+        {
+            "key": "settings.general.ranges.title",
+            "value": "Bereiken"
+        },
+        {
+            "key": "settings.general.title",
+            "value": "Algemene Instellingen"
+        },
+        {
+            "key": "settings.general.viewCone",
+            "value": "Kijkkegel Avatars"
+        },
+        {
+            "key": "settings.general.viewCone.description",
+            "value": "Toon alleen avatars in de richting waar je naar kijkt."
+        },
+        {
+            "key": "settings.general.viewConeAngle",
+            "value": "Kijkkegelhoek"
+        },
+        {
+            "key": "settings.graphics.advanced.description",
+            "value": "Fijnafstellen van rendering, LOD en prestatie-opties."
+        },
+        {
+            "key": "settings.graphics.advanced.showAdvanced",
+            "value": "Geavanceerde Instellingen Tonen"
+        },
+        {
+            "key": "settings.graphics.antialiasing",
+            "value": "Antialiasing"
+        },
+        {
+            "key": "settings.graphics.avatarLod",
+            "value": "Avatar LOD"
+        },
+        {
+            "key": "settings.graphics.bloom.intensity",
+            "value": "Bloom Intensiteit"
+        },
+        {
+            "key": "settings.graphics.bloom.override",
+            "value": "Bloom Intensiteit Overschrijven"
+        },
+        {
+            "key": "settings.graphics.bloom.override.description",
+            "value": "Overschrijf de scène bloom intensiteit."
+        },
+        {
+            "key": "settings.graphics.bloom.title",
+            "value": "Bloom"
+        },
+        {
+            "key": "settings.graphics.cameraClip.far",
+            "value": "Verre Clip"
+        },
+        {
+            "key": "settings.graphics.cameraClip.near",
+            "value": "Nabije Clip"
+        },
+        {
+            "key": "settings.graphics.cameraClip.override",
+            "value": "Camera Clip Afstanden Overschrijven"
+        },
+        {
+            "key": "settings.graphics.cameraClip.override.description",
+            "value": "Forceer nabije en verre clipvlakafstanden op de camera."
+        },
+        {
+            "key": "settings.graphics.cameraClip.title",
+            "value": "Camera Clip Afstanden"
+        },
+        {
+            "key": "settings.graphics.fov",
+            "value": "Gezichtsveld"
+        },
+        {
+            "key": "settings.graphics.foveated",
+            "value": "Foveated Percentage"
+        },
+        {
+            "key": "settings.graphics.frameRateCap",
+            "value": "Framesnelheidslimiet (FPS)"
+        },
+        {
+            "key": "settings.graphics.frameRateCap.description",
+            "value": "Alleen gebruikt wanneer Verticale Synchronisatie is ingesteld op Beperkt."
+        },
+        {
+            "key": "settings.graphics.hdrSupport",
+            "value": "HDR Ondersteuning"
+        },
+        {
+            "key": "settings.graphics.memoryAllocation",
+            "value": "Geheugentoewijzing"
+        },
+        {
+            "key": "settings.graphics.mirrorQuality.override",
+            "value": "Spiegelkwaliteit Overschrijven"
+        },
+        {
+            "key": "settings.graphics.mirrorQuality.override.description",
+            "value": "Overschrijf de resolutie die door spiegels wordt gebruikt."
+        },
+        {
+            "key": "settings.graphics.mirrorQuality.title",
+            "value": "Spiegelkwaliteit"
+        },
+        {
+            "key": "settings.graphics.mirrorResolution",
+            "value": "Spiegelresolutie"
+        },
+        {
+            "key": "settings.graphics.poseLod.bias",
+            "value": "Pose LOD Bias"
+        },
+        {
+            "key": "settings.graphics.poseLod.bias.description",
+            "value": "Vermindert CPU-kosten door houdingen van verre spelers minder vaak bij te werken.\n0 = uit (alle spelers updaten elk frame).\n1-2 = subtiele vermindering, nauwelijks zichtbaar.\n3-5 = merkbaar bij verre spelers, aanzienlijke CPU-besparing."
+        },
+        {
+            "key": "settings.graphics.poseLod.description",
+            "value": "Bepaal hoe vaak verre spelerhoudingen worden bijgewerkt."
+        },
+        {
+            "key": "settings.graphics.poseLod.title",
+            "value": "Pose LOD"
+        },
+        {
+            "key": "settings.graphics.quality.description",
+            "value": "Algemene renderkwaliteit en nabewerking."
+        },
+        {
+            "key": "settings.graphics.quality.title",
+            "value": "Kwaliteit"
+        },
+        {
+            "key": "settings.graphics.qualityLevel",
+            "value": "Kwaliteitsniveau"
+        },
+        {
+            "key": "settings.graphics.rendering.description",
+            "value": "Resolutie- en prestatiegerelateerde opties."
+        },
+        {
+            "key": "settings.graphics.rendering.title",
+            "value": "Rendering"
+        },
+        {
+            "key": "settings.graphics.renderScale",
+            "value": "Renderschaal"
+        },
+        {
+            "key": "settings.graphics.resolution",
+            "value": "Resolutie"
+        },
+        {
+            "key": "settings.graphics.screenMode",
+            "value": "Schermmodus"
+        },
+        {
+            "key": "settings.graphics.shadowQuality",
+            "value": "Schaduwkwaliteit"
+        },
+        {
+            "key": "settings.graphics.title",
+            "value": "Grafische Instellingen"
+        },
+        {
+            "key": "settings.graphics.verticalSync",
+            "value": "Verticale Synchronisatie"
+        },
+        {
+            "key": "settings.graphics.verticalSync.description",
+            "value": "VR gebruikt verversingssnelheid van headset"
+        },
+        {
+            "key": "settings.graphics.worldLod",
+            "value": "Wereld LOD"
+        },
+        {
+            "key": "settings.microphone.agc",
+            "value": "Automatische Versterking (AGC)"
+        },
+        {
+            "key": "settings.microphone.agc.attack",
+            "value": "AGC Aanval"
+        },
+        {
+            "key": "settings.microphone.agc.description",
+            "value": "Doelluidheid en responsiviteit (alleen van toepassing wanneer AGC is ingeschakeld)."
+        },
+        {
+            "key": "settings.microphone.agc.maxGain",
+            "value": "AGC Max Versterking (dB)"
+        },
+        {
+            "key": "settings.microphone.agc.release",
+            "value": "AGC Release"
+        },
+        {
+            "key": "settings.microphone.agc.targetRms",
+            "value": "AGC Doel RMS"
+        },
+        {
+            "key": "settings.microphone.agc.title",
+            "value": "AGC Afstemming"
+        },
+        {
+            "key": "settings.microphone.denoiser",
+            "value": "Microfoon Ruisonderdrukker"
+        },
+        {
+            "key": "settings.microphone.denoiser.description",
+            "value": "Pas ruisonderdrukking blend en makeup gain aan."
+        },
+        {
+            "key": "settings.microphone.denoiser.makeup",
+            "value": "Ruisonderdrukking Makeup (dB)"
+        },
+        {
+            "key": "settings.microphone.denoiser.title",
+            "value": "Ruisonderdrukker Afstemming"
+        },
+        {
+            "key": "settings.microphone.denoiser.wet",
+            "value": "Ruisonderdrukking Wet"
+        },
+        {
+            "key": "settings.microphone.group.description",
+            "value": "Microfoon Gerelateerde Instellingen"
+        },
+        {
+            "key": "settings.microphone.group.title",
+            "value": "Microfoon"
+        },
+        {
+            "key": "settings.microphone.icon",
+            "value": "Microfoon Icoon"
+        },
+        {
+            "key": "settings.microphone.iconPosition.description",
+            "value": "Pas de microfoon-iconpositie op het scherm aan."
+        },
+        {
+            "key": "settings.microphone.iconPosition.horizontal",
+            "value": "Horizontale Verschuiving"
+        },
+        {
+            "key": "settings.microphone.iconPosition.title",
+            "value": "Mic Icoonpositie"
+        },
+        {
+            "key": "settings.microphone.iconPosition.vertical",
+            "value": "Verticale Verschuiving"
+        },
+        {
+            "key": "settings.microphone.limiter.description",
+            "value": "Voorkomt clipping door pieken zacht te beperken."
+        },
+        {
+            "key": "settings.microphone.limiter.knee",
+            "value": "Limiet Knie"
+        },
+        {
+            "key": "settings.microphone.limiter.threshold",
+            "value": "Limietdrempel"
+        },
+        {
+            "key": "settings.microphone.limiter.title",
+            "value": "Limiter"
+        },
+        {
+            "key": "settings.microphone.mode",
+            "value": "Microfoonmodus"
+        },
+        {
+            "key": "settings.microphone.noiseGate.attack",
+            "value": "Gate Aanval"
+        },
+        {
+            "key": "settings.microphone.noiseGate.description",
+            "value": "Dempt audio onder een drempel om achtergrondgeluid te verminderen."
+        },
+        {
+            "key": "settings.microphone.noiseGate.enable",
+            "value": "Ruisgate Inschakelen"
+        },
+        {
+            "key": "settings.microphone.noiseGate.release",
+            "value": "Gate Release"
+        },
+        {
+            "key": "settings.microphone.noiseGate.threshold",
+            "value": "Gate Drempel"
+        },
+        {
+            "key": "settings.microphone.noiseGate.title",
+            "value": "Ruisgate"
+        },
+        {
+            "key": "settings.microphone.selection",
+            "value": "Microfoonselectie"
+        },
+        {
+            "key": "settings.microphone.startBehavior",
+            "value": "Mic Startgedrag"
+        },
+        {
+            "key": "settings.microphone.title",
+            "value": "Microfooninstellingen"
+        },
+        {
+            "key": "settings.microphone.volume",
+            "value": "Microfoonvolume"
+        },
+        {
+            "key": "settings.myAvatar.assignedTrackers",
+            "value": "Toegewezen Trackers"
+        },
+        {
+            "key": "settings.myAvatar.description",
+            "value": "Textuur- en geheugenstatistieken voor je huidige avatar."
+        },
+        {
+            "key": "settings.myAvatar.mipmapStreaming",
+            "value": "Mipmap Streaming"
+        },
+        {
+            "key": "settings.myAvatar.mipmapStreaming.description",
+            "value": "Texturen met streaming mipmaps laden alleen de benodigde detailniveaus, waardoor de VRAM-druk voor iedereen in de instantie wordt verlaagd."
+        },
+        {
+            "key": "settings.myAvatar.noAvatar",
+            "value": "Geen Avatar"
+        },
+        {
+            "key": "settings.myAvatar.noAvatar.description",
+            "value": "Er is momenteel geen avatar geladen."
+        },
+        {
+            "key": "settings.myAvatar.overview",
+            "value": "Overzicht"
+        },
+        {
+            "key": "settings.myAvatar.perfImpact",
+            "value": "Prestatie-impact"
+        },
+        {
+            "key": "settings.myAvatar.perfImpact.description",
+            "value": "Hoe deze avatar andere spelers in de instantie beïnvloedt."
+        },
+        {
+            "key": "settings.myAvatar.scan",
+            "value": "Avatar Scannen"
+        },
+        {
+            "key": "settings.myAvatar.scan.description",
+            "value": "Analyseer texturen, VRAM-gebruik en streaming mipmap-status van je huidige avatar."
+        },
+        {
+            "key": "settings.myAvatar.showTrackers",
+            "value": "Toegewezen Trackers Tonen"
+        },
+        {
+            "key": "settings.myAvatar.showTrackers.description",
+            "value": "Toon elk invoerapparaat dat een gevolgde botrol heeft gekregen."
+        },
+        {
+            "key": "settings.myAvatar.textureDetails",
+            "value": "Textuurdetails"
+        },
+        {
+            "key": "settings.myAvatar.trackerRoles",
+            "value": "Trackerrollen"
+        },
+        {
+            "key": "settings.myAvatar.trackerRoles.description",
+            "value": "Inspecteer welke fysieke trackers momenteel zijn gekoppeld aan avatarrollen."
+        },
+        {
+            "key": "settings.myAvatar.vramUsage",
+            "value": "Geschat VRAM-gebruik"
+        },
+        {
+            "key": "settings.myAvatar.vramUsage.description",
+            "value": "GPU-geheugen verbruikt door de texturen van deze avatar."
+        },
+        {
+            "key": "settings.nameplates.description",
+            "value": "Bepaalt de weergave van naamplaten boven andere spelers."
+        },
+        {
+            "key": "settings.nameplates.hoverMenuOnly",
+            "value": "Hover Alleen Toestaan Wanneer Menu Open"
+        },
+        {
+            "key": "settings.nameplates.menuOnly",
+            "value": "Alleen Tonen Wanneer Menu Open"
+        },
+        {
+            "key": "settings.nameplates.show",
+            "value": "Naamplaten Tonen"
+        },
+        {
+            "key": "settings.nameplates.size",
+            "value": "Grootte"
+        },
+        {
+            "key": "settings.nameplates.title",
+            "value": "Naamplaten"
+        },
+        {
+            "key": "settings.nameplates.transparency",
+            "value": "Transparantie"
+        },
+        {
+            "key": "settings.network.bandwidth",
+            "value": "Bandbreedte"
+        },
+        {
+            "key": "settings.network.connection",
+            "value": "Verbinding"
+        },
+        {
+            "key": "settings.network.euro.beta",
+            "value": "Beta"
+        },
+        {
+            "key": "settings.network.euro.derivativeCutoff",
+            "value": "Afgeleide Afsnijding"
+        },
+        {
+            "key": "settings.network.euro.minCutoff",
+            "value": "Min Afsnijding"
+        },
+        {
+            "key": "settings.network.ping",
+            "value": "Ping / RTT"
+        },
+        {
+            "key": "settings.network.server",
+            "value": "Server"
+        },
+        {
+            "key": "settings.network.serverMetadata",
+            "value": "Server Metadata"
+        },
+        {
+            "key": "settings.permissions.addNodeToGroup",
+            "value": "Knooppunt Toevoegen Aan Groep"
+        },
+        {
+            "key": "settings.permissions.addParentToGroup",
+            "value": "Ouder Toevoegen Aan Groep"
+        },
+        {
+            "key": "settings.permissions.addUserToGroup",
+            "value": "Gebruiker Toevoegen Aan Groep"
+        },
+        {
+            "key": "settings.permissions.adminActions",
+            "value": "Beheerdersacties"
+        },
+        {
+            "key": "settings.permissions.adminActions.description",
+            "value": "Vereist beheerdersrechten. Maak of verwijder groepen, wijs gebruikers toe."
+        },
+        {
+            "key": "settings.permissions.childGroup",
+            "value": "Ondergeschikte Groep"
+        },
+        {
+            "key": "settings.permissions.childGroup.description",
+            "value": "Groep die overerft van de ouder."
+        },
+        {
+            "key": "settings.permissions.createGroup",
+            "value": "Groep Aanmaken"
+        },
+        {
+            "key": "settings.permissions.deleteGroup",
+            "value": "Groep Verwijderen"
+        },
+        {
+            "key": "settings.permissions.deleteGroup.confirm",
+            "value": "Weet je zeker dat je groep '{0}' wilt verwijderen? Dit verwijdert deze uit alle gebruikers."
+        },
+        {
+            "key": "settings.permissions.deleteGroup.title",
+            "value": "Groep Verwijderen?"
+        },
+        {
+            "key": "settings.permissions.groupName.description",
+            "value": "Naam voor nieuwe groep, of groep om te verwijderen."
+        },
+        {
+            "key": "settings.permissions.groups.description",
+            "value": "Machtigingsgroepen gedefinieerd op de server."
+        },
+        {
+            "key": "settings.permissions.nodeGroup",
+            "value": "Groep (voor knooppuntbewerking)"
+        },
+        {
+            "key": "settings.permissions.nodeGroup.description",
+            "value": "Groep om een machtigingsknooppunt aan toe te voegen/uit te verwijderen."
+        },
+        {
+            "key": "settings.permissions.parentGroup",
+            "value": "Oudergroep"
+        },
+        {
+            "key": "settings.permissions.parentGroup.description",
+            "value": "Groep om machtigingen van te erven."
+        },
+        {
+            "key": "settings.permissions.permissionNode.description",
+            "value": "bijv. basis.resource.load, basis.server.stats, * (wildcard)"
+        },
+        {
+            "key": "settings.permissions.refresh",
+            "value": "Machtigingen Vernieuwen"
+        },
+        {
+            "key": "settings.permissions.refresh.description",
+            "value": "Haalt de huidige machtigingssnapshot op van de server."
+        },
+        {
+            "key": "settings.permissions.removeNodeFromGroup",
+            "value": "Knooppunt Verwijderen Uit Groep"
+        },
+        {
+            "key": "settings.permissions.removeParentFromGroup",
+            "value": "Ouder Verwijderen Uit Groep"
+        },
+        {
+            "key": "settings.permissions.removeUserFromGroup",
+            "value": "Gebruiker Verwijderen Uit Groep"
+        },
+        {
+            "key": "settings.permissions.status",
+            "value": "Status"
+        },
+        {
+            "key": "settings.permissions.status.description",
+            "value": "Vraag de nieuwste machtigingsgegevens op van de server."
+        },
+        {
+            "key": "settings.permissions.targetGroup",
+            "value": "Doelgroep"
+        },
+        {
+            "key": "settings.permissions.targetGroup.description",
+            "value": "Groep om de gebruiker aan toe te voegen/uit te verwijderen."
+        },
+        {
+            "key": "settings.permissions.users",
+            "value": "Gebruikers"
+        },
+        {
+            "key": "settings.permissions.users.description",
+            "value": "Gebruikers met expliciete machtigingsinvoer."
+        },
+        {
+            "key": "settings.permissions.userUuid",
+            "value": "Gebruikers-UUID"
+        },
+        {
+            "key": "settings.permissions.userUuid.description",
+            "value": "UUID van de gebruiker om toe te wijzen/verwijderen uit een groep."
+        },
+        {
+            "key": "settings.platform.activeMode",
+            "value": "Actieve Modus"
+        },
+        {
+            "key": "settings.platform.deviceMode",
+            "value": "Apparaatmodus"
+        },
+        {
+            "key": "settings.platform.deviceMode.description",
+            "value": "De actieve apparaatmodus voor deze sessie."
+        },
+        {
+            "key": "settings.platform.swapMode.description",
+            "value": "Bepaalt hoe het systeem omgaat met het schakelen tussen VR- en Desktopmodi."
+        },
+        {
+            "key": "settings.platform.swapMode.dropdown.description",
+            "value": "Runtime Afsluiten: volledige XR-herstart bij wissel.\nAutomatisch Wisselen: automatisch wisselen op basis van headset-aanwezigheid."
+        },
+        {
+            "key": "settings.platform.swapMode.title",
+            "value": "Wisselmodus"
+        },
+        {
+            "key": "settings.platform.switchTo",
+            "value": "Overschakelen Naar {0}"
+        },
+        {
+            "key": "settings.platform.switchTo.confirm",
+            "value": "Weet je zeker dat je wilt overschakelen naar {0}?"
+        },
+        {
+            "key": "settings.platform.vrRuntime",
+            "value": "VR Runtime"
+        },
+        {
+            "key": "settings.remoteAudio.airAbsorption",
+            "value": "Luchtabsorptie"
+        },
+        {
+            "key": "settings.remoteAudio.airAbsorptionMode",
+            "value": "Luchtabsorptiemodus"
+        },
+        {
+            "key": "settings.remoteAudio.applyHrtfReflections",
+            "value": "HRTF Toepassen op Reflecties"
+        },
+        {
+            "key": "settings.remoteAudio.attenuationMode",
+            "value": "Dempingsmodus"
+        },
+        {
+            "key": "settings.remoteAudio.audioSource",
+            "value": "Audiobron"
+        },
+        {
+            "key": "settings.remoteAudio.audioSource.description",
+            "value": "Unity AudioSource ruimtelijke instellingen voor externe stemweergave."
+        },
+        {
+            "key": "settings.remoteAudio.curvePreset",
+            "value": "Rolloff Curve Voorinstelling"
+        },
+        {
+            "key": "settings.remoteAudio.directBinaural",
+            "value": "Direct Binauraal (HRTF)"
+        },
+        {
+            "key": "settings.remoteAudio.directivity",
+            "value": "Directiviteit"
+        },
+        {
+            "key": "settings.remoteAudio.directivity.description",
+            "value": "Bepaalt hoe gerichte stembronnen klinken (dipoolpatroon)."
+        },
+        {
+            "key": "settings.remoteAudio.distanceAttenuation",
+            "value": "Afstandsdemping"
+        },
+        {
+            "key": "settings.remoteAudio.hrtf",
+            "value": "HRTF / Binauraal"
+        },
+        {
+            "key": "settings.remoteAudio.hrtf.description",
+            "value": "Head-related transfer function instellingen voor 3D-audio."
+        },
+        {
+            "key": "settings.remoteAudio.hrtfInterpolation",
+            "value": "HRTF Interpolatie"
+        },
+        {
+            "key": "settings.remoteAudio.limitLipSync",
+            "value": "OpenLipSync Slots Beperken"
+        },
+        {
+            "key": "settings.remoteAudio.lipSync",
+            "value": "Lipsync"
+        },
+        {
+            "key": "settings.remoteAudio.lipSync.description",
+            "value": "Bepaalt hoeveel spelers high-quality neural lip sync (OpenLipSync) gebruiken.\nSpelers boven deze limiet vallen terug op de lichtere uLipSync backend."
+        },
+        {
+            "key": "settings.remoteAudio.mix",
+            "value": "Mix"
+        },
+        {
+            "key": "settings.remoteAudio.mix.description",
+            "value": "Direct geluidsmixniveau."
+        },
+        {
+            "key": "settings.remoteAudio.occlusion",
+            "value": "Occlusie"
+        },
+        {
+            "key": "settings.remoteAudio.occlusion.description",
+            "value": "Bepaalt hoe muren en objecten geluid blokkeren."
+        },
+        {
+            "key": "settings.remoteAudio.occlusionType",
+            "value": "Occlusietype"
+        },
+        {
+            "key": "settings.remoteAudio.perspectiveCorrection",
+            "value": "Perspectiefcorrectie"
+        },
+        {
+            "key": "settings.remoteAudio.propagation",
+            "value": "Geluidsvoortplanting"
+        },
+        {
+            "key": "settings.remoteAudio.propagation.description",
+            "value": "Afstandsdemping en luchtabsorptie simulatie."
+        },
+        {
+            "key": "settings.remoteAudio.reflections",
+            "value": "Reflecties"
+        },
+        {
+            "key": "settings.remoteAudio.reflections.description",
+            "value": "Omgevingsreflecties op stemaudio. Vereist ingebakken scènegegevens voor de beste resultaten."
+        },
+        {
+            "key": "settings.remoteAudio.remotePlayers",
+            "value": "Externe Spelers"
+        },
+        {
+            "key": "settings.remoteAudio.remotePlayers.description",
+            "value": "Vermindert het volume van spelers achter je. Helpt in drukke omgevingen."
+        },
+        {
+            "key": "settings.remoteAudio.rolloffMode",
+            "value": "Rolloff Modus"
+        },
+        {
+            "key": "settings.remoteAudio.transmission",
+            "value": "Transmissie"
+        },
+        {
+            "key": "settings.remoteAudio.transmission.description",
+            "value": "Bepaalt hoe geluid door muren en oppervlakken gaat."
+        },
+        {
+            "key": "settings.remoteAudio.transmissionType",
+            "value": "Transmissietype"
+        },
+        {
+            "key": "settings.storage.avatarDownloadSize",
+            "value": "Avatar Downloadgrootte"
+        },
+        {
+            "key": "settings.storage.cache.description",
+            "value": "Stel de maximale schijfruimte in voor in cache opgeslagen BEE (basis encrypted extension) bestanden."
+        },
+        {
+            "key": "settings.storage.cache.title",
+            "value": "Cache-instellingen"
+        },
+        {
+            "key": "settings.storage.cacheInfo",
+            "value": "Cache Info"
+        },
+        {
+            "key": "settings.storage.clearAll",
+            "value": "Alle Cache Wissen"
+        },
+        {
+            "key": "settings.storage.clearAll.button",
+            "value": "Alles Wissen"
+        },
+        {
+            "key": "settings.storage.clearAll.confirm",
+            "value": "Alle {0} in cache opgeslagen bestanden ({1}) verwijderen? Dit kan niet ongedaan worden gemaakt."
+        },
+        {
+            "key": "settings.storage.clearAll.description",
+            "value": "Verwijder alle gedownloade BEE (basis encrypted extension) bestanden van schijf."
+        },
+        {
+            "key": "settings.storage.deleteFile",
+            "value": "Bestand Verwijderen"
+        },
+        {
+            "key": "settings.storage.deleteFile.confirm",
+            "value": "In cache opgeslagen bestand '{0}' ({1}) verwijderen?"
+        },
+        {
+            "key": "settings.storage.deleteFile.inUse",
+            "value": "Waarschuwing: Dit bestand is momenteel in gebruik. Het verwijderen zal de asset uitladen."
+        },
+        {
+            "key": "settings.storage.downloadLimits.description",
+            "value": "Configureer downloadgrootte- en gelijktijdigheidslimieten."
+        },
+        {
+            "key": "settings.storage.downloadLimits.title",
+            "value": "Downloadlimieten"
+        },
+        {
+            "key": "settings.storage.fileCount",
+            "value": "{0} bestanden"
+        },
+        {
+            "key": "settings.storage.loadButton",
+            "value": "Opslaggegevens Laden"
+        },
+        {
+            "key": "settings.storage.loadButton.description",
+            "value": "Scan schijf op in cache opgeslagen BEE (basis encrypted extension) bestanden. Dit kan even duren."
+        },
+        {
+            "key": "settings.storage.maxAddressables",
+            "value": "Max Addressables"
+        },
+        {
+            "key": "settings.storage.maxCacheSize",
+            "value": "Max Cachegrootte (GB)"
+        },
+        {
+            "key": "settings.storage.maxDiscLoads",
+            "value": "Max Schijfladingen"
+        },
+        {
+            "key": "settings.storage.maxDownloads",
+            "value": "Max Downloads"
+        },
+        {
+            "key": "settings.storage.storedBeeFiles",
+            "value": "Opgeslagen BEE (basis encrypted extension) Bestanden"
+        },
+        {
+            "key": "settings.storage.storedBeeFiles.description",
+            "value": "Individuele in cache opgeslagen bestanden. Klik om te verwijderen."
+        },
+        {
+            "key": "settings.storage.storedFiles",
+            "value": "Opgeslagen Bestanden"
+        },
+        {
+            "key": "settings.storage.totalCacheSize",
+            "value": "Totale Cachegrootte"
+        },
+        {
+            "key": "settings.tab.admin",
+            "value": "Beheer"
+        },
+        {
+            "key": "settings.tab.audio",
+            "value": "Audio"
+        },
+        {
+            "key": "settings.tab.bodytracking",
+            "value": "Lichaamstracking"
+        },
+        {
+            "key": "settings.tab.chat",
+            "value": "Chat"
+        },
+        {
+            "key": "settings.tab.controls",
+            "value": "Bediening"
+        },
+        {
+            "key": "settings.tab.developer",
+            "value": "Ontwikkelaar"
+        },
+        {
+            "key": "settings.tab.downloadscache",
+            "value": "Downloads & Cache"
+        },
+        {
+            "key": "settings.tab.general",
+            "value": "Algemeen"
+        },
+        {
+            "key": "settings.tab.graphics",
+            "value": "Graphics"
+        },
+        {
+            "key": "settings.tab.microphone",
+            "value": "Microfoon"
+        },
+        {
+            "key": "settings.tab.myavatar",
+            "value": "Mijn Avatar"
+        },
+        {
+            "key": "settings.tab.nameplates",
+            "value": "Naamplaten"
+        },
+        {
+            "key": "settings.tab.trustedurls",
+            "value": "Vertrouwde URL's"
+        },
+        {
+            "key": "settings.tab.uistyle",
+            "value": "UI Stijl"
+        },
+        {
+            "key": "settings.title",
+            "value": "Instellingen"
+        },
+        {
+            "key": "settings.trustedUrls.clearAll",
+            "value": "Alle Vertrouwde URL's Wissen"
+        },
+        {
+            "key": "settings.trustedUrls.clearAll.confirm",
+            "value": "Alle {0} vertrouwde URL('s) verwijderen? Video-spelers vragen voor elke URL opnieuw."
+        },
+        {
+            "key": "settings.trustedUrls.clearAll.description",
+            "value": "Verwijder alle vertrouwde URL's. Video-spelers vragen opnieuw om goedkeuring."
+        },
+        {
+            "key": "settings.trustedUrls.clickToRemove",
+            "value": "Klik om te verwijderen"
+        },
+        {
+            "key": "settings.trustedUrls.count",
+            "value": "{0} URL('s)"
+        },
+        {
+            "key": "settings.trustedUrls.count.title",
+            "value": "Vertrouwde URL's"
+        },
+        {
+            "key": "settings.trustedUrls.description",
+            "value": "URL's in deze lijst worden automatisch geaccepteerd door video-spelers zonder te vragen."
+        },
+        {
+            "key": "settings.trustedUrls.empty",
+            "value": "Geen Vertrouwde URL's"
+        },
+        {
+            "key": "settings.trustedUrls.empty.description",
+            "value": "Accepteer een video-URL om deze hier toe te voegen."
+        },
+        {
+            "key": "settings.trustedUrls.list.description",
+            "value": "Klik op een URL om deze uit de vertrouwde lijst te verwijderen."
+        },
+        {
+            "key": "settings.trustedUrls.list.title",
+            "value": "URL Lijst"
+        },
+        {
+            "key": "settings.trustedUrls.remove.confirm",
+            "value": "Deze URL uit de vertrouwde lijst verwijderen?\n{0}"
+        },
+        {
+            "key": "settings.trustedUrls.remove.title",
+            "value": "Vertrouwde URL Verwijderen"
+        },
+        {
+            "key": "settings.trustedUrls.title",
+            "value": "Vertrouwde Video-URL's"
+        },
+        {
+            "key": "settings.uiStyle.accent",
+            "value": "Accent"
+        },
+        {
+            "key": "settings.uiStyle.background1",
+            "value": "Achtergrond 1"
+        },
+        {
+            "key": "settings.uiStyle.background2",
+            "value": "Achtergrond 2"
+        },
+        {
+            "key": "settings.uiStyle.background3",
+            "value": "Achtergrond 3"
+        },
+        {
+            "key": "settings.uiStyle.black",
+            "value": "Zwart"
+        },
+        {
+            "key": "settings.uiStyle.button",
+            "value": "Knop"
+        },
+        {
+            "key": "settings.uiStyle.caution",
+            "value": "Voorzichtig"
+        },
+        {
+            "key": "settings.uiStyle.clear",
+            "value": "Wissen"
+        },
+        {
+            "key": "settings.uiStyle.danger",
+            "value": "Gevaar"
+        },
+        {
+            "key": "settings.uiStyle.fontPrimary",
+            "value": "Lettertype Primair"
+        },
+        {
+            "key": "settings.uiStyle.fontSecondary",
+            "value": "Lettertype Secundair"
+        },
+        {
+            "key": "settings.uiStyle.fontTertiary",
+            "value": "Lettertype Tertiair"
+        },
+        {
+            "key": "settings.uiStyle.hex",
+            "value": "Hex"
+        },
+        {
+            "key": "settings.uiStyle.hue",
+            "value": "Tint"
+        },
+        {
+            "key": "settings.uiStyle.inputField",
+            "value": "Invoerveld"
+        },
+        {
+            "key": "settings.uiStyle.layer",
+            "value": "Laag"
+        },
+        {
+            "key": "settings.uiStyle.scrollbar",
+            "value": "Schuifbalk"
+        },
+        {
+            "key": "settings.uiStyle.success",
+            "value": "Succes"
+        },
+        {
+            "key": "settings.uiStyle.title",
+            "value": "UI Stijl"
+        },
+        {
+            "key": "settings.uiStyle.white",
+            "value": "Wit"
+        },
+        {
+            "key": "ui.advanced",
+            "value": "Geavanceerd"
+        },
+        {
+            "key": "ui.cancel",
+            "value": "Annuleren"
+        },
+        {
+            "key": "ui.error",
+            "value": "Fout"
+        },
+        {
+            "key": "ui.no",
+            "value": "Nee"
+        },
+        {
+            "key": "ui.note",
+            "value": "Opmerking"
+        },
+        {
+            "key": "ui.off",
+            "value": "UIT"
+        },
+        {
+            "key": "ui.ok",
+            "value": "OK"
+        },
+        {
+            "key": "ui.on",
+            "value": "AAN"
+        },
+        {
+            "key": "ui.reset",
+            "value": "Resetten"
+        },
+        {
+            "key": "ui.resetPage.confirm",
+            "value": "Alle {0} instellingen herstellen naar standaardwaarden?"
+        },
+        {
+            "key": "ui.resetPage.description",
+            "value": "Herstelt deze pagina naar standaardwaarden."
+        },
+        {
+            "key": "ui.resetPage.title",
+            "value": "Resetten {0}"
+        },
+        {
+            "key": "ui.search",
+            "value": "Zoeken..."
+        },
+        {
+            "key": "ui.search.label",
+            "value": "Zoeken"
+        },
+        {
+            "key": "ui.unknown",
+            "value": "Onbekend"
+        },
+        {
+            "key": "ui.yes",
+            "value": "Ja"
+        },
+        {
+            "key": "settings.tab.performancelimits",
+            "value": "Prestatielimieten"
+        },
+        {
+            "key": "settings.perf.sessionBypass.title",
+            "value": "Sessie Bypass"
+        },
+        {
+            "key": "settings.perf.sessionBypass.description",
+            "value": "Negeert tijdelijk alle prestatielimieten voor alleen deze sessie. Wordt gereset bij opnieuw opstarten — nooit opgeslagen op schijf. Handig als je een specifieke avatar in volledige kwaliteit wilt zien zonder je opgeslagen limieten aan te passen."
+        },
+        {
+            "key": "settings.perf.sessionBypass.toggle",
+            "value": "Alle Prestatielimieten Omzeilen"
+        },
+        {
+            "key": "settings.perf.intro.title",
+            "value": "Avatar Prestatielimieten"
+        },
+        {
+            "key": "settings.perf.intro.description",
+            "value": "Opt-in filters die worden toegepast op externe avatars tijdens het laden. Trimlimieten verwijderen overtollige extra's (animators, lichten, particles, trails, lijnen, cloth, jiggle rigs, Unity colliders) zodat de avatar nog steeds wordt weergegeven. Hard-block limieten (driehoeken, grenzen, textuurgeheugen, materiaalslots, botten, skinned/basis meshes) vallen in plaats daarvan terug op de laad-mesh — meshes worden niet getrimd omdat het verwijderen ervan meestal het lichaam of hoofd vernietigt. Verstandige standaardwaarden staan aan; verhoog of schakel elke limiet hieronder uit."
+        },
+        {
+            "key": "settings.perf.group.geometry",
+            "value": "Geometrie"
+        },
+        {
+            "key": "settings.perf.group.geometry.description",
+            "value": "Ruwe polygoon- en skelettellingen uit de asset bundle header."
+        },
+        {
+            "key": "settings.perf.group.meshesMaterials",
+            "value": "Meshes & Materialen"
+        },
+        {
+            "key": "settings.perf.group.physics",
+            "value": "Physics & Jiggle"
+        },
+        {
+            "key": "settings.perf.group.effects",
+            "value": "Effecten"
+        },
+        {
+            "key": "settings.perf.group.runtime",
+            "value": "Runtime"
+        },
+        {
+            "key": "settings.perf.group.runtime.description",
+            "value": "De remote driver schakelt de root Animator uit, maar child Animators blijven tikken."
+        },
+        {
+            "key": "settings.perf.triangles.toggle",
+            "value": "Driehoeken Beperken"
+        },
+        {
+            "key": "settings.perf.triangles.slider",
+            "value": "Max Driehoeken"
+        },
+        {
+            "key": "settings.perf.boundsSize.toggle",
+            "value": "Grensgrootte Beperken (m)"
+        },
+        {
+            "key": "settings.perf.boundsSize.slider",
+            "value": "Max Grens Diagonaal (m)"
+        },
+        {
+            "key": "settings.perf.bones.toggle",
+            "value": "Botten Hard Blokkeren"
+        },
+        {
+            "key": "settings.perf.bones.slider",
+            "value": "Max Skinned Botten (per avatar)"
+        },
+        {
+            "key": "settings.perf.skinnedMeshes.toggle",
+            "value": "Skinned Meshes Beperken"
+        },
+        {
+            "key": "settings.perf.skinnedMeshes.slider",
+            "value": "Max Skinned Meshes"
+        },
+        {
+            "key": "settings.perf.basicMeshes.toggle",
+            "value": "Basis Meshes Beperken"
+        },
+        {
+            "key": "settings.perf.basicMeshes.slider",
+            "value": "Max Basis Meshes"
+        },
+        {
+            "key": "settings.perf.materialSlots.toggle",
+            "value": "Materiaalslots Beperken"
+        },
+        {
+            "key": "settings.perf.materialSlots.slider",
+            "value": "Max Materiaalslots"
+        },
+        {
+            "key": "settings.perf.textureMemory.toggle",
+            "value": "Textuurgeheugen Beperken"
+        },
+        {
+            "key": "settings.perf.textureMemory.slider",
+            "value": "Max Textuurgeheugen (MB)"
+        },
+        {
+            "key": "settings.perf.jiggleBones.toggle",
+            "value": "Jiggle Botten Beperken"
+        },
+        {
+            "key": "settings.perf.jiggleBones.slider",
+            "value": "Max Jiggle Botten"
+        },
+        {
+            "key": "settings.perf.colliders.toggle",
+            "value": "Colliders Beperken"
+        },
+        {
+            "key": "settings.perf.colliders.slider",
+            "value": "Max Colliders"
+        },
+        {
+            "key": "settings.perf.cloth.toggle",
+            "value": "Unity Cloth Beperken"
+        },
+        {
+            "key": "settings.perf.cloth.slider",
+            "value": "Max Unity Cloth"
+        },
+        {
+            "key": "settings.perf.particleSystems.toggle",
+            "value": "Particle Systems Beperken"
+        },
+        {
+            "key": "settings.perf.particleSystems.slider",
+            "value": "Max Particle Systems"
+        },
+        {
+            "key": "settings.perf.trailRenderers.toggle",
+            "value": "Trail Renderers Beperken"
+        },
+        {
+            "key": "settings.perf.trailRenderers.slider",
+            "value": "Max Trail Renderers"
+        },
+        {
+            "key": "settings.perf.lineRenderers.toggle",
+            "value": "Line Renderers Beperken"
+        },
+        {
+            "key": "settings.perf.lineRenderers.slider",
+            "value": "Max Line Renderers"
+        },
+        {
+            "key": "settings.perf.animators.toggle",
+            "value": "Animators Beperken"
+        },
+        {
+            "key": "settings.perf.animators.slider",
+            "value": "Max Animators"
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.title",
+            "value": "Prestatiefilter"
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.bypassedDescription",
+            "value": "Omzeild voor deze speler — prestatielimieten worden genegeerd tot je uitschakelt of opnieuw verbindt."
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.blockedPrefix",
+            "value": "Avatar geblokkeerd: "
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.trimmedPrefix",
+            "value": "Getrimd door prestatiefilter: "
+        },
+        {
+            "key": "menu.individualPlayer.perfFilter.bypassToggle",
+            "value": "Limieten Omzeilen Voor Deze Speler"
+        }
+    ]
+}

@@ -264,6 +264,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 81a815b1e08cfd56e81ddc993a095c9f
+    m_Address: Packages/com.basis.sdk/Prefabs/URL Prompt Panel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 85f20012cb01d4d488a327586756f316
     m_Address: Packages/com.basis.sdk/Textures/Runtime/menuWhite.png
     m_ReadOnly: 0

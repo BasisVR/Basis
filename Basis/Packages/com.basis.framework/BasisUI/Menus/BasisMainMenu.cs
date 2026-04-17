@@ -7,7 +7,8 @@ namespace Basis.BasisUI
     public class BasisMainMenu : BasisMenuBase<BasisMainMenu>
     {
 
-        public static string MenuTitle => "Main Menu";
+        public const string MenuTitleKey = "menu.main.title";
+        public static string MenuTitle => BasisLocalization.Get(MenuTitleKey);
 
         public static string ActiveMenuTitle
         {

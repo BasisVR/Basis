@@ -984,22 +984,25 @@ public static class RemoteBoneJobSystem
             sTmpHipsWorldPos, sTmpHipsWorldRot,
             sTmpAvatarScales, sTmpScaleChanged);
 
+        // Avatar scale must run BEFORE ApplyHipsJob: SetPositionAndRotation bakes
+        // the parent lossyScale into the hips' localPosition. If we change the
+        // avatar root scale after that, the hips world Y shifts by the scale delta
+        // (remote avatar renders slightly low).
+        var scaleApplyJob = new ApplyAvatarScaleJob
+        {
+            Scales = sTmpAvatarScales,
+            HasChange = sTmpScaleChanged,
+        }.Schedule(sAvatarScale, ApplyMouthJob);
+
         // Hips position + rotation (1 per player, parallel via TAA)
         var hipsApplyJob = new ApplyHipsJob
         {
             Positions = sTmpHipsWorldPos,
             Rotations = sTmpHipsWorldRot,
-        }.Schedule(sHips, ApplyMouthJob);
-
-        // Avatar scale (1 per player, parallel via TAA)
-        var scaleApplyJob = new ApplyAvatarScaleJob
-        {
-            Scales = sTmpAvatarScales,
-            HasChange = sTmpScaleChanged,
-        }.Schedule(sAvatarScale, hipsApplyJob);
+        }.Schedule(sHips, scaleApplyJob);
 
         // Schedule skeleton bone rotation apply job (all players' bones in parallel).
-        JobHandle skeletonJob = scaleApplyJob;
+        JobHandle skeletonJob = hipsApplyJob;
         int totalBones = sSkeletonTpose.Length;
         if (totalBones > 0)
         {
@@ -1037,7 +1040,7 @@ public static class RemoteBoneJobSystem
                 TposeLocal = sSkeletonTpose.AsDeferredJobArray(),
                 FilteredDeltas = sSkeletonDeltas,
                 ValidMask = sSkeletonValid.AsDeferredJobArray(),
-            }.Schedule(sSkeletonBones, scaleApplyJob);
+            }.Schedule(sSkeletonBones, hipsApplyJob);
         }
 
         sPending = skeletonJob;

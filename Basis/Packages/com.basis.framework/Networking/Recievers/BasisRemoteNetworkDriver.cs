@@ -208,6 +208,55 @@ public static class BasisRemoteNetworkDriver
         ((byte*)(void*)_ptrPoseFilterSeeded)[index] = 0;
     }
 
+    /// <summary>
+    /// Seeds all scale-tracking state for a player slot to a known-good value.
+    /// Call at calibration time with the latest stashed network scale so the
+    /// first UpdateAllAvatarsJob tick (before SetFrameInputs has seeded the
+    /// real interp window) computes outScale == seed, sees
+    /// HasScaleChange == false, and does NOT overwrite the value the caller
+    /// already wrote directly to animator.transform.localScale.
+    ///
+    /// Without this seed: prev/target scales retain the last writer's value
+    /// (init (1,1,1) or a reused slot's previous player), the first apply tick
+    /// clobbers the correct calibration-time scale, and the avatar flickers at
+    /// (1,1,1) until enough buffers arrive to seed the real interp window.
+    ///
+    /// Completes any in-flight oneEuroJob first: UpdateAllAvatarsJob reads
+    /// _prevScales and writes _outScales/_lastAppliedScales/_HasScaleChange,
+    /// so mutating those arrays mid-flight is a real data race (not just a
+    /// safety-handle complaint). This is a slow path (avatar calibration), so
+    /// the extra Complete() is noise.
+    /// </summary>
+    public static unsafe void SeedScaleState(int index, float3 seed)
+    {
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        oneEuroJob.Complete();
+        ((float3*)_prevScales.GetUnsafePtr())[index] = seed;
+        ((float3*)_targetScales.GetUnsafePtr())[index] = seed;
+        ((float3*)_outScales.GetUnsafePtr())[index] = seed;
+        ((float3*)_lastAppliedScales.GetUnsafePtr())[index] = seed;
+        ((byte*)_HasScaleChange.GetUnsafePtr())[index] = 0;
+    }
+
+    /// <summary>
+    /// Sentinel reset used when we don't yet have a real network scale to seed
+    /// with (slot-reuse cleanup at Initialize time). Forces the next
+    /// UpdateAllAvatarsJob tick to flag HasScaleChange so whatever value
+    /// propagates through the pipeline gets applied to the transform.
+    /// Completes any in-flight oneEuroJob first for the same reason as
+    /// <see cref="SeedScaleState"/>.
+    /// Prefer <see cref="SeedScaleState"/> when you have the stashed scale.
+    /// </summary>
+    public static unsafe void ResetScaleTracking(int index)
+    {
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        oneEuroJob.Complete();
+        ((float3*)_lastAppliedScales.GetUnsafePtr())[index] = new float3(float.NegativeInfinity);
+        ((byte*)_HasScaleChange.GetUnsafePtr())[index] = 0;
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static unsafe void SetFrameTiming(int index, double interpolationTime, double deltaTimeSeconds)
     {

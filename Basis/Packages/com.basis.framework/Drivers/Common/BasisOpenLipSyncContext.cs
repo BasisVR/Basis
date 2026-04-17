@@ -70,6 +70,9 @@ namespace Basis.Scripts.Drivers
         private static readonly List<BasisOpenLipSyncContext> _pendingInference = new List<BasisOpenLipSyncContext>(64);
         private static Task _batchTask;
         private static BasisOpenLipSyncContext[] _cachedBatch;
+        private static int _cachedBatchLen;
+        // Cached delegate — avoids per-frame closure/display-class allocation in Task.Run.
+        private static readonly Action _runBatchInference = RunBatchInference;
 
         /// <summary>
         /// Maximum number of contexts to process per batch task.
@@ -237,7 +240,6 @@ namespace Basis.Scripts.Drivers
             // Don't start new batch while previous is still running
             if (_batchTask != null && !_batchTask.IsCompleted) return;
 
-            BasisOpenLipSyncContext[] batch;
             int take;
             lock (_pendingInference)
             {
@@ -249,47 +251,50 @@ namespace Basis.Scripts.Drivers
                 // Reuse cached batch array to avoid per-frame allocation.
                 if (_cachedBatch == null || _cachedBatch.Length < take)
                     _cachedBatch = new BasisOpenLipSyncContext[Math.Max(take, MaxContextsPerBatch)];
-                batch = _cachedBatch;
-                _pendingInference.CopyTo(0, batch, 0, take);
+                _pendingInference.CopyTo(0, _cachedBatch, 0, take);
                 _pendingInference.RemoveRange(0, take);
             }
 
-            int batchLen = take; // capture for the lambda (batch array may be larger than take)
-            _batchTask = Task.Run(() =>
+            _cachedBatchLen = take;
+            _batchTask = Task.Run(_runBatchInference);
+        }
+
+        private static void RunBatchInference()
+        {
+            var batch = _cachedBatch;
+            int batchLen = _cachedBatchLen;
+            for (int i = 0; i < batchLen; i++)
             {
-                for (int i = 0; i < batchLen; i++)
+                var ctx = batch[i];
+                if (ctx._disposed)
                 {
-                    var ctx = batch[i];
-                    if (ctx._disposed)
-                    {
-                        ctx._readyForInference = false;
-                        continue;
-                    }
+                    ctx._readyForInference = false;
+                    continue;
+                }
 
-                    try
-                    {
-                        var result = BasisOpenLipSyncDriver.ProcessFrame(
-                            ctx._contextHandle, ctx._audioChunk, ctx._frozenSampleCount, ctx._backFrame);
+                try
+                {
+                    var result = BasisOpenLipSyncDriver.ProcessFrame(
+                        ctx._contextHandle, ctx._audioChunk, ctx._frozenSampleCount, ctx._backFrame);
 
-                        if (result == Result.Success)
-                        {
-                            ctx._hasNewResults = true;
-                        }
-                    }
-                    catch (ObjectDisposedException)
+                    if (result == Result.Success)
                     {
-                        // Expected during teardown
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogWarning($"[OpenLipSync] Batch inference error for context {ctx._contextHandle}: {ex.Message}");
-                    }
-                    finally
-                    {
-                        ctx._readyForInference = false;
+                        ctx._hasNewResults = true;
                     }
                 }
-            });
+                catch (ObjectDisposedException)
+                {
+                    // Expected during teardown
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[OpenLipSync] Batch inference error for context {ctx._contextHandle}: {ex.Message}");
+                }
+                finally
+                {
+                    ctx._readyForInference = false;
+                }
+            }
         }
 
         /// <summary>
@@ -335,15 +340,22 @@ namespace Basis.Scripts.Drivers
 
         public void ZeroVisemes()
         {
-            if (_meshRenderer == null) return;
+            if (_meshRenderer == null || _hasViseme == null || _visemeToBlendShape == null) return;
+
+            // During teardown the SkinnedMeshRenderer can outlive its sharedMesh, leaving
+            // blendShapeCount at 0; SetBlendShapeWeight then throws "index out of bounds (size=0)".
+            var sharedMesh = _meshRenderer.sharedMesh;
+            if (sharedMesh == null) return;
+            int blendShapeCount = sharedMesh.blendShapeCount;
+            if (blendShapeCount == 0) return;
 
             for (int i = 0; i < VisemeCount; i++)
             {
-                if (_hasViseme[i])
-                {
-                    _meshRenderer.SetBlendShapeWeight(_visemeToBlendShape[i], 0f);
-                    _lastApplied[i] = 0f;
-                }
+                if (!_hasViseme[i]) continue;
+                int bsIndex = _visemeToBlendShape[i];
+                if (bsIndex < 0 || bsIndex >= blendShapeCount) continue;
+                _meshRenderer.SetBlendShapeWeight(bsIndex, 0f);
+                _lastApplied[i] = 0f;
             }
             Array.Clear(_cachedVisemeWeights, 0, _cachedVisemeWeights.Length);
         }

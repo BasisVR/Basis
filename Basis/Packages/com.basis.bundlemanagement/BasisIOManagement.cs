@@ -46,6 +46,11 @@ public static class BasisIOManagement
         return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
     }
 
+    public static string GetConnectorCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisConnectorExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
     public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
     {
         return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
@@ -297,14 +302,14 @@ public static class BasisIOManagement
             return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: Failed to parse connector metadata (null).");
         }
 
-        // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = Path.GetFileName(GetBeeCacheFilePath(connector.UniqueVersion));
+        // 5) Write local .bec (Int32 header + connector only, no section)
+        string fileName = Path.GetFileName(GetConnectorCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
+            return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: Connector has no UniqueVersion / file extension.");
 
         }
-        string localPath = GetBeeCacheFilePath(connector.UniqueVersion);
+        string localPath = GetConnectorCacheFilePath(connector.UniqueVersion);
         var connectorBytes = connectorRes.Value.Data;
 
         var writeRes = await WriteBeeFileAsync(localPath, connectorBytes, null, true);
@@ -672,13 +677,19 @@ public static class BasisIOManagement
                 return BeeResult<bool>.Fail($"WriteBeeFileAsync: Size mismatch after write. Expected {totalSize}, actual {actual}.");
             }
 
-            // Atomic move — last writer wins, no sharing violation.
+            // Replace destination if it already exists. On Windows, plain File.Move throws
+            // when the destination is present; deleting first lets re-downloads overwrite a
+            // stale or corrupt cached file instead of silently keeping the old bytes.
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
             File.Move(tempPath, path);
         }
-        catch (IOException)
+        catch (Exception ex)
         {
-            // Another task already wrote the file — that's fine, clean up our temp.
-            try { File.Delete(tempPath); } catch { }
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            return BeeResult<bool>.Fail($"WriteBeeFileAsync: {ex.GetType().Name}: {ex.Message}");
         }
 
         return BeeResult<bool>.Ok(true);

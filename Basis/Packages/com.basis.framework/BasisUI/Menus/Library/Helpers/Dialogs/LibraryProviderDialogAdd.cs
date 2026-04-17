@@ -45,8 +45,8 @@ namespace Basis.BasisUI
         {
             // Build overlay using DialogBox helper
             DialogBox<BasisDataStoreItemKeys.ItemKey> newItemDialogBox = DialogBox<BasisDataStoreItemKeys.ItemKey>.Create(panel, new Vector2(930, 600),
-                "Add New Content",
-                "Please provide the URL and password for your BEE file. Ensure your url and pass are correct or the item wont be included in your library.",
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.add.title"),
+                Basis.BasisUI.BasisLocalization.Get("library.dialog.add.description"),
                 AddressableAssets.Sprites.Add);
 
             // create the exit button for the dialog box
@@ -62,22 +62,22 @@ namespace Basis.BasisUI
 
             // BEE file URL field
             PanelTextField URL = PanelTextField.CreateNew(TextFieldStyles.EntryVertical, panelGroup.TabButtonParent);
-            URL._placeholderLabel.text = "URL";
+            URL._placeholderLabel.text = Basis.BasisUI.BasisLocalization.Get("library.dialog.add.urlPlaceholder");
             URL._inputField.contentType = TMP_InputField.ContentType.Standard;
             URL.Descriptor.SetHeight(115);
             URL.Descriptor.SetWidth(700);
-            URL.Descriptor.SetTitle("BEE File URL:");
+            URL.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.beeFileUrl"));
             URL.Descriptor.SetIcon(AddressableAssets.Sprites.Network);
-            URL.Descriptor.SetDescription("This should be a direct link to your BEE file.");
+            URL.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.urlDescription"));
 
             PanelPasswordField Password = PanelPasswordField.CreateNew(PasswordFieldStyles.EntryVertical, panelGroup.TabButtonParent);
-            Password._placeholderField.text = "Enter password";
+            Password._placeholderField.text = Basis.BasisUI.BasisLocalization.Get("library.dialog.add.passwordPlaceholder");
             Password.Descriptor.SetHeight(115);
             Password.Descriptor.SetWidth(700);
 
-            Password.Descriptor.SetTitle("BEE File Password:");
+            Password.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.beeFilePassword"));
             Password.Descriptor.SetIcon(AddressableAssets.Sprites.Unlocked);
-            Password.Descriptor.SetDescription("This is the password that was generated with you BEE file.");
+            Password.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.beeFilePassword.description"));
 
             // create a text field to show validation error messages, initially empty
             PanelTextField validationMessageField = PanelTextField.CreateNew(TextFieldStyles.EntryWarning, panelGroup.TabButtonParent);
@@ -111,7 +111,7 @@ namespace Basis.BasisUI
             acceptOrDenyPanel.Descriptor.SetWidth(900);
 
             PanelButton yesPanel = PanelButton.CreateNew(ButtonStyles.AcceptButton, acceptOrDenyPanel.TabButtonParent); //ButtonStyles.Cancel
-            yesPanel.Descriptor.SetTitle("Add");
+            yesPanel.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.addButton"));
             yesPanel.Descriptor.SetWidth(900);
             yesPanel.Descriptor.SetHeight(60);
 
@@ -154,8 +154,8 @@ namespace Basis.BasisUI
                                 if (!validationMessageField.Descriptor.gameObject.activeSelf)
                                     validationMessageField.Descriptor.gameObject.SetActive(true);
 
-                                validationMessageField.Descriptor.SetTitle("Validating BEE file");
-                                validationMessageField.Descriptor.SetDescription("Checking BEE metadata...");
+                                validationMessageField.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.validating"));
+                                validationMessageField.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.checkingMetadata"));
 
                                 // temp item do not use to add new item with!
                                 BasisDataStoreItemKeys.ItemKey tempItem = new BasisDataStoreItemKeys.ItemKey
@@ -259,8 +259,8 @@ namespace Basis.BasisUI
                                 if (!validationMessageField.Descriptor.gameObject.activeSelf)
                                     validationMessageField.Descriptor.gameObject.SetActive(true);
 
-                                validationMessageField.Descriptor.SetTitle("BEE Validation Error");
-                                validationMessageField.Descriptor.SetDescription($"Failed to validate BEE file: {ex.Message}");
+                                validationMessageField.Descriptor.SetTitle(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.validationError"));
+                                validationMessageField.Descriptor.SetDescription(Basis.BasisUI.BasisLocalization.Get("library.dialog.add.validationErrorBody", ex.Message));
 
                                 newItemDialogBox.IsBusy = false;
 
@@ -300,12 +300,12 @@ namespace Basis.BasisUI
                     // if validation failed, show an error message and do not proceed
                     string errorMessage = validationResult switch
                     {
-                        InputValidation.EntryValidationResult.EmptyUrl => "URL cannot be empty.",
-                        InputValidation.EntryValidationResult.InvalidUrlFormat => "URL format is invalid.",
-                        InputValidation.EntryValidationResult.InvalidUrlScheme => "URL must start with http:// or https://",
-                        InputValidation.EntryValidationResult.EmptyPassword => "Password cannot be empty.",
-                        InputValidation.EntryValidationResult.DuplicateEntry => "An entry with this URL already exists in your library.",
-                        _ => "Unknown validation error."
+                        InputValidation.EntryValidationResult.EmptyUrl => Basis.BasisUI.BasisLocalization.Get("library.dialog.add.error.emptyUrl"),
+                        InputValidation.EntryValidationResult.InvalidUrlFormat => Basis.BasisUI.BasisLocalization.Get("library.dialog.add.error.invalidUrlFormat"),
+                        InputValidation.EntryValidationResult.InvalidUrlScheme => Basis.BasisUI.BasisLocalization.Get("library.dialog.add.error.invalidUrlScheme"),
+                        InputValidation.EntryValidationResult.EmptyPassword => Basis.BasisUI.BasisLocalization.Get("library.dialog.add.error.emptyPassword"),
+                        InputValidation.EntryValidationResult.DuplicateEntry => Basis.BasisUI.BasisLocalization.Get("library.dialog.add.error.duplicateEntry"),
+                        _ => Basis.BasisUI.BasisLocalization.Get("library.dialog.add.error.unknown")
                     };
 
                     if (!validationMessageField.Descriptor.gameObject.activeSelf)

@@ -1,5 +1,6 @@
 using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Helpers;
+using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -225,7 +226,9 @@ namespace Basis.Scripts.Networking.Receivers
             try
             {
                 var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(networkedPlayer.Player.UUID);
-                ChangeRemotePlayersVolumeSettings(settings.VolumeLevel);
+                bool tempBlocked = networkedPlayer.Player is BasisRemotePlayer rp && rp.TempBlocked;
+                bool muted = settings.IsBlocked || tempBlocked;
+                ChangeRemotePlayersVolumeSettings(muted ? 0f : settings.VolumeLevel);
             }
             catch (Exception ex)
             {
@@ -368,6 +371,11 @@ namespace Basis.Scripts.Networking.Receivers
 
         public void ChangeRemotePlayersVolumeSettings(float volume = 1.0f, float dopplerLevel = 0, float spatialBlend = 1.0f, bool spatialize = true, bool spatializePostEffects = true)
         {
+            if (BasisNetworkReceiver != null && BasisNetworkReceiver.RemotePlayer != null && BasisNetworkReceiver.RemotePlayer.IsEffectivelyBlocked)
+            {
+                volume = 0f;
+            }
+
             if (audioSource == null)
             {
 #if !UNITY_SERVER
@@ -377,7 +385,7 @@ namespace Basis.Scripts.Networking.Receivers
                     catch (OpusSharp.Core.OpusException) { }
                 }
 #endif
-                BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
+              //  BasisDebug.LogError("AudioSource is null. Cannot apply volume settings.", BasisDebug.LogTag.Remote);
                 return;
             }
             audioSource.spatialize = spatialize;
@@ -479,11 +487,11 @@ namespace Basis.Scripts.Networking.Receivers
                 Array.Clear(_inputScratch, read, frames - read);
             }
 
-            float dampen = DirectionalDampeningMultiplier;
+            float gain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = FastClamp(_inputScratch[f] * dampen);
+                float sample = FastClamp(_inputScratch[f] * gain);
                 for (int c = 0; c < channels; c++)
                 {
                     data[idx++] = sample;
@@ -531,11 +539,11 @@ namespace Basis.Scripts.Networking.Receivers
                 phase += step;
             }
 
-            float dampen = DirectionalDampeningMultiplier;
+            float gain = DirectionalDampeningMultiplier * SMModuleAudio.ActiveMainVolume;
             int idx = 0;
             for (int f = 0; f < frames; f++)
             {
-                float sample = FastClamp(_resampleScratch[f] * dampen);
+                float sample = FastClamp(_resampleScratch[f] * gain);
                 for (int c = 0; c < channels; c++)
                 {
                     data[idx++] = sample;

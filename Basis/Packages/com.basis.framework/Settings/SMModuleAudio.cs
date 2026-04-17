@@ -19,7 +19,7 @@ public class SMModuleAudio : BasisSettingsBase
     public static Action<float> AvatarVolume;
     public static Action<float> PropVolume;
 
-    public static float ActiveMainVolume;
+    public static float ActiveMainVolume = 1f;
     public static float ActiveMenusVolume;
     public static float ActiveWorldVolume;
     public static float ActiveVoiceVolume;

@@ -14,7 +14,7 @@ namespace Basis.BasisUI
             BasisMenuBase<BasisMainMenu>.AddProvider(new MuteProvider());
         }
 
-        public override string Title => BasisLocalMicrophoneDriver.isPaused ? "Unmute" : "Mute";
+        public override string Title => BasisLocalization.Get(BasisLocalMicrophoneDriver.isPaused ? "menu.provider.unmute" : "menu.provider.mute");
         public override string IconAddress => BasisLocalMicrophoneDriver.isPaused
             ? AddressableAssets.Sprites.MicrophoneMute
             : AddressableAssets.Sprites.Microphone;
@@ -67,7 +67,7 @@ namespace Basis.BasisUI
                 : AddressableAssets.Sprites.Microphone;
 
             button.SetIcon(icon);
-            button.Descriptor.SetTitle(isMuted ? "Unmute" : "Mute");
+            button.Descriptor.SetTitle(BasisLocalization.Get(isMuted ? "menu.provider.unmute" : "menu.provider.mute"));
             Color color = isMuted ? MutedColor : BasisAudioTransmission.IsInShoutMode ? ShoutColor : Color.white;
             button.Descriptor.IconImage.color = color;
             button.Descriptor.TitleLabel.color = color;

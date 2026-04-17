@@ -42,8 +42,7 @@ public static class JiggleRenderer {
         var personalColliderCapacity = job.GetSceneColliderCapacity();
         var transformCapacity = job.GetTransformCapcity();
         
-        // Capsules need 2 sphere chunks each (one per cap), so allocate 2x the collider space.
-        int desiredChunkCount = (sceneColliderCapacity + personalColliderCapacity) * 2 + transformCapacity;
+        int desiredChunkCount = sceneColliderCapacity + personalColliderCapacity + transformCapacity;
         if (desiredChunkCount == 0) {
             return;
         }

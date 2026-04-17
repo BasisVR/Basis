@@ -873,16 +873,21 @@ namespace SteamAudio
             {
                 for (var i = 0; i < Singleton.mHRTFs.Length; ++i)
                 {
-                    Singleton.mHRTFs[i].Release();
-                    Singleton.mHRTFs[i] = null;
+                    if (Singleton.mHRTFs[i] != null)
+                    {
+                        Singleton.mHRTFs[i].Release();
+                        Singleton.mHRTFs[i] = null;
+                    }
                 }
             }
 
             SceneManager.sceneLoaded -= Singleton.OnSceneLoaded;
             SceneManager.sceneUnloaded -= Singleton.OnSceneUnloaded;
-
-            Singleton.mContext.Release();
-            Singleton.mContext = null;
+            if (Singleton.mContext != null)
+            {
+                Singleton.mContext.Release();
+                Singleton.mContext = null;
+            }
         }
 
         public static void Reinitialize()

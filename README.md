@@ -88,7 +88,6 @@ This would not be possible without the following:
 - [opussharp](https://github.com/AvionBlock/OpusSharp)
 - [opus](https://github.com/xiph/opus)
 - [Steam Audio](https://github.com/ValveSoftware/steam-audio)
-- [Kevin Iglesias Animations](https://www.keviniglesias.com/)
 - [Unity Starter Assets - ThirdPerson](https://assetstore.unity.com/packages/essentials/starter-assets-thirdperson-updates-in-new-charactercontroller-pa-196526)
 - [RNNoise](https://github.com/xiph/rnnoise?tab=BSD-3-Clause-1-ov-file)
 - [RNNoise.Net](https://github.com/Yellow-Dog-Man/RNNoise.Net)

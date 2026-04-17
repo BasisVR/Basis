@@ -3,6 +3,42 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+
+/// <summary>
+/// Result of a meta-only load attempt. Distinguishes transient network failures
+/// (caller should keep cached state intact and retry later) from genuine corruption
+/// or missing data (caller may safely evict the item).
+/// </summary>
+public readonly struct BasisMetaLoadResult
+{
+    public readonly bool Loaded;
+    public readonly bool IsTransient;
+    public readonly string Error;
+
+    private BasisMetaLoadResult(bool loaded, bool isTransient, string error)
+    {
+        Loaded = loaded;
+        IsTransient = isTransient;
+        Error = error;
+    }
+
+    public static BasisMetaLoadResult Success => new BasisMetaLoadResult(true, false, null);
+    public static BasisMetaLoadResult Transient(string error) => new BasisMetaLoadResult(false, true, error);
+    public static BasisMetaLoadResult Corrupt(string error) => new BasisMetaLoadResult(false, false, error);
+
+    // Implicit bool conversion preserves legacy `bool x = await HandleMetaOnlyLoad(...)` call sites.
+    public static implicit operator bool(BasisMetaLoadResult r) => r.Loaded;
+
+    public static bool LooksLikeTransientError(string error)
+    {
+        if (string.IsNullOrEmpty(error)) return false;
+        return error.IndexOf("Network error:", StringComparison.OrdinalIgnoreCase) >= 0
+            || error.IndexOf("Cancelled", StringComparison.OrdinalIgnoreCase) >= 0
+            || error.IndexOf("Timeout", StringComparison.OrdinalIgnoreCase) >= 0
+            || error.IndexOf("SSL", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+}
+
 public static class BasisBeeManagement
 {
     private static bool HasCompatibleDownloadedPlatform(BasisBEEExtensionMeta metaInfo)
@@ -140,8 +176,9 @@ public static class BasisBeeManagement
     /// <param name="wrapper"></param>
     /// <param name="report"></param>
     /// <param name="cancellationToken"></param>
-    /// <returns>Task bool, this bool is true if we read the BundleArray, false if we received an output message</returns>
-    public static async Task<bool> HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
+    /// <returns>A <see cref="BasisMetaLoadResult"/> describing whether the connector was obtained,
+    /// and if not, whether the failure was transient (network/cancel) or fatal (missing/corrupt).</returns>
+    public static async Task<BasisMetaLoadResult> HandleMetaOnlyLoad(BasisTrackedBundleWrapper wrapper, BasisProgressReport report, CancellationToken cancellationToken)
     {
         bool IsMetaOnDisc = BasisLoadHandler.IsMetaDataOnDisc(wrapper.LoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, out BasisBEEExtensionMeta MetaInfo);
         (BasisBundleConnector Connector, string ErrorMessage) output;
@@ -157,8 +194,16 @@ public static class BasisBeeManagement
         }
         if (!string.IsNullOrEmpty(output.ErrorMessage))
         {
+            // A transient failure (SSL/DNS/timeout/cancel) must not be treated as corruption by the caller.
+            // The on-disc cache (if any) is still intact; only the download attempt failed.
+            if (BasisMetaLoadResult.LooksLikeTransientError(output.ErrorMessage))
+            {
+                BasisDebug.LogWarning($"Meta-only load deferred (transient): {output.ErrorMessage}");
+                return BasisMetaLoadResult.Transient(output.ErrorMessage);
+            }
+
             BasisDebug.LogError($"Missing BundleArray {output.ErrorMessage}");
-            return false;
+            return BasisMetaLoadResult.Corrupt(output.ErrorMessage);
         }
         if (IsMetaOnDisc == false)
         {
@@ -174,6 +219,6 @@ public static class BasisBeeManagement
             BasisStorageManagement.EnforceCacheSizeLimit();
         }
 
-        return true;
+        return BasisMetaLoadResult.Success;
     }
 }

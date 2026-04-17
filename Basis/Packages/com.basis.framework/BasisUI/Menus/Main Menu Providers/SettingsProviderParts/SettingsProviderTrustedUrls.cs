@@ -9,80 +9,82 @@ public static class SettingsProviderTrustedUrls
         PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
         PanelElementDescriptor descriptor = tab.Descriptor;
         descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-        descriptor.SetTitle("Trusted Video URLs");
+        descriptor.SetTitle(BasisLocalization.Get("settings.trustedUrls.title"));
 
         RectTransform container = descriptor.ContentParent;
 
         PanelElementDescriptor infoGroup =
             PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-        infoGroup.SetTitle("Trusted Video URLs");
-        infoGroup.SetDescription("URLs in this list are automatically accepted by video players without prompting.");
+        infoGroup.SetTitle(BasisLocalization.Get("settings.trustedUrls.title"));
+        infoGroup.SetDescription(BasisLocalization.Get("settings.trustedUrls.description"));
 
         List<string> urls = BasisTrustedVideoUrls.GetAll();
 
         if (urls.Count == 0)
         {
-            PanelPasswordField emptyField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
-            emptyField.Descriptor.SetTitle("No Trusted URLs");
-            emptyField.SetPassword("Accept a video URL to add it here.");
+            PanelTextField emptyField = PanelTextField.CreateNew(infoGroup.ContentParent);
+            emptyField.Descriptor.SetTitle(BasisLocalization.Get("settings.trustedUrls.empty"));
+            emptyField.SetValue(BasisLocalization.Get("settings.trustedUrls.empty.description"));
         }
         else
         {
-            PanelPasswordField countField = PanelPasswordField.CreateNew(infoGroup.ContentParent);
-            countField.Descriptor.SetTitle("Trusted URLs");
-            countField.SetPassword($"{urls.Count} URL(s)");
+            PanelTextField countField = PanelTextField.CreateNew(infoGroup.ContentParent);
+            countField.Descriptor.SetTitle(BasisLocalization.Get("settings.trustedUrls.count.title"));
+            countField.SetValue(BasisLocalization.Get("settings.trustedUrls.count", urls.Count));
 
             PanelButton clearAllButton = PanelButton.CreateNew(container);
-            clearAllButton.Descriptor.SetTitle("Clear All Trusted URLs");
-            clearAllButton.Descriptor.SetDescription("Remove all trusted URLs. Video players will prompt for approval again.");
+            clearAllButton.Descriptor.SetTitle(BasisLocalization.Get("settings.trustedUrls.clearAll"));
+            clearAllButton.Descriptor.SetDescription(BasisLocalization.Get("settings.trustedUrls.clearAll.description"));
             clearAllButton.OnClicked += () =>
             {
                 BasisMainMenu.Instance.OpenDialogue(
-                    "Clear All Trusted URLs",
-                    $"Remove all {urls.Count} trusted URL(s)? Video players will prompt for each URL again.",
-                    "Clear All",
-                    "Cancel",
+                    BasisLocalization.Get("settings.trustedUrls.clearAll"),
+                    BasisLocalization.Get("settings.trustedUrls.clearAll.confirm", urls.Count),
+                    BasisLocalization.Get("settings.storage.clearAll.button"),
+                    BasisLocalization.Get("ui.cancel"),
                     value =>
                     {
                         if (!value) return;
                         BasisTrustedVideoUrls.ClearAll();
                         BasisMainMenu.Close();
-                        SettingsProvider.OpenToTab("Trusted URLs");
+                        SettingsProvider.OpenToTab("settings.tab.trustedurls");
                     });
             };
 
             PanelElementDescriptor urlGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            urlGroup.SetTitle("URL List");
-            urlGroup.SetDescription("Click a URL to remove it from the trusted list.");
+            urlGroup.SetTitle(BasisLocalization.Get("settings.trustedUrls.list.title"));
+            urlGroup.SetDescription(BasisLocalization.Get("settings.trustedUrls.list.description"));
 
+            string removeHint = BasisLocalization.Get("settings.trustedUrls.clickToRemove");
             foreach (string url in urls)
             {
                 string capturedUrl = url;
                 PanelButton urlButton = PanelButton.CreateNew(urlGroup.ContentParent);
+                urlButton.Descriptor.DisableRichText();
                 urlButton.Descriptor.SetTitle(capturedUrl);
-                urlButton.Descriptor.SetDescription("Click to remove");
+                urlButton.Descriptor.SetDescription(removeHint);
                 urlButton.OnClicked += () =>
                 {
                     BasisMainMenu.Instance.OpenDialogue(
-                        "Remove Trusted URL",
-                        $"Remove this URL from trusted list?\n{capturedUrl}",
-                        "Remove",
-                        "Cancel",
+                        BasisLocalization.Get("settings.trustedUrls.remove.title"),
+                        BasisLocalization.Get("settings.trustedUrls.remove.confirm", capturedUrl),
+                        BasisLocalization.Get("library.remove"),
+                        BasisLocalization.Get("ui.cancel"),
                         value =>
                         {
                             if (!value) return;
                             BasisTrustedVideoUrls.Remove(capturedUrl);
                             BasisMainMenu.Close();
-                            SettingsProvider.OpenToTab("Trusted URLs");
+                            SettingsProvider.OpenToTab("settings.tab.trustedurls");
                         });
                 };
             }
         }
 
-        SettingsProvider.AddResetPageButton(container, "Trusted URLs", () =>
+        SettingsProvider.AddResetPageButton(container, "settings.tab.trustedurls", () =>
         {
-            BasisTrustedVideoUrls.ClearAll();
+            BasisTrustedVideoUrls.Reset();
         });
 
         descriptor.ForceRebuild();

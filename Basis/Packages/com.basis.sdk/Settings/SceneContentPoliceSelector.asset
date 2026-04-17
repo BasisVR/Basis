@@ -393,3 +393,6 @@ MonoBehaviour:
   - Basis.BasisInteractableShim
   - Basis.BasisNetworkShim
   - BasisInteractableButton
+  - Basis.Shims.VideoPlayerShim
+  - Basis.Shims.BasisNetworkShim
+  - Basis.Shims.BasisInteractableShim

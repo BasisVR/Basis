@@ -40,6 +40,7 @@ public static class BasisNetworkLifeCycle
 
         Management.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
         BasisJoinLeaveNotification.Create();
+        BasisNetworkHandleTempBlock.Initialize();
 #if !UNITY_SERVER
         BasisNetworkPIPCameraDriver.Create();
 #endif
@@ -139,6 +140,7 @@ public static class BasisNetworkLifeCycle
         // let the MonoBehaviour reset its Instance in OnDestroy; no direct assignment here
         BasisDebug.Log("BasisNetworkManagement has been successfully shutdown.", BasisDebug.LogTag.Networking);
         BasisJoinLeaveNotification.Shutdown();
+        BasisNetworkHandleTempBlock.Shutdown();
 #if !UNITY_SERVER
         BasisNetworkPIPCameraDriver.Shutdown();
 #endif

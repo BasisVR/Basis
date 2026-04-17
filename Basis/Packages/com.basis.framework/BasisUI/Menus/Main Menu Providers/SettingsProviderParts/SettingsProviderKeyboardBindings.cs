@@ -41,7 +41,7 @@ public static class SettingsProviderKeyboardBindings
             ("Jump", "Jump"),
             ("Running", "Sprint"),
             ("Crouch", "Crouch"),
-            ("Primary Controller A", "Primary Action"));
+            ("ToggleMicMute", "Microphone Input"));
 
         // Menu
         BuildSimpleGroup(container, playerMap, asset, "Menu", "Menu and UI shortcuts.",

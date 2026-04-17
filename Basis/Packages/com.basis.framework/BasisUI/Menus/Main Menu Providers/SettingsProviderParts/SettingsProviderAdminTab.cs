@@ -23,45 +23,54 @@ namespace Basis.BasisUI
             PanelElementDescriptor descriptor = tab.Descriptor;
 
             descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-            descriptor.SetTitle("Admin & Moderation");
-            descriptor.SetDescription("Moderation tools and quick utilities.");
+            descriptor.SetTitle(BasisLocalization.Get("settings.admin.title"));
+            descriptor.SetDescription(BasisLocalization.Get("settings.admin.description"));
 
             RectTransform container = descriptor.ContentParent;
 
             // --- Player list group ---
             PanelElementDescriptor playersGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            playersGroup.SetTitle("Players");
-            playersGroup.SetDescription("Click a player to target them (fills UUID).");
+            playersGroup.SetTitle(BasisLocalization.Get("menu.provider.players"));
+            playersGroup.SetDescription(BasisLocalization.Get("settings.admin.players.description"));
 
             // A controller MonoBehaviour to manage lifetime + rebuild list on joins/leaves.
+            // Note: AddComponent fires Awake+OnEnable synchronously on an active GameObject,
+            // so OnEnable will see an unset PlayerListParent. We intentionally defer the
+            // first RebuildPlayerList call until the end of this method, after every field
+            // below is populated. See the explicit controller.RebuildPlayerList() call there.
             AdminTabController controller = tab.gameObject.AddComponent<AdminTabController>();
             controller.PlayerListParent = playersGroup.ContentParent;
 
             PanelTextField playerSearch = PanelTextField.CreateNewEntry(playersGroup.ContentParent);
-            playerSearch.Descriptor.SetTitle("Search");
-            playerSearch.Descriptor.SetDescription("Filter players by name.");
+            playerSearch.Descriptor.SetTitle(BasisLocalization.Get("ui.search.label"));
+            playerSearch.Descriptor.SetDescription(BasisLocalization.Get("menu.players.search.byName"));
             playerSearch.OnValueChanged += controller.OnSearchChanged;
             controller.SearchField = playerSearch;
 
             PanelButton refreshPlayers = PanelButton.CreateNew(playersGroup.ContentParent);
-            refreshPlayers.Descriptor.SetTitle("Refresh Player List");
-            refreshPlayers.Descriptor.SetDescription("Rebuilds the list from current network state.");
+            refreshPlayers.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.refreshPlayers"));
+            refreshPlayers.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.refreshPlayers.description"));
             refreshPlayers.OnClicked += controller.RebuildPlayerList;
+
+            PanelToggle autoRefreshToggle = PanelToggle.CreateNewEntry(playersGroup.ContentParent);
+            autoRefreshToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.autoRefresh"));
+            autoRefreshToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.autoRefresh.description"));
+            autoRefreshToggle.AssignBinding(BasisSettingsDefaults.AdminAutoRefreshPlayerList);
 
             // --- Target group ---
             PanelElementDescriptor targetGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            targetGroup.SetTitle("Target");
-            targetGroup.SetDescription("UUID can be filled by selecting a player above.");
+            targetGroup.SetTitle(BasisLocalization.Get("settings.admin.target"));
+            targetGroup.SetDescription(BasisLocalization.Get("settings.admin.target.description"));
 
             PanelTextField uuidField = PanelTextField.CreateNewEntry(targetGroup.ContentParent);
-            uuidField.Descriptor.SetTitle("UUID / Target");
-            uuidField.Descriptor.SetDescription("Player UUID (or paste a UUID).");
+            uuidField.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.uuidTarget"));
+            uuidField.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.uuidTarget.description"));
 
             PanelTextField reasonField = PanelTextField.CreateNewEntry(targetGroup.ContentParent);
-            reasonField.Descriptor.SetTitle("Reason / Message");
-            reasonField.Descriptor.SetDescription("Reason for moderation actions, or message contents.");
+            reasonField.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.reason"));
+            reasonField.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.reason.description"));
 
             // Make the reason field nicer for longer text (optional).
             TMP_InputField reasonInput = reasonField.GetComponentInChildren<TMP_InputField>(true);
@@ -77,15 +86,15 @@ namespace Basis.BasisUI
             // --- Actions group ---
             PanelElementDescriptor actionsGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            actionsGroup.SetTitle("Actions");
-            actionsGroup.SetDescription("Moderation + utility actions.");
+            actionsGroup.SetTitle(BasisLocalization.Get("settings.admin.actions"));
+            actionsGroup.SetDescription(BasisLocalization.Get("settings.admin.actions.description"));
 
             // ------------------
             // Teleport actions
             // ------------------
             PanelButton teleportToSelected = PanelButton.CreateNew(actionsGroup.ContentParent);
-            teleportToSelected.Descriptor.SetTitle("Teleport To Player");
-            teleportToSelected.Descriptor.SetDescription("Teleports you to the selected player's location.");
+            teleportToSelected.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.teleportTo"));
+            teleportToSelected.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.teleportTo.description"));
             GuardedClick(
                 teleportToSelected,
                 "Teleport to player?",
@@ -103,8 +112,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton teleportAll = PanelButton.CreateNew(actionsGroup.ContentParent);
-            teleportAll.Descriptor.SetTitle("Teleport All To Target");
-            teleportAll.Descriptor.SetDescription("Teleports everyone to the selected player's location.");
+            teleportAll.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.teleportAll"));
+            teleportAll.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.teleportAll.description"));
             GuardedClick(
                 teleportAll,
                 "Teleport everyone?",
@@ -122,8 +131,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton teleportHere = PanelButton.CreateNew(actionsGroup.ContentParent);
-            teleportHere.Descriptor.SetTitle("Teleport Player Here");
-            teleportHere.Descriptor.SetDescription("Teleports the selected player to your location.");
+            teleportHere.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.teleportHere"));
+            teleportHere.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.teleportHere.description"));
             GuardedClick(
                 teleportHere,
                 "Teleport player to you?",
@@ -144,8 +153,8 @@ namespace Basis.BasisUI
             // Moderation actions
             // ------------------
             PanelButton ban = PanelButton.CreateNew(actionsGroup.ContentParent);
-            ban.Descriptor.SetTitle("Ban (UUID)");
-            ban.Descriptor.SetDescription("Bans by UUID using the reason/message field.");
+            ban.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.banUuid"));
+            ban.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.banUuid.description"));
             GuardedClick(
                 ban,
                 "Ban player?",
@@ -163,8 +172,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton kick = PanelButton.CreateNew(actionsGroup.ContentParent);
-            kick.Descriptor.SetTitle("Kick (UUID)");
-            kick.Descriptor.SetDescription("Kicks by UUID using the reason/message field.");
+            kick.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.kickUuid"));
+            kick.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.kickUuid.description"));
             GuardedClick(
                 kick,
                 "Kick player?",
@@ -182,8 +191,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton ipBan = PanelButton.CreateNew(actionsGroup.ContentParent);
-            ipBan.Descriptor.SetTitle("IP Ban (UUID)");
-            ipBan.Descriptor.SetDescription("IP bans by UUID using the reason/message field.");
+            ipBan.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.ipBanUuid"));
+            ipBan.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.ipBanUuid.description"));
             GuardedClick(
                 ipBan,
                 "IP ban player?",
@@ -201,8 +210,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton unban = PanelButton.CreateNew(actionsGroup.ContentParent);
-            unban.Descriptor.SetTitle("Unban (UUID)");
-            unban.Descriptor.SetDescription("Removes ban by UUID.");
+            unban.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.unbanUuid"));
+            unban.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.unbanUuid.description"));
             GuardedClick(
                 unban,
                 "Unban player?",
@@ -223,8 +232,8 @@ namespace Basis.BasisUI
             // Messaging actions
             // ------------------
             PanelButton sendMessage = PanelButton.CreateNew(actionsGroup.ContentParent);
-            sendMessage.Descriptor.SetTitle("Send Message (UUID)");
-            sendMessage.Descriptor.SetDescription("Sends the message to the target player (requires UUID -> network id lookup).");
+            sendMessage.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.sendMessageUuid"));
+            sendMessage.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.sendMessageUuid.description"));
             GuardedClick(
                 sendMessage,
                 "Send message?",
@@ -246,8 +255,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton sendAll = PanelButton.CreateNew(actionsGroup.ContentParent);
-            sendAll.Descriptor.SetTitle("Send Message To All");
-            sendAll.Descriptor.SetDescription("Broadcasts the message to all players.");
+            sendAll.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.sendAll"));
+            sendAll.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.sendAll.description"));
             GuardedClick(
                 sendAll,
                 "Broadcast message?",
@@ -268,8 +277,8 @@ namespace Basis.BasisUI
             // Shout mode actions
             // ------------------
             PanelButton enableShout = PanelButton.CreateNew(actionsGroup.ContentParent);
-            enableShout.Descriptor.SetTitle("Enable Shout Mode");
-            enableShout.Descriptor.SetDescription("Grants non-spatialized broadcast voice to the selected player.");
+            enableShout.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.shout.enable"));
+            enableShout.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.enableShout.description"));
             GuardedClick(
                 enableShout,
                 "Enable shout mode?",
@@ -287,8 +296,8 @@ namespace Basis.BasisUI
                 });
 
             PanelButton disableShout = PanelButton.CreateNew(actionsGroup.ContentParent);
-            disableShout.Descriptor.SetTitle("Disable Shout Mode");
-            disableShout.Descriptor.SetDescription("Removes non-spatialized broadcast voice from the selected player.");
+            disableShout.Descriptor.SetTitle(BasisLocalization.Get("menu.individualPlayer.shout.disable"));
+            disableShout.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.disableShout.description"));
             GuardedClick(
                 disableShout,
                 "Disable shout mode?",
@@ -335,13 +344,26 @@ namespace Basis.BasisUI
             headlessAudioToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessAudioOff);
             headlessAudioToggle.OnValueChanged += value => BasisNetworkModeration.SetGlobalHeadlessAudio(value);
 
+            PanelToggle disallowHeadlessToggle = PanelToggle.CreateNewEntry(lockGroup.ContentParent);
+            disallowHeadlessToggle.Descriptor.SetTitle("Disallow headless");
+            disallowHeadlessToggle.Descriptor.SetDescription("Disconnects connected headless clients and blocks new headless clients while enabled.");
+            disallowHeadlessToggle.SetValueWithoutNotify(BasisNetworkModeration.GlobalHeadlessDisallowed);
+            disallowHeadlessToggle.OnValueChanged += value => BasisNetworkModeration.SetGlobalHeadlessDisallow(value);
+
             controller.AvatarLockToggle = avatarLock;
             controller.PropLockToggle = propLock;
             controller.WorldLockToggle = worldLock;
             controller.HeadlessAudioToggle = headlessAudioToggle;
+            controller.HeadlessDisallowToggle = disallowHeadlessToggle;
 
             // Permissions section
             SettingsProviderPermissionsTab.BuildPermissionsUI(container, tab.gameObject);
+
+            // Now that every controller field is wired up, build the player list for
+            // the first time. OnEnable already fired (synchronously) during AddComponent
+            // above and saw an unset PlayerListParent, so without this call the tab would
+            // open with an empty list and the user would have to click Refresh manually.
+            controller.RebuildPlayerList();
 
             descriptor.ForceRebuild();
             return tab;
@@ -403,6 +425,7 @@ namespace Basis.BasisUI
             public PanelToggle PropLockToggle;
             public PanelToggle WorldLockToggle;
             public PanelToggle HeadlessAudioToggle;
+            public PanelToggle HeadlessDisallowToggle;
 
             public BasisNetworkPlayer SelectedPlayer;
             private string _searchQuery = string.Empty;
@@ -418,11 +441,33 @@ namespace Basis.BasisUI
 
             private void OnEnable()
             {
+                // `-=` before `+=` dedupes — OnEnable fires on every re-activation, and
+                // without this the subscription would stack each time the tab was reopened.
+                BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerJoined += OnRemotePlayersChanged;
+                BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
                 BasisNetworkPlayer.OnRemotePlayerLeft += OnRemotePlayersChanged;
+                BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged += OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged += OnGlobalHeadlessAudioStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged += OnGlobalHeadlessDisallowStateChanged;
+
+                // On the very first activation PlayerListParent is still null (we race
+                // AdminTab()'s field assignment), so let this early-return. AdminTab()
+                // calls RebuildPlayerList explicitly once every field is wired up.
+                // Subsequent activations have valid state and rebuild here.
                 RebuildPlayerList();
+            }
+
+            private void OnDisable()
+            {
+                BasisNetworkPlayer.OnRemotePlayerJoined -= OnRemotePlayersChanged;
+                BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
+                BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
             }
 
             private void OnDestroy()
@@ -431,7 +476,7 @@ namespace Basis.BasisUI
                 BasisNetworkPlayer.OnRemotePlayerLeft -= OnRemotePlayersChanged;
                 BasisNetworkModeration.OnGlobalLockStateChanged -= OnGlobalLockStateChanged;
                 BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
-                BasisNetworkModeration.OnGlobalHeadlessAudioStateChanged -= OnGlobalHeadlessAudioStateChanged;
+                BasisNetworkModeration.OnGlobalHeadlessDisallowStateChanged -= OnGlobalHeadlessDisallowStateChanged;
 
                 ClearPlayerButtons();
             }
@@ -448,8 +493,14 @@ namespace Basis.BasisUI
                 if (HeadlessAudioToggle != null) HeadlessAudioToggle.SetValueWithoutNotify(headlessAudioOff);
             }
 
+            private void OnGlobalHeadlessDisallowStateChanged(bool headlessDisallowed)
+            {
+                if (HeadlessDisallowToggle != null) HeadlessDisallowToggle.SetValueWithoutNotify(headlessDisallowed);
+            }
+
             private void OnRemotePlayersChanged(BasisNetworkPlayer _p1, BasisRemotePlayer _p2)
             {
+                if (!BasisSettingsDefaults.AdminAutoRefreshPlayerList.RawValue) return;
                 RebuildPlayerList();
             }
 

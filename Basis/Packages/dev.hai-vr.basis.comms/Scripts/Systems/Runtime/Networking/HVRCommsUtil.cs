@@ -61,6 +61,12 @@ namespace HVR.Basis.Comms
         private bool _isTrackingActive;
         private float _lastActivityTime = float.NegativeInfinity;
 
+        // Fired when tracking activity state changes. Scoped per-avatar (this relay
+        // is created per BasisAvatar), so local and remote subscribers never collide.
+        // Replaces routing via the shared AcquisitionService singleton, which caused
+        // remote players' activity state changes to fan-fire into local subscribers.
+        public event Action<bool> OnTrackingActivityChanged;
+
         public bool IsTrackingActive => _isTrackingActive;
 
         public static FaceTrackingActivityRelay GetOrCreate(BasisAvatar avatar)
@@ -166,9 +172,9 @@ namespace HVR.Basis.Comms
             bool stateChanged = _isTrackingActive != isTrackingActive;
             _isTrackingActive = isTrackingActive;
 
-            if (acquisition != null && (stateChanged || submitToNetwork))
+            if (stateChanged)
             {
-                acquisition.Submit(ActivityAddressId, isTrackingActive ? 1f : 0f);
+                OnTrackingActivityChanged?.Invoke(isTrackingActive);
             }
 
             if (submitToNetwork && _isWearer && featureInterpolator != null)

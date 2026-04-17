@@ -53,17 +53,21 @@ namespace Basis.Scripts.Networking.Receivers
         public float3 ApplyingScale;
 
         /// <summary>
-        /// Latest network hips position/rotation, updated every time a buffer is enqueued.
-        /// Available before Compute() processes the queue, so calibration can
-        /// immediately position the avatar hips instead of leaving them at spawn.
+        /// Latest network hips position/rotation/scale, updated every time a buffer
+        /// is enqueued. Available before Compute() processes the queue, so
+        /// calibration can immediately pose the freshly spawned avatar instead of
+        /// leaving it at its prefab transform (which caused remote avatars to
+        /// render at scale (1,1,1) until the interp window seeded — visible as
+        /// "scale is wrong when a new person joins").
         /// Thread-safe via seqlock: writer increments version before/after writes,
         /// reader retries if version changed or is odd (write in progress).
         /// </summary>
         private int _poseVersion;
         private float3 _latestNetworkPosition;
         private quaternion _latestNetworkRotation = quaternion.identity;
+        private float3 _latestNetworkScale = new float3(1f, 1f, 1f);
 
-        public void GetLatestNetworkPose(out float3 position, out quaternion rotation)
+        public void GetLatestNetworkPose(out float3 position, out quaternion rotation, out float3 scale)
         {
             int v1, v2;
             do
@@ -71,6 +75,7 @@ namespace Basis.Scripts.Networking.Receivers
                 v1 = Volatile.Read(ref _poseVersion);
                 position = _latestNetworkPosition;
                 rotation = _latestNetworkRotation;
+                scale = _latestNetworkScale;
                 Thread.MemoryBarrier();
                 v2 = Volatile.Read(ref _poseVersion);
             } while (v1 != v2 || (v1 & 1) != 0);
@@ -364,6 +369,7 @@ namespace Basis.Scripts.Networking.Receivers
             Interlocked.Increment(ref _poseVersion);
             _latestNetworkPosition = avatarBuffer.Position;
             _latestNetworkRotation = avatarBuffer.Rotation;
+            _latestNetworkScale = avatarBuffer.Scale;
             Interlocked.Increment(ref _poseVersion);
             PayloadQueue.Enqueue(avatarBuffer);
             System.Threading.Interlocked.Increment(ref _pendingCount);
@@ -392,6 +398,11 @@ namespace Basis.Scripts.Networking.Receivers
             }
             _pendingCount = 0;
 
+            // The slot may have been reused from a player who already left; without
+            // this the retained last-applied-scale suppresses the first-frame change
+            // detection and the freshly spawned avatar is never rescaled.
+            BasisRemoteNetworkDriver.ResetScaleTracking(playerId);
+
             if (!hasEvents)
             {
                 RemotePlayer.RemoteAvatarDriver.CalibrationComplete += OnCalibration;
@@ -402,6 +413,8 @@ namespace Basis.Scripts.Networking.Receivers
         public void OnCalibration()
         {
             _avatarDirty = true;
+            // Scale state is seeded inside RemoteCalibration via SeedScaleState
+            // before CalibrationComplete fires, so no reset is needed here.
             AudioReceiverModule.AvatarChanged(this, true);
 
             List<byte> keysToRemove = new List<byte>();
@@ -495,6 +508,17 @@ namespace Basis.Scripts.Networking.Receivers
             {
                 LastLinkedAvatarIndex = SACM.clientAvatarChangeMessage.LocalAvatarIndex;
                 RemotePlayer.CACM = SACM.clientAvatarChangeMessage;
+
+                // A new avatar is a fresh bundle URL — clear the global "bail on retries"
+                // state from any prior failure so this one actually gets attempted. If THIS
+                // load also fails, BasisAvatarFactory.MarkRemoteLoadFailed re-arms the flag.
+                RemotePlayer.HasFailedAvatarLoadGlobally = false;
+                RemotePlayer.AvatarLoadErrorMessage = null;
+                if (RemotePlayer.RemoteNamePlate != null)
+                {
+                    RemotePlayer.RemoteNamePlate.RefreshFailedStateColor();
+                }
+
                 BasisLoadableBundle bundle = BasisBundleConversionNetwork.ConvertNetworkBytesToBasisLoadableBundle(SACM.clientAvatarChangeMessage.byteArray);
                 await RemotePlayer.CreateAvatar(SACM.clientAvatarChangeMessage.loadMode, bundle);
             }

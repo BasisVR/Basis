@@ -219,6 +219,11 @@ namespace Basis.Scripts.Device_Management
             StaticCurrentMode = BasisConstants.None;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             BasisSettingsSystem.Initalize();
+            // Localization must initialize before BasisSettingsDefaults so that
+            // auto-detection can see an empty settings dict on first run — any
+            // earlier binding constructor would write "en" as a default and
+            // defeat the HasSaveData("language") check.
+            Basis.BasisUI.BasisLocalization.Initialize();
             BasisSettingsDefaults.LoadAll();
             try
             {
@@ -736,6 +741,7 @@ namespace Basis.Scripts.Device_Management
             if (!HasEvents)
             {
                 OnInitializationCompleted += RunAfterInitialized;
+                BasisSettingsDefaults.EnableFBT.OnChanged += OnEnableFBTChanged;
                 HasEvents = true;
             }
         }
@@ -748,7 +754,22 @@ namespace Basis.Scripts.Device_Management
             if (HasEvents)
             {
                 OnInitializationCompleted -= RunAfterInitialized;
+                BasisSettingsDefaults.EnableFBT.OnChanged -= OnEnableFBTChanged;
                 HasEvents = false;
+            }
+        }
+
+        /// <summary>
+        /// Reacts to the master FBT toggle. Flipping it off immediately unassigns
+        /// any already-calibrated full-body trackers so the avatar drops back to
+        /// head + hands + foot IK. Flipping it on is a no-op — the user must run
+        /// calibration again to reassign trackers to roles.
+        /// </summary>
+        private void OnEnableFBTChanged(bool value)
+        {
+            if (!value)
+            {
+                UnassignFBTrackers();
             }
         }
 

@@ -1,4 +1,7 @@
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
+using Basis.Scripts.Device_Management.Devices;
+using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,14 +14,14 @@ namespace Basis.BasisUI
             PanelTabPage tab = PanelTabPage.CreateVertical(tabGroup.Descriptor.ContentParent);
             PanelElementDescriptor descriptor = tab.Descriptor;
             descriptor.SetIcon(AddressableAssets.Sprites.Settings);
-            descriptor.SetTitle("My Avatar");
-            descriptor.SetDescription("Texture and memory statistics for your current avatar.");
+            descriptor.SetTitle(BasisLocalization.Get("settings.tab.myavatar"));
+            descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.description"));
 
             RectTransform container = descriptor.ContentParent;
 
             PanelButton scanButton = PanelButton.CreateNew(container);
-            scanButton.Descriptor.SetTitle("Scan Avatar");
-            scanButton.Descriptor.SetDescription("Analyze your current avatar's textures, VRAM usage, and streaming mipmap status.");
+            scanButton.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.scan"));
+            scanButton.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.scan.description"));
             scanButton.OnClicked += () =>
             {
                 Object.Destroy(scanButton.gameObject);
@@ -28,8 +31,75 @@ namespace Basis.BasisUI
                 descriptor.ForceRebuild();
             };
 
+            PanelElementDescriptor trackersGroup =
+                PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+            trackersGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.trackerRoles"));
+            trackersGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.trackerRoles.description"));
+
+            PanelToggle trackerRolesToggle = PanelToggle.CreateNewEntry(trackersGroup.ContentParent);
+            trackerRolesToggle.Descriptor.SetTitle(BasisLocalization.Get("settings.myAvatar.showTrackers"));
+            trackerRolesToggle.Descriptor.SetDescription(BasisLocalization.Get("settings.myAvatar.showTrackers.description"));
+            trackerRolesToggle.AssignBinding(BasisSettingsDefaults.AvatarShowTrackerRoles);
+
+            PanelElementDescriptor trackerListGroup = null;
+            void CreateTrackerList()
+            {
+                trackerListGroup = PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
+                trackerListGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.assignedTrackers"));
+                PopulateTrackerRoles(trackerListGroup);
+            }
+            if (BasisSettingsDefaults.AvatarShowTrackerRoles.RawValue) CreateTrackerList();
+            trackerRolesToggle.OnValueChanged += on =>
+            {
+                if (trackerListGroup != null)
+                {
+                    Object.Destroy(trackerListGroup.gameObject);
+                    trackerListGroup = null;
+                }
+                if (on) CreateTrackerList();
+                LayoutRebuilder.ForceRebuildLayoutImmediate(container);
+                descriptor.ForceRebuild();
+            };
+
             descriptor.ForceRebuild();
             return tab;
+        }
+
+        public static void PopulateTrackerRoles(PanelElementDescriptor group)
+        {
+            BasisDeviceManagement manager = BasisDeviceManagement.Instance;
+            if (manager == null)
+            {
+                group.SetDescription("Device manager is not available.");
+                return;
+            }
+
+            int assignedCount = 0;
+            foreach (BasisBoneTrackedRole role in System.Enum.GetValues(typeof(BasisBoneTrackedRole)))
+            {
+                string value;
+                if (manager.FindDevice(out BasisInput device, role) && device != null)
+                {
+                    string deviceLabel = !string.IsNullOrEmpty(device.CommonDeviceIdentifier)
+                        ? device.CommonDeviceIdentifier
+                        : (!string.IsNullOrEmpty(device.ClassName) ? device.ClassName : "Unknown Device");
+                    value = !string.IsNullOrEmpty(device.UniqueDeviceIdentifier)
+                        ? $"{deviceLabel}  ({device.UniqueDeviceIdentifier})"
+                        : deviceLabel;
+                    assignedCount++;
+                }
+                else
+                {
+                    value = "Unassigned";
+                }
+
+                PanelElementDescriptor row = PanelElementDescriptor.CreateNew(
+                    PanelElementDescriptor.ElementStyles.Group, group.ContentParent);
+                row.SetTitle(role.ToString());
+                row.SetDescription(value);
+            }
+
+            group.SetDescription($"{assignedCount} of {System.Enum.GetValues(typeof(BasisBoneTrackedRole)).Length} roles currently bound.");
         }
 
         /// <summary>
@@ -49,8 +119,8 @@ namespace Basis.BasisUI
             {
                 PanelElementDescriptor errorGroup =
                     PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-                errorGroup.SetTitle("No Avatar");
-                errorGroup.SetDescription("No avatar is currently loaded.");
+                errorGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.noAvatar"));
+                errorGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.noAvatar.description"));
                 return;
             }
 
@@ -71,7 +141,7 @@ namespace Basis.BasisUI
             // --- Overview group ---
             PanelElementDescriptor overviewGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            overviewGroup.SetTitle("Overview");
+            overviewGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.overview"));
 
             if (downloadBytes > 0)
             {
@@ -105,8 +175,8 @@ namespace Basis.BasisUI
             // --- VRAM group ---
             PanelElementDescriptor vramGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            vramGroup.SetTitle("Estimated VRAM Usage");
-            vramGroup.SetDescription("GPU memory consumed by this avatar's textures.");
+            vramGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.vramUsage"));
+            vramGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.vramUsage.description"));
 
             AddInfoField(vramGroup, "Total Texture VRAM", BasisAvatarTextureStats.FormatBytes(stats.TotalVRAMBytes));
             AddInfoField(vramGroup, "Non-Streaming VRAM", BasisAvatarTextureStats.FormatBytes(stats.NonStreamingVRAMBytes));
@@ -119,8 +189,8 @@ namespace Basis.BasisUI
             // --- Mipmap streaming group ---
             PanelElementDescriptor streamGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            streamGroup.SetTitle("Mipmap Streaming");
-            streamGroup.SetDescription("Textures with streaming mipmaps load only the detail levels needed, reducing VRAM pressure on everyone in the instance.");
+            streamGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.mipmapStreaming"));
+            streamGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.mipmapStreaming.description"));
 
             AddInfoField(streamGroup, "Total Textures", stats.TotalTextureCount.ToString());
             AddInfoField(streamGroup, "Streaming", $"{stats.StreamingTextureCount} ({stats.StreamingPercentage:F0}%)");
@@ -130,8 +200,8 @@ namespace Basis.BasisUI
             // --- Performance impact group ---
             PanelElementDescriptor perfGroup =
                 PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-            perfGroup.SetTitle("Performance Impact");
-            perfGroup.SetDescription("How this avatar affects other players in the instance.");
+            perfGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.perfImpact"));
+            perfGroup.SetDescription(BasisLocalization.Get("settings.myAvatar.perfImpact.description"));
 
             AddInfoField(perfGroup, "Impact", stats.GetPerformanceImpact());
 
@@ -144,7 +214,7 @@ namespace Basis.BasisUI
             {
                 PanelElementDescriptor texGroup =
                     PanelElementDescriptor.CreateNew(PanelElementDescriptor.ElementStyles.Group, container);
-                texGroup.SetTitle("Texture Details");
+                texGroup.SetTitle(BasisLocalization.Get("settings.myAvatar.textureDetails"));
                 texGroup.SetDescription($"{stats.Textures.Count} unique textures found.");
 
                 for (int i = 0; i < stats.Textures.Count; i++)

@@ -32,7 +32,7 @@ namespace Basis.BasisUI
             }
         }
 
-        public override string Title => "Shout Mode Off";
+        public override string Title => BasisLocalization.Get("menu.provider.shoutModeOff");
         public override string IconAddress => AddressableAssets.Sprites.Admin;
         public override int Order => 1;
         public override bool Hidden => false;

@@ -395,6 +395,17 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <param name="Role">Role to assign to this device post-calibration.</param>
         public void ApplyTrackerCalibration(BasisBoneTrackedRole Role)
         {
+            // Respect the master FBT toggle — if FBT is disabled in settings and this
+            // is a full-body role, drop the assignment so the existing non-tracker
+            // fallback (head + hands + foot IK) handles the bone.
+            if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(Role)
+                && !Basis.BasisUI.BasisSettingsDefaults.EnableFBT.RawValue)
+            {
+                BasisDebug.Log($"ApplyTrackerCalibration skipped for {Role}: FBT disabled in settings", BasisDebug.LogTag.Input);
+                UnAssignTracker();
+                return;
+            }
+
             UnAssignTracker();
             BasisDebug.Log($"ApplyTrackerCalibration {Role} to tracker {UniqueDeviceIdentifier}", BasisDebug.LogTag.Input);
             AssignRoleAndTracker(Role);
@@ -469,8 +480,8 @@ namespace Basis.Scripts.Device_Management.Devices
         }
 
         /// <summary>
-        /// Check if any full-body IK tracker bones (feet, lower legs, upper legs, hips)
-        /// still have an active tracker. Used to update HasFBIKTrackers after removal.
+        /// Check if any full-body IK tracker bones still have an active tracker.
+        /// Used to update HasFBIKTrackers after removal.
         /// </summary>
         private static bool CheckAnyFBIKTrackersRemain()
         {
@@ -480,7 +491,12 @@ namespace Basis.Scripts.Device_Management.Devices
                 || IsTracked(BasisLocalBoneDriver.RightLowerLegControl)
                 || IsTracked(BasisLocalBoneDriver.LeftUpperLegControl)
                 || IsTracked(BasisLocalBoneDriver.RightUpperLegControl)
-                || IsTracked(BasisLocalBoneDriver.HipsControl);
+                || IsTracked(BasisLocalBoneDriver.HipsControl)
+                || IsTracked(BasisLocalBoneDriver.ChestControl)
+                || IsTracked(BasisLocalBoneDriver.LeftLowerArmControl)
+                || IsTracked(BasisLocalBoneDriver.RightLowerArmControl)
+                || IsTracked(BasisLocalBoneDriver.LeftShoulderControl)
+                || IsTracked(BasisLocalBoneDriver.RightShoulderControl);
         }
 
         private static bool IsTracked(BasisLocalBoneControl control)

@@ -27,11 +27,55 @@ namespace Basis.BasisUI
         private float _updateTimer;
         private const float UpdateInterval = 0.2f;
 
+        private bool _richTextDisabled;
+        private bool _layoutFrozen;
+        private int _updatesSincePopulated;
+
+        private void DisableRichTextOnce()
+        {
+            if (_richTextDisabled) return;
+            _richTextDisabled = true;
+            // These debug panels only display plain-text stats — skip tag scanning.
+            DebugField?.DisableRichText();
+            DistanceField?.DisableRichText();
+            LodField?.DisableRichText();
+            RangesField?.DisableRichText();
+            BufferField?.DisableRichText();
+            AudioSourceField?.DisableRichText();
+            VolumeChainField?.DisableRichText();
+            DecodedBufferField?.DisableRichText();
+            EncodedBufferField?.DisableRichText();
+            SilenceField?.DisableRichText();
+            VisemeField?.DisableRichText();
+        }
+
+        private void FreezeLayoutOnce()
+        {
+            if (_layoutFrozen) return;
+            _layoutFrozen = true;
+            // Freeze each field's natural layout size once content has settled so
+            // the per-frame SetDescription calls don't cascade layout rebuilds up
+            // through the individual player panel's parent LayoutGroups.
+            DebugField?.FreezeLayoutSize(130f);
+            DistanceField?.FreezeLayoutSize(90f);
+            LodField?.FreezeLayoutSize(90f);
+            RangesField?.FreezeLayoutSize(110f);
+            BufferField?.FreezeLayoutSize(130f);
+            AudioSourceField?.FreezeLayoutSize(140f);
+            VolumeChainField?.FreezeLayoutSize(130f);
+            DecodedBufferField?.FreezeLayoutSize(120f);
+            EncodedBufferField?.FreezeLayoutSize(140f);
+            SilenceField?.FreezeLayoutSize(90f);
+            VisemeField?.FreezeLayoutSize(90f);
+        }
+
         private void Update()
         {
             _updateTimer += Time.unscaledDeltaTime;
             if (_updateTimer < UpdateInterval) return;
             _updateTimer = 0f;
+
+            DisableRichTextOnce();
 
             if (RemotePlayer == null)
             {
@@ -166,6 +210,18 @@ namespace Basis.BasisUI
 
             UpdateBufferField();
             UpdateAudioDebugFields();
+
+            // Only count ticks that reached the full-data path — early-returns
+            // above set fields to "N/A"/"No data" which would lock at a too-small
+            // size and clip later real content.
+            if (!_layoutFrozen)
+            {
+                _updatesSincePopulated++;
+                if (_updatesSincePopulated >= 2)
+                {
+                    FreezeLayoutOnce();
+                }
+            }
         }
 
         private void UpdateBufferField()

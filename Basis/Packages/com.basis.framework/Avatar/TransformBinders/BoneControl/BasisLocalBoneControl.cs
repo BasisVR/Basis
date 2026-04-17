@@ -104,7 +104,7 @@ namespace Basis.Scripts.TransformBinders.BoneControl
                 if (hasRigLayer != value)
                 {
                     hasRigLayer = value;
-                    OnHasRigChanged?.Invoke(false);//means the ik does not detach
+                    OnHasRigChanged?.Invoke(value == BasisHasRigLayer.HasRigLayer);
                 }
             }
         }

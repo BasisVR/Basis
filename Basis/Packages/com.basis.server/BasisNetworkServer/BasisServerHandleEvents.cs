@@ -132,13 +132,30 @@ namespace BasisServerHandle
         }
         public static void RejectWithReason(NetPeer request, string reason)
         {
-            ushort Id =(ushort)request.Id;
+            ushort id = (ushort)request.Id;
             NetDataWriter writer = NetworkServer.RentWriter();
-            writer.Put(reason);
-            NetworkServer.AuthenticatedPeers.TryRemove(Id, out _);
-            request.Disconnect();
+            writer.Put(reason ?? string.Empty);
+            byte[] reasonBytes = writer.CopyData();
             NetworkServer.ReturnWriter(writer);
+            if (NetworkServer.AuthenticatedPeers.TryRemove(id, out _))
+            {
+                NetworkServer.RebuildPeerSnapshot();
+            }
+            request.Disconnect(reasonBytes);
             BNL.LogError($"Rejected after accept with reason: {reason}");
+        }
+
+        public static bool IsHeadlessDisallowed(ClientMetaDataMessage metaData, out string reason)
+        {
+            if (!BasisHeadlessConnectionPolicyManager.HeadlessDisallowed ||
+                !BasisHeadlessConnectionPolicyManager.IsHeadlessClient(metaData))
+            {
+                reason = null;
+                return false;
+            }
+
+            reason = BasisHeadlessConnectionPolicyManager.DisallowedReason;
+            return true;
         }
         #endregion
 
@@ -188,16 +205,26 @@ namespace BasisServerHandle
                     BytesMessage authMessage = new BytesMessage();
                     authMessage.Deserialize(ConReq.Data, out byte[] UnusedBytes);
                 }
-                NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
-
                 if (NetworkServer.Configuration.UseAuthIdentity)
                 {
+                    NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
                     NetworkServer.AuthIdentity.ProcessConnection(NetworkServer.Configuration, ConReq, newPeer);
                 }
                 else
                 {
                     ReadyMessage readyMessage = new ReadyMessage();
                     readyMessage.Deserialize(ConReq.Data);
+
+                    if (readyMessage.WasDeserializedCorrectly())
+                    {
+                        if (IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
+                        {
+                            RejectWithReason(ConReq, reason);
+                            return;
+                        }
+                    }
+
+                    NetPeer newPeer = ConReq.Accept();//can do both way Communication from here on
 
                     if (readyMessage.WasDeserializedCorrectly())
                     {
@@ -270,6 +297,7 @@ namespace BasisServerHandle
                 BasisNetworkContentShare.SendAllSpheresToPeer(newPeer);
                 BasisNetworkServer.Security.BasisGlobalLockManager.SendLockStateToPeer(newPeer);
                 BasisNetworkServer.Security.BasisHeadlessAudioStateManager.SendStateToPeer(newPeer);
+                BasisNetworkServer.Security.BasisHeadlessConnectionPolicyManager.SendStateToPeer(newPeer);
                 SendShoutStateToPeer(newPeer);
             }
             else

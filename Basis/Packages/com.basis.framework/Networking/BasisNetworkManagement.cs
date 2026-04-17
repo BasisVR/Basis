@@ -152,6 +152,9 @@ namespace Basis.Scripts.Networking
         /// Job handle for bone simulation tasks.
         /// </summary>
         public static JobHandle BoneJobSystem;
+#if UNITY_EDITOR
+        private static readonly System.Diagnostics.Stopwatch _profilerStopwatch = new System.Diagnostics.Stopwatch();
+#endif
         private static float _timer;
         public static bool HasRequested;
 
@@ -378,13 +381,13 @@ namespace Basis.Scripts.Networking
             }
 #if UNITY_EDITOR
             bool p = BasisEventDriverProfilerData.Enabled;
-            System.Diagnostics.Stopwatch s = System.Diagnostics.Stopwatch.StartNew();
+            if (p) _profilerStopwatch.Restart();
 #endif
             RemoteBoneJobSystem.Complete(BoneJobSystem);
 #if UNITY_EDITOR
             if (p) {
-                s.Stop();
-                BasisEventDriverProfilerData.Net_BoneJobCompleteMs = s.Elapsed.TotalMilliseconds;
+                _profilerStopwatch.Stop();
+                BasisEventDriverProfilerData.Net_BoneJobCompleteMs = _profilerStopwatch.Elapsed.TotalMilliseconds;
             }
 #endif
         }

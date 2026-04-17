@@ -893,6 +893,19 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         BasisHeadlessRuntimeStatus.MarkDisconnected(disconnectInfo, message);
         ResetServerHeadlessAudioPolicy();
 
+        if (IsServerHeadlessDisallowMessage(message))
+        {
+            BasisNetworkConnection.HeadlessReconnectSuppressed = true;
+            BasisDebug.LogWarning("Headless client disconnected because headless connections are disallowed by server.", BasisDebug.LogTag.Networking);
+
+            if (!HealthCheckEnabled)
+            {
+                QuitHeadlessApplication();
+            }
+
+            return;
+        }
+
         if (!ShouldRetry(disconnectInfo))
         {
             return;
@@ -1007,20 +1020,35 @@ public class BasisHeadlessManagement : BasisBaseTypeManagement
         }
 
         return message.IndexOf("reject", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               message.IndexOf("disallow", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("denied", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("auth", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("password", StringComparison.OrdinalIgnoreCase) >= 0 ||
                message.IndexOf("protocol", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
+    private static bool IsServerHeadlessDisallowMessage(string message)
+    {
+        return !string.IsNullOrWhiteSpace(message) &&
+               message.IndexOf("disallowed by server", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void QuitHeadlessApplication()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
+    }
+
     private static string TryReadDisconnectMessage(DisconnectInfo disconnectInfo)
     {
         try
         {
-            if (disconnectInfo.AdditionalData != null &&
-                disconnectInfo.AdditionalData.TryGetString(out string message))
+            if (disconnectInfo.AdditionalData != null)
             {
-                return message;
+                return disconnectInfo.AdditionalData.PeekString();
             }
         }
         catch

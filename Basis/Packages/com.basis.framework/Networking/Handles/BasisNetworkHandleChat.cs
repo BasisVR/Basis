@@ -6,6 +6,7 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using System;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using static SerializableBasis;
 
@@ -41,7 +42,7 @@ public static class BasisNetworkHandleChat
     /// <param name="message">The text message to send.</param>
     public static void SendChatMessage(string message)
     {
-        if(BasisNetworkConnection.LocalPlayerIsConnected == false)
+        if (BasisNetworkConnection.LocalPlayerIsConnected == false)
         {
             return;
         }
@@ -124,14 +125,15 @@ public static class BasisNetworkHandleChat
         AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.ChatNotificationUI, BasisDeviceManagement.Instance.transform.position, SMModuleAudio.ActiveMenusVolume);
     }
 
-    private static void ApplyChatToNamePlate(ushort senderPlayerId, string message)
+    private static async Task ApplyChatToNamePlate(ushort senderPlayerId, string message)
     {
         if (BasisNetworkPlayers.Players.TryGetValue(senderPlayerId, out BasisNetworkPlayer networkPlayer))
         {
             if (networkPlayer.Player is BasisRemotePlayer remotePlayer && remotePlayer.RemoteNamePlate != null)
             {
                 // Check per-player chat visibility setting
-                if (BasisPlayerSettingsManager.TryGetCachedPlayerSettings(remotePlayer.UUID, out var settings) && !settings.ChatVisible)
+                var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
+                if (!settings.ChatVisible)
                 {
                     return;
                 }

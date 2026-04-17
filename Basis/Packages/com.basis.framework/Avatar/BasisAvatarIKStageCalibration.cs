@@ -76,9 +76,6 @@ namespace Basis.Scripts.Avatar
             List<BasisBoneTrackedRole> rolesToDiscover = GetAllRolesDesired();
             List<BasisBoneTrackedRole> trackInputRoles = new List<BasisBoneTrackedRole>(23);
             List<BasisCalibrationData> connectors = new List<BasisCalibrationData>(23);
-            List<BasisTrackerMapping> boneTransformMappings = new List<BasisTrackerMapping>(23);
-            List<BasisBoneTrackedRole> roles = new List<BasisBoneTrackedRole>(23);
-            List<BasisInput> BasisInputs = new List<BasisInput>(23);
 
             int count = rolesToDiscover.Count;
             for (int Index = 0; Index < count; Index++)
@@ -118,44 +115,113 @@ namespace Basis.Scripts.Avatar
                     connectors.Add(calibrationConnector);
                 }
             }
-            int Count = trackInputRoles.Count;
-            Dictionary<BasisBoneTrackedRole, Transform> StoredRolesTransforms = BasisLocalPlayer.Instance.LocalAvatarDriver.StoredRolesTransforms;
-            for (int Index = 0; Index < Count; Index++)
+            // Stamp each connector with a left/right side based on its world position
+            // relative to the hips. The nearest-pair matching loop below uses this to
+            // prevent a tracker on one side of the body from being assigned to a role
+            // on the other.
             {
-                BasisBoneTrackedRole role = trackInputRoles[Index];
-                if (BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role))
-                {
-                    //0.3f * 1 * per-sphere user scale
-                    float ScaledDistance = MaxDistanceBeforeTrackerIsIrrelivant(role) * SMModuleCalibration.GetSphereScale(role) * BasisHeightDriver.ScaledToMatchValue;
-                    if (StoredRolesTransforms.TryGetValue(role, out Transform Transform))
-                    {
-                        //  BasisLocalPlayer.Instance.LocalBoneDriver.AddGizmo($"{control.name} IK Calibration with Scaler Distance {ScaledDistance}", Transform, ScaledDistance, control.Color, role);
-                        BasisTrackerMapping mapping = new BasisTrackerMapping(control, Transform, role, connectors, ScaledDistance);
-                        boneTransformMappings.Add(mapping);
-                    }
-                    else
-                    {
-                        BasisDebug.LogError($"Missing Mapping in Roles Transforms {role}");
-                    }
-                }
+                Transform hipsForSide;
+                if (storedRoleTransforms.TryGetValue(BasisBoneTrackedRole.Hips, out Transform hipsT) && hipsT != null)
+                    hipsForSide = hipsT;
                 else
+                    hipsForSide = BasisLocalPlayer.Instance.transform;
+
+                float sideDeadZoneMeters = 0.03f * BasisHeightDriver.ScaledToMatchValue;
+                Vector3 hipsWorldPos = hipsForSide.position;
+                Vector3 hipsWorldRight = hipsForSide.right;
+                int connectorsCount = connectors.Count;
+                for (int cIdx = 0; cIdx < connectorsCount; cIdx++)
                 {
-                    BasisDebug.LogError($"Missing bone control for role {role}");
+                    BasisCalibrationData conn = connectors[cIdx];
+                    if (conn.BasisInput == null) { conn.SideSign = 0; continue; }
+                    Vector3 fromHips = conn.BasisInput.transform.position - hipsWorldPos;
+                    float sd = Vector3.Dot(fromHips, hipsWorldRight);
+                    if (sd > sideDeadZoneMeters) conn.SideSign = 1;
+                    else if (sd < -sideDeadZoneMeters) conn.SideSign = -1;
+                    else conn.SideSign = 0;
                 }
             }
-            int cachedCount = boneTransformMappings.Count;
-            // Find optimal matches
-            for (int Index = 0; Index < cachedCount; Index++)
+
+            // Build target list: one entry per trackable role that has a valid bone
+            // control, a positive max-distance, and a known avatar T-pose transform.
+            int trCount = trackInputRoles.Count;
+            List<(BasisBoneTrackedRole role, Vector3 targetPos, float maxDistance)> targets =
+                new List<(BasisBoneTrackedRole, Vector3, float)>(trCount);
+            for (int Index = 0; Index < trCount; Index++)
             {
-                BasisTrackerMapping mapping = boneTransformMappings[Index];
-                if (mapping.TargetControl != null)
+                BasisBoneTrackedRole role = trackInputRoles[Index];
+                if (!BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl control, role))
                 {
-                    FindTrackersFromInputs(mapping, ref BasisInputs, ref roles);
+                    BasisDebug.LogError($"Missing bone control for role {role}");
+                    continue;
+                }
+                float maxDistance = MaxDistanceBeforeTrackerIsIrrelivant(role) * SMModuleCalibration.GetSphereScale(role) * BasisHeightDriver.ScaledToMatchValue;
+                if (maxDistance <= 0f)
+                {
+                    continue; // role does not participate in distance matching
+                }
+                Vector3 targetPos;
+                if (storedRoleTransforms.TryGetValue(role, out Transform roleT) && roleT != null)
+                {
+                    targetPos = roleT.position;
                 }
                 else
                 {
-                    BasisDebug.LogError("Missing Tracker for index " + Index + " with ID " + mapping);
+                    BasisDebug.LogError($"Missing Mapping in Roles Transforms {role}");
+                    targetPos = control.OutgoingWorldData.position;
                 }
+                targets.Add((role, targetPos, maxDistance));
+            }
+
+            // Cache tracker world positions once so successive loop iterations don't
+            // re-read them. ApplyTrackerCalibration doesn't move the tracker so this
+            // stays valid for the whole matching pass.
+            int connectorsCached = connectors.Count;
+            Vector3[] connectorPositions = new Vector3[connectorsCached];
+            for (int cIdx = 0; cIdx < connectorsCached; cIdx++)
+            {
+                BasisCalibrationData conn = connectors[cIdx];
+                connectorPositions[cIdx] = conn.BasisInput != null ? conn.BasisInput.transform.position : Vector3.zero;
+            }
+
+            // Global nearest-pair assignment: each iteration picks the smallest-distance
+            // (target, tracker) pair that still respects the target's radius cap AND the
+            // side filter. Repeat until nothing is left to match. This replaces the old
+            // order-sensitive greedy pass — a tracker closer to role A than to role B
+            // always wins A, regardless of which role appears first in desiredOrder.
+            bool[] targetMatched = new bool[targets.Count];
+            bool[] connectorUsed = new bool[connectorsCached];
+            while (true)
+            {
+                float bestDist = float.MaxValue;
+                int bestTarget = -1;
+                int bestConnector = -1;
+                for (int tIdx = 0; tIdx < targets.Count; tIdx++)
+                {
+                    if (targetMatched[tIdx]) continue;
+                    var t = targets[tIdx];
+                    int requiredSide = t.role.SideSign();
+                    for (int cIdx = 0; cIdx < connectorsCached; cIdx++)
+                    {
+                        if (connectorUsed[cIdx]) continue;
+                        BasisCalibrationData conn = connectors[cIdx];
+                        if (conn.BasisInput == null) continue;
+                        if (requiredSide != 0 && conn.SideSign != 0 && conn.SideSign != requiredSide) continue;
+                        float d = Vector3.Distance(t.targetPos, connectorPositions[cIdx]);
+                        if (d > t.maxDistance) continue;
+                        if (d < bestDist)
+                        {
+                            bestDist = d;
+                            bestTarget = tIdx;
+                            bestConnector = cIdx;
+                        }
+                    }
+                }
+                if (bestTarget < 0) break;
+                targetMatched[bestTarget] = true;
+                connectorUsed[bestConnector] = true;
+                HasFBIKTrackers = true;
+                connectors[bestConnector].BasisInput.ApplyTrackerCalibration(targets[bestTarget].role);
             }
 
 
@@ -167,57 +233,6 @@ namespace Basis.Scripts.Avatar
             BasisLocalPlayer.Instance.LocalAvatarDriver.ResetAvatarAnimator();
             BasisLocalPlayer.Instance.LocalRigDriver.RigLayer.active = true;
             BasisLocalPlayer.Instance.LocalAnimatorDriver.AssignHipsFBTracker();
-        }
-        /// <summary>
-        /// Finds trackers from the basis input system.
-        /// </summary>
-        /// <param name="mapping"></param>
-        /// <param name="BasisInputs"></param>
-        /// <param name="roles"></param>
-        public static void FindTrackersFromInputs(BasisTrackerMapping mapping, ref List<BasisInput> BasisInputs, ref List<BasisBoneTrackedRole> roles)
-        {
-            // List to store the calibration actions
-            List<Action> calibrationActions = new List<Action>();
-
-            int CandidateCount = mapping.Candidates.Count;
-            for (int Index = 0; Index < CandidateCount; Index++)
-            {
-                BasisCalibrationData Connector = mapping.Candidates[Index];
-                if (BasisInputs.Contains(Connector.BasisInput) == false)
-                {
-                    if (roles.Contains(mapping.BasisBoneControlRole) == false)
-                    {
-                        roles.Add(mapping.BasisBoneControlRole);
-                        BasisInputs.Add(Connector.BasisInput);
-                        // Store the calibration action instead of executing it directly
-                        calibrationActions.Add(() =>
-                        {
-
-                            HasFBIKTrackers = true;
-                            Connector.BasisInput.ApplyTrackerCalibration(mapping.BasisBoneControlRole);
-                        });
-
-                        // Once we found a valid connector, we can stop the search
-                        break;
-                    }
-                    else
-                    {
-                        //BasisDebug.Log("we have already assigned role " + mapping.BasisBoneControlRole);
-                    }
-                }
-                else
-                {
-                    //BasisDebug.Log("Already assigned " + Connector.Tracker);
-                }
-            }
-
-            // Execute all stored calibration actions
-            int Count = calibrationActions.Count;
-            for (int Index = 0; Index < Count; Index++)
-            {
-                Action action = calibrationActions[Index];
-                action();
-            }
         }
         /// <summary>
         /// gets a roles dictonary with the roles and transforms
@@ -283,25 +298,28 @@ namespace Basis.Scripts.Avatar
                     return 0;
                 case BasisBoneTrackedRole.Spine:
                     return 0;
+                // Radii are generous upper bounds — the matcher picks the GLOBALLY
+                // closest tracker-role pair each step, so bumping these does not
+                // cause cross-role confusion. Side filtering guards left/right.
                 case BasisBoneTrackedRole.Chest:
-                    return 0.35f;
+                    return 0.4f;
                 case BasisBoneTrackedRole.Hips:
-                    return 0.45f;
+                    return 0.5f;
 
                 case BasisBoneTrackedRole.LeftLowerLeg:
-                    return 0.5f;
+                    return 0.55f;
                 case BasisBoneTrackedRole.RightLowerLeg:
-                    return 0.5f;
+                    return 0.55f;
 
                 case BasisBoneTrackedRole.LeftFoot:
-                    return 0.35f;
+                    return 0.4f;
                 case BasisBoneTrackedRole.RightFoot:
-                    return 0.35f;
+                    return 0.4f;
 
                 case BasisBoneTrackedRole.LeftShoulder:
-                    return 0.3f;
+                    return 0.45f;
                 case BasisBoneTrackedRole.RightShoulder:
-                    return 0.3f;
+                    return 0.45f;
 
                 case BasisBoneTrackedRole.LeftUpperLeg:
                     return 0.3f;
@@ -309,9 +327,9 @@ namespace Basis.Scripts.Avatar
                     return 0.3f;
 
                 case BasisBoneTrackedRole.LeftLowerArm:
-                    return 0.4f;
+                    return 0.55f;
                 case BasisBoneTrackedRole.RightLowerArm:
-                    return 0.4f;
+                    return 0.55f;
 
                 case BasisBoneTrackedRole.LeftHand:
                     return 0.2f;
@@ -335,35 +353,31 @@ namespace Basis.Scripts.Avatar
         /// <summary>
         /// order we should build tracker pairs in
         /// </summary>
+        // Tightest-radius / most-specific roles first. Center roles (Hips, Chest)
+        // are last so side-specific bones get first pick of their candidates —
+        // without this, Chest's 0.35m radius can steal a shoulder tracker.
         public static BasisBoneTrackedRole[] desiredOrder = new BasisBoneTrackedRole[]
         {
-        BasisBoneTrackedRole.Hips,
-        BasisBoneTrackedRole.RightFoot,
-        BasisBoneTrackedRole.LeftFoot,
-
-        BasisBoneTrackedRole.LeftLowerLeg,
-        BasisBoneTrackedRole.RightLowerLeg,
-        BasisBoneTrackedRole.LeftLowerArm,
-        BasisBoneTrackedRole.RightLowerArm,
-
-    //    BasisBoneTrackedRole.CenterEye,
-        BasisBoneTrackedRole.Chest,
-
-       // BasisBoneTrackedRole.Head,
-       // BasisBoneTrackedRole.Neck,
-
         BasisBoneTrackedRole.LeftHand,
         BasisBoneTrackedRole.RightHand,
 
         BasisBoneTrackedRole.LeftToes,
         BasisBoneTrackedRole.RightToes,
 
-      //  BasisBoneTrackedRole.LeftUpperArm,
-       // BasisBoneTrackedRole.RightUpperArm,
-      //  BasisBoneTrackedRole.LeftUpperLeg,
-       // BasisBoneTrackedRole.RightUpperLeg,
         BasisBoneTrackedRole.LeftShoulder,
         BasisBoneTrackedRole.RightShoulder,
+
+        BasisBoneTrackedRole.RightFoot,
+        BasisBoneTrackedRole.LeftFoot,
+
+        BasisBoneTrackedRole.LeftLowerArm,
+        BasisBoneTrackedRole.RightLowerArm,
+
+        BasisBoneTrackedRole.LeftLowerLeg,
+        BasisBoneTrackedRole.RightLowerLeg,
+
+        BasisBoneTrackedRole.Hips,
+        BasisBoneTrackedRole.Chest,
         };
         public static void ComputeHints(Dictionary<BasisBoneTrackedRole, Transform> storedRoleTransforms)
         {
@@ -486,6 +500,7 @@ namespace Basis.Scripts.Avatar
             [SerializeField]
             public BasisInput BasisInput;
             public float Distance;
+            public int SideSign; // -1 left, +1 right, 0 center/unknown
         }
     }
 }

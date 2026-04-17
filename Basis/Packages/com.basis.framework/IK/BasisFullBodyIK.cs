@@ -884,8 +884,14 @@ w20, w54;
                 case 0: // LockHips - hips are authoritative, skip head-relative clamping
                     break;
 
-                case 1: // LockHead - head is the anchor, derive hips below head
-                    hipsTargetPos = headTargetPos - up * restDist;
+                case 1: // LockHead - head is the anchor; push hips down only if within restDist, allow sinking further
+                    {
+                        float gap = Vector3.Dot(headTargetPos - hipsTargetPos, up);
+                        if (gap < restDist)
+                        {
+                            hipsTargetPos -= up * (restDist - gap);
+                        }
+                    }
                     break;
 
                 default: // LockBoth (2) - original behavior: clamp hips relative to head

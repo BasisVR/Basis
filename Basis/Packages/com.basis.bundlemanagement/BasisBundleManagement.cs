@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -123,7 +124,17 @@ public static class BasisBundleManagement
             return (null, wrapperErr ?? "Stored bundle is null.");
         }
 
-        if (string.IsNullOrWhiteSpace(storedBundle.DownloadedBeeFileLocation))
+        string readPath = null;
+        if (!string.IsNullOrWhiteSpace(storedBundle.DownloadedConnectorFileLocation) && File.Exists(storedBundle.DownloadedConnectorFileLocation))
+        {
+            readPath = storedBundle.DownloadedConnectorFileLocation;
+        }
+        else if (!string.IsNullOrWhiteSpace(storedBundle.DownloadedBeeFileLocation) && File.Exists(storedBundle.DownloadedBeeFileLocation))
+        {
+            readPath = storedBundle.DownloadedBeeFileLocation;
+        }
+
+        if (string.IsNullOrWhiteSpace(readPath))
         {
             return (null, "Stored bundle path is null or empty.");
         }
@@ -137,8 +148,8 @@ public static class BasisBundleManagement
         {
             return (null, "Cancelled before starting.");
         }
-        BasisDebug.Log("Reading BEE (connector-only) from disk: " + storedBundle.DownloadedBeeFileLocation);
-        BeeResult<BeeReadResult> result = await BasisIOManagement.ReadBEEConnectorFileEx(storedBundle.DownloadedBeeFileLocation, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken);
+        BasisDebug.Log("Reading connector from disk: " + readPath);
+        BeeResult<BeeReadResult> result = await BasisIOManagement.ReadBEEConnectorFileEx(readPath, bundleWrapper.LoadableBundle.UnlockPassword, progressCallback, cancellationToken);
 
         if (!result.IsSuccess || result.Value is null)
         {
@@ -181,7 +192,7 @@ public static class BasisBundleManagement
         }
 
         bundleWrapper.LoadableBundle.BasisBundleConnector = result.Value.Item1;
-        bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation = result.Value.Item2;
+        bundleWrapper.LoadableBundle.BasisLocalEncryptedBundle.DownloadedConnectorFileLocation = result.Value.Item2;
 
         if (!BasisBeeValidator.IsValidConnector(result.Value.Item1, out string connErr))
         {

@@ -15,7 +15,14 @@ namespace Basis.BasisUI
         Meters,
         Degrees,
         percentageFromZero,
-        MemorySize
+        MemorySize,
+        /// <summary>
+        /// SI-style short form: 1k / 10k / 32.5k / 1.2M. Decimals are only shown
+        /// when the scaled value isn't a whole number, so clean round values stay
+        /// clean. Intended for large integer sliders like triangle / bone counts
+        /// where "2000000" is unreadable but "2M" is obvious at a glance.
+        /// </summary>
+        Compact
     }
 
     public class PanelSlider : PanelDataComponent<float>, IPointerDownHandler, IPointerUpHandler
@@ -247,6 +254,10 @@ namespace Basis.BasisUI
             ApplySliderSettings();
         }
 
+        private string _cachedDecimalFormat;
+        private int _cachedDecimalPlaces = -1;
+        private string _lastCurrentValueText;
+
         protected virtual void ApplySliderSettings()
         {
             Descriptor.SetTitle(Settings.Title);
@@ -256,8 +267,30 @@ namespace Basis.BasisUI
             SliderComponent.maxValue = Settings.SliderMax;
             SliderComponent.wholeNumbers = Settings.UseWholeNumbers;
 
-            if (MinValueLabel) MinValueLabel.text = Settings.SliderMin.ToString(CultureInfo.InvariantCulture);
-            if (MaxValueLabel) MaxValueLabel.text = Settings.SliderMax.ToString(CultureInfo.InvariantCulture);
+            // Value labels only ever display plain numbers — skip TMP rich-text parsing.
+            if (MinValueLabel)
+            {
+                MinValueLabel.richText = false;
+                MinValueLabel.SetText(Settings.SliderMin.ToString(CultureInfo.InvariantCulture));
+            }
+            if (MaxValueLabel)
+            {
+                MaxValueLabel.richText = false;
+                MaxValueLabel.SetText(Settings.SliderMax.ToString(CultureInfo.InvariantCulture));
+            }
+            if (CurrentValueLabel)
+            {
+                CurrentValueLabel.richText = false;
+            }
+
+            // Prebuild the decimal format string once so ApplyValue doesn't allocate
+            // a fresh "0.##" string every time the slider moves.
+            if (_cachedDecimalPlaces != Settings.DecimalPlaces)
+            {
+                _cachedDecimalPlaces = Settings.DecimalPlaces;
+                _cachedDecimalFormat = "0." + new string('#', Mathf.Max(0, Settings.DecimalPlaces));
+            }
+            _lastCurrentValueText = null;
         }
 
         public override void SetValueWithoutNotify(float value)
@@ -299,31 +332,43 @@ namespace Basis.BasisUI
                 }
             }
 
+            if (CurrentValueLabel == null) return;
+
+            string next;
             switch (Settings.DisplayMode)
             {
                 case ValueDisplayMode.Percentage:
                     float range2 = SliderComponent.maxValue - SliderComponent.minValue;
                     float normalized = (range2 > 0f) ? (Value - SliderComponent.minValue) / range2 : 0f;
-                    CurrentValueLabel.text = $"{Mathf.RoundToInt(normalized * 100f)}%";
+                    next = $"{Mathf.RoundToInt(normalized * 100f)}%";
                     break;
                 case ValueDisplayMode.percentageFromZero:
-                    CurrentValueLabel.text = $"{Mathf.RoundToInt(Value * 100f)}%";
+                    next = $"{Mathf.RoundToInt(Value * 100f)}%";
                     break;
-
                 case ValueDisplayMode.Raw:
-                    CurrentValueLabel.text = Value.ToString("0." + new string('#', Settings.DecimalPlaces));
+                    next = Value.ToString(_cachedDecimalFormat);
                     break;
-
                 case ValueDisplayMode.Meters:
-                    CurrentValueLabel.text = Value.ToString("0." + new string('#', Settings.DecimalPlaces)) + " m";
+                    next = Value.ToString(_cachedDecimalFormat) + " m";
                     break;
-                    case ValueDisplayMode.Degrees:
-                    CurrentValueLabel.text = Value.ToString("0." + new string('#', Settings.DecimalPlaces)) + "°";
+                case ValueDisplayMode.Degrees:
+                    next = Value.ToString(_cachedDecimalFormat) + "°";
                     break;
                 case ValueDisplayMode.MemorySize:
-                    CurrentValueLabel.text = FormatMemorySize(Value *1024 * 1024, Settings.DecimalPlaces);
+                    next = FormatMemorySize(Value * 1024 * 1024, Settings.DecimalPlaces);
                     break;
+                case ValueDisplayMode.Compact:
+                    next = FormatCompact(Value);
+                    break;
+                default:
+                    return;
             }
+
+            // Dedup — dragging a slider fires ApplyValue many times per second, and the
+            // rounded/formatted text is often identical between frames.
+            if (_lastCurrentValueText == next) return;
+            _lastCurrentValueText = next;
+            CurrentValueLabel.SetText(next);
         }
         private static string FormatMemorySize(float bytes, int decimalPlaces = 2)
         {
@@ -340,6 +385,29 @@ namespace Basis.BasisUI
             }
 
             return bytes.ToString($"0.{new string('#', decimalPlaces)}") + " " + units[unitIndex];
+        }
+
+        /// <summary>
+        /// SI-style short number (<c>Compact</c> display mode).
+        ///   < 1000        → plain integer
+        ///   1k – 999k     → "1k" / "32.5k" (one decimal only when non-zero)
+        ///   &gt;= 1M      → "1M" / "2.5M"
+        /// Negative values are formatted the same way with a leading minus.
+        /// </summary>
+        private static string FormatCompact(float value)
+        {
+            float abs = Mathf.Abs(value);
+            if (abs >= 1_000_000f)
+            {
+                float scaled = value / 1_000_000f;
+                return scaled.ToString(scaled % 1f == 0f ? "0" : "0.#", CultureInfo.InvariantCulture) + "M";
+            }
+            if (abs >= 1000f)
+            {
+                float scaled = value / 1000f;
+                return scaled.ToString(scaled % 1f == 0f ? "0" : "0.#", CultureInfo.InvariantCulture) + "k";
+            }
+            return value.ToString("0", CultureInfo.InvariantCulture);
         }
     }
 }
