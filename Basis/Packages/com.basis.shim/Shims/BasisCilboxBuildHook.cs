@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Basis.Scripts.BasisSdk;
 using Basis.Shims;
 using Cilbox;
@@ -46,6 +47,8 @@ public class BasisCilboxBuildHook
     {
         BasisAssetBundlePipeline.OnBeforeBuildPrefab -= HandleBeforeBuildPrefab;
         BasisAssetBundlePipeline.OnBeforeBuildPrefab += HandleBeforeBuildPrefab;
+        BasisAssetBundlePipeline.OnPrepareBuildSceneAssetPath -= PrepareSceneAssetPathForBuild;
+        BasisAssetBundlePipeline.OnPrepareBuildSceneAssetPath += PrepareSceneAssetPathForBuild;
 
         BasisAvatarSDKInspector.OnBeforeTestInEditor -= HandleBeforeTestInEditor;
         BasisAvatarSDKInspector.OnBeforeTestInEditor += HandleBeforeTestInEditor;
@@ -240,6 +243,67 @@ public class BasisCilboxBuildHook
         }
     }
 
+    private static string PrepareSceneAssetPathForBuild(Scene sourceScene, BasisAssetBundleObject settings)
+    {
+        if (!sourceScene.IsValid() || !sourceScene.isLoaded || settings == null || !SceneNeedsCilboxProcessing(sourceScene))
+        {
+            return null;
+        }
+
+        TemporaryStorageHandler.EnsureDirectoryExists(settings.TemporaryStorage);
+        string tempScenePath = Path.Combine(settings.TemporaryStorage, $"{BasisGenerateUniqueID.GenerateUniqueID()}.unity");
+        if (!EditorSceneManager.SaveScene(sourceScene, tempScenePath, true))
+        {
+            Debug.LogError($"[{nameof(BasisCilboxBuildHook)}] Failed to create a temporary build copy for scene {sourceScene.name}.");
+            return null;
+        }
+
+        Scene originalActiveScene = SceneManager.GetActiveScene();
+        Scene tempScene = default;
+        GameObject temporaryCilboxHost = null;
+        try
+        {
+            tempScene = EditorSceneManager.OpenScene(tempScenePath, OpenSceneMode.Additive);
+            SceneManager.SetActiveScene(tempScene);
+            CleanupCilboxHelpersInScene(tempScene);
+
+            Dictionary<EntityId, string> cilboxAssemblySnapshot = CaptureCilboxAssemblySnapshot();
+            List<object> capturedPersistentCalls = CilboxUnityEventRebinder.CaptureForScene(tempScene);
+            Debug.Log(
+                $"[{nameof(BasisCilboxBuildHook)}] Scene build processing {sourceScene.name}: captured {capturedPersistentCalls.Count} cilbox UnityEvent calls."
+            );
+
+            if (TryProcessCilboxScene(tempScene, null, cilboxAssemblySnapshot, capturedPersistentCalls, out _, out temporaryCilboxHost))
+            {
+                RestoreExternalCilboxAssemblyData(cilboxAssemblySnapshot, tempScene);
+                if (!EditorSceneManager.SaveScene(tempScene))
+                {
+                    Debug.LogError($"[{nameof(BasisCilboxBuildHook)}] Failed to save processed temporary scene copy for {sourceScene.name}.");
+                    return null;
+                }
+            }
+
+            return tempScenePath;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[{nameof(BasisCilboxBuildHook)}] Failed to prepare scene {sourceScene.name} for bundle build: {ex}");
+            return null;
+        }
+        finally
+        {
+            if (tempScene.IsValid() && tempScene.isLoaded)
+            {
+                EditorSceneManager.CloseScene(tempScene, true);
+            }
+
+            if (originalActiveScene.IsValid() && originalActiveScene.isLoaded)
+            {
+                SceneManager.SetActiveScene(originalActiveScene);
+            }
+        }
+    }
+
     private static bool TryProcessCilboxScene(
         Scene scene,
         GameObject contentRoot,
@@ -368,17 +432,26 @@ public class BasisCilboxBuildHook
 
     private static void CleanupStaleCilboxHelpers()
     {
+        int sceneCount = SceneManager.sceneCount;
+        for (int sceneIndex = 0; sceneIndex < sceneCount; sceneIndex++)
+        {
+            CleanupCilboxHelpersInScene(SceneManager.GetSceneAt(sceneIndex));
+        }
+    }
+
+    private static void CleanupCilboxHelpersInScene(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
         GameObject[] allObjects = Resources.FindObjectsOfTypeAll<GameObject>();
         int length = allObjects.Length;
         for (int i = 0; i < length; i++)
         {
             GameObject go = allObjects[i];
-            if (go == null)
-            {
-                continue;
-            }
-
-            if (!go.scene.IsValid() || !go.scene.isLoaded)
+            if (go == null || go.scene != scene)
             {
                 continue;
             }
@@ -394,7 +467,7 @@ public class BasisCilboxBuildHook
         for (int i = 0; i < shimCount; i++)
         {
             CilboxUnityEventShim shim = staleShims[i];
-            if (shim != null && shim.gameObject.scene.IsValid() && shim.gameObject.scene.isLoaded)
+            if (shim != null && shim.gameObject.scene == scene)
             {
                 UnityEngine.Object.DestroyImmediate(shim);
             }

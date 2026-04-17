@@ -13,6 +13,7 @@ public static class BasisAssetBundlePipeline
     // Define static delegates
     public delegate void BeforeBuildGameobjectHandler(GameObject prefab, BasisAssetBundleObject settings);
     public delegate void BeforeBuildSceneHandler(Scene prefab, BasisAssetBundleObject settings);
+    public delegate string PrepareBuildSceneAssetPathHandler(Scene scene, BasisAssetBundleObject settings);
     public delegate void AfterBuildHandler(string assetBundleName);
     public delegate void BuildErrorHandler(Exception ex, GameObject prefab, bool wasModified, string temporaryStorage);
 
@@ -22,6 +23,7 @@ public static class BasisAssetBundlePipeline
     public static BuildErrorHandler OnBuildErrorPrefab;
 
     public static BeforeBuildSceneHandler OnBeforeBuildScene;
+    public static PrepareBuildSceneAssetPathHandler OnPrepareBuildSceneAssetPath;
     public static AfterBuildHandler OnAfterBuildScene;
     public static BuildErrorHandler OnBuildErrorScene;
 
@@ -78,7 +80,16 @@ public static class BasisAssetBundlePipeline
                 }
 
                 OnBeforeBuildScene?.Invoke(scene, settings);
-                assetPath = TemporaryStorageHandler.SaveScene(scene, settings, out uniqueID);
+                string preparedSceneAssetPath = OnPrepareBuildSceneAssetPath?.Invoke(scene, settings);
+                if (!string.IsNullOrEmpty(preparedSceneAssetPath))
+                {
+                    assetPath = preparedSceneAssetPath;
+                    uniqueID = Path.GetFileNameWithoutExtension(preparedSceneAssetPath);
+                }
+                else
+                {
+                    assetPath = TemporaryStorageHandler.SaveScene(scene, settings, out uniqueID);
+                }
             }
             else
             {
