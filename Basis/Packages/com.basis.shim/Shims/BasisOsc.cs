@@ -6,11 +6,13 @@ using Basis.Scripts.BasisSdk;
 using HVR.Basis.Comms;
 using HVR.Basis.Comms.OSC;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace Basis.Shims
 {
+    [MovedFrom(true, null, null, "BasisOscShim")]
     [DisallowMultipleComponent]
-    public sealed class BasisOscShim : CilboxShim
+    public class BasisOsc : CilboxShim
     {
         public delegate void OscMessageEvent(OscMessage message, OscData[] arguments);
         public delegate void OscValueEvent(OscData value);

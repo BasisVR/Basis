@@ -31,6 +31,9 @@ namespace Cilbox
 			"Basis.Shims.BasisAvatarShim+OnReady",
 			"Basis.Shims.BasisAvatarShim+AvatarReadyEvent",
 			"Basis.Shims.BasisCilboxInstantiateShim", // Restrictive, only used as a type and for Instantiate methods.
+			"Basis.Shims.BasisOsc",
+			"Basis.Shims.BasisOsc+OscMessageEvent",
+			"Basis.Shims.BasisOsc+OscValueEvent",
 			"Basis.Shims.BasisOscShim",
 			"Basis.Shims.BasisOscShim+OscMessageEvent",
 			"Basis.Shims.BasisOscShim+OscValueEvent",
@@ -271,6 +274,18 @@ namespace Cilbox
 					return true;
 				case "Basis.Scripts.BasisSdk.BasisAvatar+OnReady":
 					t = typeof(Basis.Shims.BasisAvatarShim.OnReady);
+					return true;
+				case "Basis.Shims.BasisOscShim":
+				case "Basis.Shims.BasisOsc":
+					t = typeof(Basis.Shims.BasisOsc);
+					return true;
+				case "Basis.Shims.BasisOscShim+OscMessageEvent":
+				case "Basis.Shims.BasisOsc+OscMessageEvent":
+					t = typeof(Basis.Shims.BasisOsc.OscMessageEvent);
+					return true;
+				case "Basis.Shims.BasisOscShim+OscValueEvent":
+				case "Basis.Shims.BasisOsc+OscValueEvent":
+					t = typeof(Basis.Shims.BasisOsc.OscValueEvent);
 					return true;
 				default:
 					t = null;

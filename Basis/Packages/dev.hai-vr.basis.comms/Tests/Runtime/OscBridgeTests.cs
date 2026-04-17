@@ -99,7 +99,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_FiltersExactAndPrefixSubscriptions()
+        public void BasisOsc_FiltersExactAndPrefixSubscriptions()
         {
             GameObject go = new GameObject("OscShimTest");
             MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
@@ -107,7 +107,7 @@ namespace HVR.Basis.Comms.Tests
 
             try
             {
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
                 int callCount = 0;
 
                 shim.OnMessage = (message, arguments) => callCount++;
@@ -132,7 +132,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_NormalizesAvatarParameterSubscriptions()
+        public void BasisOsc_NormalizesAvatarParameterSubscriptions()
         {
             GameObject go = new GameObject("OscShimNormalizeTest");
             MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
@@ -140,7 +140,7 @@ namespace HVR.Basis.Comms.Tests
 
             try
             {
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
                 int callCount = 0;
 
                 shim.OnMessage = (message, arguments) => callCount++;
@@ -162,7 +162,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_SubscribeWithCallback_InvokesExactHandler()
+        public void BasisOsc_SubscribeWithCallback_InvokesExactHandler()
         {
             GameObject go = new GameObject("OscShimCallbackTest");
             MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
@@ -170,7 +170,7 @@ namespace HVR.Basis.Comms.Tests
 
             try
             {
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
                 int callCount = 0;
 
                 shim.Subscribe("/avatar/parameters/Callback", (message, arguments) =>
@@ -198,7 +198,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_SubscribeValue_InvokesFirstArgument()
+        public void BasisOsc_SubscribeValue_InvokesFirstArgument()
         {
             GameObject go = new GameObject("OscShimValueCallbackTest");
             MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
@@ -206,7 +206,7 @@ namespace HVR.Basis.Comms.Tests
 
             try
             {
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
                 OscData received = null;
 
                 shim.SubscribeValue("/avatar/parameters/ValueCallback", value => received = value);
@@ -276,6 +276,8 @@ namespace HVR.Basis.Comms.Tests
             Assert.That(new CilboxSceneBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscMessage"), Is.True);
             Assert.That(new CilboxPropBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscData"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscDataKind"), Is.True);
+            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOsc"), Is.True);
+            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOsc+OscValueEvent"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim+OscValueEvent"), Is.True);
         }
@@ -326,7 +328,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_LocalAvatarPublishesIntoAvatarNamespace()
+        public void BasisOsc_LocalAvatarPublishesIntoAvatarNamespace()
         {
             DestroySceneInstance();
             GameObject go = new GameObject("AvatarPublisher");
@@ -336,7 +338,7 @@ namespace HVR.Basis.Comms.Tests
                 BasisAvatar avatar = go.AddComponent<BasisAvatar>();
                 avatar.IsOwnedLocally = true;
 
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
                 shim.PublishValue("Face/Smile", OscData.Float32(1f));
 
                 object leaf = ResolveNode(GetQueryRoot(), "avatar", "parameters", "Face", "Smile");
@@ -351,7 +353,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_RemoteAvatarDoesNotPublish()
+        public void BasisOsc_RemoteAvatarDoesNotPublish()
         {
             DestroySceneInstance();
             GameObject go = new GameObject("RemoteAvatarPublisher");
@@ -361,7 +363,7 @@ namespace HVR.Basis.Comms.Tests
                 BasisAvatar avatar = go.AddComponent<BasisAvatar>();
                 avatar.IsOwnedLocally = false;
 
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
                 shim.PublishValue("Blocked", OscData.Float32(1f));
 
                 Assert.That(GetSceneInstanceField(GetServerType()).GetValue(null), Is.Null);
@@ -374,7 +376,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_PropPublishesWithInstanceScopedPath()
+        public void BasisOsc_PropPublishesWithInstanceScopedPath()
         {
             DestroySceneInstance();
             GameObject goA = new GameObject("Prop");
@@ -384,11 +386,11 @@ namespace HVR.Basis.Comms.Tests
             {
                 BasisProp propA = goA.AddComponent<BasisProp>();
                 propA.AssignNetworkGUIDIdentifier("prop-one");
-                BasisOscShim shimA = goA.AddComponent<BasisOscShim>();
+                BasisOsc shimA = goA.AddComponent<BasisOsc>();
 
                 BasisProp propB = goB.AddComponent<BasisProp>();
                 propB.AssignNetworkGUIDIdentifier("prop-two");
-                BasisOscShim shimB = goB.AddComponent<BasisOscShim>();
+                BasisOsc shimB = goB.AddComponent<BasisOsc>();
 
                 shimA.PublishValue("Status", OscData.String("alpha"));
                 shimB.PublishValue("Status", OscData.String("beta"));
@@ -409,7 +411,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_PropUnderRemoteAvatar_PublishesToPropNamespace()
+        public void BasisOsc_PropUnderRemoteAvatar_PublishesToPropNamespace()
         {
             DestroySceneInstance();
             GameObject avatarRoot = new GameObject("RemoteAvatarRoot");
@@ -424,7 +426,7 @@ namespace HVR.Basis.Comms.Tests
                 BasisProp prop = propChild.AddComponent<BasisProp>();
                 prop.AssignNetworkGUIDIdentifier("prop-under-remote-avatar");
 
-                BasisOscShim shim = propChild.AddComponent<BasisOscShim>();
+                BasisOsc shim = propChild.AddComponent<BasisOsc>();
                 shim.PublishValue("Status", OscData.String("held"));
 
                 object propLeaf = ResolveNode(GetQueryRoot(), "prop", "prop-under-remote-avatar", "parameters", "Status");
@@ -441,7 +443,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_ResolvePublishAddress_RequiresSegmentBoundary()
+        public void BasisOsc_ResolvePublishAddress_RequiresSegmentBoundary()
         {
             GameObject go = new GameObject("PropPublisher");
 
@@ -450,8 +452,8 @@ namespace HVR.Basis.Comms.Tests
                 BasisProp prop = go.AddComponent<BasisProp>();
                 prop.AssignNetworkGUIDIdentifier("prop-one");
 
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
-                MethodInfo resolvePublishAddress = typeof(BasisOscShim).GetMethod("ResolvePublishAddress", BindingFlags.NonPublic | BindingFlags.Instance);
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                MethodInfo resolvePublishAddress = typeof(BasisOsc).GetMethod("ResolvePublishAddress", BindingFlags.NonPublic | BindingFlags.Instance);
                 Assert.That(resolvePublishAddress, Is.Not.Null);
 
                 string resolved = (string)resolvePublishAddress.Invoke(shim, new object[] { "/prop/prop-one/parametersExtra" });
@@ -464,7 +466,7 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
-        public void BasisOscShim_ScenePublishesWithScopedPath_AndQueryBranchResolves()
+        public void BasisOsc_ScenePublishesWithScopedPath_AndQueryBranchResolves()
         {
             DestroySceneInstance();
             GameObject go = new GameObject("ScenePublisher");
@@ -473,7 +475,7 @@ namespace HVR.Basis.Comms.Tests
             {
                 BasisScene scene = go.AddComponent<BasisScene>();
                 scene.AssignNetworkGUIDIdentifier("scene-one");
-                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
 
                 shim.PublishValue("Environment/Ambient", OscData.String("night"));
 
