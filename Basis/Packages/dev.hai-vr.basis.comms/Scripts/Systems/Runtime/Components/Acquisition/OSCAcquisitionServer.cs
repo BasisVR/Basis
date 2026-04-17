@@ -95,7 +95,15 @@ namespace HVR.Basis.Comms
             var messages = _client.PullMessages();
             foreach (var message in messages)
             {
-                BasisOscService.Publish(OscMessage.FromRaw(message));
+                try
+                {
+                    BasisOscService.Publish(OscMessage.FromRaw(message));
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"Failed to convert inbound OSC message {message.path} ({e.Message})");
+                    continue;
+                }
 
                 if (message.arguments.Length > 0)
                 {

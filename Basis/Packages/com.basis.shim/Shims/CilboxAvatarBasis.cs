@@ -33,6 +33,7 @@ namespace Cilbox
 			"Basis.Shims.BasisCilboxInstantiateShim", // Restrictive, only used as a type and for Instantiate methods.
 			"Basis.Shims.BasisOscShim",
 			"Basis.Shims.BasisOscShim+OscMessageEvent",
+			"Basis.Shims.BasisOscShim+OscValueEvent",
 			"Basis.Shims.BasisDebugPropsShim", // Restrictive, only used as a type and for logging methods.
 
 			// Cilbox types

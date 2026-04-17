@@ -13,12 +13,17 @@ namespace Basis.Shims
     public sealed class BasisOscShim : CilboxShim
     {
         public delegate void OscMessageEvent(OscMessage message, OscData[] arguments);
+        public delegate void OscValueEvent(OscData value);
         private const string AvatarPublishPrefix = "/avatar/parameters";
         private const string PropPublishPrefix = "/prop";
         private const string ScenePublishPrefix = "/scene";
 
         private readonly HashSet<string> subscribedAddresses = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> subscribedPrefixes = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, OscMessageEvent> exactCallbacks = new Dictionary<string, OscMessageEvent>(StringComparer.Ordinal);
+        private readonly Dictionary<string, OscMessageEvent> prefixCallbacks = new Dictionary<string, OscMessageEvent>(StringComparer.Ordinal);
+        private readonly Dictionary<string, OscValueEvent> exactValueCallbacks = new Dictionary<string, OscValueEvent>(StringComparer.Ordinal);
+        private readonly Dictionary<string, OscValueEvent> prefixValueCallbacks = new Dictionary<string, OscValueEvent>(StringComparer.Ordinal);
 
         public OscMessageEvent OnMessage { get; set; }
         public bool ReceiveAll { get; set; }
@@ -48,6 +53,24 @@ namespace Basis.Shims
             }
         }
 
+        public void Subscribe(string address, OscMessageEvent callback)
+        {
+            string normalizedAddress = NormalizeSubscriptionAddress(address);
+            if (normalizedAddress != null)
+            {
+                AddCallback(exactCallbacks, normalizedAddress, callback);
+            }
+        }
+
+        public void SubscribeValue(string address, OscValueEvent callback)
+        {
+            string normalizedAddress = NormalizeSubscriptionAddress(address);
+            if (normalizedAddress != null)
+            {
+                AddCallback(exactValueCallbacks, normalizedAddress, callback);
+            }
+        }
+
         public void SubscribePrefix(string prefix)
         {
             string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
@@ -57,12 +80,50 @@ namespace Basis.Shims
             }
         }
 
+        public void SubscribePrefix(string prefix, OscMessageEvent callback)
+        {
+            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
+            if (normalizedPrefix != null)
+            {
+                AddCallback(prefixCallbacks, normalizedPrefix, callback);
+            }
+        }
+
+        public void SubscribePrefixValue(string prefix, OscValueEvent callback)
+        {
+            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
+            if (normalizedPrefix != null)
+            {
+                AddCallback(prefixValueCallbacks, normalizedPrefix, callback);
+            }
+        }
+
         public void Unsubscribe(string address)
         {
             string normalizedAddress = NormalizeSubscriptionAddress(address);
             if (normalizedAddress != null)
             {
                 subscribedAddresses.Remove(normalizedAddress);
+                exactCallbacks.Remove(normalizedAddress);
+                exactValueCallbacks.Remove(normalizedAddress);
+            }
+        }
+
+        public void Unsubscribe(string address, OscMessageEvent callback)
+        {
+            string normalizedAddress = NormalizeSubscriptionAddress(address);
+            if (normalizedAddress != null)
+            {
+                RemoveCallback(exactCallbacks, normalizedAddress, callback);
+            }
+        }
+
+        public void UnsubscribeValue(string address, OscValueEvent callback)
+        {
+            string normalizedAddress = NormalizeSubscriptionAddress(address);
+            if (normalizedAddress != null)
+            {
+                RemoveCallback(exactValueCallbacks, normalizedAddress, callback);
             }
         }
 
@@ -72,6 +133,26 @@ namespace Basis.Shims
             if (normalizedPrefix != null)
             {
                 subscribedPrefixes.Remove(normalizedPrefix);
+                prefixCallbacks.Remove(normalizedPrefix);
+                prefixValueCallbacks.Remove(normalizedPrefix);
+            }
+        }
+
+        public void UnsubscribePrefix(string prefix, OscMessageEvent callback)
+        {
+            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
+            if (normalizedPrefix != null)
+            {
+                RemoveCallback(prefixCallbacks, normalizedPrefix, callback);
+            }
+        }
+
+        public void UnsubscribePrefixValue(string prefix, OscValueEvent callback)
+        {
+            string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
+            if (normalizedPrefix != null)
+            {
+                RemoveCallback(prefixValueCallbacks, normalizedPrefix, callback);
             }
         }
 
@@ -79,18 +160,28 @@ namespace Basis.Shims
         {
             subscribedAddresses.Clear();
             subscribedPrefixes.Clear();
+            exactCallbacks.Clear();
+            prefixCallbacks.Clear();
+            exactValueCallbacks.Clear();
+            prefixValueCallbacks.Clear();
         }
 
         public bool IsSubscribed(string address)
         {
             string normalizedAddress = NormalizeSubscriptionAddress(address);
-            return normalizedAddress != null && subscribedAddresses.Contains(normalizedAddress);
+            return normalizedAddress != null &&
+                   (subscribedAddresses.Contains(normalizedAddress) ||
+                    exactCallbacks.ContainsKey(normalizedAddress) ||
+                    exactValueCallbacks.ContainsKey(normalizedAddress));
         }
 
         public bool IsPrefixSubscribed(string prefix)
         {
             string normalizedPrefix = NormalizeSubscriptionAddress(prefix);
-            return normalizedPrefix != null && subscribedPrefixes.Contains(normalizedPrefix);
+            return normalizedPrefix != null &&
+                   (subscribedPrefixes.Contains(normalizedPrefix) ||
+                    prefixCallbacks.ContainsKey(normalizedPrefix) ||
+                    prefixValueCallbacks.ContainsKey(normalizedPrefix));
         }
 
         public void PublishValue(string address, OscData value)
@@ -117,31 +208,80 @@ namespace Basis.Shims
 
         private void HandleMessage(OscMessage message)
         {
-            if (OnMessage == null || message == null)
+            if (message == null)
             {
                 return;
             }
 
             string path = message.Path ?? string.Empty;
-            if (!ReceiveAll && !subscribedAddresses.Contains(path) && !MatchesPrefix(path))
+            bool matched = ReceiveAll;
+
+            OscMessageEvent callback = null;
+            OscValueEvent valueCallback = null;
+
+            if (subscribedAddresses.Contains(path))
+            {
+                matched = true;
+            }
+
+            if (exactCallbacks.TryGetValue(path, out OscMessageEvent exactCallback))
+            {
+                callback += exactCallback;
+                matched = true;
+            }
+
+            if (exactValueCallbacks.TryGetValue(path, out OscValueEvent exactValueCallback))
+            {
+                valueCallback += exactValueCallback;
+                matched = true;
+            }
+
+            if (CollectPrefixCallbacks(path, ref callback, ref valueCallback))
+            {
+                matched = true;
+            }
+
+            if (!matched)
             {
                 return;
             }
 
-            OnMessage.Invoke(message, message.Arguments);
+            OnMessage?.Invoke(message, message.Arguments);
+            callback?.Invoke(message, message.Arguments);
+            valueCallback?.Invoke(message.Arguments != null && message.Arguments.Length > 0 ? message.Arguments[0] : null);
         }
 
-        private bool MatchesPrefix(string path)
+        private bool CollectPrefixCallbacks(string path, ref OscMessageEvent callback, ref OscValueEvent valueCallback)
         {
+            bool matched = false;
+
             foreach (string prefix in subscribedPrefixes)
             {
                 if (path.StartsWith(prefix, StringComparison.Ordinal))
                 {
-                    return true;
+                    matched = true;
                 }
             }
 
-            return false;
+            foreach (KeyValuePair<string, OscMessageEvent> entry in prefixCallbacks)
+            {
+                if (path.StartsWith(entry.Key, StringComparison.Ordinal))
+                {
+                    callback += entry.Value;
+                    matched = true;
+                }
+            }
+
+            foreach (KeyValuePair<string, OscValueEvent> entry in prefixValueCallbacks)
+            {
+                if (path.StartsWith(entry.Key, StringComparison.Ordinal))
+                {
+                    valueCallback += entry.Value;
+                    matched = true;
+                }
+            }
+
+            return matched;
         }
 
         private static string NormalizeSubscriptionAddress(string address)
@@ -169,7 +309,8 @@ namespace Basis.Shims
             }
 
             string trimmed = address.Trim();
-            if (trimmed.StartsWith(prefix, StringComparison.Ordinal))
+            if (trimmed.StartsWith(prefix, StringComparison.Ordinal) &&
+                (trimmed.Length == prefix.Length || trimmed[prefix.Length] == '/'))
             {
                 return trimmed;
             }
@@ -254,6 +395,56 @@ namespace Basis.Shims
             }
 
             return builder.ToString();
+        }
+
+        private static void AddCallback<TDelegate>(Dictionary<string, TDelegate> callbacks, string key, TDelegate callback)
+            where TDelegate : Delegate
+        {
+            if (callback == null)
+            {
+                return;
+            }
+
+            if (callbacks.TryGetValue(key, out TDelegate existing))
+            {
+                foreach (Delegate handler in existing.GetInvocationList())
+                {
+                    if (Equals(handler, callback))
+                    {
+                        return;
+                    }
+                }
+
+                callbacks[key] = (TDelegate)Delegate.Combine(existing, callback);
+                return;
+            }
+
+            callbacks[key] = callback;
+        }
+
+        private static void RemoveCallback<TDelegate>(Dictionary<string, TDelegate> callbacks, string key, TDelegate callback)
+            where TDelegate : Delegate
+        {
+            if (callback == null)
+            {
+                callbacks.Remove(key);
+                return;
+            }
+
+            if (!callbacks.TryGetValue(key, out TDelegate existing))
+            {
+                return;
+            }
+
+            Delegate updated = Delegate.Remove(existing, callback);
+            if (updated == null)
+            {
+                callbacks.Remove(key);
+            }
+            else
+            {
+                callbacks[key] = (TDelegate)updated;
+            }
         }
     }
 }

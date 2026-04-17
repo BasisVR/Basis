@@ -95,7 +95,7 @@ namespace HVR.Basis.Comms.OSC
         public static OscData Blob(byte[] value) => new OscData
         {
             Kind = OscDataKind.Blob,
-            BlobValue = value ?? Array.Empty<byte>(),
+            BlobValue = value == null ? Array.Empty<byte>() : (byte[])value.Clone(),
         };
 
         public static OscData Color(byte r, byte g, byte b, byte a) => new OscData
@@ -137,7 +137,7 @@ namespace HVR.Basis.Comms.OSC
         public static OscData ArrayValue(params OscData[] elements) => new OscData
         {
             Kind = OscDataKind.Array,
-            Elements = elements ?? Array.Empty<OscData>(),
+            Elements = elements == null ? Array.Empty<OscData>() : (OscData[])elements.Clone(),
         };
 
         public static OscData[] ConvertArguments(object[] arguments)

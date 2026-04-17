@@ -104,6 +104,7 @@
     <assembly fullname="BasisShims">
         <type fullname="Basis.Shims.BasisOscShim" preserve="all"/>
         <type fullname="Basis.Shims.BasisOscShim+OscMessageEvent" preserve="all"/>
+        <type fullname="Basis.Shims.BasisOscShim+OscValueEvent" preserve="all"/>
         <type fullname="Basis.BasisImageDownloader" preserve="all"/>
         <type fullname="Basis.BasisInteractableShim" preserve="all"/>
         <type fullname="Basis.BasisInteractableShim+ClickEvent" preserve="all"/>

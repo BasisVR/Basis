@@ -162,6 +162,91 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void BasisOscShim_SubscribeWithCallback_InvokesExactHandler()
+        {
+            GameObject go = new GameObject("OscShimCallbackTest");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                int callCount = 0;
+
+                shim.Subscribe("/avatar/parameters/Callback", (message, arguments) =>
+                {
+                    callCount++;
+                    Assert.That(message.Path, Is.EqualTo("/avatar/parameters/Callback"));
+                    Assert.That(arguments[0].FloatValue, Is.EqualTo(2.5f));
+                });
+
+                publish.Invoke(null, new object[]
+                {
+                    OscMessage.FromRaw(new SimpleOSC.OSCMessage
+                    {
+                        path = "/avatar/parameters/Callback",
+                        arguments = new object[] { 2.5f }
+                    })
+                });
+
+                Assert.That(callCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_SubscribeValue_InvokesFirstArgument()
+        {
+            GameObject go = new GameObject("OscShimValueCallbackTest");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                OscData received = null;
+
+                shim.SubscribeValue("/avatar/parameters/ValueCallback", value => received = value);
+
+                publish.Invoke(null, new object[]
+                {
+                    OscMessage.FromRaw(new SimpleOSC.OSCMessage
+                    {
+                        path = "/avatar/parameters/ValueCallback",
+                        arguments = new object[] { "text", 5 }
+                    })
+                });
+
+                Assert.That(received, Is.Not.Null);
+                Assert.That(received.Kind, Is.EqualTo(OscDataKind.String));
+                Assert.That(received.StringValue, Is.EqualTo("text"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void OscData_Factories_DefensivelyCopyInputArrays()
+        {
+            byte[] blob = { 1, 2, 3 };
+            OscData[] elements = { OscData.Int32(7) };
+
+            OscData blobData = OscData.Blob(blob);
+            OscData arrayData = OscData.ArrayValue(elements);
+
+            blob[0] = 99;
+            elements[0] = OscData.Int32(11);
+
+            Assert.That(blobData.BlobValue[0], Is.EqualTo(1));
+            Assert.That(arrayData.Elements[0].IntValue, Is.EqualTo(7));
+        }
+
+        [Test]
         public void OscData_ArrayConversions_HandleNullNestedElements()
         {
             OscData data = OscData.ArrayValue(OscData.Int32(7), null, OscData.String("x"));
@@ -192,6 +277,7 @@ namespace HVR.Basis.Comms.Tests
             Assert.That(new CilboxPropBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscData"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("HVR.Basis.Comms.OSC.OscDataKind"), Is.True);
             Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim"), Is.True);
+            Assert.That(new CilboxAvatarBasis().CheckTypeAllowed("Basis.Shims.BasisOscShim+OscValueEvent"), Is.True);
         }
 
         [Test]
@@ -351,6 +437,29 @@ namespace HVR.Basis.Comms.Tests
             {
                 Object.DestroyImmediate(avatarRoot);
                 DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOscShim_ResolvePublishAddress_RequiresSegmentBoundary()
+        {
+            GameObject go = new GameObject("PropPublisher");
+
+            try
+            {
+                BasisProp prop = go.AddComponent<BasisProp>();
+                prop.AssignNetworkGUIDIdentifier("prop-one");
+
+                BasisOscShim shim = go.AddComponent<BasisOscShim>();
+                MethodInfo resolvePublishAddress = typeof(BasisOscShim).GetMethod("ResolvePublishAddress", BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.That(resolvePublishAddress, Is.Not.Null);
+
+                string resolved = (string)resolvePublishAddress.Invoke(shim, new object[] { "/prop/prop-one/parametersExtra" });
+                Assert.That(resolved, Is.EqualTo("/prop/prop-one/parameters/prop/prop-one/parametersExtra"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
             }
         }
 
