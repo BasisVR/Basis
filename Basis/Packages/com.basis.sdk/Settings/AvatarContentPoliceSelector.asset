@@ -193,3 +193,4 @@ MonoBehaviour:
   - Cilbox.CilboxAvatarBasis
   - Basis.Shims.BasisAvatarShim
   - Basis.Shims.BasisNetworkShim
+  - Basis.Shims.CilboxUnityEventShim
