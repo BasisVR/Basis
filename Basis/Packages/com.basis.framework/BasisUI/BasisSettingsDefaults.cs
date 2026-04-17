@@ -196,6 +196,22 @@ namespace Basis.BasisUI
 
         public static BasisSettingsBinding<bool> EnableStatistics = new("enablestatistics", new BasisPlatformDefault<bool>(false));
 
+        /// <summary>
+        /// When on, the client runs a loopback-only HTTP listener on
+        /// 127.0.0.1:<see cref="StreamingMetaPort"/> exposing /stats.json and
+        /// /overlay.html so OBS Browser Source (or any local tool) can pull
+        /// FPS / CCU / ping. Off by default — the listener is only opened
+        /// after the user explicitly enables this.
+        /// </summary>
+        public static BasisSettingsBinding<bool> EnableStreamingMeta = new("enablestreamingmeta", new BasisPlatformDefault<bool>(false));
+
+        /// <summary>
+        /// TCP port used by the streaming meta listener. Stored as a string so
+        /// it can be edited in a single-line numeric text field. Consumers
+        /// should parse it and fall back to 9080 on invalid/out-of-range input.
+        /// </summary>
+        public static BasisSettingsBinding<string> StreamingMetaPort = new("streamingmetaport", new BasisPlatformDefault<string>("9080"));
+
         public static BasisSettingsBinding<bool> AvatarShowTextureStats = new("avatarshowtexturestats", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<bool> AvatarShowTrackerRoles = new("avatarshowtrackerroles", new BasisPlatformDefault<bool>(false));
@@ -373,6 +389,16 @@ namespace Basis.BasisUI
             linux = 0,
             other = 0
         });
+
+        /// <summary>
+        /// When enabled, the local head duplicate (shadow-only clone used so the
+        /// local player's own head casts shadows without rendering the head mesh
+        /// in their view) mirrors the source mesh's blendshape weights every
+        /// frame. When disabled (default), the duplicate keeps its initial
+        /// blendshape pose and the per-frame ScheduleReadBlendShapes /
+        /// ApplyShadowCloneBlendShapes work is skipped entirely.
+        /// </summary>
+        public static BasisSettingsBinding<bool> LocalHeadBlendShapes = new("localheadblendshapes", new BasisPlatformDefault<bool>(false));
 
         public static BasisSettingsBinding<string> SitStand = new("seatedmode", new BasisPlatformDefault<string>(SettingsProviderIK.SeatedMode_Standing));
 
@@ -886,6 +912,8 @@ namespace Basis.BasisUI
             DisableLogging.LoadBindingValue();
             BasisDebug.LoggingDisabled = DisableLogging.RawValue;
             DisableLogging.OnChanged += value => BasisDebug.LoggingDisabled = value;
+            EnableStreamingMeta.LoadBindingValue();
+            StreamingMetaPort.LoadBindingValue();
             MemoryAllocation.LoadBindingValue();
             VisualState.LoadBindingValue();
             FoveatedRendering.LoadBindingValue();

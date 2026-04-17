@@ -97,14 +97,22 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         #region Unity Lifecycle
 
+        // Enable Unity Input System internal optimizations once at app startup so every input path
+        // (desktop + XR) benefits. Previously these were in OnEnable and only fired for the desktop
+        // input component, leaving the XR path un-optimized.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ApplyInputSystemOptimizations()
+        {
+            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
+        }
+
         public void OnEnable()
         {
             if (BasisHelpers.CheckInstance(Instance))
             {
                 Instance = this;
             }
-            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
-            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
             BasisLocalCameraDriver.InstanceExists += SetupCamera;
             // Create user (or you may already have one from PlayerInput, etc.)
             var user = InputUser.CreateUserWithoutPairedDevices();

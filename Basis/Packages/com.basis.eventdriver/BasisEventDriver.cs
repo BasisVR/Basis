@@ -307,7 +307,10 @@ public partial class BasisEventDriver : MonoBehaviour
         // ── BlendShape apply ──
         ProfileBegin(PROF_BLENDSHAPE_APPLY);
         BasisBlendShapeDriver.Apply();
-        BasisAvatarDriver.ScheduleReadBlendShapes();
+        if (BasisSettingsDefaults.LocalHeadBlendShapes.RawValue)
+        {
+            BasisAvatarDriver.ScheduleReadBlendShapes();
+        }
         ProfileEnd(PROF_BLENDSHAPE_APPLY);
 
         // ── JigglePhysics schedule ──
@@ -366,7 +369,10 @@ public partial class BasisEventDriver : MonoBehaviour
 
         // ── Shadow clone blendshapes ──
         ProfileBegin(PROF_SHADOW_CLONE);
-        BasisAvatarDriver.ApplyShadowCloneBlendShapes();
+        if (BasisSettingsDefaults.LocalHeadBlendShapes.RawValue)
+        {
+            BasisAvatarDriver.ApplyShadowCloneBlendShapes();
+        }
         ProfileEnd(PROF_SHADOW_CLONE);
 
         StateOfOnRenderBefore = true;

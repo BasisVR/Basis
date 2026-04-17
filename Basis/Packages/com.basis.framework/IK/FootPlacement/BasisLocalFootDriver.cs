@@ -3,6 +3,7 @@ using Basis.Scripts.Common;
 using Basis.Scripts.Drivers;
 using System;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
@@ -204,6 +205,10 @@ public partial class BasisLocalFootDriver
     private JobHandle _jobHandle;
     private bool _jobScheduled;
 
+    // Params are almost entirely calibration/inspector values; rebuild only when they change.
+    private BasisFootSimParams _cachedParams;
+    private bool _paramsDirty = true;
+
     public static float SplayWhenCrouchedPercentage = 1f;
     public bool IsInitialized { get; private set; }
 
@@ -374,7 +379,7 @@ public partial class BasisLocalFootDriver
         };
     }
 
-    private void NativeToFootState(BasisFootNativeState n, BasisFootState f)
+    private void NativeToFootState(in BasisFootNativeState n, BasisFootState f)
     {
         f.plantedPos = n.plantedPos;
         f.plantedRot = n.plantedRot;
@@ -626,6 +631,8 @@ public partial class BasisLocalFootDriver
         stepDurFast = Mathf.Clamp(pendulum * stepDurFastMul, 0.06f, 0.18f);
 
         fastSpeedRef = Mathf.Clamp(fastSpeedMul * Mathf.Sqrt(avgLeg * 9.81f), 1.0f, 3.5f);
+
+        _paramsDirty = true;
     }
     private void StoreBaseMeasurements()
     {
@@ -664,6 +671,7 @@ public partial class BasisLocalFootDriver
         right.shinLen = rightShinLen;
         right.legLength = rightLegLen;
         rayCastRange = Mathf.Max(hipToFoot + ankleHeight, Mathf.Max(leftLegLen, rightLegLen)) + 0.3f;
+        _paramsDirty = true;
 
         // Sync leg lengths to native foot state
         if (_nativeFeet.IsCreated)
@@ -707,9 +715,24 @@ public partial class BasisLocalFootDriver
             f.filteredNormal = hit.normal;
         }
     }
+    /// <summary>
+    /// Back-compat wrapper: schedule and immediately complete.
+    /// Prefer Schedule/Complete separately so the Burst job can overlap main-thread work.
+    /// </summary>
     public void Simulate(float dt)
     {
+        ScheduleSimulate(dt);
+        CompleteSimulate();
+    }
+
+    /// <summary>
+    /// Main-thread input gather + schedule only. Caller must pair with CompleteSimulate().
+    /// </summary>
+    public void ScheduleSimulate(float dt)
+    {
+        _jobScheduled = false;
         if (!IsInitialized || dt <= 0f) return;
+
         Matrix4x4 ltw = BasisLocalPlayer.localToWorldMatrix;
         cachedPlayerUp = ltw.MultiplyVector(Vector3.up).normalized;
         cachedPlayerFwd = ltw.MultiplyVector(Vector3.forward).normalized;
@@ -739,21 +762,38 @@ public partial class BasisLocalFootDriver
             playerUp = cachedPlayerUp,
         };
 
-        // ── 3. Schedule + complete Burst job ──
+        // ── 3. Schedule Burst job (caller completes later) ──
+        if (_paramsDirty)
+        {
+            _cachedParams = BuildParams();
+            _paramsDirty = false;
+        }
         var job = new BasisFootSimulateJob
         {
-            p = BuildParams(),
+            p = _cachedParams,
             feet = _nativeFeet,
             simState = _nativeSimState,
             input = _nativeInput,
             output = _nativeOutput,
         };
         _jobHandle = job.Schedule();
-        _jobHandle.Complete();
+        _jobScheduled = true;
+    }
 
-        // ── 4. Handle step triggers (SphereCast on main thread) ──
-        var leftN = _nativeFeet[0];
-        var rightN = _nativeFeet[1];
+    /// <summary>
+    /// Complete the scheduled foot sim, finalize any pending steps (main-thread SphereCasts),
+    /// and scatter results back to managed state for public accessors.
+    /// </summary>
+    public unsafe void CompleteSimulate()
+    {
+        if (!_jobScheduled) return;
+        _jobHandle.Complete();
+        _jobScheduled = false;
+
+        // NativeArray indexer copies the whole ~170-byte struct on read; take refs instead
+        // so FinalizeStep can mutate the slot in place and we skip the write-back copy.
+        ref BasisFootNativeState leftN = ref UnsafeUtility.ArrayElementAsRef<BasisFootNativeState>(_nativeFeet.GetUnsafePtr(), 0);
+        ref BasisFootNativeState rightN = ref UnsafeUtility.ArrayElementAsRef<BasisFootNativeState>(_nativeFeet.GetUnsafePtr(), 1);
 
         if (leftN.wantsStep)
         {
@@ -766,22 +806,21 @@ public partial class BasisLocalFootDriver
             rightN.wantsStep = false;
         }
 
-        _nativeFeet[0] = leftN;
-        _nativeFeet[1] = rightN;
+        // Managed state mirror for public accessors / gizmos. `in` avoids the by-value copy.
+        NativeToFootState(in leftN, left);
+        NativeToFootState(in rightN, right);
 
-        // ── 5. Copy results to managed state (public properties + gizmos) ──
-        NativeToFootState(_nativeFeet[0], left);
-        NativeToFootState(_nativeFeet[1], right);
-
-        // Sync sim state back for legacy accessors (gizmos, properties, etc.)
-        var simOut = _nativeSimState[0];
+        ref readonly BasisFootSimState simOut = ref UnsafeUtility.AsRef<BasisFootSimState>(_nativeSimState.GetUnsafeReadOnlyPtr());
         smoothedVelocity = simOut.smoothedVelocity;
         prevHeadYaw = simOut.prevHeadYaw;
     }
 
-    private void FinalizeStep(ref BasisFootNativeState f)
+    /// <summary>Returns true if CompleteSimulate has yet to be called for the currently scheduled job.</summary>
+    public bool IsSimulationPending => _jobScheduled;
+
+    private unsafe void FinalizeStep(ref BasisFootNativeState f)
     {
-        var sim = _nativeSimState[0];
+        ref readonly BasisFootSimState sim = ref UnsafeUtility.AsRef<BasisFootSimState>(_nativeSimState.GetUnsafeReadOnlyPtr());
         float3 velFlat = (float3)ProjectHorizontal(sim.smoothedVelocity);
         float speed = math.length(velFlat);
         float speedT = Mathf.Clamp01(speed / fastSpeedRef);

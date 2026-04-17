@@ -16,7 +16,12 @@ namespace Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
 			// Basis types
-			"Basis.BasisImageDownloader",
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
+            "Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
+			"Basis.BasisNetworkBehaviour",
+            "Basis.BasisImageDownloader",
 			"Basis.BasisNetworkBehaviour",
 			"Basis.Network.Core.DeliveryMethod",
 			"Basis.SafeUtil",
@@ -127,28 +132,29 @@ namespace Cilbox
             "UnityEngine.RuntimePlatform*"
         };
 
-		static HashSet<String> whiteListFields = new HashSet<String>(){
-			// Basis fields
-			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
-			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
-			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
-
+        static HashSet<String> whiteListFields = new HashSet<String>(){
 			// Unity fields
 			"UnityEngine.Vector*.x",
-			"UnityEngine.Vector*.y",
-			"UnityEngine.Vector*.z",
-			"UnityEngine.Vector*.w",
-			"UnityEngine.Quaternion.x",
-			"UnityEngine.Quaternion.y",
-			"UnityEngine.Quaternion.z",
-			"UnityEngine.Quaternion.w",
+            "UnityEngine.Vector*.y",
+            "UnityEngine.Vector*.z",
+            "UnityEngine.Vector*.w",
+            "UnityEngine.Quaternion*",
 
 			// System fields
 			"System.Array.*",
-			"System.String.*",
-		};
+            "System.String.*",
+			
 
-		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
+			// Basis types
+			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable.OnPickupUse",
+            "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractStartEvent",
+            "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
+            "Basis.BasisNetworkBehaviour.CurrentOwnerId",
+            "Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+            "Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
+        };
+
+        static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
 
 		// This is called by CilboxUsage to decide of a type is allowed.
 		// If a type is allowed, by defalt it is all allowed.
@@ -242,27 +248,30 @@ namespace Cilbox
 
         public override bool GetTypeOverride(string sType, out Type t)
         {
-			switch(sType)
-			{
-				case "UnityEngine.Video.VideoPlayer":
-					t = typeof(Basis.Shims.VideoPlayerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.ErrorEventHandlerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+EventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.EventHandlerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.FrameReadyEventHandlerShim);
-					return true;
-				case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
-					t = typeof(Basis.Shims.VideoPlayerShim.TimeEventHandlerShim);
-					return true;
-				default:
-					t = null;
-					return false;
-			}
+            switch (sType)
+            {
+                case "UnityEngine.Video.VideoPlayer":
+                    t = typeof(Basis.Shims.VideoPlayerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+ErrorEventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.ErrorEventHandlerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+EventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.EventHandlerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+FrameReadyEventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.FrameReadyEventHandlerShim);
+                    return true;
+                case "UnityEngine.Video.VideoPlayer+TimeEventHandler":
+                    t = typeof(Basis.Shims.VideoPlayerShim.TimeEventHandlerShim);
+                    return true;
+                case "UnityEngine.Debug":
+                    t = typeof(Basis.Shims.BasisDebugPropsShim);
+                    return true;
+                default:
+                    t = null;
+                    return false;
+            }
         }
-	}
+    }
 }

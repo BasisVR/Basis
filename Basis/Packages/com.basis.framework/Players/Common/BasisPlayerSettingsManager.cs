@@ -11,6 +11,9 @@ public static class BasisPlayerSettingsManager
     // One lock per file
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new ConcurrentDictionary<string, SemaphoreSlim>();
 
+    // In-memory cache so repeated requests for the same UUID don't hit disk.
+    private static readonly ConcurrentDictionary<string, BasisPlayerSettingsData> cache = new ConcurrentDictionary<string, BasisPlayerSettingsData>();
+
     static BasisPlayerSettingsManager()
     {
         Directory.CreateDirectory(Dir);
@@ -21,37 +24,52 @@ public static class BasisPlayerSettingsManager
         if (string.IsNullOrWhiteSpace(uuid))
         {
             BasisDebug.LogError("Missing UUID");
-            return null;
+            return default;
         }
 
         var key = Sanitize(uuid);
-        var path = GetPath(key);
 
+        if (cache.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var path = GetPath(key);
         var sem = locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
         await sem.WaitAsync();
 
         try
         {
+            if (cache.TryGetValue(key, out cached))
+            {
+                return cached;
+            }
+
+            BasisPlayerSettingsData data;
             if (!File.Exists(path))
             {
-                var defaults = CreateDefaults(uuid);
-                await SaveInternal(path, defaults);
-                return defaults;
+                data = CreateDefaults(uuid);
+                await SaveInternal(path, data);
             }
-
-            var json = await File.ReadAllTextAsync(path);
-            var data = JsonUtility.FromJson<BasisPlayerSettingsData>(json);
-
-            if (data == null)
+            else
             {
-                return CreateDefaults(uuid);
+                var json = await File.ReadAllTextAsync(path);
+                data = JsonUtility.FromJson<BasisPlayerSettingsData>(json);
+
+                // Version==0 after deserialize signals a zero-initialised struct —
+                // either the JSON was empty/corrupt or predates the Version field.
+                if (data.Version == 0)
+                {
+                    data = CreateDefaults(uuid);
+                    await SaveInternal(path, data);
+                }
+                else if (string.IsNullOrEmpty(data.UUID))
+                {
+                    data.UUID = uuid;
+                }
             }
 
-            if (string.IsNullOrEmpty(data.UUID))
-            {
-                data.UUID = uuid;
-            }
-
+            cache[key] = data;
             return data;
         }
         finally
@@ -62,7 +80,7 @@ public static class BasisPlayerSettingsManager
 
     public static async Task SetPlayerSettings(BasisPlayerSettingsData settings)
     {
-        if (settings == null || string.IsNullOrWhiteSpace(settings.UUID))
+        if (string.IsNullOrWhiteSpace(settings.UUID))
         {
             BasisDebug.LogError("Invalid Settings");
             return;
@@ -78,6 +96,7 @@ public static class BasisPlayerSettingsManager
 
         try
         {
+            cache[key] = settings;
             await SaveInternal(path, settings);
         }
         finally

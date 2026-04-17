@@ -80,7 +80,7 @@ public class BasisSDKConstants
         { BuildTarget.StandaloneOSX, "Mac" },
         { BuildTarget.StandaloneLinux64, "Linux" },
         { BuildTarget.Android, "Android" },
-        { BuildTarget.iOS, "IOS" },
+        { BuildTarget.iOS, "iOS" },
     };
     public static List<BuildTarget> OcclusionCullingTargets = new List<BuildTarget>
     {

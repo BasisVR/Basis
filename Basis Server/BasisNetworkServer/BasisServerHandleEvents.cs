@@ -678,8 +678,15 @@ namespace BasisServerHandle
                 // Avatar Change State
                 if (!BasisSavedState.GetLastAvatarChangeState(peer, out var changeState))
                 {
-                    changeState = new ClientAvatarChangeMessage();
-                    BNL.LogError("Unable to get avatar Change Request!");
+                    BNL.LogError($"Unable to get avatar change state for peer {peer.Id}; skipping in client list.");
+                    ServerReadyMessage = default;
+                    return false;
+                }
+                if (changeState.byteArray == null)
+                {
+                    BNL.LogError($"Avatar state for peer {peer.Id} has null byteArray; skipping in client list.");
+                    ServerReadyMessage = default;
+                    return false;
                 }
 
                 int id = peer.Id;

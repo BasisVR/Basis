@@ -27,7 +27,7 @@ namespace Cilbox
 			"HVR.Basis.Comms.OSC.OscDataKind",
 			"HVR.Basis.Comms.OSC.OscMessage",
 			"Basis.Shims.*",
-
+            "Basis.BasisImageDownloader",
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
 
@@ -124,6 +124,7 @@ namespace Cilbox
             "Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject.OnInteractEndEvent",
 			"Basis.BasisNetworkBehaviour.CurrentOwnerId",
 			"Basis.BasisNetworkBehaviour.IsOwnedLocallyOnServer",
+            "Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer.playerId",
         };
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }

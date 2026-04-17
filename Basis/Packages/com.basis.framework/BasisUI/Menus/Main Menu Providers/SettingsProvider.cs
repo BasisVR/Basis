@@ -1218,12 +1218,18 @@ namespace Basis.BasisUI
                     0, 100, true, 0, ValueDisplayMode.Percentage),
                 BasisSettingsDefaults.GlobalMeshLOD);
 
+            PanelToggle toggleLocalHeadBlendShapes = PanelToggle.CreateNewEntry(advancedGroup.ContentParent);
+            toggleLocalHeadBlendShapes.AssignBinding(BasisSettingsDefaults.LocalHeadBlendShapes);
+            toggleLocalHeadBlendShapes.Descriptor.SetTitle(BasisLocalization.Get("settings.graphics.localHeadBlendShapes"));
+            toggleLocalHeadBlendShapes.Descriptor.SetDescription(BasisLocalization.Get("settings.graphics.localHeadBlendShapes.description"));
+
             sliderRenderResolution.Descriptor.SetActive(false);
             dropdownHDR.Descriptor.SetActive(false);
             sliderFoveatedRendering.Descriptor.SetActive(false);
             sliderFieldOfView.Descriptor.SetActive(false);
             sliderMeshLOD.Descriptor.SetActive(false);
             sliderGlobalMeshLOD.Descriptor.SetActive(false);
+            toggleLocalHeadBlendShapes.Descriptor.SetActive(false);
 
             toggleAdvanced.OnValueChanged += (val) =>
             {
@@ -1233,6 +1239,7 @@ namespace Basis.BasisUI
                 sliderFieldOfView.Descriptor.SetActive(val);
                 sliderMeshLOD.Descriptor.SetActive(val);
                 sliderGlobalMeshLOD.Descriptor.SetActive(val);
+                toggleLocalHeadBlendShapes.Descriptor.SetActive(val);
                 advancedGroup.ForceRebuild();
                 descriptor.ForceRebuild();
             };
@@ -1261,6 +1268,7 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.PoseLOD.ResetToDefault();
             BasisSettingsDefaults.AvatarMeshLOD.ResetToDefault();
             BasisSettingsDefaults.GlobalMeshLOD.ResetToDefault();
+            BasisSettingsDefaults.LocalHeadBlendShapes.ResetToDefault();
 
             BasisSettingsDefaults.UseMirrorQualityOverride.ResetToDefault();
             BasisSettingsDefaults.MirrorQuality.ResetToDefault();
@@ -1400,6 +1408,31 @@ namespace Basis.BasisUI
             toggleStatistics.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.enableStatistics"));
             toggleStatistics.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.enableStatistics.description"));
             toggleStatistics.AssignBinding(BasisSettingsDefaults.EnableStatistics);
+
+            PanelToggle toggleStreamingMeta = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
+            toggleStreamingMeta.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.streamingMeta"));
+            toggleStreamingMeta.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.streamingMeta.description"));
+            toggleStreamingMeta.AssignBinding(BasisSettingsDefaults.EnableStreamingMeta);
+
+            PanelTextField streamingMetaPortField = PanelTextField.CreateNewEntry(debugGroup.ContentParent);
+            streamingMetaPortField.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.streamingMetaPort"));
+            streamingMetaPortField.Descriptor.SetDescription(BasisLocalization.Get("settings.developer.streamingMetaPort.description"));
+            streamingMetaPortField.AssignBinding(BasisSettingsDefaults.StreamingMetaPort);
+
+            TMP_InputField streamingMetaPortInput = streamingMetaPortField._inputField;
+            if (streamingMetaPortInput != null)
+            {
+                streamingMetaPortInput.contentType = TMP_InputField.ContentType.IntegerNumber;
+                streamingMetaPortInput.lineType = TMP_InputField.LineType.SingleLine;
+                streamingMetaPortInput.characterLimit = 5;
+            }
+
+            streamingMetaPortField.Descriptor.SetActive(toggleStreamingMeta.Value);
+            toggleStreamingMeta.OnValueChanged += enabled =>
+            {
+                streamingMetaPortField.Descriptor.SetActive(enabled);
+                debugGroup.ForceRebuild();
+            };
 
             PanelToggle toggleDisableLogging = PanelToggle.CreateNewEntry(debugGroup.ContentParent);
             toggleDisableLogging.Descriptor.SetTitle(BasisLocalization.Get("settings.developer.disableLogging"));
@@ -1563,6 +1596,8 @@ namespace Basis.BasisUI
             BasisSettingsDefaults.DebugVisuals.ResetToDefault();
             BasisSettingsDefaults.VisualState.SetValue("off");
             BasisSettingsDefaults.EnableStatistics.ResetToDefault();
+            BasisSettingsDefaults.EnableStreamingMeta.ResetToDefault();
+            BasisSettingsDefaults.StreamingMetaPort.ResetToDefault();
             BasisSettingsDefaults.DisableLogging.ResetToDefault();
             BasisSettingsDefaults.DevShowBuildInfo.ResetToDefault();
             BasisSettingsDefaults.DevShowConsole.ResetToDefault();

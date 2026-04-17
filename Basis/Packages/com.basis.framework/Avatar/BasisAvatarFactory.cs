@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
+using GatorDragonGames.JigglePhysics;
 using System;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -365,6 +366,17 @@ namespace Basis.Scripts.Avatar
         /// </summary>
         private static void SetupPlayerAvatar(BasisPlayer Player, BasisAvatar avatar, bool isFallback)
         {
+            // Explicitly unregister old JiggleRigs synchronously. DeleteLastAvatar is async void
+            // and GameObject.Destroy only fires OnDisable at end-of-frame, which races with the
+            // new avatar's JiggleRig registration below. Doing it here keeps tree state consistent.
+            if (Player.BasisAvatar != null)
+            {
+                var oldRigs = Player.BasisAvatar.GetComponentsInChildren<JiggleRig>(true);
+                for (int i = 0; i < oldRigs.Length; i++)
+                {
+                    oldRigs[i].OnRemove();
+                }
+            }
             DeleteLastAvatar(Player);
             Player.IsConsideredFallBackAvatar = isFallback;
             Player.BasisAvatar = avatar;

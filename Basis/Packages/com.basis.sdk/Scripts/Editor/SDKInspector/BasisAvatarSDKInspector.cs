@@ -125,7 +125,7 @@ public partial class BasisAvatarSDKInspector : Editor
             Button button = DocumentationButton(rootElement, "Open Avatar Documentation");
             button.clicked += delegate
             {
-                if (EditorUtility.DisplayDialog("Open Documentation", "Open Documentation", "Yes I want to open the documentation", "no send me back"))
+                if (EditorUtility.DisplayDialog("Open Documentation", "Proceed in opening the documentation in a web browser?", "Yes", "No"))
                 {
                     Application.OpenURL(BasisSDKConstants.AvatarDocumentationURL);
                 }
@@ -393,7 +393,7 @@ public partial class BasisAvatarSDKInspector : Editor
                 string path = AssetDatabase.GetAssetPath(Avatar.Animator.runtimeAnimatorController);
                 if (path == BasisSDKConstants.AvatarAnimatorControllerPath)
                 {
-                    BasisDebug.Log("Animator Controller Used was the default! UnAssigning");
+                    BasisDebug.Log("Animator Controller Used was the default! Unassigning");
                     Avatar.Animator.runtimeAnimatorController = null;
                     EditorUtility.SetDirty(Avatar.Animator);
                     AssetDatabase.SaveAssetIfDirty(Avatar);
@@ -414,7 +414,7 @@ public partial class BasisAvatarSDKInspector : Editor
             BasisAssetBundleObject assetBundleObject = AssetDatabase.LoadAssetAtPath<BasisAssetBundleObject>(BasisAssetBundleObject.AssetBundleObject);
             try
             {
-                BasisDebug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+                BasisDebug.Log($"Building Avatar Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
                 // Build from a stripped clone so the authored avatar stays untouched.
                 buildRoot = GameObject.Instantiate(Avatar.gameObject);
                 buildRoot.TryGetComponent<BasisAvatar>(out Avatar);
@@ -428,7 +428,7 @@ public partial class BasisAvatarSDKInspector : Editor
                 GenerateMeshLODs(3);
 #endif
 
-                BasisDebug.Log($"Building Gameobject Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
+                BasisDebug.Log($"Building Avatar Bundles for: {string.Join(", ", targets.ConvertAll(t => BasisSDKConstants.targetDisplayNames[t]))}");
                 BundleCreatedState = await BasisBundleBuild.GameObjectBundleBuild(ImageBytes, Avatar, targets, assetBundleObject.UseCustomPassword, assetBundleObject.UserSelectedPassword);
 
                 EditorUtility.ClearProgressBar();
@@ -467,11 +467,7 @@ public partial class BasisAvatarSDKInspector : Editor
         }
         else
         {
-            if (EditorUtility.DisplayDialog("Avatar Build Error", $"Please Resolve Or Consult The Documentation. \n {string.Join("\n", Errors)}", "OK", "Open Documentation"))
-            {
-
-            }
-            else
+            if (!EditorUtility.DisplayDialog("Avatar Build Error", $"Please resolve the following issues, or consult the documentation. \n {string.Join("\n", Errors)}", "OK", "Open Documentation"))
             {
                 Application.OpenURL(BasisSDKConstants.AvatarDocumentationURL);
             }
@@ -574,14 +570,14 @@ public partial class BasisAvatarSDKInspector : Editor
         if (meshAssetsNeedingSave.Count > 0)
             AssetDatabase.SaveAssets();
 
-        Debug.Log($"GenerateMeshLODs: Reimported {modelPathsNeedingReimport.Count} model asset(s), updated {meshAssetsNeedingSave.Count} mesh asset(s).");
+        Debug.Log($"GenerateMeshLODs: Reimported {modelPathsNeedingReimport.Count} model asset(s); updated {meshAssetsNeedingSave.Count} mesh asset(s).");
     }
 #endif
     public void AvatarTestInEditorClickFunction()
     {
         if (!Application.isPlaying)
         {
-            bool result = EditorUtility.DisplayDialog("Confirmation", "this feature requires the editor to be in playmode. do you want to enter play mode now and run Test In Editor automatically? please also make sure you have a floor in your scene!", "yes", "no");
+            bool result = EditorUtility.DisplayDialog("Confirmation", "This feature requires the Editor to be in Play Mode. Proceed in entering Play Mode and running Test In Editor? Ensure that a floor is placed in the scene.", "Yes", "No");
             if (result)
             {
                 SetPendingTestInEditorAvatarId(GlobalObjectId.GetGlobalObjectIdSlow(Avatar).ToString());
@@ -649,7 +645,7 @@ public partial class BasisAvatarSDKInspector : Editor
         GameObject inSceneItem;
         if (jigglesToReset.Count > 0)
         {
-            BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. We will disable the avatar in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
+            BasisDebug.Log("Enabled Jiggles were found when Test in Editor was entered. The avatar will be disabled in order to reset the Jiggle transforms.", BasisDebug.LogTag.Editor);
             avatar.gameObject.SetActive(false);
             // It's a bit of a hack, but waiting three frames works.
             await Awaitable.NextFrameAsync();

@@ -284,13 +284,27 @@ namespace BasisNetworkServer.Security
                     break;
 
                 case AdminRequestMode.TeleportAll:
-                case AdminRequestMode.TeleportPlayer:
                     Require(peer, PermNodes.ModerationTeleport, () =>
                     {
                         var writer = NetworkServer.RentWriter();
                         new AdminRequest().Serialize(writer, mode);
                         writer.Put(reader.GetUShort());
                         NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.AdminChannel, peer, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
+                        NetworkServer.ReturnWriter(writer);
+                    });
+                    break;
+
+                case AdminRequestMode.TeleportPlayer:
+                    Require(peer, PermNodes.ModerationTeleport, () =>
+                    {
+                        ushort targetId = reader.GetUShort();
+                        if (!NetworkServer.AuthenticatedPeers.TryGetValue(targetId, out var targetPeer))
+                            return;
+
+                        var writer = NetworkServer.RentWriter();
+                        new AdminRequest().Serialize(writer, mode);
+                        writer.Put((ushort)peer.Id);
+                        NetworkServer.TrySend(targetPeer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
                         NetworkServer.ReturnWriter(writer);
                     });
                     break;

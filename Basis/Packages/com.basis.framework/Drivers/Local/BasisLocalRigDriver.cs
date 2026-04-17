@@ -5,6 +5,10 @@ using Basis.Scripts.TransformBinders.BoneControl;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.Playables;
@@ -197,6 +201,18 @@ namespace Basis.Scripts.Drivers
         // Prevents single-frame flicker at jump apex or during speed oscillations.
         private static float stationaryTimer = 0f;
         private const float StationaryDelaySeconds = 0.15f;
+
+        // Batched filter job state — one slot per S_* index (shoulder slot in position arrays is unused).
+        private NativeArray<float3> _posInputs;
+        private NativeArray<float3> _posOutputs;
+        private NativeArray<quaternion> _rotInputs;
+        private NativeArray<quaternion> _rotOutputs;
+        private NativeArray<byte> _posModeNative;
+        private NativeArray<byte> _rotModeNative;
+        private NativeArray<float3> _fallbackPosStates;
+        private NativeArray<quaternion> _fallbackRotStates;
+        private NativeArray<BasisEuroVec3State> _euroPosStates;
+        private NativeArray<BasisEuroQuatState> _euroRotStates;
         public void Initialize(BasisLocalPlayer localPlayer, BasisTransformMapping references)
         {
             this.localPlayer = localPlayer;
@@ -227,6 +243,8 @@ namespace Basis.Scripts.Drivers
 
         public void CleanupBeforeContinue()
         {
+            DisposeFilterArrays();
+
             if (MainRig == null)
             {
                 return;
@@ -235,6 +253,50 @@ namespace Basis.Scripts.Drivers
             GameObject.Destroy(MainRig.gameObject);
             MainRig = null;
             RigLayer = default;
+        }
+
+        private void EnsureFilterArrays()
+        {
+            if (_posInputs.IsCreated) return;
+            _posInputs = new NativeArray<float3>(SlotCount, Allocator.Persistent);
+            _posOutputs = new NativeArray<float3>(SlotCount, Allocator.Persistent);
+            _rotInputs = new NativeArray<quaternion>(SlotCount, Allocator.Persistent);
+            _rotOutputs = new NativeArray<quaternion>(SlotCount, Allocator.Persistent);
+            _posModeNative = new NativeArray<byte>(SlotCount, Allocator.Persistent);
+            _rotModeNative = new NativeArray<byte>(SlotCount, Allocator.Persistent);
+            _fallbackPosStates = new NativeArray<float3>(SlotCount, Allocator.Persistent);
+            _fallbackRotStates = new NativeArray<quaternion>(SlotCount, Allocator.Persistent);
+            _euroPosStates = new NativeArray<BasisEuroVec3State>(SlotCount, Allocator.Persistent);
+            _euroRotStates = new NativeArray<BasisEuroQuatState>(SlotCount, Allocator.Persistent);
+
+            // quaternion default-constructs to all-zeros which isn't a valid rotation; seed to identity.
+            for (int i = 0; i < SlotCount; i++)
+            {
+                _rotInputs[i] = quaternion.identity;
+                _rotOutputs[i] = quaternion.identity;
+                _fallbackRotStates[i] = quaternion.identity;
+            }
+        }
+
+        private void DisposeFilterArrays()
+        {
+            if (_posInputs.IsCreated) _posInputs.Dispose();
+            if (_posOutputs.IsCreated) _posOutputs.Dispose();
+            if (_rotInputs.IsCreated) _rotInputs.Dispose();
+            if (_rotOutputs.IsCreated) _rotOutputs.Dispose();
+            if (_posModeNative.IsCreated) _posModeNative.Dispose();
+            if (_rotModeNative.IsCreated) _rotModeNative.Dispose();
+            if (_fallbackPosStates.IsCreated) _fallbackPosStates.Dispose();
+            if (_fallbackRotStates.IsCreated) _fallbackRotStates.Dispose();
+            if (_euroPosStates.IsCreated) _euroPosStates.Dispose();
+            if (_euroRotStates.IsCreated) _euroRotStates.Dispose();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static byte PickMode(bool smoothEnabled, bool euroEnabled)
+        {
+            if (!smoothEnabled) return (byte)BasisFilterMode.Passthrough;
+            return euroEnabled ? (byte)BasisFilterMode.Euro : (byte)BasisFilterMode.Fallback;
         }
         public void OnTPose() => OnTPose(BasisLocalAvatarDriver.CurrentlyTposing);
 
@@ -277,7 +339,25 @@ namespace Basis.Scripts.Drivers
             timeAccumulator = 0;
             hasFallbackState = false;
 
-            // Reset Euro filters (rotation)
+            // Reset batched filter state — identity rotations to avoid lerping from zero quats.
+            if (_euroPosStates.IsCreated)
+            {
+                for (int i = 0; i < SlotCount; i++) _euroPosStates[i] = default;
+            }
+            if (_euroRotStates.IsCreated)
+            {
+                for (int i = 0; i < SlotCount; i++) _euroRotStates[i] = default;
+            }
+            if (_fallbackRotStates.IsCreated)
+            {
+                for (int i = 0; i < SlotCount; i++) _fallbackRotStates[i] = quaternion.identity;
+            }
+            if (_fallbackPosStates.IsCreated)
+            {
+                for (int i = 0; i < SlotCount; i++) _fallbackPosStates[i] = float3.zero;
+            }
+
+            // Legacy managed Euro filters — still reset in case any live call path uses them.
             fRotHips.Reset();
             fRotHead.Reset();
             fRotLeftFoot.Reset();
@@ -293,8 +373,6 @@ namespace Basis.Scripts.Drivers
             fRotRightToe.Reset();
             fRotLeftShoulder.Reset();
             fRotRightShoulder.Reset();
-
-            
         }
         public void SimulateIKDestinations(float deltaTime)
         {
@@ -310,446 +388,338 @@ namespace Basis.Scripts.Drivers
 
             timeAccumulator += Mathf.Max(deltaTime, 1e-6f);
 
-            BasisFullBodyData data = BasisFullIKConstraint.data;
+            EnsureFilterArrays();
 
-            // Init fallback state once (so first frame doesn't lerp from zero)
+            // Fallback smoothing alphas are identical for every slot this frame;
+            // compute once instead of running Mathf.Exp per call.
+            float smoothingStrength = Mathf.Max(1f, SmoothingStrength);
+            float fallbackPosAlpha = ExpAlpha(PositionSmoothingHz / smoothingStrength, deltaTime);
+            float fallbackRotAlpha = ExpAlpha(RotationSmoothingHz / smoothingStrength, deltaTime);
+            float effectiveMinCutoff = MinCutoff / smoothingStrength;
+            float effectiveDCutoff = DerivativeCutoff / smoothingStrength;
+            float safeDt = Mathf.Max(deltaTime, 1e-6f);
+
+            // ── 1. Gather raw inputs from bone controls (main thread only) ──
+            var hipsData = BasisLocalBoneDriver.HipsControl.OutgoingWorldData;
+            var headData = BasisLocalBoneDriver.HeadControl.OutgoingWorldData;
+            var leftFootData = BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData;
+            var rightFootData = BasisLocalBoneDriver.RightFootControl.OutgoingWorldData;
+            var chestData = BasisLocalBoneDriver.ChestControl.OutgoingWorldData;
+            var leftLLData = BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData;
+            var rightLLData = BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData;
+            var leftHandData = BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData;
+            var rightHandData = BasisLocalBoneDriver.RightHandControl.OutgoingWorldData;
+            var leftLAData = BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData;
+            var rightLAData = BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData;
+            var leftToeData = BasisLocalBoneDriver.LeftToeControl.OutgoingWorldData;
+            var rightToeData = BasisLocalBoneDriver.RightToeControl.OutgoingWorldData;
+            Quaternion leftShoulderRot = BasisLocalBoneDriver.LeftShoulderControl.OutgoingWorldData.rotation;
+            Quaternion rightShoulderRot = BasisLocalBoneDriver.RightShoulderControl.OutgoingWorldData.rotation;
+
+            // NativeArray indexer does a safety-handle check on every call. For ~60 sequential
+            // writes per frame we cache the pointers once and stream values through UnsafeUtility.
+            unsafe
+            {
+                float3* posPtr = (float3*)_posInputs.GetUnsafePtr();
+                quaternion* rotPtr = (quaternion*)_rotInputs.GetUnsafePtr();
+                byte* posModePtr = (byte*)_posModeNative.GetUnsafePtr();
+                byte* rotModePtr = (byte*)_rotModeNative.GetUnsafePtr();
+
+                posPtr[S_Hips] = hipsData.position;                 rotPtr[S_Hips] = hipsData.rotation;
+                posPtr[S_Head] = headData.position;                 rotPtr[S_Head] = headData.rotation;
+                posPtr[S_LeftFoot] = leftFootData.position;         rotPtr[S_LeftFoot] = leftFootData.rotation;
+                posPtr[S_RightFoot] = rightFootData.position;       rotPtr[S_RightFoot] = rightFootData.rotation;
+                posPtr[S_Chest] = chestData.position;               rotPtr[S_Chest] = chestData.rotation;
+                posPtr[S_LeftLowerLeg] = leftLLData.position;       rotPtr[S_LeftLowerLeg] = leftLLData.rotation;
+                posPtr[S_RightLowerLeg] = rightLLData.position;     rotPtr[S_RightLowerLeg] = rightLLData.rotation;
+                posPtr[S_LeftHand] = leftHandData.position;         rotPtr[S_LeftHand] = leftHandData.rotation;
+                posPtr[S_RightHand] = rightHandData.position;       rotPtr[S_RightHand] = rightHandData.rotation;
+                posPtr[S_LeftLowerArm] = leftLAData.position;       rotPtr[S_LeftLowerArm] = leftLAData.rotation;
+                posPtr[S_RightLowerArm] = rightLAData.position;     rotPtr[S_RightLowerArm] = rightLAData.rotation;
+                posPtr[S_LeftToe] = leftToeData.position;           rotPtr[S_LeftToe] = leftToeData.rotation;
+                posPtr[S_RightToe] = rightToeData.position;         rotPtr[S_RightToe] = rightToeData.rotation;
+                posPtr[S_LeftShoulder] = float3.zero;                rotPtr[S_LeftShoulder] = leftShoulderRot;
+                posPtr[S_RightShoulder] = float3.zero;               rotPtr[S_RightShoulder] = rightShoulderRot;
+
+                // ── 2. Compute filter modes from toggles ──
+                for (int i = 0; i < SlotCount; i++)
+                {
+                    posModePtr[i] = PickMode(SmoothPos[i], EuroPos[i]);
+                    rotModePtr[i] = PickMode(SmoothRot[i], EuroRot[i]);
+                }
+                // Shoulders have no position target — always passthrough to skip wasted work.
+                posModePtr[S_LeftShoulder] = (byte)BasisFilterMode.Passthrough;
+                posModePtr[S_RightShoulder] = (byte)BasisFilterMode.Passthrough;
+            }
+
+            // ── 3. On first use, seed fallback states from live inputs so we don't lerp from zero ──
             if (!hasFallbackState)
             {
                 hasFallbackState = true;
-
-                sPosHips = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.position;
-                sRotHips = BasisLocalBoneDriver.HipsControl.OutgoingWorldData.rotation;
-
-                sPosHead = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.position;
-                sRotHead = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
-
-                sPosLeftFoot = BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.position;
-                sRotLeftFoot = BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData.rotation;
-
-                sPosRightFoot = BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.position;
-                sRotRightFoot = BasisLocalBoneDriver.RightFootControl.OutgoingWorldData.rotation;
-
-                sPosChest = BasisLocalBoneDriver.ChestControl.OutgoingWorldData.position;
-                sRotChest = BasisLocalBoneDriver.ChestControl.OutgoingWorldData.rotation;
-
-                sPosLeftLowerLeg = BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData.position;
-                sRotLeftLowerLeg = BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData.rotation;
-
-                sPosRightLowerLeg = BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData.position;
-                sRotRightLowerLeg = BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData.rotation;
-
-                sPosLeftHand = BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.position;
-                sRotLeftHand = BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData.rotation;
-
-                sPosRightHand = BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.position;
-                sRotRightHand = BasisLocalBoneDriver.RightHandControl.OutgoingWorldData.rotation;
-
-                sPosLeftLowerArm = BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.position;
-                sRotLeftLowerArm = BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData.rotation;
-
-                sPosRightLowerArm = BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.position;
-                sRotRightLowerArm = BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData.rotation;
-
-                sPosLeftToe = BasisLocalBoneDriver.LeftToeControl.OutgoingWorldData.position;
-                sRotLeftToe = BasisLocalBoneDriver.LeftToeControl.OutgoingWorldData.rotation;
-
-                sPosRightToe = BasisLocalBoneDriver.RightToeControl.OutgoingWorldData.position;
-                sRotRightToe = BasisLocalBoneDriver.RightToeControl.OutgoingWorldData.rotation;
-
-                sRotLeftShoulder = BasisLocalBoneDriver.LeftShoulderControl.OutgoingWorldData.rotation;
-                sRotRightShoulder = BasisLocalBoneDriver.RightShoulderControl.OutgoingWorldData.rotation;
+                _fallbackPosStates.CopyFrom(_posInputs);
+                _fallbackRotStates.CopyFrom(_rotInputs);
             }
 
-            // ---------------- HIPS ----------------
-            var hips = BasisLocalBoneDriver.HipsControl.OutgoingWorldData;
-
-            Vector3 hipsPos = hips.position;
-            if (SmoothPos[S_Hips])
+            // ── 4. Schedule batched filter jobs ──
+            var posJob = new BasisBatchPositionFilterJob
             {
-                hipsPos = EuroPos[S_Hips] ? fPosHips.Filter(hipsPos, timeAccumulator) : FallbackPos(ref sPosHips, hipsPos, deltaTime);
-            }
-
-            Quaternion hipsRot = hips.rotation;
-            if (SmoothRot[S_Hips])
+                mode = _posModeNative,
+                rawInputs = _posInputs,
+                euroStates = _euroPosStates,
+                fallbackStates = _fallbackPosStates,
+                outputs = _posOutputs,
+                dt = safeDt,
+                minCutoff = effectiveMinCutoff,
+                beta = Beta,
+                dCutoff = effectiveDCutoff,
+                fallbackAlpha = fallbackPosAlpha,
+            };
+            var rotJob = new BasisBatchRotationFilterJob
             {
-                hipsRot = EuroRot[S_Hips] ? fRotHips.Filter(hipsRot, timeAccumulator) : FallbackRot(ref sRotHips, hipsRot, deltaTime);
-            }
+                mode = _rotModeNative,
+                rawInputs = _rotInputs,
+                euroStates = _euroRotStates,
+                fallbackStates = _fallbackRotStates,
+                outputs = _rotOutputs,
+                dt = safeDt,
+                minCutoff = effectiveMinCutoff,
+                beta = Beta,
+                dCutoff = effectiveDCutoff,
+                fallbackAlpha = fallbackRotAlpha,
+            };
+            JobHandle posHandle = posJob.Schedule(SlotCount, 4);
+            JobHandle rotHandle = rotJob.Schedule(SlotCount, 4);
 
-            hipsPos.y -= localPlayer.LocalCharacterDriver.landingCrouchEffect;
-            data.PositionHips = hipsPos;
-            data.RotationHips = hipsRot;
-
-            // ---------------- HEAD ----------------
-            var head = BasisLocalBoneDriver.HeadControl.OutgoingWorldData;
-
-            Vector3 headPos = head.position;
-            if (SmoothPos[S_Head])
-            {
-                headPos = EuroPos[S_Head] ? fPosHead.Filter(headPos, timeAccumulator) : FallbackPos(ref sPosHead, headPos, deltaTime);
-            }
-
-            Quaternion headRot = head.rotation;
-            if (SmoothRot[S_Head])
-            {
-                headRot = EuroRot[S_Head] ? fRotHead.Filter(headRot, timeAccumulator) : FallbackRot(ref sRotHead, headRot, deltaTime);
-            }
-
-            data.PositionHead = headPos;
-            data.RotationHead = headRot;
-
-            // Master FBT gate — when the user turns FBT off in settings, we pretend no
-            // FBT trackers exist and fall back to head+hands+foot IK for the entire body.
+            // ── 5. Schedule foot sim in parallel with filters ──
             bool fbtEnabled = Basis.BasisUI.BasisSettingsDefaults.EnableFBT.RawValue;
-
-            // ---------------- FEET ----------------
-            // Per-foot: each foot independently uses tracker, foot driver, or animation.
-            // If only one foot has a tracker, the other uses the foot driver.
             bool leftHasTracker = fbtEnabled && (BasisLocalBoneDriver.LeftFootControl.HasTracked == BasisHasTracked.HasTracker
                 || BasisLocalBoneDriver.LeftUpperLegControl.HasTracked == BasisHasTracked.HasTracker);
             bool rightHasTracker = fbtEnabled && (BasisLocalBoneDriver.RightFootControl.HasTracked == BasisHasTracked.HasTracker
                 || BasisLocalBoneDriver.RightUpperLegControl.HasTracked == BasisHasTracked.HasTracker);
 
-            // Use controller input to determine if the player is intentionally moving.
-            // If controller input is driving movement → animator handles legs.
-            // If no controller input → any body movement is from VR headset shifting → foot driver handles it.
             bool locomotionAnimActive = localPlayer.LocalCharacterDriver.MovementVector.sqrMagnitude > 0.001f;
-
-            if (locomotionAnimActive)
-            {
-                stationaryTimer = 0f;
-            }
-            else
-            {
-                stationaryTimer += deltaTime;
-            }
+            if (locomotionAnimActive) stationaryTimer = 0f;
+            else stationaryTimer += deltaTime;
 
             BasisLocalFootDriver footDriver = localPlayer.BasisLocalFootDriver;
             bool footDriverReady = footDriver.IsInitialized;
-
-            bool StationaryTimer = stationaryTimer >= StationaryDelaySeconds;
+            bool isStationaryEnough = stationaryTimer >= StationaryDelaySeconds;
             bool footIKSetting = Basis.BasisUI.BasisSettingsDefaults.FootIKEnabled.RawValue;
-            bool FootDriverStateAndStationary = footDriverReady && StationaryTimer && footIKSetting;
-            // Per-foot: want foot IK only when that foot has no tracker and not locomoting
-            bool leftWantIK = FootDriverStateAndStationary && !leftHasTracker;
-            bool rightWantIK = FootDriverStateAndStationary && !rightHasTracker;
+            bool footIKReady = footDriverReady && isStationaryEnough && footIKSetting;
+            bool leftWantIK = footIKReady && !leftHasTracker;
+            bool rightWantIK = footIKReady && !rightHasTracker;
+            bool leftOrRightDrive = !leftHasTracker || !rightHasTracker;
 
-            bool LeftOrRightDrive = (!leftHasTracker || !rightHasTracker);
-            // Always simulate foot driver if at least one foot needs it (or for warm state)
-            if (footDriverReady && LeftOrRightDrive)
+            bool footSimScheduled = false;
+            if (footDriverReady && leftOrRightDrive)
             {
-                footDriver.Simulate(deltaTime);
+                footDriver.ScheduleSimulate(deltaTime);
+                footSimScheduled = true;
             }
 
-            // Per-foot blend weights
+            // ── 6. Main-thread bookkeeping runs parallel with filter + foot jobs ──
             float leftBlendTarget = leftWantIK ? 1f : 0f;
             float rightBlendTarget = rightWantIK ? 1f : 0f;
-
-            // Force weight to 0 when tracker is present — no blend, tracker wins immediately
             if (leftHasTracker) footIKBlendWeightLeft = 0f;
             if (rightHasTracker) footIKBlendWeightRight = 0f;
 
             float leftPrevBlend = footIKBlendWeightLeft;
             float rightPrevBlend = footIKBlendWeightRight;
-            footIKBlendWeightLeft = Mathf.MoveTowards(footIKBlendWeightLeft, leftBlendTarget, (leftWantIK ? FootIKBlendInSpeed : FootIKBlendOutSpeed) * deltaTime);
-            footIKBlendWeightRight = Mathf.MoveTowards(footIKBlendWeightRight, rightBlendTarget, (rightWantIK ? FootIKBlendInSpeed : FootIKBlendOutSpeed) * deltaTime);
-
-            // Notify re-engaging when either foot transitions on
-            if (footDriverReady && ((leftPrevBlend < 0.001f && footIKBlendWeightLeft >= 0.001f) || (rightPrevBlend < 0.001f && footIKBlendWeightRight >= 0.001f)))
-            {
-                footDriver.NotifyReEngaging();
-            }
-
-            // Keep combined weight for hip bob
+            footIKBlendWeightLeft = Mathf.MoveTowards(footIKBlendWeightLeft, leftBlendTarget,
+                (leftWantIK ? FootIKBlendInSpeed : FootIKBlendOutSpeed) * deltaTime);
+            footIKBlendWeightRight = Mathf.MoveTowards(footIKBlendWeightRight, rightBlendTarget,
+                (rightWantIK ? FootIKBlendInSpeed : FootIKBlendOutSpeed) * deltaTime);
             footIKBlendWeight = Mathf.Max(footIKBlendWeightLeft, footIKBlendWeightRight);
 
-            // ── LEFT FOOT ──
-            if (leftHasTracker)
+            bool notifyReengage = footDriverReady &&
+                ((leftPrevBlend < 0.001f && footIKBlendWeightLeft >= 0.001f)
+                 || (rightPrevBlend < 0.001f && footIKBlendWeightRight >= 0.001f));
+
+            bool leftLLHasTracker = fbtEnabled && BasisLocalBoneDriver.LeftLowerLegControl.HasTracked == BasisHasTracked.HasTracker;
+            bool rightLLHasTracker = fbtEnabled && BasisLocalBoneDriver.RightLowerLegControl.HasTracked == BasisHasTracked.HasTracker;
+            bool hipsHaveTracker = fbtEnabled && BasisLocalBoneDriver.HipsControl.HasTracked == BasisHasTracked.HasTracker;
+
+            // ── 7. Wait for jobs ──
+            JobHandle.CombineDependencies(posHandle, rotHandle).Complete();
+            if (footSimScheduled) footDriver.CompleteSimulate();
+
+            // NotifyReEngaging reads live bone control data (not foot sim output), but kept after
+            // completion so all foot state is coherent when the next sim starts.
+            if (notifyReengage) footDriver.NotifyReEngaging();
+
+            // ── 8. Scatter filter outputs into BasisFullBodyData ──
+            BasisFullBodyData data = BasisFullIKConstraint.data;
+
+            // Pull out pointers once; avoids per-slot safety-handle checks on each indexer read.
+            Vector3 hipsPos;
+            Quaternion hipsRot;
+            Vector3 chestPos;
+            Quaternion chestRot;
+            Vector3 llaPos, rlaPos;
+            Quaternion llaRot, rlaRot;
+            unsafe
             {
-                var lf = BasisLocalBoneDriver.LeftFootControl.OutgoingWorldData;
-                Vector3 lfPos = lf.position;
-                if (SmoothPos[S_LeftFoot])
+                float3* pOut = (float3*)_posOutputs.GetUnsafeReadOnlyPtr();
+                quaternion* rOut = (quaternion*)_rotOutputs.GetUnsafeReadOnlyPtr();
+
+                hipsPos = pOut[S_Hips];
+                hipsRot = rOut[S_Hips];
+                hipsPos.y -= localPlayer.LocalCharacterDriver.landingCrouchEffect;
+                data.PositionHips = hipsPos;
+                data.RotationHips = hipsRot;
+
+                data.PositionHead = pOut[S_Head];
+                data.RotationHead = rOut[S_Head];
+
+                // ── LEFT FOOT ──
+                if (leftHasTracker)
                 {
-                    lfPos = EuroPos[S_LeftFoot] ? fPosLeftFoot.Filter(lfPos, timeAccumulator) : FallbackPos(ref sPosLeftFoot, lfPos, deltaTime);
+                    data.LeftFootPosition = pOut[S_LeftFoot];
+                    data.LeftFootRotation = rOut[S_LeftFoot];
+                }
+                else if (footIKBlendWeightLeft > 0.001f && footDriverReady)
+                {
+                    data.LeftFootPosition = footDriver.LeftFootPosition;
+                    data.LeftFootRotation = footDriver.LeftFootRotation;
+                    data.EnableLeftLeg = footIKBlendWeightLeft;
+                }
+                else
+                {
+                    data.EnableLeftLeg = 0f;
                 }
 
-                Quaternion lfRot = lf.rotation;
-                if (SmoothRot[S_LeftFoot])
+                // ── RIGHT FOOT ──
+                if (rightHasTracker)
                 {
-                    lfRot = EuroRot[S_LeftFoot] ? fRotLeftFoot.Filter(lfRot, timeAccumulator) : FallbackRot(ref sRotLeftFoot, lfRot, deltaTime);
+                    data.RightFootPosition = pOut[S_RightFoot];
+                    data.RightFootRotation = rOut[S_RightFoot];
+                }
+                else if (footIKBlendWeightRight > 0.001f && footDriverReady)
+                {
+                    data.RightFootPosition = footDriver.RightFootPosition;
+                    data.RightFootRotation = footDriver.RightFootRotation;
+                    data.EnableRightLeg = footIKBlendWeightRight;
+                }
+                else
+                {
+                    data.EnableRightLeg = 0f;
                 }
 
-                data.LeftFootPosition = lfPos;
-                data.LeftFootRotation = lfRot;
-               
-            }
-            else if (footIKBlendWeightLeft > 0.001f && footDriverReady)
-            {
-                data.LeftFootPosition = footDriver.LeftFootPosition;
-                data.LeftFootRotation = footDriver.LeftFootRotation;
-                data.EnableLeftLeg = footIKBlendWeightLeft;
-            }
-            else
-            {
-                data.EnableLeftLeg = 0f;
-            }
-
-            // ── RIGHT FOOT ──
-            if (rightHasTracker)
-            {
-                var rf = BasisLocalBoneDriver.RightFootControl.OutgoingWorldData;
-                Vector3 rfPos = rf.position;
-                if (SmoothPos[S_RightFoot])
-                {
-                    rfPos = EuroPos[S_RightFoot] ? fPosRightFoot.Filter(rfPos, timeAccumulator) : FallbackPos(ref sPosRightFoot, rfPos, deltaTime);
-                }
-
-                Quaternion rfRot = rf.rotation;
-                if (SmoothRot[S_RightFoot])
-                {
-                    rfRot = EuroRot[S_RightFoot] ? fRotRightFoot.Filter(rfRot, timeAccumulator) : FallbackRot(ref sRotRightFoot, rfRot, deltaTime);
-                }
-
-                data.RightFootPosition = rfPos;
-                data.RightFootRotation = rfRot;
-            }
-            else if (footIKBlendWeightRight > 0.001f && footDriverReady)
-            {
-                data.RightFootPosition = footDriver.RightFootPosition;
-                data.RightFootRotation = footDriver.RightFootRotation;
-                data.EnableRightLeg = footIKBlendWeightRight;
-            }
-            else
-            {
-                data.EnableRightLeg = 0f;
-            }
-
-            // ── HIP BOB ──
-            if (footIKBlendWeight > 0.001f && footDriverReady)
-            {
-                bool hipsHaveTracker = fbtEnabled && BasisLocalBoneDriver.HipsControl.HasTracked == BasisHasTracked.HasTracker;
-                if (!hipsHaveTracker)
+                // ── HIP BOB ──
+                if (footIKBlendWeight > 0.001f && footDriverReady && !hipsHaveTracker)
                 {
                     data.PositionHips = new Vector3(data.PositionHips.x,
                         data.PositionHips.y + footDriver.ComputeHipBob() * footIKBlendWeight,
                         data.PositionHips.z);
                 }
-            }
 
-            // ---------------- CHEST (head hint) ----------------
-            var chest = BasisLocalBoneDriver.ChestControl.OutgoingWorldData;
+                // ── CHEST (head hint) ──
+                chestPos = pOut[S_Chest];
+                chestRot = rOut[S_Chest];
+                chestPos = ApplyHintBias(BasisBoneTrackedRole.Chest, chestPos, chestRot);
+                data.ChestPosition = chestPos;
+                data.ChestRotation = chestRot;
 
-            Vector3 chestPos = chest.position;
-            if (SmoothPos[S_Chest])
-                chestPos = EuroPos[S_Chest] ? fPosChest.Filter(chestPos, timeAccumulator) : FallbackPos(ref sPosChest, chestPos, deltaTime);
-
-            Quaternion chestRot = chest.rotation;
-            if (SmoothRot[S_Chest])
-                chestRot = EuroRot[S_Chest] ? fRotChest.Filter(chestRot, timeAccumulator) : FallbackRot(ref sRotChest, chestRot, deltaTime);
-
-            // Apply "up" hint bias for head hint (Chest role is the hint driver)
-            chestPos = ApplyHintBias(BasisBoneTrackedRole.Chest, chestPos, chestRot);
-
-            data.ChestPosition = chestPos;
-            data.ChestRotation = chestRot;
-
-            // ---------------- LOWER LEG HINTS (knee) ----------------
-            bool leftLLHasTracker = fbtEnabled && BasisLocalBoneDriver.LeftLowerLegControl.HasTracked == BasisHasTracked.HasTracker;
-            bool rightLLHasTracker = fbtEnabled && BasisLocalBoneDriver.RightLowerLegControl.HasTracked == BasisHasTracked.HasTracker;
-
-            if (leftLLHasTracker)
-            {
-                var lll = BasisLocalBoneDriver.LeftLowerLegControl.OutgoingWorldData;
-                Vector3 lllPos = lll.position;
-                if (SmoothPos[S_LeftLowerLeg])
-                    lllPos = EuroPos[S_LeftLowerLeg] ? fPosLeftLowerLeg.Filter(lllPos, timeAccumulator) : FallbackPos(ref sPosLeftLowerLeg, lllPos, deltaTime);
-                Quaternion lllRot = lll.rotation;
-                if (SmoothRot[S_LeftLowerLeg])
-                    lllRot = EuroRot[S_LeftLowerLeg] ? fRotLeftLowerLeg.Filter(lllRot, timeAccumulator) : FallbackRot(ref sRotLeftLowerLeg, lllRot, deltaTime);
-                lllPos = ApplyHintBias(BasisBoneTrackedRole.LeftLowerLeg, lllPos, lllRot);
-                data.PositionLeftLowerLeg = lllPos;
-                data.RotationLeftLowerLeg = lllRot;
-                data.EnableLeftLowerLeg = 1f;
-            }
-            else if (footIKBlendWeightLeft > 0.001f && footDriverReady)
-            {
-                Quaternion targetRotL = ComputeKneeHintRotation(data.PositionHips, data.LeftFootPosition, footDriver.LeftKneeHint);
-                float kneeRotAlpha = 1f - Mathf.Exp(-8f * deltaTime);
-                smoothedLeftKneeRot = Quaternion.Slerp(smoothedLeftKneeRot, targetRotL, kneeRotAlpha);
-                data.PositionLeftLowerLeg = footDriver.LeftKneeHint;
-                data.RotationLeftLowerLeg = smoothedLeftKneeRot;
-                data.EnableLeftLowerLeg = footIKBlendWeightLeft;
-            }
-            else
-            {
-                data.EnableLeftLowerLeg = 0f;
-            }
-
-            if (rightLLHasTracker)
-            {
-                var rll = BasisLocalBoneDriver.RightLowerLegControl.OutgoingWorldData;
-                Vector3 rllPos = rll.position;
-                if (SmoothPos[S_RightLowerLeg])
+                // ── LEFT LOWER LEG ──
+                if (leftLLHasTracker)
                 {
-                    rllPos = EuroPos[S_RightLowerLeg] ? fPosRightLowerLeg.Filter(rllPos, timeAccumulator) : FallbackPos(ref sPosRightLowerLeg, rllPos, deltaTime);
+                    Vector3 lllPos = pOut[S_LeftLowerLeg];
+                    Quaternion lllRot = rOut[S_LeftLowerLeg];
+                    lllPos = ApplyHintBias(BasisBoneTrackedRole.LeftLowerLeg, lllPos, lllRot);
+                    data.PositionLeftLowerLeg = lllPos;
+                    data.RotationLeftLowerLeg = lllRot;
+                    data.EnableLeftLowerLeg = 1f;
+                }
+                else if (footIKBlendWeightLeft > 0.001f && footDriverReady)
+                {
+                    Quaternion targetRotL = ComputeKneeHintRotation(data.PositionHips, data.LeftFootPosition, footDriver.LeftKneeHint);
+                    float kneeRotAlpha = 1f - Mathf.Exp(-8f * deltaTime);
+                    smoothedLeftKneeRot = Quaternion.Slerp(smoothedLeftKneeRot, targetRotL, kneeRotAlpha);
+                    data.PositionLeftLowerLeg = footDriver.LeftKneeHint;
+                    data.RotationLeftLowerLeg = smoothedLeftKneeRot;
+                    data.EnableLeftLowerLeg = footIKBlendWeightLeft;
+                }
+                else
+                {
+                    data.EnableLeftLowerLeg = 0f;
                 }
 
-                Quaternion rllRot = rll.rotation;
-                if (SmoothRot[S_RightLowerLeg])
+                // ── RIGHT LOWER LEG ──
+                if (rightLLHasTracker)
                 {
-                    rllRot = EuroRot[S_RightLowerLeg] ? fRotRightLowerLeg.Filter(rllRot, timeAccumulator) : FallbackRot(ref sRotRightLowerLeg, rllRot, deltaTime);
+                    Vector3 rllPos = pOut[S_RightLowerLeg];
+                    Quaternion rllRot = rOut[S_RightLowerLeg];
+                    rllPos = ApplyHintBias(BasisBoneTrackedRole.RightLowerLeg, rllPos, rllRot);
+                    data.PositionRightLowerLeg = rllPos;
+                    data.RotationRightLowerLeg = rllRot;
+                    data.EnableRightLowerLeg = 1f;
+                }
+                else if (footIKBlendWeightRight > 0.001f && footDriverReady)
+                {
+                    Quaternion targetRotR = ComputeKneeHintRotation(data.PositionHips, data.RightFootPosition, footDriver.RightKneeHint);
+                    float kneeRotAlpha = 1f - Mathf.Exp(-8f * deltaTime);
+                    smoothedRightKneeRot = Quaternion.Slerp(smoothedRightKneeRot, targetRotR, kneeRotAlpha);
+                    data.PositionRightLowerLeg = footDriver.RightKneeHint;
+                    data.RotationRightLowerLeg = smoothedRightKneeRot;
+                    data.EnableRightLowerLeg = footIKBlendWeightRight;
+                }
+                else
+                {
+                    data.EnableRightLowerLeg = 0f;
                 }
 
-                rllPos = ApplyHintBias(BasisBoneTrackedRole.RightLowerLeg, rllPos, rllRot);
-                data.PositionRightLowerLeg = rllPos;
-                data.RotationRightLowerLeg = rllRot;
-                data.EnableRightLowerLeg = 1f;
+                // ── HANDS ──
+                data.PositionLeftHand = pOut[S_LeftHand];
+                data.RotationLeftHand = rOut[S_LeftHand];
+                data.PositionRightHand = pOut[S_RightHand];
+                data.RotationRightHand = rOut[S_RightHand];
+
+                // ── LOWER ARMS (elbow hints) ──
+                llaPos = pOut[S_LeftLowerArm];
+                llaRot = rOut[S_LeftLowerArm];
+                llaPos = ApplyHintBias(BasisBoneTrackedRole.LeftLowerArm, llaPos, llaRot);
+                data.LeftLowerArmPosition = llaPos;
+                data.LeftLowerArmRotation = llaRot;
+
+                rlaPos = pOut[S_RightLowerArm];
+                rlaRot = rOut[S_RightLowerArm];
+                rlaPos = ApplyHintBias(BasisBoneTrackedRole.RightLowerArm, rlaPos, rlaRot);
+                data.RightLowerArmPosition = rlaPos;
+                data.RightLowerArmRotation = rlaRot;
+
+                // ── TOES ──
+                data.OutGoingLeftToePosition = pOut[S_LeftToe];
+                data.OutGoingLeftToeRotation = rOut[S_LeftToe];
+                data.OutGoingRightToePosition = pOut[S_RightToe];
+                data.OutGoingRightToeRotation = rOut[S_RightToe];
+
+                // ── SHOULDERS (rotation only) ──
+                data.LeftShoulderRotation = rOut[S_LeftShoulder];
+                data.RightShoulderRotation = rOut[S_RightShoulder];
             }
-            else if (footIKBlendWeightRight > 0.001f && footDriverReady)
-            {
-                Quaternion targetRotR = ComputeKneeHintRotation(data.PositionHips, data.RightFootPosition, footDriver.RightKneeHint);
-                float kneeRotAlpha = 1f - Mathf.Exp(-8f * deltaTime);
-                smoothedRightKneeRot = Quaternion.Slerp(smoothedRightKneeRot, targetRotR, kneeRotAlpha);
 
-                data.PositionRightLowerLeg = footDriver.RightKneeHint;
-                data.RotationRightLowerLeg = smoothedRightKneeRot;
-                data.EnableRightLowerLeg = footIKBlendWeightRight;
-            }
-            else
-            {
-                data.EnableRightLowerLeg = 0f;
-            }
-
-            // ---------------- LEFT HAND ----------------
-            var lh = BasisLocalBoneDriver.LeftHandControl.OutgoingWorldData;
-
-            Vector3 lhPos = lh.position;
-            if (SmoothPos[S_LeftHand])
-                lhPos = EuroPos[S_LeftHand] ? fPosLeftHand.Filter(lhPos, timeAccumulator) : FallbackPos(ref sPosLeftHand, lhPos, deltaTime);
-
-            Quaternion lhRot = lh.rotation;
-            if (SmoothRot[S_LeftHand])
-                lhRot = EuroRot[S_LeftHand] ? fRotLeftHand.Filter(lhRot, timeAccumulator) : FallbackRot(ref sRotLeftHand, lhRot, deltaTime);
-
-            data.PositionLeftHand = lhPos;
-            data.RotationLeftHand = lhRot;
-
-            // ---------------- RIGHT HAND ----------------
-            var rh = BasisLocalBoneDriver.RightHandControl.OutgoingWorldData;
-
-            Vector3 rhPos = rh.position;
-            if (SmoothPos[S_RightHand])
-                rhPos = EuroPos[S_RightHand] ? fPosRightHand.Filter(rhPos, timeAccumulator) : FallbackPos(ref sPosRightHand, rhPos, deltaTime);
-
-            Quaternion rhRot = rh.rotation;
-            if (SmoothRot[S_RightHand])
-                rhRot = EuroRot[S_RightHand] ? fRotRightHand.Filter(rhRot, timeAccumulator) : FallbackRot(ref sRotRightHand, rhRot, deltaTime);
-
-            data.PositionRightHand = rhPos;
-            data.RotationRightHand = rhRot;
-
-            // ---------------- LEFT LOWER ARM (hand hint) ----------------
-            var lla = BasisLocalBoneDriver.LeftLowerArmControl.OutgoingWorldData;
-
-            Vector3 llaPos = lla.position;
-            if (SmoothPos[S_LeftLowerArm])
-                llaPos = EuroPos[S_LeftLowerArm] ? fPosLeftLowerArm.Filter(llaPos, timeAccumulator) : FallbackPos(ref sPosLeftLowerArm, llaPos, deltaTime);
-
-            Quaternion llaRot = lla.rotation;
-            if (SmoothRot[S_LeftLowerArm])
-                llaRot = EuroRot[S_LeftLowerArm] ? fRotLeftLowerArm.Filter(llaRot, timeAccumulator) : FallbackRot(ref sRotLeftLowerArm, llaRot, deltaTime);
-
-            // Apply elbow "up/out" bias
-            llaPos = ApplyHintBias(BasisBoneTrackedRole.LeftLowerArm, llaPos, llaRot);
-
-            // NOTE: keeping your original field mapping exactly
-            data.LeftLowerArmPosition = llaPos;
-            data.LeftLowerArmRotation = llaRot;
-
-            // ---------------- RIGHT LOWER ARM (hand hint) ----------------
-            var rla = BasisLocalBoneDriver.RightLowerArmControl.OutgoingWorldData;
-
-            Vector3 rlaPos = rla.position;
-            if (SmoothPos[S_RightLowerArm])
-                rlaPos = EuroPos[S_RightLowerArm] ? fPosRightLowerArm.Filter(rlaPos, timeAccumulator) : FallbackPos(ref sPosRightLowerArm, rlaPos, deltaTime);
-
-            Quaternion rlaRot = rla.rotation;
-            if (SmoothRot[S_RightLowerArm])
-                rlaRot = EuroRot[S_RightLowerArm] ? fRotRightLowerArm.Filter(rlaRot, timeAccumulator) : FallbackRot(ref sRotRightLowerArm, rlaRot, deltaTime);
-
-            // Apply elbow "up/out" bias
-            rlaPos = ApplyHintBias(BasisBoneTrackedRole.RightLowerArm, rlaPos, rlaRot);
-
-            data.RightLowerArmPosition = rlaPos;
-            data.RightLowerArmRotation = rlaRot;
-
-            // ---------------- TOES ----------------
-            var lt = BasisLocalBoneDriver.LeftToeControl.OutgoingWorldData;
-
-            Vector3 ltPos = lt.position;
-            if (SmoothPos[S_LeftToe])
-                ltPos = EuroPos[S_LeftToe] ? fPosLeftToe.Filter(ltPos, timeAccumulator) : FallbackPos(ref sPosLeftToe, ltPos, deltaTime);
-
-            Quaternion ltRot = lt.rotation;
-            if (SmoothRot[S_LeftToe])
-                ltRot = EuroRot[S_LeftToe] ? fRotLeftToe.Filter(ltRot, timeAccumulator) : FallbackRot(ref sRotLeftToe, ltRot, deltaTime);
-
-            data.OutGoingLeftToePosition = ltPos;
-            data.OutGoingLeftToeRotation = ltRot;
-
-            var rt = BasisLocalBoneDriver.RightToeControl.OutgoingWorldData;
-
-            Vector3 rtPos = rt.position;
-            if (SmoothPos[S_RightToe])
-                rtPos = EuroPos[S_RightToe] ? fPosRightToe.Filter(rtPos, timeAccumulator) : FallbackPos(ref sPosRightToe, rtPos, deltaTime);
-
-            Quaternion rtRot = rt.rotation;
-            if (SmoothRot[S_RightToe])
-                rtRot = EuroRot[S_RightToe] ? fRotRightToe.Filter(rtRot, timeAccumulator) : FallbackRot(ref sRotRightToe, rtRot, deltaTime);
-
-            data.OutGoingRightToePosition = rtPos;
-            data.OutGoingRightToeRotation = rtRot;
-
-            // ---------------- SHOULDERS (rotation only in your data) ----------------
-            var ls = BasisLocalBoneDriver.LeftShoulderControl.OutgoingWorldData.rotation;
-            if (SmoothRot[S_LeftShoulder])
-                ls = EuroRot[S_LeftShoulder] ? fRotLeftShoulder.Filter(ls, timeAccumulator) : FallbackRot(ref sRotLeftShoulder, ls, deltaTime);
-
-            data.LeftShoulderRotation = ls;
-
-            var rs = BasisLocalBoneDriver.RightShoulderControl.OutgoingWorldData.rotation;
-            if (SmoothRot[S_RightShoulder])
-                rs = EuroRot[S_RightShoulder] ? fRotRightShoulder.Filter(rs, timeAccumulator) : FallbackRot(ref sRotRightShoulder, rs, deltaTime);
-
-            data.RightShoulderRotation = rs;
-
+            // ── DERIVED BEND PREFS ──
             Vector3 fwdC = chestRot * Vector3.forward;
             Vector3 outC = chestRot * Vector3.right;
             Vector3 upC = chestRot * Vector3.up;
-
-            data.ElbowBendPrefLeft =
-                (fwdC * elbowBendPrefLeftWeights.x +
-                 outC * elbowBendPrefLeftWeights.y +
-                 upC * elbowBendPrefLeftWeights.z).normalized;
-
-            data.ElbowBendPrefRight =
-                (fwdC * elbowBendPrefRightWeights.x +
-                 outC * elbowBendPrefRightWeights.y +
-                 upC * elbowBendPrefRightWeights.z).normalized;
+            data.ElbowBendPrefLeft = (fwdC * elbowBendPrefLeftWeights.x
+                + outC * elbowBendPrefLeftWeights.y
+                + upC * elbowBendPrefLeftWeights.z).normalized;
+            data.ElbowBendPrefRight = (fwdC * elbowBendPrefRightWeights.x
+                + outC * elbowBendPrefRightWeights.y
+                + upC * elbowBendPrefRightWeights.z).normalized;
 
             Vector3 fwd = hipsRot * Vector3.forward;
             Vector3 outR = hipsRot * Vector3.right;
             Vector3 up = hipsRot * Vector3.up;
+            Vector3 hipsRight = hipsRot * Vector3.right;
+            data.KneeBendPrefLeft = hipsRight;
+            data.KneeBendPrefRight = hipsRight;
+            data.SpineBendNormal = (fwd * spineBendNormalWeights.x
+                + outR * spineBendNormalWeights.y
+                + up * spineBendNormalWeights.z).normalized;
 
-            // Knee bend normals: use hips right as the stable base. The hip→foot→knee
-            // triangle cross product is too unstable during fast turns.
-            // Just use hips rotation which gives a clean, stable bend plane.
-            data.KneeBendPrefLeft = (hipsRot * Vector3.right);
-            data.KneeBendPrefRight = (hipsRot * Vector3.right);
-
-            data.SpineBendNormal = (fwd * spineBendNormalWeights.x + outR * spineBendNormalWeights.y + up * spineBendNormalWeights.z).normalized;
-            // Commit & evaluate
             BasisFullIKConstraint.data = data;
-
             Builder.SyncLayers();
             PlayableGraph.Evaluate(deltaTime);
         }
@@ -771,19 +741,15 @@ namespace Basis.Scripts.Drivers
             return 1f - Mathf.Exp(-2f * Mathf.PI * Mathf.Max(0.0001f, hz) * Mathf.Max(0.000001f, dt));
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Vector3 FallbackPos(ref Vector3 state, Vector3 raw, float dt)
+        private static Vector3 FallbackPos(ref Vector3 state, Vector3 raw, float alpha)
         {
-            float strength = Mathf.Max(1f, SmoothingStrength);
-            float a = ExpAlpha(PositionSmoothingHz / strength, dt);
-            state = Vector3.LerpUnclamped(state, raw, a);
+            state = Vector3.LerpUnclamped(state, raw, alpha);
             return state;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private Quaternion FallbackRot(ref Quaternion state, Quaternion raw, float dt)
+        private static Quaternion FallbackRot(ref Quaternion state, Quaternion raw, float alpha)
         {
-            float strength = Mathf.Max(1f, SmoothingStrength);
-            float a = ExpAlpha(RotationSmoothingHz / strength, dt);
-            state = Quaternion.Slerp(state, raw, a);
+            state = Quaternion.Slerp(state, raw, alpha);
             return state;
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

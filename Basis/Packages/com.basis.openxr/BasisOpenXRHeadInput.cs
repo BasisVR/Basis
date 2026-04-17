@@ -11,6 +11,9 @@ public class BasisOpenXRHeadInput : BasisInput
     public InputActionProperty Position;
     public InputActionProperty Rotation;
 
+    private InputAction _positionAction;
+    private InputAction _rotationAction;
+
     public void Initialize(string UniqueID, string UnUniqueID, string subSystems, bool AssignTrackedRole)
     {
         InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, BasisBoneTrackedRole.CenterEye);
@@ -20,6 +23,9 @@ public class BasisOpenXRHeadInput : BasisInput
 
         Position.action.Enable();
         Rotation.action.Enable();
+
+        _positionAction = Position.action;
+        _rotationAction = Rotation.action;
 
         BasisOpenXRInputEye = gameObject.AddComponent<BasisOpenXRInputEye>();
         BasisOpenXRInputEye.Initalize();
@@ -45,8 +51,8 @@ public class BasisOpenXRHeadInput : BasisInput
     }
     public override void RenderPollData()
     {
-        ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, Position.action.ReadValue<Vector3>());
-        UnscaledDeviceCoord.rotation = Rotation.action.ReadValue<Quaternion>();
+        ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, _positionAction.ReadValue<Vector3>());
+        UnscaledDeviceCoord.rotation = _rotationAction.ReadValue<Quaternion>();
 
         ConvertToScaledDeviceCoord();
         ControlOnlyAsDevice();

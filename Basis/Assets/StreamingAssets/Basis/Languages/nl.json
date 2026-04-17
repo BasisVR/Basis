@@ -1447,6 +1447,22 @@
             "value": "Ontwikkelaarssecties"
         },
         {
+            "key": "settings.developer.streamingMeta",
+            "value": "Streaming-metagegevens (OBS)"
+        },
+        {
+            "key": "settings.developer.streamingMeta.description",
+            "value": "Biedt FPS en CCU op een alleen-loopback webserver op http://127.0.0.1:<port>/overlay.html (plak die URL in een OBS Browser-bron). Ruwe JSON beschikbaar op /stats.json. Standaard uit — bindt alleen aan localhost, nooit aan het LAN."
+        },
+        {
+            "key": "settings.developer.streamingMetaPort",
+            "value": "Streaming-metagegevens-poort"
+        },
+        {
+            "key": "settings.developer.streamingMetaPort.description",
+            "value": "TCP-poort waaraan de loopback-listener op 127.0.0.1 bindt. Standaard 9080. Wijzigingen worden onmiddellijk toegepast terwijl de listener is ingeschakeld. Ongeldige waarden vallen terug op 9080."
+        },
+        {
             "key": "settings.developer.title",
             "value": "Ontwikkelaar & Debug"
         },
@@ -1697,6 +1713,14 @@
         {
             "key": "settings.graphics.worldLod",
             "value": "Wereld LOD"
+        },
+        {
+            "key": "settings.graphics.localHeadBlendShapes",
+            "value": "Hoofd krijgt BlendShapes"
+        },
+        {
+            "key": "settings.graphics.localHeadBlendShapes.description",
+            "value": "Indien aan, weerspiegelt het lokale schaduwduplicaat van het hoofd elke frame de BlendShape-gewichten zodat het silhouet overeenkomt met je gezichtsuitdrukkingen. Uit (standaard) slaat de per-frame kopie volledig over."
         },
         {
             "key": "settings.microphone.agc",

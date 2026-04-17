@@ -260,12 +260,12 @@ public static class AssetBundleBuilder
         {
             if (InformationHashes.Count > 1)
             {
-                BasisDebug.LogError("More then a single Bundle is being built, please check what bundles your additionally building");
+                BasisDebug.LogError("More than a single Bundle is being built; check any additionally built bundles");
                 return InformationHashes[0];
             }
             else
             {
-                BasisDebug.LogError("No bundles where built, this is a massive issue!");
+                BasisDebug.LogError("No bundles were built; this is a massive issue!");
                 return new InformationHash();
             }
         }

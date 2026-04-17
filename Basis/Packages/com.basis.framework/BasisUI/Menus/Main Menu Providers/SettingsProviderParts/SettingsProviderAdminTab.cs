@@ -133,6 +133,7 @@ namespace Basis.BasisUI
             PanelButton teleportHere = PanelButton.CreateNew(actionsGroup.ContentParent);
             teleportHere.Descriptor.SetTitle(BasisLocalization.Get("settings.admin.teleportHere"));
             teleportHere.Descriptor.SetDescription(BasisLocalization.Get("settings.admin.teleportHere.description"));
+            teleportHere.ButtonComponent.interactable = false;
             GuardedClick(
                 teleportHere,
                 "Teleport player to you?",

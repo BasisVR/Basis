@@ -1,6 +1,8 @@
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.TransformBinders.BoneControl;
+using Unity.Burst;
+using Unity.Mathematics;
 using UnityEngine;
 
 /// <summary>
@@ -9,6 +11,7 @@ using UnityEngine;
 /// keeping yaw coherent down the chain and offering XZ follow for hips.
 /// </summary>
 [System.Serializable]
+[BurstCompile]
 public class BasisLocalVirtualSpineDriver
 {
     /// <summary>
@@ -50,7 +53,8 @@ public class BasisLocalVirtualSpineDriver
     /// <summary>Initialization guard.</summary>
     private bool _initialized;
 
-    // Cached T-pose segment lengths (local)
+    // Cached T-pose segment lengths (local). Recomputed when the height/scale system fires
+    // OnPlayersHeightChangedNextFrame, not every simulate tick.
     /// <summary>Length from neck→chest captured from scaled TPose.</summary>
     private float _lenNeckToChest;
     /// <summary>Length from chest→spine captured from scaled TPose.</summary>
@@ -59,6 +63,13 @@ public class BasisLocalVirtualSpineDriver
     private float _lenSpineToHips;
     /// <summary>Total neck→hips length captured from scaled TPose.</summary>
     private float _lenTotal;
+    /// <summary>tChest = lenNeckToChest / lenTotal, cached alongside lengths.</summary>
+    private float _tChest;
+    /// <summary>tSpine = (lenNeckToChest + lenChestToSpine) / lenTotal, cached alongside lengths.</summary>
+    private float _tSpine;
+
+    /// <summary>Set whenever cached lengths need to be recomputed (scale or TPose changed).</summary>
+    private bool _lengthsDirty = true;
 
     /// <summary>
     /// If true, the hips avatar-local transform will be set to the T-pose, overriding the computed hips position.
@@ -67,6 +78,7 @@ public class BasisLocalVirtualSpineDriver
     /// </summary>
     public static bool HipsFreezeToTpose = false;
     public static BasisLocalVirtualSpineDriver Instance;
+
     /// <summary>
     /// Enables the virtual overrides on all torso controls and hooks simulation callback.
     /// Safe to call multiple times.
@@ -83,6 +95,8 @@ public class BasisLocalVirtualSpineDriver
         BasisLocalBoneDriver.HipsControl.HasVirtualOverride = true;
 
         BasisLocalPlayer.Instance.OnVirtualData += OnSimulate;
+        BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnHeightChanged;
+        _lengthsDirty = true;
         _initialized = true;
     }
 
@@ -103,15 +117,13 @@ public class BasisLocalVirtualSpineDriver
             Instance = null;
         }
         BasisLocalPlayer.Instance.OnVirtualData -= OnSimulate;
+        BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnHeightChanged;
         _initialized = false;
     }
 
-    /// <summary>
-    /// Safe distance between two bone controls using scaled TPose local positions.
-    /// </summary>
-    private static float SafeDistance(BasisLocalBoneControl a, BasisLocalBoneControl b)
+    private void OnHeightChanged(BasisHeightDriver.HeightModeChange _)
     {
-        return Vector3.Distance(a.TposeLocalScaled.position, b.TposeLocalScaled.position);
+        _lengthsDirty = true;
     }
 
     /// <summary>
@@ -128,11 +140,11 @@ public class BasisLocalVirtualSpineDriver
         var spine = BasisLocalBoneDriver.SpineControl;
         var hips = BasisLocalBoneDriver.HipsControl;
 
-        // Robust segment lengths from scaled TPose
-        _lenNeckToChest = SafeDistance(neck, chest);
-        _lenChestToSpine = SafeDistance(chest, spine);
-        _lenSpineToHips = SafeDistance(spine, hips);
-        _lenTotal = Mathf.Max(1e-4f, _lenNeckToChest + _lenChestToSpine + _lenSpineToHips);
+        if (_lengthsDirty)
+        {
+            RecomputeSegmentLengths(neck, chest, spine, hips);
+            _lengthsDirty = false;
+        }
 
         float dt = Time.deltaTime;
         Matrix4x4 parentMatrix = BasisLocalPlayer.localToWorldMatrix;
@@ -140,57 +152,61 @@ public class BasisLocalVirtualSpineDriver
         // =========================
         // 1) HEAD & NECK (top cues)
         // =========================
-        head.OutGoingData.rotation = eye.OutGoingData.rotation;
+        quaternion eyeRot = eye.OutGoingData.rotation;
+        head.OutGoingData.rotation = eyeRot;
 
-        // Aim neck smoothly toward head orientation (full rotation here)
-        neck.OutGoingData.rotation = SmoothSlerp(neck.OutGoingData.rotation, head.OutGoingData.rotation, NeckRotationSpeed, dt);
+        quaternion neckCurrent = neck.OutGoingData.rotation;
+        SmoothSlerpBurst(in neckCurrent, in eyeRot, NeckRotationSpeed, dt, out quaternion neckRot);
+        neck.OutGoingData.rotation = neckRot;
 
-        // Positions for head/neck come from their tracker-driven targets + offsets
         ApplyPositionControl(head, parentMatrix, torsoLock: false);
         ApplyPositionControl(neck, parentMatrix, torsoLock: false);
 
-        Vector3 neckPosWorld = neck.OutGoingData.position;
+        float3 neckPosWorld = neck.OutGoingData.position;
 
         // ===========================================
         // 2) HIPS: build from neck and preserved span
         // ===========================================
-        // Determine a stable world up
-        Vector3 worldUp = parentMatrix.MultiplyVector(Vector3.up).normalized;
-        if (worldUp.sqrMagnitude < 1e-6f) worldUp = Vector3.up;
+        float3 rawUp = parentMatrix.MultiplyVector(Vector3.up);
+        NormalizeSafeWithFallback(in rawUp, new float3(0f, 1f, 0f), out float3 worldUp);
 
-        // Preserve total length neck→hips, except when overridden.
-        Vector3 idealHips = HipsFreezeToTpose ? hips.TposeLocalScaled.position : neckPosWorld - worldUp * _lenTotal;
+        ExtractYawBurst(in eyeRot, out quaternion headYawFromEye);
 
-        // Add small forward bias using head yaw, which also applies to the hips, except when overridden.
-        Quaternion headYaw = HipsFreezeToTpose ? Quaternion.identity : ExtractYawRotation(head.OutGoingData.rotation);
-        idealHips += (headYaw * Vector3.forward) * (HipsForwardBias * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale);
+        float3 tposeHips = hips.TposeLocalScaled.position;
+        float biasScale = HipsForwardBias * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+        float3 trackedHips = hips.Target.OutGoingData.position;
 
+        ComputeHipsPosition(
+            in neckPosWorld,
+            in worldUp,
+            _lenTotal,
+            in headYawFromEye,
+            biasScale,
+            in trackedHips,
+            HipsXZFollowBlend,
+            HipsFreezeToTpose,
+            in tposeHips,
+            out float3 hipsPos);
 
-        // Blend XZ with tracked hips for authority retention
-        Vector3 trackedHips = hips.Target.OutGoingData.position;
-        Vector3 blendedHips = idealHips;
-        if (HipsXZFollowBlend > 0f)
-        {
-            blendedHips.x = Mathf.Lerp(idealHips.x, trackedHips.x, HipsXZFollowBlend);
-            blendedHips.z = Mathf.Lerp(idealHips.z, trackedHips.z, HipsXZFollowBlend);
-        }
+        quaternion hipsRotTarget = HipsFreezeToTpose ? quaternion.identity : headYawFromEye;
+        quaternion hipsCurrent = hips.OutGoingData.rotation;
+        SmoothSlerpBurst(in hipsCurrent, in hipsRotTarget, HipsRotationSpeed, dt, out quaternion hipsSmoothed);
+        ExtractYawBurst(in hipsSmoothed, out quaternion hipsYaw);
 
-        // Hips rotation follows head yaw, damped.
-        Quaternion hipsYawTarget = headYaw;
-        hips.OutGoingData.rotation = ExtractYawRotation(SmoothSlerp(hips.OutGoingData.rotation, hipsYawTarget, HipsRotationSpeed, dt));
-        hips.OutGoingData.position = blendedHips;
+        hips.OutGoingData.rotation = hipsYaw;
+        hips.OutGoingData.position = hipsPos;
         hips.ApplyWorldAndLast(parentMatrix);
 
         // =======================================================
         // 3) Fill the middle: chest & spine positions and yaws
         // =======================================================
-        Quaternion neckYaw = ExtractYawRotation(neck.OutGoingData.rotation);
-        Quaternion hipsYaw = hips.OutGoingData.rotation; // already yaw-only
+        ExtractYawBurst(in neckRot, out quaternion neckYaw);
 
-        Vector3 neckToHips = hips.OutGoingData.position - neck.OutGoingData.position;
-        float distNeckToHips = neckToHips.magnitude;
+        float3 hipsPosReadback = hips.OutGoingData.position;
+        float3 neckPos = neck.OutGoingData.position;
+        float3 neckToHips = hipsPosReadback - neckPos;
 
-        if (distNeckToHips < 1e-5f)
+        if (math.lengthsq(neckToHips) < 1e-10f)
         {
             // Guard: fall back to tracker-driven positions
             ApplyPositionControl(chest, parentMatrix, torsoLock: true);
@@ -198,26 +214,24 @@ public class BasisLocalVirtualSpineDriver
         }
         else
         {
-            // Place along straight segment using TPose proportions
-            float tChest = Mathf.Clamp01(_lenNeckToChest / _lenTotal);
-            float tSpine = Mathf.Clamp01((_lenNeckToChest + _lenChestToSpine) / _lenTotal);
+            ComputeChainPlacement(
+                in neckPos, in hipsPosReadback,
+                _tChest, _tSpine,
+                in neckYaw, in hipsYaw,
+                out float3 chestPos, out float3 spinePos,
+                out quaternion chestYawTarget, out quaternion spineYawTarget);
 
-            Vector3 chestPos = Vector3.Lerp(neck.OutGoingData.position, hips.OutGoingData.position, tChest);
-            Vector3 spinePos = Vector3.Lerp(neck.OutGoingData.position, hips.OutGoingData.position, tSpine);
+            quaternion chestCurrent = chest.OutGoingData.rotation;
+            quaternion spineCurrent = spine.OutGoingData.rotation;
 
-            // Yaw targets blended from neck→hips
-            Quaternion chestYawTarget = Quaternion.Slerp(neckYaw, hipsYaw, tChest);
-            Quaternion spineYawTarget = Quaternion.Slerp(neckYaw, hipsYaw, tSpine);
+            SmoothSlerpBurst(in chestCurrent, in chestYawTarget, ChestRotationSpeed, dt, out quaternion chestSmoothed);
+            SmoothSlerpBurst(in spineCurrent, in spineYawTarget, SpineRotationSpeed, dt, out quaternion spineSmoothed);
+            ExtractYawBurst(in chestSmoothed, out quaternion chestYawOut);
+            ExtractYawBurst(in spineSmoothed, out quaternion spineYawOut);
 
-            // Smooth rotations
-            chest.OutGoingData.rotation = ExtractYawRotation(
-                SmoothSlerp(chest.OutGoingData.rotation, chestYawTarget, ChestRotationSpeed, dt)
-            );
-            spine.OutGoingData.rotation = ExtractYawRotation(
-                SmoothSlerp(spine.OutGoingData.rotation, spineYawTarget, SpineRotationSpeed, dt)
-            );
+            chest.OutGoingData.rotation = chestYawOut;
+            spine.OutGoingData.rotation = spineYawOut;
 
-            // Apply positions with offsets (torsoLock removes vertical offset)
             ApplyPositionWithGivenBase(chest, parentMatrix, chestPos, torsoLock: true);
             ApplyPositionWithGivenBase(spine, parentMatrix, spinePos, torsoLock: true);
         }
@@ -227,19 +241,35 @@ public class BasisLocalVirtualSpineDriver
         neck.ApplyWorldAndLast(parentMatrix);
     }
 
+    private void RecomputeSegmentLengths(BasisLocalBoneControl neck, BasisLocalBoneControl chest, BasisLocalBoneControl spine, BasisLocalBoneControl hips)
+    {
+        float3 pNeck = neck.TposeLocalScaled.position;
+        float3 pChest = chest.TposeLocalScaled.position;
+        float3 pSpine = spine.TposeLocalScaled.position;
+        float3 pHips = hips.TposeLocalScaled.position;
+
+        _lenNeckToChest = math.distance(pNeck, pChest);
+        _lenChestToSpine = math.distance(pChest, pSpine);
+        _lenSpineToHips = math.distance(pSpine, pHips);
+        _lenTotal = math.max(1e-4f, _lenNeckToChest + _lenChestToSpine + _lenSpineToHips);
+        _tChest = math.saturate(_lenNeckToChest / _lenTotal);
+        _tSpine = math.saturate((_lenNeckToChest + _lenChestToSpine) / _lenTotal);
+    }
+
     /// <summary>
     /// Applies tracker-driven position plus offset for a bone control,
     /// optionally locking vertical to TPose baseline and yaw-only rotation.
     /// </summary>
     private void ApplyPositionControl(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, bool torsoLock)
     {
-        Quaternion rot = boneControl.Target.OutGoingData.rotation;
-        if (torsoLock) rot = ExtractYawRotation(rot);
+        quaternion rot = boneControl.Target.OutGoingData.rotation;
+        if (torsoLock) { ExtractYawBurst(in rot, out quaternion yawOnly); rot = yawOnly; }
 
-        Vector3 localOffset = boneControl.ScaledOffset;
+        float3 localOffset = boneControl.ScaledOffset;
         if (torsoLock) localOffset.y = 0f;
 
-        Vector3 desired = boneControl.Target.OutGoingData.position + (rot * localOffset);
+        float3 basePos = boneControl.Target.OutGoingData.position;
+        ComposePosition(in basePos, in rot, in localOffset, out float3 desired);
         if (torsoLock) desired.y = boneControl.TposeLocalScaled.position.y;
 
         boneControl.OutGoingData.position = desired;
@@ -249,39 +279,98 @@ public class BasisLocalVirtualSpineDriver
     /// <summary>
     /// Applies position using a provided world base position and the control's yaw/offset rules.
     /// </summary>
-    private void ApplyPositionWithGivenBase(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, Vector3 basePositionWorld, bool torsoLock)
+    private void ApplyPositionWithGivenBase(BasisLocalBoneControl boneControl, Matrix4x4 parentMatrix, float3 basePositionWorld, bool torsoLock)
     {
-        Quaternion rot = boneControl.OutGoingData.rotation;
-        if (torsoLock) rot = ExtractYawRotation(rot);
+        quaternion rot = boneControl.OutGoingData.rotation;
+        if (torsoLock) { ExtractYawBurst(in rot, out quaternion yawOnly); rot = yawOnly; }
 
-        Vector3 localOffset = boneControl.ScaledOffset;
+        float3 localOffset = boneControl.ScaledOffset;
         if (torsoLock) localOffset.y = 0f;
 
-        Vector3 desired = basePositionWorld + (rot * localOffset);
+        ComposePosition(in basePositionWorld, in rot, in localOffset, out float3 desired);
         if (torsoLock) desired.y = boneControl.TposeLocalScaled.position.y;
 
         boneControl.OutGoingData.position = desired;
         boneControl.ApplyWorldAndLast(parentMatrix);
     }
 
-    /// <summary>
-    /// Spherical interpolation with speed (deg/sec equivalent) scaled by <paramref name="dt"/>.
-    /// </summary>
-    private static Quaternion SmoothSlerp(Quaternion current, Quaternion target, float speed, float dt)
+    // -----------------------------
+    // Burst-compiled static helpers
+    // -----------------------------
+
+    [BurstCompile]
+    private static void SmoothSlerpBurst(in quaternion current, in quaternion target, float speed, float dt, out quaternion result)
     {
-        float t = Mathf.Clamp01(dt * Mathf.Max(0f, speed));
-        return Quaternion.Slerp(current, target, t);
+        float t = math.saturate(dt * math.max(0f, speed));
+        result = math.slerp(current, target, t);
     }
 
-    /// <summary>
-    /// Extracts yaw-only rotation (around global up) from a full quaternion.
-    /// </summary>
-    private static Quaternion ExtractYawRotation(Quaternion rotation)
+    [BurstCompile]
+    private static void ExtractYawBurst(in quaternion rotation, out quaternion result)
     {
-        Vector3 f = rotation * Vector3.forward;
+        float3 f = math.mul(rotation, new float3(0f, 0f, 1f));
         f.y = 0f;
-        if (f.sqrMagnitude < 1e-6f) f = Vector3.forward;
-        f.Normalize();
-        return Quaternion.LookRotation(f, Vector3.up);
+        if (math.lengthsq(f) < 1e-12f) f = new float3(0f, 0f, 1f);
+        f = math.normalize(f);
+        result = quaternion.LookRotationSafe(f, new float3(0f, 1f, 0f));
+    }
+
+    [BurstCompile]
+    private static void NormalizeSafeWithFallback(in float3 v, in float3 fallback, out float3 result)
+    {
+        result = math.lengthsq(v) < 1e-6f ? fallback : math.normalize(v);
+    }
+
+    [BurstCompile]
+    private static void ComposePosition(in float3 basePos, in quaternion rot, in float3 localOffset, out float3 result)
+    {
+        result = basePos + math.mul(rot, localOffset);
+    }
+
+    [BurstCompile]
+    private static void ComputeHipsPosition(
+        in float3 neckPos,
+        in float3 worldUp,
+        float lenTotal,
+        in quaternion headYaw,
+        float biasScale,
+        in float3 trackedHips,
+        float xzBlend,
+        bool freezeToTpose,
+        in float3 tposeHips,
+        out float3 result)
+    {
+        // Match original semantics: when frozen, bias direction is world-aligned (identity yaw),
+        // not head yaw. Position base swaps to TPose but forward bias is still applied.
+        float3 hipsBase = freezeToTpose ? tposeHips : neckPos - worldUp * lenTotal;
+        quaternion biasYaw = freezeToTpose ? quaternion.identity : headYaw;
+        float3 forwardBias = math.mul(biasYaw, new float3(0f, 0f, 1f)) * biasScale;
+        float3 ideal = hipsBase + forwardBias;
+
+        if (xzBlend > 0f)
+        {
+            ideal.x = math.lerp(ideal.x, trackedHips.x, xzBlend);
+            ideal.z = math.lerp(ideal.z, trackedHips.z, xzBlend);
+        }
+        result = ideal;
+    }
+
+    [BurstCompile]
+    private static void ComputeChainPlacement(
+        in float3 neckPos,
+        in float3 hipsPos,
+        float tChest,
+        float tSpine,
+        in quaternion neckYaw,
+        in quaternion hipsYaw,
+        out float3 chestPos,
+        out float3 spinePos,
+        out quaternion chestYawTarget,
+        out quaternion spineYawTarget)
+    {
+        chestPos = math.lerp(neckPos, hipsPos, tChest);
+        spinePos = math.lerp(neckPos, hipsPos, tSpine);
+        chestYawTarget = math.slerp(neckYaw, hipsYaw, tChest);
+        spineYawTarget = math.slerp(neckYaw, hipsYaw, tSpine);
     }
 }

@@ -141,7 +141,7 @@ public static class BasisAssetBundlePipeline
             {
                 OnBuildErrorPrefab?.Invoke(ex, asset, wasModified, settings.TemporaryStorage);
                 BasisBundleErrorHandler.HandleBuildError(ex, asset, wasModified, settings.TemporaryStorage);
-                EditorUtility.DisplayDialog("Failed To Build", "Please check the console for the full issue: " + ex, "Will do");
+                EditorUtility.DisplayDialog("Failed To Build", "Please check the console for the full issue: " + ex, "OK");
             }
 
             BuildTarget buildTarget = EditorUserBuildSettings.activeBuildTarget;
@@ -203,7 +203,7 @@ public static class BasisAssetBundlePipeline
         if (allNonHumanoidBonesNamedSimilarly.Count == 0) return;
 
         var duplicateMessage = string.Join(", ", allNonHumanoidBonesNamedSimilarly.Select(transform => transform.name).Distinct().OrderBy(t => t));
-        BasisDebug.Log($"This avatar has duplicate humanoid bone names ({duplicateMessage}), we will auto-rename them to avoid an issue caused by AnimationRigging.");
+        BasisDebug.Log($"This avatar has duplicate humanoid bone names ({duplicateMessage}); they will be auto-renamed in order to avoid an issue caused by AnimationRigging.");
 
         foreach (var grouping in allNonHumanoidBonesNamedSimilarly.GroupBy(transform => transform.name))
         {

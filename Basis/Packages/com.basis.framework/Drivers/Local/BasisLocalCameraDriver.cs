@@ -96,12 +96,13 @@ namespace Basis.Scripts.Drivers
 
         /// <summary>
         /// World forward vector of the active camera instance, or zero if no instance exists.
+        /// Derived from the cached <see cref="Rotation"/> to avoid a native transform PInvoke per call.
         /// </summary>
         public static Vector3 Forward()
         {
             if (HasInstance)
             {
-                return Instance.transform.forward;
+                return Rotation * Vector3.forward;
             }
             else
             {
@@ -116,7 +117,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.up;
+                return Rotation * Vector3.up;
             }
             else
             {
@@ -131,7 +132,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.right;
+                return Rotation * Vector3.right;
             }
             else
             {

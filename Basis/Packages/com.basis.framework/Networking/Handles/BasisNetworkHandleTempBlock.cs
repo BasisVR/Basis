@@ -2,6 +2,7 @@ using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
+using BasisPermissions;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -60,6 +61,14 @@ public static class BasisNetworkHandleTempBlock
     /// </summary>
     public static async void OnRemoteTempBlockReceived(ushort senderPlayerId, bool isBlocked)
     {
+        // Admins ignore inbound temp-block mirrors — remote users can't hide themselves
+        // from a moderator by blocking them.
+        if (BasisNetworkManagement.LocalPermissions != null
+            && BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsView))
+        {
+            return;
+        }
+
         if (!BasisNetworkPlayers.Players.TryGetValue(senderPlayerId, out BasisNetworkPlayer networkPlayer))
         {
             return;
@@ -79,7 +88,7 @@ public static class BasisNetworkHandleTempBlock
             if (!remotePlayer.IsEffectivelyBlocked)
             {
                 var settings = await BasisPlayerSettingsManager.RequestPlayerSettings(remotePlayer.UUID);
-                volume = settings != null ? settings.VolumeLevel : 1f;
+                volume = settings.IsValid ? settings.VolumeLevel : 1f;
             }
             remotePlayer.NetworkReceiver.AudioReceiverModule.ChangeRemotePlayersVolumeSettings(volume);
         }
@@ -117,7 +126,7 @@ public static class BasisNetworkHandleTempBlock
             return;
         }
 
-        if (settings != null && settings.IsBlocked)
+        if (settings.IsValid && settings.IsBlocked)
         {
             SendTempBlock(networkPlayer.playerId, true);
         }
