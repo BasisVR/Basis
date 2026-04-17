@@ -13,6 +13,9 @@ namespace Cilbox
 	public class CilboxPropBasis : Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
+			// Text Mesh Pro types
+			"TMPro.*",
+
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.

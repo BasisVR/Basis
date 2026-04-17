@@ -15,6 +15,9 @@ namespace Cilbox
 	public class CilboxSceneBasis : Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
+			// Text Mesh Pro types
+			"TMPro.*",
+
 			// Basis types
 			"Basis.BasisImageDownloader",
 			"Basis.BasisNetworkBehaviour",
