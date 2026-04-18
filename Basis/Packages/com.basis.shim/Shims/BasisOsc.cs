@@ -326,9 +326,9 @@ namespace Basis.Shims
             trimmed = trimmed.TrimStart('/');
             #region GetDefaultAvatarSubscriptionPrefix
             string defaultPrefix;
-            if (TryGetOscScope(out OscScope scope, out _))
+            if (TryGetOscScope(out OscScope defaultScope, out _))
             {
-                defaultPrefix = scope == OscScope.AvatarRemote || scope == OscScope.Prop || scope == OscScope.Scene
+                defaultPrefix = defaultScope == OscScope.AvatarRemote || defaultScope == OscScope.Prop || defaultScope == OscScope.Scene
                     ? AvatarPublicPrefix
                     : AvatarParametersPrefix;
             }
