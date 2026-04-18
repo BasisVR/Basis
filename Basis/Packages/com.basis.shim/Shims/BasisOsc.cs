@@ -16,9 +16,19 @@ namespace Basis.Shims
     {
         public delegate void OscMessageEvent(OscMessage message, OscData[] arguments);
         public delegate void OscValueEvent(OscData value);
-        private const string AvatarPublishPrefix = "/avatar/parameters";
+        private const string AvatarParametersPrefix = "/avatar/parameters";
+        private const string AvatarPublicPrefix = "/avatar/public";
         private const string PropPublishPrefix = "/prop";
         private const string ScenePublishPrefix = "/scene";
+
+        private enum OscScope
+        {
+            None,
+            AvatarLocal,
+            AvatarRemote,
+            Prop,
+            Scene
+        }
 
         private readonly HashSet<string> subscribedAddresses = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> subscribedPrefixes = new HashSet<string>(StringComparer.Ordinal);
@@ -238,25 +248,7 @@ namespace Basis.Shims
                 matched = true;
             }
 
-            if (CollectPrefixCallbacks(path, ref callback, ref valueCallback))
-            {
-                matched = true;
-            }
-
-            if (!matched)
-            {
-                return;
-            }
-
-            OnMessage?.Invoke(message, message.Arguments);
-            callback?.Invoke(message, message.Arguments);
-            valueCallback?.Invoke(message.Arguments != null && message.Arguments.Length > 0 ? message.Arguments[0] : null);
-        }
-
-        private bool CollectPrefixCallbacks(string path, ref OscMessageEvent callback, ref OscValueEvent valueCallback)
-        {
-            bool matched = false;
-
+            #region CollectPrefixCallbacks
             foreach (string prefix in subscribedPrefixes)
             {
                 if (path.StartsWith(prefix, StringComparison.Ordinal))
@@ -282,11 +274,19 @@ namespace Basis.Shims
                     matched = true;
                 }
             }
+            #endregion
 
-            return matched;
+            if (!matched)
+            {
+                return;
+            }
+
+            OnMessage?.Invoke(message, message.Arguments);
+            callback?.Invoke(message, message.Arguments);
+            valueCallback?.Invoke(message.Arguments != null && message.Arguments.Length > 0 ? message.Arguments[0] : null);
         }
 
-        private static string NormalizeSubscriptionAddress(string address)
+        private string NormalizeSubscriptionAddress(string address)
         {
             if (string.IsNullOrWhiteSpace(address))
             {
@@ -296,21 +296,69 @@ namespace Basis.Shims
             string trimmed = address.Trim();
             if (trimmed.StartsWith("/", StringComparison.Ordinal))
             {
-                return trimmed;
+                #region NormalizeAbsoluteSubscriptionAddress
+                if (!TryGetOscScope(out OscScope scope, out _))
+                {
+                    return trimmed;
+                }
+
+                if (scope == OscScope.AvatarRemote)
+                {
+                    #region NormalizeRemoteAvatarAbsoluteSubscriptionAddress
+                    if (IsPathWithinPrefix(trimmed, AvatarParametersPrefix))
+                    {
+                        return AvatarPublicPrefix + trimmed.Substring(AvatarParametersPrefix.Length);
+                    }
+
+                    return IsPathWithinPrefix(trimmed, AvatarPublicPrefix) || !IsPathWithinPrefix(trimmed, "/avatar")
+                        ? trimmed
+                        : null;
+                    #endregion
+                }
+
+                bool restrictAvatarSubscriptions = scope == OscScope.Prop || scope == OscScope.Scene;
+                return !restrictAvatarSubscriptions || IsPathWithinPrefix(trimmed, AvatarPublicPrefix) || !IsPathWithinPrefix(trimmed, "/avatar")
+                    ? trimmed
+                    : null;
+                #endregion
             }
 
             trimmed = trimmed.TrimStart('/');
-            return trimmed.Length == 0 ? AvatarPublishPrefix : AvatarPublishPrefix + "/" + trimmed;
+            #region GetDefaultAvatarSubscriptionPrefix
+            string defaultPrefix;
+            if (TryGetOscScope(out OscScope scope, out _))
+            {
+                defaultPrefix = scope == OscScope.AvatarRemote || scope == OscScope.Prop || scope == OscScope.Scene
+                    ? AvatarPublicPrefix
+                    : AvatarParametersPrefix;
+            }
+            else
+            {
+                defaultPrefix = AvatarParametersPrefix;
+            }
+            #endregion
+
+            return trimmed.Length == 0 ? defaultPrefix : defaultPrefix + "/" + trimmed;
         }
 
         private string ResolvePublishAddress(string address)
         {
-            if (string.IsNullOrWhiteSpace(address) || !TryGetPublishPrefix(out string prefix))
+            if (string.IsNullOrWhiteSpace(address) || !TryGetOscScope(out OscScope scope, out string prefix))
             {
                 return null;
             }
 
             string trimmed = address.Trim();
+            if (scope == OscScope.AvatarRemote)
+            {
+                return null;
+            }
+
+            if (scope == OscScope.AvatarLocal && IsPathWithinPrefix(trimmed, AvatarPublicPrefix))
+            {
+                return trimmed;
+            }
+
             if (trimmed.StartsWith(prefix, StringComparison.Ordinal) &&
                 (trimmed.Length == prefix.Length || trimmed[prefix.Length] == '/'))
             {
@@ -321,15 +369,28 @@ namespace Basis.Shims
             return trimmed.Length == 0 ? prefix : prefix + "/" + trimmed;
         }
 
-        private bool TryGetPublishPrefix(out string prefix)
+        private static bool IsPathWithinPrefix(string path, string prefix)
         {
+            return path.StartsWith(prefix, StringComparison.Ordinal) &&
+                   (path.Length == prefix.Length || path[prefix.Length] == '/');
+        }
+
+        private bool TryGetOscScope(out OscScope scope, out string prefix)
+        {
+            return TryGetOscScope(this, out scope, out prefix);
+        }
+
+        private static bool TryGetOscScope(BasisOsc shim, out OscScope scope, out string prefix)
+        {
+            scope = OscScope.None;
             prefix = null;
 
-            for (Transform current = transform; current != null; current = current.parent)
+            for (Transform current = shim.transform; current != null; current = current.parent)
             {
                 BasisProp prop = current.GetComponent<BasisProp>();
                 if (prop != null)
                 {
+                    scope = OscScope.Prop;
                     prefix = PropPublishPrefix + "/" + GetScopedContentIdentifier(prop) + "/parameters";
                     return true;
                 }
@@ -337,6 +398,7 @@ namespace Basis.Shims
                 BasisScene sceneOnTransform = current.GetComponent<BasisScene>();
                 if (sceneOnTransform != null)
                 {
+                    scope = OscScope.Scene;
                     prefix = ScenePublishPrefix + "/" + GetScopedContentIdentifier(sceneOnTransform) + "/parameters";
                     return true;
                 }
@@ -344,18 +406,15 @@ namespace Basis.Shims
                 BasisAvatar avatar = current.GetComponent<BasisAvatar>();
                 if (avatar != null)
                 {
-                    if (!avatar.IsOwnedLocally)
-                    {
-                        return false;
-                    }
-
-                    prefix = AvatarPublishPrefix;
+                    scope = avatar.IsOwnedLocally ? OscScope.AvatarLocal : OscScope.AvatarRemote;
+                    prefix = avatar.IsOwnedLocally ? AvatarParametersPrefix : null;
                     return true;
                 }
             }
 
-            if (BasisScene.SceneTraversalFindBasisScene(gameObject, out BasisScene scene))
+            if (BasisScene.SceneTraversalFindBasisScene(shim.gameObject, out BasisScene scene))
             {
+                scope = OscScope.Scene;
                 prefix = ScenePublishPrefix + "/" + GetScopedContentIdentifier(scene) + "/parameters";
                 return true;
             }
@@ -367,36 +426,28 @@ namespace Basis.Shims
         {
             if (content != null && content.TryGetNetworkGUIDIdentifier(out string identifier) && !string.IsNullOrWhiteSpace(identifier))
             {
-                return SanitizePathSegment(identifier);
+                #region SanitizePathSegment
+                StringBuilder builder = new StringBuilder(identifier.Length);
+                for (int i = 0; i < identifier.Length; i++)
+                {
+                    char c = identifier[i];
+                    if (char.IsLetterOrDigit(c) || c == '-' || c == '_')
+                    {
+                        builder.Append(c);
+                    }
+                    else
+                    {
+                        builder.Append('_');
+                        builder.Append(((int)c).ToString("x4"));
+                    }
+                }
+
+                return builder.ToString();
+                #endregion
             }
 
             uint fallbackId = content != null ? unchecked((uint)content.GetInstanceID()) : 0u;
             return "local-" + fallbackId.ToString("x8");
-        }
-
-        private static string SanitizePathSegment(string raw)
-        {
-            if (string.IsNullOrWhiteSpace(raw))
-            {
-                return "unnamed";
-            }
-
-            StringBuilder builder = new StringBuilder(raw.Length);
-            for (int i = 0; i < raw.Length; i++)
-            {
-                char c = raw[i];
-                if (char.IsLetterOrDigit(c) || c == '-' || c == '_')
-                {
-                    builder.Append(c);
-                }
-                else
-                {
-                    builder.Append('_');
-                    builder.Append(((int)c).ToString("x4"));
-                }
-            }
-
-            return builder.ToString();
         }
 
         private static void AddCallback<TDelegate>(Dictionary<string, TDelegate> callbacks, string key, TDelegate callback)

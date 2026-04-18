@@ -376,6 +376,70 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void BasisOsc_RemoteAvatarSubscriptions_OnlyReceiveAvatarPublic()
+        {
+            GameObject go = new GameObject("RemoteAvatarSubscriber");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.Subscribe("/avatar/parameters/Blocked");
+
+                Assert.That(shim.IsSubscribed("/avatar/public/Blocked"), Is.True);
+                Assert.That(shim.IsSubscribed("/avatar/parameters/Blocked"), Is.True);
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Blocked", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/Blocked", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOsc_RemoteAvatarPrefixSubscriptions_OnlyReceiveAvatarPublic()
+        {
+            GameObject go = new GameObject("RemoteAvatarPrefixSubscriber");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.SubscribePrefix("/avatar/parameters/");
+
+                Assert.That(shim.IsPrefixSubscribed("/avatar/public/"), Is.True);
+                Assert.That(shim.IsPrefixSubscribed("/avatar/parameters/"), Is.True);
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void BasisOsc_PropPublishesWithInstanceScopedPath()
         {
             DestroySceneInstance();
@@ -443,6 +507,70 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void BasisOsc_PropSubscriptions_OnlyReceiveAvatarPublic()
+        {
+            GameObject go = new GameObject("PropSubscriber");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                go.AddComponent<BasisProp>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.Subscribe("Face/Smile");
+                shim.Subscribe("/avatar/parameters/Blocked");
+
+                Assert.That(shim.IsSubscribed("/avatar/public/Face/Smile"), Is.True);
+                Assert.That(shim.IsSubscribed("/avatar/parameters/Face/Smile"), Is.False);
+                Assert.That(shim.IsSubscribed("/avatar/parameters/Blocked"), Is.False);
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/Face/Smile", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOsc_SceneSubscriptions_OnlyReceiveAvatarPublic()
+        {
+            GameObject go = new GameObject("SceneSubscriber");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                go.AddComponent<BasisScene>();
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.SubscribePrefix("FT/");
+                shim.SubscribePrefix("/avatar/parameters/");
+
+                Assert.That(shim.IsPrefixSubscribed("/avatar/public/FT/"), Is.True);
+                Assert.That(shim.IsPrefixSubscribed("/avatar/parameters/"), Is.False);
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
         public void BasisOsc_ResolvePublishAddress_RequiresSegmentBoundary()
         {
             GameObject go = new GameObject("PropPublisher");
@@ -489,6 +617,31 @@ namespace HVR.Basis.Comms.Tests
                 string json = (string)responseResolver.Invoke(sceneInstance, new object[] { "/scene/scene-one" });
                 StringAssert.Contains("\"FULL_PATH\": \"/scene/scene-one\"", json);
                 StringAssert.Contains("\"Ambient\"", json);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOsc_LocalAvatarCanPublishToAvatarPublicNamespace()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("AvatarPublicPublisher");
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = true;
+
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                shim.PublishValue("/avatar/public/Status", OscData.String("shareable"));
+
+                object leaf = ResolveNode(GetQueryRoot(), "avatar", "public", "Status");
+                Assert.That(leaf, Is.Not.Null);
+                Assert.That((string)leaf.GetType().GetField("FULL_PATH").GetValue(leaf), Is.EqualTo("/avatar/public/Status"));
             }
             finally
             {
