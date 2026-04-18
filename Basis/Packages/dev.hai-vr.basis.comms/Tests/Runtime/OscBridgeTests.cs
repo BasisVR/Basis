@@ -366,11 +366,68 @@ namespace HVR.Basis.Comms.Tests
                 BasisOsc shim = go.AddComponent<BasisOsc>();
                 shim.PublishValue("Blocked", OscData.Float32(1f));
 
-                Assert.That(GetSceneInstanceField(GetServerType()).GetValue(null), Is.Null);
+                Assert.That(GetSceneInstanceField(GetServerType()).GetValue(null), Is.Not.Null);
+                Assert.That(ResolveNode(GetQueryRoot(), "avatar", "parameters", "Blocked"), Is.Null);
+                Assert.That(ResolveNode(GetQueryRoot(), "avatar", "public", "Blocked"), Is.Null);
             }
             finally
             {
                 Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOsc_OnEnable_InitializesOscAcquisitionServer_WithoutFaceTracking()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("OscShimOnly");
+
+            try
+            {
+                Assert.That(GetSceneInstanceField(GetServerType()).GetValue(null), Is.Null);
+
+                go.AddComponent<BasisOsc>();
+
+                Assert.That(GetSceneInstanceField(GetServerType()).GetValue(null), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void OSCAcquisition_ReusesExistingOscAcquisitionServer()
+        {
+            DestroySceneInstance();
+            GameObject avatarRoot = new GameObject("AvatarWithOscAcquisition");
+
+            try
+            {
+                BasisOscService.EnsureInitialized();
+
+                System.Type serverType = GetServerType();
+                FieldInfo sceneInstanceField = GetSceneInstanceField(serverType);
+                MonoBehaviour existingServer = (MonoBehaviour)sceneInstanceField.GetValue(null);
+                Assert.That(existingServer, Is.Not.Null);
+
+                BasisAvatar avatar = avatarRoot.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = true;
+                avatarRoot.AddComponent<OSCAcquisition>();
+
+                avatar.NotifyAvatarReady(true);
+
+                MonoBehaviour resolvedServer = (MonoBehaviour)sceneInstanceField.GetValue(null);
+                Assert.That(resolvedServer, Is.SameAs(existingServer));
+
+                Object[] allServers = Resources.FindObjectsOfTypeAll(serverType);
+                Assert.That(allServers.Length, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(avatarRoot);
                 DestroySceneInstance();
             }
         }

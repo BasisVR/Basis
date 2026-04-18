@@ -42,6 +42,7 @@ namespace Basis.Shims
 
         private void OnEnable()
         {
+            BasisOscService.EnsureInitialized();
             BasisOscService.MessageReceived -= HandleMessage;
             BasisOscService.MessageReceived += HandleMessage;
         }

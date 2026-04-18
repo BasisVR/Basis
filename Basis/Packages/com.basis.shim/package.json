@@ -7,12 +7,5 @@
     "name": "BasisVR",
     "url": "https://github.com/BasisVR"
   },
-  "samples": [
-    {
-      "displayName": "OSC Subscription Cilbox Example",
-      "description": "Example cilbox script that subscribes to an avatar OSC parameter using both explicit and implicit addresses.",
-      "path": "Samples~/OSC Subscription Example"
-    }
-  ],
   "hideInEditor": false
 }

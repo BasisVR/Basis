@@ -7,6 +7,11 @@ namespace HVR.Basis.Comms
     {
         public static event Action<OscMessage> MessageReceived;
 
+        public static void EnsureInitialized()
+        {
+            _ = OSCAcquisitionServer.SceneInstance;
+        }
+
         internal static void Publish(OscMessage message)
         {
             MessageReceived?.Invoke(message);
