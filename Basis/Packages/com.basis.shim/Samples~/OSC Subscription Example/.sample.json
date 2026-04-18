@@ -1,0 +1,4 @@
+{
+  "displayName": "OSC Subscription Cilbox Example",
+  "description": "Shows a cilboxable MonoBehaviour subscribing to /avatar/parameters/test both explicitly and implicitly."
+}

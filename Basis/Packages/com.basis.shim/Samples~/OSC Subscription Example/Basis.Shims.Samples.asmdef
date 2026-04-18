@@ -1,0 +1,18 @@
+{
+    "name": "Basis.Shims.Samples",
+    "rootNamespace": "Basis.Shims.Samples",
+    "references": [
+        "BasisShims",
+        "Cilbox",
+        "HVR.Basis.Comms"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
