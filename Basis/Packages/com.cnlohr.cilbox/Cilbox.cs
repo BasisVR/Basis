@@ -8,6 +8,7 @@ using System.Collections.Specialized;
 using System.Collections;
 using System.Runtime.InteropServices;
 using System.Reflection;
+using System.Runtime.Serialization;
 using System.Threading; // At runtime, only used for a lock (Monitor)
 
 #if UNITY_EDITOR
@@ -224,6 +225,7 @@ namespace Cilbox
 			Span<StackElement> stackBuffer = stackBufferIn.AsSpan();
 			Span<StackElement> parameters = parametersIn.AsSpan();
 			Stack<int> handlerClauseStack = null; // don't allocate unless necessary
+			Dictionary<CilboxHeapInstance, CilboxProxy> transientProxyMap = null;
 
 #if UNITY_EDITOR
 			perfMarkerInterpret.Begin();
@@ -459,6 +461,7 @@ spiperf.Begin();
 								callpar_se[numFields-ik-1] = se;
 								object o = se.AsObject(box);
 								Type t = pa[numFields-ik-1].ParameterType;
+								o = CoerceInternalObjectForNativeType( o, t );
 
 								if( t.IsByRef )
 								{
@@ -540,6 +543,7 @@ spiperf.Begin();
 								{
 									callthis = se.o;
 								}
+								callthis = CoerceInternalObjectForNativeType( callthis, mi.DeclaringType );
 								constrainedMeta = null;
 
 								if (callthis == null)
@@ -1603,6 +1607,37 @@ spiperf.End();
 				}
 
 				return null;
+			}
+
+			object CoerceInternalObjectForNativeType( object candidate, Type targetType )
+			{
+				if( candidate == null || targetType == null )
+					return candidate;
+
+				if( targetType.IsByRef )
+				{
+					targetType = targetType.GetElementType();
+					if( targetType == null )
+						return candidate;
+				}
+
+				if( candidate is CilboxHeapInstance heap && typeof(CilboxProxy).IsAssignableFrom( targetType ) )
+				{
+					transientProxyMap ??= new Dictionary<CilboxHeapInstance, CilboxProxy>();
+					if( !transientProxyMap.TryGetValue( heap, out CilboxProxy proxy ) )
+					{
+						proxy = (CilboxProxy)FormatterServices.GetUninitializedObject( typeof(CilboxProxy) );
+						proxy.className = heap.className;
+						proxy.cls = heap.cls;
+						proxy.box = heap.cls?.box;
+						proxy.fields = heap.fields;
+						transientProxyMap[heap] = proxy;
+					}
+
+					return proxy;
+				}
+
+				return candidate;
 			}
 
 			CilboxHeapInstance CreateDefaultInternalObject( CilboxClass cls )
