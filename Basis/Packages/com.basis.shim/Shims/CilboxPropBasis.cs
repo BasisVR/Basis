@@ -77,6 +77,7 @@ namespace Cilbox
 			"UnityEngine.AnimatorTransitionInfo",
             "UnityEngine.AudioClip",
 			"UnityEngine.AudioSource",
+			"UnityEngine.Behaviour",
 			"UnityEngine.Color",
 			"UnityEngine.Component",
 			"UnityEngine.Collider",
@@ -176,6 +177,10 @@ namespace Cilbox
 		static Dictionary<Type, HashSet<string>> methodWhitelist = new Dictionary<Type, HashSet<string>>()
 		{
 			{ typeof(UnityEngine.MonoBehaviour),       new HashSet<string>{ ".ctor" } },
+			{ typeof(UnityEngine.Behaviour),       new HashSet<string>{
+				typeof(UnityEngine.Behaviour).GetProperty(nameof(UnityEngine.Behaviour.enabled)).GetGetMethod().Name,
+				typeof(UnityEngine.Behaviour).GetProperty(nameof(UnityEngine.Behaviour.enabled)).GetSetMethod().Name,
+			} },
 			{ typeof(UnityEngine.Events.UnityAction),  new HashSet<string>{ ".ctor" } },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable), new HashSet<string> { } },
 			{ typeof(Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject), new HashSet<string> { } },
