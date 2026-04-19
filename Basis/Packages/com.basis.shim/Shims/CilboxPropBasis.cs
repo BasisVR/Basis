@@ -28,10 +28,13 @@ namespace Cilbox
 			"Basis.Scripts.Networking.NetworkedAvatar.BasisNetworkPlayer",
 			"Basis.Shims.*",
             "Basis.BasisImageDownloader",
+			"Basis.IBasisImageDownload",
+
 			// Cilbox types
 			"Cilbox.CilboxPublicUtils",
 
 			// System types
+			"System.Action",
 			"System.Array",
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
