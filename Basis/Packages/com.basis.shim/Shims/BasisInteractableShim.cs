@@ -5,9 +5,10 @@ using UnityEngine;
 
 // This is temporarily a clone of ExampleButtonInteractable.
 
-namespace Basis
+namespace Basis.Shims
 {
-	public class BasisInteractableShim : BasisInteractableObject
+    [Obsolete("Use the direct interactable component instead. This is a shim for the old system and should be removed at a later point.")]
+	public class BasisInteractableShim : BasisInteractableObject // Need to remove at a later point.
 	{
 		// public BasisObjectSyncNetworking syncNetworking;
 

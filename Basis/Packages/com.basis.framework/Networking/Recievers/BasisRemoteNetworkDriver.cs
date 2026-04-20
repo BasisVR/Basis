@@ -1,4 +1,7 @@
+using Basis.Network.Core.Compression;
+using Basis.Scripts.Networking;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Collections;
@@ -6,156 +9,306 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Jobs;
+
+/// <summary>
+/// Remote network driver that:
+/// 1) Interpolates prev->target pose (pos/scale/rot) per remote player
+/// 2) 1€-filters pose position + rotation per player
+/// 3) Interpolates bone rotation deltas (nlerp) and 1€-filters them per bone
+/// 4) Computes scaled body position for the avatar root
+///
+/// Replaces muscle-based interpolation with per-bone quaternion delta interpolation.
+/// </summary>
 public static class BasisRemoteNetworkDriver
 {
-    public const int FixedCapacity = 1024;
+    public const int FixedCapacity = ushort.MaxValue;
+    public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 54
+
+    // ─── INPUTS (prev/target) ───
     static NativeArray<float3> _prevPositions;
     static NativeArray<float3> _targetPositions;
+
     static NativeArray<float3> _prevScales;
     static NativeArray<float3> _targetScales;
+
     static NativeArray<quaternion> _prevRotations;
     static NativeArray<quaternion> _targetRotations;
-    static NativeArray<float> _interpolationTimes;
+
+    static NativeArray<double> _interpolationTimes;
+    static NativeArray<double> _deltaTimes;
+
+    // ─── RAW INTERPOLATED OUTPUTS ───
     static NativeArray<float3> _outPositions;
     static NativeArray<float3> _outScales;
     static NativeArray<quaternion> _outRotations;
-    static NativeArray<float> _humanScales; 
+
+    // ─── FILTERED POSE OUTPUTS ───
+    static NativeArray<float3> _filteredPositions;
+    static NativeArray<quaternion> _filteredRotations;
+
+    static NativeArray<byte> _poseFilterSeeded;
+    static NativeArray<float3> _posPrevRaw;
+    static NativeArray<float3> _posPrevFiltered;
+    static NativeArray<float3> _posPrevDerivFiltered;
+    static NativeArray<quaternion> _rotPrevRaw;
+    static NativeArray<quaternion> _rotPrevFiltered;
+    static NativeArray<float2> _rotDerivFilter;
+
+    // ─── SCALED BODY ───
+    static NativeArray<float> _humanScales;
     static NativeArray<float3> _scaledBodyPositions;
-    // Muscles (flattened: players * muscles)
-    static NativeArray<float> _prevMuscles;
-    static NativeArray<float> _targetMuscles;
-    static NativeArray<float> _outMuscles;
-    // 1€ filter buffers (flattened: players * muscles)
-    static NativeArray<float> euroValuesOutput;
-    static NativeArray<float2> positionFilters;
-    static NativeArray<float2> derivativeFilters;
+
+    // ─── SCALE CHANGE ───
+    static NativeArray<bool> _HasScaleChange;
+    static NativeArray<float3> _lastAppliedScales;
+
+    // ─── BONE ROTATIONS (replaces muscles) ───
+    // Flat arrays: [player0_bone0, ..., player0_bone53, player1_bone0, ...]
+    static NativeArray<quaternion> _prevBoneRotations;
+    static NativeArray<quaternion> _targetBoneRotations;
+    static NativeArray<quaternion> _outBoneRotations;
+    static NativeArray<quaternion> _filteredBoneRotations;
+
+    // 1€ filter state per bone (flattened players * bones)
+    static NativeArray<quaternion> _bonePrevRaw;
+    static NativeArray<quaternion> _bonePrevFiltered;
+    static NativeArray<float2> _boneDerivFilter;
+
+    // LOD skip flag per player
+    static NativeArray<byte> _skipBones;
+
     // State
-    static int _muscleCount;
     static bool _initialized;
-    static int _activeCount; // highest index written + 1
     static Allocator _allocator = Allocator.Persistent;
+
     public static JobHandle oneEuroJob;
-    // Parameters for Euro filter
-    public static float MinCutoff = 0.05f;
-    public static float Beta = 0.01f;
-    public static float DerivativeCutoff = 1.0f;
-    /// <summary>Initialize the driver with a fixed capacity of 1024. Must be called before SetInputs/Compute/Apply/GetOutputs.</summary>
-    public static void Initialize(int muscleCount, Allocator allocator = Allocator.Persistent)
+
+    // ─── CACHED READ POINTERS ───
+    static IntPtr _ptrScaleChange;
+    static IntPtr _ptrFilteredRotations;
+    static IntPtr _ptrScaledBodyPositions;
+    static IntPtr _ptrFilteredBoneRotations;
+    static IntPtr _ptrOutScales;
+
+    // ─── CACHED WRITE POINTERS ───
+    static IntPtr _ptrInterpolationTimes;
+    static IntPtr _ptrDeltaTimes;
+    static IntPtr _ptrHumanScales;
+    static IntPtr _ptrPrevPositions;
+    static IntPtr _ptrTargetPositions;
+    static IntPtr _ptrPrevScales;
+    static IntPtr _ptrTargetScales;
+    static IntPtr _ptrPrevRotations;
+    static IntPtr _ptrTargetRotations;
+    static IntPtr _ptrPrevBoneRotations;
+    static IntPtr _ptrTargetBoneRotations;
+    static IntPtr _ptrPoseFilterSeeded;
+    static IntPtr _ptrSkipBones;
+
+    /// <summary>
+    /// Mark a player index to skip bone interpolation on the next Compute().
+    /// Called from SimulateNetworkApply when PoseSkipCounter > 0.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void SetSkipMuscles(int index, bool skip)
     {
-        if (_initialized)
-        {
-            return;
-        }
+        if (_initialized && (uint)index < FixedCapacity)
+            ((byte*)(void*)_ptrSkipBones)[index] = skip ? (byte)1 : (byte)0;
+    }
 
-        if (muscleCount <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(muscleCount));
-        }
+    // ─── TUNING ───
+    // Pose (position + body rotation) smoothing via 1€ filter.
+    // Higher MinCutoff = less smoothing = more responsive.
+    // The interpolation already produces smooth output; the filter only needs to
+    // absorb minor network timing jitter, not reshape the trajectory.
+    // At 60fps: MinCutoff=90 → alpha≈0.91 (light smoothing, no visible lag).
+    public static float PoseMinCutoff = 90.0f;
+    public static float PoseBeta = 0.15f;
+    public static float PoseDerivativeCutoff = 1.5f;
 
+    public static void Initialize(Allocator allocator = Allocator.Persistent)
+    {
+        if (_initialized) return;
         _allocator = allocator;
-        _muscleCount = muscleCount;
-        _activeCount = 0;
-
         AllocateAll(FixedCapacity);
 
-        // Seed defaults
-        for (int Index = 0; Index < FixedCapacity; Index++)
+        for (int i = 0; i < FixedCapacity; i++)
         {
-            _prevScales[Index] = new float3(1, 1, 1);
-            _targetScales[Index] = new float3(1, 1, 1);
-            _prevRotations[Index] = quaternion.identity;
-            _targetRotations[Index] = quaternion.identity;
-            _interpolationTimes[Index] = 0f;
-
-            // New: default human scale to 1
-            _humanScales[Index] = 1;
-            _scaledBodyPositions[Index] = float3.zero;
+            _prevPositions[i] = float3.zero;
+            _targetPositions[i] = float3.zero;
+            _prevScales[i] = new float3(1, 1, 1);
+            _targetScales[i] = new float3(1, 1, 1);
+            _prevRotations[i] = quaternion.identity;
+            _targetRotations[i] = quaternion.identity;
+            _interpolationTimes[i] = 0.0;
+            _deltaTimes[i] = 1.0 / 60.0;
+            _outPositions[i] = float3.zero;
+            _outScales[i] = new float3(1, 1, 1);
+            _outRotations[i] = quaternion.identity;
+            _filteredPositions[i] = float3.zero;
+            _filteredRotations[i] = quaternion.identity;
+            _poseFilterSeeded[i] = 0;
+            _posPrevRaw[i] = float3.zero;
+            _posPrevFiltered[i] = float3.zero;
+            _posPrevDerivFiltered[i] = float3.zero;
+            _rotPrevRaw[i] = quaternion.identity;
+            _rotPrevFiltered[i] = quaternion.identity;
+            _rotDerivFilter[i] = float2.zero;
+            _HasScaleChange[i] = false;
+            _lastAppliedScales[i] = new float3(1, 1, 1);
+            _humanScales[i] = 1f;
+            _scaledBodyPositions[i] = float3.zero;
         }
 
-        // Seed muscles/filter state
-        int flat = FixedCapacity * _muscleCount;
+        int flat = FixedCapacity * BoneCount;
         for (int c = 0; c < flat; c++)
         {
-            _prevMuscles[c] = 0f;
-            _targetMuscles[c] = 0f;
-            _outMuscles[c] = 0f;
-            euroValuesOutput[c] = 0f;
-            positionFilters[c] = float2.zero;
-            derivativeFilters[c] = float2.zero;
+            _prevBoneRotations[c] = quaternion.identity;
+            _targetBoneRotations[c] = quaternion.identity;
+            _outBoneRotations[c] = quaternion.identity;
+            _filteredBoneRotations[c] = quaternion.identity;
+            _bonePrevRaw[c] = quaternion.identity;
+            _bonePrevFiltered[c] = quaternion.identity;
+            _boneDerivFilter[c] = float2.zero;
         }
 
         _initialized = true;
     }
 
-    /// <summary>Dispose all native allocations. Call on shutdown/domain unload.</summary>
     public static void Shutdown()
     {
-        if (!_initialized)
-        {
-            return;
-        }
-
-        // Make sure no jobs are still using our arrays
-        if (!oneEuroJob.IsCompleted)
-        {
-            oneEuroJob.Complete();
-        }
-
+        if (!_initialized) return;
+        oneEuroJob.Complete();
         DisposeAll();
-        _activeCount = 0;
-        _muscleCount = 0;
         _initialized = false;
     }
 
-    /// <summary>Write inputs for a given index (0..FixedCapacity-1) for this frame.</summary>
-    public static bool SetInputs( int index, float humanScale, float3 prevPos, float3 targetPos, float3 prevScale, float3 targetScale, quaternion prevRot, quaternion targetRot, float interpolationTime, NativeArray<float> prevMuscles, NativeArray<float> targetMuscles)
+    public static unsafe void BeginWrite()
     {
-        if ((uint)index >= FixedCapacity)
-        {
-            BasisDebug.LogError($"index {index} is out of range [0,{FixedCapacity - 1}]", BasisDebug.LogTag.Remote);
-            return false;
-        }
-
-        _humanScales[index] = humanScale;
-        _prevPositions[index] = prevPos;
-        _targetPositions[index] = targetPos;
-        _prevScales[index] = prevScale;
-        _targetScales[index] = targetScale;
-        _prevRotations[index] = prevRot;
-        _targetRotations[index] = targetRot;
-        _interpolationTimes[index] = interpolationTime;
-
-        // Flattened write: [index * MuscleCount .. (index+1) * MuscleCount)
-        int baseOffset = index * _muscleCount;
-        FastCopyMuscles(prevMuscles, 0, _prevMuscles, baseOffset, _muscleCount);
-        FastCopyMuscles(targetMuscles, 0, _targetMuscles, baseOffset, _muscleCount);
-
-        // Advance active count if needed
-        if (index + 1 > _activeCount)
-        {
-            _activeCount = index + 1;
-        }
-        return true;
+        if (!_initialized) return;
+        _ptrInterpolationTimes = (IntPtr)_interpolationTimes.GetUnsafePtr();
+        _ptrDeltaTimes = (IntPtr)_deltaTimes.GetUnsafePtr();
+        _ptrHumanScales = (IntPtr)_humanScales.GetUnsafePtr();
+        _ptrPrevPositions = (IntPtr)_prevPositions.GetUnsafePtr();
+        _ptrTargetPositions = (IntPtr)_targetPositions.GetUnsafePtr();
+        _ptrPrevScales = (IntPtr)_prevScales.GetUnsafePtr();
+        _ptrTargetScales = (IntPtr)_targetScales.GetUnsafePtr();
+        _ptrPrevRotations = (IntPtr)_prevRotations.GetUnsafePtr();
+        _ptrTargetRotations = (IntPtr)_targetRotations.GetUnsafePtr();
+        _ptrPrevBoneRotations = (IntPtr)_prevBoneRotations.GetUnsafePtr();
+        _ptrTargetBoneRotations = (IntPtr)_targetBoneRotations.GetUnsafePtr();
+        _ptrPoseFilterSeeded = (IntPtr)_poseFilterSeeded.GetUnsafePtr();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    static unsafe void FastCopyMuscles(NativeArray<float> src, int srcStart, NativeArray<float> dst, int dstStart, int count)
+    public static unsafe void ResetPoseFilter(int index)
     {
-        var bytes = (long)count * sizeof(float);
-        var srcPtr = (byte*)src.GetUnsafeReadOnlyPtr() + (long)srcStart * sizeof(float);
-        var dstPtr = (byte*)dst.GetUnsafePtr() + (long)dstStart * sizeof(float);
-        UnsafeUtility.MemCpy(dstPtr, srcPtr, bytes);
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        ((byte*)(void*)_ptrPoseFilterSeeded)[index] = 0;
     }
-    /// <summary>Run the batched jobs once for the current frame.</summary>
+
+    /// <summary>
+    /// Seeds all scale-tracking state for a player slot to a known-good value.
+    /// Call at calibration time with the latest stashed network scale so the
+    /// first UpdateAllAvatarsJob tick (before SetFrameInputs has seeded the
+    /// real interp window) computes outScale == seed, sees
+    /// HasScaleChange == false, and does NOT overwrite the value the caller
+    /// already wrote directly to animator.transform.localScale.
+    ///
+    /// Without this seed: prev/target scales retain the last writer's value
+    /// (init (1,1,1) or a reused slot's previous player), the first apply tick
+    /// clobbers the correct calibration-time scale, and the avatar flickers at
+    /// (1,1,1) until enough buffers arrive to seed the real interp window.
+    ///
+    /// Completes any in-flight oneEuroJob first: UpdateAllAvatarsJob reads
+    /// _prevScales and writes _outScales/_lastAppliedScales/_HasScaleChange,
+    /// so mutating those arrays mid-flight is a real data race (not just a
+    /// safety-handle complaint). This is a slow path (avatar calibration), so
+    /// the extra Complete() is noise.
+    /// </summary>
+    public static unsafe void SeedScaleState(int index, float3 seed)
+    {
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        oneEuroJob.Complete();
+        ((float3*)_prevScales.GetUnsafePtr())[index] = seed;
+        ((float3*)_targetScales.GetUnsafePtr())[index] = seed;
+        ((float3*)_outScales.GetUnsafePtr())[index] = seed;
+        ((float3*)_lastAppliedScales.GetUnsafePtr())[index] = seed;
+        ((byte*)_HasScaleChange.GetUnsafePtr())[index] = 0;
+    }
+
+    /// <summary>
+    /// Sentinel reset used when we don't yet have a real network scale to seed
+    /// with (slot-reuse cleanup at Initialize time). Forces the next
+    /// UpdateAllAvatarsJob tick to flag HasScaleChange so whatever value
+    /// propagates through the pipeline gets applied to the transform.
+    /// Completes any in-flight oneEuroJob first for the same reason as
+    /// <see cref="SeedScaleState"/>.
+    /// Prefer <see cref="SeedScaleState"/> when you have the stashed scale.
+    /// </summary>
+    public static unsafe void ResetScaleTracking(int index)
+    {
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        oneEuroJob.Complete();
+        ((float3*)_lastAppliedScales.GetUnsafePtr())[index] = new float3(float.NegativeInfinity);
+        ((byte*)_HasScaleChange.GetUnsafePtr())[index] = 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void SetFrameTiming(int index, double interpolationTime, double deltaTimeSeconds)
+    {
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        ((double*)(void*)_ptrInterpolationTimes)[index] = interpolationTime;
+        ((double*)(void*)_ptrDeltaTimes)[index] = deltaTimeSeconds;
+    }
+
+    /// <summary>
+    /// Write prev/target frame inputs for a given player index.
+    /// Now accepts bone rotation arrays instead of muscle arrays.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void SetFrameInputs(
+        int index,
+        float humanScale,
+        float3 prevPos, float3 targetPos,
+        float3 prevScale, float3 targetScale,
+        quaternion prevRot, quaternion targetRot,
+        NativeArray<quaternion> prevBoneRots, NativeArray<quaternion> targetBoneRots)
+    {
+        if (!_initialized) return;
+        if ((uint)index >= FixedCapacity) return;
+        ((float*)(void*)_ptrHumanScales)[index] = humanScale;
+        ((float3*)(void*)_ptrPrevPositions)[index] = prevPos;
+        ((float3*)(void*)_ptrTargetPositions)[index] = targetPos;
+        ((float3*)(void*)_ptrPrevScales)[index] = prevScale;
+        ((float3*)(void*)_ptrTargetScales)[index] = targetScale;
+        ((quaternion*)(void*)_ptrPrevRotations)[index] = prevRot;
+        ((quaternion*)(void*)_ptrTargetRotations)[index] = targetRot;
+
+        int bytes = BoneCount * UnsafeUtility.SizeOf<quaternion>();
+        int baseOffset = index * BoneCount;
+        quaternion* srcPrev = (quaternion*)prevBoneRots.GetUnsafeReadOnlyPtr();
+        quaternion* srcTarget = (quaternion*)targetBoneRots.GetUnsafeReadOnlyPtr();
+        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrPrevBoneRotations + baseOffset, srcPrev, bytes);
+        UnsafeUtility.MemCpy((quaternion*)(void*)_ptrTargetBoneRotations + baseOffset, srcTarget, bytes);
+    }
+
+    /// <summary>Schedule jobs for the current frame (does not complete them).</summary>
     public static void Compute()
     {
-        int num = _activeCount;
-        if (num <= 0)
-        {
-            return;
-        }
+        if (!_initialized) return;
+        if (BasisNetworkPlayers.ReceiverCount == 0) return;
 
+        oneEuroJob.Complete();
+
+        int num = BasisNetworkPlayers.LargestNetworkReceiverID + 1;
+        num = math.clamp(num, 0, FixedCapacity);
+
+        // 1) Raw interpolation (pos/scale/rot)
         var avatarJob = new UpdateAllAvatarsJob
         {
             PreviousPositions = _prevPositions,
@@ -165,297 +318,509 @@ public static class BasisRemoteNetworkDriver
             PreviousRotations = _prevRotations,
             TargetRotations = _targetRotations,
             InterpolationTimes = _interpolationTimes,
+            HasScaleChange = _HasScaleChange,
+            LastAppliedScales = _lastAppliedScales,
             OutputPositions = _outPositions,
             OutputScales = _outScales,
             OutputRotations = _outRotations
         }.Schedule(num, 128);
 
-        // Precompute scaled body position with guarded divide (Burst)
+        // 2) Pose filtering (position + rotation) per player
+        JobHandle poseFilterJob = new FilterPoseOneEuroJob
+        {
+            InputPositions = _outPositions,
+            InputRotations = _outRotations,
+            OutputPositions = _filteredPositions,
+            OutputRotations = _filteredRotations,
+            DeltaTimeSeconds = _deltaTimes,
+            PoseFilterSeeded = _poseFilterSeeded,
+            PosPrevRaw = _posPrevRaw,
+            PosPrevFiltered = _posPrevFiltered,
+            PosPrevDerivFiltered = _posPrevDerivFiltered,
+            RotPrevRaw = _rotPrevRaw,
+            RotPrevFiltered = _rotPrevFiltered,
+            RotDerivFilter = _rotDerivFilter,
+            MinCutoff = PoseMinCutoff,
+            Beta = PoseBeta,
+            DerivativeCutoff = PoseDerivativeCutoff
+        }.Schedule(num, 128, avatarJob);
+
+        // 3) Scaled body position
         var scaledBodyJob = new ComputeScaledBodyJob
         {
-            OutputPositions = _outPositions,
+            OutputPositions = _filteredPositions,
             OutputScales = _outScales,
             HumanScales = _humanScales,
             ScaledBodyPositions = _scaledBodyPositions
-        }.Schedule(num, 128, avatarJob);
+        }.Schedule(num, 128, poseFilterJob);
 
-        // Interpolate muscles across players * muscles (flattened)
-        JobHandle musclesJob = new UpdateAllAvatarMusclesJob
+        // 4) Bone rotation interpolation (nlerp per bone) — replaces muscle lerp
+        JobHandle boneInterpJob = new InterpolateBoneRotationsJob
         {
-            PreviousMuscles = _prevMuscles,
-            TargetMuscles = _targetMuscles,
-            InterpolationTimes = _interpolationTimes, // index-based per "player"
-            OutputMuscles = _outMuscles,
-            MuscleCountPerAvatar = _muscleCount
-        }.Schedule(num * _muscleCount, 128, avatarJob);
+            PreviousBones = _prevBoneRotations,
+            TargetBones = _targetBoneRotations,
+            InterpolationTimes = _interpolationTimes,
+            SkipBones = _skipBones,
+            OutputBones = _outBoneRotations,
+            BoneCountPerAvatar = BoneCount
+        }.Schedule(num * BoneCount, 128, avatarJob);
 
-        // 1€ filter: read interpolated muscles, write filtered output
-        JobHandle euroJobHandle = new BasisOneEuroFilterParallelJob
+        // 5) 1€ filter on bone rotations
+        JobHandle boneFilterJob = new FilterBoneRotationsOneEuroJob
         {
-            InputValues = _outMuscles,          // raw/interpolated input per (index,muscle)
-            OutputValues = euroValuesOutput,    // filtered output
-            DeltaTime = _interpolationTimes,    // per-index dt / interpolation t
-            MinCutoff = MinCutoff,
-            Beta = Beta,
-            DerivativeCutoff = DerivativeCutoff,
-            PositionFilters = positionFilters,
-            DerivativeFilters = derivativeFilters,
-            MuscleCountPerAvatar = _muscleCount
-        }.Schedule(num * _muscleCount, 128, musclesJob);
+            InputBones = _outBoneRotations,
+            OutputBones = _filteredBoneRotations,
+            DeltaTimeSeconds = _deltaTimes,
+            SkipBones = _skipBones,
+            PrevRaw = _bonePrevRaw,
+            PrevFiltered = _bonePrevFiltered,
+            DerivFilter = _boneDerivFilter,
+            MinCutoff = BasisNetworkManagement.MinCutoff,
+            Beta = BasisNetworkManagement.Beta,
+            DerivativeCutoff = BasisNetworkManagement.DerivativeCutoff,
+            BoneCountPerAvatar = BoneCount
+        }.Schedule(num * BoneCount, 128, boneInterpJob);
 
-        // Combine all deps so Apply() has a single fence
-        oneEuroJob = JobHandle.CombineDependencies(euroJobHandle, scaledBodyJob);
+        oneEuroJob = JobHandle.CombineDependencies(boneFilterJob, scaledBodyJob);
     }
 
-    /// <summary>Completes all scheduled work for this frame.</summary>
+    /// <summary>Complete scheduled jobs for the current frame.</summary>
     public static void Apply()
     {
-        if (!_initialized)
+        if (!_initialized) return;
+        oneEuroJob.Complete();
+    }
+
+    public static unsafe void BeginRead()
+    {
+        if (!_initialized) return;
+        _ptrScaleChange = (IntPtr)_HasScaleChange.GetUnsafeReadOnlyPtr();
+        _ptrFilteredRotations = (IntPtr)_filteredRotations.GetUnsafeReadOnlyPtr();
+        _ptrFilteredPositions = (IntPtr)_filteredPositions.GetUnsafeReadOnlyPtr();
+        _ptrScaledBodyPositions = (IntPtr)_scaledBodyPositions.GetUnsafeReadOnlyPtr();
+        _ptrFilteredBoneRotations = (IntPtr)_filteredBoneRotations.GetUnsafeReadOnlyPtr();
+        _ptrOutScales = (IntPtr)_outScales.GetUnsafeReadOnlyPtr();
+        _ptrSkipBones = (IntPtr)_skipBones.GetUnsafePtr();
+    }
+
+    // ─── OUTPUT GETTERS ───
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void GetPositionOutput(int index, out float3 outPos) => outPos = _filteredPositions[index];
+
+    /// <summary>
+    /// Overrides the filtered hips position and rotation for a player so that
+    /// BulkCopyHipsAndScale (and thus ApplyHipsJob) picks up the override
+    /// instead of the interpolated network data.
+    /// Must be called after Apply() and before Schedule().
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static void SetFilteredHipsOverride(int index, float3 position, quaternion rotation)
+    {
+        if (!_initialized || (uint)index >= FixedCapacity) return;
+        _filteredPositions[index] = position;
+        _filteredRotations[index] = rotation;
+    }
+
+    /// <summary>
+    /// Bulk-copy hips position, rotation, scale, and scale-change flag for a set of players.
+    /// Used by RemoteBoneJobSystem to populate job data without per-element indexing.
+    /// playerKeys[i] → internal SoA index; data is written to dst arrays at index i.
+    /// </summary>
+    public static unsafe void BulkCopyHipsAndScale(
+        int[] playerKeys, int count,
+        NativeArray<float3> dstPos, NativeArray<quaternion> dstRot,
+        NativeArray<float3> dstScale, NativeArray<byte> dstScaleChanged)
+    {
+        if (!_initialized || count == 0) return;
+
+        float3* srcPos = (float3*)_ptrFilteredPositions;
+        quaternion* srcRot = (quaternion*)_ptrFilteredRotations;
+        float3* srcScale = (float3*)_ptrOutScales;
+        bool* srcChange = (bool*)_ptrScaleChange;
+
+        float3* dp = (float3*)dstPos.GetUnsafePtr();
+        quaternion* dr = (quaternion*)dstRot.GetUnsafePtr();
+        float3* ds = (float3*)dstScale.GetUnsafePtr();
+        byte* dc = (byte*)dstScaleChanged.GetUnsafePtr();
+
+        for (int i = 0; i < count; i++)
         {
+            int idx = playerKeys[i];
+            dp[i] = srcPos[idx];
+            dr[i] = srcRot[idx];
+            ds[i] = srcScale[idx];
+            dc[i] = srcChange[idx] ? (byte)1 : (byte)0;
+        }
+    }
+
+    static IntPtr _ptrFilteredPositions;
+
+    /// <summary>
+    /// Returns a raw pointer to the filtered bone rotation deltas for a player.
+    /// Avoids NativeSlice allocation overhead. Caller must ensure index is valid.
+    /// Must be called after Apply() completes (i.e. after BeginRead()).
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe quaternion* GetFilteredBoneRotationsPtr(int index)
+    {
+        if (!_initialized || (uint)index >= FixedCapacity)
+            return null;
+        return (quaternion*)(void*)_ptrFilteredBoneRotations + index * BoneCount;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void GetScaleOutput(int index, out float3 outScale)
+    {
+        if (!_initialized || (uint)index >= FixedCapacity) { outScale = new float3(1, 1, 1); return; }
+        outScale = ((float3*)(void*)_ptrOutScales)[index];
+    }
+
+    /// <summary>
+    /// Returns interpolated+filtered body transform outputs (hips position/rotation, scale change).
+    /// Bone rotation deltas are no longer copied here — they're read directly by
+    /// RemoteBoneJobSystem via GetFilteredBoneRotationsPtr().
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static unsafe void GetBoneRotationOutputs(
+        int index,
+        out bool outScale,
+        out quaternion outBodyRot,
+        out float3 bodyPosition)
+    {
+        if (!_initialized || (uint)index >= FixedCapacity)
+        {
+            outScale = false;
+            outBodyRot = quaternion.identity;
+            bodyPosition = float3.zero;
             return;
         }
 
-        oneEuroJob.Complete(); // also fences scaledBody + transform jobs via combined deps
+        outScale = ((bool*)(void*)_ptrScaleChange)[index];
+        outBodyRot = ((quaternion*)(void*)_ptrFilteredRotations)[index];
+        bodyPosition = ((float3*)(void*)_ptrScaledBodyPositions)[index];
     }
 
-    /// <summary>Read back the computed outputs for an index after Apply().</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void GetOutputs_NoAlloc(int index,out float3 outPos,out float3 outScale,out quaternion outRot,out float3 BodyPosition,float[] outMuscles)
-    {
-        outPos = _outPositions[index];
-        outScale = _outScales[index];
-        outRot = _outRotations[index];
-
-        int baseOffset = index * _muscleCount;
-
-        unsafe
-        {
-            // source: NativeArray<float> (contiguous)
-            float* src = (float*)euroValuesOutput.GetUnsafeReadOnlyPtr() + baseOffset;
-
-            // dest: managed float[] pinned just for the copy
-            fixed (float* dst = outMuscles)
-            {
-                UnsafeUtility.MemCpy(dst, src, _muscleCount * sizeof(float));
-            }
-        }
-        BodyPosition = _scaledBodyPositions[index];
-    }
+    // ─── MEMORY ───
 
     static void AllocateAll(int capacity)
     {
-        // Transform data
         _prevPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _prevRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _targetRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-        _interpolationTimes = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.ClearMemory);
-
+        _interpolationTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+        _deltaTimes = new NativeArray<double>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _outRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
-
-        // New: human scale + scaled body
+        _filteredPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _filteredRotations = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _poseFilterSeeded = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
+        _posPrevRaw = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _posPrevFiltered = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _posPrevDerivFiltered = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _rotPrevRaw = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _rotPrevFiltered = new NativeArray<quaternion>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _rotDerivFilter = new NativeArray<float2>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _humanScales = new NativeArray<float>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
         _scaledBodyPositions = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _HasScaleChange = new NativeArray<bool>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _lastAppliedScales = new NativeArray<float3>(capacity, _allocator, NativeArrayOptions.UninitializedMemory);
+        _skipBones = new NativeArray<byte>(capacity, _allocator, NativeArrayOptions.ClearMemory);
 
-        // Muscles (flattened)
-        int flat = capacity * _muscleCount;
-        _prevMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _targetMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        _outMuscles = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-
-        // Euro filter buffers (flattened)
-        euroValuesOutput = new NativeArray<float>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        positionFilters = new NativeArray<float2>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
-        derivativeFilters = new NativeArray<float2>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        int flat = capacity * BoneCount;
+        _prevBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _targetBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _outBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _filteredBoneRotations = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _bonePrevRaw = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _bonePrevFiltered = new NativeArray<quaternion>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
+        _boneDerivFilter = new NativeArray<float2>(flat, _allocator, NativeArrayOptions.UninitializedMemory);
     }
 
     static void DisposeAll()
     {
-        // Dispose safely
-        if (_prevPositions.IsCreated) _prevPositions.Dispose();
-        if (_targetPositions.IsCreated) _targetPositions.Dispose();
-        if (_prevScales.IsCreated) _prevScales.Dispose();
-        if (_targetScales.IsCreated) _targetScales.Dispose();
-        if (_prevRotations.IsCreated) _prevRotations.Dispose();
-        if (_targetRotations.IsCreated) _targetRotations.Dispose();
-        if (_interpolationTimes.IsCreated) _interpolationTimes.Dispose();
-
-        if (_outPositions.IsCreated) _outPositions.Dispose();
-        if (_outScales.IsCreated) _outScales.Dispose();
-        if (_outRotations.IsCreated) _outRotations.Dispose();
-
-        if (_humanScales.IsCreated) _humanScales.Dispose();
-        if (_scaledBodyPositions.IsCreated) _scaledBodyPositions.Dispose();
-
-        if (_prevMuscles.IsCreated) _prevMuscles.Dispose();
-        if (_targetMuscles.IsCreated) _targetMuscles.Dispose();
-        if (_outMuscles.IsCreated) _outMuscles.Dispose();
-
-        if (euroValuesOutput.IsCreated) euroValuesOutput.Dispose();
-        if (positionFilters.IsCreated) positionFilters.Dispose();
-        if (derivativeFilters.IsCreated) derivativeFilters.Dispose();
+        void D<T>(ref NativeArray<T> a) where T : struct { if (a.IsCreated) a.Dispose(); }
+        D(ref _prevPositions); D(ref _targetPositions);
+        D(ref _prevScales); D(ref _targetScales);
+        D(ref _prevRotations); D(ref _targetRotations);
+        D(ref _interpolationTimes); D(ref _deltaTimes);
+        D(ref _outPositions); D(ref _outScales); D(ref _outRotations);
+        D(ref _filteredPositions); D(ref _filteredRotations);
+        D(ref _poseFilterSeeded);
+        D(ref _posPrevRaw); D(ref _posPrevFiltered); D(ref _posPrevDerivFiltered);
+        D(ref _rotPrevRaw); D(ref _rotPrevFiltered); D(ref _rotDerivFilter);
+        D(ref _humanScales); D(ref _scaledBodyPositions);
+        D(ref _HasScaleChange); D(ref _lastAppliedScales); D(ref _skipBones);
+        D(ref _prevBoneRotations); D(ref _targetBoneRotations);
+        D(ref _outBoneRotations); D(ref _filteredBoneRotations);
+        D(ref _bonePrevRaw); D(ref _bonePrevFiltered); D(ref _boneDerivFilter);
     }
-    /*
- * BasicOneEuroFilterParallelJob.cs
- * Author: Dario Mazzanti (dario.mazzanti@iit.it), 2016
- *
- * This Unity C# utility is based on the C++ implementation of the OneEuroFilter algorithm by Nicolas Roussel (http://www.lifl.fr/~casiez/1euro/OneEuroFilter.cc)
- * More info on the 1€ filter by Géry Casiez at http://www.lifl.fr/~casiez/1euro/
- *
- */
-    [BurstCompile]
-    public struct BasisOneEuroFilterParallelJob : IJobParallelFor
-    {
-        // Input signal (flattened: players * muscles)
-        [ReadOnly] public NativeArray<float> InputValues;
 
-        // Output signal (flattened: players * muscles)
-        [WriteOnly]
-        public NativeArray<float> OutputValues;
-
-        // Per-player deltaTime (or sampling period proxy). Length == numPlayers
-        [ReadOnly]
-        public NativeArray<float> DeltaTime;
-
-        // Filter state per flattened channel (same length as OutputValues)
-        public NativeArray<float2> PositionFilters;   // x = previous input, y = previous output
-        public NativeArray<float2> DerivativeFilters; // x = previous derivative input, y = previous derivative output
-
-        // Parameters
-        public float MinCutoff;
-        public float Beta;
-        public float DerivativeCutoff;
-
-        // Stride to recover the player index from the flattened channel index
-        // i.e., the number of muscles per avatar
-        [ReadOnly]
-        public int MuscleCountPerAvatar;
-
-        public void Execute(int index)
-        {
-            int playerIndex = MuscleCountPerAvatar > 0 ? (index / MuscleCountPerAvatar) : 0;
-
-            float dt = DeltaTime[playerIndex];
-            if (dt <= 0f) dt = 1e-3f; // guard
-
-            float frequency = 1.0f / dt;
-            float inputValue = InputValues[index];
-
-            float prevFiltered = PositionFilters[index].y;
-            float prevRaw = PositionFilters[index].x;
-
-            float dValue = (inputValue - prevRaw) * frequency;
-
-            float alphaD = Alpha(DerivativeCutoff, frequency);
-            float prevDerivFiltered = DerivativeFilters[index].y;
-            float edValue = alphaD * dValue + (1.0f - alphaD) * prevDerivFiltered;
-
-            float cutoff = MinCutoff + Beta * Mathf.Abs(edValue);
-
-            float alphaX = Alpha(cutoff, frequency);
-            float filtered = alphaX * inputValue + (1.0f - alphaX) * prevFiltered;
-
-            OutputValues[index] = filtered;
-
-            PositionFilters[index] = new float2(inputValue, filtered);
-            DerivativeFilters[index] = new float2(dValue, edValue);
-        }
-
-        private static float Alpha(float cutoff, float frequency)
-        {
-            float te = 1f / frequency;
-            float tau = 1f / (2f * math.PI * math.max(cutoff, 1e-4f));
-            return 1f / (1f + tau / te);
-        }
-    }
+    // ─── JOBS ───
 
     [BurstCompile]
     public struct UpdateAllAvatarsJob : IJobParallelFor
     {
         [ReadOnly] public NativeArray<float3> PreviousPositions;
         [ReadOnly] public NativeArray<float3> TargetPositions;
-
         [ReadOnly] public NativeArray<float3> PreviousScales;
         [ReadOnly] public NativeArray<float3> TargetScales;
-
         [ReadOnly] public NativeArray<quaternion> PreviousRotations;
         [ReadOnly] public NativeArray<quaternion> TargetRotations;
-
-        [ReadOnly] public NativeArray<float> InterpolationTimes;
-
-        [WriteOnly]
-        public NativeArray<float3> OutputPositions;
-        [WriteOnly]
-        public NativeArray<float3> OutputScales;
-        [WriteOnly]
-        public NativeArray<quaternion> OutputRotations;
+        [ReadOnly] public NativeArray<double> InterpolationTimes;
+        [WriteOnly] public NativeArray<float3> OutputPositions;
+        [WriteOnly] public NativeArray<float3> OutputScales;
+        [WriteOnly] public NativeArray<quaternion> OutputRotations;
+        public NativeArray<bool> HasScaleChange;
+        public NativeArray<float3> LastAppliedScales;
 
         public void Execute(int index)
         {
-            float t = InterpolationTimes[index];
-
+            float t = (float)InterpolationTimes[index];
+            if (!math.isfinite(t)) t = 0f;
+            t = math.clamp(t, 0f, 1f);
             OutputPositions[index] = math.lerp(PreviousPositions[index], TargetPositions[index], t);
-            OutputScales[index] = math.lerp(PreviousScales[index], TargetScales[index], t);
-            OutputRotations[index] = math.slerp(PreviousRotations[index], TargetRotations[index], t);
+            float3 outScale = math.lerp(PreviousScales[index], TargetScales[index], t);
+            OutputScales[index] = outScale;
+            OutputRotations[index] = math.normalize(math.nlerp(PreviousRotations[index], TargetRotations[index], t));
+            const float scaleEpsSq = 1e-10f;
+            bool changed = math.lengthsq(outScale - LastAppliedScales[index]) > scaleEpsSq;
+            HasScaleChange[index] = changed;
+            if (changed)
+            {
+                LastAppliedScales[index] = outScale;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Per-bone quaternion interpolation via nlerp. Replaces the old muscle lerp job.
+    /// Handles all players×bones in a single flat array for maximum parallelism.
+    /// </summary>
+    [BurstCompile]
+    public struct InterpolateBoneRotationsJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<quaternion> PreviousBones;
+        [ReadOnly] public NativeArray<quaternion> TargetBones;
+        [ReadOnly] public NativeArray<double> InterpolationTimes;
+        [ReadOnly] public NativeArray<byte> SkipBones;
+        [WriteOnly] public NativeArray<quaternion> OutputBones;
+        public int BoneCountPerAvatar;
+
+        public void Execute(int index)
+        {
+            int playerIndex = index / BoneCountPerAvatar;
+            if (SkipBones[playerIndex] != 0)
+            {
+                OutputBones[index] = PreviousBones[index];
+                return;
+            }
+            float t = (float)InterpolationTimes[playerIndex];
+            t = math.clamp(t, 0f, 1f);
+
+            quaternion prev = PreviousBones[index];
+            quaternion target = TargetBones[index];
+
+            // Ensure shortest path
+            if (math.dot(prev.value, target.value) < 0f)
+                target.value = -target.value;
+
+            OutputBones[index] = math.normalize(math.nlerp(prev, target, t));
+        }
+    }
+
+    /// <summary>
+    /// 1€ filter for per-bone quaternion deltas, using angular velocity for adaptive cutoff.
+    /// Identical approach to the existing body-rotation filter but applied per bone.
+    /// </summary>
+    [BurstCompile]
+    public struct FilterBoneRotationsOneEuroJob : IJobParallelFor
+    {
+        [ReadOnly] public NativeArray<quaternion> InputBones;
+        [WriteOnly] public NativeArray<quaternion> OutputBones;
+        [ReadOnly] public NativeArray<double> DeltaTimeSeconds;
+        [ReadOnly] public NativeArray<byte> SkipBones;
+
+        public NativeArray<quaternion> PrevRaw;
+        public NativeArray<quaternion> PrevFiltered;
+        public NativeArray<float2> DerivFilter;
+
+        public float MinCutoff;
+        public float Beta;
+        public float DerivativeCutoff;
+        public int BoneCountPerAvatar;
+
+        public void Execute(int index)
+        {
+            int playerIndex = index / BoneCountPerAvatar;
+            if (SkipBones[playerIndex] != 0)
+            {
+                OutputBones[index] = PrevFiltered[index];
+                return;
+            }
+
+            double dt = math.max(DeltaTimeSeconds[playerIndex], 1e-3);
+            double freq = math.rcp(dt);
+
+            quaternion rawQ = math.normalizesafe(InputBones[index], quaternion.identity);
+            quaternion prevRawQ = PrevRaw[index];
+            quaternion prevFiltQ = PrevFiltered[index];
+
+            // First sample: seed filter state
+            if (math.lengthsq(prevRawQ.value) < 0.5f)
+            {
+                PrevRaw[index] = rawQ;
+                PrevFiltered[index] = rawQ;
+                DerivFilter[index] = float2.zero;
+                OutputBones[index] = rawQ;
+                return;
+            }
+
+            // Angular speed between consecutive raw samples
+            quaternion qDelta = math.mul(rawQ, math.conjugate(prevRawQ));
+            if (qDelta.value.w < 0f) qDelta.value = -qDelta.value;
+            float w = math.clamp(qDelta.value.w, -1f, 1f);
+            float angle = 2f * math.acos(w);
+            double omega = (double)angle * freq;
+
+            float2 rdf = DerivFilter[index];
+            double alphaDR = Alpha(DerivativeCutoff, freq);
+            double edOmega = alphaDR * omega + (1.0 - alphaDR) * (double)rdf.y;
+            rdf.x = (float)omega;
+            rdf.y = (float)edOmega;
+            DerivFilter[index] = rdf;
+
+            double cutoffR = MinCutoff + Beta * math.abs(edOmega);
+            double alphaQ = Alpha(cutoffR, freq);
+
+            // Ensure shortest path for nlerp
+            if (math.dot(prevFiltQ.value, rawQ.value) < 0f)
+                rawQ.value = -rawQ.value;
+
+            quaternion filtQ = math.normalize(math.nlerp(prevFiltQ, rawQ, (float)alphaQ));
+
+            OutputBones[index] = filtQ;
+            PrevRaw[index] = rawQ;
+            PrevFiltered[index] = filtQ;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static double Alpha(double cutoff, double frequency)
+        {
+            double te = math.rcp(frequency);
+            double tau = math.rcp(2.0 * math.PI * math.max(cutoff, 1e-4));
+            return math.rcp(1.0 + tau / te);
         }
     }
 
     [BurstCompile]
-    public struct UpdateAllAvatarMusclesJob : IJobParallelFor
+    public struct FilterPoseOneEuroJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<float> PreviousMuscles; // Flattened array
-        [ReadOnly] public NativeArray<float> TargetMuscles;
-        [ReadOnly] public NativeArray<float> InterpolationTimes;
-        [WriteOnly]
-        public NativeArray<float> OutputMuscles;
-        public int MuscleCountPerAvatar;
+        [ReadOnly] public NativeArray<float3> InputPositions;
+        [ReadOnly] public NativeArray<quaternion> InputRotations;
+        [WriteOnly] public NativeArray<float3> OutputPositions;
+        [WriteOnly] public NativeArray<quaternion> OutputRotations;
+        [ReadOnly] public NativeArray<double> DeltaTimeSeconds;
+        public NativeArray<byte> PoseFilterSeeded;
+        public NativeArray<float3> PosPrevRaw;
+        public NativeArray<float3> PosPrevFiltered;
+        public NativeArray<float3> PosPrevDerivFiltered;
+        public NativeArray<quaternion> RotPrevRaw;
+        public NativeArray<quaternion> RotPrevFiltered;
+        public NativeArray<float2> RotDerivFilter;
+        public float MinCutoff;
+        public float Beta;
+        public float DerivativeCutoff;
 
-        public void Execute(int index)
+        public void Execute(int playerIndex)
         {
-            int playerIndex = index / MuscleCountPerAvatar;
-            float t = InterpolationTimes[playerIndex];
-            OutputMuscles[index] = math.lerp(PreviousMuscles[index], TargetMuscles[index], t);
+            double dt = math.max(DeltaTimeSeconds[playerIndex], 1e-3);
+            double freq = math.rcp(dt);
+            float3 rawPos = InputPositions[playerIndex];
+            quaternion rawRot = math.normalize(InputRotations[playerIndex]);
+
+            if (PoseFilterSeeded[playerIndex] == 0)
+            {
+                PoseFilterSeeded[playerIndex] = 1;
+                PosPrevRaw[playerIndex] = rawPos;
+                PosPrevFiltered[playerIndex] = rawPos;
+                PosPrevDerivFiltered[playerIndex] = float3.zero;
+                RotPrevRaw[playerIndex] = rawRot;
+                RotPrevFiltered[playerIndex] = rawRot;
+                RotDerivFilter[playerIndex] = float2.zero;
+                OutputPositions[playerIndex] = rawPos;
+                OutputRotations[playerIndex] = rawRot;
+                return;
+            }
+
+            // Position 1€
+            float3 prevRaw = PosPrevRaw[playerIndex];
+            float3 prevFiltered = PosPrevFiltered[playerIndex];
+            float3 prevDerivFiltered = PosPrevDerivFiltered[playerIndex];
+            float3 dValue = (rawPos - prevRaw) * (float)freq;
+            double alphaD = Alpha(DerivativeCutoff, freq);
+            float3 edValue = (float)alphaD * dValue + (1f - (float)alphaD) * prevDerivFiltered;
+            float3 cutoff = MinCutoff + Beta * math.abs(edValue);
+            float3 alphaX = new float3((float)Alpha(cutoff.x, freq), (float)Alpha(cutoff.y, freq), (float)Alpha(cutoff.z, freq));
+            float3 filteredPos = alphaX * rawPos + (new float3(1f) - alphaX) * prevFiltered;
+            PosPrevRaw[playerIndex] = rawPos;
+            PosPrevFiltered[playerIndex] = filteredPos;
+            PosPrevDerivFiltered[playerIndex] = edValue;
+            OutputPositions[playerIndex] = filteredPos;
+
+            // Rotation 1€
+            quaternion prevRawQ = RotPrevRaw[playerIndex];
+            quaternion prevFiltQ = RotPrevFiltered[playerIndex];
+            quaternion qDelta = math.mul(rawRot, math.conjugate(prevRawQ));
+            if (qDelta.value.w < 0f) qDelta.value = -qDelta.value;
+            float w = math.clamp(qDelta.value.w, -1f, 1f);
+            float angle = 2f * math.acos(w);
+            double omega = (double)angle * freq;
+            float2 rdf = RotDerivFilter[playerIndex];
+            double alphaDR = Alpha(DerivativeCutoff, freq);
+            double edOmega = alphaDR * omega + (1.0 - alphaDR) * (double)rdf.y;
+            rdf.x = (float)omega;
+            rdf.y = (float)edOmega;
+            RotDerivFilter[playerIndex] = rdf;
+            double cutoffR = MinCutoff + Beta * math.abs(edOmega);
+            double alphaQ = Alpha(cutoffR, freq);
+            quaternion filtQ = math.normalize(math.nlerp(prevFiltQ, rawRot, (float)alphaQ));
+            OutputRotations[playerIndex] = filtQ;
+            RotPrevRaw[playerIndex] = rawRot;
+            RotPrevFiltered[playerIndex] = filtQ;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static double Alpha(double cutoff, double frequency)
+        {
+            double te = math.rcp(frequency);
+            double tau = math.rcp(2.0 * math.PI * math.max(cutoff, 1e-4));
+            return math.rcp(1.0 + tau / te);
         }
     }
 
-    /// <summary>Guarded divide + scaled body position (Burst).</summary>
     [BurstCompile]
     public struct ComputeScaledBodyJob : IJobParallelFor
     {
-        [ReadOnly] public NativeArray<float3> OutputPositions; // from UpdateAllAvatarsJob
-        [ReadOnly] public NativeArray<float3> OutputScales;    // from UpdateAllAvatarsJob
-        [ReadOnly] public NativeArray<float> HumanScales;     // per avatar
-
+        [ReadOnly] public NativeArray<float3> OutputPositions;
+        [ReadOnly] public NativeArray<float3> OutputScales;
+        [ReadOnly] public NativeArray<float> HumanScales;
         [WriteOnly] public NativeArray<float3> ScaledBodyPositions;
 
         public void Execute(int Index)
         {
             const float eps = 1e-6f;
-
             float3 applyScale = OutputScales[Index];
-
-            // Sanitize baseScale: avoid 0 / NaN / Inf before reciprocal
             float baseScale = HumanScales[Index];
             bool baseBad = !math.isfinite(baseScale) | (math.abs(baseScale) <= eps);
-            // If bad, fall back to 1.0; else use reciprocal
             float invBase = math.select(math.rcp(baseScale), 1f, baseBad);
-
-            // Use float3 everywhere (avoid Vector3 in Burst jobs)
-            float3 scale = new float3(invBase); // equivalent to 1 / baseScale if valid
-
-            // Per-component guard for applyScale (also handle NaN/Inf there)
             bool3 validApply = math.isfinite(applyScale) & (math.abs(applyScale) > eps);
-
-            // If valid, divide; otherwise just use the base scale
-            float3 safeDiv = math.select(scale, scale / applyScale, validApply);
-
-            // Optional: clamp to avoid exploding values if inputs are extreme
-            // safeDiv = math.clamp(safeDiv, -1e6f, 1e6f);
-
+            float3 safe = new float3(invBase);
+            float3 safeDiv = math.select(safe, safe / applyScale, validApply);
             ScaledBodyPositions[Index] = OutputPositions[Index] * safeDiv;
         }
     }

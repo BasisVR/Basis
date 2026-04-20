@@ -1,10 +1,14 @@
+using Basis;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk;
+using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking;
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -13,7 +17,8 @@ using static BundledContentHolder;
 using static SerializableBasis;
 public static class BasisNetworkSpawnItem
 {
-    public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool Persist, out LocalLoadResource localLoadResource)
+    private static CancellationTokenSource _loadCts = new CancellationTokenSource();
+    public static bool RequestSceneLoad(string UnlockPassword, string CombinedURL, bool Persist, bool Admin, out LocalLoadResource localLoadResource, byte loadStrategy = 0)
     {
         if (string.IsNullOrEmpty(CombinedURL) || string.IsNullOrEmpty(UnlockPassword))
         {
@@ -22,7 +27,7 @@ public static class BasisNetworkSpawnItem
             return false;
         }
 
-        BasisDebug.Log("Requesting scene load...", BasisDebug.LogTag.Networking);
+        BasisDebug.Log($"Requesting scene load (strategy={loadStrategy})...", BasisDebug.LogTag.Networking);
 
         localLoadResource = new LocalLoadResource
         {
@@ -30,7 +35,10 @@ public static class BasisNetworkSpawnItem
             Mode = 1,
             CombinedURL = CombinedURL,
             UnlockPassword = UnlockPassword,
+            UUIDOfCreator = BasisLocalPlayer.Instance.UUID,
+            IsAdminLocked = Admin,
             Persist = Persist,
+            LoadStrategy = loadStrategy,
         };
 
         NetDataWriter writer = new NetDataWriter();
@@ -42,7 +50,7 @@ public static class BasisNetworkSpawnItem
         return true;
     }
 
-    public static bool RequestGameObjectLoad(string UnlockPassword, string CombinedURL, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool Persistent, bool ModifysScale, out LocalLoadResource LocalLoadResource)
+    public static bool RequestGameObjectLoad(string UnlockPassword, string CombinedURL, Vector3 Position, Quaternion Rotation, Vector3 Scale, bool Persistent, bool Admin, bool ModifysScale, out LocalLoadResource LocalLoadResource, byte loadStrategy = 0)
     {
         if (string.IsNullOrEmpty(CombinedURL) || string.IsNullOrEmpty(UnlockPassword))
         {
@@ -51,7 +59,7 @@ public static class BasisNetworkSpawnItem
             return false;
         }
 
-        BasisDebug.Log("Requesting GameObject load...", BasisDebug.LogTag.Networking);
+        BasisDebug.Log($"Requesting GameObject load (strategy={loadStrategy})...", BasisDebug.LogTag.Networking);
 
         LocalLoadResource = new LocalLoadResource
         {
@@ -59,6 +67,11 @@ public static class BasisNetworkSpawnItem
             Mode = 0,
             CombinedURL = CombinedURL,
             UnlockPassword = UnlockPassword,
+            UUIDOfCreator = BasisLocalPlayer.Instance.UUID,
+            IsAdminLocked = Admin,
+            Persist = Persistent,
+            ModifyScale = ModifysScale,
+            LoadStrategy = loadStrategy,
             PositionX = Position.x,
             PositionY = Position.y,
             PositionZ = Position.z,
@@ -68,9 +81,7 @@ public static class BasisNetworkSpawnItem
             QuaternionZ = Rotation.z,
             ScaleX = Scale.x,
             ScaleY = Scale.y,
-            ScaleZ = Scale.z,
-            Persist = Persistent,
-            ModifyScale = ModifysScale,
+            ScaleZ = Scale.z
         };
 
         NetDataWriter writer = new NetDataWriter();
@@ -126,6 +137,7 @@ public static class BasisNetworkSpawnItem
 
     public static async Task<Scene> SpawnScene(LocalLoadResource localLoadResource)
     {
+        _loadCts.Token.ThrowIfCancellationRequested();
         BasisDebug.Log($"Spawning scene with NetID: {localLoadResource.LoadedNetID}", BasisDebug.LogTag.Networking);
 
         BasisLoadableBundle loadBundle = new BasisLoadableBundle
@@ -138,12 +150,25 @@ public static class BasisNetworkSpawnItem
         };
 
         Scene scene = await BasisSceneLoad.LoadSceneAssetBundle(loadBundle);
+        _loadCts.Token.ThrowIfCancellationRequested();
         BasisDebug.Log($"LoadSceneAssetBundle Complete now Starting Scene Traversal", BasisDebug.LogTag.Networking);
         SceneTraverseNetIdAssign(scene, localLoadResource);
-        SpawnedScenes.TryAdd(localLoadResource.LoadedNetID, scene);
+
+        BasisRuntimeSpawnRegistry.AddScene(
+            localLoadResource.CombinedURL, 
+            localLoadResource.LoadedNetID,
+            scene, 
+            localLoadResource.UUIDOfCreator,
+            localLoadResource.IsAdminLocked,
+            localLoadResource.Persist, 
+            BasisRuntimeSpawnRegistry.SpawnMethod.Network, 
+            loadBundle.BasisBundleConnector, 
+            out var created
+        );
         BasisDebug.Log($"Scene Load From Server Complete ", BasisDebug.LogTag.Networking);
         return scene;
     }
+
     public static void SceneTraverseNetIdAssign(Scene scene, LocalLoadResource localLoadResource)
     {
         GameObject[] Root = scene.GetRootGameObjects();
@@ -168,92 +193,79 @@ public static class BasisNetworkSpawnItem
                 RemoteBeeFileLocation = localLoadResource.CombinedURL
             },
             UnlockPassword = localLoadResource.UnlockPassword,
+
         };
         BasisProgressReport BasisProgressReport = new BasisProgressReport();
         BasisProgressReport.OnProgressReport += BasisUILoadingBar.ProgressReport;
-        GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(loadBundle, true, BasisProgressReport, new CancellationToken(),
-            new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ),
-            new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW),
-            new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ),
+        var position = new Vector3(localLoadResource.PositionX, localLoadResource.PositionY, localLoadResource.PositionZ);
+        var rotation = new Quaternion(localLoadResource.QuaternionX, localLoadResource.QuaternionY, localLoadResource.QuaternionZ, localLoadResource.QuaternionW);
+        var scale = new Vector3(localLoadResource.ScaleX, localLoadResource.ScaleY, localLoadResource.ScaleZ);
+        GameObject reference = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject, loadBundle, true, BasisProgressReport, _loadCts.Token,
+            position,
+            rotation,
+            scale,
             localLoadResource.ModifyScale, Selector, BasisNetworkManagement.Instance.transform);
 
         if (reference == null)
         {
-            BasisDebug.LogError($"Unable to load {loadBundle.BasisLocalEncryptedBundle.DownloadedBeeFileLocation}", BasisDebug.LogTag.Networking);
+            BasisDebug.LogError($"Unable to load content from {localLoadResource.CombinedURL}. This may be caused by the bundle not having a build for the current platform ({UnityEngine.Application.platform}). Check earlier log messages for details.", BasisDebug.LogTag.Networking);
             BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
             return null;
         }
+
+
+        reference.name = localLoadResource.LoadedNetID;
         if (reference.TryGetComponent<BasisNetworkContentBase>(out BasisNetworkContentBase BasisContentBase))
         {
             BasisContentBase.AssignNetworkGUIDIdentifier(localLoadResource.LoadedNetID);
         }
-        SpawnedGameobjects.TryAdd(localLoadResource.LoadedNetID, reference);
+        else
+        {
+            BasisDebug.LogWarning($"Gameobject Did not have a class deriving from {nameof(BasisNetworkContentBase)} on it!");
+        }
+        //BasisDebug.Log( $"SpawnGameObject -> was spawned does it have metadata? asset bundle name = {loadBundle.BasisBundleConnector.BasisBundleDescription.AssetBundleName}" );
+        BasisRuntimeSpawnRegistry.AddGameObject(
+            localLoadResource.CombinedURL, 
+            localLoadResource.LoadedNetID, 
+            reference, 
+            localLoadResource.UUIDOfCreator,
+            localLoadResource.IsAdminLocked, 
+            localLoadResource.Persist, 
+            BasisRuntimeSpawnRegistry.SpawnMethod.Network, 
+            loadBundle.BasisBundleConnector, 
+            out var data
+        );
+#if UNITY_SERVER
+        BasisHeadlessManagement.StripTextureReferencesFromRoot(reference);
+#endif
         BasisProgressReport.OnProgressReport -= BasisUILoadingBar.ProgressReport;
         return reference;
     }
-    public static void DestroyScene(UnLoadResource resource)
+    public static async Task DestroyScene(UnLoadResource resource)
     {
         if (string.IsNullOrEmpty(resource.LoadedNetID))
         {
             BasisDebug.Log("Invalid resource for destroying scene.", BasisDebug.LogTag.Networking);
             return;
         }
-
-        if (SpawnedScenes.TryRemove(resource.LoadedNetID, out Scene value))
-        {
-            SceneManager.UnloadSceneAsync(value);
-        }
+      await  BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(resource.LoadedNetID);
     }
 
-    public static void DestroyGameobject(UnLoadResource resource)
+    public static async Task DestroyGameobject(UnLoadResource resource)
     {
         if (string.IsNullOrEmpty(resource.LoadedNetID))
         {
             BasisDebug.Log("Invalid resource for destroying GameObject.", BasisDebug.LogTag.Networking);
             return;
         }
-
-        if (SpawnedGameobjects.TryRemove(resource.LoadedNetID, out GameObject value))
-        {
-            if (value != null)
-                GameObject.Destroy(value);
-        }
+      await  BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(resource.LoadedNetID);
     }
 
     public static async Task Reset()
     {
-        if (SpawnedScenes != null)
-        {
-            foreach (var reference in SpawnedScenes.Values)
-            {
-                if (reference != null && reference.IsValid())
-                {
-                    try
-                    {
-                        await SceneManager.UnloadSceneAsync(reference);
-                    }
-                    catch (Exception ex)
-                    {
-                        //bad dooly silent error
-                         BasisDebug.Log($"Reset If Spawn Item {ex.Message}");
-                    }
-                }
-            }
-        }
-        if (SpawnedGameobjects != null)
-        {
-            foreach (var reference in SpawnedGameobjects.Values)
-            {
-                if (reference != null)
-                {
-                    GameObject.Destroy(reference);
-                }
-            }
-        }
-        SpawnedGameobjects.Clear();
-        SpawnedScenes.Clear();
-        BasisDebug.Log("All spawned objects and scenes have been cleared.", BasisDebug.LogTag.Networking);
+        _loadCts.Cancel();
+        _loadCts.Dispose();
+        _loadCts = new CancellationTokenSource();
+        await BasisRuntimeSpawnRegistry.ClearAllNetworking();
     }
-    public static ConcurrentDictionary<string, GameObject> SpawnedGameobjects = new ConcurrentDictionary<string, GameObject>();
-    public static ConcurrentDictionary<string, Scene> SpawnedScenes = new ConcurrentDictionary<string, Scene>();
 }

@@ -4,6 +4,7 @@ using Basis.Network.Core;
 using UnityEngine.InputSystem;
 public class BasisTestNetworkAvatarOverrideJump : BasisAvatarMonoBehaviour
 {
+    new public static bool VisibleInAvatarMenu = false;
     public BasisPlayer BasisPlayer;
     public bool Isready;
     public DeliveryMethod Method = DeliveryMethod.Unreliable;

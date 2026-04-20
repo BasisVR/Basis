@@ -1,4 +1,4 @@
-#if UNITY_ANDROID
+#if UNITY_ANDROID || UNITY_IOS
 #define HT_QUEST
 #endif
 
@@ -317,7 +317,7 @@ public class BilliardsModule : MonoBehaviour
             tableModels[i]._Init();
         }
 
-        cameraOverrideModule = GameObject.FindFirstObjectByType<CameraOverrideModule>();
+        cameraOverrideModule = GameObject.FindAnyObjectByType<CameraOverrideModule>();
 
         resetCachedData();
 

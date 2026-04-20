@@ -5,7 +5,11 @@ namespace uLipSync
     {
         public string phoneme;
         public int index = -1;
-        public float weight { get; set; } = 0f;
-        public float weightVelocity { get; set; } = 0f;
+
+        // Cached at setup time:
+        public int phonemeIndex = -1;
+
+        public float weight;
+        public float weightVelocity;
     }
 }

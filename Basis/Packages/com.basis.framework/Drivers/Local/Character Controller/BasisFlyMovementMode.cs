@@ -24,10 +24,16 @@ namespace Basis.Scripts.BasisCharacterController
 
         public void Tick(BasisLocalCharacterDriver ctx, float dt)
         {
-            // Flatten yaw for input space
-            var e = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation.eulerAngles;
-            e.x = e.z = 0;
-            Quaternion facing = Quaternion.Euler(e);
+            // Project head forward onto horizontal plane (avoids gimbal lock near ±90° pitch)
+            Quaternion headRot = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
+            Vector3 flatForward = headRot * Vector3.forward;
+            flatForward.y = 0f;
+            if (flatForward.sqrMagnitude < 0.0001f)
+            {
+                flatForward = -(headRot * Vector3.up);
+                flatForward.y = 0f;
+            }
+            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
 
             // Planar
             Vector3 planar = new Vector3(ctx.MovementVector.x, 0, ctx.MovementVector.y).normalized;
@@ -39,20 +45,7 @@ namespace Basis.Scripts.BasisCharacterController
             Vector3 move = facing * planar * ctx.CurrentSpeed * dt;
 
             // ===== Vertical input (held) =====
-            float ascendHeld = 0f;
-            float descendHeld = 0f;
-
-            // Prefer your input system if available:
-            if (BasisLocalInputActions.Instance != null)
-            {
-                ascendHeld = BasisLocalInputActions.Instance.IsJumpHeld ? 1f : 0f;
-                descendHeld = BasisLocalInputActions.Instance.IsCrouchHeld ? 1f : 0f;
-            }
-
-            if (ctx.HasJumpAction) ascendHeld = 1f;
-
-            float verticalInput = ascendHeld - descendHeld; // -1..+1
-            move.y = verticalInput * ctx.CurrentSpeed * dt;
+            move.y = ctx.GetVerticalMovement() * ctx.CurrentSpeed * dt;
 
             // Clear tap
             ctx.HasJumpAction = false;

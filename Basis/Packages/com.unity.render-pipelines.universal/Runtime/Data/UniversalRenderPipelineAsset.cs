@@ -300,8 +300,9 @@ namespace UnityEngine.Rendering.Universal
     }
 
     /// <summary>
-    /// Defines if Unity discards or stores the render targets of the DrawObjects Passes. Selecting the Store option significantly increases the memory bandwidth on mobile and tile-based GPUs.
+    /// Obsolete from 6000.3.
     /// </summary>
+    [Obsolete("#from(6000.0) #breakingFrom(6000.4)", true)]
     public enum StoreActionsOptimization
     {
         /// <summary>Unity uses the Discard option by default, and falls back to the Store option if it detects any injected Passes.</summary>
@@ -419,28 +420,6 @@ namespace UnityEngine.Rendering.Universal
         /// <summary>Evaluate lighting per pixel.</summary>
         PerPixel = 3,
     }
-
-#if URP_COMPATIBILITY_MODE
-    internal struct DeprecationMessage
-    {
-        internal const string CompatibilityScriptingAPIObsolete = "This rendering path is for compatibility mode only (when Render Graph is disabled). Use Render Graph API instead.";
-        internal const string CompatibilityScriptingAPIObsoleteFrom2023_3 = CompatibilityScriptingAPIObsolete + " #from(2023.3)";
-        internal const string CompatibilityScriptingAPIConsoleWarning = "Your project uses Compatibility Mode, which disables the render graph system. Compatibility Mode is deprecated. Migrate your ScriptableRenderPasses to the Render Graph API instead. After you migrate, go to Edit > Project Settings > Player and remove the URP_COMPATIBILITY_MODE define from the Scripting Define Symbols. If you don't remove the define, build time and build size are slightly increased.";
-    }
-#endif
-
-#if UNITY_EDITOR && URP_COMPATIBILITY_MODE
-    internal class WarnUsingNonRenderGraph
-    {
-        [InitializeOnLoadMethod]
-        internal static void EmitConsoleWarning()
-        {
-            RenderGraphSettings rgs = GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>();
-            if (rgs != null && rgs.enableRenderCompatibilityMode)
-                Debug.LogWarning(DeprecationMessage.CompatibilityScriptingAPIConsoleWarning);
-        }
-    }
-#endif
 
     /// <summary>
     /// The asset that contains the URP setting.
@@ -597,8 +576,8 @@ namespace UnityEngine.Rendering.Universal
         [ShaderKeywordFilter.SelectOrRemove(true, keywordNames: ShaderKeywordStrings.LightLayers)]
 #endif
         [SerializeField] bool m_SupportsLightLayers = false;
-        [SerializeField] [Obsolete("#from(2022.1) #breakingFrom(2023.1)", true)] PipelineDebugLevel m_DebugLevel;
-        [SerializeField] StoreActionsOptimization m_StoreActionsOptimization = StoreActionsOptimization.Auto;
+        [SerializeField][Obsolete("#from(2022.1) #breakingFrom(2023.1)", true)] PipelineDebugLevel m_DebugLevel;
+        [SerializeField][Obsolete("#from(6000.0) #breakingFrom(6000.4)", true)] StoreActionsOptimization m_StoreActionsOptimization = StoreActionsOptimization.Auto;
 
         // Adaptive performance settings
         [SerializeField] bool m_UseAdaptivePerformance = true;
@@ -729,9 +708,9 @@ namespace UnityEngine.Rendering.Universal
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1812")]
-        internal class CreateUniversalPipelineAsset : EndNameEditAction
+        internal class CreateUniversalPipelineAsset : AssetCreationEndAction
         {
-            public override void Action(int instanceId, string pathName, string resourceFile)
+            public override void Action(EntityId entityId, string pathName, string resourceFile)
             {
                 //Create asset
                 AssetDatabase.CreateAsset(Create(CreateRendererAsset(pathName, RendererType.UniversalRenderer)), pathName);
@@ -741,7 +720,7 @@ namespace UnityEngine.Rendering.Universal
         [MenuItem("Assets/Create/Rendering/URP Asset (with Universal Renderer)", priority = CoreUtils.Sections.section2 + CoreUtils.Priorities.assetsCreateRenderingMenuPriority + 1)]
         static void CreateUniversalPipeline()
         {
-            ProjectWindowUtil.StartNameEditingIfProjectWindowExists(0, CreateInstance<CreateUniversalPipelineAsset>(),
+            ProjectWindowUtil.StartNameEditingIfProjectWindowExists(EntityId.None, CreateInstance<CreateUniversalPipelineAsset>(),
                 "New Universal Render Pipeline Asset.asset", CoreUtils.GetIconForType<UniversalRenderPipelineAsset>(), null);
         }
 
@@ -1074,9 +1053,10 @@ namespace UnityEngine.Rendering.Universal
         public bool supportsTerrainHoles => m_SupportsTerrainHoles;
 
         /// <summary>
-        /// Returns the active store action optimization value.
+        /// Obsolete from 6000.0.
         /// </summary>
         /// <returns>Returns the active store action optimization value.</returns>
+        [Obsolete("#from(6000.0) #breakingFrom(6000.4)", true)]
         public StoreActionsOptimization storeActionsOptimization
         {
             get => m_StoreActionsOptimization;
@@ -1620,30 +1600,6 @@ namespace UnityEngine.Rendering.Universal
         }
 
         /// <summary>
-        /// Controls whether the RenderGraph render path is enabled.
-        /// </summary>
-        [Obsolete("This has been deprecated, please use GraphicsSettings.GetRenderPipelineSettings<RenderGraphSettings>().enableRenderCompatibilityMode instead. #from(2023.3)")]
-        public bool enableRenderGraph
-#if URP_COMPATIBILITY_MODE
-        {
-            get
-            {
-                if (GraphicsSettings.TryGetRenderPipelineSettings<RenderGraphSettings>(out var renderGraphSettings))
-                    return !renderGraphSettings.enableRenderCompatibilityMode;
-
-                return false;
-            }
-        }
-#else
-            => true;
-#endif
-
-        internal void OnEnableRenderGraphChanged()
-        {
-            OnValidate();
-        }
-
-        /// <summary>
         /// Returns the selected ColorGradingMode in the URP Asset.
         /// <see cref="ColorGradingMode"/>
         /// </summary>
@@ -1713,6 +1669,9 @@ namespace UnityEngine.Rendering.Universal
 
         /// <inheritdoc/>
         public override string renderPipelineShaderTag => UniversalRenderPipeline.k_ShaderTagName;
+
+        /// <inheritdoc/>
+        protected override bool requiresCompatibleRenderPipelineGlobalSettings => true;
 
         /// <summary>Names used for display of rendering layer masks.</summary>
         [Obsolete("This property is obsolete. Use RenderingLayerMask API and Tags & Layers project settings instead. #from(2023.3)")]
@@ -1916,7 +1875,7 @@ namespace UnityEngine.Rendering.Universal
                 k_AssetPreviousVersion = k_AssetVersion;
                 k_AssetVersion = 12;
             }
-            
+
             if (k_AssetVersion < 13)
             {
                 k_AssetPreviousVersion = k_AssetVersion;
@@ -1986,7 +1945,7 @@ namespace UnityEngine.Rendering.Universal
 #pragma warning restore CS0618 // Type or member is obsolete
                 asset.k_AssetPreviousVersion = 12;
             }
-            
+
             if (asset.k_AssetPreviousVersion < 13)
             {
                 asset.k_AssetPreviousVersion = 13;
@@ -2081,5 +2040,6 @@ namespace UnityEngine.Rendering.Universal
                 ;
             }
         }
+
     }
 }

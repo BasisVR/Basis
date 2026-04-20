@@ -22,9 +22,15 @@ namespace HVR.Basis.Comms
         [HideInInspector] [SerializeField] private AcquisitionService acquisition;
 
         private Dictionary<int, int> _addessIdToBaseIndex = new();
+        private readonly Dictionary<int, float> _latestAbsoluteByAddress = new();
         private ComputedActuator[] _computedActuators;
         private ComputedActuator[][] _addressBaseIndexToActuators;
         private Dictionary<int, (float, float)> _addressToStreamedLowerUpper;
+        private AddressOverride[] _defaultOverrides = Array.Empty<AddressOverride>();
+        private FaceTrackingActivityRelay _activityRelay;
+        private bool _isWearer;
+        private bool _trackingActive;
+        public bool IsTrackingActive => _trackingActive;
 
         #region NetworkingFields
         // Can be null due to:
@@ -56,6 +62,7 @@ namespace HVR.Basis.Comms
                 acquisition = AcquisitionService.SceneInstance;
             }
 
+            _activityRelay = FaceTrackingActivityRelay.GetOrCreate(avatar);
             renderers = HVRCommsUtil.SlowSanitizeEndUserProvidedObjectArray(renderers);
             definitionFiles = HVRCommsUtil.SlowSanitizeEndUserProvidedObjectArray(definitionFiles);
             definitions = HVRCommsUtil.SlowSanitizeEndUserProvidedStructArray(definitions);
@@ -63,26 +70,16 @@ namespace HVR.Basis.Comms
 
         private void OnAddressUpdated(int address, float inRange)
         {
-            if (!_addessIdToBaseIndex.TryGetValue(address, out var baseIndex)) return;
-
-            // TODO: Might need to queue and delay this change so that it executes on the Update loop.
-
-            var actuatorsForThisAddress = _addressBaseIndexToActuators[baseIndex];
-            if (actuatorsForThisAddress == null) return; // There may be no actuator for an address when it does not exist in the renderers.
-
-            foreach (var actuator in actuatorsForThisAddress)
-            {
-                Actuate(actuator, inRange);
-            }
-
-            if (featureInterpolator != null)
-            {
-                featureInterpolator.SubmitAbsolute(baseIndex, inRange);
-            }
+            ApplyAddressValue(address, inRange, forwardToNetwork: _isWearer);
         }
 
         private void OnInterpolatedDataChanged(float[] current)
         {
+            if (!_trackingActive || current == null)
+            {
+                return;
+            }
+
             foreach (var actuator in _computedActuators)
             {
                 var absolute = current[actuator.AddressIndex];
@@ -112,6 +109,14 @@ namespace HVR.Basis.Comms
 
         public void OnHVRAvatarReady(bool isWearer)
         {
+            _isWearer = isWearer;
+            if (_activityRelay != null)
+            {
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+                _activityRelay.OnTrackingActivityChanged += OnTrackingActivityUpdated;
+            }
+            _trackingActive = _activityRelay != null && _activityRelay.IsTrackingActive;
+
             var allDefinitions = definitions
                 .Concat(definitionFiles.SelectMany(file => file.definitions))
                 .ToArray();
@@ -128,7 +133,7 @@ namespace HVR.Basis.Comms
                     var inValuesForThisAddress = grouping
                         // Reminder that InStart may be greater than InEnd.
                         // We want the lower bound, not the minimum of InStart.
-                        .SelectMany(definition => new [] { definition.inStart, definition.inEnd })
+                        .SelectMany(definition => new[] { definition.inStart, definition.inEnd })
                         .ToArray();
                     return (inValuesForThisAddress.Min(), inValuesForThisAddress.Max());
                 });
@@ -192,6 +197,12 @@ namespace HVR.Basis.Comms
                 _addressBaseIndexToActuators[computedActuator.Key] = computedActuator.ToArray();
             }
 
+            _defaultOverrides = definitionFiles
+                .SelectMany(file => file.addressOverrides)
+                .Concat(addressOverrides)
+                .Where(it => it.overrideDefaultValue)
+                .ToArray();
+
             if (isWearer)
             {
                 acquisition.RegisterAddresses(_addessIdToBaseIndex.Keys.ToArray(), OnAddressUpdated);
@@ -215,20 +226,21 @@ namespace HVR.Basis.Comms
         public void OnHVRReadyBothAvatarAndNetwork(bool isLocallyOwned)
         {
             HVRLogging.ProtocolDebug("OnReadyBothAvatarAndNetwork called on BlendshapeActuation.");
+            _isWearer = isLocallyOwned;
             // FIXME: We should be using the computed actuators instead of the address base, assuming that
             // the list of blendshapes is the same local and remote (no local-only or remote-only blendshapes).
             featureInterpolator = CommsNetworking.UsingMutualizedInterpolator(avatar, MakeMutualized(), OnInterpolatedDataChanged);
 
-            var overrides = definitionFiles
-                .SelectMany(file => file.addressOverrides)
-                .Concat(addressOverrides)
-                .Where(it => it.overrideDefaultValue)
-                .ToArray();
-            foreach (var addressOverride in overrides)
+            if (_isWearer)
             {
-                if (_addessIdToBaseIndex.TryGetValue(HVRAddress.AddressToId(addressOverride.address), out var key))
+                if (_trackingActive)
                 {
-                    featureInterpolator.SubmitAbsolute(key, addressOverride.defaultValue);
+                    SubmitDefaultOverridesToNetwork();
+                    ReplayLatestTrackedValuesToNetwork();
+                }
+                else
+                {
+                    SubmitNeutralValuesToNetwork();
                 }
             }
         }
@@ -272,13 +284,133 @@ namespace HVR.Basis.Comms
 
         private void OnDestroy()
         {
-            avatar.OnAvatarReady -= OnHVRAvatarReady;
+            if (avatar != null)
+            {
+                avatar.OnAvatarReady -= OnHVRAvatarReady;
+            }
 
-            acquisition.UnregisterAddresses(_addessIdToBaseIndex.Keys.ToArray(), OnAddressUpdated);
+            if (_activityRelay != null)
+            {
+                _activityRelay.OnTrackingActivityChanged -= OnTrackingActivityUpdated;
+            }
+
+            if (acquisition != null && _isWearer && _addessIdToBaseIndex.Count > 0)
+            {
+                acquisition.UnregisterAddresses(_addessIdToBaseIndex.Keys.ToArray(), OnAddressUpdated);
+            }
+        }
+
+        private void OnTrackingActivityUpdated(bool isTrackingActive)
+        {
+            if (_trackingActive == isTrackingActive)
+            {
+                return;
+            }
+
+            _trackingActive = isTrackingActive;
+            if (_trackingActive)
+            {
+                if (_isWearer)
+                {
+                    ApplyDefaultOverrides();
+                    ReplayLatestTrackedValuesToNetwork();
+                }
+                return;
+            }
+
+            ResetAllBlendshapesToZero();
+            _latestAbsoluteByAddress.Clear();
+            if (_isWearer)
+            {
+                SubmitNeutralValuesToNetwork();
+            }
+        }
+
+        private void ApplyAddressValue(int address, float inRange, bool forwardToNetwork)
+        {
+            if (!_trackingActive || !_addessIdToBaseIndex.TryGetValue(address, out var baseIndex))
+            {
+                return;
+            }
+
+            var actuatorsForThisAddress = _addressBaseIndexToActuators[baseIndex];
+            if (actuatorsForThisAddress == null)
+            {
+                return;
+            }
+
+            _latestAbsoluteByAddress[address] = inRange;
+            foreach (var actuator in actuatorsForThisAddress)
+            {
+                Actuate(actuator, inRange);
+            }
+
+            if (forwardToNetwork && _isWearer && featureInterpolator != null)
+            {
+                featureInterpolator.SubmitAbsolute(baseIndex, inRange);
+            }
+        }
+
+        private void ApplyDefaultOverrides()
+        {
+            foreach (var addressOverride in _defaultOverrides)
+            {
+                ApplyAddressValue(HVRAddress.AddressToId(addressOverride.address), addressOverride.defaultValue, forwardToNetwork: true);
+            }
+        }
+
+        private void ReplayLatestTrackedValuesToNetwork()
+        {
+            if (!_isWearer || featureInterpolator == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _latestAbsoluteByAddress)
+            {
+                if (_addessIdToBaseIndex.TryGetValue(pair.Key, out var baseIndex))
+                {
+                    featureInterpolator.SubmitAbsolute(baseIndex, pair.Value);
+                }
+            }
+        }
+
+        private void SubmitDefaultOverridesToNetwork()
+        {
+            if (!_isWearer || featureInterpolator == null)
+            {
+                return;
+            }
+
+            foreach (var addressOverride in _defaultOverrides)
+            {
+                if (_addessIdToBaseIndex.TryGetValue(HVRAddress.AddressToId(addressOverride.address), out var baseIndex))
+                {
+                    featureInterpolator.SubmitAbsolute(baseIndex, addressOverride.defaultValue);
+                }
+            }
+        }
+
+        private void SubmitNeutralValuesToNetwork()
+        {
+            if (!_isWearer || featureInterpolator == null)
+            {
+                return;
+            }
+
+            foreach (var baseIndex in _addessIdToBaseIndex.Values)
+            {
+                featureInterpolator.SubmitAbsolute(baseIndex, 0f);
+            }
         }
 
         private void ResetAllBlendshapesToZero()
         {
+            if (_computedActuators == null)
+            {
+                return;
+            }
+
             foreach (var computedActuator in _computedActuators)
             {
                 foreach (var target in computedActuator.Targets)

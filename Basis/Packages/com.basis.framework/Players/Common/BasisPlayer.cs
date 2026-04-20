@@ -17,27 +17,9 @@ namespace Basis.Scripts.BasisSdk.Players
         public bool IsLocal { get; set; }
 
         /// <summary>
-        /// Returns the runtime platform associated with this player.
+        /// Platform this player is assoicated with.
         /// </summary>
-        /// <returns>
-        /// For local players, returns <see cref="Application.platform"/>.
-        /// For remote players, logs an error and returns <see cref="RuntimePlatform.WindowsPlayer"/> as a placeholder.
-        /// </returns>
-        /// <remarks>
-        /// Remote platform detection is not implemented; callers should not rely on the fallback value.
-        /// </remarks>
-        public RuntimePlatform GetRuntimePlatform()
-        {
-            if (IsLocal)
-            {
-                return Application.platform;
-            }
-            else
-            {
-                BasisDebug.LogError("this is not implemented talk with the creators of basis");
-                return RuntimePlatform.WindowsPlayer;
-            }
-        }
+        public string PlayerPlatform;
 
         /// <summary>
         /// Raw (untrusted) display name as provided by the source (user or network).
@@ -63,6 +45,11 @@ namespace Basis.Scripts.BasisSdk.Players
         /// Root transform for the avatar representation (if separate from the player object).
         /// </summary>
         public Transform AvatarTransform;
+
+        /// <summary>
+        /// Transform of the avatar's animator component
+        /// </summary>
+        public Transform AvatarAnimatorTransform;
 
         /// <summary>
         /// Cached self transform for quick access.
@@ -122,7 +109,17 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Called before bone simulation updates for this player, if subscribed.
         /// </summary>
-        public SimulationHandler OnPreSimulateBones;
+        public SimulationHandler OnLatePollData;
+
+        /// <summary>
+        /// Called before bone simulation updates for this player, if subscribed.
+        /// </summary>
+        public SimulationHandler OnRenderPollData;
+
+        /// <summary>
+        /// Called before bone simulation updates for this player, if subscribed.
+        /// </summary>
+        public SimulationHandler OnVirtualData;
 
         /// <summary>
         /// Whether the currently active avatar is considered a fallback (placeholder) asset.
@@ -139,13 +136,6 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         [HideInInspector]
         public BasisLoadableBundle AvatarMetaData;
-
-        /// <summary>
-        /// Driver responsible for simulating/controlling facial blinking.
-        /// </summary>
-        [Header("Blink Driver")]
-        [SerializeField]
-        public BasisFacialBlinkDriver FacialBlinkDriver = new BasisFacialBlinkDriver();
 
         /// <summary>
         /// Computes and stores a display-safe version of <see cref="DisplayName"/> by stripping any &lt;...&gt; tags.

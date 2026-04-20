@@ -16,9 +16,11 @@ namespace Basis.BasisUI
             BasisMenuBase<BasisMainMenu>.AddProvider(new ExitProvider());
         }
 
-        public override string Title => "Exit";
+        public override string Title => BasisLocalization.Get("menu.provider.exit");
         public override string IconAddress => AddressableAssets.Sprites.Exit;
-        public override int Order => 100;
+        public override int Order => 9999;
+
+        public override bool Hidden => false;
 
         public override void OnButtonCreated(PanelButton button)
         {
@@ -29,10 +31,10 @@ namespace Basis.BasisUI
         public override void RunAction()
         {
             BasisMainMenu.Instance.OpenDialogue(
-                "Basis VR",
-                "Are you sure you want to close Basis?",
-                "Cancel",
-                "Exit Basis",
+                BasisLocalization.Get("menu.exit.dialog.title"),
+                BasisLocalization.Get("menu.exit.dialog.body"),
+                BasisLocalization.Get("ui.cancel"),
+                BasisLocalization.Get("menu.exit.dialog.confirm"),
                 value =>
                 {
                     if (value) return;

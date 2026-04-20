@@ -8,7 +8,7 @@ namespace Basis.BasisUI
     /// This is the backing data that supports and manages the MenuInstance in the scene.
     /// </summary>
     [Serializable]
-    public abstract class BasisMenuBase<TMenu> where TMenu: BasisMenuBase<TMenu>
+    public abstract class BasisMenuBase<TMenu> where TMenu : BasisMenuBase<TMenu>
     {
 
         public static implicit operator bool(BasisMenuBase<TMenu> menu) => menu != null;
@@ -51,21 +51,26 @@ namespace Basis.BasisUI
         public void BindProvidersToButtons()
         {
             foreach (PanelButton button in ProviderButtons)
+            {
                 button.ReleaseInstance();
+            }
 
             ProviderButtons.Clear();
 
             foreach (BasisMenuActionProvider<TMenu> provider in Providers)
             {
-                PanelButton button = PanelButton.CreateNew(
-                    PanelButton.ButtonStyles.Hotbar,
-                    ProviderButtonParent);
+                if (provider.Hidden == false)
+                {
+                    PanelButton button = PanelButton.CreateNew(
+                        PanelButton.ButtonStyles.Hotbar,
+                        ProviderButtonParent);
 
-                button.Descriptor.SetTitle(provider.Title);
-                button.SetIcon(provider.IconAddress);
-                provider.BindToButton(this, button);
-                ProviderButtons.Add(button);
-                provider.OnButtonCreated(button);
+                    button.Descriptor.SetTitle(provider.Title);
+                    button.SetIcon(provider.IconAddress);
+                    provider.BindToButton(this, button);
+                    ProviderButtons.Add(button);
+                    provider.OnButtonCreated(button);
+                }
             }
         }
 
@@ -77,8 +82,18 @@ namespace Basis.BasisUI
         public BasisMenuPanel ActiveMenu;
         public BasisMenuDialoguePanel Dialogue;
 
+        /// <summary>
+        /// The provider that currently owns the active menu panel.
+        /// </summary>
+        public BasisMenuActionProvider<TMenu> ActiveProvider;
+
         public virtual void Release()
         {
+            // if the active provider exists, notify it that its panel is being released
+            if (ActiveProvider != null)
+            {
+                ActiveProvider.OnReleaseEvent();
+            }
             if (MenuObjectInstance) MenuObjectInstance.ReleaseInstance();
         }
 
@@ -91,9 +106,7 @@ namespace Basis.BasisUI
         {
             if (Dialogue)
             {
-                //TODO: This seems to be firing during the Close Game modal.
-                // It is possibly firing multiple times at once. Look into this.
-                Debug.LogWarning("An existing Dialogue window is already active.");
+                BasisDebug.LogWarning("An existing Dialogue window is already active.");
                 return;
             }
 
@@ -112,7 +125,7 @@ namespace Basis.BasisUI
         {
             if (Dialogue)
             {
-                Debug.LogWarning("An existing Dialogue window is already active.");
+                BasisDebug.LogWarning("An existing Dialogue window is already active.");
                 return;
             }
 

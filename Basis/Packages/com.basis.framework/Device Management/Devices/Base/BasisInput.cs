@@ -1,3 +1,4 @@
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
@@ -191,8 +192,9 @@ namespace Basis.Scripts.Device_Management.Devices
             // Register simulation/apply loop hooks
             if (HasEvents == false)
             {
-                BasisLocalPlayer.Instance.OnPreSimulateBones += PollData;
-                BasisLocalPlayer.AfterFinalMove.AddAction(98, ApplyFinalMovement);
+                BasisLocalPlayer.Instance.OnLatePollData += LatePollData;
+                BasisLocalPlayer.Instance.OnRenderPollData += RenderPollData;
+                BasisLocalPlayer.AfterSimulateOnRender.AddAction(98, ApplyFinalMovement);
                 HasEvents = true;
             }
             else
@@ -217,8 +219,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// </summary>
         public void ComputeRaycastDirection(Vector3 Position, Quaternion rotation, Quaternion ActiveRaycastOffset)
         {
-            var parent = BasisLocalPlayer.Instance.transform;
-            Matrix4x4 parentMatrix = parent.localToWorldMatrix;
+            Matrix4x4 parentMatrix = BasisLocalPlayer.localToWorldMatrix;
             Quaternion OutGoingRotation = rotation * ActiveRaycastOffset;//HandFinal.rotation
 
             RaycastCoord.position = parentMatrix.MultiplyPoint3x4(Position);
@@ -394,6 +395,17 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <param name="Role">Role to assign to this device post-calibration.</param>
         public void ApplyTrackerCalibration(BasisBoneTrackedRole Role)
         {
+            // Respect the master FBT toggle — if FBT is disabled in settings and this
+            // is a full-body role, drop the assignment so the existing non-tracker
+            // fallback (head + hands + foot IK) handles the bone.
+            if (BasisBoneTrackedRoleCommonCheck.CheckItsFBTracker(Role)
+                && !Basis.BasisUI.BasisSettingsDefaults.EnableFBT.RawValue)
+            {
+                BasisDebug.Log($"ApplyTrackerCalibration skipped for {Role}: FBT disabled in settings", BasisDebug.LogTag.Input);
+                UnAssignTracker();
+                return;
+            }
+
             UnAssignTracker();
             BasisDebug.Log($"ApplyTrackerCalibration {Role} to tracker {UniqueDeviceIdentifier}", BasisDebug.LogTag.Input);
             AssignRoleAndTracker(Role);
@@ -413,8 +425,9 @@ namespace Basis.Scripts.Device_Management.Devices
             if (HasEvents)
             {
                 //deassign
-                BasisLocalPlayer.Instance.OnPreSimulateBones -= PollData;
-                BasisLocalPlayer.AfterFinalMove.RemoveAction(98, ApplyFinalMovement);
+                BasisLocalPlayer.Instance.OnLatePollData -= LatePollData;
+                BasisLocalPlayer.Instance.OnRenderPollData -= RenderPollData;
+                BasisLocalPlayer.AfterSimulateOnRender.RemoveAction(98, ApplyFinalMovement);
                 HasEvents = false;
             }
         }
@@ -454,6 +467,11 @@ namespace Basis.Scripts.Device_Management.Devices
                 }
 
                 BasisDebug.Log($"Set Tracker State for tracker {UniqueDeviceIdentifier} with bone {Control.name} as {Control.HasTracked} | {Control.HasRigLayer}", BasisDebug.LogTag.Input);
+
+                // Recompute whether ANY FBIK trackers remain — the animator checks this
+                // flag to decide if it should drive legs. Without this, removing trackers
+                // at runtime leaves the animator suppressed forever.
+                BasisAvatarIKStageCalibration.HasFBIKTrackers = CheckAnyFBIKTrackersRemain();
             }
             else
             {
@@ -462,14 +480,45 @@ namespace Basis.Scripts.Device_Management.Devices
         }
 
         /// <summary>
-        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll.
+        /// Check if any full-body IK tracker bones still have an active tracker.
+        /// Used to update HasFBIKTrackers after removal.
         /// </summary>
-        public void PollData()
+        private static bool CheckAnyFBIKTrackersRemain()
         {
-            LastUpdatePlayerControl();
-            DoPollData();
+            return IsTracked(BasisLocalBoneDriver.LeftFootControl)
+                || IsTracked(BasisLocalBoneDriver.RightFootControl)
+                || IsTracked(BasisLocalBoneDriver.LeftLowerLegControl)
+                || IsTracked(BasisLocalBoneDriver.RightLowerLegControl)
+                || IsTracked(BasisLocalBoneDriver.LeftUpperLegControl)
+                || IsTracked(BasisLocalBoneDriver.RightUpperLegControl)
+                || IsTracked(BasisLocalBoneDriver.HipsControl)
+                || IsTracked(BasisLocalBoneDriver.ChestControl)
+                || IsTracked(BasisLocalBoneDriver.LeftLowerArmControl)
+                || IsTracked(BasisLocalBoneDriver.RightLowerArmControl)
+                || IsTracked(BasisLocalBoneDriver.LeftShoulderControl)
+                || IsTracked(BasisLocalBoneDriver.RightShoulderControl);
         }
 
+        private static bool IsTracked(BasisLocalBoneControl control)
+        {
+            return control != null && control.HasTracked == BasisHasTracked.HasTracker;
+        }
+
+        /// <summary>
+        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll. Late Update
+        /// </summary>
+        public void LatePollData()
+        {
+            LastUpdatePlayerControl();//stays here as late update is good for controller inputs not controller movement.
+            LateDoPollData();
+        }
+        /// <summary>
+        /// Per-frame poll entry point: copies current state to last, then calls device-specific poll. On Render Pass
+        /// </summary>
+        public virtual void RenderPollData()
+        {
+
+        }
         /// <summary>
         /// Pushes current input state to the action driver and updates raycasting/UI systems.
         /// Invokes <see cref="AfterControlApply"/> afterwards.
@@ -502,7 +551,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// <param name="Volume">Playback volume.</param>
         public void PlaySoundEffectDefaultImplementation(string SoundEffectName, float Volume)
         {
-            BasisDebug.Log("Volume was " + Volume);
+         //   BasisDebug.Log("Volume was " + Volume);
             switch (SoundEffectName)
             {
                 case "hover":
@@ -510,6 +559,9 @@ namespace Basis.Scripts.Device_Management.Devices
                     break;
                 case "press":
                     AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.pressUI, transform.position, Volume);
+                    break;
+                case "chat":
+                    AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.ChatNotificationUI, transform.position, Volume);
                     break;
             }
         }
@@ -580,13 +632,18 @@ namespace Basis.Scripts.Device_Management.Devices
                 LineRenderer.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
                 InteractionLineRenderer.enabled = false;
                 InteractionLineRenderer.material = BasisPlayerInteract.LineMaterial;
-                InteractionLineRenderer.startWidth = BasisPlayerInteract.interactLineWidth;
-                InteractionLineRenderer.endWidth = BasisPlayerInteract.interactLineWidth;
                 InteractionLineRenderer.useWorldSpace = true;
                 InteractionLineRenderer.textureMode = LineTextureMode.Tile;
                 InteractionLineRenderer.positionCount = 2;
-                InteractionLineRenderer.numCapVertices = 0;
+                InteractionLineRenderer.numCapVertices = 20;
+                InteractionLineRenderer.numCornerVertices = 20;
                 InteractionLineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                InteractionLineRenderer.widthMultiplier = 1;
+                InteractionLineRenderer.startWidth = 0.02f;
+                InteractionLineRenderer.endWidth = 0.02f;
+                InteractionLineRenderer.useWorldSpace = true;
+                InteractionLineRenderer.textureMode = LineTextureMode.Tile;
+                InteractionLineRenderer.applyActiveColorSpace = false;
             }
             HasRaycaster = true;
         }
@@ -622,19 +679,31 @@ namespace Basis.Scripts.Device_Management.Devices
                 BasisVisualTracker.Initialization(this);
             }
         }
-        public static BasisCalibratedCoords OffsetCoords = new BasisCalibratedCoords();
-        /// <summary>
-        /// Applies player scale to <see cref="UnscaledDeviceCoord"/> to produce <see cref="ScaledDeviceCoord"/>.
+        public static BasisCalibratedCoords OffsetCoords = new BasisCalibratedCoords(Vector3.zero,Quaternion.identity);
+        // <summary>
+        /// Applies player scale and OffsetCoords to UnscaledDeviceCoord to produce ScaledDeviceCoord.
+        /// OffsetCoords is treated as a rigid transform (R, t).
         /// </summary>
-        public void ConvertToScaledDeviceCoord(ref BasisCalibratedCoords UnscaledDeviceCoord,ref BasisCalibratedCoords ScaledDeviceCoord)
+        public void ConvertToScaledDeviceCoord(ref BasisCalibratedCoords unscaled, ref BasisCalibratedCoords scaled)
         {
-            ScaledDeviceCoord.position = OffsetCoords.position + (UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+            float s = BasisHeightDriver.DeviceScale;
+
+            Vector3 p = unscaled.position * s;
+            Quaternion r = unscaled.rotation;
+
+            scaled.position = OffsetCoords.position + (OffsetCoords.rotation * p);
+            scaled.rotation = OffsetCoords.rotation * r;
         }
+
         public void ConvertToScaledDeviceCoord()
         {
-            ScaledDeviceCoord.position = OffsetCoords.position + (UnscaledDeviceCoord.position * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale);
-            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+            float s = BasisHeightDriver.DeviceScale;
+
+            Vector3 p = UnscaledDeviceCoord.position * s;
+            Quaternion r = UnscaledDeviceCoord.rotation;
+
+            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * p);
+            ScaledDeviceCoord.rotation = OffsetCoords.rotation * r;
         }
 
         /// <summary>
@@ -681,7 +750,7 @@ namespace Basis.Scripts.Device_Management.Devices
         /// Device-specific poll implementation. Populate <see cref="UnscaledDeviceCoord"/> and/or
         /// <see cref="ScaledDeviceCoord"/> and call <see cref="UpdateInputEvents"/> at the end.
         /// </summary>
-        public abstract void DoPollData();
+        public abstract void LateDoPollData();
 
         /// <summary>
         /// Implementor should show a tracked visual (controller model) if appropriate.

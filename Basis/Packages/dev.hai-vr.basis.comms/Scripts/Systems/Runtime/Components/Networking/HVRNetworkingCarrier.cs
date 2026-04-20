@@ -9,6 +9,7 @@ namespace HVR.Basis.Comms
     [HelpURL("https://docs.hai-vr.dev/docs/basis/avatar-customization")]
     public class HVRNetworkingCarrier : BasisAvatarMonoBehaviour, IHVRTransmitter, IHVRInitializable
     {
+        new public static bool VisibleInAvatarMenu = false;
         private bool _networkReady;
 
         private HVRAvatarComms _comms;

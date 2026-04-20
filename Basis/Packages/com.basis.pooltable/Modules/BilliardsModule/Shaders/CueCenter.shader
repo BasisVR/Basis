@@ -14,7 +14,7 @@
 
     SubShader
     {
-        Tags { "Queue" = "Geometry" }
+        Tags { "Queue" = "Transparent" }
 
         //ZWrite Off
 
@@ -27,12 +27,16 @@
             #pragma vertex vert
             #pragma fragment frag
 
+            #pragma multi_compile _ UNITY_SINGLE_PASS_STEREO
+            #pragma multi_compile_instancing
+
             #include "UnityCG.cginc"
 
             struct appdata_t
             {
                 float4 pos : POSITION;
                 half3 normal : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct v2f
@@ -40,6 +44,7 @@
                 float4 pos : SV_POSITION;
                 float fresnel : TEXCOORD0;
                 float3 refcoord : TEXCOORD1;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
 
@@ -54,6 +59,10 @@
             v2f vert(appdata_t v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+
                 o.pos = UnityObjectToClipPos(v.pos);
 
                 float3 i = normalize(ObjSpaceViewDir(v.pos));
@@ -70,6 +79,8 @@
 
             fixed4 frag(v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                
                 half4 tex = texCUBElod(_Cubemap, float4(i.refcoord, 3.0));
                 half4 tex1 = texCUBE(_Cubemap, -i.refcoord);
 

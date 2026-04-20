@@ -207,8 +207,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         var newColliders = new JiggleCollider[newColliderCapacity];
         sceneColliderArrayOutput = new JiggleCollider[newColliderCapacity];
         if (sceneColliderArray != null) {
-            System.Array.Copy(sceneColliderArray, newColliders,
-                System.Math.Min(sceneColliderCount, newColliderCapacity));
+            System.Array.Copy(sceneColliderArray, newColliders, System.Math.Min(sceneColliderCount, sceneColliderArray.Length));
         }
         sceneColliderArray = newColliders;
         if (sceneColliders.IsCreated) {
@@ -223,8 +222,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         var newColliders = new JiggleCollider[newColliderCapacity];
         personalColliderArrayOutput = new JiggleCollider[newColliderCapacity];
         if (personalColliderArray != null) {
-            System.Array.Copy(personalColliderArray, newColliders,
-                System.Math.Min(personalColliderCount, newColliderCapacity));
+            System.Array.Copy(personalColliderArray, newColliders, System.Math.Min(personalColliderCount, personalColliderArray.Length));
         }
         personalColliderArray = newColliders;
         if (personalColliders.IsCreated) {
@@ -244,7 +242,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         var newSimulationOutputPoseDataArray = new PoseData[newTransformCapacity];
         var newInterpolationCurrentPoseDataArray = new PoseData[newTransformCapacity];
         var newInterpolationPreviousPoseDataArray = new PoseData[newTransformCapacity];
-        interpolationOutputPosesArrayOutput = new JiggleTransform[newTransformCapacity];
+        var newInterpolationOutputPosesArrayOutput = new JiggleTransform[newTransformCapacity];
         var newInputPosesPrevious = new JiggleTransform[newTransformCapacity];
         var newInputPosesCurrent = new JiggleTransform[newTransformCapacity];
 
@@ -269,6 +267,8 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 System.Math.Min(transformCount, newTransformCapacity));
             System.Array.Copy(inputPosesPreviousArray, newInputPosesPrevious,
                 System.Math.Min(transformCount, newTransformCapacity));
+            System.Array.Copy(interpolationOutputPosesArrayOutput, newInterpolationOutputPosesArrayOutput,
+                System.Math.Min(transformCount, newTransformCapacity));
         }
 
         inputPosesCurrentArray = newInputPosesCurrent;
@@ -281,6 +281,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         simulationOutputPoseDataArray = newSimulationOutputPoseDataArray;
         interpolationCurrentPoseDataArray = newInterpolationCurrentPoseDataArray;
         interpolationPreviousPoseDataArray = newInterpolationPreviousPoseDataArray;
+        interpolationOutputPosesArrayOutput = newInterpolationOutputPosesArrayOutput;
 
         if (jiggleTreeStructs.IsCreated) {
             inputPosesPrevious.Dispose();
@@ -299,16 +300,12 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         inputPosesCurrent = new NativeArray<JiggleTransform>(inputPosesCurrentArray, Allocator.Persistent);
         simulateInputPoses = new NativeArray<JiggleTransform>(simulateInputPosesArray, Allocator.Persistent);
         restPoseTransforms = new NativeArray<JiggleTransform>(restPoseTransformsArray, Allocator.Persistent);
-        previousLocalRestPoseTransforms =
-            new NativeArray<JiggleTransform>(previousLocalRestPoseTransformsArray, Allocator.Persistent);
+        previousLocalRestPoseTransforms = new NativeArray<JiggleTransform>(previousLocalRestPoseTransformsArray, Allocator.Persistent);
         rootOutputPositions = new NativeArray<float3>(rootOutputPositionsArray, Allocator.Persistent);
-        interpolationOutputPoses =
-            new NativeArray<JiggleTransform>(interpolationOutputPosesArray, Allocator.Persistent);
+        interpolationOutputPoses = new NativeArray<JiggleTransform>(interpolationOutputPosesArray, Allocator.Persistent);
         simulationOutputPoseData = new NativeArray<PoseData>(simulationOutputPoseDataArray, Allocator.Persistent);
-        interpolationCurrentPoseData =
-            new NativeArray<PoseData>(interpolationCurrentPoseDataArray, Allocator.Persistent);
-        interpolationPreviousPoseData =
-            new NativeArray<PoseData>(interpolationPreviousPoseDataArray, Allocator.Persistent);
+        interpolationCurrentPoseData = new NativeArray<PoseData>(interpolationCurrentPoseDataArray, Allocator.Persistent);
+        interpolationPreviousPoseData = new NativeArray<PoseData>(interpolationPreviousPoseDataArray, Allocator.Persistent);
 
         transformCapacity = newTransformCapacity;
     }
@@ -318,8 +315,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         jiggleTreeStructsArrayOutput = new JiggleTreeJobData[newTreeCapacity];
 
         if (jiggleTreeStructsArray != null) {
-            System.Array.Copy(jiggleTreeStructsArray, newJiggleTreeStructsArray,
-                System.Math.Min(treeCount, newTreeCapacity));
+            System.Array.Copy(jiggleTreeStructsArray, newJiggleTreeStructsArray, System.Math.Min(treeCount, jiggleTreeStructsArray.Length));
         }
 
         jiggleTreeStructsArray = newJiggleTreeStructsArray;
@@ -393,7 +389,8 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         ReadIn(simulationOutputPoseData, simulationOutputPoseDataArray, transformCount);
         ReadIn(interpolationCurrentPoseData, interpolationCurrentPoseDataArray, transformCount);
         ReadIn(interpolationPreviousPoseData, interpolationPreviousPoseDataArray, transformCount);
-        ReadIn(personalColliders, personalColliderArray, personalColliderCount);
+        // These get set at AddTransformsToSlice, which is too early, don't read them in because they'll be zeros...
+        //ReadIn(personalColliders, personalColliderArray, personalColliderCount);
         Profiler.EndSample();
     }
 
@@ -447,8 +444,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         NativeArray<JiggleTransform>.Copy(inputPosesPreviousArray, inputPosesPrevious, transformCount);
         NativeArray<JiggleTransform>.Copy(simulateInputPosesArray, simulateInputPoses, transformCount);
         NativeArray<JiggleTransform>.Copy(restPoseTransformsArray, restPoseTransforms, transformCount);
-        NativeArray<JiggleTransform>.Copy(previousLocalRestPoseTransformsArray, previousLocalRestPoseTransforms,
-            transformCount);
+        NativeArray<JiggleTransform>.Copy(previousLocalRestPoseTransformsArray, previousLocalRestPoseTransforms, transformCount);
         NativeArray<float3>.Copy(rootOutputPositionsArray, rootOutputPositions, transformCount);
         NativeArray<JiggleTransform>.Copy(interpolationOutputPosesArray, interpolationOutputPoses, transformCount);
         NativeArray<PoseData>.Copy(simulationOutputPoseDataArray, simulationOutputPoseData, transformCount);
@@ -526,22 +522,13 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             Debug.LogError($"JigglePhysics: Cannot add tree with null bone at index {o} to memory bus.");
             return false;
         }
-
-        if (treeCount + 1 > treeCapacity) {
-            ResizeTreeCapacity(treeCapacity * 2);
-        }
-
-        if (index + jiggleTreeJobData.pointCount >= transformCapacity) {
-            ResizeTransformCapacity(transformCapacity * 2);
-        }
         
         #region AddColliders
 
         if (jiggleTreeJobData.colliderCount > 0) {
             var success = personalColliderMemoryFragmenter.TryAllocate((int)jiggleTreeJobData.colliderCount, out var colliderStartIndex);
             if (!success) {
-                ResizePersonalColliderCapacity(personalColliderCapacity * 2);
-                personalColliderMemoryFragmenter.TryAllocate((int)jiggleTreeJobData.colliderCount, out colliderStartIndex);
+                throw new UnityException("Ran out of memory for personal colliders! This is a bug, please report it!");
             }
 
             jiggleTree.SetColliderIndexOffset(colliderStartIndex);
@@ -586,14 +573,6 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         
         if (index < 0) {
             throw new System.Exception($"JigglePhysics: Invalid index when adding tree to memory bus! {jiggleTree.rootID}:{index}");
-        }
-        
-        if (treeCount + 1 > treeCapacity) {
-            ResizeTreeCapacity(treeCapacity * 2);
-        }
-
-        if (index + jiggleTreeJobData.pointCount >= transformCapacity) {
-            ResizeTransformCapacity(transformCapacity * 2);
         }
         
         jiggleTreeStructsArray[treeCount] = jiggleTreeJobData;
@@ -653,6 +632,11 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             if (pendingAddSceneColliderCount == 0 && pendingRemoveSceneColliderCount == 0) {
                 return;
             }
+
+            if (sceneColliderCount + pendingAddSceneColliderCount >= sceneColliderCapacity) {
+                ResizeSceneColliderCapacity(Mathf.NextPowerOfTwo(sceneColliderCount+pendingAddSceneColliderCount+1));
+            }
+            
             for (int i = 0; i < pendingRemoveSceneColliderCount; i++) {
                 var collider = pendingSceneColliderRemove[i];
                 var id = sceneColliderTransformAccessList.IndexOf(collider.transform);
@@ -672,8 +656,7 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
                 
                 var found = sceneColliderMemoryFragmenter.TryAllocate(1, out var index);
                 if (!found) {
-                    ResizeSceneColliderCapacity(sceneColliderCapacity * 2);
-                    sceneColliderMemoryFragmenter.TryAllocate(1, out index);
+                    throw new UnityException( "Ran out of scene collider memory, this is a bug please report it! (It should've been allocated in advance");
                 }
 
                 while (sceneColliderTransformAccessList.Count < index+1) {
@@ -706,7 +689,37 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
             if (commandCount == 0) {
                 return;
             }
-            
+
+            int newTransforms = 0;
+            int newTrees = 0;
+            int newPersonalColliders = 0;
+            for (int i = 0; i < commandCount; i++) {
+                var command = pendingCommands[i];
+                newTransforms += command.tree.points.Length;
+                newTrees++;
+                newPersonalColliders += command.tree.personalColliders.Length;
+            }
+
+            {
+                bool needsResize = false;
+                if (transformCount + newTransforms >= transformCapacity) {
+                    if (!needsResize) { ReadIn(); needsResize = true; }
+                    ResizeTransformCapacity(Mathf.NextPowerOfTwo(transformCount+newTransforms+1));
+                }
+                if (treeCount + newTrees >= treeCapacity) {
+                    if (!needsResize) { ReadIn(); needsResize = true; }
+                    ResizeTreeCapacity(Mathf.NextPowerOfTwo(treeCount+newTrees+1));
+                }
+                if (personalColliderCount + newPersonalColliders >= personalColliderCapacity) {
+                    if (!needsResize) { ReadIn(); needsResize = true; }
+                    ResizePersonalColliderCapacity(Mathf.NextPowerOfTwo(personalColliderCount+newPersonalColliders+1));
+                }
+                if (needsResize) {
+                    WriteOut();
+                    return;
+                }
+            }
+
             for (int i = 0; i < commandCount; i++) {
                 var command = pendingCommands[i];
                 if (command.commandType == AddRemoveCommand.CommandType.Add) {
@@ -749,22 +762,27 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
 
             for (int i = 0; i < pendingAddCount; i++) {
                 var jiggleTree = pendingAddTrees[i];
-                var pointCount = (int)pendingAddTrees[i].GetStruct().pointCount;
+                var pointCount = (int)jiggleTree.GetStruct().pointCount;
+                if (pointCount != jiggleTree.bones.Length) {
+                    jiggleTree.SetDirty();
+                    JigglePhysics.SetGlobalDirty();
+                    pendingAddTrees.RemoveAt(i);
+                    pendingAddCount--;
+                    i--;
+                    Debug.LogError("JigglePhysics: Cannot add tree, point count does not match bone count. Attempting to regenerate tree...");
+                    continue;
+                }
                 if (pointCount > JiggleTreeJobData.MAX_POINTS) {
                     pendingAddTrees.RemoveAt(i);
+                    pendingAddCount--;
+                    i--;
                     Debug.LogError("JigglePhysics: Cannot add tree with more than " + JiggleTreeJobData.MAX_POINTS + " points to memory bus.");
                     continue;
                 }
 
-                var startIndex = -1;
-                const int maxResizeAttempts = 14; // 2^14 > 10000 points
-                for (int o = 0; o < maxResizeAttempts; o++) {
-                    var found = memoryFragmenter.TryAllocate(pointCount, out startIndex);
-                    if (!found) {
-                        ResizeTransformCapacity(transformCapacity * 2);
-                    } else {
-                        break;
-                    }
+                var found = memoryFragmenter.TryAllocate(pointCount, out var startIndex);
+                if (!found) {
+                    throw new UnityException("Ran out of memory for jiggle points, this is a bug please report it!");
                 }
 
                 if (startIndex == -1) {
@@ -774,8 +792,10 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
 
                 if (!TryAddTransformsToSlice(startIndex, jiggleTree)) {
                     memoryFragmenter.Free(startIndex, pointCount);
+                    jiggleTree.SetDirty();
                     pendingAddTrees.RemoveAt(i);
-                    i=Mathf.Max(i-1,0);
+                    pendingAddCount--;
+                    i--;
                 }
             }
 
@@ -851,6 +871,29 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         pendingSceneColliderAdd.Add(jiggleCollider);
     }
 
+    /// <summary>
+    /// Batch-add colliders with O(n+m) dedup instead of O(n*m).
+    /// Builds a HashSet of existing pending transforms once, then checks each
+    /// new collider against the set instead of scanning the list per collider.
+    /// </summary>
+    public void ScheduleAddBatch(List<JiggleColliderSerializable> colliders) {
+        int pendingCount = pendingSceneColliderAdd.Count;
+        int addCount = colliders.Count;
+
+        // Always create the set — covers dedup against existing AND within the batch itself
+        var existing = new HashSet<Transform>(pendingCount + addCount);
+        for (int i = 0; i < pendingCount; i++) {
+            existing.Add(pendingSceneColliderAdd[i].transform);
+        }
+
+        for (int i = 0; i < addCount; i++) {
+            var c = colliders[i];
+            if (existing.Add(c.transform)) {
+                pendingSceneColliderAdd.Add(c);
+            }
+        }
+    }
+
     public void ScheduleRemove(JiggleColliderSerializable jiggleCollider) {
         var count = pendingSceneColliderAdd.Count;
         for (int i = 0; i < count; i++) {
@@ -861,6 +904,38 @@ public void GetResults(out JiggleTransform[] poses, out JiggleTreeJobData[] tree
         }
 
         pendingSceneColliderRemove.Add(jiggleCollider);
+    }
+
+    /// <summary>
+    /// Batch-remove colliders with O(n+m) instead of O(n*m).
+    /// Builds a HashSet of transforms to remove, then does a single pass over
+    /// pendingSceneColliderAdd to cancel pending adds, and queues the rest for removal.
+    /// </summary>
+    public void ScheduleRemoveBatch(List<JiggleColliderSerializable> colliders) {
+        int removeCount = colliders.Count;
+        if (removeCount == 0) return;
+
+        // Build set of transforms we want to remove
+        var toRemove = new HashSet<Transform>(removeCount);
+        for (int i = 0; i < removeCount; i++) {
+            toRemove.Add(colliders[i].transform);
+        }
+
+        // Single pass over pendingSceneColliderAdd: cancel any pending adds that match
+        for (int i = pendingSceneColliderAdd.Count - 1; i >= 0; i--) {
+            if (toRemove.Remove(pendingSceneColliderAdd[i].transform)) {
+                pendingSceneColliderAdd.RemoveAt(i);
+            }
+        }
+
+        // Anything still in toRemove wasn't in the pending add list — queue for actual removal
+        if (toRemove.Count > 0) {
+            for (int i = 0; i < removeCount; i++) {
+                if (toRemove.Contains(colliders[i].transform)) {
+                    pendingSceneColliderRemove.Add(colliders[i]);
+                }
+            }
+        }
     }
 
     public void ScheduleAdd(JiggleTree jiggleTree) {

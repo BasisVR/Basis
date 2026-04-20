@@ -7,6 +7,8 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.AddressableAssets.ResourceLocators;
 using UnityEngine.ResourceManagement.AsyncOperations;
+using Basis.Scripts.Device_Management;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -125,8 +127,10 @@ namespace Basis.Scripts.Boot_Sequence
         /// </summary>
         public static async Task OnAddressablesInitializationComplete()
         {
+            GameObject SingleUse = new GameObject();
+            SingleUse.SetActive(false);
             // Instantiate the system GameObject via your driver. Keep a reference so we can ReleaseInstance later.
-            var go = await AddressableResourceProcess.LoadSystemGameobject(
+            var go = await AddressableResourceProcess.LoadSystemGameobject(SingleUse,
                 BasisFramework,
                 new UnityEngine.ResourceManagement.ResourceProviders.InstantiationParameters());
 
@@ -140,6 +144,7 @@ namespace Basis.Scripts.Boot_Sequence
             {
                 Debug.LogWarning("[BootSequence] AddressableResourceProcess returned null instance.");
             }
+            GameObject.DestroyImmediate(SingleUse);
         }
 
         // === Cleanup paths ===

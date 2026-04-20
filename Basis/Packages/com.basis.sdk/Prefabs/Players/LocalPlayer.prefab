@@ -34,6 +34,7 @@ Transform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &8202654958605531215
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -79,6 +80,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 32767
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 21300000, guid: df4c5b7b152475f48adb88ead5775eb0, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -88,7 +90,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &6718910188011736440
 GameObject:
@@ -316,7 +317,7 @@ MonoBehaviour:
   BasisLockToInput: {fileID: 3806033592985501336}
   HasEvents: 0
   DesktopMicrophoneViewportPosition: {x: 0.2, y: 0.15, z: 1}
-  NearClip: 0.01
+  MobileMicrophoneViewportPosition: {x: 0.5, y: 0.1, z: 1}
   ParentOfUI: {fileID: 7984352310526030848}
   microphoneIconDriver:
     DisplayMode: 1
@@ -472,22 +473,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e74417ab1ea45f547b6134fbd0adc60d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  IgnoreRaycasting:
-    serializedVersion: 2
-    m_Bits: 4
-  playerLayer:
-    serializedVersion: 2
-    m_Bits: 0
-  LocalPlayerAvatar:
-    serializedVersion: 2
-    m_Bits: 0
-  raycastDistance: 5
-  hoverRadius: 0.5
-  OnlySortClosest: 1
   InteractInputs: []
-  LineMaterial: {fileID: 0}
-  interactLineWidth: 0.015
-  renderInteractLines: 1
 --- !u!1 &8538648612911191307
 GameObject:
   m_ObjectHideFlags: 0
@@ -556,22 +542,15 @@ MonoBehaviour:
         AssetBundleName: 
         AssetBundleDescription: 
       BasisBundleGenerated: []
-      ImageBytes: 
-  FacialBlinkDriver:
-    meshRenderer: {fileID: 0}
-    minBlinkInterval: 5
-    maxBlinkInterval: 25
-    blinkDuration: 0.2
-    visemeTransitionDuration: 0.05
-    blendShapeIndex: 
-    blendShapeCount: 0
-    LinkedPlayer: {fileID: 0}
+      ImageBase64: 
+      DateOfCreation: 
   LocalCameraDriver: {fileID: 22857711927985140}
   LocalBoneDriver:
     ControlsLength: 0
     Controls: []
     trackedRoles: 
     HasControls: 0
+    GizmoBones: []
   LocalAvatarDriver:
     JiggleColliders: []
     ScaleAvatarModification:
@@ -579,63 +558,22 @@ MonoBehaviour:
       ApplyScale: 0
       FinalScale: {x: 1, y: 1, z: 1}
   LocalRigDriver:
-    MinCutoff: 5.5
-    Beta: 3.25
-    DerivativeCutoff: 3
-    SpineIK: {fileID: 0}
-    LeftFootTwoBoneIK: {fileID: 0}
-    RightFootTwoBoneIK: {fileID: 0}
-    LeftHandTwoBoneIK: {fileID: 0}
-    RightHandTwoBoneIK: {fileID: 0}
-    UpperChestTwoBoneIK: {fileID: 0}
-    LeftToeConstraint: {fileID: 0}
-    RightToeConstraint: {fileID: 0}
-    LeftToeRig: {fileID: 0}
-    RightToeRig: {fileID: 0}
-    HeadRig: {fileID: 0}
-    SpineRig: {fileID: 0}
-    LeftHandRig: {fileID: 0}
-    RightHandRig: {fileID: 0}
-    LeftFootRig: {fileID: 0}
-    RightFootRig: {fileID: 0}
-    LeftShoulderRig: {fileID: 0}
-    RightShoulderRig: {fileID: 0}
-    LeftHandLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    RightHandLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    LeftFootLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    RightFootLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    LeftToeLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    RightToeLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    RigSpineLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    RigChainSpineLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    HeadLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    LeftShoulderLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    RightShoulderLayer:
-      m_Rig: {fileID: 0}
-      m_Active: 0
-    Rigs: []
     Builder: {fileID: 0}
     AdditionalTransforms: []
+    MainRig: {fileID: 0}
+    RigLayer:
+      m_Rig: {fileID: 0}
+      m_Active: 0
+    BasisFullIKConstraint: {fileID: 0}
+    timeAccumulator: 0
+    OutputkneeBendPrefLeftWeights: {x: 0, y: 0, z: 0}
+    OutputkneeBendPrefRightWeights: {x: 0, y: 0, z: 0}
+    kneeBendPrefLeftWeights: {x: 0, y: 1, z: -0.2}
+    kneeBendPrefRightWeights: {x: 0, y: 1, z: 0.2}
+    elbowBendPrefLeftWeights: {x: 0, y: 1, z: 0}
+    elbowBendPrefRightWeights: {x: 0, y: 1, z: 0}
+    spineBendNormalWeights: {x: 0, y: 1, z: 0}
+    ScrossLeggedModifier: {x: 1.25, y: 0.25}
   LocalCharacterDriver:
     LocalPlayer: {fileID: 4587526044252889482}
     characterController: {fileID: 5548795088377030369}
@@ -651,6 +589,7 @@ MonoBehaviour:
     MinimumColliderSize: 0.01
     LastWasGrounded: 1
     IsFalling: 0
+    IsJumpHeld: 0
     HasJumpAction: 0
     jumpHeight: 1
     currentVerticalSpeed: 0
@@ -664,9 +603,20 @@ MonoBehaviour:
     <MovementSpeedScale>k__BackingField: 0
     <MovementSpeedBoost>k__BackingField: 0
     CrouchBlend: 1
+    CrouchBlendDelta: 0
+    CanPushRigidbodys: 0
     BasisLocalPlayerTransform: {fileID: 0}
-    IsEnabled: 1
     CurrentSpeed: 0
+  LocalSeatDriver:
+    UseDefaultMasking: 1
+    GroundMask:
+      serializedVersion: 2
+      m_Bits: 17
+    BlockingMask:
+      serializedVersion: 2
+      m_Bits: 456
+    maxDownProbe: 3
+    maxUpProbe: 1
   LocalAnimatorDriver:
     basisAnimatorVariableApply:
       Animator: {fileID: 0}
@@ -702,7 +652,6 @@ MonoBehaviour:
     Animator: {fileID: 0}
     StationaryVelocityThreshold: 0.01
     LargerThenVelocityCheckRotation: 0.03
-    ScaleMovementBy: 1
     CrouchThreshold: 0.35
     dampeningFactor: 6
     AngularDampingFactor: 30
@@ -723,6 +672,15 @@ MonoBehaviour:
     hipsDifferenceQ: {x: 0, y: 0, z: 0, w: 1}
     smoothFactor: 30
     smoothedRotation: {x: 0, y: 0, z: 0, w: 0}
+    PauseAnimator: 0
+  LocalEyeDriver:
+    maxAngleDeg: 25
+    holdTimeRange: {x: 0.55, y: 4}
+    saccadeTimeRange: {x: 0.05, y: 0.15}
+    centerBias: 2.5
+    perEyeVarianceDeg: 0.4
+    occasionalCenterReturn: 1
+    HasEyeSchedule: 0
   LocalHandDriver:
     LeftHand:
       ThumbPercentage: {x: 0, y: 0}
@@ -899,81 +857,43 @@ MonoBehaviour:
       Coord: {x: 0, y: 0}
     LerpSpeed: 22
     Poses: []
-  LocalEyeDriver:
-    leftEyeInitialRotation:
-      value:
-        x: 0
-        y: 0
-        z: 0
-        w: 0
-    rightEyeInitialRotation:
-      value:
-        x: 0
-        y: 0
-        z: 0
-        w: 0
-    HasEvents: 0
-    lookSpeed: 0
-    MinLookAroundInterval: 1
-    MaxLookAroundInterval: 6
-    MaximumLookDistance: 0.25
-    minLookSpeed: 0.03
-    maxLookSpeed: 0.1
-    leftEyeTransform: {fileID: 0}
-    rightEyeTransform: {fileID: 0}
-    HeadTransform: {fileID: 0}
-    LeftEyeInitallocalSpace:
-      rotation: {x: 0, y: 0, z: 0, w: 0}
-      position: {x: 0, y: 0, z: 0}
-    RightEyeInitallocalSpace:
-      rotation: {x: 0, y: 0, z: 0, w: 0}
-      position: {x: 0, y: 0, z: 0}
-    RandomizedPosition: {x: 0, y: 0, z: 0}
-    HasLeftEye: 0
-    HasRightEye: 0
-    LeftEyeHasGizmo: 0
-    RightEyeHasGizmo: 0
-    LeftEyeGizmoIndex: 0
-    RightEyeGizmoIndex: 0
-    LeftEyeTargetWorld: {x: 0, y: 0, z: 0}
-    RightEyeTargetWorld: {x: 0, y: 0, z: 0}
-    CenterTargetWorld: {x: 0, y: 0, z: 0}
-    AppliedOffset: {x: 0, y: 0, z: 0}
-    EyeForwards: {x: 0, y: 0, z: 1}
-    CurrentLookAroundInterval: 0
-    timer: 0
-    DistanceBeforeTeleport: 30
-    wasDisabled: 0
-    IsEnabled: 0
   LocalVisemeDriver:
     smoothAmount: 70
     HasViseme: 
     BlendShapeCount: 0
     Player: {fileID: 0}
     Avatar: {fileID: 0}
-    uLipSync: {fileID: 0}
-    uLipSyncBlendShape: {fileID: 0}
+    uLipSync:
+      globalMultiplier: 0
+      MultipliedWeight: 0
+      finalWeight: 0
+      skinnedMeshRenderer: {fileID: 0}
+      sharedMesh: {fileID: 0}
+      CachedblendShapes: []
+      BlendShapeInfos: []
+      HasJob: 0
+      blendShapeCount: 0
     phonemeBlendShapeTable: []
-    FirstTime: 0
     WasSuccessful: 0
     HashInstanceID: -1
     uLipSyncEnabledState: 1
-  CurrentHeight:
-    AvatarName: 
-    PlayerEyeHeight: 1.64
-    AvatarEyeHeight: 1.64
-    PlayerArmSpan: 1.7
-    AvatarArmSpan: 1.7
-    CustomPlayerEyeHeight: 1.7
-    CustomAvatarEyeHeight: 1.7
-    EyeRatioPlayerToDefaultScale: 1
-    EyeRatioAvatarToAvatarDefaultScale: 1
-    ArmRatioPlayerToDefaultScale: 1
-    ArmRatioAvatarToAvatarDefaultScale: 1
-    SelectedPlayerHeight: 1.7
-    SelectedAvatarHeight: 1.7
-    SelectedPlayerToDefaultScale: 1
-    SelectedAvatarToAvatarDefaultScale: 1
+  FacialBlinkDriver:
+    Override: 0
+    meshRenderer: {fileID: 0}
+    minBlinkInterval: 5
+    maxBlinkInterval: 25
+    blinkDuration: 0.2
+    visemeTransitionDuration: 0.05
+    blendShapeIndices: 
+    blendShapeCount: 0
+    meshBlendShapeCount: 0
+    linkedPlayer: {fileID: 0}
+    IsEnabled: 0
+    IsClosingBlink: 0
+    IsOpeningBlink: 0
+    NextBlinkTime: 0
+    BlinkStartTime: 0
+    OpenStartTime: 0
 --- !u!143 &5548795088377030369
 CharacterController:
   m_ObjectHideFlags: 0

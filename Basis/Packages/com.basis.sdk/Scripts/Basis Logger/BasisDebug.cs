@@ -3,34 +3,48 @@ using UnityEngine;
 
 public static class BasisDebug
 {
+    /// <summary>
+    /// When true, all BasisDebug Log/LogWarning/LogError calls are suppressed.
+    /// Wired to the DisableLogging setting from BasisSettingsDefaults.
+    /// </summary>
+    public static bool LoggingDisabled;
+
+    [HideInCallstack]
     public static void LogError(string message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         Debug.unityLogger.LogError("",FormatMessage(message, logTag, MessageType.Error));
     }
+    [HideInCallstack]
     public static void LogError(string message, UnityEngine.Object Object, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         Debug.unityLogger.LogError("", FormatMessage(message, logTag, MessageType.Error), Object);
     }
+    [HideInCallstack]
     public static void LogError(Exception message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         Debug.unityLogger.LogError("", FormatMessage($"{message.Message} {message.StackTrace}", logTag, MessageType.Error));
     }
-
+    [HideInCallstack]
     public static void LogWarning(string message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         LogInternal(message, logTag, MessageType.Warning);
     }
-
+    [HideInCallstack]
     public static void Log(string message, LogTag logTag = LogTag.System)
     {
+        if (LoggingDisabled) return;
         LogInternal(message, logTag, MessageType.Info);
     }
-
+    [HideInCallstack]
     public static void LogInternal(string message, LogTag logTag, MessageType messageType)
     {
         Debug.unityLogger.Log(FormatMessage(message, logTag, messageType));
     }
-
+    [HideInCallstack]
     public static string FormatMessage(string message, LogTag logTag, MessageType messageType)
     {
         // Retrieve colors for the tag and message type
@@ -40,7 +54,7 @@ public static class BasisDebug
         // Format the message with proper syntax
         return $"<color=#242424>[<color={logTagColor}>{logTag}</color>]</color> <color={messageTypeColor}>{message}</color>";
     }
-
+    [HideInCallstack]
     public static string GetTagColor(LogTag logTag)
     {
         return logTag switch
@@ -63,10 +77,13 @@ public static class BasisDebug
             LogTag.Local => "#20B2AA",        // Light Sea Green
             LogTag.Remote => "#DC143C",       // Crimson
             LogTag.Video => "#00ffff",        // Cyan
+            LogTag.Shims => "#FF00FF",        // Magenta
+            LogTag.Props => "#FFB6C1",        // Light Pink
+            LogTag.LocalNetwork => "#ff0055",
             _ => "#FFFFFF"                    // Default White
         };
     }
-
+    [HideInCallstack]
     public static string GetMessageTypeColor(MessageType messageType)
     {
         return messageType switch
@@ -77,7 +94,7 @@ public static class BasisDebug
             _ => "#FFFFFF"                    // Default White
         };
     }
-
+    [HideInCallstack]
     public static string FormatLogMessage(LogTag logTag, MessageType messageType, string message)
     {
         string tagColor = GetTagColor(logTag);
@@ -108,7 +125,10 @@ public static class BasisDebug
         Mirror,
         Local,
         Remote,
-        Video
+        Video,
+        Shims,
+        Props,
+        LocalNetwork,
     }
 
     public enum MessageType

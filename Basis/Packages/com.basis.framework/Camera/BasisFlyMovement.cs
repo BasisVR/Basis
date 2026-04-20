@@ -11,8 +11,6 @@ using UnityEngine.InputSystem;
 [Serializable]
 public class BasisFlyCamera
 {
-    // TODO: VR controls
-
     // --- Input Actions ---
     private InputActionMap flyingCameraActionMap;
     private InputAction mouseLookAction;

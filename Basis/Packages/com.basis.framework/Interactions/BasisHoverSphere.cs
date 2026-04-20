@@ -79,11 +79,15 @@ namespace Basis.Scripts.BasisSdk.Interactions
                     Collider col = HitResults[Index];
                     if (col == null) continue;
 
-                    float distance = Vector3.Distance(col.transform.position, WorldPosition);
+                    // Use closest point on collider surface, not transform.position.
+                    // transform.position can be far from the surface on large/offset colliders,
+                    // causing non-interactable colliders to incorrectly sort as "closest".
+                    BasisHoverResult candidate = new BasisHoverResult(col, WorldPosition);
+                    float distance = candidate.distanceToCenter;
                     if (distance < closestDistance)
                     {
                         closestDistance = distance;
-                        closestResult = new BasisHoverResult(col, WorldPosition);
+                        closestResult = candidate;
                     }
                 }
                 if (ResultCount > 0 && closestResult.collider != null)

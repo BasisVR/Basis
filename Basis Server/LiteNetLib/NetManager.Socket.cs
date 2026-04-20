@@ -18,6 +18,8 @@ namespace LiteNetLib
         private Thread _receiveThread;
         private IPEndPoint _bufferEndPointv4;
         private IPEndPoint _bufferEndPointv6;
+        private EndPoint _receiveEndPoint4 = new IPEndPoint(IPAddress.Any, 0);
+        private EndPoint _receiveEndPoint6 = new IPEndPoint(IPAddress.IPv6Any, 0);
 #if UNITY_SOCKET_FIX
         private PausedSocketFix _pausedSocketFix;
         private bool _useSocketFix;
@@ -264,8 +266,8 @@ namespace LiteNetLib
 
         private void ReceiveLogic()
         {
-            EndPoint bufferEndPoint4 = new IPEndPoint(IPAddress.Any, 0);
-            EndPoint bufferEndPoint6 = new IPEndPoint(IPAddress.IPv6Any, 0);
+            EndPoint bufferEndPoint4 = _receiveEndPoint4;
+            EndPoint bufferEndPoint6 = _receiveEndPoint6;
             var selectReadList = new List<Socket>(2);
             var socketv4 = _udpSocketv4;
             var socketV6 = _udpSocketv6;
@@ -433,10 +435,13 @@ namespace LiteNetLib
             {
                 Ttl = NetConstants.SocketTTL;
 
-                try { socket.EnableBroadcast = true; }
-                catch (SocketException e)
+                if (BroadcastReceiveEnabled)
                 {
-                    NetDebug.WriteError($"[B]Broadcast error: {e.SocketErrorCode}");
+                    try { socket.EnableBroadcast = true; }
+                    catch (SocketException e)
+                    {
+                        NetDebug.WriteError($"[B]Broadcast error: {e.SocketErrorCode}");
+                    }
                 }
 
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -454,8 +459,8 @@ namespace LiteNetLib
                 socket.Bind(ep);
                 //NetDebug.Write(NetLogLevel.Trace, $"[B]Successfully binded to port: {((IPEndPoint)socket.LocalEndPoint).Port}, AF: {socket.AddressFamily}");
 
-                //join multicast
-                if (ep.AddressFamily == AddressFamily.InterNetworkV6)
+                //join multicast (only needed when broadcast receive is enabled)
+                if (BroadcastReceiveEnabled && ep.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     try
                     {

@@ -1,3 +1,4 @@
+using Basis.Network.Core.Compression;
 using UnityEngine;
 using static SerializableBasis;
 
@@ -7,6 +8,6 @@ namespace Basis.Scripts.Networking.Transmitters
     public class BasisStoredAvatarData
     {
         [SerializeField]
-        public LocalAvatarSyncMessage LASM = new LocalAvatarSyncMessage(new byte[LocalAvatarSyncMessage.AvatarSyncSize]);
+        public LocalAvatarSyncMessage LASM = new LocalAvatarSyncMessage(new byte[BasisAvatarBitPacking.ConvertToSize(BasisAvatarBitPacking.BitQuality.High)]);
     }
 }

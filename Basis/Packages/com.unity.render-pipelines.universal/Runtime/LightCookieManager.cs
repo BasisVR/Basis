@@ -86,9 +86,9 @@ namespace UnityEngine.Rendering.Universal
                 if (d == 0)
                 {
                     // Sort by texture ID if "undecided" to batch fetches to the same cookie texture.
-                    int ai = alc.GetInstanceID();
-                    int bi = blc.GetInstanceID();
-                    return ai - bi;
+                    var ai = EntityId.ToULong(alc.GetEntityId());
+                    var bi = EntityId.ToULong(blc.GetEntityId());
+                    return (int)(ai - bi);
                 }
                 return d;
             };
@@ -628,12 +628,12 @@ namespace UnityEngine.Rendering.Universal
         uint ComputeCookieRequestPixelCount(ref WorkSlice<LightCookieMapping> validLightMappings)
         {
             uint requestPixelCount = 0;
-            int prevCookieID = 0;
+            EntityId prevCookieID = EntityId.None;
             for (int i = 0; i < validLightMappings.length; i++)
             {
                 var lcm = validLightMappings[i];
                 Texture cookie = lcm.light.cookie;
-                int cookieID = cookie.GetInstanceID();
+                EntityId cookieID = cookie.GetEntityId();
 
                 // Consider only unique textures as atlas request pixels
                 // NOTE: relies on same cookies being sorted together
@@ -677,7 +677,7 @@ namespace UnityEngine.Rendering.Universal
             }
             else
             {
-                m_AdditionalLightsCookieAtlas.AllocateTexture(cmd, ref uvScaleOffset, cookie, scaledWidth, scaledHeight);
+                m_AdditionalLightsCookieAtlas.AllocateTexture(cmd, ref uvScaleOffset, cookie, scaledWidth, scaledHeight, Texture2DAtlas.TextureIdentifier.None);
             }
 
             AdjustUVRect(ref uvScaleOffset, cookie, ref scaledCookieSize);
@@ -702,7 +702,7 @@ namespace UnityEngine.Rendering.Universal
             }
             else
             {
-                m_AdditionalLightsCookieAtlas.AllocateTexture(cmd, ref uvScaleOffset, cookie, scaledOctCookieSize, scaledOctCookieSize);
+                m_AdditionalLightsCookieAtlas.AllocateTexture(cmd, ref uvScaleOffset, cookie, scaledOctCookieSize, scaledOctCookieSize, Texture2DAtlas.TextureIdentifier.None);
             }
 
             // Cookie size in the atlas might not match CookieTexture size.

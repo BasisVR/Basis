@@ -6,10 +6,12 @@ public static partial class SerializableBasis
     {
         public string playerUUID;
         public string playerDisplayName;
+        public string playerPlatform;
         public void Deserialize(NetDataReader Writer)
         {
             Writer.Get(out playerUUID);
             Writer.Get(out playerDisplayName);
+            Writer.Get(out playerPlatform);
 
         }
         public void Serialize(NetDataWriter Writer)
@@ -25,6 +27,14 @@ public static partial class SerializableBasis
             if (string.IsNullOrEmpty(playerDisplayName) == false)
             {
                 Writer.Put(playerDisplayName);
+            }
+            else
+            {
+                Writer.Put("Failure");
+            }
+            if (string.IsNullOrEmpty(playerPlatform) == false)
+            {
+                Writer.Put(playerPlatform);
             }
             else
             {

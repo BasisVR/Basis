@@ -517,16 +517,29 @@ namespace Basis.Scripts.Common
         }
 
         // All captured bones (skip missing/null)
-        public Dictionary<HumanBodyBones, BasisCalibratedCoords> Tpose = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeFromRoot = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeLocal = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
+        /// <summary>
+        /// Root-relative positions at world scale (no division by localScale).
+        /// Unlike TposeFromRoot which uses InverseTransformPoint (divides by scale),
+        /// these give correct meter values regardless of the avatar root's localScale.
+        /// </summary>
+        public Dictionary<HumanBodyBones, BasisCalibratedCoords> TposeWorld = new Dictionary<HumanBodyBones, BasisCalibratedCoords>();
         public Quaternion RootRotation; // rotation during calibration
         public Vector3 RootPosition;
+        public Vector3 AvatarForwards;
+        public Vector3 AvatarUpwards;
+        public Vector3 AvatarRightwards;
         public void RecordPoses(Animator animator)
         {
             // Capture animator transform in world space
             RootRotation = animator.transform.rotation;
             RootPosition = animator.transform.position;
 
-            Tpose.Clear();
+            TposeFromRoot.Clear();
+            TposeWorld.Clear();
+
+            Quaternion invRootRot = Quaternion.Inverse(RootRotation);
 
             // Iterate all humanoid enum values except the sentinel LastBone
             for (int i = (int)HumanBodyBones.Hips; i < (int)HumanBodyBones.LastBone; i++)
@@ -535,28 +548,219 @@ namespace Basis.Scripts.Common
                 var t = animator.GetBoneTransform(bone);
                 if (t == null)
                 {
-                    Tpose[bone] = new BasisCalibratedCoords
+                    BasisCalibratedCoords zero = new BasisCalibratedCoords
                     {
                         position = Vector3.zero,
                         rotation = Quaternion.identity,
                     };
+                    TposeFromRoot[bone] = zero;
+                    TposeLocal[bone] = zero;
+                    TposeWorld[bone] = zero;
                     continue;
                 }
 
                 t.GetPositionAndRotation(out var wPos, out var wRot);
+                t.GetLocalPositionAndRotation(out var LPos, out var LRot);
 
                 // Position in animator-local space (handles parent translation & scaling)
                 Vector3 localPos = animator.transform.InverseTransformPoint(wPos);
 
                 // Rotation relative to animator root rotation
-                Quaternion localRot = Quaternion.Inverse(RootRotation) * wRot;
+                Quaternion localRot = invRootRot * wRot;
 
-                Tpose[bone] = new BasisCalibratedCoords
+                // World-scale root-relative position (root-aligned but NOT divided by localScale)
+                Vector3 worldScalePos = invRootRot * (wPos - RootPosition);
+
+                TposeFromRoot[bone] = new BasisCalibratedCoords
                 {
                     position = localPos,
                     rotation = localRot
                 };
+                TposeLocal[bone] = new BasisCalibratedCoords
+                {
+                    position = LPos,
+                    rotation = LRot
+                };
+                TposeWorld[bone] = new BasisCalibratedCoords
+                {
+                    position = worldScalePos,
+                    rotation = localRot
+                };
             }
+            if (TryComputeForwardUpFromTpose(this, out var fwd, out var up,out var right))
+            {
+                AvatarForwards = fwd;
+                AvatarUpwards = up;
+                AvatarRightwards = right;
+            }
+            else
+            {
+                // fallback: at least keep a consistent local up
+                AvatarForwards = Vector3.forward;
+                AvatarUpwards = Vector3.up;
+                AvatarRightwards = Vector3.down;
+            }
+        }
+        private static bool TryComputeForwardUpFromTpose(
+     BasisTransformMapping refs,
+     out Vector3 forwardLocal,
+     out Vector3 upLocal,
+     out Vector3 rightLocal)
+        {
+            forwardLocal = Vector3.zero;
+            upLocal = Vector3.up;
+            rightLocal = Vector3.right;
+
+            if (refs == null || refs.TposeFromRoot == null || refs.TposeFromRoot.Count == 0)
+                return false;
+
+            // ---------
+            // Helpers
+            // ---------
+            static bool TryGet(BasisTransformMapping r, HumanBodyBones b, out Vector3 p)
+            {
+                p = default;
+                if (r.TposeFromRoot.TryGetValue(b, out var c))
+                {
+                    p = c.position;
+                    // Your RecordPoses stores missing bones as (0, identity). Treat that as invalid.
+                    if (p == Vector3.zero) return false;
+                    return true;
+                }
+                return false;
+            }
+
+            static Vector3 SafeProjectOnPlane(Vector3 v, Vector3 n)
+            {
+                // n should be normalized, but we'll be tolerant.
+                if (n.sqrMagnitude < 1e-8f) return v;
+                n.Normalize();
+                return v - Vector3.Dot(v, n) * n;
+            }
+
+            static bool NormalizeNonZero(ref Vector3 v)
+            {
+                if (v.sqrMagnitude < 1e-8f) return false;
+                v.Normalize();
+                return true;
+            }
+
+            // ---------
+            // 1) HIPS and candidate UP
+            // ---------
+            if (!TryGet(refs, HumanBodyBones.Hips, out var hips))
+                return false;
+
+            // Prefer chest/spine/head to derive up (stable for most humanoids)
+            Vector3 upTarget = default;
+            bool hasUpTarget =
+                TryGet(refs, HumanBodyBones.Chest, out upTarget) ||
+                TryGet(refs, HumanBodyBones.Spine, out upTarget) ||
+                TryGet(refs, HumanBodyBones.Head, out upTarget) ||
+                TryGet(refs, HumanBodyBones.Neck, out upTarget);
+
+            if (hasUpTarget)
+            {
+                upLocal = upTarget - hips;
+                if (!NormalizeNonZero(ref upLocal))
+                    upLocal = Vector3.up;
+            }
+            else
+            {
+                // Fall back to "global-ish" up in local space. Not perfect, but better than zero.
+                upLocal = Vector3.up;
+            }
+
+            // ---------
+            // 2) RIGHT from left/right upper leg (best left-right signal)
+            // ---------
+            bool hasLHip = TryGet(refs, HumanBodyBones.LeftUpperLeg, out var lHip);
+            bool hasRHip = TryGet(refs, HumanBodyBones.RightUpperLeg, out var rHip);
+
+            if (hasLHip && hasRHip)
+            {
+                rightLocal = rHip - lHip;
+            }
+            else
+            {
+                // Fallback: feet left-right if hip bones aren't available
+                bool hasLF = TryGet(refs, HumanBodyBones.LeftFoot, out var lFoot);
+                bool hasRF = TryGet(refs, HumanBodyBones.RightFoot, out var rFoot);
+                if (hasLF && hasRF)
+                    rightLocal = rFoot - lFoot;
+                else
+                    rightLocal = Vector3.right;
+            }
+
+            // Make right orthogonal to up (prevents weird tilt and keeps basis clean)
+            rightLocal = SafeProjectOnPlane(rightLocal, upLocal);
+            if (!NormalizeNonZero(ref rightLocal))
+                rightLocal = Vector3.right;
+
+            // ---------
+            // 3) FORWARD from toes direction (strongest "facing" signal in a T-pose)
+            // ---------
+            bool hasLFt = TryGet(refs, HumanBodyBones.LeftFoot, out var lf);
+            bool hasRFt = TryGet(refs, HumanBodyBones.RightFoot, out var rf);
+            bool hasLT = TryGet(refs, HumanBodyBones.LeftToes, out var lt);
+            bool hasRT = TryGet(refs, HumanBodyBones.RightToes, out var rt);
+
+            if (hasLFt && hasRFt && hasLT && hasRT)
+            {
+                Vector3 feetMid = (lf + rf) * 0.5f;
+                Vector3 toesMid = (lt + rt) * 0.5f;
+                forwardLocal = toesMid - feetMid;
+            }
+            else
+            {
+                // Fallback 1: try head/neck projected onto up plane (weaker)
+                if (TryGet(refs, HumanBodyBones.Head, out var head))
+                    forwardLocal = head - hips;
+                else if (TryGet(refs, HumanBodyBones.Neck, out var neck))
+                    forwardLocal = neck - hips;
+                else
+                {
+                    // Fallback 2: derive forward from right-handed frame (still ambiguous sign)
+                    forwardLocal = Vector3.Cross(rightLocal, upLocal);
+                }
+            }
+
+            // Only care about yaw-ish forward: remove any up component
+            forwardLocal = SafeProjectOnPlane(forwardLocal, upLocal);
+            if (!NormalizeNonZero(ref forwardLocal))
+            {
+                // Last resort
+                forwardLocal = Vector3.Cross(rightLocal, upLocal);
+                if (!NormalizeNonZero(ref forwardLocal))
+                    forwardLocal = Vector3.forward;
+            }
+
+            // ---------
+            // 4) Hemisphere sanity: ensure forward is consistent with right/up (right-handed basis)
+            // ---------
+            // Compute what forward "should" be from right x up. If we got the opposite,
+            // flip forward (and keep right unchanged) so the basis stays right-handed.
+            Vector3 derivedForward = Vector3.Cross(rightLocal, upLocal);
+            if (derivedForward.sqrMagnitude > 1e-8f)
+            {
+                derivedForward.Normalize();
+                if (Vector3.Dot(forwardLocal, derivedForward) < 0f)
+                    forwardLocal = -forwardLocal;
+            }
+
+            // ---------
+            // 5) Final re-orthonormalization (makes the trio consistent)
+            // ---------
+            // Recompute right from up & forward, then forward from right & up.
+            rightLocal = Vector3.Cross(upLocal, forwardLocal);
+            if (!NormalizeNonZero(ref rightLocal))
+                rightLocal = Vector3.right;
+
+            forwardLocal = Vector3.Cross(rightLocal, upLocal);
+            if (!NormalizeNonZero(ref forwardLocal))
+                forwardLocal = Vector3.forward;
+
+            return true;
         }
     }
 }

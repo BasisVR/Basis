@@ -13,7 +13,12 @@
         "Unity.Mathematics",
         "BasisDebug",
         "BasisBundleManagement",
-        "BasisProfiler"
+        "BasisProfiler",
+        "BasisNetworkServer",
+        "Unity.Addressables",
+        "Unity.Addressables.Editor",
+        "Basis.OpenLipSync.Runtime",
+        "BasisEventDriver"
     ],
     "includePlatforms": [
         "Editor"

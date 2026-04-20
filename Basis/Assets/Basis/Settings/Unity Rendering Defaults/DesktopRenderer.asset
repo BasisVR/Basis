@@ -103,17 +103,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6b3d386ba5cd94485973aee1479b272e, type: 3}
-  m_Name: 3d UI After Post
+  m_Name: UI Elements Before Post Processing
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.RenderObjects
-  m_Active: 0
+  m_Active: 1
   settings:
-    passTag: 3d UI After Post
-    Event: 600
+    passTag: UI Elements Before Post Processing
+    Event: 550
     filterSettings:
       RenderQueueType: 1
       LayerMask:
         serializedVersion: 2
-        m_Bits: 32
+        m_Bits: 544
       PassNames: []
     overrideMaterial: {fileID: 0}
     overrideMaterialPassIndex: 0

@@ -48,11 +48,42 @@ namespace Basis.BasisUI
         /// </summary>
         public static TElement CreateNew<TElement>(string referencePath, Component parent) where TElement: AddressableUIInstanceBase
         {
-            GameObject obj = Addressables.InstantiateAsync(referencePath,
-                new InstantiationParameters(parent.transform, false)).WaitForCompletion();
-            TElement element = obj.GetComponent<TElement>();
-            if (!element.HasRunCreateEvent) element.OnCreateEvent();
-            return element;
+            if (parent == null)
+            {
+                BasisDebug.LogError($"Parent Missing! Requires Parent to function for UI!");
+                return null;
+            }
+            try
+            {
+                GameObject obj = Addressables.InstantiateAsync(referencePath, new InstantiationParameters(parent.transform, false)).WaitForCompletion();
+
+                if(obj == null)
+                {
+                    BasisDebug.LogError($"Failed to load Addressable at path:\n{referencePath} Missing Gameobject");
+                    return null;
+                }
+                if (obj.TryGetComponent<TElement>(out TElement element))
+                {
+                    if (!element.HasRunCreateEvent)
+                    {
+                        element.OnCreateEvent();
+                    }
+
+                    return element;
+                }
+                else
+                {
+                    BasisDebug.LogError($"Failed to load Addressable at path:\n{referencePath} Missing {typeof(TElement)}");
+                    return null;
+                }
+            }
+
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"Failed to load Addressable at path:\n{referencePath} {e.Message}");
+                return null;
+            }
+
         }
 
         public Action OnInstanceReleased

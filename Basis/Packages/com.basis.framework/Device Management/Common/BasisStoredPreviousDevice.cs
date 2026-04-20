@@ -29,11 +29,11 @@ namespace Basis.Scripts.Device_Management
         /// <summary>
         /// Name of the input subsystem/provider this device came from (e.g., OpenXR, OpenVR).
         /// </summary>
-        public string SubSystem;
+        public string SubSystemIdentifier;
 
         /// <summary>
         /// Stable unique identifier for the physical/logical device instance.
         /// </summary>
-        public string UniqueID;
+        public string UniqueDeviceIdentifier;
     }
 }

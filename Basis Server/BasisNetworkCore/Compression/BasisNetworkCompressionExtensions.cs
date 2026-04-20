@@ -1,6 +1,5 @@
 using Basis.Scripts.Networking.Compression;
 using System.Runtime.CompilerServices;
-using static SerializableBasis;
 
 namespace Basis.Network.Core.Compression
 {

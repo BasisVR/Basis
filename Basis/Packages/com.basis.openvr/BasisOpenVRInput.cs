@@ -21,16 +21,20 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             Device = device;
             InitalizeTracking(UniqueID, UnUniqueID, subSystems, AssignTrackedRole, basisBoneTrackedRole);
         }
-        public override void DoPollData()
+        public override void LateDoPollData()
+        {
+            
+        }
+        public override void RenderPollData()
         {
             if (SteamVR.active)
             {
                 result = SteamVR.instance.compositor.GetLastPoseForTrackedDeviceIndex(Device.deviceIndex, ref devicePose, ref deviceGamePose);
                 if (result == EVRCompositorError.None)
                 {
-                    if (deviceGamePose.bPoseIsValid)
+                    if (devicePose.bPoseIsValid)
                     {
-                        deviceTransform = new SteamVR_Utils.RigidTransform(deviceGamePose.mDeviceToAbsoluteTracking);
+                        deviceTransform = new SteamVR_Utils.RigidTransform(devicePose.mDeviceToAbsoluteTracking);
 
                         ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, deviceTransform.pos);
                         UnscaledDeviceCoord.rotation = deviceTransform.rot;
@@ -39,7 +43,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                         ControlOnlyAsDevice();
                         if (HasInputSource)
                         {
-                            CurrentInputState.Primary2DAxis = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
+                            CurrentInputState.Primary2DAxisClick = SteamVR_Actions._default.JoyStickClick.GetState(inputSource);
+                            CurrentInputState.Primary2DAxisRaw = SteamVR_Actions._default.Joystick.GetAxis(inputSource);
                             CurrentInputState.PrimaryButtonGetState = SteamVR_Actions._default.A_Button.GetState(inputSource);
                             CurrentInputState.SecondaryButtonGetState = SteamVR_Actions._default.B_Button.GetState(inputSource);
                             CurrentInputState.Trigger = SteamVR_Actions._default.Trigger.GetAxis(inputSource);

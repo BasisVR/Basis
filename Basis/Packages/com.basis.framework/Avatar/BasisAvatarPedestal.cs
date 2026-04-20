@@ -1,6 +1,8 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using System;
@@ -116,9 +118,9 @@ public class BasisAvatarPedestal : BasisInteractableObject
                         case ShowAvatarOnPedestal.RealAvatar:
                             {
                                 transform.GetPositionAndRotation(out Vector3 Position, out Quaternion Rotation);
-                                GameObject CreatedCopy = await BasisLoadHandler.LoadGameObjectBundle(
+                                GameObject CreatedCopy = await BasisLoadHandler.LoadGameObjectBundle(BasisDeviceManagement.Instance.CreationGameobject,
                                     LoadableBundle, true, BasisProgressReport, cancellationToken,
-                                    Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Prop, transform);
+                                    Position, Rotation, Vector3.one, false, BundledContentHolder.Selector.Prop, transform,true);
 
                                 if (CreatedCopy.TryGetComponent(out Avatar))
                                 {
@@ -142,9 +144,9 @@ public class BasisAvatarPedestal : BasisInteractableObject
                                 else
                                 {
                                     await BasisBeeManagement.HandleMetaOnlyLoad(wrapper, BasisProgressReport, cancellationToken);
-                                    if (wrapper.LoadableBundle.BasisBundleConnector.ImageBytes != null)
+                                    if (wrapper.LoadableBundle.BasisBundleConnector.ImageBase64 != null)
                                     {
-                                        LoadedImage = BasisTextureCompression.FromPngBytes(wrapper.LoadableBundle.BasisBundleConnector.ImageBytes);
+                                        LoadedImage = BasisTextureCompression.FromPngBytes(wrapper.LoadableBundle.BasisBundleConnector.ImageBase64);
                                     }
                                     else
                                     {
@@ -218,9 +220,10 @@ public class BasisAvatarPedestal : BasisInteractableObject
         {
             WasJustPressed = true;
 
-            BasisUIAcceptDenyPanel.OpenAcceptDenyPanel("Do You Want To Swap Into This Avatar?", (bool accepted) =>
+            BasisMainMenu.Open();
+            BasisMainMenu.Instance.OpenDialogue("Avatar Pedestal", "Do You Want To Swap Into This Avatar?", "yes","no", value =>
             {
-                if (accepted)
+                if (value)
                 {
                     switch (LoadMode)
                     {
@@ -378,6 +381,6 @@ public class BasisAvatarPedestal : BasisInteractableObject
     /// <inheritdoc/>
     public override bool IsInteractTriggered(BasisInput input)
     {
-        return HasState(input.CurrentInputState);
+        return HasState(input.CurrentInputState, InputKey);
     }
 }

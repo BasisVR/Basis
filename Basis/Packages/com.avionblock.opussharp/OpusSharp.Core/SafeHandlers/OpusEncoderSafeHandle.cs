@@ -1,6 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using System;
 
+// ReSharper disable MemberCanBeProtected.Global
+// ReSharper disable ClassNeverInstantiated.Global
 namespace OpusSharp.Core.SafeHandlers
 {
     /// <summary>
@@ -22,6 +24,19 @@ namespace OpusSharp.Core.SafeHandlers
         protected override bool ReleaseHandle()
         {
             NativeOpus.opus_encoder_destroy(handle);
+            return true;
+        }
+    }
+    
+    /// <summary>
+    /// Managed wrapper over the OpusEncoder state (statically linked).
+    /// </summary>
+    public class StaticOpusEncoderSafeHandle : OpusEncoderSafeHandle
+    {
+        /// <inheritdoc/>
+        protected override bool ReleaseHandle()
+        {
+            StaticNativeOpus.opus_encoder_destroy(handle);
             return true;
         }
     }

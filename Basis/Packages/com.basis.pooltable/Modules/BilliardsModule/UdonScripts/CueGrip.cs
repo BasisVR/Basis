@@ -17,9 +17,9 @@ public class CueGrip : MonoBehaviour
         meshRenderer = this.GetComponent<MeshRenderer>();
         sphereCollider = this.GetComponent<SphereCollider>();
         _Hide();
-        pickup.OnInteractStartEvent += OnPickup;
-        pickup.OnInteractEndEvent += OnDrop;
-        pickup.OnPickupUse += OnPickupUse;
+        pickup.OnInteractStartEvent.AddListener(OnPickup);
+        pickup.OnInteractEndEvent.AddListener(OnDrop);
+        pickup.OnPickupUse.AddListener(OnPickupUse);
         if (BasisDeviceManagement.IsCurrentModeVR())
         {
             pickup.AutoHold = BasisInteractableObject.BasisAutoHold.No;

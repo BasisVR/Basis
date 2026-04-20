@@ -1,0 +1,12 @@
+{
+  "name": "org.basisvr.newtonsoft.json",
+  "version": "13.0.3",
+  "displayName": "Newtonsoft.Json",
+  "description": "High-performance JSON framework",
+  "documentationUrl": "https://github.com/JamesNK/Newtonsoft.Json",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/@BasisVR"
+  },
+  "repository": "https://github.com/BasisVR/UpmBuilds",
+  "_fingerprint": "85745428deec0992bad780834f20fc66"
+}

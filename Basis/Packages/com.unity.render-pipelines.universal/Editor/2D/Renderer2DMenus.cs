@@ -16,14 +16,14 @@ namespace UnityEditor.Rendering.Universal
         {
             var instance = ScriptableObject.CreateInstance<Create2DRendererDataAsset>();
             instance.onCreated += onCreatedCallback;
-            ProjectWindowUtil.StartNameEditingIfProjectWindowExists(0, instance, "New 2D Renderer Data.asset", CoreUtils.GetIconForType<ScriptableRendererData>(), null);
+            ProjectWindowUtil.StartNameEditingIfProjectWindowExists(EntityId.None, instance, "New 2D Renderer Data.asset", CoreUtils.GetIconForType<ScriptableRendererData>(), null);
         }
 
-        class Create2DRendererDataAsset : EndNameEditAction
+        class Create2DRendererDataAsset : AssetCreationEndAction
         {
             public event Action<Renderer2DData> onCreated;
 
-            public override void Action(int instanceId, string pathName, string resourceFile)
+            public override void Action(EntityId entityId, string pathName, string resourceFile)
             {
                 var instance = CreateRendererAsset(pathName, RendererType._2DRenderer, false) as Renderer2DData;
                 Selection.activeObject = instance;
@@ -113,7 +113,7 @@ namespace UnityEditor.Rendering.Universal
             var parent = menuCommand.context as GameObject;
             Place(go, parent);
 
-            Analytics.LightDataAnalytic lightData = new Analytics.LightDataAnalytic(light2D.GetInstanceID(), true, light2D.lightType);
+            Analytics.LightDataAnalytic lightData = new Analytics.LightDataAnalytic(light2D.GetEntityId(), true, light2D.lightType);
             Analytics.Renderer2DAnalytics.instance.SendData(lightData);
 
             return light2D;
@@ -187,9 +187,9 @@ namespace UnityEditor.Rendering.Universal
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1812")]
-        internal class CreateUniversalPipelineAsset : EndNameEditAction
+        internal class CreateUniversalPipelineAsset : AssetCreationEndAction
         {
-            public override void Action(int instanceId, string pathName, string resourceFile)
+            public override void Action(EntityId entityId, string pathName, string resourceFile)
             {
                 //Create asset
                 AssetDatabase.CreateAsset(UniversalRenderPipelineAsset.Create(CreateRendererAsset(pathName, RendererType._2DRenderer)), pathName);
@@ -199,7 +199,7 @@ namespace UnityEditor.Rendering.Universal
         [MenuItem("Assets/Create/Rendering/URP Asset (with 2D Renderer)", priority = CoreUtils.Sections.section2 + CoreUtils.Priorities.assetsCreateRenderingMenuPriority)]
         static void CreateUniversalPipeline()
         {
-            ProjectWindowUtil.StartNameEditingIfProjectWindowExists(0, ScriptableObject.CreateInstance<CreateUniversalPipelineAsset>(),
+            ProjectWindowUtil.StartNameEditingIfProjectWindowExists(EntityId.None, ScriptableObject.CreateInstance<CreateUniversalPipelineAsset>(),
                 "New Universal Render Pipeline Asset.asset", CoreUtils.GetIconForType<UniversalRenderPipelineAsset>(), null);
         }
 
@@ -208,7 +208,7 @@ namespace UnityEditor.Rendering.Universal
         {
             Renderer2DMenus.Create2DRendererData((instance) =>
             {
-                Analytics.RenderAssetAnalytic modifiedData = new Analytics.RenderAssetAnalytic(instance.GetInstanceID(), true, 1, 2);
+                Analytics.RenderAssetAnalytic modifiedData = new Analytics.RenderAssetAnalytic(instance.GetEntityId(), true, 1, 2);
                 Analytics.Renderer2DAnalytics.instance.SendData(modifiedData);
             });
         }

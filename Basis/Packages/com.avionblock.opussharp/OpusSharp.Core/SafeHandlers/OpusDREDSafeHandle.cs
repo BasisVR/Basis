@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
+// ReSharper disable MemberCanBeProtected.Global
+// ReSharper disable ClassNeverInstantiated.Global
+// ReSharper disable InconsistentNaming
 namespace OpusSharp.Core.SafeHandlers
 {
     /// <summary>
@@ -22,6 +25,19 @@ namespace OpusSharp.Core.SafeHandlers
         protected override bool ReleaseHandle()
         {
             NativeOpus.opus_dred_free(handle);
+            return true;
+        }
+    }
+    
+    /// <summary>
+    /// Managed wrapper over the OpusDRED state (statically linked).
+    /// </summary>
+    public class StaticOpusDREDSafeHandle : OpusDREDSafeHandle
+    {
+        /// <inheritdoc/>
+        protected override bool ReleaseHandle()
+        {
+            StaticNativeOpus.opus_dred_free(handle);
             return true;
         }
     }

@@ -320,7 +320,7 @@ namespace UnityEngine.Rendering.Universal.Internal
 
                 builder.AllowPassCulling(false);
 
-                builder.SetRenderFunc((SetupLightPassData data, UnsafeGraphContext rgContext) =>
+                builder.SetRenderFunc(static (SetupLightPassData data, UnsafeGraphContext rgContext) =>
                 {
                     data.deferredLights.SetupLights(CommandBufferHelpers.GetNativeCommandBuffer(rgContext.cmd), data.cameraData, data.cameraTargetSizeCopy, data.lightData, true);
                 });
@@ -444,7 +444,7 @@ namespace UnityEngine.Rendering.Universal.Internal
             if (this.GbufferRTHandles != null)
             {
                 // In case DeferredLight does not own the RTHandle, we can skip realloc.
-                if (this.GbufferRTHandles[gbufferIndex].GetInstanceID() != this.GbufferAttachments[gbufferIndex].GetInstanceID())
+                if (this.GbufferRTHandles[gbufferIndex].GetUniqueID() != this.GbufferAttachments[gbufferIndex].GetUniqueID())
                     return;
 
                 gbufferSlice.depthStencilFormat = GraphicsFormat.None; // make sure no depth surface is actually created

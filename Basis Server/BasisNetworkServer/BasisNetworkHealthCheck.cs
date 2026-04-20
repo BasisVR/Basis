@@ -1,133 +1,184 @@
 using Basis.Network.Core;
 using System;
-using System.IO;
 using System.Net;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Basis.Network.Server
 {
-    public class BasisNetworkHealthCheck
+    public sealed class BasisNetworkHealthCheck : IDisposable
     {
+        private static readonly byte[] Empty = Array.Empty<byte>();
 
-        /// <summary>
-        ///     Static empty array to reduce GC.
-        /// </summary>
-        private static readonly byte[] emptyArray = new byte[0];
-
-        /// <summary>
-        ///     The HTTP listener in use.
-        /// </summary>
         private readonly HttpListener httpListener = new HttpListener();
+        private readonly CancellationTokenSource cts = new CancellationTokenSource();
 
-        /// <summary>
-        ///     The HTTP host we are listening on.
-        /// </summary>
         private readonly string host;
-
-        /// <summary>
-        ///     The HTTP port we are listening on.
-        /// </summary>
         private readonly ushort port;
+        private readonly string pathNormalized;
 
-        /// <summary>
-        ///     The HTTP path we are listening on.
-        /// </summary>
-        private readonly string path;
+        private readonly DateTimeOffset startTimeUtc;
 
-        /// <summary>
-        ///     The background thread listening for health check requests.
-        /// </summary>
-        private Thread listenThread;
+        private Task listenTask;
 
-        /// <summary>
-        ///     If the server is still running or not.
-        /// </summary>
-        private volatile bool running = true;
-        DateTime startTime = DateTime.Now;
-
-        public BasisNetworkHealthCheck(Configuration Config)
+        public BasisNetworkHealthCheck(Configuration config)
         {
-            host = Config.HealthCheckHost;
+            host = config.HealthCheckHost;
+            port = config.HealthCheckPort;
 
-            port = Config.HealthCheckPort;
+            // Normalize path: ensure leading slash, remove trailing slash (except root)
+            pathNormalized = NormalizePath(config.HealthPath);
 
-            path = Config.HealthPath;
-
+            // Prefix must end with slash.
             httpListener.Prefixes.Add($"http://{host}:{port}/");
-
             httpListener.Start();
 
-            listenThread = new Thread(Listen);
-            listenThread.Start();
+            startTimeUtc = DateTimeOffset.UtcNow;
 
-            BNL.Log($"HTTP health check started at 'http://{host}:{port}{path}'");
-            startTime = DateTime.Now;
+            listenTask = ListenLoopAsync(cts.Token);
+
+            BNL.Log($"HTTP health check started at 'http://{host}:{port}{pathNormalized}'");
         }
-        private void Listen()
+
+        private static string NormalizePath(string p)
         {
-            while (running)
+            if (string.IsNullOrWhiteSpace(p)) return "/";
+
+            p = p.Trim();
+            if (!p.StartsWith("/")) p = "/" + p;
+
+            // Remove trailing slash unless it's "/"
+            if (p.Length > 1 && p.EndsWith("/")) p = p.Substring(0, p.Length - 1);
+
+            return p;
+        }
+
+        private async Task ListenLoopAsync(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
             {
-                HttpListenerContext context;
+                HttpListenerContext context = null;
+
                 try
                 {
-                    context = httpListener.GetContext();
+                    context = await httpListener.GetContextAsync().ConfigureAwait(false);
                 }
-                catch (HttpListenerException e)
+                catch (ObjectDisposedException)
                 {
-                    if (e.ErrorCode != 500)
-                    {
-                        BNL.LogWarning("HTTP health check has exited prematurely as the HTTP server has reported an error. " + e.StackTrace);
-                    }
-                    return;
+                    return; // listener closed
+                }
+                catch (HttpListenerException)
+                {
+                    return; // listener stopped or error
+                }
+                catch (Exception e)
+                {
+                    BNL.LogWarning("HTTP health check loop error: " + e);
+                    continue;
                 }
 
-                if (context.Request.HttpMethod != "GET")
-                {
-                    context.Response.StatusCode = 405;
-                    context.Response.Close(emptyArray, false);
-                }
-                else if (context.Request.Url.AbsolutePath != path)
-                {
-                    context.Response.StatusCode = 404;
-                    context.Response.Close(emptyArray, false);
-                }
-                else
-                {
-                    context.Response.ContentType = "application/json";
-
-                    using (StreamWriter writer = new StreamWriter(context.Response.OutputStream))
-                    {
-                        if (  NetworkServer.Configuration.EnableStatistics )
-                        {
-			    int ServerCount = NetworkServer.Server.ConnectedPeersCount; // Current user count
-			    long sent = NetworkServer.Server.Statistics.BytesSent; 
-			    long recv = NetworkServer.Server.Statistics.BytesReceived;
-			    int capacity = NetworkServer.Configuration.PeerLimit;
-			    DateTime accessed = DateTime.Now;
-
-                            string output = $"{{\"listening\": true, " +
-                                $"\"visitors\": \"{ServerCount}\", " + // This is CCU but we are using non gaming terminology on purpose.
-                                $"\"capacity\": \"{capacity}\", " +
-                                $"\"sent\": \"{sent}\", " + // Bytes sent
-                                $"\"recv\": \"{recv}\", " + // Bytes recieved 
-                                $"\"currentTime\": \"{accessed:yyyy-MM-ddTHH:mm:ss.fffZ}\", " +
-                                $"\"startTime\": \"{startTime:yyyy-MM-ddTHH:mm:ss.fffZ}\", " +
-                                $"\"version\": \"{BasisNetworkVersion.ServerVersion}\"}}";
-                            writer.WriteLine(output);
-                        }
-                        else
-                        {
-                            writer.WriteLine($"{{\"listening\": true, \"startTime\": \"{startTime:yyyy-MM-ddTHH:mm:ss.fffZ}\", \"version\": \"{BasisNetworkVersion.ServerVersion}\"}}");
-                        }
-                    }
-                }
+                _ = Task.Run(() => HandleRequest(context), token);
             }
         }
 
-        public void Stop()
+        private void HandleRequest(HttpListenerContext context)
         {
-            running = false;
-            httpListener.Close();
+            try
+            {
+                var req = context.Request;
+                var res = context.Response;
+
+                // Basic hardening / semantics
+                res.Headers["Cache-Control"] = "no-store, max-age=0";
+                res.Headers["X-Content-Type-Options"] = "nosniff";
+
+                if (!string.Equals(req.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+                {
+                    res.StatusCode = 405;
+                    res.Close(Empty, false);
+                    return;
+                }
+
+                var reqPath = NormalizePath(req.Url.AbsolutePath);
+                if (!string.Equals(reqPath, pathNormalized, StringComparison.Ordinal))
+                {
+                    res.StatusCode = 404;
+                    res.Close(Empty, false);
+                    return;
+                }
+
+                // Decide readiness (example: "listening" means process alive; "ready" means server exists)
+                bool ready = NetworkServer.Server != null; // replace with your real readiness check
+                res.StatusCode = ready ? 200 : 503;
+
+                var nowUtc = DateTimeOffset.UtcNow;
+
+                // Build JSON with numeric fields as numbers (no quotes)
+                // If you want *zero* JSON escaping worries, keep version as a simple value you control.
+                string json;
+
+                if (NetworkServer.Configuration.EnableStatistics && NetworkServer.Server != null)
+                {
+                    int visitors = NetworkServer.Server.ConnectedPeersCount;
+                    long sent = NetworkServer.Server.Statistics.BytesSent;
+                    long recv = NetworkServer.Server.Statistics.BytesReceived;
+                    int capacity = NetworkServer.Configuration.PeerLimit;
+
+                    json =
+                        "{" +
+                        "\"listening\":true," +
+                        $"\"ready\":{(ready ? "true" : "false")}," +
+                        $"\"visitors\":{visitors}," +
+                        $"\"capacity\":{capacity}," +
+                        $"\"sent\":{sent}," +
+                        $"\"recv\":{recv}," +
+                        $"\"currentTime\":\"{nowUtc:O}\"," +
+                        $"\"startTime\":\"{startTimeUtc:O}\"," +
+                        $"\"version\":\"{BasisNetworkVersion.ServerVersion}\"" +
+                        "}";
+                }
+                else
+                {
+                    json =
+                        "{" +
+                        "\"listening\":true," +
+                        $"\"ready\":{(ready ? "true" : "false")}," +
+                        $"\"currentTime\":\"{nowUtc:O}\"," +
+                        $"\"startTime\":\"{startTimeUtc:O}\"," +
+                        $"\"version\":\"{BasisNetworkVersion.ServerVersion}\"" +
+                        "}";
+                }
+
+                byte[] payload = Encoding.UTF8.GetBytes(json);
+
+                res.ContentType = "application/json; charset=utf-8";
+                res.ContentEncoding = Encoding.UTF8;
+                res.ContentLength64 = payload.Length;
+
+                res.OutputStream.Write(payload, 0, payload.Length);
+                res.OutputStream.Close();
+            }
+            catch
+            {
+                try { context?.Response?.Abort(); } catch { /* ignore */ }
+            }
+        }
+
+        public void Stop() => Dispose();
+
+        public void Dispose()
+        {
+            if (cts.IsCancellationRequested) return;
+
+            cts.Cancel();
+
+            try { httpListener.Stop(); } catch { }
+            try { httpListener.Close(); } catch { }
+
+            try { listenTask?.Wait(250); } catch { }
+
+            cts.Dispose();
         }
     }
 }

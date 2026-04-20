@@ -1,0 +1,12 @@
+{
+  "name": "org.basisvr.base128",
+  "version": "1.2.2",
+  "displayName": "Base128",
+  "description": "binary serializing and deserializing integer types as variable length integers.",
+  "documentationUrl": "https://github.com/Wojmik/Base128",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/@BasisVR"
+  },
+  "repository": "https://github.com/BasisVR/UpmBuilds",
+  "_fingerprint": "a858bd0ffed5fa38a1a007a7009d0efe"
+}

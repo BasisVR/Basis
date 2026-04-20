@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using UnityEngine;
 public class BasisTextureQualityModule : BasisSettingsBase
 {
@@ -5,21 +6,23 @@ public class BasisTextureQualityModule : BasisSettingsBase
     public int treamingMipmapsMaxFileIORequests = 512;
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        QualitySettings.streamingMipmapsActive = true;
-        QualitySettings.streamingMipmapsAddAllCameras = true;
-        QualitySettings.streamingMipmapsMaxLevelReduction = StreamingMipmapsMaxLevelReduction;
-        QualitySettings.streamingMipmapsMaxFileIORequests = treamingMipmapsMaxFileIORequests;
-        ChangeMemoryAllocation(optionValue);
+        if (matchedSettingName == BasisSettingsDefaults.MemoryAllocation.BindingKey)
+        {
+            QualitySettings.streamingMipmapsActive = true;
+            QualitySettings.streamingMipmapsAddAllCameras = true;
+            QualitySettings.streamingMipmapsMaxLevelReduction = StreamingMipmapsMaxLevelReduction;
+            QualitySettings.streamingMipmapsMaxFileIORequests = treamingMipmapsMaxFileIORequests;
+            if (int.TryParse(optionValue, out int mem))
+            {
+                QualitySettings.streamingMipmapsMemoryBudget = mem;
+            }
+            else
+            {
+                QualitySettings.streamingMipmapsMemoryBudget = SystemInfo.graphicsMemorySize;
+            }
+        }
     }
-    public void ChangeMemoryAllocation(string memoryAllocation)
+    public override void ChangedSettings()
     {
-        if (int.TryParse(memoryAllocation, out int mem))
-        {
-            QualitySettings.streamingMipmapsMemoryBudget = mem;
-        }
-        else
-        {
-            QualitySettings.streamingMipmapsMemoryBudget = SystemInfo.graphicsMemorySize;
-        }
     }
 }

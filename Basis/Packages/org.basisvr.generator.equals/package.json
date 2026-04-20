@@ -1,0 +1,12 @@
+{
+  "name": "org.basisvr.generator.equals",
+  "version": "3.2.0",
+  "displayName": "Generator.Equals",
+  "description": "A source code generator for automatically implementing IEquatable<T> using only attributes.",
+  "documentationUrl": "https://github.com/diegofrata/Generator.Equals",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/@BasisVR"
+  },
+  "repository": "https://github.com/BasisVR/UpmBuilds",
+  "_fingerprint": "1b9af076f13d77e00dfb383df4b8ce79"
+}

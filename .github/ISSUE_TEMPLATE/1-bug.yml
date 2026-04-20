@@ -31,18 +31,13 @@ body:
       description: Add media content here to assist with the troubleshooting.
     validations:
       required: false
-  - type: input
-    id: version
+  - type: textarea
+    id: buildinfo
     attributes:
-      label: BasisVR Release Version
-      placeholder: 0.037A (example)
+      label: Build Info
+      placeholder: Settings > Developer > Copy Build Info button
     validations:
       required: true
-  - type: input
-    id: headset
-    attributes:
-      label: What VR headsets are being used during this issue?
-      placeholder: None/Desktop Only, Index, Quest Pro?
   - type: textarea
     id: log-files
     attributes:

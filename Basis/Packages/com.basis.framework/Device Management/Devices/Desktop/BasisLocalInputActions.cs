@@ -3,7 +3,9 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Common;
+using Basis.Scripts.Networking;
 using Basis.BasisUI;
+using BasisPermissions;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Interactions;
@@ -33,6 +35,7 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference CrouchAction;
         public InputActionReference RunButton;
         public InputActionReference Escape;
+        public InputActionReference Tab;
         public InputActionReference PrimaryButtonGetState;
         public InputActionReference PointerAction;
 
@@ -47,6 +50,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public InputActionReference MiddleMouseScroll;
         public InputActionReference MiddleMouseScrollClick;
 
+        public InputActionReference MoveLocalUpDown;
+        public InputActionReference OpenChat;
+        public InputActionReference ToggleMicMute;
         #endregion
 
         [Header("Sensitivity Settings")]
@@ -67,6 +73,12 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         #endregion
 
         private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+
+        private const string FreeCursorMode = nameof(FreeCursorMode);
+
+        /// <summary>Whether the free-cursor mode (Tab held) is active.</summary>
+        public bool IsFreeCursor { get; private set; }
+
         /// <summary>Whether crouch is currently held down.</summary>
         public bool IsJumpHeld { get; private set; }
 
@@ -78,9 +90,22 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         private Vector2 manualMoveVector = Vector2.zero;
 
+        private float lastJumpPressTime = -1f;
+        private const float DoublePressWindow = 0.3f;
+
         private const float deltaCoefficient = 0.1f;
 
         #region Unity Lifecycle
+
+        // Enable Unity Input System internal optimizations once at app startup so every input path
+        // (desktop + XR) benefits. Previously these were in OnEnable and only fired for the desktop
+        // input component, leaving the XR path un-optimized.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void ApplyInputSystemOptimizations()
+        {
+            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
+            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
+        }
 
         public void OnEnable()
         {
@@ -88,8 +113,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             {
                 Instance = this;
             }
-            InputSystem.settings.SetInternalFeatureFlag("USE_OPTIMIZED_CONTROLS", true);
-            InputSystem.settings.SetInternalFeatureFlag("USE_READ_VALUE_CACHING", true);
             BasisLocalCameraDriver.InstanceExists += SetupCamera;
             // Create user (or you may already have one from PlayerInput, etc.)
             var user = InputUser.CreateUserWithoutPairedDevices();
@@ -102,6 +125,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                     InputUser.PerformPairingWithDevice(device, user);
                 }
             }
+
+            SettingsProviderKeyboardBindings.LoadBindingOverrides(Input.actions);
 
             if (BasisDeviceManagement.IsCurrentModeVR() && BasisDeviceManagement.IsMobileHardware())
             {
@@ -165,30 +190,38 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             CrouchAction.action.Enable();
             RunButton.action.Enable();
             Escape.action.Enable();
+            Tab.action.Enable();
             PrimaryButtonGetState.action.Enable();
             LeftMousePressed.action.Enable();
             RightMousePressed.action.Enable();
             MiddleMouseScroll.action.Enable();
             MiddleMouseScrollClick.action.Enable();
+            MoveLocalUpDown.action.Enable();
+            OpenChat.action.Enable();
+            ToggleMicMute.action.Enable();
         }
 
         private void DisableActions()
         {
-            PointerAction.action.Disable();
-            DesktopSwitch.action.Disable();
-            XRSwitch.action.Disable();
-            VRSwitch.action.Disable();
-            MoveAction.action.Disable();
-            LookAction.action.Disable();
-            JumpAction.action.Disable();
-            CrouchAction.action.Disable();
-            RunButton.action.Disable();
-            Escape.action.Disable();
-            PrimaryButtonGetState.action.Disable();
-            LeftMousePressed.action.Disable();
-            RightMousePressed.action.Disable();
-            MiddleMouseScroll.action.Disable();
-            MiddleMouseScrollClick.action.Disable();
+            PointerAction?.action?.Disable();
+            DesktopSwitch?.action?.Disable();
+            XRSwitch?.action?.Disable();
+            VRSwitch?.action?.Disable();
+            MoveAction?.action?.Disable();
+            LookAction?.action?.Disable();
+            JumpAction?.action?.Disable();
+            CrouchAction?.action?.Disable();
+            RunButton?.action?.Disable();
+            Escape?.action?.Disable();
+            Tab?.action?.Disable();
+            PrimaryButtonGetState?.action?.Disable();
+            LeftMousePressed?.action?.Disable();
+            RightMousePressed?.action?.Disable();
+            MiddleMouseScroll?.action?.Disable();
+            MiddleMouseScrollClick?.action?.Disable();
+            MoveLocalUpDown?.action?.Disable();
+            OpenChat?.action?.Disable();
+            ToggleMicMute?.action?.Disable();
         }
 
         private void AddCallbacks()
@@ -215,6 +248,9 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             Escape.action.performed += OnEscapePerformed;
             Escape.action.canceled += OnEscapeCancelled;
 
+            Tab.action.performed += OnTabPerformed;
+            Tab.action.canceled += OnTabCancelled;
+
             PrimaryButtonGetState.action.performed += OnPrimaryGet;
             PrimaryButtonGetState.action.canceled += OnCancelPrimaryGet;
 
@@ -235,52 +271,48 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             VRSwitch.action.performed += OnSwitchOpenVR;
             XRSwitch.action.performed += OnSwitchOpenXR;
+
+            OpenChat.action.performed += OnOpenChatPerformed;
+            OpenChat.action.canceled += OnOpenChatCancelled;
+
+            ToggleMicMute.action.performed += OnToggleMicMutePerformed;
+            ToggleMicMute.action.canceled += OnToggleMicMuteCancelled;
+
+            BasisCursorManagement.OnCursorStateChange += OnCursorStateChanged;
+        }
+
+        private static void SafeRemoveCallbacks(InputActionReference actionRef,
+            System.Action<InputAction.CallbackContext> performed,
+            System.Action<InputAction.CallbackContext> canceled = null)
+        {
+            if (actionRef == null || actionRef.action == null) return;
+            actionRef.action.performed -= performed;
+            if (canceled != null) actionRef.action.canceled -= canceled;
         }
 
         private void RemoveCallbacks()
         {
             // Unregister all callbacks
-            PointerAction.action.performed -= OnPointerPerformed;
-            PointerAction.action.canceled -= OnPointerCancelled;
+            SafeRemoveCallbacks(PointerAction, OnPointerPerformed, OnPointerCancelled);
+            SafeRemoveCallbacks(CrouchAction, OnCrouchPerformed, OnCrouchCancelled);
+            SafeRemoveCallbacks(MoveAction, OnMoveActionPerformed, OnMoveActionCancelled);
+            SafeRemoveCallbacks(LookAction, OnLookActionPerformed, OnLookActionCancelled);
+            SafeRemoveCallbacks(JumpAction, OnJumpActionPerformed, OnJumpActionCancelled);
+            SafeRemoveCallbacks(RunButton, OnRunStarted, OnRunCancelled);
+            SafeRemoveCallbacks(Escape, OnEscapePerformed, OnEscapeCancelled);
+            SafeRemoveCallbacks(Tab, OnTabPerformed, OnTabCancelled);
+            SafeRemoveCallbacks(PrimaryButtonGetState, OnPrimaryGet, OnCancelPrimaryGet);
+            SafeRemoveCallbacks(LeftMousePressed, OnLeftMouse, OnLeftMouse);
+            SafeRemoveCallbacks(RightMousePressed, OnRightMouse, OnRightMouse);
+            SafeRemoveCallbacks(MiddleMouseScroll, OnMouseScroll, OnMouseScroll);
+            SafeRemoveCallbacks(MiddleMouseScrollClick, OnMouseScrollClick, OnMouseScrollClick);
+            SafeRemoveCallbacks(DesktopSwitch, OnSwitchDesktop, OnSwitchDesktop);
+            SafeRemoveCallbacks(VRSwitch, OnSwitchOpenVR);
+            SafeRemoveCallbacks(XRSwitch, OnSwitchOpenXR);
+            SafeRemoveCallbacks(OpenChat, OnOpenChatPerformed, OnOpenChatCancelled);
+            SafeRemoveCallbacks(ToggleMicMute, OnToggleMicMutePerformed, OnToggleMicMuteCancelled);
 
-            CrouchAction.action.performed -= OnCrouchPerformed;
-            CrouchAction.action.canceled -= OnCrouchCancelled;
-
-            MoveAction.action.performed -= OnMoveActionPerformed;
-            MoveAction.action.canceled -= OnMoveActionCancelled;
-
-            LookAction.action.performed -= OnLookActionPerformed;
-            LookAction.action.canceled -= OnLookActionCancelled;
-
-            JumpAction.action.performed -= OnJumpActionPerformed;
-            JumpAction.action.canceled -= OnJumpActionCancelled;
-
-            RunButton.action.performed -= OnRunStarted;
-            RunButton.action.canceled -= OnRunCancelled;
-
-            Escape.action.performed -= OnEscapePerformed;
-            Escape.action.canceled -= OnEscapeCancelled;
-
-            PrimaryButtonGetState.action.performed -= OnPrimaryGet;
-            PrimaryButtonGetState.action.canceled -= OnCancelPrimaryGet;
-
-            LeftMousePressed.action.performed -= OnLeftMouse;
-            LeftMousePressed.action.canceled -= OnLeftMouse;
-
-            RightMousePressed.action.performed -= OnRightMouse;
-            RightMousePressed.action.canceled -= OnRightMouse;
-
-            MiddleMouseScroll.action.performed -= OnMouseScroll;
-            MiddleMouseScroll.action.canceled -= OnMouseScroll;
-
-            MiddleMouseScrollClick.action.performed -= OnMouseScrollClick;
-            MiddleMouseScrollClick.action.canceled -= OnMouseScrollClick;
-
-            DesktopSwitch.action.performed -= OnSwitchDesktop;
-            DesktopSwitch.action.canceled -= OnSwitchDesktop;
-
-            VRSwitch.action.performed -= OnSwitchOpenVR;
-            XRSwitch.action.performed -= OnSwitchOpenXR;
+            BasisCursorManagement.OnCursorStateChange -= OnCursorStateChanged;
         }
         #endregion
 
@@ -313,20 +345,23 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnLookActionPerformed(InputAction.CallbackContext ctx)
         {
-            float sensitivity;
-            if (ctx.control.device is Mouse)
+            if (BasisInputModuleHandler.Instance.IsTyping() == false)
             {
-                sensitivity = MouseSensitivity;
+                float sensitivity;
+                if (ctx.control.device is Mouse)
+                {
+                    sensitivity = MouseSensitivity;
+                }
+                else if (IsMonoStableInput(ctx.control.device))
+                {
+                    sensitivity = JoystickSensitivity;
+                }
+                else
+                {
+                    sensitivity = KeyboardSensitivity;
+                }
+                OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
             }
-            else if (IsMonoStableInput(ctx.control.device))
-            {
-                sensitivity = JoystickSensitivity;
-            }
-            else
-            {
-                sensitivity = KeyboardSensitivity;
-            }
-            OnLookAction(ctx.ReadValue<Vector2>(), sensitivity);
         }
         public void OnLookAction(Vector2 delta, float sensitivity)
         {
@@ -352,12 +387,46 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnJumpActionPerformed(InputAction.CallbackContext ctx)
         {
             IsJumpHeld = true;
+            LocalCharacterDriver.IsJumpHeld = true;
             LocalCharacterDriver.HandleJumpRequest();
+
+            // Admin double-press fly toggle (desktop only)
+            if (!BasisDeviceManagement.IsCurrentModeVR())
+            {
+                float now = Time.unscaledTime;
+                if (now - lastJumpPressTime <= DoublePressWindow)
+                {
+                    TryToggleFlyMode();
+                    lastJumpPressTime = -1f;
+                }
+                else
+                {
+                    lastJumpPressTime = now;
+                }
+            }
+        }
+
+        private void TryToggleFlyMode()
+        {
+            if (!BasisNetworkManagement.LocalPermissions.Contains(PermNodes.PermissionsEdit))
+            {
+                return;
+            }
+
+            if (LocalCharacterDriver.CurrentModeKind == BasisLocalCharacterDriver.Mode.Fly)
+            {
+                LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Walk);
+            }
+            else
+            {
+                LocalCharacterDriver.SetMode(BasisLocalCharacterDriver.Mode.Fly);
+            }
         }
 
         public void OnJumpActionCancelled(InputAction.CallbackContext ctx)
         {
             IsJumpHeld = false;
+            LocalCharacterDriver.IsJumpHeld = false;
         }
 
         public void OnCrouchPerformed(InputAction.CallbackContext ctx)
@@ -398,10 +467,42 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public void OnEscapePerformed(InputAction.CallbackContext ctx)
         {
             BasisMainMenu.Toggle();
-            // BasisHamburgerMenu.ToggleHamburgerMenu();
         }
 
         public void OnEscapeCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnOpenChatPerformed(InputAction.CallbackContext ctx)
+        {
+            if (BasisInputModuleHandler.Instance.IsTyping() == false)
+            {
+                SettingsProvider.OpenToTab("settings.tab.chat");
+            }
+        }
+
+        public void OnOpenChatCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnToggleMicMutePerformed(InputAction.CallbackContext ctx)
+        {
+#if !BASIS_DISABLE_MICROPHONE
+            if (BasisInputModuleHandler.Instance != null && BasisInputModuleHandler.Instance.IsTyping())
+                return;
+            BasisLocalMicrophoneDriver.ToggleIsPaused();
+#endif
+        }
+
+        public void OnToggleMicMuteCancelled(InputAction.CallbackContext ctx) { }
+
+        public void OnTabPerformed(InputAction.CallbackContext ctx)
+        {
+            IsFreeCursor = true;
+            BasisCursorManagement.UnlockCursor(FreeCursorMode);
+        }
+
+        public void OnTabCancelled(InputAction.CallbackContext ctx)
+        {
+            IsFreeCursor = false;
+            BasisCursorManagement.LockCursor(FreeCursorMode);
+        }
 
         public void OnPrimaryGet(InputAction.CallbackContext ctx) => InputState.PrimaryButtonGetState = true;
         public void OnCancelPrimaryGet(InputAction.CallbackContext ctx) => InputState.PrimaryButtonGetState = false;
@@ -426,10 +527,19 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
         public void OnLeftMouse(InputAction.CallbackContext ctx) => InputState.Trigger = ctx.ReadValue<float>();
         public void OnRightMouse(InputAction.CallbackContext ctx) => InputState.SecondaryTrigger = ctx.ReadValue<float>();
-        public void OnMouseScroll(InputAction.CallbackContext ctx) => InputState.Secondary2DAxis = ctx.ReadValue<Vector2>();
+        public void OnMouseScroll(InputAction.CallbackContext ctx) => InputState.Secondary2DAxisRaw = ctx.ReadValue<Vector2>();
         public void OnMouseScrollClick(InputAction.CallbackContext ctx) => InputState.Secondary2DAxisClick = ctx.ReadValue<float>() == 1;
 
         #endregion
+
+        private void OnCursorStateChanged(CursorLockMode lockMode, bool visible)
+        {
+            // When the cursor lock state changes, the cursor is already set to the center of the screen,
+            // but the input event is not triggered. This means that the previous hover position is kept, even
+            // when the cursor changes position. To ensure that the hover position is correct when altering the cursor state,
+            // manually set the position to the center of the screen.
+            Pointer = new Vector2(Screen.width / 2f, Screen.height / 2f);
+        }
 
         #region Helpers
 

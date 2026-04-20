@@ -57,7 +57,7 @@ public class BasisUIVolumeSampler : MonoBehaviour
 
     [Header("Semantics (in slider units)")]
     [Tooltip("Lower bound of 'recommended' range, e.g., 0.6 (60%).")]
-    public float recommendedMin = 0.6f;
+    public float recommendedMin = 1f;
     [Tooltip("Default/standard reference, typically 1.0 (100%).")]
     public float defaultValue = 1.0f;
     public void Initalize(BasisRemotePlayer remotePlayer)

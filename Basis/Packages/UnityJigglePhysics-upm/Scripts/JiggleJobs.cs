@@ -89,7 +89,6 @@ public class JiggleJobs {
     
     public void SetFixedDeltaTime(float fixedDeltaTime) {
         jobSimulate.SetFixedDeltaTime(fixedDeltaTime);
-        jobInterpolation.SetFixedDeltaTime(fixedDeltaTime);
         jobInputInterpolation.SetFixedDeltaTime(fixedDeltaTime);
     }
 
@@ -192,14 +191,13 @@ public class JiggleJobs {
             OnFinishSimulate?.Invoke(this, simulateTime);
         }
 
-
         _memoryBus.RotateBuffers();
         jobInterpolation.previousTimeStamp = jobInterpolation.timeStamp;
         jobInterpolation.timeStamp = jobSimulate.timeStamp;
         jobInputInterpolation.previousTimeStamp = jobInputInterpolation.timeStamp;
         jobInputInterpolation.timeStamp = realTime;
         jobInputInterpolation.currentTime = simulateTime;
-
+        
         _memoryBus.CommitTrees();
         _memoryBus.CommitColliders();
 
@@ -229,8 +227,12 @@ public class JiggleJobs {
         hasHandleBroadPhaseClear = true;
         handleBroadPhase = jobBroadPhase.Schedule(JobHandle.CombineDependencies(colliderHandles, handleBroadPhaseClear));
         hasHandleBroadPhase = true;
-        
-        handleBulkReset = jobBulkTransformReset.Schedule(_memoryBus.GetTransformAccessArray(), colliderHandles);
+
+        if (hasHandleTransformWrite) {
+            handleBulkReset = jobBulkTransformReset.Schedule(_memoryBus.GetTransformAccessArray(), JobHandle.CombineDependencies(colliderHandles, handleTransformWrite));
+        } else {
+            handleBulkReset = jobBulkTransformReset.Schedule(_memoryBus.GetTransformAccessArray(), colliderHandles);
+        }
         hasHandleBulkReset = true;
 
         handleBulkRead = jobBulkTransformRead.ScheduleReadOnly(_memoryBus.GetTransformAccessArray(), 128, handleBulkReset);
@@ -257,10 +259,18 @@ public class JiggleJobs {
         _memoryBus.ScheduleAdd(collider);
     }
 
+    public void ScheduleAddBatch(List<JiggleColliderSerializable> colliders) {
+        _memoryBus.ScheduleAddBatch(colliders);
+    }
+
     public void ScheduleRemove(JiggleColliderSerializable collider) {
         _memoryBus.ScheduleRemove(collider);
     }
-    
+
+    public void ScheduleRemoveBatch(List<JiggleColliderSerializable> colliders) {
+        _memoryBus.ScheduleRemoveBatch(colliders);
+    }
+
     public void GetColliders(out JiggleCollider[] personalColliders, out JiggleCollider[] sceneColliders, out int personalColliderCount, out int sceneColliderCount) {
         _memoryBus.GetColliders(out personalColliders, out sceneColliders, out personalColliderCount, out sceneColliderCount);
     }
@@ -312,7 +322,7 @@ public class JiggleJobs {
     }
     
     public int GetSceneColliderCount() {
-        return _memoryBus.personalColliderCount;
+        return _memoryBus.sceneColliderCount;
     }
 
     public void OnDrawGizmos() {

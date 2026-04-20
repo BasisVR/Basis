@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using static Basis.Network.Core.Serializable.SerializableBasis;
+using static BasisNetworkServer.Security.BasisPlayerModeration;
 using static SerializableBasis;
 using Challenge = Basis.Contrib.Auth.DecentralizedIds.Challenge;
 using CryptoRng = System.Security.Cryptography.RandomNumberGenerator;
@@ -26,18 +27,21 @@ namespace BasisDidLink
         internal readonly DidAuthentication DidAuth;
         public ConcurrentDictionary<int, OnAuth> AuthIdentity = new ConcurrentDictionary<int, OnAuth>();
         private readonly ConcurrentDictionary<NetPeer, CancellationTokenSource> _timeouts = new ConcurrentDictionary<NetPeer, CancellationTokenSource>();
-        public List<string> Admins = new List<string>();
+        public ConcurrentDictionary<string, byte> Admins = new ConcurrentDictionary<string, byte>();
         public static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, Configuration.ConfigFolderName, "admins.xml");
         public BasisDIDAuthIdentity()
         {
             string[] LoadedAdmins = LoadAdmins(FilePath);
             if (LoadedAdmins != null)
             {
-                Admins = LoadedAdmins.ToList();
+                foreach (var admin in LoadedAdmins)
+                {
+                    Admins.TryAdd(admin, 0);
+                }
             }
             else
             {
-                Admins = new List<string>();
+                Admins = new ConcurrentDictionary<string, byte>();
             }
             string adminsList = string.Join(", ", Admins);
             BNL.Log($"Loaded Admins {Admins.Count} {adminsList}");
@@ -48,7 +52,7 @@ namespace BasisDidLink
             BNL.Log("DidAuthIdentity initialized.");
         }
 
-        public void DeInitalize()
+        public void DeInitialize()
         {
             BasisServerHandleEvents.OnAuthReceived -= OnAuthReceived;
             BNL.Log("DidAuthIdentity deinitialized.");
@@ -81,6 +85,12 @@ namespace BasisDidLink
 
                 if (readyMessage.WasDeserializedCorrectly())
                 {
+                    if (BasisServerHandleEvents.IsHeadlessDisallowed(readyMessage.playerMetaDataMessage, out string reason))
+                    {
+                        BasisServerHandleEvents.RejectWithReason(newPeer, reason);
+                        return;
+                    }
+
                     string UUID = readyMessage.playerMetaDataMessage.playerUUID;
                     Did playerDid = new Did(UUID);
                     if (BasisPlayerModeration.IsBanned(UUID))
@@ -112,11 +122,12 @@ namespace BasisDidLink
                     if (AuthIdentity.TryAdd(newPeer.Id, OnAuth))
                     {
                         readyMessage.playerMetaDataMessage.playerUUID = playerDid.V;
-                        NetDataWriter Writer = new NetDataWriter();
+                        NetDataWriter Writer = NetworkServer.RentWriter();
                         BytesMessage NetworkMessage = new BytesMessage();
                         NetworkMessage.Serialize(Writer, OnAuth.Challenge.Nonce.V);
                         BNL.Log("Sending out Writer with size : " + Writer.Length);
                         NetworkServer.TrySend(newPeer, Writer, BasisNetworkCommons.AuthIdentityChannel, DeliveryMethod.ReliableOrdered);
+                        NetworkServer.ReturnWriter(Writer);
 
                         CancellationTokenSource cts = new CancellationTokenSource();
                         _timeouts[newPeer] = cts;
@@ -225,7 +236,7 @@ namespace BasisDidLink
         }
         public bool IsNetPeerAdmin(string UUID)
         {
-            if (Admins.Contains(UUID))
+            if (Admins.ContainsKey(UUID))
             {
                 return true;
             }
@@ -245,8 +256,8 @@ namespace BasisDidLink
             else
             {
                 BNL.Log($"AddNetPeerAsAdmin {UUID}");
-                Admins.Add(UUID);
-                SaveAdmins(Admins.ToArray(), FilePath);
+                Admins.TryAdd(UUID, 0);
+                SaveAdmins(Admins.Keys.ToArray(), FilePath);
                 return true;
             }
         }
@@ -288,9 +299,8 @@ namespace BasisDidLink
                     }
                     catch (Exception ex)
                     {
-                        BNL.LogError($"Error loading admins (possibly corrupted file) deleting and trying again: {ex.Message} {ex.StackTrace}");
+                        BNL.LogError($"Error loading admins (possibly corrupted file), deleting and recreating: {ex.Message}");
                         File.Delete(filePath);
-                        LoadAdmins(filePath);
                     }
                 }
 
@@ -336,9 +346,9 @@ namespace BasisDidLink
         public bool RemoveNetPeerAsAdmin(string UUID)
         {
             BNL.Log($"RemoveNetPeerAsAdmin {UUID}");
-            if (Admins.Remove(UUID))
+            if (Admins.TryRemove(UUID, out _))
             {
-                SaveAdmins(Admins.ToArray(), FilePath);
+                SaveAdmins(Admins.Keys.ToArray(), FilePath);
                 return true;
             }
             else

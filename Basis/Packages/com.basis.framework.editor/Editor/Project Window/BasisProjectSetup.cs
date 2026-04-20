@@ -47,9 +47,9 @@ public partial class BasisProjectSetup : EditorWindow
 
     // Links
     private const string BASIS_SITE = "https://basisvr.org/";
-    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org/docs/getting-started/";
-    private const string BASIS_AVATARS = "https://docs.basisvr.org/docs/avatars/";
-    private const string BASIS_WORLDS = "https://docs.basisvr.org/docs/worlds/";
+    private const string BASIS_GETTING_STARTED = "https://docs.basisvr.org/docs";
+    private const string BASIS_AVATARS = "https://docs.basisvr.org/docs/avatar";
+    private const string BASIS_WORLDS = "https://docs.basisvr.org/docs/world";
     private const string BASIS_DONATE = "https://opencollective.com/basis";
     private const string UNITY_HUB_ADD_MODULES = "https://docs.unity3d.com/hub/manual/AddModules.html";
 
@@ -61,7 +61,7 @@ public partial class BasisProjectSetup : EditorWindow
     private Texture2D _basisLogo;
 
     // Basis default scenes (adjust as needed)
-    private const string SCENE_INIT = "Packages/com.basis.sdk/Scenes/initialization.unity";
+    private const string SCENE_INIT = "Packages/com.basis.framework/Scenes/initialization.unity";
     private const string SCENE_DEMO = "Packages/com.basis.examples/Scenes/DemoScene.unity";
     private const string SCENE_INTERACTABLES = "Packages/com.basis.examples/Scenes/InteractablesScene.unity";
 
@@ -87,9 +87,9 @@ public partial class BasisProjectSetup : EditorWindow
     private bool? _hasIl2cppStandalone;
     private bool? _hasIl2cppAndroid;
 
-    // Quality presets (1=Desktop, 2=Quest/Android)
-    private const int QUALITY_DESKTOP = 1;
-    private const int QUALITY_ANDROID = 2;
+    // Quality presets — must match indices in BasisQualitySettingsGuard
+    private const int QUALITY_DESKTOP = 0;
+    private const int QUALITY_ANDROID = 1;
 
     // Package manager state
     private bool? _metaXrInstalled;          // null = unknown (scanning), true/false known
@@ -259,8 +259,8 @@ public partial class BasisProjectSetup : EditorWindow
                     EditorGUILayout.LabelField("Avatar setup — do this:", header);
                     EditorGUILayout.LabelField(
                         "1) Add the component “BasisAvatar” to your avatar root.\n" +
-                        "3) Set viewpoint/eye height as needed.\n" +
-                        "4) Enter Play and sanity check movement/teleport. by clicking test in editor", body);
+                        "2) Set viewpoint/eye height as needed.\n" +
+                        "3) Enter Play and sanity check movement/teleport. by clicking test in editor", body);
 
                     EditorGUILayout.Space(4);
                     using (new EditorGUILayout.HorizontalScope())
@@ -629,7 +629,6 @@ public partial class BasisProjectSetup : EditorWindow
         ""GUID:75469ad4d38634e559750d17036d5f7c"",
         ""GUID:2684ea0d564097444a05d23355ff46a1""
     ],
-    ""inc
   ""includePlatforms"": [],
   ""excludePlatforms"": [],
   ""allowUnsafeCode"": false,
@@ -649,7 +648,6 @@ public partial class BasisProjectSetup : EditorWindow
         ""GUID:75469ad4d38634e559750d17036d5f7c"",
         ""GUID:2684ea0d564097444a05d23355ff46a1""
     ],
-    ""inc
   ""includePlatforms"": [ ""Editor"" ],
   ""excludePlatforms"": [],
   ""allowUnsafeCode"": false,

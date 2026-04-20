@@ -30,7 +30,10 @@ namespace Basis
             LoadBindingValue();
         }
 
-
+        public void ResetToDefault()
+        {
+            SetValue(DefaultValue.GetDefault());
+        }
         public void SetValue(T value)
         {
             RawValue = value;
@@ -69,7 +72,7 @@ namespace Basis
             }
         }
 
-        private void LoadBindingValue()
+        public void LoadBindingValue()
         {
             switch (typeof(T))
             {

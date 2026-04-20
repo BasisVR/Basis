@@ -19,12 +19,12 @@ public abstract class BasisInputController : BasisInput
     public BasisCalibratedCoords HandFinal = new BasisCalibratedCoords();
 
     [Header("IK Offsets")]
-    public Vector3 leftHandToIKRotationOffset;
-    public Vector3 rightHandToIKRotationOffset;
+    public Vector3 leftHandToIKRotationOffset = new Vector3(0,0,0);
+    public Vector3 rightHandToIKRotationOffset = new Vector3(0, 0, 0);
 
     [Header("Raycast Rotation Offsets")]
-    public Vector3 LeftRaycastRotationOffset = new Vector3(30, -90, 0);
-    public Vector3 RightRaycastRotationOffset = new Vector3(150, -90, 0);
+    public Vector3 LeftRaycastRotationOffset = new Vector3(0,0, 0);
+    public Vector3 RightRaycastRotationOffset = new Vector3(0,0, 0);
 
     /// <summary>
     /// Active raycast offset (determined by role).

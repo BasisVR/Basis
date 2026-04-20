@@ -7,7 +7,7 @@ public class BasisUIHeadsUpLoadingbarEditor : EditorWindow
     private BasisUIHeadsUpLoadingbarEditor targetScript;
     public string UniqueId = "UniqueIDOutput";
     // Create a menu item to open the window
-    [MenuItem("Basis/Tests/Loading Bar Tests")]
+    [MenuItem("Basis/Debug/Loading Bar Test")]
     public static void ShowWindow()
     {
         GetWindow<BasisUIHeadsUpLoadingbarEditor>("Custom Editor Window");

@@ -2,10 +2,12 @@ using System;
 using System.IO;
 using System.ComponentModel;
 using System.Collections.Generic;
+using Unity.RenderPipelines.Core.Runtime.Shared;
 using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Rendering;
+using UnityEditorInternal;
 #endif
 
 namespace UnityEngine.Rendering.Universal
@@ -28,7 +30,7 @@ namespace UnityEngine.Rendering.Universal
 
         internal bool IsAtLastVersion() => k_LastVersion == m_AssetVersion;
 
-        internal const int k_LastVersion = 9;
+        internal const int k_LastVersion = 10;
 
 #pragma warning disable CS0414
         [SerializeField][FormerlySerializedAs("k_AssetVersion")]
@@ -62,8 +64,8 @@ namespace UnityEngine.Rendering.Universal
             if (asset.m_AssetVersion < 3)
             {
                 int index = 0;
-                asset.m_RenderingLayerNames = new string[8];
 #pragma warning disable 618 // Obsolete warning
+                asset.m_RenderingLayerNames = new string[8];
                 asset.m_RenderingLayerNames[index++] = asset.lightLayerName0;
                 asset.m_RenderingLayerNames[index++] = asset.lightLayerName1;
                 asset.m_RenderingLayerNames[index++] = asset.lightLayerName2;
@@ -102,9 +104,6 @@ namespace UnityEngine.Rendering.Universal
             if (asset.m_AssetVersion < 6)
             {
                 MigrateToRenderPipelineGraphicsSettings(asset);
-#pragma warning disable 618 // Type or member is obsolete
-                asset.m_EnableRenderGraph = false;
-#pragma warning restore 618 // Type or member is obsolete
                 asset.m_AssetVersion = 6;
             }
 
@@ -113,22 +112,9 @@ namespace UnityEngine.Rendering.Universal
 #pragma warning disable 618 // Type or member is obsolete
                 if (asset.m_RenderingLayerNames is { Length: > 0 })
                 {
-                    for (int i = 1; i < asset.m_RenderingLayerNames.Length; i++)
-                    {
-                        if (i >= RenderingLayerMask.GetRenderingLayerCount())
-                            RenderPipelineEditorUtility.TryAddRenderingLayerName("");
-
-                        var name = asset.m_RenderingLayerNames[i];
-                        if(string.IsNullOrWhiteSpace(name))
-                            continue;
-
-                        var currentLayerName = RenderingLayerMask.RenderingLayerToName(i);
-                        if (!string.IsNullOrWhiteSpace(currentLayerName))
-                            currentLayerName += $" - {name}";
-                        else
-                            currentLayerName = name;
-                        RenderPipelineEditorUtility.TrySetRenderingLayerName(i, currentLayerName);
-                    }
+                    // We can't output an error here because Inner migration could cause another migration due a Graphics Settings asset reimporting.
+                    InternalRenderPipelineGlobalSettingsUtils
+                        .TryMigrateRenderingLayersToTagManager<UniversalRenderPipeline>(asset.m_RenderingLayerNames);
                 }
 #pragma warning restore 618 // Type or member is obsolete
                 asset.m_AssetVersion = 7;
@@ -168,6 +154,13 @@ namespace UnityEngine.Rendering.Universal
                 asset.m_AssetVersion = 9;
             }
 
+            // Migrate terrain shader settings from UniversalRenderPipelineRuntimeShaders to UniversalRenderPipelineRuntimeTerrainShaders
+            if (asset.m_AssetVersion < 10)
+            {
+                MigrateTerrainShaderSettings(asset);
+                asset.m_AssetVersion = 10;
+            }
+
             // If the asset version has changed, means that a migration step has been executed
             if (assetVersionBeforeUpgrade != asset.m_AssetVersion)
                 EditorUtility.SetDirty(asset);
@@ -178,7 +171,6 @@ namespace UnityEngine.Rendering.Universal
             MigrateToShaderStrippingSetting(data);
             MigrateToURPShaderStrippingSetting(data);
             MigrateDefaultVolumeProfile(data);
-            MigrateToRenderGraphSettings(data);
         }
 
         private static T GetOrCreateGraphicsSettings<T>(UniversalRenderPipelineGlobalSettings data)
@@ -210,15 +202,6 @@ namespace UnityEngine.Rendering.Universal
 #pragma warning restore 618
         }
 
-        static void MigrateToRenderGraphSettings(UniversalRenderPipelineGlobalSettings data)
-        {
-            var rgSettings = GetOrCreateGraphicsSettings<RenderGraphSettings>(data);
-
-#pragma warning disable 618 // Type or member is obsolete
-            rgSettings.SetCompatibilityModeFromUpgrade(!data.m_EnableRenderGraph);
-#pragma warning restore 618
-        }
-
         static void MigrateToURPShaderStrippingSetting(UniversalRenderPipelineGlobalSettings data)
         {
             var urpShaderStrippingSetting = GetOrCreateGraphicsSettings<URPShaderStrippingSetting>(data);
@@ -237,6 +220,31 @@ namespace UnityEngine.Rendering.Universal
             defaultVolumeProfileSettings.volumeProfile = data.m_ObsoleteDefaultVolumeProfile;
             data.m_ObsoleteDefaultVolumeProfile = null; // Discard old reference after it is migrated
 #pragma warning restore 618 // Type or member is obsolete
+        }
+
+        static void MigrateTerrainShaderSettings(UniversalRenderPipelineGlobalSettings data)
+        {
+            try
+            {
+                // Get existing UniversalRenderPipelineRuntimeShaders settings
+                if (!GraphicsSettings.TryGetRenderPipelineSettings<UniversalRenderPipelineRuntimeShaders>(out var runtimeShaders))
+                {
+                    return;
+                }
+
+                // Create/get UniversalRenderPipelineRuntimeTerrainShaders container
+                var runtimeTerrainShaders = GetOrCreateGraphicsSettings<UniversalRenderPipelineRuntimeTerrainShaders>(data);
+
+                // Migrate terrain shaders from runtimeShaders to terrainShaders
+                runtimeTerrainShaders.terrainDetailLitShader = runtimeShaders.GetOriginalTerrainDetailLitShader();
+                runtimeTerrainShaders.terrainDetailGrassBillboardShader = runtimeShaders.GetOriginalTerrainDetailGrassBillboardShader();
+                runtimeTerrainShaders.terrainDetailGrassShader = runtimeShaders.GetOriginalTerrainDetailGrassShader();
+                runtimeShaders.ClearOriginalTerrainDetailShaders();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"URP: Failed to migrate terrain detail shader settings: {ex.Message}. Terrain detail shaders will use default values.");
+            }
         }
 
 #endif // #if UNITY_EDITOR
@@ -271,8 +279,10 @@ namespace UnityEngine.Rendering.Universal
 
         public override void Initialize(RenderPipelineGlobalSettings source = null)
         {
+#pragma warning disable 618 // Type or member is obsolete
             if (source is UniversalRenderPipelineGlobalSettings globalSettingsSource)
                 Array.Copy(globalSettingsSource.m_RenderingLayerNames, m_RenderingLayerNames, globalSettingsSource.m_RenderingLayerNames.Length);
+#pragma warning restore 618
 
             // Note: RenderPipelineGraphicsSettings are not populated yet when the global settings asset is being
             // initialized, so create the setting before using it
@@ -314,10 +324,11 @@ namespace UnityEngine.Rendering.Universal
         }
 
         [SerializeField, FormerlySerializedAs("m_DefaultVolumeProfile")]
-        [Obsolete("Kept For Migration. #from(2023.3)")]
+        [Obsolete("Kept For Migration. #from(2023.3)", false)]
         internal VolumeProfile m_ObsoleteDefaultVolumeProfile;
 
         [SerializeField]
+        [Obsolete("Kept For Migration. #from(2023.3)", false)]
         internal string[] m_RenderingLayerNames = new string[] { "Default" };
 
         [SerializeField]
@@ -327,7 +338,7 @@ namespace UnityEngine.Rendering.Universal
         /// Names used for display of light layers with Layer's index as prefix.
         /// For example: "0: Light Layer Default"
         /// </summary>
-        [Obsolete("This property is obsolete. Use RenderingLayerMask API and Tags & Layers project settings instead. #from(2022.2) #breackingFrom(2023.1)", true)]
+        [Obsolete("This property is obsolete. Use RenderingLayerMask API and Tags & Layers project settings instead. #from(2022.2) #breakingFrom(2023.1)", true)]
         public string[] prefixedLightLayerNames => new string[0];
 
 
@@ -363,12 +374,12 @@ namespace UnityEngine.Rendering.Universal
         /// </summary>
         [Obsolete("This is obsolete, please use renderingLayerMaskNames instead. #from(2022.2)")]
         public string[] lightLayerNames => new string[0];
-
+#pragma warning disable 618 // Type or member is obsolete
         internal void ResetRenderingLayerNames()
         {
             m_RenderingLayerNames = new string[] { "Default"};
         }
-
+#pragma warning restore 618
         #endregion
 
 #pragma warning disable 618

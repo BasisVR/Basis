@@ -17,6 +17,15 @@ public static partial class SerializableBasis
         public string UnlockPassword;
         public string CombinedURL;
 
+        //will never remove this item from the server,
+        //if off when player count on server is zero it will be removed.
+        public string UUIDOfCreator;
+        /// <summary>
+        /// normal users cant remove these items
+        /// never net written just handled by server
+        /// </summary>
+        public bool IsAdminLocked;
+
         public float PositionX;
         public float PositionY;
         public float PositionZ;
@@ -36,16 +45,24 @@ public static partial class SerializableBasis
         /// just use whatever scale it thinks it is.
         /// </summary>
         public bool ModifyScale;
-        //will never remove this item from the server,
-        //if off when player count on server is zero it will be removed.
+        /// <summary>
+        /// Determines how the resource should be loaded on clients.
+        /// 0 = Immediate (spawn right away, existing behavior),
+        /// 2 = Synchronized (download, report readiness, spawn when all ready or 5-min timeout).
+        /// </summary>
+        public byte LoadStrategy;
         public void Deserialize(NetDataReader Writer)
         {
             Mode = Writer.GetByte();
             LoadedNetID = Writer.GetString();
             UnlockPassword = Writer.GetString();
             CombinedURL = Writer.GetString();
+            UUIDOfCreator = Writer.GetString();
+            IsAdminLocked = Writer.GetBool();
+
             Persist = Writer.GetBool();
             ModifyScale = Writer.GetBool();
+            LoadStrategy = Writer.GetByte();
             if (Mode == 0)
             {
                 PositionX = Writer.GetFloat();
@@ -61,6 +78,7 @@ public static partial class SerializableBasis
                 ScaleY = Writer.GetFloat();
                 ScaleZ = Writer.GetFloat();
             }
+
         }
         public void Serialize(NetDataWriter Writer)
         {
@@ -68,8 +86,11 @@ public static partial class SerializableBasis
             Writer.Put(LoadedNetID);
             Writer.Put(UnlockPassword);
             Writer.Put(CombinedURL);
+            Writer.Put(UUIDOfCreator);
+            Writer.Put(IsAdminLocked);
             Writer.Put(Persist);
             Writer.Put(ModifyScale);
+            Writer.Put(LoadStrategy);
             if (Mode == 0)
             {
                 Writer.Put(PositionX);
@@ -85,6 +106,52 @@ public static partial class SerializableBasis
                 Writer.Put(ScaleY);
                 Writer.Put(ScaleZ);
             }
+        }
+    }
+
+    /// <summary>
+    /// Sent from client to server to report preload readiness for a synchronized load.
+    /// </summary>
+    public struct PreloadReadyMessage
+    {
+        /// <summary>
+        /// The LoadedNetID of the resource this readiness report is for.
+        /// </summary>
+        public string LoadedNetID;
+        /// <summary>
+        /// True if the client successfully preloaded the content, false if it failed or timed out.
+        /// </summary>
+        public bool IsReady;
+
+        public void Serialize(NetDataWriter writer)
+        {
+            writer.Put(LoadedNetID);
+            writer.Put(IsReady);
+        }
+        public void Deserialize(NetDataReader reader)
+        {
+            LoadedNetID = reader.GetString();
+            IsReady = reader.GetBool();
+        }
+    }
+
+    /// <summary>
+    /// Sent from server to all clients to signal that a preloaded resource should now be spawned.
+    /// </summary>
+    public struct SpawnPreloadedMessage
+    {
+        /// <summary>
+        /// The LoadedNetID of the resource to spawn.
+        /// </summary>
+        public string LoadedNetID;
+
+        public void Serialize(NetDataWriter writer)
+        {
+            writer.Put(LoadedNetID);
+        }
+        public void Deserialize(NetDataReader reader)
+        {
+            LoadedNetID = reader.GetString();
         }
     }
 }

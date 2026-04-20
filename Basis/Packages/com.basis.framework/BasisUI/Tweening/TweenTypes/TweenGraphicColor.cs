@@ -12,7 +12,7 @@ namespace Basis.BTween
         {
             TweenGraphicColor tween = TweenGraphicColor.GetAvailableTween()
                 .SetTarget(image)
-                .Start(duration, endPosition);
+                .Start(duration, image.color, endPosition);
             return tween;
         }
 
@@ -40,12 +40,25 @@ namespace Basis.BTween
             return this;
         }
 
-        public override bool Process(float currentTime)
+        public override bool Process(double currentTime)
         {
-            if (base.Process(currentTime)) return true;
+            if (base.Process(currentTime))
+                return true;
 
-            float blend = BlendValue(currentTime);
-            Target.color = Color.Lerp(StartValue, EndValue, blend);
+            double t = BlendValue(currentTime);
+
+            double r = StartValue.r + (EndValue.r - StartValue.r) * t;
+            double g = StartValue.g + (EndValue.g - StartValue.g) * t;
+            double b = StartValue.b + (EndValue.b - StartValue.b) * t;
+            double a = StartValue.a + (EndValue.a - StartValue.a) * t;
+
+            Target.color = new Color(
+                (float)r,
+                (float)g,
+                (float)b,
+                (float)a
+            );
+
             return false;
         }
 

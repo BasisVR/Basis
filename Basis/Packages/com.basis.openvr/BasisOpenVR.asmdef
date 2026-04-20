@@ -18,7 +18,11 @@
     ],
     "includePlatforms": [],
     "excludePlatforms": [
-        "Android"
+        "Android",
+        "iOS",
+        "macOSStandalone",
+        "tvOS",
+        "VisionOS"
     ],
     "allowUnsafeCode": false,
     "overrideReferences": false,

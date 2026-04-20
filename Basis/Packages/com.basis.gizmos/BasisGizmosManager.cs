@@ -72,10 +72,9 @@ public static class BasisGizmoManager
         {
             basisGizmos.ConfigureMeshGizmo(material, Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx"), color);
             Gizmos[linkedID] = basisGizmos;
-
             tempSphere.name = GizmoName;
-            tempSphere.transform.position = position;
-            tempSphere.transform.localScale = Vector3.one * size;
+            basisGizmos.UpdatePosition(position);
+            basisGizmos.UpdateSize(Vector3.one * size);
 
             BasisDebug.Log($"Created SphereGizmo with ID {linkedID}", BasisDebug.LogTag.Gizmo);
             return true;
@@ -91,7 +90,7 @@ public static class BasisGizmoManager
     /// <summary>
     /// Updates an existing sphere gizmo.
     /// </summary>
-    public static bool UpdateSphereGizmo(int linkedID, Vector3 position)
+    public static bool UpdateSphereGizmo(int linkedID, Vector3 position,Vector3 Scale)
     {
         if (!Gizmos.TryGetValue(linkedID, out BasisGizmos gizmo))
         {
@@ -100,6 +99,7 @@ public static class BasisGizmoManager
         }
 
         gizmo.UpdatePosition(position);
+        gizmo.UpdateSize(Scale);
         return true;
     }
     public static bool CreateLineGizmo(string GizmoName,int linkedID, Vector3 start, Vector3 end, float width, Color color,GameObject Reference)
@@ -158,6 +158,10 @@ public static class BasisGizmoManager
         if (!GizmosLine.TryGetValue(linkedID, out BasisLineGizmos gizmo))
         {
             BasisDebug.LogError($"No LineGizmo found with ID {linkedID}. Use CreateLineGizmo first.", BasisDebug.LogTag.Gizmo);
+            return false;
+        }
+        if (gizmo == null || gizmo.LineRenderer == null)
+        {
             return false;
         }
         gizmo.LineRenderer.SetPosition(0, start);

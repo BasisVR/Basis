@@ -34,16 +34,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         private bool _hasReasonToSendAudio;
         public static BasisRangedUshortFloatData RotationCompression = new BasisRangedUshortFloatData(-1f, 1f, 0.001f);
         public const int MuscleCount = 95;
-        [SerializeField]
-        public HumanPose HumanPose = new HumanPose()
-        {
-            muscles = new float[MuscleCount],
-            bodyPosition = Vector3.zero,
-            bodyRotation = Quaternion.identity,
-        };
-        [SerializeField]
-        public HumanPoseHandler PoseHandler;
-        public BasisPlayer Player;
+        public BasisPlayer Player {get; set; }
         public bool hasID = false;
         public bool HasReasonToSendAudio
         {
@@ -62,7 +53,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 }
             }
         }
-        public ushort playerId;
+        public ushort playerId {get; protected set; }
         public Dictionary<byte, ServerAvatarDataMessageQueue> NextMessages = new Dictionary<byte, ServerAvatarDataMessageQueue>();
         public struct ServerAvatarDataMessageQueue
         {
@@ -101,12 +92,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (CheckForAvatar())
             {
                 BasisAvatar basisAvatar = Player.BasisAvatar;
-                // All checks pas
-                PoseHandler = new HumanPoseHandler(
-                    basisAvatar.Animator.avatar,
-                    Player.AvatarTransform
-                );
-                PoseHandler.GetHumanPose(ref HumanPose);
+               // PoseHandler.GetHumanPose(ref HumanPose);
                 basisAvatar.LinkedPlayerID = playerId;
                 NetworkBehaviours = Player.BasisAvatar.GetComponentsInChildren<BasisAvatarMonoBehaviour>(true);
                 NetworkBehaviourCount = NetworkBehaviours.Length;
@@ -143,7 +129,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         }
         public void OnAvatarServerReductionSystemMessageSend(byte MessageIndex, byte[] buffer = null)
         {
-            if (BasisNetworkManagement.Instance != null && BasisNetworkManagement.Transmitter != null)
+            if (BasisNetworkManagement.Transmitter != null)
             {
                 AdditionalAvatarData AAD = new AdditionalAvatarData
                 {
@@ -170,17 +156,8 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 recipientsSize = 0,
             };
             NetDataWriter netDataWriter = new NetDataWriter();
-            if (DeliveryMethod == DeliveryMethod.Unreliable)
-            {
-                netDataWriter.Put(BasisNetworkCommons.AvatarChannel);
-                AvatarDataMessage.Serialize(netDataWriter);
-                BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.FallChannel, DeliveryMethod);
-            }
-            else
-            {
-                AvatarDataMessage.Serialize(netDataWriter);
-                BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
-            }
+            AvatarDataMessage.Serialize(netDataWriter);
+            BasisNetworkConnection.LocalPlayerPeer.Send(netDataWriter, BasisNetworkCommons.AvatarChannel, DeliveryMethod);
             BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.AvatarDataMessage, netDataWriter.Length);
         }
         public static bool AvatarToPlayer(BasisAvatar Avatar, out BasisPlayer BasisPlayer)
@@ -294,7 +271,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                return BasisLocalAvatarDriver.References.GetBoneLocalPositionRotation(bone, out position, out rotation);
+                return BasisLocalAvatarDriver.Mapping.GetBoneLocalPositionRotation(bone, out position, out rotation);
             }
             else
             {
@@ -381,23 +358,14 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                var MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
-                var CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
-
-                if (Immobilize)
+                if (BasisLocalPlayer.Instance != null)
                 {
-                    MovementLock.Add(nameof(BasisNetworkPlayer));
-                    CrouchingLock.Add(nameof(BasisNetworkPlayer));
+                    BasisLocalPlayer.Instance.Immobilize(Immobilize);
                 }
                 else
                 {
-                    MovementLock.Remove(nameof(BasisNetworkPlayer));
-                    CrouchingLock.Remove(nameof(BasisNetworkPlayer));
+                    BasisDebug.LogError("Not Implemented Remote GetTrackingData", BasisDebug.LogTag.Networking);
                 }
-            }
-            else
-            {
-                BasisDebug.LogError("Not Implemented Remote GetTrackingData", BasisDebug.LogTag.Networking);
             }
         }
 
@@ -410,7 +378,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                BasisLocalAvatarDriver.References.GetBonePosition(bone, out Vector3 position);
+                BasisLocalAvatarDriver.Mapping.GetBonePosition(bone, out Vector3 position);
                 return position;
             }
             else
@@ -423,7 +391,7 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         {
             if (Player.IsLocal)
             {
-                BasisLocalAvatarDriver.References.GetBoneRotation(bone, out Quaternion rotation);
+                BasisLocalAvatarDriver.Mapping.GetBoneRotation(bone, out Quaternion rotation);
                 return rotation;
             }
             else
@@ -518,6 +486,21 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 if (Player != null)
                 {
                     return Player.DisplayName;
+                }
+                else
+                {
+                    return string.Empty;
+                }
+            }
+        }
+        
+        public string SafeDisplayName
+        {
+            get
+            {
+                if (Player != null)
+                {
+                    return Player.SafeDisplayName;
                 }
                 else
                 {

@@ -40,12 +40,23 @@ namespace Basis.BTween
             return this;
         }
 
-        public override bool Process(float currentTime)
+        public override bool Process(double currentTime)
         {
-            if (base.Process(currentTime)) return true;
+            if (base.Process(currentTime))
+                return true;
 
-            float blend = BlendValue(currentTime);
-            Target.position = Vector3.Lerp(StartValue, EndValue, blend);
+            double t = BlendValue(currentTime);
+
+            double x = StartValue.x + (EndValue.x - StartValue.x) * t;
+            double y = StartValue.y + (EndValue.y - StartValue.y) * t;
+            double z = StartValue.z + (EndValue.z - StartValue.z) * t;
+
+            Target.position = new Vector3(
+                (float)x,
+                (float)y,
+                (float)z
+            );
+
             return false;
         }
 

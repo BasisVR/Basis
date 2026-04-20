@@ -1,4 +1,4 @@
-﻿//
+//
 // Copyright 2017-2023 Valve Corporation.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -63,6 +63,7 @@ namespace SteamAudio
         SerializedProperty mFindAlternatePaths;
         SerializedProperty mApplyHRTFToPathing;
         SerializedProperty mPathingMixLevel;
+        SerializedProperty AllowsUpdateParameter;
 
         Texture2D mDirectivityPreview = null;
         float[] mDirectivitySamples = null;
@@ -111,6 +112,7 @@ namespace SteamAudio
             mFindAlternatePaths = serializedObject.FindProperty("findAlternatePaths");
             mApplyHRTFToPathing = serializedObject.FindProperty("applyHRTFToPathing");
             mPathingMixLevel = serializedObject.FindProperty("pathingMixLevel");
+            AllowsUpdateParameter = serializedObject.FindProperty("AllowsUpdateParameters");
         }
 
         public override void OnInspectorGUI()
@@ -267,7 +269,7 @@ namespace SteamAudio
                     EditorGUILayout.PropertyField(mPathingMixLevel);
                 }
             }
-
+            EditorGUILayout.PropertyField(AllowsUpdateParameter);
             serializedObject.ApplyModifiedProperties();
         }
 

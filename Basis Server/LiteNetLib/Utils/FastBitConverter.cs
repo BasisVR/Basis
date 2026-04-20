@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -14,7 +14,9 @@ namespace LiteNetLib.Utils
             int size = sizeof(T);
             if (bytes.Length < startIndex + size)
                 ThrowIndexOutOfRangeException();
-#if NETCOREAPP3_1 || NET5_0 || NETCOREAPP3_0_OR_GREATER
+#if NET8_0_OR_GREATER
+            Unsafe.WriteUnaligned(ref bytes[startIndex], value);
+#elif NETCOREAPP3_1 || NET5_0 || NETCOREAPP3_0_OR_GREATER
             Unsafe.As<byte, T>(ref bytes[startIndex]) = value;
 #else
             fixed (byte* ptr = &bytes[startIndex])
@@ -37,6 +39,23 @@ namespace LiteNetLib.Utils
             }
 #endif
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe T Read<T>(byte[] data, int offset) where T : unmanaged
+        {
+            if (data.Length < offset + sizeof(T))
+                ThrowIndexOutOfRangeException();
+#if NET8_0_OR_GREATER
+            return Unsafe.ReadUnaligned<T>(ref data[offset]);
+#elif NETCOREAPP3_1 || NET5_0 || NETCOREAPP3_0_OR_GREATER
+            return Unsafe.As<byte, T>(ref data[offset]);
+#else
+            fixed (byte* ptr = &data[offset])
+            {
+                return *(T*)ptr;
+            }
+#endif
+        }
 #else
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void GetBytes<T>(byte[] bytes, int startIndex, T value) where T : unmanaged
@@ -45,10 +64,27 @@ namespace LiteNetLib.Utils
                 ThrowIndexOutOfRangeException();
             Unsafe.As<byte, T>(ref bytes[startIndex]) = value;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T Read<T>(byte[] data, int offset) where T : unmanaged
+        {
+            if (data.Length < offset + Unsafe.SizeOf<T>())
+                ThrowIndexOutOfRangeException();
+            return Unsafe.As<byte, T>(ref data[offset]);
+        }
 #endif
 
         private static void ThrowIndexOutOfRangeException() => throw new IndexOutOfRangeException();
 #else
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe void GetBytes<T>(byte[] data, int position, T value) where T : unmanaged
+        {
+            fixed (byte* ptr = &data[position])
+            {
+                *(T*)ptr = value;
+            }
+        }
+
         [StructLayout(LayoutKind.Explicit)]
         private struct ConverterHelperDouble
         {
@@ -169,6 +205,97 @@ namespace LiteNetLib.Utils
         public static void GetBytes(byte[] bytes, int startIndex, ulong value)
         {
             WriteLittleEndian(bytes, startIndex, value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe T Read<T>(byte[] data, int offset) where T : unmanaged
+        {
+            fixed (byte* ptr = &data[offset])
+            {
+                return *(T*)ptr;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ushort ReadUShort(byte[] data, int offset)
+        {
+#if BIGENDIAN
+            return (ushort)(data[offset + 1] | (data[offset] << 8));
+#else
+            return (ushort)(data[offset] | (data[offset + 1] << 8));
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static short ReadShort(byte[] data, int offset)
+        {
+#if BIGENDIAN
+            return (short)(data[offset + 1] | (data[offset] << 8));
+#else
+            return (short)(data[offset] | (data[offset + 1] << 8));
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int ReadInt(byte[] data, int offset)
+        {
+#if BIGENDIAN
+            return data[offset + 3] | (data[offset + 2] << 8) | (data[offset + 1] << 16) | (data[offset] << 24);
+#else
+            return data[offset] | (data[offset + 1] << 8) | (data[offset + 2] << 16) | (data[offset + 3] << 24);
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint ReadUInt(byte[] data, int offset)
+        {
+            return (uint)ReadInt(data, offset);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long ReadLong(byte[] data, int offset)
+        {
+#if BIGENDIAN
+            return (long)(
+                (ulong)data[offset + 7] |
+                ((ulong)data[offset + 6] << 8) |
+                ((ulong)data[offset + 5] << 16) |
+                ((ulong)data[offset + 4] << 24) |
+                ((ulong)data[offset + 3] << 32) |
+                ((ulong)data[offset + 2] << 40) |
+                ((ulong)data[offset + 1] << 48) |
+                ((ulong)data[offset] << 56));
+#else
+            return (long)(
+                (ulong)data[offset] |
+                ((ulong)data[offset + 1] << 8) |
+                ((ulong)data[offset + 2] << 16) |
+                ((ulong)data[offset + 3] << 24) |
+                ((ulong)data[offset + 4] << 32) |
+                ((ulong)data[offset + 5] << 40) |
+                ((ulong)data[offset + 6] << 48) |
+                ((ulong)data[offset + 7] << 56));
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ulong ReadULong(byte[] data, int offset)
+        {
+            return (ulong)ReadLong(data, offset);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float ReadFloat(byte[] data, int offset)
+        {
+            ConverterHelperFloat ch = new ConverterHelperFloat { Aint = ReadInt(data, offset) };
+            return ch.Afloat;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static double ReadDouble(byte[] data, int offset)
+        {
+            ConverterHelperDouble ch = new ConverterHelperDouble { Along = (ulong)ReadLong(data, offset) };
+            return ch.Adouble;
         }
 #endif
     }

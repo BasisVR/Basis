@@ -26,7 +26,7 @@ public class BasisAvatarRecorderWindow : EditorWindow
     private float[] _rotY;      // rotation around Y (in degrees)
     private float[] _scales;
 
-    [MenuItem("Basis/Avatar Recorder")]
+    [MenuItem("Basis/Avatar/Recorder")]
     public static void ShowWindow()
     {
         var window = GetWindow<BasisAvatarRecorderWindow>("Avatar Recorder");

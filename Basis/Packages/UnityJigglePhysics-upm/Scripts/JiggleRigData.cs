@@ -153,8 +153,8 @@ public struct JiggleRigData {
         RegenerateCacheLookup();
     }
     
-    public void VisitAndSetCacheData(List<JiggleTransformCachedData> data, Transform t, Vector3 lastPosition, float currentLength, float totalLength) {
-        if (GetIsExcluded(t)) {
+    private void VisitAndSetCacheData(List<JiggleTransformCachedData> data, Transform t, Vector3 lastPosition, float currentLength, float totalLength) {
+        if (t == null || GetIsExcluded(t)) {
             return;
         }
         var validChildrenCount = GetValidChildrenCount(t);
@@ -167,7 +167,7 @@ public struct JiggleRigData {
             restLocalPosition = localPosition,
             restLocalRotation = new Vector4(localRotation.x, localRotation.y, localRotation.z, localRotation.w),
             normalizedDistanceFromRoot = currentLength / totalLength,
-            lossyScale = (scale.x + scale.y + scale.x)/3f,
+            lossyScale = (scale.x + scale.y + scale.z)/3f,
         });
         for (int i = 0; i < validChildrenCount; i++) {
             var child = GetValidChild(t, i);
@@ -176,21 +176,24 @@ public struct JiggleRigData {
     }
 
     public int GetValidChildrenCount(Transform t) {
+        if (t == null) return 0;
         int count = 0;
         var childCount = t.childCount;
         for(int i=0;i<childCount;i++) {
-            if (GetIsExcluded(t.GetChild(i))) continue;
+            var child = t.GetChild(i);
+            if (child == null || GetIsExcluded(child)) continue;
             count++;
         }
         return count;
     }
 
     public Transform GetValidChild(Transform t, int index) {
+        if (t == null) return null;
         int count = 0;
         var childCount = t.childCount;
         for(int i=0;i<childCount;i++) {
             var child = t.GetChild(i);
-            if (GetIsExcluded(child)) continue;
+            if (child == null || GetIsExcluded(child)) continue;
             if (count == index) {
                 return child;
             }
@@ -208,9 +211,28 @@ public struct JiggleRigData {
     }
     
     public bool GetHasRootTransformError() => !rootBone;
-    public bool GetCacheIsValid() => transformCachedData is { Length: > 0 } && transformToCachedDataMap != null && transformToCachedDataMap.Count == transformCachedData.Length;
+    public bool GetCacheIsValid() {
+        if (transformCachedData is not { Length: > 0 } || transformToCachedDataMap == null || transformToCachedDataMap.Count != transformCachedData.Length) {
+            return false;
+        }
+        var count = transformCachedData.Length;
+        for (int i = 0; i < count; i++) {
+            if (!transformCachedData[i].bone) return false;
+        }
+        return true;
+    }
     public JiggleTransformCachedData GetCache(Transform t) {
+#if UNITY_EDITOR
+        if (transformToCachedDataMap == null) {
+            throw new InvalidOperationException("JiggleRigData: Cache lookup not initialized. Call RegenerateCacheLookup() first.");
+        }
+        if (!transformToCachedDataMap.TryGetValue(t, out var cachedData)) {
+            throw new KeyNotFoundException($"JiggleRigData: Transform '{t.name}' not found in cache. Ensure it is a child of the root bone and not excluded.");
+        }
+        return cachedData;
+#else
         return transformToCachedDataMap[t];
+#endif
     }
 
     /// <summary>
@@ -245,7 +267,7 @@ public struct JiggleRigData {
     public static JiggleRigData Default() {
         return new JiggleRigData {
             rootBone = null,
-            serializedVersion = "v0.0.0",
+            serializedVersion = "v0.0.2",
             hasSerializedData = true,
             excludeRoot = false,
             jiggleTreeInputParameters = JiggleTreeInputParameters.Default(),
@@ -297,11 +319,7 @@ public struct JiggleRigData {
     
     private void DrawBone(Vector3 boneHead, Vector3 boneTail, Vector3 boneScale, JigglePointParameters jigglePointParameters, Camera cam) {
         var camForward = cam.transform.forward;
-        var fixedScreenSize = 0.01f;
-        var toCam = cam.transform.position - boneHead;
-        var distance = toCam.magnitude;
-        var scale = distance * fixedScreenSize;
-        scale = jigglePointParameters.collisionRadius * (boneScale.x + boneScale.y + boneScale.z)/3f;
+        var scale = jigglePointParameters.collisionRadius * (boneScale.x + boneScale.y + boneScale.z)/3f;
         DrawWireDisc(boneHead, camForward, scale);
         Gizmos.DrawLine(boneHead, boneTail);
         var boneDirection = (boneTail - boneHead).normalized;
@@ -311,217 +329,6 @@ public struct JiggleRigData {
             angleLimitScale * Mathf.Sin(jigglePointParameters.angleLimit * Mathf.Deg2Rad));
     }
 #if UNITY_EDITOR
-    public VisualElement GetInspectorVisualElement(SerializedProperty serializedProperty) {
-        var visualElement = new VisualElement();
-        var visualTreeAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(AssetDatabase.GUIDToAssetPath("c35a2123f4d44dd469ccb24af7a0ce20"));
-        visualTreeAsset.CloneTree(visualElement);
-        SetCurvableSlider(
-            visualElement,
-            serializedProperty,
-            "StiffnessControl",
-            nameof(JiggleTreeInputParameters.stiffness),
-            "Stiffness",
-            0.2f,
-            1f,
-            "Stiffness controls how strongly the bone returns to its rest pose. A value of 1 makes it immovable, while a value of 0 makes it fall freely."
-        );
-
-        var angleLimitToggleElement = visualElement.Q<Toggle>("AngleLimitToggle");
-        angleLimitToggleElement.BindProperty(serializedProperty.FindPropertyRelative(nameof(JiggleTreeInputParameters.angleLimitToggle)));
-        angleLimitToggleElement.tooltip = "Enable or disable angle limit.";
-        angleLimitToggleElement.Q<Label>().text = "Angle Limit";
-
-        var angleLimitSection = visualElement.Q<VisualElement>("AngleLimitSection");
-        angleLimitToggleElement.RegisterValueChangedCallback(evt => {
-            angleLimitSection.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None;
-        });
-
-        SetCurvableSlider(
-            visualElement,
-            serializedProperty,
-            "AngleLimitControl",
-            nameof(JiggleTreeInputParameters.angleLimit),
-            "Angle Limit",
-            0f,
-            1f,
-            "Angle Limit controls the maximum angle deviation from the bone's rest position. 0 means no limit, while 1 represents a 90 degree limit."
-        );
-        SetSlider(
-            visualElement,
-            serializedProperty,
-            "AngleLimitSoftenSlider",
-            nameof(JiggleTreeInputParameters.angleLimitSoften),
-            "Angle Limit Soften",
-            "Softens the angle limit to prevent hard stops, 0 is hard, 1 is soft."
-        );
-        SetSlider(
-            visualElement,
-            serializedProperty,
-            "SoftenSlider",
-            nameof(JiggleTreeInputParameters.soften),
-            "Soften",
-            "Weakens the stiffness of the bone when it's closer to the target pose. Prevents large deformations, while still looking very soft."
-        );
-        SetSlider(
-            visualElement,
-            serializedProperty,
-            "IgnoreRootMotionSlider",
-            nameof(JiggleTreeInputParameters.ignoreRootMotion),
-            "Ignore Root Motion",
-            "Prevents movement from root transform accelleration."
-        );
-        SetSlider(
-            visualElement,
-            serializedProperty,
-            "RootStretchSlider",
-            nameof(JiggleTreeInputParameters.rootStretch),
-            "Root Stretch",
-            "Allows the root bone to translate. 0 means the root bone is fixed in place, while 1 means it can stretch freely."
-        );
-        SetCurvableSlider(
-            visualElement,
-            serializedProperty,
-            "StretchControl",
-            nameof(JiggleTreeInputParameters.stretch),
-            "Stretch",
-            0f,
-            1f,
-            "Stretch controls the elasticity of the bone length, where 0 is no stretch and 1 is full stretch."
-        );
-        SetCurvableSlider(
-            visualElement,
-            serializedProperty,
-            "DragControl",
-            nameof(JiggleTreeInputParameters.drag),
-            "Drag",
-            0f,
-            1f,
-            "Drag controls the tendency for the bone to stop oscillating, where 0 is maximum oscillations and 1 is zero oscillations."
-        );
-        SetCurvableSlider(
-            visualElement,
-            serializedProperty,
-            "AirDragControl",
-            nameof(JiggleTreeInputParameters.airDrag),
-            "Air Drag",
-            0f,
-            1f,
-            "Air Drag controls how much resistance the bone experiences in air, 0 is no resistance and 1 is maximum resistance."
-        );
-
-        SetCurvableFloat(
-            visualElement,
-            serializedProperty,
-            "GravityControl",
-            nameof(JiggleTreeInputParameters.gravity),
-            "Gravity", "The multiplier of the gravity of the physics.");
-
-        SetCurvableFloat(
-            visualElement,
-            serializedProperty,
-            "CollisionRadiusControl",
-            nameof(JiggleTreeInputParameters.collisionRadius),
-            "Collision Radius",
-            "The radius used in collisions in meters. This is in world space, but will adjust in runtime if bones are scaled at runtime.",
-            0f);
-
-        var advancedToggleElement = visualElement.Q<Toggle>("AdvancedToggle");
-        advancedToggleElement.BindProperty(
-            serializedProperty.FindPropertyRelative(nameof(JiggleTreeInputParameters.advancedToggle)));
-        advancedToggleElement.Q<Label>().text = "Advanced";
-
-        var collisionToggleElement = visualElement.Q<Toggle>("CollisionToggle");
-        collisionToggleElement.BindProperty(serializedProperty.FindPropertyRelative(nameof(JiggleTreeInputParameters.collisionToggle)));
-        collisionToggleElement.tooltip = "Enable or disable collision with Jiggle Colliders";
-        collisionToggleElement.Q<Label>().text = "Collision";
-
-        var advancedSection = visualElement.Q<VisualElement>("AdvancedSection");
-        var advancedSection2 = visualElement.Q<VisualElement>("AdvancedSection2");
-        advancedToggleElement.RegisterValueChangedCallback(evt => {
-            advancedSection.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None;
-            advancedSection2.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None;
-        });
-
-        var collisionSection = visualElement.Q<VisualElement>("CollisionSection");
-        collisionToggleElement.RegisterValueChangedCallback(evt => {
-            collisionSection.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None;
-        });
-
-        return visualElement;
-    }
-
-    void SetSlider(VisualElement visualElement, SerializedProperty serializedProperty, string id, string parameter, string propertyName, string tooltip) {
-        var sliderElement = visualElement.Q<Slider>(id);
-        var property = serializedProperty.FindPropertyRelative(parameter);
-        sliderElement.BindProperty(property);
-        sliderElement.tooltip = tooltip;
-        sliderElement.Q<Label>().text = propertyName;
-    }
-
-    void SetCurvableSlider(VisualElement visualElement, SerializedProperty serializedProperty, string id, string curvableFloatParameter, string propertyName, float min, float max, string tooltip) {
-        var curvableFloatProperty = serializedProperty.FindPropertyRelative(curvableFloatParameter);
-        var floatProperty = curvableFloatProperty.FindPropertyRelative(nameof(JiggleTreeCurvedFloat.value));
-        var toggleProperty = curvableFloatProperty.FindPropertyRelative(nameof(JiggleTreeCurvedFloat.curveEnabled));
-        var curveProperty = curvableFloatProperty.FindPropertyRelative(nameof(JiggleTreeCurvedFloat.curve));
-        
-        var sliderElement = visualElement.Q<VisualElement>(id);
-        var sliderElementSlider = sliderElement.Q<Slider>("CurvableSlider");
-        sliderElementSlider.BindProperty(floatProperty);
-        sliderElementSlider.lowValue = min;
-        sliderElementSlider.highValue = max;
-        sliderElementSlider.tooltip = tooltip;
-        sliderElementSlider.Q<Label>().text = propertyName;
-        
-        var curveElement = sliderElement.Q<CurveField>("CurvableCurve");
-        curveElement.tooltip = tooltip;
-        curveElement.ranges = new Rect(0f, 0f, 1f, 1f);
-        curveElement.BindProperty(curveProperty);
-        
-        var toggle = sliderElement.Q<Toggle>("CurvableToggle");
-        toggle.BindProperty(toggleProperty);
-        toggle.tooltip = "Enable or disable curve sampling for this value based on the normalized distance from the root.";
-        curveElement.style.display = toggleProperty.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
-        toggle.RegisterValueChangedCallback(evt => {
-            curveElement.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None;
-        });
-    }
-
-    void SetCurvableFloat(VisualElement visualElement, SerializedProperty serializedProperty, string id, string curvableFloatParameter, string propertyName, string tooltip, float? min = null, float? max = null) {
-        var curvableFloatProperty = serializedProperty.FindPropertyRelative(curvableFloatParameter);
-        var floatProperty = curvableFloatProperty.FindPropertyRelative(nameof(JiggleTreeCurvedFloat.value));
-        var toggleProperty = curvableFloatProperty.FindPropertyRelative(nameof(JiggleTreeCurvedFloat.curveEnabled));
-        var curveProperty = curvableFloatProperty.FindPropertyRelative(nameof(JiggleTreeCurvedFloat.curve));
-        
-        var sliderElement = visualElement.Q<VisualElement>(id);
-        var curvableFloat = sliderElement.Q<FloatField>("CurvableFloat");
-        curvableFloat.BindProperty(floatProperty);
-        curvableFloat.tooltip = tooltip;
-        curvableFloat.Q<Label>().text = propertyName;
-        if (min != null || max != null) {
-            curvableFloat.RegisterValueChangedCallback(evt => {
-                float value = evt.newValue;
-                if (min != null) {
-                    value = Mathf.Max(value, min.Value);
-                }
-
-                if (max != null) {
-                    value = Mathf.Max(value, max.Value);
-                }
-
-                curvableFloat.SetValueWithoutNotify(value);
-            });
-        }
-        var curveElement = sliderElement.Q<CurveField>("CurvableCurve");
-        curveElement.ranges = new Rect(0f, 0f, 1f, 1f);
-        curveElement.BindProperty(curveProperty);
-        
-        var toggle = sliderElement.Q<Toggle>("CurvableToggle");
-        toggle.BindProperty(toggleProperty);
-        curveElement.style.display = toggleProperty.boolValue ? DisplayStyle.Flex : DisplayStyle.None;
-        toggle.RegisterValueChangedCallback(evt => {
-            curveElement.style.display = evt.newValue ? DisplayStyle.Flex : DisplayStyle.None;
-        });
-    }
 #endif
 }
 }

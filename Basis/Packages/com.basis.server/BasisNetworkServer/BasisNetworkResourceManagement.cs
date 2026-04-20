@@ -1,8 +1,9 @@
 using Basis.Network.Core;
-using BasisNetworkCore;
+using BasisPermissions;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using static BasisPermissions.PermissionManager;
 using static SerializableBasis;
 
 public static class BasisNetworkResourceManagement
@@ -26,15 +27,15 @@ public static class BasisNetworkResourceManagement
                     LoadedNetID = llr.LoadedNetID
                 };
 
-                NetDataWriter writer = new NetDataWriter(true);
+                NetDataWriter writer = NetworkServer.RentWriter();
                 unloadResource.Serialize(writer);
-                NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
                 NetworkServer.BroadcastMessageToClients(
                     writer,
-                    BasisNetworkCommons.LoadResourceChannel,
-                    peers,
-                    DeliveryMethod.ReliableSequenced
+                    BasisNetworkCommons.UnloadResourceChannel,
+                    NetworkServer.PeerSnapshot,
+                    DeliveryMethod.ReliableOrdered
                 );
+                NetworkServer.ReturnWriter(writer);
 
                 // Remove the non-persistent resource from the database
                 UshortNetworkDatabase.Remove(llr.LoadedNetID,out LocalLoadResource Resource);
@@ -47,50 +48,91 @@ public static class BasisNetworkResourceManagement
         if (Resource != null)
         {
             int length = Resource.Length;
+            NetDataWriter Writer = NetworkServer.RentWriter();
             for (int Index = 0; Index < length; Index++)
             {
+                Writer.Reset();
                 LocalLoadResource LLR = Resource[Index];
-                NetDataWriter Writer = new NetDataWriter(true);
+
+                // For synchronized resources (LoadStrategy == 2), check if the session
+                // is still active. If it already completed, send as immediate (0) so
+                // the late joiner spawns right away instead of waiting for a spawn
+                // signal that will never come. If still active, add the late joiner
+                // to the session so they participate in the synchronized load.
+                if (LLR.LoadStrategy == 2)
+                {
+                    if (BasisNetworkPreloadResourceManagement.ActiveSessions.TryGetValue(LLR.LoadedNetID, out var session))
+                    {
+                        // Session still in progress - add late joiner to peer count
+                        session.TotalPeerCount++;
+                    }
+                    else
+                    {
+                        // Session already completed - send as immediate load
+                        LLR.LoadStrategy = 0;
+                    }
+                }
+
                 LLR.Serialize(Writer);
                 NetworkServer.TrySend(NewConnection, Writer, BasisNetworkCommons.LoadResourceChannel, DeliveryMethod.ReliableOrdered);
             }
+            NetworkServer.ReturnWriter(Writer);
         }
     }
     public static void LoadResource(LocalLoadResource LocalLoadResource)
     {
         if (UshortNetworkDatabase.ContainsKey(LocalLoadResource.LoadedNetID) == false)
         {
-            NetDataWriter Writer = new NetDataWriter(true);
+            NetDataWriter Writer = NetworkServer.RentWriter();
             LocalLoadResource.Serialize(Writer);
             if (UshortNetworkDatabase.TryAdd(LocalLoadResource.LoadedNetID, LocalLoadResource))
             {
                 BNL.Log("Adding Object " + LocalLoadResource.LoadedNetID);
-                NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, peers, DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.LoadResourceChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
             }
             else
             {
                 BNL.LogError("Try Add Failed Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
             }
+            NetworkServer.ReturnWriter(Writer);
         }
         else
         {
             BNL.LogError("Already have Object Loaded With " + LocalLoadResource.LoadedNetID);
         }
     }
-    public static void UnloadResource(UnLoadResource UnLoadResource)
+    public static void UnloadResource(UnLoadResource unLoadResource, NetPeer peer)
     {
-        if (UshortNetworkDatabase.TryRemove(UnLoadResource.LoadedNetID,out LocalLoadResource Resource))
+        if (!UshortNetworkDatabase.TryGetValue(unLoadResource.LoadedNetID, out LocalLoadResource resource))
         {
-            NetDataWriter Writer = new NetDataWriter(true);
-            UnLoadResource.Serialize(Writer);
-            BNL.Log("Removing Object " + UnLoadResource.LoadedNetID);
-            NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.UnloadResourceChannel, peers, DeliveryMethod.ReliableOrdered);
+            BNL.LogError($"Trying to unload an object that does not exist! ID Provided was [{unLoadResource.LoadedNetID}]");
+            return;
         }
-        else
+
+        // Admin lock validation
+        if (resource.IsAdminLocked && !PermissionIntegration.HasValidRequirement(peer, PermNodes.protection))
         {
-            BNL.LogError($"Trying to unload a object that does not exist! ID Proved was [{UnLoadResource.LoadedNetID}]");
+            return;
         }
+
+        // Only remove AFTER validation
+        if (!UshortNetworkDatabase.TryRemove(unLoadResource.LoadedNetID, out _))
+        {
+            BNL.LogError($"Failed to remove object [{unLoadResource.LoadedNetID}] after validation.");
+            return;
+        }
+
+        NetDataWriter writer = NetworkServer.RentWriter();
+        unLoadResource.Serialize(writer);
+
+        BNL.Log("Removing Object " + unLoadResource.LoadedNetID);
+
+        NetworkServer.BroadcastMessageToClients(
+            writer,
+            BasisNetworkCommons.UnloadResourceChannel,
+            NetworkServer.PeerSnapshot,
+            DeliveryMethod.ReliableOrdered
+        );
+        NetworkServer.ReturnWriter(writer);
     }
 }

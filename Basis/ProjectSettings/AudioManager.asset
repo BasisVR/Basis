@@ -10,7 +10,7 @@ AudioManager:
   Default Speaker Mode: 2
   m_SampleRate: 0
   m_DSPBufferSize: 1024
-  m_VirtualVoiceCount: 1024
+  m_VirtualVoiceCount: 1424
   m_RealVoiceCount: 255
   m_EnableOutputSuspension: 1
   m_SpatializerPlugin: Steam Audio Spatializer
@@ -18,3 +18,6 @@ AudioManager:
   m_DisableAudio: 0
   m_VirtualizeEffects: 1
   m_RequestedDSPBufferSize: 0
+  m_AudioFoundation: 0
+  m_OutputChannelLayout: 2
+  m_OutputSamplingRate: 48000

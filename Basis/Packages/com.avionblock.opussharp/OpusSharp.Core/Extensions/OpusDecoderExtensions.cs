@@ -1,9 +1,12 @@
+using System;
+using OpusSharp.Core.Interfaces;
+
 namespace OpusSharp.Core.Extensions
 {
     /// <summary>
     /// Contains the <see cref="OpusDecoder"/> helper extensions.
     /// </summary>
-    /// <remarks>OPUS_SET_COMPLEXITY & OPUS_GET_COMPLEXITY have not been added since they aren't documented yet in the opus documentation, However you can use these via the manual CTL functions.</remarks>
+    /// <remarks>OPUS_SET_COMPLEXITY and OPUS_GET_COMPLEXITY have not been added since they aren't documented yet in the opus documentation.</remarks>
     public static class OpusDecoderExtensions
     {
         /// <summary>
@@ -11,7 +14,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <param name="gain">The gain to set.</param>
-        public static void SetGain(this OpusDecoder decoder, short gain)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static void SetGain(this IOpusDecoder decoder, short gain)
         {
             decoder.Ctl(DecoderCTL.OPUS_SET_GAIN, gain);
         }
@@ -21,7 +26,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>The gain for the opus decoder.</returns>
-        public static int GetGain(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static int GetGain(this IOpusDecoder decoder)
         {
             var gain = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_GAIN, ref gain);
@@ -33,7 +40,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>The last packet duration (in samples).</returns>
-        public static int GetLastPacketDuration(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static int GetLastPacketDuration(this IOpusDecoder decoder)
         {
             var lastPacketDuration = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_LAST_PACKET_DURATION, ref lastPacketDuration);
@@ -45,18 +54,74 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>The pitch of the last decoded frame if available.</returns>
-        public static int GetPitch(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static int GetPitch(this IOpusDecoder decoder)
         {
             var pitch = 0;
             decoder.Ctl(DecoderCTL.OPUS_GET_PITCH, ref pitch);
             return pitch;
+        }
+        
+        /// <summary>
+        /// Enables or disables the decoder's OSCE BWE module.
+        /// </summary>
+        /// <param name="decoder">The decoder state.</param>
+        /// <param name="enabled">Whether to enable or disable the OSCE BWE module.</param>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static void SetOsceBwe(this IOpusDecoder decoder, bool enabled)
+        {
+            decoder.Ctl(DecoderCTL.OPUS_SET_OSCE_BWE, enabled ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Determines whether the decoder's OSCE BWE module is enabled or not.
+        /// </summary>
+        /// <param name="decoder">The decoder state.</param>
+        /// <returns>Whether the OSCE BWE module is enabled or not.</returns>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static bool GetOsceBwe(this IOpusDecoder decoder)
+        {
+            var value = 0;
+            decoder.Ctl(DecoderCTL.OPUS_GET_OSCE_BWE, ref value);
+            return value == 1;
+        }
+        
+        /// <summary>
+        /// Sets whether the decoder should ignore extensions in the padding area.
+        /// </summary>
+        /// <param name="decoder">The decoder state.</param>
+        /// <param name="disabled">Whether to disable all found extensions in the padding area.</param>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static void SetIgnoreExtensions(this IOpusDecoder decoder, bool disabled)
+        {
+            decoder.Ctl(DecoderCTL.OPUS_SET_IGNORE_EXTENSIONS, disabled ? 1 : 0);
+        }
+
+        /// <summary>
+        /// Determines whether the decoder is ignoring extensions found in the padding area.
+        /// </summary>
+        /// <param name="decoder">The decoder state.</param>
+        /// <returns>Whether the decoder is ignoring extensions.</returns>
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static bool GetIgnoreExtensions(this IOpusDecoder decoder)
+        {
+            var value = 0;
+            decoder.Ctl(DecoderCTL.OPUS_GET_IGNORE_EXTENSIONS, ref value);
+            return value == 1;
         }
 
         /// <summary>
         /// Resets the codec state to be equivalent to a freshly initialized state.
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
-        public static void Reset(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static void Reset(this IOpusDecoder decoder)
         {
             decoder.Ctl(GenericCTL.OPUS_RESET_STATE);
         }
@@ -66,7 +131,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>The final state of the codec's entropy coder.</returns>
-        public static uint GetFinalRange(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static uint GetFinalRange(this IOpusDecoder decoder)
         {
             var finalRange = 0u;
             decoder.Ctl(GenericCTL.OPUS_GET_FINAL_RANGE, ref finalRange);
@@ -78,7 +145,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>The decoder's last bandpass.</returns>
-        public static OpusPredefinedValues GetBandwidth(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static OpusPredefinedValues GetBandwidth(this IOpusDecoder decoder)
         {
             var bandPass = 0;
             decoder.Ctl(GenericCTL.OPUS_GET_BANDWIDTH, ref bandPass);
@@ -90,7 +159,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>The decoder's configured sample rate.</returns>
-        public static int GetSampleRate(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static int GetSampleRate(this IOpusDecoder decoder)
         {
             var sampleRate = 0;
             decoder.Ctl(GenericCTL.OPUS_GET_SAMPLE_RATE, ref sampleRate);
@@ -102,7 +173,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <param name="disabled">Whether to disable or not.</param>
-        public static void SetPhaseInversionDisabled(this OpusDecoder decoder, bool disabled)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static void SetPhaseInversionDisabled(this IOpusDecoder decoder, bool disabled)
         {
             decoder.Ctl(GenericCTL.OPUS_SET_PHASE_INVERSION_DISABLED, disabled ? 1 : 0);
         }
@@ -112,7 +185,9 @@ namespace OpusSharp.Core.Extensions
         /// </summary>
         /// <param name="decoder">The decoder state.</param>
         /// <returns>Whether the phase inversion is disabled or not.</returns>
-        public static bool GetPhaseInversionDisabled(this OpusDecoder decoder)
+        /// <exception cref="OpusException" />
+        /// <exception cref="ObjectDisposedException" />
+        public static bool GetPhaseInversionDisabled(this IOpusDecoder decoder)
         {
             var disabled = 0;
             decoder.Ctl(GenericCTL.OPUS_GET_PHASE_INVERSION_DISABLED, ref disabled);

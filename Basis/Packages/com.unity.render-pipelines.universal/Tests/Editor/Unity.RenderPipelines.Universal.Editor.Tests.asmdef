@@ -10,7 +10,9 @@
         "GUID:516a5277b8c3b4f4c8cc86b77b1591ff",
         "GUID:d8b63aba1907145bea998dd612889d6b",
         "GUID:6e5480588ffa37d4f82fe96c45e8ce9c",
-        "GUID:3eae0364be2026648bf74846acb8a731"
+        "GUID:3eae0364be2026648bf74846acb8a731",
+        "GUID:2a69708d171a17043a9d0ad45f205cfe",
+        "GUID:69257879134bba646869b21467b3338d"
     ],
     "includePlatforms": [
         "Editor"
@@ -25,6 +27,12 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.postprocessing",
+            "expression": "0.0.1",
+            "define": "PPV2_EXISTS"
+        }
+    ],
     "noEngineReferences": false
 }

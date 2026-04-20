@@ -16,7 +16,12 @@ namespace Basis.BasisUI
             Sprite spr = overrideSprite;
             if (!spr)
             {
+                // Don't create a colored background without a sprite.
+                /*
                 base.OnPopulateMesh(helper);
+                return;
+                */
+                helper.Clear();
                 return;
             }
 

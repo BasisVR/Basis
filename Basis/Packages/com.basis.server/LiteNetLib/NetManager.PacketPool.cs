@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Threading;
 
 namespace LiteNetLib
 {
@@ -6,7 +7,6 @@ namespace LiteNetLib
     {
         private NetPacket _poolHead;
         private int _poolCount;
-        private readonly object _poolLock = new object();
 
         /// <summary>
         /// Maximum packet pool size (increase if you have tons of packets sending)
@@ -45,16 +45,15 @@ namespace LiteNetLib
                 return new NetPacket(size);
 
             NetPacket packet;
-            lock (_poolLock)
+            do
             {
                 packet = _poolHead;
                 if (packet == null)
                     return new NetPacket(size);
-                
-                _poolHead = _poolHead.Next;
-                _poolCount--;
-            }
-            
+            } while (Interlocked.CompareExchange(ref _poolHead, packet.Next, packet) != packet);
+            Interlocked.Decrement(ref _poolCount);
+
+            packet.Next = null;
             packet.Size = size;
             if (packet.RawData.Length < size)
                 packet.RawData = new byte[size];
@@ -63,20 +62,22 @@ namespace LiteNetLib
 
         internal void PoolRecycle(NetPacket packet)
         {
-            if (packet.RawData.Length > NetConstants.MaxPacketSize || _poolCount >= PacketPoolSize)
+            if (packet.RawData.Length > NetConstants.MaxPacketSize ||
+                Interlocked.CompareExchange(ref _poolCount, 0, 0) >= PacketPoolSize)
             {
                 //Don't pool big packets. Save memory
                 return;
             }
-            
+
             //Clean fragmented flag
             packet.RawData[0] = 0;
-            lock (_poolLock)
+            NetPacket oldHead;
+            do
             {
-                packet.Next = _poolHead;
-                _poolHead = packet;
-                _poolCount++;
-            }
+                oldHead = _poolHead;
+                packet.Next = oldHead;
+            } while (Interlocked.CompareExchange(ref _poolHead, packet, oldHead) != oldHead);
+            Interlocked.Increment(ref _poolCount);
         }
     }
 }

@@ -23,6 +23,7 @@ namespace UnityEngine.Rendering.Universal
     [CanEditMultipleObjects]
 #endif
     [AddComponentMenu("Rendering/URP Decal Projector")]
+    [Icon("Packages/com.unity.render-pipelines.core/Editor/Icons/Processed/DecalProjector Icon.asset")]
     public partial class DecalProjector : MonoBehaviour, ISerializationCallbackReceiver
     {
         internal delegate void DecalProjectorAction(DecalProjector decalProjector);
@@ -247,6 +248,23 @@ namespace UnityEngine.Rendering.Universal
             }
         }
 
+#if UNITY_EDITOR
+        [SerializeField]
+        private bool m_VisibleInScene = true;
+        public bool visibleInScene
+        {
+            get 
+            { 
+                return m_VisibleInScene; 
+            }
+            set 
+            { 
+                m_VisibleInScene = value;
+                OnValidate();
+            }
+        }
+#endif
+
         private Material m_OldMaterial = null;
         private float m_OldDrawDistance = 1000.0f;
         private float m_OldFadeScale = 0.9f;
@@ -295,18 +313,12 @@ namespace UnityEngine.Rendering.Universal
 #if UNITY_EDITOR
         void UpdateDecalVisibility()
         {
-            // Fade out the decal when it is hidden by the scene visibility
-            if (UnityEditor.SceneVisibilityManager.instance.IsHidden(gameObject))
-            {
-                onDecalRemove?.Invoke(this);
-            }
-            else
-            {
-                onDecalAdd?.Invoke(this);
-                onDecalPropertyChange?.Invoke(this); // Scene culling mask may have changed.
-            }
-        }
+            // Change serialized property when decal is hidden in scene
+            visibleInScene = !UnityEditor.SceneVisibilityManager.instance.IsHidden(gameObject);
 
+            // Force proeprty update that will look at visibleInScene to adjust scene culling mask
+            onDecalPropertyChange?.Invoke(this); 
+        }
 #endif
 
         void OnDisable()

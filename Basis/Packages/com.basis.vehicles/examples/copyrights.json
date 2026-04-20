@@ -1,0 +1,57 @@
+{
+    "land/simple_car.fbx": {
+        "@context": { "dc": "http://purl.org/dc/elements/1.1/" },
+        "@id": "",
+        "dc:creator": { "@list": ["Godot Engine", "Juan Linietsky", "aaronfranke"] },
+        "dc:format": "model/fbx",
+        "dc:rights": "MIT License",
+        "dc:source": "https://github.com/omigroup/omi-godot/blob/main/examples/omi_vehicle/gltf/simple_car.gltf",
+        "dc:subject": { "@set": ["Land", "Car", "Low Poly"] },
+        "dc:title": "Simple Car Vehicle",
+        "dc:type": { "@set": ["Vehicle", "Demo", "Test"] }
+    },
+    "land/simple_hovercraft.fbx": {
+        "@context": { "dc": "http://purl.org/dc/elements/1.1/" },
+        "@id": "",
+        "dc:creator": { "@list": ["Tameno", "aaronfranke"] },
+        "dc:rights": "Public domain",
+        "dc:source": "https://github.com/omigroup/omi-godot/blob/main/examples/omi_vehicle/gltf/hovercraft/hovercraft.gltf",
+        "dc:subject": { "@set": ["Hovercraft", "Low Poly"] },
+        "dc:title": "Simple Hovercraft Vehicle",
+        "dc:type": { "@set": ["Vehicle", "Demo", "Test"] }
+    },
+    "land/truck_town/truck_town.fbx": {
+        "@context": { "dc": "http://purl.org/dc/elements/1.1/" },
+        "@id": "",
+        "dc:creator": { "@list": ["Godot Engine", "Juan Linietsky", "aaronfranke"] },
+        "dc:rights": "MIT License",
+        "dc:source": "https://github.com/omigroup/omi-godot/blob/main/examples/omi_vehicle/gltf/truck_town/town_model.gltf",
+        "dc:subject": { "@set": ["Town", "Road", "Low Poly"] },
+        "dc:title": "Truck Town Map",
+        "dc:type": { "@set": ["Map", "Demo", "Test"] }
+    },
+    "space/low_poly_space_station.fbx": {
+        "@context": { "dc": "http://purl.org/dc/elements/1.1/" },
+        "@id": "",
+        "dc:creator": { "@list": ["Šimon Ustal"] },
+        "dc:description": "Low-Poly Space Station - 3December by Šimon Ustal.",
+        "dc:format": "model/fbx",
+        "dc:rights": "CC-BY 4.0 Attribution",
+        "dc:source": "https://sketchfab.com/3d-models/low-poly-space-station-3december-df0259b2555d41fabed95c2fdcf23daa",
+        "dc:subject": { "@set": ["Space", "Space Station", "Low Poly"] },
+        "dc:title": "Low-Poly Space Station - 3December",
+        "dc:type": { "@set": ["Map", "Demo", "Test"] }
+    },
+    "space/simple_spaceship.fbx": {
+        "@context": { "dc": "http://purl.org/dc/elements/1.1/" },
+        "@id": "",
+        "dc:creator": { "@list": ["chrisonciuconcepts", "aaronfranke"] },
+        "dc:description": "Low poly space ship as a test file for the OMI_vehicle_body and OMI_vehicle_thruster extensions.",
+        "dc:format": "model/fbx",
+        "dc:rights": "CC-BY 4.0 Attribution",
+        "dc:source": "https://sketchfab.com/3d-models/low-poly-space-ship-587941c9c11742c6b82dfb99e7b210b9",
+        "dc:subject": { "@set": ["Space", "Spacecraft", "Low Poly"] },
+        "dc:title": "Low poly space ship vehicle",
+        "dc:type": { "@set": ["Vehicle", "Demo", "Test"] }
+    }
+}

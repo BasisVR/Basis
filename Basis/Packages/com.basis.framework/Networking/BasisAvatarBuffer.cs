@@ -1,20 +1,26 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Basis.Network.Core.Compression;
 using Unity.Collections;
 using Unity.Mathematics;
-
+using UnityEngine.Assertions;
 namespace Basis.Scripts.Networking.NetworkedAvatar
 {
     [Serializable]
     public class BasisAvatarBuffer : IDisposable
     {
-        public const int MuscleCount = 95;
-
+        public const int BoneCount = BasisBoneRotationCompression.SyncBoneCount; // 51 (excludes Hips, Eyes, Jaw)
+        public byte Sequence;
+        public double ServerTimeSeconds;
         public quaternion Rotation = quaternion.identity;
         public float3 Scale = new float3(1f, 1f, 1f);
         public float3 Position = new float3(0f, 0f, 0f);
-        public NativeArray<float> Muscles;
+        /// <summary>
+        /// 54 bone delta rotations (T-pose-relative, avatar-agnostic).
+        /// Indexed by slot in BasisBoneRotationCompression.BONE_WRITE_ORDER.
+        /// </summary>
+        public NativeArray<quaternion> BoneRotations;
         public double SecondsInterval = 0.01;
 
         public bool IsDisposed = false;
@@ -23,54 +29,35 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         internal BasisAvatarBuffer NextInPool;
         internal int PooledFlag; // 0 = not in pool, 1 = in pool
 
-        /// <summary>
-        /// Ensure NativeArray is allocated with correct size; does not clear existing values.
-        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EnsureAllocated()
         {
-            if (IsDisposed)
+            if (!BoneRotations.IsCreated || BoneRotations.Length != BoneCount)
             {
-                throw new ObjectDisposedException(nameof(BasisAvatarBuffer));
-            }
+                if (BoneRotations.IsCreated)
+                    BoneRotations.Dispose();
 
-            if (!Muscles.IsCreated || Muscles.Length != MuscleCount)
-            {
-                if (Muscles.IsCreated)
-                {
-                    Muscles.Dispose();
-                }
-
-                Muscles = new NativeArray<float>(MuscleCount, Allocator.Persistent);
+                BoneRotations = new NativeArray<quaternion>(BoneCount, Allocator.Persistent);
             }
         }
 
         /// <summary>
-        /// Reset fields to defaults. Optionally zero the muscle array.
+        /// Called when the buffer is checked OUT of the pool.
+        /// Does defaults + ensures bone rotation array exists.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Reset(bool clearMuscles = false)
+        public void ResetForReuse()
         {
             if (IsDisposed)
-            {
                 throw new ObjectDisposedException(nameof(BasisAvatarBuffer));
-            }
 
             EnsureAllocated();
 
+            Sequence = 0;
             Rotation = quaternion.identity;
             Scale = new float3(1f, 1f, 1f);
             Position = new float3(0f, 0f, 0f);
             SecondsInterval = 0.01;
-
-            if (clearMuscles && Muscles.IsCreated)
-            {
-                // Simple safe clear; switch to UnsafeUtility.MemClear if you need even more speed.
-                for (int i = 0; i < Muscles.Length; i++)
-                {
-                    Muscles[i] = 0f;
-                }
-            }
         }
 
         public void Dispose()
@@ -78,30 +65,48 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
             if (IsDisposed)
                 return;
 
-            if (Muscles.IsCreated)
+            if (BoneRotations.IsCreated)
             {
-                Muscles.Dispose();
-                Muscles = default;
+                BoneRotations.Dispose();
+                BoneRotations = default;
             }
 
             IsDisposed = true;
             NextInPool = null;
-            // PooledFlag intentionally not reset here; disposed objects shouldn't be pooled again.
+            // PooledFlag intentionally not reset; disposed objects should not be pooled.
         }
     }
 
     /// <summary>
     /// High-performance, lock-free, thread-safe pool for BasisAvatarBuffer.
+    /// - Single reset per round-trip: buffers are reset on Get(), NOT on Release().
+    /// - Editor/Dev-only invariants enforced with UnityEngine.Assertions.
     /// </summary>
     public static class BasisAvatarBufferPool
     {
-        // Intrusive lock-free stack: head points directly to a BasisAvatarBuffer,
-        // which contains NextInPool to form a singly-linked list.
+        // Intrusive lock-free stack head.
         private static BasisAvatarBuffer _head;
+
+        // Use Unity's assertion stripping (enabled in Editor/Development when UNITY_ASSERTIONS is defined).
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void PoolAssert(bool condition, string message)
+        {
+#if UNITY_ASSERTIONS
+            Assert.IsTrue(condition, message);
+#endif
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void PoolAssertNotNull(object obj, string message)
+        {
+#if UNITY_ASSERTIONS
+            Assert.IsNotNull(obj, message);
+#endif
+        }
 
         /// <summary>
         /// Get a buffer from the pool or create a new one.
-        /// Lock-free using CAS on the head pointer.
+        /// Lock-free pop via CAS on the head pointer.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static BasisAvatarBuffer Get()
@@ -112,9 +117,9 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
 
                 if (head == null)
                 {
-                    // Pool empty: allocate a fresh buffer.
                     var fresh = new BasisAvatarBuffer();
-                    fresh.Reset(clearMuscles: false);
+                    // Fresh buffers are not in the pool; PooledFlag default is 0.
+                    fresh.ResetForReuse();
                     return fresh;
                 }
 
@@ -123,12 +128,19 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
                 // Try to pop: if _head == head, set it to next.
                 if (Interlocked.CompareExchange(ref _head, next, head) == head)
                 {
+                    // Successfully popped. Detach from list.
                     head.NextInPool = null;
 
-                    // Mark as out of pool.
+                    // Mark as out-of-pool.
                     Interlocked.Exchange(ref head.PooledFlag, 0);
 
-                    head.Reset(clearMuscles: false);
+                    // --- DEV/EDITOR invariants ---
+                    PoolAssert(!head.IsDisposed, "Pool returned a disposed BasisAvatarBuffer. Disposed buffers must never be pooled.");
+                    PoolAssert(head.NextInPool == null, "Popped BasisAvatarBuffer still has NextInPool set. Pool list corruption.");
+                    PoolAssert(head.PooledFlag == 0, "Popped BasisAvatarBuffer still marked as pooled (PooledFlag != 0).");
+
+                    // Single reset per round-trip happens here.
+                    head.ResetForReuse();
                     return head;
                 }
 
@@ -144,26 +156,33 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Release(BasisAvatarBuffer item)
         {
-            if (item == null)
-            {
-                BasisDebug.LogError("Released BasisAvatarBuffer was null.");
-                return;
-            }
+            // --- DEV/EDITOR invariants ---
+            PoolAssertNotNull(item, "Attempted to release a null BasisAvatarBuffer.");
+#if !UNITY_ASSERTIONS
+            // In non-assert builds, still avoid NRE.
+            if (item == null) return;
+#endif
 
-            if (item.IsDisposed)
-            {
-                BasisDebug.LogError("Attempted to release a disposed BasisAvatarBuffer.");
-                return;
-            }
+            PoolAssert(!item.IsDisposed, "Attempted to release a disposed BasisAvatarBuffer. Do not pool disposed objects.");
+            PoolAssert(item.NextInPool == null, "Releasing BasisAvatarBuffer with NextInPool already set. Possible double-release or corruption.");
 
-            // Double-release detection: if it was already 1, it's already in the pool.
+            // Double-release detection via PooledFlag.
+#if UNITY_ASSERTIONS
             if (Interlocked.Exchange(ref item.PooledFlag, 1) == 1)
             {
-                BasisDebug.LogError("Double release detected for BasisAvatarBuffer.");
+                UnityEngine.Debug.LogError("Double release detected for BasisAvatarBuffer (PooledFlag was already 1).");
                 return;
             }
+#else
+            if (Interlocked.Exchange(ref item.PooledFlag, 1) == 1)
+            {
+                return;
+            }
+#endif
 
-            item.Reset(clearMuscles: false);
+            // IMPORTANT:
+            // Do NOT call item.Reset/EnsureAllocated here.
+            // Reset happens once when checked OUT (Get), keeping Release cheap and avoiding "allocate on release".
 
             while (true)
             {
@@ -187,14 +206,17 @@ namespace Basis.Scripts.Networking.NetworkedAvatar
         /// </summary>
         public static void Deinitialize()
         {
-            // Detach the current stack in one atomic op so new Get/Release calls
-            // see a null head (or you just don't call them anymore after this).
             var head = Interlocked.Exchange(ref _head, null);
 
             while (head != null)
             {
                 var next = head.NextInPool;
                 head.NextInPool = null;
+
+                // --- DEV/EDITOR invariants ---
+                PoolAssert(head.PooledFlag == 1, "Deinitializing pool found a buffer not marked as pooled (PooledFlag != 1).");
+                PoolAssert(!head.IsDisposed, "Deinitializing pool found a disposed buffer in the pool list.");
+
                 head.Dispose();
                 head = next;
             }

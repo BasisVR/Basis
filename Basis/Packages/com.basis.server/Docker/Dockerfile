@@ -1,9 +1,9 @@
 # Stage 1: Build the server
-FROM mcr.microsoft.com/dotnet/sdk:9.0-bookworm-slim AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
 # Copy the entire server project (including .props, Contrib, LiteNetLib, etc.)
-COPY ["../", "Server/"]
+COPY ["./", "Server/"]
 
 WORKDIR "/src/Server/BasisServerConsole"
 
@@ -12,13 +12,13 @@ RUN dotnet restore ./BasisNetworkConsole.csproj
 RUN dotnet publish -c Release --no-restore -o /app/publish
 
 # Stage 2: Create runtime image
-FROM mcr.microsoft.com/dotnet/runtime:9.0-bookworm-slim
+FROM mcr.microsoft.com/dotnet/runtime:10.0-noble
 
 # Install Curl for healthcheck
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
-    
+
 WORKDIR /app
 
 # Copy the published output
@@ -40,4 +40,4 @@ EXPOSE ${HealthCheckPort}/tcp
 EXPOSE ${PromethusPort}/tcp
 
 # Run the server
-ENTRYPOINT ["dotnet", "BasisNetworkConsole.dll"] 
+ENTRYPOINT ["dotnet", "BasisNetworkConsole.dll"]

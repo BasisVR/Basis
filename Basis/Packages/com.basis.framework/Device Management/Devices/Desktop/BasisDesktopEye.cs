@@ -23,10 +23,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         public static BasisDesktopEye Instance;
 
         [Header("Rotation")]
-        /// <summary>
-        /// Sensitivity multiplier for look rotation speed.
-        /// </summary>
-        public float rotationSpeed = 1f;
 
         /// <summary>
         /// Current pitch rotation (X axis).
@@ -53,8 +49,6 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         /// Stores look input delta from the mouse or input system.
         /// </summary>
         public Vector2 LookRotationVector = Vector2.zero;
-
-        private readonly BasisLocks.LockContext CrouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
         private readonly BasisLocks.LockContext LookRotationLock = BasisLocks.GetContext(BasisLocks.LookRotation);
 
         /// <summary>
@@ -89,13 +83,13 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
 
             if (BasisLocalPlayer.Instance.LocalAvatarDriver != null)
             {
-                BasisDebug.Log($"Using Configured Height {BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight, Z);
+                BasisDebug.Log($"Using Configured Height {BasisHeightDriver.SelectedScaledPlayerHeight}", BasisDebug.LogTag.Input);
+                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.SelectedScaledPlayerHeight, Z);
             }
             else
             {
-                BasisDebug.Log($"Using Fallback Height {BasisLocalHeight.FallbackSizeInMeters}", BasisDebug.LogTag.Input);
-                ScaledDeviceCoord.position = new Vector3(X, BasisLocalHeight.FallbackSizeInMeters, Z);
+                BasisDebug.Log($"Using Fallback Height {BasisHeightDriver.FallbackHeightInMeters}", BasisDebug.LogTag.Input);
+                ScaledDeviceCoord.position = new Vector3(X, BasisHeightDriver.FallbackHeightInMeters, Z);
             }
 
             ScaledDeviceCoord.rotation = Quaternion.identity;
@@ -120,6 +114,17 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 BasisVirtualSpine.Initialize();
                 HasEyeEvents = true;
             }
+            LockEye();
+        }
+        public void LockEye()
+        {
+            LookRotationLock.Clear();
+            BasisCursorManagement.LockCursor(nameof(BasisDesktopEye));
+            // If cursor didn't actually lock (e.g. stale unlock requests), block rotation
+            if (Cursor.lockState != CursorLockMode.Locked)
+            {
+                LookRotationLock.Add(nameof(BasisCursorManagement));
+            }
         }
 
         /// <summary>
@@ -129,13 +134,20 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
         private void OnCursorStateChange(CursorLockMode cursor, bool newCursorVisible)
         {
             BasisDebug.Log("cursor changed to : " + cursor + " | Cursor Visible : " + newCursorVisible, BasisDebug.LogTag.Input);
-            if (cursor == CursorLockMode.Locked)
+            switch (cursor)
             {
-                LookRotationLock.Remove(nameof(BasisCursorManagement));
-            }
-            else
-            {
-                LookRotationLock.Add(nameof(BasisCursorManagement));
+                case CursorLockMode.Locked:
+                    LookRotationLock.Remove(nameof(BasisCursorManagement));
+                    break;
+                case CursorLockMode.Confined:
+                    LookRotationLock.Add(nameof(BasisCursorManagement));
+                    break;
+                case CursorLockMode.None:
+                    LookRotationLock.Add(nameof(BasisCursorManagement));
+                    break;
+                default:
+                    LookRotationLock.Add(nameof(BasisCursorManagement));
+                    break;
             }
         }
 
@@ -202,14 +214,15 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
                 return;
             }
 
-            rotationYaw += lookVector.x * rotationSpeed; // yaw
-            rotationPitch -= lookVector.y * rotationSpeed; // pitch (invert Y)
+            rotationYaw += lookVector.x * SMModuleControllerSettings.MouseSensitivty; // yaw
+            rotationPitch -= lookVector.y * SMModuleControllerSettings.MouseSensitivty; // pitch (invert Y)
         }
+
         /// <summary>
         /// Main polling loop for updating eye input state.
         /// Calculates eye position/rotation based on avatar head, crouching, and inputs deltas.
         /// </summary>
-        public override void DoPollData()
+        public override void LateDoPollData()
         {
             if (!hasRoleAssigned)
             {
@@ -241,8 +254,10 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             rotationPitch = Mathf.Clamp(rotationPitch, minimumPitch, maximumPitch);
             Quaternion targetRot = Quaternion.Euler(rotationPitch, rotationYaw, 0);
 
-            // Handle crouching adjustment
-            if (!CrouchingLock)
+            // Handle crouching adjustment — always apply the current crouch visual
+            // offset. The CrouchingLock only prevents *input* from changing CrouchBlend;
+            // skipping this block when locked caused the camera to snap to standing height
+            // while the player was still crouched (see issue #637).
             {
                 BasisLocalPlayer Player = BasisLocalPlayer.Instance;
                 var crouchMinimum = Player.LocalCharacterDriver.MinimumCrouchPercent;
@@ -262,8 +277,8 @@ namespace Basis.Scripts.Device_Management.Devices.Desktop
             ComputeUnscaledDeviceCoord(ref UnscaledDeviceCoord, eyeWorld);
             UnscaledDeviceCoord.rotation = targetRot;
 
-            ScaledDeviceCoord.position = OffsetCoords.position + UnscaledDeviceCoord.position;
-            ScaledDeviceCoord.rotation = UnscaledDeviceCoord.rotation;
+            ScaledDeviceCoord.rotation = OffsetCoords.rotation * UnscaledDeviceCoord.rotation;
+            ScaledDeviceCoord.position = OffsetCoords.position + (OffsetCoords.rotation * UnscaledDeviceCoord.position);
 
             ControlOnlyAsDevice();
             if (IsComputingRaycast)

@@ -21,6 +21,8 @@ public class BasisSDKMirrorEditor : Editor
         mainSettings.Add(CreateProperty(serializedObj, "Renderer", "Renderer"));
         mainSettings.Add(CreateProperty(serializedObj, "MirrorsMaterial", "Mirror Material"));
         mainSettings.Add(CreateProperty(serializedObj, "ReflectingLayers", "Reflecting Layers"));
+        mainSettings.Add(CreateProperty(serializedObj, "clearFlags", "Clear Flags"));
+        mainSettings.Add(CreateProperty(serializedObj, "clearColor", "Clear Color"));
 
         var clipSettings = new VisualElement();
         clipSettings.style.marginTop = 6;

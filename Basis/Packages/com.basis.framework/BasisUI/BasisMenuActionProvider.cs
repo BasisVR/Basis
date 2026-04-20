@@ -13,7 +13,7 @@ namespace Basis.BasisUI
             if (Order > target.Order) return 1;
             return string.CompareOrdinal(Title, target.Title);
         }
-
+        public abstract bool Hidden { get; }
         public abstract string Title { get; }
         public abstract string IconAddress { get; }
         public abstract int Order { get; }
@@ -34,6 +34,15 @@ namespace Basis.BasisUI
         }
 
         public virtual void OnButtonCreated(PanelButton button)
+        {
+        }
+
+        /// <summary>
+        /// Called when this provider's active menu panel is being released
+        /// (e.g. when switching to another provider's tab).
+        /// Override to unsubscribe from events or perform cleanup.
+        /// </summary>
+        public virtual void OnReleaseEvent()
         {
         }
     }

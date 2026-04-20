@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 401896220113419955}
   - component: {fileID: 9117071990022795960}
   - component: {fileID: 4027323447008904767}
-  m_Layer: 8
+  m_Layer: 10
   m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -88,6 +88,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6605923727707009212
 GameObject:
@@ -102,6 +103,7 @@ GameObject:
   - component: {fileID: 3054218223580752409}
   - component: {fileID: 4147712560411048403}
   - component: {fileID: -6216164189268355534}
+  - component: {fileID: 7243030912262970484}
   m_Layer: 8
   m_Name: PersonalMirror
   m_TagString: Untagged
@@ -143,6 +145,8 @@ MonoBehaviour:
   ReflectingLayers:
     serializedVersion: 2
     m_Bits: 477
+  clearFlags: 0
+  clearColor: {r: 0, g: 0, b: 0, a: 1}
   ClipPlaneOffset: 0.001
   nearClipLimit: 0.01
   FarClipPlane: 25
@@ -175,7 +179,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -193,6 +197,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8b7cb57e80a80b46a2f3f927876eb77, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _colliderRefs: []
   Inputs:
     desktopCenterEye:
       Source: {fileID: 0}
@@ -207,9 +212,16 @@ MonoBehaviour:
   interactableEnabled: 1
   AutoHold: 1
   InputKey: 0
-  InteractRange: 1
+  OnInteractStartEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  OnInteractEndEvent:
+    m_PersistentCalls:
+      m_Calls: []
+  InteractRange: 0.1
   KinematicWhileInteracting: 1
   CanSelfSteal: 1
+  ShowHighlightOnHover: 0
   DesktopRotateSpeed: 0.1
   DesktopZoopSpeed: 0.2
   DesktopZoopMinDistance: 0.2
@@ -219,12 +231,14 @@ MonoBehaviour:
   interactEndLinearVelocityMultiplier: 1
   minAngularVelocity: 0.5
   interactEndAngularVelocityMultiplier: 1
-  ColliderRef: {fileID: 3054218223580752409}
-  RigidRef: {fileID: 0}
+  RigidRef: {fileID: 7243030912262970484}
   InputConstraint:
     rid: 1028902784308609151
   _previousKinematicValue: 1
-  enableScaleWithGesture: 0
+  OnPickupUse:
+    m_PersistentCalls:
+      m_Calls: []
+  enableScaleWithGesture: 1
   minScalePercent: 50
   maxScalePercent: 200
   constrainToAxis: 3
@@ -282,6 +296,33 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e6527b4fe5e39b14a91aa0e51b25c992, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!54 &7243030912262970484
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6605923727707009212}
+  serializedVersion: 5
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 1
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1 &7563364329703000399
 GameObject:
   m_ObjectHideFlags: 0
@@ -293,7 +334,7 @@ GameObject:
   - component: {fileID: 5992734656002742003}
   - component: {fileID: 8044598280321240969}
   - component: {fileID: 841565830627166434}
-  m_Layer: 8
+  m_Layer: 10
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -370,4 +411,5 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}

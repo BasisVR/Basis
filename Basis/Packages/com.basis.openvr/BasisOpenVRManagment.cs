@@ -1,5 +1,6 @@
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
+using Basis.Scripts.Device_Management;
 using Basis.Scripts.Device_Management.Devices.OpenVR.Structs;
 using Basis.Scripts.Device_Management.Devices.Unity_Spatial_Tracking;
 using Basis.Scripts.Drivers;
@@ -19,11 +20,15 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
     public class BasisOpenVRManagement : BasisBaseTypeManagement
     {
         public GameObject SteamVR_BehaviourGameobject;
-        public SteamVR_Behaviour SteamVR_Behaviour;
         public SteamVR_Render SteamVR_Render;
         public SteamVR SteamVR;
         public Dictionary<string, OpenVRDevice> TypicalDevices = new Dictionary<string, OpenVRDevice>();
         public bool IsInUse = false;
+        /// <summary>
+        /// When true, device creation/destruction from SteamVR events is suppressed.
+        /// Used during soft swap to keep the runtime alive without processing device changes.
+        /// </summary>
+        public bool IsSuspended = false;
         public static string SteamVRBehaviour = "SteamVR_Behaviour";
         private void OnDeviceConnected(uint deviceIndex, bool deviceConnected)
         {
@@ -43,6 +48,8 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
 
         private void DelayedOnDeviceConnected(uint deviceIndex, bool deviceConnected)
         {
+            if (IsSuspended) return;
+
             BasisDebug.Log($"Device index {deviceIndex} is connected: {deviceConnected}");
 
             var error = new ETrackedPropertyError();
@@ -123,7 +130,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 var spatial = Output.AddComponent<BasisOpenVRInputSpatial>();
                 spatial.ClassName = nameof(BasisOpenVRInputSpatial);
                 bool foundRole = TryAssignRole(device.deviceClass, device.deviceIndex, notUniqueID, out BasisBoneTrackedRole role, out SteamVR_Input_Sources source);
-                spatial.Initialize(UnityEngine.SpatialTracking.TrackedPoseDriver.TrackedPose.Center, uniqueID, notUniqueID, nameof(BasisOpenVRManagement), foundRole, role, source);
+                spatial.Initialize(device, uniqueID, notUniqueID, nameof(BasisOpenVRManagement), foundRole, role);
 
                 BasisDeviceManagement.Instance.TryAdd(spatial);
                 TypicalDevices.TryAdd(uniqueID, device);
@@ -202,6 +209,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 {
                     role = BasisBoneTrackedRole.LeftHand;
                     source = SteamVR_Input_Sources.LeftHand;
+                    BasisDebug.Log($"{deviceIndex} was found to be a LeftHand");
                     return true;
                 }
 
@@ -209,6 +217,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 {
                     role = BasisBoneTrackedRole.RightHand;
                     source = SteamVR_Input_Sources.RightHand;
+                    BasisDebug.Log($"{deviceIndex} was found to be a RightHand");
                     return true;
                 }
                 if (NameInCaseFallback.ToLower().Contains("left"))
@@ -240,37 +249,63 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
         }
         private void HandleExistingDevice(string uniqueID, string notUniqueID, string className, OpenVRDevice device)
         {
+            string subsystem = nameof(BasisOpenVRManagement);
+
             foreach (BasisInput input in BasisDeviceManagement.Instance.AllInputDevices)
             {
-                if (input.UniqueDeviceIdentifier == uniqueID && input.SubSystemIdentifier == uniqueID)
+                // NOTE: Fixed SubSystemIdentifier check (was comparing to uniqueID)
+                if (input.UniqueDeviceIdentifier == uniqueID && input.SubSystemIdentifier == subsystem)
                 {
                     if (input.ClassName == className)
                     {
+                        // Compute role once for all relevant branches
+                        bool foundRole = TryAssignRole(
+                            device.deviceClass,
+                            device.deviceIndex,
+                            notUniqueID,
+                            out BasisBoneTrackedRole role,
+                            out SteamVR_Input_Sources source
+                        );
+
                         if (input is BasisOpenVRInputSpatial spatial)
                         {
-                            bool foundRole = TryAssignRole(device.deviceClass, device.deviceIndex, notUniqueID, out BasisBoneTrackedRole role, out SteamVR_Input_Sources source);
-                            if (role == BasisBoneTrackedRole.Head || role == BasisBoneTrackedRole.CenterEye)
-                            {
-                                spatial.Initialize(UnityEngine.SpatialTracking.TrackedPoseDriver.TrackedPose.Head, uniqueID, notUniqueID, nameof(BasisOpenVRManagement), foundRole, role, source);
-                            }
-                            else
-                            {
-                                spatial.Initialize(UnityEngine.SpatialTracking.TrackedPoseDriver.TrackedPose.Center, uniqueID, notUniqueID, nameof(BasisOpenVRManagement), foundRole, role, source);
-                            }
+                            spatial.Initialize(
+                                device,
+                                uniqueID,
+                                notUniqueID,
+                                subsystem,
+                                foundRole,
+                                role
+                            );
                         }
                         else if (input is BasisOpenVRInputController controller)
                         {
-                            bool foundRole = TryAssignRole(device.deviceClass, device.deviceIndex, notUniqueID, out BasisBoneTrackedRole role, out SteamVR_Input_Sources source);
-                            controller.Initialize(device, uniqueID, notUniqueID, nameof(BasisOpenVRManagement), foundRole, role, source);
+                            controller.Initialize(
+                                device,
+                                uniqueID,
+                                notUniqueID,
+                                subsystem,
+                                foundRole,
+                                role,
+                                source
+                            );
                         }
                         else if (input is BasisOpenVRInput basisInput)
                         {
-                            basisInput.Initialize(device, uniqueID, notUniqueID, nameof(BasisOpenVRManagement), false, BasisBoneTrackedRole.CenterEye);
+                            basisInput.Initialize(
+                                device,
+                                uniqueID,
+                                notUniqueID,
+                                subsystem,
+                                false,
+                                BasisBoneTrackedRole.CenterEye
+                            );
                         }
                         else
                         {
                             BasisDebug.LogError("Some other Class Name " + input.ClassName + " look over this!");
                         }
+
                         return;
                     }
                     else
@@ -282,8 +317,50 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 }
             }
         }
+        /// <summary>
+        /// Destroys all tracked device inputs but keeps SteamVR runtime, event listeners, and rendering alive.
+        /// </summary>
+        public override void SoftStopDevices()
+        {
+            IsSuspended = true;
+            foreach (var device in TypicalDevices.Keys.ToList())
+            {
+                DestroyPhysicalTrackedDevice(device);
+            }
+            BasisDebug.Log("OpenVR: Soft-stopped input devices (runtime kept alive)", BasisDebug.LogTag.Device);
+        }
+
+        /// <summary>
+        /// Re-enumerates all connected SteamVR devices and recreates their input components.
+        /// Assumes the SteamVR runtime is still active from a prior soft stop.
+        /// </summary>
+        public override void SoftStartDevices()
+        {
+            if (!IsInUse || SteamVR == null)
+            {
+                BasisDebug.LogError("OpenVR: Cannot soft-start, runtime is not active", BasisDebug.LogTag.Device);
+                return;
+            }
+
+            IsSuspended = false;
+            BasisLocalCameraDriver.AllowXRRenderering(true);
+
+            // Re-enumerate all connected devices
+            for (uint i = 0; i < 64; i++)
+            {
+                if (Valve.VR.OpenVR.System != null && Valve.VR.OpenVR.System.IsTrackedDeviceConnected(i))
+                {
+                    OnDeviceConnected(i, true);
+                }
+            }
+
+            BasisCursorManagement.UnlockCursorBypassChecks("Forceful Unlock OPENVR SoftStart");
+            BasisDebug.Log("OpenVR: Soft-started input devices", BasisDebug.LogTag.Device);
+        }
+
         public override void StopSDK()
         {
+            IsSuspended = false;
             SteamVR.SafeDispose();
 
             if (SteamVR_BehaviourGameobject != null)
@@ -297,7 +374,7 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 DestroyPhysicalTrackedDevice(device);
             }
 
-            SteamVR_Behaviour = null;
+            SteamVR_Render.steamvr_render = null;
             SteamVR_Render = null;
             IsInUse = false;
             SteamVR_Events.DeviceConnected.RemoveListener(OnDeviceConnected);
@@ -321,14 +398,13 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
             }
             SteamVR_BehaviourGameobject.transform.parent = this.transform;
             // Initialize SteamVR components
-            SteamVR_Behaviour = BasisHelpers.GetOrAddComponent<SteamVR_Behaviour>(SteamVR_BehaviourGameobject);
             SteamVR_Render = BasisHelpers.GetOrAddComponent<SteamVR_Render>(SteamVR_BehaviourGameobject);
 
             // Register SteamVR events
             SteamVR_Events.DeviceConnected.Listen(OnDeviceConnected);
             SteamVR_Events.System(EVREventType.VREvent_TrackedDeviceRoleChanged).Listen(OnTrackedDeviceRoleChanged);
 
-            SteamVR_Behaviour.Initialize(SteamVR_Render, SteamVR_Behaviour);
+            SteamVR_Render.Initialize(SteamVR_Render);
 
             bool State = await WaitingUntilReady();
 
@@ -388,6 +464,29 @@ namespace Basis.Scripts.Device_Management.Devices.OpenVR
                 return true;
             }
             return false;
+        }
+        public override void Simulate()
+        {
+            if (!IsDeviceBooted) return;
+            if (SteamVR_Render != null)
+            {
+                SteamVR_Render.Simulate();
+            }
+            PollHMDPresence();
+        }
+
+        /// <summary>
+        /// Queries OpenVR's activity level for device 0 (HMD) to determine user presence.
+        /// Reports into the static <see cref="BasisHMDPresence"/> hub every frame.
+        /// Runs even when <see cref="IsSuspended"/> — the runtime is alive during soft swap.
+        /// </summary>
+        private void PollHMDPresence()
+        {
+            if (Valve.VR.OpenVR.System == null) return;
+            var level = Valve.VR.OpenVR.System.GetTrackedDeviceActivityLevel(0);
+            bool present = level == EDeviceActivityLevel.k_EDeviceActivityLevel_UserInteraction ||
+                           level == EDeviceActivityLevel.k_EDeviceActivityLevel_UserInteraction_Timeout;
+            BasisHMDPresence.ReportPresence(present);
         }
     }
 }

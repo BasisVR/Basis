@@ -5,14 +5,14 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
-using Basis.Scripts.Eye_Follow;
 using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
+using static BasisHeightDriver;
 
 namespace Basis.Scripts.BasisSdk.Players
 {
@@ -22,7 +22,7 @@ namespace Basis.Scripts.BasisSdk.Players
     /// </summary>
     /// <remarks>
     /// Use <see cref="LocalInitialize"/> to wire up drivers, load the initial avatar,
-    /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerCreatedAndReady"/>
+    /// and signal readiness. Subscribe to events like <see cref="OnLocalPlayerInitalized"/>
     /// to know when the player has finished bootstrapping.
     /// </remarks>
     public class BasisLocalPlayer : BasisPlayer
@@ -30,7 +30,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Singleton-like reference to the active local player instance.
         /// </summary>
-        public static BasisLocalPlayer Instance;
+        public static BasisLocalPlayer Instance { get; private set; }
 
         /// <summary>
         /// True when the local player has completed initialization and is ready for interaction.
@@ -60,12 +60,7 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Fired once the local player has completed <see cref="LocalInitialize"/> and is ready.
         /// </summary>
-        public static Action OnLocalPlayerCreatedAndReady;
-
-        /// <summary>
-        /// Fired as soon as the local player object is created and begins initialization.
-        /// </summary>
-        public static Action OnLocalPlayerCreated;
+        public static Action OnLocalPlayerInitalized;
 
         /// <summary>
         /// Fired whenever the local avatar asset changes (including initial creation).
@@ -75,18 +70,29 @@ namespace Basis.Scripts.BasisSdk.Players
         /// <summary>
         /// Fired after the player has been spawned/teleported into the scene.
         /// </summary>
-        public static Action OnSpawnedEvent;
+        public static Action OnTeleportEvent;
 
         /// <summary>
         /// Fired on the frame after a player height change is requested.
         /// </summary>
-        public static Action OnPlayersHeightChangedNextFrame;
+        public static Action<HeightModeChange> OnPlayersHeightChangedNextFrame;
+
+        /// <summary>
+        /// Fires Just Before the Apply of the remote player, good for chair movement
+        /// </summary>
+        public static BasisOrderedDelegate JustBeforeNetworkApply = new BasisOrderedDelegate();
 
         /// <summary>
         /// Ordered delegate queue invoked after all movement and simulation have completed for the frame.
         /// </summary>
-        public static BasisOrderedDelegate AfterFinalMove = new BasisOrderedDelegate();
+        public static BasisOrderedDelegate AfterSimulateOnRender = new BasisOrderedDelegate();
 
+        /// <summary>
+        /// Ordered delegate queue invoked after all movement and simulation have completed for the frame.
+        /// </summary>
+        public static BasisOrderedDelegate AfterSimulateOnLate = new BasisOrderedDelegate();
+
+        public static Matrix4x4 localToWorldMatrix = Matrix4x4.identity;
         #region Drivers
 
         /// <summary>
@@ -118,11 +124,11 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalRigDriver LocalRigDriver = new BasisLocalRigDriver();
 
         /// <summary>
-        /// Places a foot Down. not done yet, i give up - dooly
+        /// Locomotion-aware foot placement when no foot trackers are present.
         /// </summary>
-      //  [Header("Foot Driver")]
-       // [SerializeField]
-      //  public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
+        [Header("Foot Driver")]
+        [SerializeField]
+        public BasisLocalFootDriver BasisLocalFootDriver = new BasisLocalFootDriver();
         /// <summary>
         /// Character controller for movement, collisions, and physics.
         /// </summary>
@@ -145,18 +151,18 @@ namespace Basis.Scripts.BasisSdk.Players
         public BasisLocalAnimatorDriver LocalAnimatorDriver = new BasisLocalAnimatorDriver();
 
         /// <summary>
+        ///
+        /// </summary>
+        [Header("Eye Driver")]
+        [SerializeField]
+        public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();
+
+        /// <summary>
         /// Finger pose driver for hand tracking/controllers.
         /// </summary>
         [Header("Hand Driver")]
         [SerializeField]
         public BasisLocalHandDriver LocalHandDriver = new BasisLocalHandDriver();
-
-        /// <summary>
-        /// Eye gaze/pupil/eyelid driver for the local avatar.
-        /// </summary>
-        [Header("Eye Driver")]
-        [SerializeField]
-        public BasisLocalEyeDriver LocalEyeDriver = new BasisLocalEyeDriver();
 
         /// <summary>
         /// Audio capture and viseme (mouth shape) driver for lip sync.
@@ -165,14 +171,14 @@ namespace Basis.Scripts.BasisSdk.Players
         [SerializeField]
         public BasisAudioAndVisemeDriver LocalVisemeDriver = new BasisAudioAndVisemeDriver();
 
-        #endregion
-
         /// <summary>
-        /// Stores the current height measurements and derived values for the local player.
+        /// Driver responsible for simulating/controlling facial blinking.
         /// </summary>
-        [Header("Height Information")]
-        public BasisLocalHeight CurrentHeight = new BasisLocalHeight();
+        [Header("Blink Driver")]
+        [SerializeField]
+        public BasisLocalFacialBlinkDriver FacialBlinkDriver = new BasisLocalFacialBlinkDriver();
 
+        #endregion
         /// <summary>
         /// Bootstraps the local player by wiring up drivers, input, and events, and loading the initial avatar.
         /// </summary>
@@ -183,10 +189,11 @@ namespace Basis.Scripts.BasisSdk.Players
             {
                 Instance = this;
             }
+            PlayerPlatform = Application.platform.ToString();
 
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction += LocalVisemeDriver.OnPausedEvent;
-
-            OnLocalPlayerCreated?.Invoke();
+#endif
             IsLocal = true;
 
             LocalBoneDriver.CreateInitialArrays(true);
@@ -220,11 +227,11 @@ namespace Basis.Scripts.BasisSdk.Players
                 await CreateAvatar(LoadModeLocal, BasisAvatarFactory.LoadingAvatar);
             }
 
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.Initialize();
-            PlayerReady = true;
-            OnLocalPlayerCreatedAndReady?.Invoke();
+#endif
 
-            BasisScene BasisScene = FindFirstObjectByType<BasisScene>(FindObjectsInactive.Exclude);
+            BasisScene BasisScene = FindAnyObjectByType<BasisScene>(FindObjectsInactive.Exclude);
             if (BasisScene != null)
             {
                 BasisSceneFactory.Initalize(BasisScene);
@@ -236,6 +243,8 @@ namespace Basis.Scripts.BasisSdk.Players
             }
 
             BasisUILoadingBar.Initalize();
+            PlayerReady = true;
+            OnLocalPlayerInitalized?.Invoke();
         }
 
         /// <summary>
@@ -246,20 +255,16 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (BasisLoadHandler.IsMetaDataOnDisc(LastUsedAvatar.UniqueID, out BasisBEEExtensionMeta info))
             {
-                await BasisDataStoreAvatarKeys.LoadKeys();
-                List<BasisDataStoreAvatarKeys.AvatarKey> activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
-                foreach (BasisDataStoreAvatarKeys.AvatarKey Key in activeKeys)
+                await BasisDataStoreItemKeys.LoadKeys();
+                ItemKey[] activeKeys = BasisDataStoreItemKeys.DisplayKeys();
+                foreach (ItemKey Key in activeKeys)
                 {
-                    if (Key.Url == LastUsedAvatar.UniqueID)
+                    if (Key.Mode == BundledContentHolder.Mode.Avatar && Key.Url == LastUsedAvatar.UniqueID)
                     {
                         BasisLoadableBundle bundle = new BasisLoadableBundle
                         {
                             BasisRemoteBundleEncrypted = info.StoredRemote,
-                            BasisBundleConnector = new BasisBundleConnector(
-                                "1",
-                                new BasisBundleDescription("Loading Avatar", "Loading Avatar"),
-                                new BasisBundleGenerated[] { new BasisBundleGenerated() },
-                                null),
+                            BasisBundleConnector = new BasisBundleConnector("1", new BasisBundleDescription("Loading Avatar", "Loading Avatar"), new BasisBundleGenerated[] { new BasisBundleGenerated() }, null, new BasisBounds(Vector3.zero, Vector3.one), new BasisBundleConnector.BasisMetaData()),
                             BasisLocalEncryptedBundle = info.StoredLocal,
                             UnlockPassword = Key.Pass
                         };
@@ -279,22 +284,39 @@ namespace Basis.Scripts.BasisSdk.Players
         }
 
         /// <summary>
+        /// Retrieves the current world position and rotation of the local player.
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="rotation"></param>
+        public void GetPositionAndRotation(out Vector3 position, out Quaternion rotation)
+        {
+            this.transform.GetPositionAndRotation(out position, out rotation);
+        }
+
+        /// <summary>
         /// Teleports the local player to a world position and rotation, then re-enables character motion and notifies listeners.
         /// </summary>
         /// <param name="position">Target world position.</param>
         /// <param name="rotation">Target world rotation.</param>
-        public void Teleport(Vector3 position, Quaternion rotation)
+        public void Teleport(Vector3 position, Quaternion rotation,bool BypassStand = false)
         {
             BasisDebug.Log("Teleporting", BasisDebug.LogTag.Local);
-            LocalSeatDriver.Stand();
+            if (BypassStand == false)
+            {
+                LocalSeatDriver.Stand();
+            }
             bool wasCharacterEnabled = LocalCharacterDriver.IsEnabled;
             LocalCharacterDriver.IsEnabled = false;
             this.transform.SetPositionAndRotation(position, rotation);
+            AvatarTransform.rotation = Quaternion.identity;
             LocalCharacterDriver.IsEnabled = wasCharacterEnabled;
             LocalAnimatorDriver.HandleTeleport();
-            OnSpawnedEvent?.Invoke();
+            OnTeleportEvent?.Invoke();
         }
-
+        public void Respawn()
+        {
+            BasisSceneFactory.SpawnPlayer(this);
+        }
         /// <summary>
         /// Scene-load callback that optionally spawns the player when a new scene is activated.
         /// </summary>
@@ -308,7 +330,6 @@ namespace Basis.Scripts.BasisSdk.Players
                 BasisSceneFactory.SpawnPlayer(this);
             }
         }
-
         /// <summary>
         /// Creates or replaces the local avatar using the specified load mode and bundle, then persists the selection.
         /// </summary>
@@ -317,8 +338,8 @@ namespace Basis.Scripts.BasisSdk.Players
         public async Task CreateAvatar(byte LoadMode, BasisLoadableBundle BasisLoadableBundle)
         {
             await BasisAvatarFactory.LoadAvatarLocal(this, LoadMode, BasisLoadableBundle, this.transform.position, Quaternion.identity);
-            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
             OnLocalAvatarChanged?.Invoke();
+            BasisDataStore.SaveAvatar(BasisLoadableBundle.BasisRemoteBundleEncrypted.RemoteBeeFileLocation, LoadMode, LoadFileNameAndExtension);
         }
 
         /// <summary>
@@ -340,8 +361,10 @@ namespace Basis.Scripts.BasisSdk.Players
             LocalVisemeDriver.TryInitialize(this);
             if (HasCalibrationEvents == false)
             {
+#if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.OnHasAudio += DriveAudioToViseme;
                 BasisLocalMicrophoneDriver.OnHasSilence += DriveAudioToViseme;
+#endif
                 HasCalibrationEvents = true;
             }
         }
@@ -353,33 +376,37 @@ namespace Basis.Scripts.BasisSdk.Players
         {
             if (HasEvents)
             {
-               LocalCharacterDriver?.DeInitalize();
+               LocalVisemeDriver?.OnDestroy();
+                LocalCharacterDriver?.DeInitalize();
                 OnLocalAvatarChanged -= OnCalibration;
                 SceneManager.sceneLoaded -= OnSceneLoadedCallback;
                 HasEvents = false;
             }
             if (HasCalibrationEvents)
             {
+#if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.OnHasAudio -= DriveAudioToViseme;
                 BasisLocalMicrophoneDriver.OnHasSilence -= DriveAudioToViseme;
+#endif
                 HasCalibrationEvents = false;
             }
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.DeInitialize();
+#endif
 
             if (LocalHandDriver != null)
             {
                 LocalHandDriver.Dispose();
             }
-            if (LocalEyeDriver != null)
-            {
-                LocalEyeDriver.OnDestroy(this);
-            }
+            BasisLocalEyeDriver.Dispose();
             if (FacialBlinkDriver != null)
             {
                 FacialBlinkDriver.OnDestroy();
             }
 
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= LocalVisemeDriver.OnPausedEvent;
+#endif
             LocalAnimatorDriver.OnDestroy();
             LocalBoneDriver.DeInitializeGizmos();
             BasisUILoadingBar.DeInitalize();
@@ -390,48 +417,85 @@ namespace Basis.Scripts.BasisSdk.Players
         /// </summary>
         public void DriveAudioToViseme()
         {
-            LocalVisemeDriver.ProcessAudioSamples(
-                BasisLocalMicrophoneDriver.processBufferArray,
-                1,
-                BasisLocalMicrophoneDriver.processBufferArray.Length);
+#if !BASIS_DISABLE_MICROPHONE
+            LocalVisemeDriver.ProcessAudioSamples(BasisLocalMicrophoneDriver.processBufferArray,1,BasisLocalMicrophoneDriver.processBufferArray.Length);
+#endif
         }
-        /// <summary>
-        /// Main per-frame simulation entry point, executed on render/update.
-        /// Performs movement, bone simulation, T-pose driving, IK targets, animator evaluation, hands,
-        /// and then invokes <see cref="AfterFinalMove"/>.
-        /// </summary>
-        /// <param name="DeltaTime">Frame delta time.</param>
-        public void SimulateOnRender(float DeltaTime)
+        public void Simulate(float DeltaTime)
         {
             // now lets move the local player position.
             LocalCharacterDriver.SimulateMovement(DeltaTime);
 
+            // Apply virtual data (e.g. seat driver) before polling input devices so that
+            // localToWorldMatrix reflects the seat-adjusted player position. This ensures
+            // bone world positions and raycast origins are correct while seated (#514).
+            ApplyVirtualData(this);
+            if (LocalSeatDriver.IsSeated)
+            {
+                transform.GetPositionAndRotation(out Vector3 seatPos, out Quaternion seatRot);
+                localToWorldMatrix = Matrix4x4.TRS(seatPos, seatRot, transform.lossyScale);
+            }
+
+            OnLateSimulateBones(this);
+
             // moves all bones to where they belong
             // This also drives head and camera movement.
-            LocalBoneDriver.SimulateAndApply(this, DeltaTime);
+            LocalBoneDriver.Simulate(DeltaTime, localToWorldMatrix);
 
             // moves Avatar Hip Transform to where it belongs in tpose.
             if (BasisLocalAvatarDriver.CurrentlyTposing)
             {
+                LocalRigDriver.ResetSmoothingState();
                 DriveTpose();
             }
 
             // Simulate Final Destination of IK then process Animator and IK processes.
             LocalRigDriver.SimulateIKDestinations(DeltaTime);
 
-            // update WorldPosition in BoneDriver so AfterFinalMove can use world coords
-            LocalBoneDriver.SimulateWorldDestinations(transform.localToWorldMatrix);
+            // update WorldPosition in BoneDriver so AfterSimulateOnLate can use world coords
+            LocalBoneDriver.SimulateWorldDestinations(localToWorldMatrix);
 
             // Apply Animator Weights using most current data and outside movement effectors.
             LocalAnimatorDriver.SimulateAnimator(DeltaTime);
 
-            // handles fingers
-            LocalHandDriver.UpdateFingers(DeltaTime);
+            // schedule finger slerp job (completed by Apply in BasisEventDriver)
+            LocalHandDriver.Simulate(DeltaTime);
+
+            AfterSimulateOnLate?.Invoke();
+        }
+        public void OnDrawGizmosSelected()
+        {
+            LocalSeatDriver.DrawGizmosSelected();
+        }
+        public static void FireJustBeforeNetworkApply()
+        {
+            JustBeforeNetworkApply?.Invoke();
+        }
+        /// <summary>
+        /// Main per-frame simulation entry point, executed on render/update.ddd
+        /// Performs movement, bone simulation, T-pose driving, IK targets, animator evaluation, hands,
+        /// and then invokes <see cref="AfterSimulateOnRender"/>.
+        /// </summary>
+        public void SimulateOnRender()
+        {
+            OnRenderSimulateBones(this);
 
             // now other things can move like UI and NON-CHILDREN OF BASISLOCALPLAYER.
-            AfterFinalMove?.Invoke();
+            AfterSimulateOnRender?.Invoke();
         }
+        public void OnLateSimulateBones(BasisPlayer Player)
+        {
+            Player.OnLatePollData?.Invoke();
+        }
+        public void ApplyVirtualData(BasisPlayer Player)
+        {
 
+            Player.OnVirtualData?.Invoke();
+        }
+        public void OnRenderSimulateBones(BasisPlayer Player)
+        {
+            Player.OnRenderPollData?.Invoke();
+        }
         /// <summary>
         /// Positions the avatar in a T-pose such that the head aligns to tracked head position/orientation (yaw only).
         /// </summary>
@@ -455,7 +519,37 @@ namespace Basis.Scripts.BasisSdk.Players
 
             AvatarTransform.SetPositionAndRotation(avatarWorldPos, desiredRotWS);
         }
+        public void Immobilize(bool immobilize)
+        {
+            var movementLock = BasisLocks.GetContext(BasisLocks.Movement);
+            var crouchingLock = BasisLocks.GetContext(BasisLocks.Crouching);
+            var key = nameof(BasisLocalPlayer);
 
+            if (immobilize)
+            {
+                if (!movementLock.Contains(key))
+                {
+                    movementLock.Add(key);
+                }
+
+                if (!crouchingLock.Contains(key))
+                {
+                    crouchingLock.Add(key);
+                }
+            }
+            else
+            {
+                if (movementLock.Contains(key))
+                {
+                    movementLock.Remove(key);
+                }
+
+                if (crouchingLock.Contains(key))
+                {
+                    crouchingLock.Remove(key);
+                }
+            }
+        }
         /// <summary>
         /// Delegate type for scheduling a callback on the next frame.
         /// </summary>

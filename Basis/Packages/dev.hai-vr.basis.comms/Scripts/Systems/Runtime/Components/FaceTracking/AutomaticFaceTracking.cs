@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -35,8 +36,11 @@ namespace HVR.Basis.Comms
         [NonSerialized] internal OSCAcquisition oscAcquisition;
         [NonSerialized] internal BlendshapeActuation blendshapeActuation;
         [NonSerialized] internal EyeTrackingBoneActuation eyeTrackingBoneActuation;
+        [NonSerialized] internal FaceTrackingActivityRelay faceTrackingActivityRelay;
 
         private bool _isWearer;
+        private Action<bool> _onFaceTrackingEnabledChanged;
+        private Action<bool> _onEyeTrackingEnabledChanged;
 
         private void Awake()
         {
@@ -119,6 +123,9 @@ namespace HVR.Basis.Comms
         private void SetupFaceTracking(BlendshapeActuationDefinitionFile[] definitionFiles, List<SkinnedMeshRenderer> smrs)
         {
             renderers = smrs;
+            faceTrackingActivityRelay = FaceTrackingActivityRelay.GetOrCreate(_avatar);
+            faceTrackingActivityRelay.OnHVRAvatarReady(_isWearer);
+
             if (_isWearer)
             {
                 oscAcquisition = CreateOSCAcquisitionIfNotExists();
@@ -141,7 +148,45 @@ namespace HVR.Basis.Comms
             blendshapeActuation.OnHVRAvatarReady(_isWearer);
             eyeTrackingBoneActuation.OnHVRAvatarReady(_isWearer);
 
+            ApplyFaceTrackingEnabled(BasisSettingsDefaults.EnableFaceTracking.RawValue);
+            ApplyEyeTrackingEnabled(BasisSettingsDefaults.EnableEyeTracking.RawValue);
+
+            _onFaceTrackingEnabledChanged = ApplyFaceTrackingEnabled;
+            _onEyeTrackingEnabledChanged = ApplyEyeTrackingEnabled;
+            BasisSettingsDefaults.EnableFaceTracking.OnChanged += _onFaceTrackingEnabledChanged;
+            BasisSettingsDefaults.EnableEyeTracking.OnChanged += _onEyeTrackingEnabledChanged;
+
             successful = true;
+        }
+
+        private void ApplyFaceTrackingEnabled(bool enabledValue)
+        {
+            if (blendshapeActuation != null)
+            {
+                blendshapeActuation.enabled = enabledValue;
+            }
+        }
+
+        private void ApplyEyeTrackingEnabled(bool enabledValue)
+        {
+            if (eyeTrackingBoneActuation != null)
+            {
+                eyeTrackingBoneActuation.enabled = enabledValue;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (_onFaceTrackingEnabledChanged != null)
+            {
+                BasisSettingsDefaults.EnableFaceTracking.OnChanged -= _onFaceTrackingEnabledChanged;
+                _onFaceTrackingEnabledChanged = null;
+            }
+            if (_onEyeTrackingEnabledChanged != null)
+            {
+                BasisSettingsDefaults.EnableEyeTracking.OnChanged -= _onEyeTrackingEnabledChanged;
+                _onEyeTrackingEnabledChanged = null;
+            }
         }
 
         private OSCAcquisition CreateOSCAcquisitionIfNotExists()

@@ -173,6 +173,12 @@ namespace Basis.BasisUI.Styling
 
         private void OnValidate()
         {
+            #if UNITY_EDITOR
+                // Don't call Addressables during import/build — they aren't available yet
+                if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode)
+                    return;
+            #endif
+
             if (UiStyleSettings.GetActiveStyles() == this)
                 UiStyleSettings.UpdateAllStyleComponents();
         }

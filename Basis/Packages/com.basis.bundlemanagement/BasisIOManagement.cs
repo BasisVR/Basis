@@ -7,6 +7,82 @@ using UnityEngine.Networking;
 
 public static class BasisIOManagement
 {
+    public static string GetCurrentCachePlatform()
+    {
+        return NormalizeCachePlatformName(Application.platform.ToString());
+    }
+
+    public static bool CachePlatformMatchesCurrent(string downloadedPlatform)
+    {
+        return string.Equals(NormalizeCachePlatformName(downloadedPlatform), GetCurrentCachePlatform(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static string NormalizeCachePlatformName(string platformName)
+    {
+        if (string.IsNullOrWhiteSpace(platformName))
+        {
+            return string.Empty;
+        }
+
+        string normalized = platformName.Trim();
+        return normalized switch
+        {
+            nameof(RuntimePlatform.WindowsEditor) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsPlayer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.WindowsServer) => "StandaloneWindows64",
+            nameof(RuntimePlatform.LinuxEditor) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxPlayer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.LinuxServer) => "StandaloneLinux64",
+            nameof(RuntimePlatform.OSXEditor) => "StandaloneOSX",
+            nameof(RuntimePlatform.OSXPlayer) => "StandaloneOSX",
+            nameof(RuntimePlatform.Android) => "Android",
+            nameof(RuntimePlatform.IPhonePlayer) => "iOS",
+            _ => normalized,
+        };
+    }
+
+    public static string GetBeeCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisEncryptedExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetConnectorCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisConnectorExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetMetaCacheFilePath(string uniqueVersion, string downloadedPlatform = null)
+    {
+        return GenerateFilePath(BuildPlatformAwareCacheFileName(uniqueVersion, BasisBeeConstants.BasisMetaExtension, downloadedPlatform), BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetLegacyBeeCacheFilePath(string uniqueVersion)
+    {
+        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}", BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    public static string GetLegacyMetaCacheFilePath(string uniqueVersion)
+    {
+        return GenerateFilePath($"{uniqueVersion}{BasisBeeConstants.BasisMetaExtension}", BasisBeeConstants.AssetBundlesFolder);
+    }
+
+    private static string BuildPlatformAwareCacheFileName(string uniqueVersion, string extension, string downloadedPlatform)
+    {
+        if (string.IsNullOrWhiteSpace(uniqueVersion))
+            throw new ArgumentException("Unique version is null or empty.", nameof(uniqueVersion));
+
+        string normalizedPlatform = string.IsNullOrWhiteSpace(downloadedPlatform)
+            ? GetCurrentCachePlatform()
+            : NormalizeCachePlatformName(downloadedPlatform);
+
+        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+        {
+            normalizedPlatform = normalizedPlatform.Replace(invalidChar, '_');
+        }
+
+        return $"{uniqueVersion}.{normalizedPlatform}{extension}";
+    }
+
     public sealed class BeeDownloadResult
     {
         public BasisBundleConnector Connector { get; }
@@ -44,7 +120,7 @@ public static class BasisIOManagement
     /// downloads the platform-matching section, writes a local .bee file (4-byte Int32 header),
     /// and returns all artifacts.
     /// </summary>
-    public static async Task<BeeResult<BeeDownloadResult>> DownloadBEEEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default)
+    public static async Task<BeeResult<BeeDownloadResult>> DownloadBEEEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
         // Validate inputs with actionable messages
         if (!ValidateUrl(url, out var urlErr))
@@ -54,7 +130,7 @@ public static class BasisIOManagement
             return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: VP is null or empty.");
 
         // 1) Read 8-byte remote header (Int64)
-        var headerRes = await DownloadRangeInternal(url, startByte: 0, endByteInclusive: BasisBeeConstants.RemoteHeaderSize - 1, toFilePath: null, progressCallback, cancellationToken);
+        var headerRes = await DownloadRangeInternal(url, startByte: 0, endByteInclusive: BasisBeeConstants.RemoteHeaderSize - 1, toFilePath: null, progressCallback, cancellationToken, MaxDownloadSizeInMB);
 
         if (!headerRes.IsSuccess || headerRes.Value?.Data == null)
             return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: Failed to read remote header. {headerRes.Error ?? "No data"}", headerRes.ResponseCode);
@@ -73,7 +149,7 @@ public static class BasisIOManagement
         long connectorStart = BasisBeeConstants.RemoteHeaderSize;
         long connectorEndInclusive = BasisBeeConstants.RemoteHeaderSize + connectorLength - 1;
 
-        var connectorRes = await DownloadRangeInternal(url, connectorStart, connectorEndInclusive, toFilePath: null, progressCallback, cancellationToken);
+        var connectorRes = await DownloadRangeInternal(url, connectorStart, connectorEndInclusive, toFilePath: null, progressCallback, cancellationToken, MaxDownloadSizeInMB);
 
         if (!connectorRes.IsSuccess || connectorRes.Value.Data == null)
             return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: Failed to download connector block. {connectorRes.Error ?? "No data"}", connectorRes.ResponseCode);
@@ -134,7 +210,7 @@ public static class BasisIOManagement
             if (isPlatform)
             {
                 BasisDebug.Log($"Downloading platform section range {start}-{end}");
-                var sectRes = await DownloadRangeInternal(url, start, end, toFilePath: null, progressCallback, cancellationToken);
+                var sectRes = await DownloadRangeInternal(url, start, end, toFilePath: null, progressCallback, cancellationToken, MaxDownloadSizeInMB);
 
                 if (!sectRes.IsSuccess || sectRes.Value?.Data == null)
                     return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: Failed to download platform section at index {index}. {sectRes.Error ?? "No data"}", sectRes.ResponseCode);
@@ -151,17 +227,19 @@ public static class BasisIOManagement
         }
 
         if (platformSectionData == null || platformSectionData.Length == 0)
-            return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: No platform-matching section found in connector.");
+        {
+            return BeeResult<BeeDownloadResult>.Fail($"DownloadBEEEx: No platform-matching section found in connector. Platform Request was {Application.platform}. {BasisBundleConnector.DebugOfPlatforms(connector)}");
+        }
 
         // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = $"{connector.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}";
+        string fileName = Path.GetFileName(GetBeeCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
             return BeeResult<BeeDownloadResult>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
 
         string localPath;
         try
         {
-            localPath = GenerateFilePath(fileName, BasisBeeConstants.AssetBundlesFolder);
+            localPath = GetBeeCacheFilePath(connector.UniqueVersion);
         }
         catch (Exception ex)
         {
@@ -177,7 +255,7 @@ public static class BasisIOManagement
     /// <summary>
     /// Downloads only the connector bytes from the remote BEE (8-byte Int64 header) and parses them.
     /// </summary>
-    public static async Task<BeeResult<(BasisBundleConnector, string)>> DownloadConnectorOnlyEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default)
+    public static async Task<BeeResult<(BasisBundleConnector, string)>> DownloadConnectorOnlyEx(string url, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
         if (!ValidateUrl(url, out var urlErr))
             return BeeResult<(BasisBundleConnector, string)>.Fail($"DownloadConnectorOnlyEx: {urlErr}");
@@ -186,7 +264,7 @@ public static class BasisIOManagement
             return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: VP is null or empty.");
 
         // Header
-        var headerRes = await DownloadRangeInternal(url, 0, BasisBeeConstants.RemoteHeaderSize - 1, null, progressCallback, cancellationToken);
+        var headerRes = await DownloadRangeInternal(url, 0, BasisBeeConstants.RemoteHeaderSize - 1, null, progressCallback, cancellationToken, MaxDownloadSizeInMB);
         if (!headerRes.IsSuccess || headerRes.Value?.Data == null)
             return BeeResult<(BasisBundleConnector, string)>.Fail($"DownloadConnectorOnlyEx: Failed to read header. {headerRes.Error ?? "No data"}", headerRes.ResponseCode);
 
@@ -204,7 +282,13 @@ public static class BasisIOManagement
         long start = BasisBeeConstants.RemoteHeaderSize;
         long end = BasisBeeConstants.RemoteHeaderSize + connectorLength - 1;
 
-        var connectorRes = await DownloadRangeInternal(url, start, end, null, progressCallback, cancellationToken);
+        var connectorRes = await DownloadRangeInternal(url, start, end, null, progressCallback, cancellationToken, MaxDownloadSizeInMB);
+
+        if (connectorRes.IsSuccess == false && connectorRes.Error != string.Empty)
+        {
+            return BeeResult<(BasisBundleConnector, string)>.Fail(connectorRes.Error, connectorRes.ResponseCode);
+        }
+
         if (!connectorRes.IsSuccess || connectorRes.Value?.Data == null)
             return BeeResult<(BasisBundleConnector, string)>.Fail($"DownloadConnectorOnlyEx: Failed to read connector bytes. {connectorRes.Error ?? "No data"}", connectorRes.ResponseCode);
 
@@ -218,14 +302,14 @@ public static class BasisIOManagement
             return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: Failed to parse connector metadata (null).");
         }
 
-        // 5) Write local .bee (Int32 header + connector + section)
-        string fileName = $"{connector.UniqueVersion}{BasisBeeConstants.BasisEncryptedExtension}";
+        // 5) Write local .bec (Int32 header + connector only, no section)
+        string fileName = Path.GetFileName(GetConnectorCacheFilePath(connector.UniqueVersion));
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadBEEEx: Connector has no UniqueVersion / file extension.");
+            return BeeResult<(BasisBundleConnector, string)>.Fail("DownloadConnectorOnlyEx: Connector has no UniqueVersion / file extension.");
 
         }
-        string localPath = GenerateFilePath(fileName, BasisBeeConstants.AssetBundlesFolder);
+        string localPath = GetConnectorCacheFilePath(connector.UniqueVersion);
         var connectorBytes = connectorRes.Value.Data;
 
         var writeRes = await WriteBeeFileAsync(localPath, connectorBytes, null, true);
@@ -245,33 +329,47 @@ public static class BasisIOManagement
     public static async Task<BeeResult<BeeReadResult>> ReadBEEFileEx(string filePath, string vp, BasisProgressReport progressCallback, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(filePath))
+        {
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: File path is null or empty.");
+        }
 
         if (!File.Exists(filePath))
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File not found: {filePath}");
+        }
 
         if (string.IsNullOrWhiteSpace(vp))
+        {
             return BeeResult<BeeReadResult>.Fail("ReadBEEFileEx: VP is null or empty.");
+        }
 
         using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 96 * 1024, useAsync: true);
 
         if (fs.Length < BasisBeeConstants.DiskHeaderSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: File too small to contain header. Size={fs.Length} bytes.");
+        }
 
         // Read Int32 connector size (little-endian)
         byte[] sizeBytes = await ReadExactAsync(fs, BasisBeeConstants.DiskHeaderSize, cancellationToken);
         if (sizeBytes.Length != BasisBeeConstants.DiskHeaderSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read connector size (header). Got {sizeBytes.Length} bytes.");
+        }
 
         int connectorSize = ReadInt32LittleEndian(sizeBytes);
         long remainingPossible = fs.Length - fs.Position;
         if (connectorSize <= 0 || connectorSize > remainingPossible)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Invalid connector size {connectorSize}. Remaining file bytes: {remainingPossible}. File may be corrupt.");
+        }
 
         // Read connector bytes
         byte[] connectorBytes = await ReadExactAsync(fs, connectorSize, cancellationToken);
         if (connectorBytes.Length != connectorSize)
+        {
             return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full connector block. Expected {connectorSize}, got {connectorBytes.Length}.");
+        }
 
         BasisBundleConnector connector = await BasisEncryptionToData.GenerateMetaFromBytes(vp, connectorBytes, progressCallback);
         BasisDebug.Log("GenerateMetaFromBytes", BasisDebug.LogTag.Event);
@@ -283,14 +381,18 @@ public static class BasisIOManagement
         long remaining = fs.Length - fs.Position;
         if (remaining < 0) remaining = 0;
 
-        byte[] sectionData = remaining == 0 ? null : await ReadExactAsync(fs, checked((int)remaining), cancellationToken);
-        if(sectionData == null)
+        byte[] sectionData;
+        if (remaining == 0)
         {
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full section data. Expected {remaining}, got {null}.");
+            sectionData = Array.Empty<byte>();
         }
-        if (sectionData.LongLength != remaining)
+        else
         {
-            return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full section data. Expected {remaining}, got {sectionData.LongLength}.");
+            sectionData = await ReadExactAsync(fs, checked((int)remaining), cancellationToken);
+            if (sectionData == null || sectionData.LongLength != remaining)
+            {
+                return BeeResult<BeeReadResult>.Fail($"ReadBEEFileEx: Failed to read full section data. Expected {remaining}, got {sectionData?.LongLength ?? 0}.");
+            }
         }
 
         return BeeResult<BeeReadResult>.Ok(new BeeReadResult(connector, sectionData));
@@ -366,8 +468,18 @@ public static class BasisIOManagement
         }
         return folderPath;
     }
-
-    private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct)
+    /// <summary>
+    /// downloads a range of bytes
+    /// </summary>
+    /// <param name="url"></param>
+    /// <param name="startByte"></param>
+    /// <param name="endByteInclusive"></param>
+    /// <param name="toFilePath"></param>
+    /// <param name="progress"></param>
+    /// <param name="ct"></param>
+    /// <param name="MaxDownloadSizeInMB">Defaults to 4GB</param>
+    /// <returns></returns>
+    private static async Task<BeeResult<DownloadPayload>> DownloadRangeInternal(string url, long startByte, long? endByteInclusive, string toFilePath, BasisProgressReport progress, CancellationToken ct, long MaxDownloadSizeInMB = 4L * 1024 * 1024 * 1024)
     {
         if (!ValidateUrl(url, out var urlErr))
             return BeeResult<DownloadPayload>.Fail(urlErr);
@@ -377,6 +489,19 @@ public static class BasisIOManagement
 
         if (endByteInclusive.HasValue && endByteInclusive.Value < startByte)
             return BeeResult<DownloadPayload>.Fail($"Invalid byte range: {startByte}-{endByteInclusive.Value}");
+
+
+        long expectedBytes = endByteInclusive.HasValue? (endByteInclusive.Value - startByte + 1): long.MaxValue; // open-ended range
+
+        if (!endByteInclusive.HasValue)
+            return BeeResult<DownloadPayload>.Fail("Open-ended ranges are not allowed when a max size is enforced.");
+
+        if (expectedBytes <= 0)
+            return BeeResult<DownloadPayload>.Fail($"Invalid expected byte count: {expectedBytes}");
+
+
+        if (expectedBytes > MaxDownloadSizeInMB)
+            return BeeResult<DownloadPayload>.Fail($"Refusing download: requested {expectedBytes} bytes exceeds limit {MaxDownloadSizeInMB}.");
 
         string requestId = BasisGenerateUniqueID.GenerateUniqueID();
 
@@ -525,26 +650,46 @@ public static class BasisIOManagement
         // Auto-tune buffer: min 32KB, max 1MB
         int buffer = Clamp((int)(totalSize / 8), 32 * 1024, 1 * 1024 * 1024);
 
-        // Write file
-        using (var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None, buffer, useAsync: true))
+        // Write to a temp file then atomic-rename to avoid sharing violations
+        // when multiple concurrent downloads target the same .BEE path.
+        string tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
         {
-            await fs.WriteAsync(sizeLE, 0, sizeLE.Length).ConfigureAwait(false);
-            await fs.WriteAsync(connectorBytes, 0, connectorBytes.Length).ConfigureAwait(false);
-
-            if (writeSection)
+            using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, buffer, useAsync: true))
             {
-                await fs.WriteAsync(sectionBytes, 0, sectionBytes.Length).ConfigureAwait(false);
+                await fs.WriteAsync(sizeLE, 0, sizeLE.Length).ConfigureAwait(false);
+                await fs.WriteAsync(connectorBytes, 0, connectorBytes.Length).ConfigureAwait(false);
+
+                if (writeSection)
+                {
+                    await fs.WriteAsync(sectionBytes, 0, sectionBytes.Length).ConfigureAwait(false);
+                }
             }
+
+            long actual = new FileInfo(tempPath).Length;
+            BasisDebug.Log($"Expected File Size: {totalSize} bytes");
+            BasisDebug.Log($"Actual File Size on Disk: {actual} bytes");
+
+            if (totalSize != actual)
+            {
+                BasisDebug.LogError("File size does not match expected size!");
+                try { File.Delete(tempPath); } catch { }
+                return BeeResult<bool>.Fail($"WriteBeeFileAsync: Size mismatch after write. Expected {totalSize}, actual {actual}.");
+            }
+
+            // Replace destination if it already exists. On Windows, plain File.Move throws
+            // when the destination is present; deleting first lets re-downloads overwrite a
+            // stale or corrupt cached file instead of silently keeping the old bytes.
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            File.Move(tempPath, path);
         }
-
-        long actual = new FileInfo(path).Length;
-        BasisDebug.Log($"Expected File Size: {totalSize} bytes");
-        BasisDebug.Log($"Actual File Size on Disk: {actual} bytes");
-
-        if (totalSize != actual)
+        catch (Exception ex)
         {
-            BasisDebug.LogError("File size does not match expected size!");
-            return BeeResult<bool>.Fail($"WriteBeeFileAsync: Size mismatch after write. Expected {totalSize}, actual {actual}.");
+            try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+            return BeeResult<bool>.Fail($"WriteBeeFileAsync: {ex.GetType().Name}: {ex.Message}");
         }
 
         return BeeResult<bool>.Ok(true);
@@ -653,6 +798,52 @@ public static class BasisIOManagement
         if (value < min) return min;
         if (value > max) return max;
         return value;
+    }
+
+    /// <summary>
+    /// Sends an HTTP HEAD request to check if the remote file is reachable.
+    /// Returns success if the server responds with a 2xx status code,
+    /// indicating the file exists and is accessible.
+    /// </summary>
+    public static async Task<BeeResult<bool>> CheckRemoteFileReachable(string url, CancellationToken cancellationToken = default)
+    {
+        if (!ValidateUrl(url, out var urlErr))
+            return BeeResult<bool>.Fail($"Invalid URL: {urlErr}");
+
+        using var req = new UnityWebRequest(url, UnityWebRequest.kHttpVerbHEAD);
+        req.downloadHandler = new DownloadHandlerBuffer();
+
+        var op = req.SendWebRequest();
+
+        while (!op.isDone)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                req.Abort();
+                return BeeResult<bool>.Fail("Reachability check cancelled.");
+            }
+            await Task.Yield();
+        }
+
+        long code = req.responseCode;
+
+        if (req.result == UnityWebRequest.Result.ConnectionError)
+            return BeeResult<bool>.Fail($"Cannot connect to server: {req.error}", code);
+
+        if (req.result == UnityWebRequest.Result.ProtocolError)
+        {
+            if (code == 404)
+                return BeeResult<bool>.Fail("Avatar file not found on the server (404). The file may have been moved or deleted.", code);
+            if (code == 403)
+                return BeeResult<bool>.Fail("Access denied to avatar file (403). You may not have permission to access this file.", code);
+
+            return BeeResult<bool>.Fail($"Server returned error {code}: {req.error}", code);
+        }
+
+        if (req.result != UnityWebRequest.Result.Success)
+            return BeeResult<bool>.Fail($"Request failed: {req.error}", code);
+
+        return BeeResult<bool>.Ok(true);
     }
 
     /// <summary>

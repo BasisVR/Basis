@@ -38,6 +38,33 @@ public abstract class BasisBaseTypeManagement : MonoBehaviour
     public virtual void StartSDK()
     {
     }
+    /// <summary>
+    /// Stops input devices without shutting down the underlying runtime.
+    /// Override in VR SDKs to destroy tracked device inputs while keeping the XR runtime alive.
+    /// The default implementation delegates to <see cref="StopSDK"/>.
+    /// </summary>
+    public virtual void SoftStopDevices()
+    {
+        StopSDK();
+    }
+
+    /// <summary>
+    /// Restarts input devices when the underlying runtime is already active.
+    /// Override in VR SDKs to re-enumerate and create tracked devices without re-initializing the runtime.
+    /// The default implementation delegates to <see cref="StartSDK"/>.
+    /// </summary>
+    public virtual void SoftStartDevices()
+    {
+        StartSDK();
+    }
+
+    /// <summary>
+    /// this is the correct time to poll everything
+    /// </summary>
+    public virtual void Simulate()
+    {
+
+    }
 
     /// <summary>
     /// Determines if the device can be booted based on the provided request string.  

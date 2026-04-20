@@ -1,3 +1,4 @@
+using Basis.BasisUI;
 using Basis.Scripts.BasisSdk.Players;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
@@ -33,32 +34,38 @@ public class BasisVisualStateModule : BasisSettingsBase
 
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        switch (optionValue.ToLower())
+        if (matchedSettingName == BasisSettingsDefaults.VisualState.BindingKey)
         {
-            case "all visuals":
-                ShowAvatarDistance();
-                break;
-            case "only avatar distance":
-                ShowAvatarDistance();
-                break;
-            case "off":
-                DeleteAvatarDistance();
-                break;
+            switch (optionValue)
+            {
+                case "all visuals":
+                    ShowAvatarDistance();
+                    break;
+                case "only avatar distance":
+                    ShowAvatarDistance();
+                    break;
+                case "off":
+                    DeleteAvatarDistance();
+                    break;
+            }
         }
+    }
+    public override void ChangedSettings()
+    {
     }
     public static void ShowAvatarDistance()
     {
         if (AdaptiveCircleCreated == null)
         {
-            BasisDebug.Log("ShowAvatarDistance");
+            //  BasisDebug.Log("ShowAvatarDistance");
             LocalHandle = Addressables.LoadAssetAsync<GameObject>(AdaptiveCirlceId);
             var InMemory = LocalHandle.WaitForCompletion();
             AdaptiveCircleCreated = GameObject.Instantiate(InMemory, BasisLocalPlayer.Instance.transform);
             AdaptiveCircleCreated.transform.localPosition = Vector3.zero;
-            if (AdaptiveCircleCreated.TryGetComponent(out BasisAdaptiveCircle))
-            {
-                BasisAdaptiveCircle.Apply(Mathf.Sqrt(SMModuleDistanceBasedReductions.HearingRange));
-            }
+        }
+        if (AdaptiveCircleCreated.TryGetComponent(out BasisAdaptiveCircle))
+        {
+            BasisAdaptiveCircle.Apply(Mathf.Sqrt(SMModuleDistanceBasedReductions.HearingRange));
         }
     }
     public static void DeleteAvatarDistance()

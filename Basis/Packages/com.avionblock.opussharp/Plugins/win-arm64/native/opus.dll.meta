@@ -14,8 +14,6 @@ PluginImporter:
     Android:
       enabled: 0
       settings:
-        AndroidLibraryDependee: UnityLibrary
-        AndroidSharedLibraryType: Executable
         CPU: ARMv7
     Any:
       enabled: 0
@@ -26,6 +24,7 @@ PluginImporter:
         Exclude OSXUniversal: 1
         Exclude Win: 1
         Exclude Win64: 0
+        Exclude iOS: 1
     Editor:
       enabled: 1
       settings:
@@ -52,6 +51,13 @@ PluginImporter:
       enabled: 0
       settings:
         CPU: ARM64
+    iOS:
+      enabled: 0
+      settings:
+        AddToEmbeddedBinaries: false
+        CPU: AnyCPU
+        CompileFlags: 
+        FrameworkDependencies: 
   userData: 
   assetBundleName: 
   assetBundleVariant: 

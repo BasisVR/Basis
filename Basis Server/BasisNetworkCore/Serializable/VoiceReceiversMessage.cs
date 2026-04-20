@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using Basis.Network.Core;
 
 public static partial class SerializableBasis
@@ -6,23 +7,27 @@ public static partial class SerializableBasis
     public struct VoiceReceiversMessage
     {
         // Hard cap to avoid giant allocations if data is corrupted
-        private const int MaxUsers = 1024;
+        private const int MaxUsers = ushort.MaxValue;
 
         public ushort[] Users;
+        public int UsersLength; // actual count (rented array may be larger)
 
-        public void Deserialize(NetDataReader reader)
+        /// <param name="largeCount">
+        /// false = byte count (AudioRecipientsChannel, ≤255 recipients).
+        /// true  = ushort count (AudioRecipientsLargeChannel, >255 recipients).
+        /// </param>
+        public void Deserialize(NetDataReader reader, bool largeCount)
         {
             int remainingBytes = reader.AvailableBytes;
 
-            // No data at all – treat as "no users"
             if (remainingBytes <= 0)
             {
                 Users = Array.Empty<ushort>();
                 return;
             }
 
-            // Need at least 2 bytes for the length
-            if (remainingBytes < sizeof(ushort))
+            int countSize = largeCount ? sizeof(ushort) : sizeof(byte);
+            if (remainingBytes < countSize)
             {
                 BNL.LogError(
                     $"VoiceReceiversMessage: not enough bytes for length. " +
@@ -32,21 +37,23 @@ public static partial class SerializableBasis
                 return;
             }
 
-            // Read the count
-            ushort count = reader.GetUShort();
+            ushort count = largeCount ? reader.GetUShort() : reader.GetByte();
 
             if (count == 0)
             {
-                Users = Array.Empty<ushort>();
+                ReturnPool();
+                Users = null;
+                UsersLength = 0;
                 return;
             }
 
-            // Basic sanity check: avoid insane counts
             if (count > MaxUsers)
             {
                 BNL.LogError($"VoiceReceiversMessage: reported count={count} exceeds MaxUsers={MaxUsers}. Possible protocol mismatch or corrupted packet.");
                 SkipRemaining(reader);
-                Users = Array.Empty<ushort>();
+                ReturnPool();
+                Users = null;
+                UsersLength = 0;
                 return;
             }
 
@@ -56,12 +63,16 @@ public static partial class SerializableBasis
             {
                 BNL.LogError($"VoiceReceiversMessage: count={count} needs {bytesNeeded} bytes, but only {reader.AvailableBytes} available. Protocol mismatch?");
                 SkipRemaining(reader);
-                Users = Array.Empty<ushort>();
+                ReturnPool();
+                Users = null;
+                UsersLength = 0;
                 return;
             }
 
-            // Now it's safe to read
-            Users = new ushort[count];
+            // Return previous rented array before renting a new one
+            ReturnPool();
+            Users = ArrayPool<ushort>.Shared.Rent(count);
+            UsersLength = count;
             for (int i = 0; i < count; i++)
             {
                 Users[i] = reader.GetUShort();
@@ -93,9 +104,21 @@ public static partial class SerializableBasis
             }
         }
 
+        /// <summary>
+        /// Returns the rented array to the pool. Call after resolving to peers.
+        /// </summary>
+        public void ReturnPool()
+        {
+            if (Users != null)
+            {
+                ArrayPool<ushort>.Shared.Return(Users);
+                Users = null;
+                UsersLength = 0;
+            }
+        }
+
         private static void SkipRemaining(NetDataReader reader)
         {
-            // Helper to avoid desync after bad packets
             if (reader.AvailableBytes > 0)
             {
                 reader.SkipBytes(reader.AvailableBytes);

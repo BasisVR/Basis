@@ -1,10 +1,10 @@
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Transmitters;
-using Basis.Scripts.TransformBinders.BoneControl;
 using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
 using System;
@@ -25,6 +25,10 @@ namespace Basis.Scripts.Networking
         public static NetworkClient NetworkClient { get; set; } = new NetworkClient();
         public static bool LocalPlayerIsConnected { get; set; }
         public static BasisNetworkServerRunner BasisNetworkServerRunner = null;
+#if UNITY_SERVER
+        public static bool HeadlessReconnectSuppressed { get; set; }
+        public static Action<DisconnectInfo> OnDisconnectedAfterReboot;
+#endif
         private static void LogErrorOutput(string msg) => BasisDebug.LogError(msg, BasisDebug.LogTag.Networking);
         private static void LogWarningOutput(string msg) => BasisDebug.LogWarning(msg);
         private static void LogOutput(string msg) => BasisDebug.Log(msg, BasisDebug.LogTag.Networking);
@@ -55,7 +59,7 @@ namespace Basis.Scripts.Networking
                     UseAuthIdentity = true,
                     UseAuth = true,
                     Password = primitivePassword,
-                    EnableStatistics = false
+                    EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue
                 };
                 BasisNetworkServerRunner.Initalize(serverConfig, string.Empty, uuid);
             }
@@ -78,7 +82,8 @@ namespace Basis.Scripts.Networking
                 playerMetaDataMessage = new ClientMetaDataMessage
                 {
                     playerUUID = basisLocalPlayer.UUID,
-                    playerDisplayName = basisLocalPlayer.DisplayName
+                    playerDisplayName = basisLocalPlayer.DisplayName,
+                    playerPlatform = basisLocalPlayer.PlayerPlatform,
                 }
             };
 
@@ -99,7 +104,7 @@ namespace Basis.Scripts.Networking
                         UseAuthIdentity = true,
                         UseAuth = true,
                         Password = primitivePassword,
-                        EnableStatistics = false
+                        EnableStatistics = BasisSettingsDefaults.EnableStatistics.RawValue
                     };
                     // Pass the token into anything that supports cancellation
                     LocalPlayerPeer = NetworkClient.StartClient(
@@ -107,7 +112,7 @@ namespace Basis.Scripts.Networking
                         Encoding.UTF8.GetBytes(primitivePassword), serverConfig);
 
                     NetworkClient.listener.PeerConnectedEvent += PeerConnectedEvent;
-                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkEvents.PeerDisconnectedEvent;
+                    NetworkClient.listener.PeerDisconnectedEvent += BasisNetworkConnection.HandleDisconnection;
                     NetworkClient.listener.NetworkReceiveEvent += BasisNetworkEvents.NetworkReceiveEvent;
 
                     if (LocalPlayerPeer != null)
@@ -140,19 +145,24 @@ namespace Basis.Scripts.Networking
         private static void PeerConnectedEvent(NetPeer peer)
         {
             BasisDebug.Log("Success! Now setting up Networked Local Player");
+#if UNITY_SERVER
+            BasisHeadlessRuntimeStatus.MarkConnected();
+#endif
 
             BasisDeviceManagement.EnqueueOnMainThread(() =>
             {
                 BasisDebug.Log("PeerConnectedEvent On MainThread");
                 try
                 {
+#if UNITY_SERVER
+                    Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.ResumeMovement();
+#endif
                     LocalPlayerPeer = peer;
                     ushort localPlayerID = (ushort)peer.RemoteId;
 
                     BasisNetworkManagement.Instance.transform.GetPositionAndRotation(out Vector3 _, out Quaternion _);
 
                     var transmitter = new BasisNetworkTransmitter(localPlayerID);
-                    BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out transmitter.TransmissionResults.MouthBone, BasisBoneTrackedRole.Mouth);
                     BasisNetworkManagement.Transmitter = transmitter;
                     BasisNetworkManagement.Instance.LocalAccessTransmitter = transmitter;
                     transmitter.Player = BasisLocalPlayer.Instance;
@@ -178,32 +188,68 @@ namespace Basis.Scripts.Networking
 
                     transmitter.Initialize();
 
+                    LocalPlayerIsConnected = true;
+
                     BasisNetworkPlayer.OnLocalPlayerJoined?.Invoke(transmitter, BasisLocalPlayer.Instance);
                     BasisNetworkPlayer.OnPlayerJoined?.Invoke(transmitter);
-
-                    LocalPlayerIsConnected = true;
-                    if (BasisSetUserName.Instance != null)
-                    {
-                        BasisSetUserName.Instance.DestroyUserNamePanel();
-                    }
                 }
                 catch (Exception ex)
                 {
-                    if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
-                    {
-                        BasisSetUserName.Instance.Ready.interactable = true;
-                    }
                     BasisDebug.LogError($"Error setting up the local player: {ex.Message} {ex.StackTrace}");
                 }
             });
         }
+        public static Action OnRebootComplete;
         public static void HandleDisconnection(NetPeer peer, DisconnectInfo disconnectInfo)
         {
             BasisDeviceManagement.EnqueueOnMainThread(async () =>
             {
+#if UNITY_SERVER
+                if (disconnectInfo.Reason == DisconnectReason.Timeout)
+                {
+                    string peerId = peer == null ? "null" : peer.RemoteId.ToString();
+                    BasisDebug.LogWarning($"Headless timeout diagnostic: peer={peerId}, localConnected={LocalPlayerIsConnected}, playerReady={BasisLocalPlayer.PlayerReady}, realtime={Time.realtimeSinceStartup:F1}s", BasisDebug.LogTag.Networking);
+                }
+                Basis.Scripts.Device_Management.Devices.Headless.BasisHeadlessInput.Instance?.StopMovement();
+#endif
                 BasisNetworkAvatarCompressor.Dispose();
                 await BasisNetworkLifeCycle.RebootManagement(BasisNetworkManagement.Instance, true, peer, disconnectInfo);
+#if UNITY_SERVER
+                if (!HeadlessReconnectSuppressed)
+                {
+                    OnDisconnectedAfterReboot?.Invoke(disconnectInfo);
+                }
+#endif
+                OnRebootComplete?.Invoke();
             });
+        }
+        public static Task WaitForRebootCompleteAsync(CancellationToken ct = default)
+        {
+            // Run continuations asynchronously to avoid executing awaiting code inside the event invoke call stack.
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void Handler()
+            {
+                OnRebootComplete -= Handler;
+                tcs.TrySetResult(true);
+            }
+
+            OnRebootComplete += Handler;
+
+            // Cancellation support
+            CancellationTokenRegistration ctr = default;
+            if (ct.CanBeCanceled)
+            {
+                ctr = ct.Register(() =>
+                {
+                    OnRebootComplete -= Handler;
+                    tcs.TrySetCanceled(ct);
+                });
+            }
+            // No timeout; still dispose registration when done
+            _ = tcs.Task.ContinueWith(_ => ctr.Dispose(), TaskScheduler.Default);
+
+            return tcs.Task;
         }
     }
 }

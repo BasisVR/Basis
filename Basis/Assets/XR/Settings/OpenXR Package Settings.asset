@@ -474,7 +474,7 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  enableSubsampledLayout: 0
+  enableSubsampledLayout: 1
 --- !u!114 &-3753664232341013626
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -607,6 +607,28 @@ MonoBehaviour:
   customRuntimeLoaderName: 
   cacheSize: 1048576
   perThreadCacheSize: 51200
+--- !u!114 &-2656986249713310751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 494177e5549bfa144a1dc45218231d1f, type: 3}
+  m_Name: FixNoVisibleAreaMesh Standalone
+  m_EditorClassIdentifier: BasisOpenXR::UnityEngine.XR.OpenXR.Features.FixNoVisibleAreaMesh
+  m_enabled: 1
+  nameUi: Fix No Visible Area Mesh
+  version: 0.0.1
+  featureIdInternal: com.stresslevelzero.fixnovisiblemesh
+  openxrExtensionStrings: XR_KHR_visibility_mask
+  company: Stress Level Zero
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-2546553118739243343
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -675,6 +697,28 @@ MonoBehaviour:
   required: 0
   m_XrInstanceCreated: 0
   m_XrSessionCreated: 0
+--- !u!114 &-2018307807013111431
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 494177e5549bfa144a1dc45218231d1f, type: 3}
+  m_Name: FixNoVisibleAreaMesh Android
+  m_EditorClassIdentifier: BasisOpenXR::UnityEngine.XR.OpenXR.Features.FixNoVisibleAreaMesh
+  m_enabled: 0
+  nameUi: Fix No Visible Area Mesh
+  version: 0.0.1
+  featureIdInternal: com.stresslevelzero.fixnovisiblemesh
+  openxrExtensionStrings: XR_KHR_visibility_mask
+  company: Stress Level Zero
+  priority: 0
+  targetOpenXRApiVersion: 
+  required: 0
+  customRuntimeLoaderName: 
 --- !u!114 &-1968614616690116649
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -855,7 +899,7 @@ MonoBehaviour:
   lateLatchingMode: 1
   lateLatchingDebug: 0
   optimizeMultiviewRenderRegions: 1
-  m_multiviewRenderRegionsOptimizationMode: 2
+  m_multiviewRenderRegionsOptimizationMode: 1
   m_hasMigratedMultiviewRenderRegions: 1
   spacewarpMotionVectorTextureFormat: 0
 --- !u!114 &-738343638376515364
@@ -1024,6 +1068,7 @@ MonoBehaviour:
   - {fileID: -5306176883744656445}
   - {fileID: -3753664232341013626}
   - {fileID: 5806727535284400695}
+  - {fileID: -2018307807013111431}
   - {fileID: 1037941242733295319}
   - {fileID: -8806581250835264744}
   - {fileID: -7821391695787243210}
@@ -1032,11 +1077,6 @@ MonoBehaviour:
   - {fileID: -1031364519393536986}
   - {fileID: 8247108881022424648}
   - {fileID: 7549438712315481577}
-  - {fileID: -132615106511523294}
-  - {fileID: 3543322306967605854}
-  - {fileID: -6952427826145265605}
-  - {fileID: 6522149064804021685}
-  - {fileID: 3638064989573135324}
   - {fileID: 8344287191087355463}
   - {fileID: -1167320193527511358}
   - {fileID: 433421105397183717}
@@ -1056,9 +1096,9 @@ MonoBehaviour:
   m_optimizeBufferDiscards: 1
   m_symmetricProjection: 1
   m_optimizeMultiviewRenderRegions: 1
-  m_multiviewRenderRegionsOptimizationMode: 2
+  m_multiviewRenderRegionsOptimizationMode: 1
   m_hasMigratedMultiviewRenderRegionSetting: 1
-  m_foveatedRenderingApi: 1
+  m_foveatedRenderingApi: 0
   m_useOpenXRPredictedTime: 1
 --- !u!114 &-8419463971566137
 MonoBehaviour:
@@ -1214,7 +1254,7 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  enableSubsampledLayout: 0
+  enableSubsampledLayout: 1
 --- !u!114 &1063500065831918426
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1607,6 +1647,7 @@ MonoBehaviour:
   - {fileID: -4823766194161132787}
   - {fileID: 1818262454267888816}
   - {fileID: 2776206606949624213}
+  - {fileID: -2656986249713310751}
   - {fileID: -3764107326657577408}
   - {fileID: -7502029321421986309}
   - {fileID: -537972378157693835}
@@ -1617,10 +1658,6 @@ MonoBehaviour:
   - {fileID: 3999078036332178412}
   - {fileID: -1833818701715182339}
   - {fileID: 7749681440542470025}
-  - {fileID: -2348015020651987278}
-  - {fileID: -180047907785125432}
-  - {fileID: 4031459642842490951}
-  - {fileID: 5011424736917038693}
   - {fileID: -3295216353970072799}
   - {fileID: -8419463971566137}
   - {fileID: 2146913422818440268}
@@ -1956,7 +1993,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 92efb7dda02dc484c90845a437c4784e, type: 3}
   m_Name: AutomaticDynamicResolutionFeature Android
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.AutomaticDynamicResolutionFeature
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Automatic Viewport Dynamic Resolution
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.ViewportDynamicResolution
@@ -1966,7 +2003,7 @@ MonoBehaviour:
   targetOpenXRApiVersion: 
   required: 0
   customRuntimeLoaderName: 
-  m_MinResolutionScalar: 0.05
+  m_MinResolutionScalar: 0.1
   m_MaxResolutionScalar: 1
 --- !u!114 &6767311624722489055
 MonoBehaviour:

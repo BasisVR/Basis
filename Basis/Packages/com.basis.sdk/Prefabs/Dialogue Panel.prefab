@@ -488,9 +488,13 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6913803453674102720, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
+      propertyPath: m_SortingOrder
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7698972406513114066, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       propertyPath: m_PresetInfoIsWorld
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7861090230924637646, guid: ce79cd386c49c7e45813375f1cf500c3, type: 3}
       propertyPath: ColorStyle

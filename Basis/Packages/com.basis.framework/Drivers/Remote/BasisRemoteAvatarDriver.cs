@@ -1,8 +1,11 @@
+using Basis.Network.Core.Compression;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using GatorDragonGames.JigglePhysics;
 using System;
+using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -61,10 +64,10 @@ namespace Basis.Scripts.Drivers
         /// Performs remote-avatar calibration and registers it with the job system.
         /// Initializes TPose, references, face visibility, eye/blink drivers, and physics colliders.
         /// </summary>
-        /// <param name="player">The remote player whose avatar is being configured.</param>
-        public void RemoteCalibration(BasisRemotePlayer player)
+        /// <param name="RemotePlayer">The remote player whose avatar is being configured.</param>
+        public void RemoteCalibration(BasisRemotePlayer RemotePlayer)
         {
-            if (!IsAble(player))
+            if (!IsAble(RemotePlayer))
             {
                 return;
             }
@@ -73,105 +76,225 @@ namespace Basis.Scripts.Drivers
                 // BasisDebug.Log("RemoteCalibration Underway", BasisDebug.LogTag.Avatar);
             }
 
-            Player = player;
+            Player = RemotePlayer;
 
             // Cache renderers and prep avatar layer/tpose
             SkinnedMeshRenderer = Player.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
-            SetupAvatarLayers(Player, BasisLayerMapper.RemoteAvatarLayer);
             PutAvatarIntoTPose();
 
-            player.BasisAvatar.HumanScale = player.BasisAvatar.Animator.humanScale;
-
+            RemotePlayer.BasisAvatar.HumanScale = RemotePlayer.BasisAvatar.Animator.humanScale;
+            RemotePlayer.BasisAvatar.Animator.applyRootMotion = false;
+            RemotePlayer.BasisAvatar.Animator.updateMode = AnimatorUpdateMode.Normal;
+            RemotePlayer.BasisAvatar.Animator.speed = 0;
             AvatarInitalScale = Player.BasisAvatar.transform.localScale;
 
             // Auto-detect bone refs and record TPose
-            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, player.BasisAvatar.transform, ref References);
-            References.RecordPoses(Player.BasisAvatar.Animator);
+            BasisTransformMapping.AutoDetectReferences(Player.BasisAvatar.Animator, RemotePlayer.BasisAvatar.transform, ref References);
+            BasisAvatarModelCache.RecordPosesCached(References, Player.BasisAvatar.Animator);
 
-            // Initialize any jiggle rigs
-            var JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
-            foreach (JiggleRig Rig in JiggleRigs)
+            // ── Capture T-pose bone rotations and bone transforms for the receiver ──
+            // This enables direct bone transform writes (no SetHumanPose needed).
+            CaptureReceiverBoneData(RemotePlayer);
+
+            // Initialize any jiggle rigs. Performance-limit enforcement lives in
+            // BasisAvatarPerformanceLimits.TrimExcessComponents (called earlier by
+            // BasisAvatarFactory.InitializePlayerAvatar), so by the time we get
+            // here the tree has already been trimmed to the allowed count — this
+            // loop just wires up whatever's left.
+            var JiggleRigs = RemotePlayer.BasisAvatar.GetComponentsInChildren<JiggleRig>();
+            int length = JiggleRigs.Length;
+            for (int Index = 0; Index < length; Index++)
             {
+                JiggleRig Rig = JiggleRigs[Index];
                 JiggleRigData Data = Rig.GetJiggleRigData();
-                if (Data.jiggleTreeInputParameters.collisionToggle)
-                {
-                    Rig.HasAnimatedParameters = true;
-                }
-                else
-                {
-                    Rig.HasAnimatedParameters = false;
-                }
+                Rig.HasAnimatedParameters = false;
                 Rig.OnInitialize();
             }
 
             // Face visibility setup
             Player.FaceIsVisible = false;
-            if (player.BasisAvatar == null)
+            if (RemotePlayer.BasisAvatar == null)
             {
                 BasisDebug.LogError("Missing Avatar On Remote", BasisDebug.LogTag.Avatar);
             }
-            if (player.BasisAvatar.FaceVisemeMesh == null)
+            if (RemotePlayer.BasisAvatar.FaceVisemeMesh == null)
             {
                 BasisDebug.Log("Missing Face for " + Player.DisplayName, BasisDebug.LogTag.Avatar);
             }
 
-            Player.UpdateFaceVisibility(player.BasisAvatar.FaceVisemeMesh.isVisible);
+            Player.UpdateFaceVisibility(RemotePlayer.BasisAvatar.FaceVisemeMesh.isVisible);
             if (Player.FaceRenderer != null)
             {
                 GameObject.Destroy(Player.FaceRenderer);
             }
-            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(player.BasisAvatar.FaceVisemeMesh.gameObject);
+            Player.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(RemotePlayer.BasisAvatar.FaceVisemeMesh.gameObject);
             Player.FaceRenderer.Check += Player.UpdateFaceVisibility;
 
             // Blink + eyes
-            if (BasisFacialBlinkDriver.MeetsRequirements(player.BasisAvatar))
+            if (BasisRemoteFaceDriver.MeetsRequirements(RemotePlayer.BasisAvatar))
             {
-                Player.FacialBlinkDriver.Initialize(Player, player.BasisAvatar);
+                RemotePlayer.RemoteFaceDriver.Initialize(Player, RemotePlayer.BasisAvatar);
             }
-            player.RemoteEyeDriver.Initalize(this, player);
-
             // Renderer perf flags
-            UpdateWhenOffscreenAndDisableMatrixRecal(false);
-            player.BasisAvatar.Animator.logWarnings = false;
+            RemoteRenderMeshSettings(BasisLayerMapper.RemoteAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer);
+
+            RemotePlayer.BasisAvatar.Animator.logWarnings = false;
 
             // Ensure stale data is removed
             if (InBoneDriver)
             {
-                RemoteBoneJobSystem.RemoveRemotePlayer(player.NetworkReceiver.playerId);
+                RemoteBoneJobSystem.RemoveRemotePlayer(RemotePlayer.NetworkReceiver.playerId);
                 InBoneDriver = false;
             }
 
-            // Register with the RemoteBoneJobSystem
+            // Register with the RemoteBoneJobSystem (including skeleton bones for job-based apply)
+            var receiver = RemotePlayer.NetworkReceiver;
             RemoteBoneJobSystem.AddRemotePlayer(
-                key: player.NetworkReceiver.playerId,
-                remotePlayerRoot: player.BasisAvatar.Animator.transform,
-                head: player.RemoteAvatarDriver.References.head,
-                hips: player.RemoteAvatarDriver.References.Hips,
-                tposeHead: player.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Head],
-                tposeHips: player.RemoteAvatarDriver.References.Tpose[HumanBodyBones.Hips],
+                key: receiver.playerId,
+                remotePlayerRoot: RemotePlayer.BasisAvatar.Animator.transform,
+                head: RemotePlayer.RemoteAvatarDriver.References.head,
+                hips: RemotePlayer.RemoteAvatarDriver.References.Hips,
+                tposeHead: RemotePlayer.RemoteAvatarDriver.References.TposeFromRoot[HumanBodyBones.Head],
+                tposeHips: RemotePlayer.RemoteAvatarDriver.References.TposeFromRoot[HumanBodyBones.Hips],
                 authoredCenterEyeWorld: BasisHelpers.ConvertFromLocalSpace(
-                    BasisHelpers.AvatarPositionConversion(player.BasisAvatar.AvatarEyePosition),
-                    player.BasisAvatar.Animator.transform.position
+                    BasisHelpers.AvatarPositionConversion(RemotePlayer.BasisAvatar.AvatarEyePosition),
+                    RemotePlayer.BasisAvatar.Animator.transform.position
                 ),
                 authoredMouthWorld: BasisHelpers.ConvertFromLocalSpace(
-                    BasisHelpers.AvatarPositionConversion(player.BasisAvatar.AvatarMouthPosition),
-                    player.BasisAvatar.Animator.transform.position
+                    BasisHelpers.AvatarPositionConversion(RemotePlayer.BasisAvatar.AvatarMouthPosition),
+                    RemotePlayer.BasisAvatar.Animator.transform.position
                 ),
-                NamePlate: player.RemoteNamePlate.Self,
-                AvatarScale: player.BasisAvatar.Animator.transform,
-                MouthTransform: player.MouthTransform
+                NamePlate: RemotePlayer.RemoteNamePlate.Self,
+                AvatarScale: RemotePlayer.BasisAvatar.Animator.transform,
+                MouthTransform: RemotePlayer.MouthTransform,
+                TposedScale: RemotePlayer.RemoteAvatarDriver.AvatarInitalScale,
+                boneTPoseLocal: receiver.TposeLocalRotations,
+                boneTransforms: receiver.BoneTransforms
             );
             InBoneDriver = true;
 
             // player.RemoteBoneDriver.InitializeFromAvatar(player);
-            player.BasisAvatar.Animator.enabled = false;
+            RemotePlayer.BasisAvatar.Animator.enabled = false;
 
             SetupAvatarJiggleColliders();
             ResetAvatarAnimator();
 
-            // Fire optional callback
+            // Apply scale BEFORE hips: SetPositionAndRotation bakes the parent
+            // lossyScale into the hips localPosition, so the root must already be
+            // at its network scale when we snap the hips. If we skipped this, the
+            // avatar would spawn at prefab scale (1,1,1) and the hips would land
+            // under the wrong parent scale until UpdateAllAvatarsJob produced a
+            // HasScaleChange tick — visible as "scale wrong when a player joins".
+            receiver.GetLatestNetworkPose(out var networkPos, out var networkRot, out var networkScale);
+            RemotePlayer.BasisAvatar.Animator.transform.localScale = networkScale;
+            // Seed the job system's scale-tracking slots to the same value.
+            // Without this, the first UpdateAllAvatarsJob tick (before
+            // SetFrameInputs seeds the real interp window) would compute outScale
+            // from stale prev/target scales and ApplyAvatarScaleJob would clobber
+            // the value we just wrote.
+            BasisRemoteNetworkDriver.SeedScaleState(receiver.playerId, networkScale);
+            References.Hips.SetPositionAndRotation(networkPos, networkRot);
             CalibrationComplete?.Invoke();
+        }
+
+        /// <summary>
+        /// Captures T-pose local rotations and bone Transform references for all 54 humanoid bones.
+        /// Populates the receiver's TposeLocalRotations and BoneTransforms arrays so that
+        /// Apply() can write bone transforms directly without SetHumanPose.
+        /// Must be called while the avatar is in T-pose (before ResetAvatarAnimator).
+        /// </summary>
+        private void CaptureReceiverBoneData(BasisRemotePlayer remotePlayer)
+        {
+            var receiver = remotePlayer.NetworkReceiver;
+            var animator = remotePlayer.BasisAvatar.Animator;
+            int boneCount = BasisBoneRotationCompression.SyncBoneCount;
+
+            // Dispose old data if re-calibrating
+            if (receiver.TposeLocalRotations.IsCreated)
+            {
+                receiver.TposeLocalRotations.Dispose();
+            }
+
+            receiver.TposeLocalRotations = new NativeArray<quaternion>(boneCount, Allocator.Persistent);
+            receiver.BoneTransforms = new Transform[boneCount];
+
+            // Check if T-pose local rotations are already cached for this avatar model.
+            // The rotations are deterministic per Avatar asset — only bone transforms are per-instance.
+            int cacheKey = BasisAvatarModelCache.GetKey(animator);
+            var cacheEntry = cacheKey != 0 ? BasisAvatarModelCache.GetOrCreate(cacheKey) : null;
+            bool hasCachedTpose = cacheEntry?.TposeLocal != null;
+
+            if (hasCachedTpose)
+            {
+                // Fast path: copy cached rotations, only resolve per-instance bone transforms
+                var cachedRotations = cacheEntry.TposeLocal.Rotations;
+                for (int slot = 0; slot < boneCount; slot++)
+                {
+                    int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+                    var humanbone = (HumanBodyBones)boneEnum;
+
+                    receiver.TposeLocalRotations[slot] = cachedRotations[boneEnum];
+
+                    if (References.GetTransform(humanbone, out var transform))
+                    {
+                        receiver.BoneTransforms[slot] = transform;
+                    }
+                    else
+                    {
+                        receiver.BoneTransforms[slot] = null;
+                    }
+                }
+            }
+            else
+            {
+                // Slow path: read from TposeLocal dictionary, then cache for next time
+                for (int slot = 0; slot < boneCount; slot++)
+                {
+                    int boneEnum = BasisBoneRotationCompression.BONE_WRITE_ORDER[slot];
+                    var humanbone = (HumanBodyBones)boneEnum;
+                    if (References.GetTransform(humanbone, out var transform))
+                    {
+                        if (References.TposeLocal.TryGetValue(humanbone, out var value))
+                        {
+                            receiver.TposeLocalRotations[slot] = value.rotation;
+                            receiver.BoneTransforms[slot] = transform;
+                        }
+                        else
+                        {
+                            receiver.TposeLocalRotations[slot] = quaternion.identity;
+                            receiver.BoneTransforms[slot] = null;
+                        }
+                    }
+                }
+
+                // Store T-pose local rotations in cache for other instances of this avatar
+                if (cacheEntry != null)
+                {
+                    int totalBones = (int)HumanBodyBones.LastBone;
+                    var rotations = new quaternion[totalBones];
+                    var positions = new Unity.Mathematics.float3[totalBones];
+                    for (int i = 0; i < totalBones; i++)
+                    {
+                        var bone = (HumanBodyBones)i;
+                        if (References.TposeLocal.TryGetValue(bone, out var coords))
+                        {
+                            rotations[i] = coords.rotation;
+                            positions[i] = coords.position;
+                        }
+                        else
+                        {
+                            rotations[i] = quaternion.identity;
+                            positions[i] = Unity.Mathematics.float3.zero;
+                        }
+                    }
+                    cacheEntry.TposeLocal = new BasisAvatarModelCache.TposeLocalData
+                    {
+                        Rotations = rotations,
+                        Positions = positions
+                    };
+                }
+            }
         }
 
         /// <summary>
@@ -284,21 +407,6 @@ namespace Basis.Scripts.Drivers
             else
             {
                 return false;
-            }
-        }
-
-        /// <summary>
-        /// Bulk-sets <see cref="SkinnedMeshRenderer.updateWhenOffscreen"/> and disables
-        /// per-render matrix recalculation for all cached renderers.
-        /// </summary>
-        /// <param name="State">Desired <see cref="SkinnedMeshRenderer.updateWhenOffscreen"/> state.</param>
-        public void UpdateWhenOffscreenAndDisableMatrixRecal(bool State)
-        {
-            for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
-            {
-                SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
-                Render.updateWhenOffscreen = State;
-                Render.forceMatrixRecalculationPerRender = false;
             }
         }
     }

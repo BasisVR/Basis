@@ -8,7 +8,7 @@ namespace Basis.BasisUI
 
         public static class Styles
         {
-            public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Basis Menu Instance.prefab";
+            public static string Default => "Packages/com.basis.sdk/Prefabs/Basis Menu Instance.prefab";
         }
 
         public Transform PanelRoot;

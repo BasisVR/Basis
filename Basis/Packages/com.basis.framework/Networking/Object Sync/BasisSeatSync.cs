@@ -1,11 +1,12 @@
 using Basis;
+using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.Networking.Receivers;
-using Basis.Network.Core;
+using System;
 using UnityEngine;
 public class BasisSeatSync : BasisNetworkBehaviour
 {
@@ -24,10 +25,13 @@ public class BasisSeatSync : BasisNetworkBehaviour
     }
     public void Awake()
     {
-        LinkedPlayer = new PlayerID(); 
+        LinkedPlayer = new PlayerID();
         LinkedPlayer.hasPlayerId = false;
         LinkedPlayer.ThePlayerID = 0;
+        BasisLocalPlayer.JustBeforeNetworkApply.AddAction(20, ProvideRemotePlayerTarget);
     }
+    public Action<BasisPlayer> OnNetworkPlayerEnterSeat;
+    public Action<BasisPlayer> OnNetworkPlayerExitSeat;
     /// <summary>Returns true if the local player is currently the recorded occupant.</summary>
     public bool IsLocallyEntered()
     {
@@ -66,8 +70,8 @@ public class BasisSeatSync : BasisNetworkBehaviour
         }
         if (Seat != null)
         {
-            Seat.OnInteractStartEvent += OnInteractStartEvent;
-            Seat.OnInteractEndEvent += OnInteractEndEvent;
+            Seat.OnInteractStartEvent.AddListener(OnInteractStartEvent);
+            Seat.OnInteractEndEvent.AddListener(OnInteractEndEvent);
         }
         else
         {
@@ -96,10 +100,6 @@ public class BasisSeatSync : BasisNetworkBehaviour
             }
             SetSeatStateLocal(false, player.playerId);
         }
-    }
-    public void Update()
-    {
-        ProvideRemotePlayerTarget();
     }
 
     public void ProvideRemotePlayerTarget()
@@ -160,6 +160,10 @@ public class BasisSeatSync : BasisNetworkBehaviour
         {
             // Assuming false turns off the override.
             _currentRemoteRec.OverridenDestinationOfRoot(false);
+            if (_currentRemoteRec.Player != null)
+            {
+                OnNetworkPlayerExitSeat?.Invoke(_currentRemoteRec.Player);
+            }
             _currentRemoteRec = null;
         }
 
@@ -168,10 +172,18 @@ public class BasisSeatSync : BasisNetworkBehaviour
 
     public override void OnDestroy()
     {
+        // Force-eject local player if they're still in this seat
+        if (IsLocallyEntered())
+        {
+            Stand();
+        }
+        // Clear any remote player position overrides
+        ClearCurrentRemote();
+        BasisLocalPlayer.JustBeforeNetworkApply.RemoveAction(20, ProvideRemotePlayerTarget);
         if (Seat != null)
         {
-            Seat.OnInteractStartEvent -= OnInteractStartEvent;
-            Seat.OnInteractEndEvent -= OnInteractEndEvent;
+            Seat.OnInteractStartEvent.RemoveListener(OnInteractStartEvent);
+            Seat.OnInteractEndEvent.RemoveListener(OnInteractEndEvent);
         }
         base.OnDestroy();
     }
@@ -304,6 +316,17 @@ public class BasisSeatSync : BasisNetworkBehaviour
         if (Seat != null)
         {
             Seat.SetSeatOccupied(inSeat);
+            if (BasisNetworkPlayers.GetPlayerById(playerId, out BasisNetworkPlayer Player))
+            {
+                if (inSeat)
+                {
+                    OnNetworkPlayerEnterSeat?.Invoke(Player.Player);
+                }
+                else
+                {
+                    OnNetworkPlayerExitSeat?.Invoke(Player.Player);
+                }
+            }
         }
         else
         {

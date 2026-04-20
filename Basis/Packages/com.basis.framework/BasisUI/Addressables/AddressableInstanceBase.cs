@@ -40,11 +40,18 @@ namespace Basis.BasisUI
         /// </summary>
         public static TInstance CreateNew<TInstance>(string referencePath) where TInstance: AddressableInstanceBase
         {
-            //TODO: if the string is an invalid path, this will error. Create better handling for this.
-            GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
-            TInstance instance = obj.GetComponent<TInstance>();
-            if (!instance.HasRunCreateEvent) instance.OnCreateEvent();
-            return instance;
+            try
+            {
+                GameObject obj = Addressables.InstantiateAsync(referencePath).WaitForCompletion();
+                TInstance instance = obj.GetComponent<TInstance>();
+                if (!instance.HasRunCreateEvent) instance.OnCreateEvent();
+                return instance;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to load Addressable at path:\n{referencePath} {e}");
+                return null;
+            }
         }
 
         /// <summary>

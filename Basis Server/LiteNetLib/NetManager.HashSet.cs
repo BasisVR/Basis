@@ -64,23 +64,29 @@ namespace LiteNetLib
         private int _lastIndex;
         private int _freeList = -1;
         private NetPeer[] _peersArray = new NetPeer[32];
-        private readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim(LockRecursionPolicy.NoRecursion);
+        private readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim();
         private volatile NetPeer _headPeer;
 
         private void ClearPeerSet()
         {
             _peersLock.EnterWriteLock();
-            _headPeer = null;
-            if (_lastIndex > 0)
+            try
             {
-                Array.Clear(_slots, 0, _lastIndex);
-                Array.Clear(_buckets, 0, _buckets.Length);
-                _lastIndex = 0;
-                _count = 0;
-                _freeList = -1;
+                _headPeer = null;
+                if (_lastIndex > 0)
+                {
+                    Array.Clear(_slots, 0, _lastIndex);
+                    Array.Clear(_buckets, 0, _buckets.Length);
+                    _lastIndex = 0;
+                    _count = 0;
+                    _freeList = -1;
+                }
+                _peersArray = new NetPeer[32];
             }
-            _peersArray = new NetPeer[32];
-            _peersLock.ExitWriteLock();
+            finally
+            {
+                _peersLock.ExitWriteLock();
+            }
         }
 
         private bool ContainsPeer(NetPeer item)
@@ -132,48 +138,54 @@ namespace LiteNetLib
                 return;
             }
             _peersLock.EnterWriteLock();
-            if (_headPeer != null)
+            try
             {
-                peer.NextPeer = _headPeer;
-                _headPeer.PrevPeer = peer;
+                if (_headPeer != null)
+                {
+                    peer.NextPeer = _headPeer;
+                    _headPeer.PrevPeer = peer;
+                }
+                _headPeer = peer;
+                AddPeerToSet(peer);
+                if (peer.Id >= _peersArray.Length)
+                {
+                    int newSize = _peersArray.Length * 2;
+                    while (peer.Id >= newSize)
+                        newSize *= 2;
+                    Array.Resize(ref _peersArray, newSize);
+                }
+                _peersArray[peer.Id] = peer;
             }
-            _headPeer = peer;
-            AddPeerToSet(peer);
-            if (peer.Id >= _peersArray.Length)
+            finally
             {
-                int newSize = _peersArray.Length * 2;
-                while (peer.Id >= newSize)
-                    newSize *= 2;
-                Array.Resize(ref _peersArray, newSize);
+                _peersLock.ExitWriteLock();
             }
-            _peersArray[peer.Id] = peer;
-            _peersLock.ExitWriteLock();
         }
 
-        private void RemovePeer(NetPeer peer, bool enableWriteLock)
+        private void RemovePeer(NetPeer peer, bool enableLock)
         {
-            if(enableWriteLock)
-                _peersLock.EnterWriteLock();
-            if (!RemovePeerFromSet(peer))
+            try
             {
-                if(enableWriteLock)
-                    _peersLock.ExitWriteLock();
-                return;
+                if (enableLock)
+                    _peersLock.EnterWriteLock();
+                if (!RemovePeerFromSet(peer))
+                    return;
+                if (peer == _headPeer)
+                    _headPeer = peer.NextPeer;
+
+                if (peer.PrevPeer != null)
+                    peer.PrevPeer.NextPeer = peer.NextPeer;
+                if (peer.NextPeer != null)
+                    peer.NextPeer.PrevPeer = peer.PrevPeer;
+                peer.PrevPeer = null;
+
+                _peersArray[peer.Id] = null;
+                _peerIds.Enqueue(peer.Id);
             }
-            if (peer == _headPeer)
-                _headPeer = peer.NextPeer;
-
-            if (peer.PrevPeer != null)
-                peer.PrevPeer.NextPeer = peer.NextPeer;
-            if (peer.NextPeer != null)
-                peer.NextPeer.PrevPeer = peer.PrevPeer;
-            peer.PrevPeer = null;
-
-            _peersArray[peer.Id] = null;
-            _peerIds.Enqueue(peer.Id);
-
-            if(enableWriteLock)
-                _peersLock.ExitWriteLock();
+            finally
+            {
+                if (enableLock) _peersLock.ExitWriteLock();
+            }
         }
 
         private bool RemovePeerFromSet(NetPeer peer)
@@ -222,16 +234,21 @@ namespace LiteNetLib
                 int hashCode = endPoint.GetHashCode() & Lower31BitMask;
 #endif
                 _peersLock.EnterReadLock();
-                for (int i = _buckets[hashCode % _buckets.Length] - 1; i >= 0; i = _slots[i].Next)
+                try
                 {
-                    if (_slots[i].HashCode == hashCode && _slots[i].Value.Equals(endPoint))
+                    for (int i = _buckets[hashCode % _buckets.Length] - 1; i >= 0; i = _slots[i].Next)
                     {
-                        actualValue = _slots[i].Value;
-                        _peersLock.ExitReadLock();
-                        return true;
+                        if (_slots[i].HashCode == hashCode && _slots[i].Value.Equals(endPoint))
+                        {
+                            actualValue = _slots[i].Value;
+                            return true;
+                        }
                     }
                 }
-                _peersLock.ExitReadLock();
+                finally
+                {
+                    _peersLock.ExitReadLock();
+                }
             }
             actualValue = null;
             return false;
@@ -244,16 +261,21 @@ namespace LiteNetLib
             {
                 int hashCode = saddr.GetHashCode() & Lower31BitMask;
                 _peersLock.EnterReadLock();
-                for (int i = _buckets[hashCode % _buckets.Length] - 1; i >= 0; i = _slots[i].Next)
+                try
                 {
-                    if (_slots[i].HashCode == hashCode && _slots[i].Value.Serialize().Equals(saddr))
+                    for (int i = _buckets[hashCode % _buckets.Length] - 1; i >= 0; i = _slots[i].Next)
                     {
-                        actualValue = _slots[i].Value;
-                        _peersLock.ExitReadLock();
-                        return true;
+                        if (_slots[i].HashCode == hashCode && _slots[i].Value.Serialize().Equals(saddr))
+                        {
+                            actualValue = _slots[i].Value;
+                            return true;
+                        }
                     }
                 }
-                _peersLock.ExitReadLock();
+                finally
+                {
+                    _peersLock.ExitReadLock();
+                }
             }
             actualValue = null;
             return false;

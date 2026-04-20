@@ -30,7 +30,7 @@ public class OneEuroFilterEditorWindow : EditorWindow
     // Optional: If auto-discovery fails, you can type a class name here and click "Find By Name".
     private string _fallbackQualifiedTypeName = "";
 
-    [MenuItem("Basis/Remote One Euro Filter Settings")]
+    [MenuItem("Basis/Calibration/One Euro Filter")]
     public static void ShowWindow()
     {
         var wnd = GetWindow<OneEuroFilterEditorWindow>();

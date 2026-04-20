@@ -20,9 +20,9 @@ public class Repositioner : MonoBehaviour
         idx = idx_;
 
         pickup = (BasisPickupInteractable)GetComponent(typeof(BasisPickupInteractable));
-        pickup.OnPickupUse += OnPickupUse;
-        pickup.OnInteractStartEvent += OnPickup;
-        pickup.OnInteractEndEvent += OnDrop;
+        pickup.OnPickupUse.AddListener(OnPickupUse);
+        pickup.OnInteractStartEvent.AddListener(OnPickup);
+        pickup.OnInteractEndEvent.AddListener(OnDrop);
     }
 
     private void OnPickupUse(BasisPickUpUseMode mode)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -35,9 +35,17 @@ namespace HVR.Osushi
                 {
                     StartHttpServer(httpPort, _root, _avtr);
                 }
-                catch (Exception _)
+                catch (ThreadAbortException)
                 {
-                    // ignored
+                    BasisDebug.LogError($"ThreadAbortException", BasisDebug.LogTag.LocalNetwork);
+                }
+                catch (ThreadInterruptedException)
+                {
+                    BasisDebug.LogError($"ThreadInterruptedException", BasisDebug.LogTag.LocalNetwork);
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"HTTP server thread died: {e}", BasisDebug.LogTag.LocalNetwork);
                 }
             });
             _httpThread.IsBackground = true;
@@ -67,9 +75,9 @@ namespace HVR.Osushi
             {
                 _httpThread.Interrupt();
             }
-            catch (Exception _)
+            catch (Exception e)
             {
-                // ignored
+                BasisDebug.LogError($"HTTP server stopped: {e}", BasisDebug.LogTag.LocalNetwork);
             }
 
             _httpThread = null;
@@ -89,26 +97,42 @@ namespace HVR.Osushi
 
         static void StartHttpServer(int port, string root, string avtr)
         {
-            if (!HttpListener.IsSupported) return;
+            if (!HttpListener.IsSupported)
+            {
+                BasisDebug.LogError($"HttpListener.IsSupported was false", BasisDebug.LogTag.LocalNetwork);
+                return;
+            }
 
             var listener = new HttpListener();
             listener.Prefixes.Add($"http://localhost:{port}/");
             listener.Prefixes.Add($"http://127.0.0.1:{port}/");
             listener.Start();
-            Console.WriteLine($"HTTP server listening on http://localhost:{port}/");
+            BasisDebug.Log($"HTTP server listening on http://localhost:{port}/", BasisDebug.LogTag.LocalNetwork);
 
             while (true)
             {
-                var ctx = listener.GetContext();
-                Console.WriteLine($"HTTP request: {ctx.Request.RawUrl}");
+                try
+                {
+                    var ctx = listener.GetContext();
+                    BasisDebug.Log($"HTTP request: {ctx.Request.RawUrl}", BasisDebug.LogTag.LocalNetwork);
 
-                var res = ctx.Response;
-                var json = ctx.Request.RawUrl.EndsWith("/avatar") ? avtr : root;
-                var buffer = Encoding.UTF8.GetBytes(json);
-                res.ContentType = "application/json";
-                res.ContentLength64 = buffer.Length;
-                res.OutputStream.Write(buffer, 0, buffer.Length);
-                res.OutputStream.Close();
+                    var res = ctx.Response;
+                    var json = ctx.Request.RawUrl.EndsWith("/avatar") ? avtr : root;
+                    var buffer = Encoding.UTF8.GetBytes(json);
+                    res.ContentType = "application/json";
+                    res.ContentLength64 = buffer.Length;
+                    res.OutputStream.Write(buffer, 0, buffer.Length);
+                    res.OutputStream.Close();
+                }
+                catch (HttpListenerException e)
+                {
+                    BasisDebug.LogError($"HttpListener closed: {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                    break;
+                }
+                catch (Exception e)
+                {
+                    BasisDebug.LogError($"[Request error (continuing): {e.Message}", BasisDebug.LogTag.LocalNetwork);
+                }
             }
         }
     }

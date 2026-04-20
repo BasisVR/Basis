@@ -372,10 +372,13 @@ namespace UnityEngine.Rendering.Universal
             if(reasonWarning == null && !cameraData.renderer.SupportsMotionVectors())
                 reasonWarning = "because the renderer does not implement motion vectors. Motion vectors are required.";
 
-            const int warningThrottleFrames = 60 * 1; // 60 FPS * 1 sec
-            if (s_warnCounter % warningThrottleFrames == 0)
-                Debug.LogWarning("Disabling TAA " + (isSTPRequested ? "and STP " : "") + reasonWarning);
-            s_warnCounter++;
+            if (reasonWarning != null)
+            {
+                const int warningThrottleFrames = 60 * 1; // 60 FPS * 1 sec
+                if (s_warnCounter % warningThrottleFrames == 0)
+                    Debug.LogWarning("Disabling TAA " + (isSTPRequested ? "and STP " : "") + reasonWarning);
+                s_warnCounter++;
+            }
 
             return reasonWarning;
         }
@@ -459,7 +462,7 @@ namespace UnityEngine.Rendering.Universal
             internal bool taaAlphaOutput;
         }
 
-        internal static void Render(RenderGraph renderGraph, Material taaMaterial, UniversalCameraData cameraData, ref TextureHandle srcColor, ref TextureHandle srcDepth, ref TextureHandle srcMotionVectors, ref TextureHandle dstColor)
+        internal static void Render(RenderGraph renderGraph, Material taaMaterial, UniversalCameraData cameraData, in TextureHandle srcColor, in TextureHandle srcDepth, in TextureHandle srcMotionVectors, in TextureHandle dstColor)
         {
             int multipassId = 0;
 #if ENABLE_VR && ENABLE_XR_MODULE
@@ -496,7 +499,11 @@ namespace UnityEngine.Rendering.Universal
 
                 if (cameraData.xr.enabled)
                 {
-                    builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
+                    // Apply MultiviewRenderRegionsCompatible flag only for the first pass in multipass
+                    if (cameraData.xr.multipassId == 0)
+                    {
+                        builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
+                    }
                 }
 
                 passData.material = taaMaterial;
@@ -554,13 +561,17 @@ namespace UnityEngine.Rendering.Universal
 
                     if (cameraData.xr.enabled)
                     {
-                        builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
+                        // Apply MultiviewRenderRegionsCompatible flag only to the peripheral view in Quad Views
+                        if (cameraData.xr.multipassId == 0)
+                        {
+                            builder.SetExtendedFeatureFlags(ExtendedFeatureFlags.MultiviewRenderRegionsCompatible);
+                        }
                     }
 
                     passData.material = taaMaterial;
                     passData.passIndex = kHistoryCopyPass;
 
-                    builder.SetRenderFunc((TaaPassData data, RasterGraphContext context) => { Blitter.BlitTexture(context.cmd, data.srcColorTex, Vector2.one, data.material, data.passIndex); });
+                    builder.SetRenderFunc(static (TaaPassData data, RasterGraphContext context) => { Blitter.BlitTexture(context.cmd, data.srcColorTex, Vector2.one, data.material, data.passIndex); });
                 }
 
                 cameraData.taaHistory.SetAccumulationVersion(multipassId, Time.frameCount);

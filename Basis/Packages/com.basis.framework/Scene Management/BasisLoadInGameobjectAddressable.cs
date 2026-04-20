@@ -1,4 +1,5 @@
 using Basis.Scripts.Addressable_Driver.Resource;
+using Basis.Scripts.Device_Management;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
 
@@ -50,7 +51,7 @@ public class BasisLoadInGameobjectAddressable : MonoBehaviour
     private async void Start()
     {
         InstantiationParameters instantiationParameters = new InstantiationParameters(Position, Rotation, null);
-        Result = await AddressableResourceProcess.LoadAsGameObjectsAsync(LoadRequest, instantiationParameters, RequiredChecks, Selector);
+        Result = await AddressableResourceProcess.LoadAsGameObjectsAsync(BasisDeviceManagement.Instance.CreationGameobject, LoadRequest, instantiationParameters, RequiredChecks, Selector);
     }
 
     /// <summary>

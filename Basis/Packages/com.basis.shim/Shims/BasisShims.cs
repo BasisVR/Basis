@@ -1,4 +1,5 @@
-using Basis;
+using Basis.Shims;
+using Basis.Scripts.BasisSdk;
 using System;
 using UnityEngine.Networking;
 using UnityEngine;
@@ -22,27 +23,31 @@ namespace Basis
 
 		public static BasisNetworkShim MakeNetworkable( object o )
 		{
-			// Actually needs to be CilboxProxies.
-			CilboxProxy p = (CilboxProxy)o;
-			GameObject go = p.gameObject;
+			if (o is not MonoBehaviour behaviour)
+			{
+				Debug.LogError( $"Object {o} is not a MonoBehaviour and cannot be made networkable." );
+				return null;
+			}
 
-			BasisNetworkShim bi;
-
-			if( go.TryGetComponent<BasisNetworkShim>( out bi ) ) return bi;
-
-			bi = go.AddComponent<BasisNetworkShim>();
-
-			bi.AssignNetworkGUIDIdentifier(p.buildTimeGuid + p.initialLoadPath);
-			Debug.Log( $"ADDING ASSIGN: {bi} {p.buildTimeGuid + p.initialLoadPath}");
-
-			return bi;
+			return MakeNetworkable( behaviour );
 		}
 
+		public static BasisNetworkShim MakeNetworkable( MonoBehaviour mb )
+		{
+			if( mb.gameObject.TryGetComponent<BasisNetworkShim>( out BasisNetworkShim bi ) ) return bi;
+
+			return mb.gameObject.AddComponent<BasisNetworkShim>();
+		}
+
+		[Obsolete("Use the direct interactable component instead. This is a shim for the old system and should be removed at a later point.")]
 		public static BasisInteractableShim MakeInteractable( object o )
 		{
 			// Actually needs to be CilboxProxies.
-			CilboxProxy p = (CilboxProxy)o;
-			GameObject go = p.gameObject;
+			GameObject go = null;
+			if( o is CilboxProxy )
+				go = ((CilboxProxy)o).gameObject;
+			else
+				go = ((MonoBehaviour)o).gameObject;
 
 			BasisInteractableShim bi;
 			if( go.TryGetComponent<BasisInteractableShim>( out bi ) ) return bi;
@@ -81,15 +86,15 @@ namespace Basis
 	{
 		System.Collections.Generic.HashSet< UnityWebRequest > InFlight = new System.Collections.Generic.HashSet< UnityWebRequest >();
 
-		public void DownloadImage( BasisUrl stringUrl, Action< IBasisImageDownload > callback )
+		public void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
 		{
-			if( stringUrl.url.Substring(0, 7) != "http://" && stringUrl.url.Substring(0, 8) != "https://" )
+			if( stringUrl.Substring(0, 7) != "http://" && stringUrl.Substring(0, 8) != "https://" )
 			{
 				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
 				return;
 			}
 
-			UnityWebRequest www = new UnityWebRequest( stringUrl.url );
+			UnityWebRequest www = new UnityWebRequest( stringUrl );
 
 			/////////////////////////////////////////////////////////////////
 			DownloadHandlerTexture dht = new DownloadHandlerTexture(true);
@@ -109,7 +114,7 @@ namespace Basis
 					InFlight.Remove( www );
 					callback( new IBasisImageDownload( www, dht, null ) );
 				}
-			}; 
+			};
 
 			req.completed += eventcb;
 
@@ -151,7 +156,7 @@ namespace Basis
 					DownloadHandler dh = www.downloadHandler;
 					callback( www.result == UnityWebRequest.Result.Success, dh.error, dh.GetData() );
 				}
-			}; 
+			};
 
 			if( !bCompleted && req.isDone )
 			{

@@ -1,0 +1,21 @@
+{
+    "name": "BasisVehiclesNetwork",
+    "rootNamespace": "",
+    "references": [
+        "BasisCommon",
+        "BasisDebug",
+        "BasisSDK",
+        "Basis Framework",
+        "BasisNetworkCore",
+        "BasisVehicles"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

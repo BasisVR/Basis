@@ -1,17 +1,31 @@
 using System;
-
 public static class BasisGenerateUniqueID
 {
-    /// <summary>
-    /// Generates a unique ID using a GUID and the current UTC date (yyyyMMdd).
-    /// </summary>
-    /// <returns>A unique identifier combining a GUID and UTC date.</returns>
     public static string GenerateUniqueID()
     {
-        Guid newGuid = Guid.NewGuid();  // Generate a new GUID
-        string utcDate = DateTime.UtcNow.ToString("yyyyMMdd");  // Get the current UTC date (YYYYMMDD)
-        string guid = newGuid.ToString("N"); // Remove dashes from GUID
+        var guid = Guid.NewGuid();
+        var now = DateTime.UtcNow;
 
-        return $"{guid}{utcDate}";
+        return string.Create(40, (guid, now), static (span, state) =>
+        {
+            // Write GUID as 32 hex chars (no dashes)
+            state.guid.TryFormat(span[..32], out _, "N");
+
+            // Write yyyyMMdd manually (faster than DateTime.ToString)
+            int year = state.now.Year;
+            int month = state.now.Month;
+            int day = state.now.Day;
+
+            span[32] = (char)('0' + (year / 1000) % 10);
+            span[33] = (char)('0' + (year / 100) % 10);
+            span[34] = (char)('0' + (year / 10) % 10);
+            span[35] = (char)('0' + year % 10);
+
+            span[36] = (char)('0' + (month / 10));
+            span[37] = (char)('0' + (month % 10));
+
+            span[38] = (char)('0' + (day / 10));
+            span[39] = (char)('0' + (day % 10));
+        });
     }
 }

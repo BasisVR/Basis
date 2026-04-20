@@ -3,6 +3,7 @@ using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Common;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders.BoneControl;
 using GatorDragonGames.JigglePhysics;
 using System;
@@ -21,8 +22,6 @@ namespace Basis.Scripts.Drivers
     [Serializable]
     public class BasisLocalAvatarDriver : BasisAvatarDriver
     {
-        /// <summary>Addressable path to the T-Pose animator controller asset.</summary>
-        public const string TPose = "Assets/Animator/Animated TPose.controller";
 
         /// <summary>Addressables key for the default locomotion animator controller.</summary>
         public const string Locomotion = "Locomotion";
@@ -52,7 +51,7 @@ namespace Basis.Scripts.Drivers
         public static Action TposeStateChange;
 
         /// <summary>Discovered avatar transform references (head, hands, etc.).</summary>
-        public static BasisTransformMapping References = new BasisTransformMapping();
+        public static BasisTransformMapping Mapping = new BasisTransformMapping();
 
         /// <summary>Saved animator controller used to restore after T-pose.</summary>
         public static RuntimeAnimatorController SavedruntimeAnimatorController;
@@ -80,7 +79,6 @@ namespace Basis.Scripts.Drivers
         /// <param name="player">The local player instance.</param>
         public void InitialLocalCalibration(BasisLocalPlayer player)
         {
-            player.CurrentHeight.PickHeightMode(BasisSelectedHeightMode.EyeHeight);
             Instance = this;
             BasisDebug.Log("InitialLocalCalibration");
             if (HasTPoseEvent == false)
@@ -98,7 +96,7 @@ namespace Basis.Scripts.Drivers
                 return;
             }
 
-            player.LocalRigDriver.Initialize(player, References);
+            player.LocalRigDriver.Initialize(player, Mapping);
 
             player.LocalRigDriver.CleanupBeforeContinue();
             player.LocalRigDriver.AdditionalTransforms.Clear();
@@ -122,17 +120,12 @@ namespace Basis.Scripts.Drivers
 
             // Initialize any physics/jiggle rigs before building the rig
             var JiggleRigs = player.BasisAvatar.GetComponentsInChildren<JiggleRig>();
-            foreach (JiggleRig Rig in JiggleRigs)
+            int length = JiggleRigs.Length;
+            for (int Index = 0; Index < length; Index++)
             {
+                JiggleRig Rig = JiggleRigs[Index];
                 JiggleRigData Data = Rig.GetJiggleRigData();
-                if (Data.jiggleTreeInputParameters.collisionToggle)
-                {
-                    Rig.HasAnimatedParameters = true;
-                }
-                else
-                {
-                    Rig.HasAnimatedParameters = false;
-                }
+                Rig.HasAnimatedParameters = false;
                 Rig.OnInitialize();
             }
 
@@ -141,15 +134,16 @@ namespace Basis.Scripts.Drivers
 
             Calibration(player);
 
+            // Capture T-pose bone rotations for network compression (while still in T-pose)
+            Networking.NetworkedAvatar.BasisNetworkAvatarCompressor.CaptureTPose();
+
             player.LocalBoneDriver.RemoveAllListeners();
-            player.LocalEyeDriver.Initalize(this, player);
+            BasisLocalEyeDriver.Initalize();
+            LocalRenderMeshSettings(BasisLayerMapper.LocalAvatarLayer, SkinnedMeshRendererLength, SkinnedMeshRenderer, player.BasisAvatar.FaceVisemeMesh);
 
-            SetAllMatrixRecalculation(true);
-            UpdateWhenOffscreen(true);
-
-            if (References.Hashead)
+            if (Mapping.Hashead)
             {
-                HeadScale = References.head.localScale;
+                HeadScale = Mapping.head.localScale;
             }
             else
             {
@@ -163,7 +157,7 @@ namespace Basis.Scripts.Drivers
 
             ComputeOffsets(player.LocalBoneDriver);
 
-           // player.BasisLocalFootDriver.InitializeVariables();
+            player.BasisLocalFootDriver.InitializeVariables();
 
             player.LocalHandDriver.ReInitialize(player.BasisAvatar.Animator);
             player.LocalAnimatorDriver.Initialize(player);
@@ -184,7 +178,6 @@ namespace Basis.Scripts.Drivers
             {
                 Spine.HasRigLayer = BasisHasRigLayer.HasRigLayer;
             }
-
             StoredRolesTransforms = BasisAvatarIKStageCalibration.GetAllRolesAsTransform();
             player.AvatarTransform.parent = player.transform;
             player.AvatarTransform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
@@ -194,18 +187,19 @@ namespace Basis.Scripts.Drivers
             RemoveJiggleRigColliders();
             if (player.IsConsideredFallBackAvatar == false)
             {
-                AddJiggleRigColliders(References);
+                AddJiggleRigColliders(Mapping);
             }
-        }
+            BasisHeightDriver.ApplyScaleAndHeight();
 
+        }
         /// <summary>
         /// Restores the head scale to its cached normal value if currently hidden/zeroed.
         /// </summary>
         public static void ScaleHeadToNormal()
         {
-            if (IsNormalHead || Instance == null || References.Hashead == false) return;
+            if (IsNormalHead || Instance == null || Mapping.Hashead == false) return;
 
-            References.head.localScale = HeadScale;
+            Mapping.head.localScale = HeadScale;
             IsNormalHead = true;
         }
 
@@ -222,11 +216,11 @@ namespace Basis.Scripts.Drivers
             {
                 return;
             }
-            if (References.Hashead == false)
+            if (Mapping.Hashead == false)
             {
                 return;
             }
-            References.head.localScale = HeadScaledDown;
+            Mapping.head.localScale = HeadScaledDown;
             IsNormalHead = false;
         }
 
@@ -298,13 +292,17 @@ namespace Basis.Scripts.Drivers
         /// <returns>Eye height value.</returns>
         public float ActiveAvatarEyeHeight()
         {
-            if (BasisLocalPlayer.Instance.BasisAvatar != null)
+            var localPlayer = BasisLocalPlayer.Instance;
+            if (localPlayer?.BasisAvatar != null)
             {
-                return BasisLocalPlayer.Instance.BasisAvatar.AvatarEyePosition.x;
+                // Use the authored/avatar-configured eye height here.
+                // This value is user-editable and survives avatar swap ordering,
+                // while rig/control data can be stale during recalibration.
+                return localPlayer.BasisAvatar.AvatarEyePosition.x;
             }
             else
             {
-                return BasisLocalHeight.FallbackSizeInMeters;
+                return BasisHeightDriver.FallbackHeightInMeters;
             }
         }
 
@@ -317,9 +315,8 @@ namespace Basis.Scripts.Drivers
         {
             var Avatar = LocalPlayer.BasisAvatar;
             FindSkinnedMeshRenders(LocalPlayer);
-            SetupAvatarLayers(LocalPlayer, BasisLayerMapper.LocalAvatarLayer);
-            BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref References);
-            References.RecordPoses(LocalPlayer.BasisAvatar.Animator);
+            BasisTransformMapping.AutoDetectReferences(LocalPlayer.BasisAvatar.Animator, Avatar.transform, ref Mapping);
+            BasisAvatarModelCache.RecordPosesCached(Mapping, LocalPlayer.BasisAvatar.Animator);
             LocalPlayer.FaceIsVisible = false;
 
             if (Avatar == null)
@@ -341,7 +338,7 @@ namespace Basis.Scripts.Drivers
             LocalPlayer.FaceRenderer = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Avatar.FaceVisemeMesh.gameObject);
             LocalPlayer.FaceRenderer.Check += LocalPlayer.UpdateFaceVisibility;
 
-            if (BasisFacialBlinkDriver.MeetsRequirements(Avatar))
+            if (BasisLocalFacialBlinkDriver.MeetsRequirements(Avatar))
             {
                 LocalPlayer.FacialBlinkDriver.Initialize(LocalPlayer, Avatar);
             }
@@ -358,12 +355,13 @@ namespace Basis.Scripts.Drivers
             {
                 SavedruntimeAnimatorController = BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController;
             }
-            UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<RuntimeAnimatorController> op = Addressables.LoadAssetAsync<RuntimeAnimatorController>(TPose);
-            RuntimeAnimatorController RAC = op.WaitForCompletion();
-            BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController = RAC;
+            BasisLocalPlayer.Instance.BasisAvatar.Animator.runtimeAnimatorController = BasisPlayerFactory.TposeController;
             ForceUpdateAnimator(BasisLocalPlayer.Instance.BasisAvatar.Animator);
-            //BasisDeviceManagement.UnassignFBTrackers();
             TposeStateChange?.Invoke();
+
+            BasisLocalPlayer.Instance.LocalRigDriver.DisableAllTrackers();
+            //anytime a avatar goes into a tpose we can grab the avatar height information
+            BasisHeightDriver.CaptureAvatarHeightDuringTpose();
         }
 
         /// <summary>
@@ -592,38 +590,6 @@ namespace Basis.Scripts.Drivers
         {
             SkinnedMeshRenderer = LocalPlayer.BasisAvatar.Animator.GetComponentsInChildren<SkinnedMeshRenderer>(true);
             SkinnedMeshRendererLength = SkinnedMeshRenderer.Length;
-        }
-
-        /// <summary>
-        /// Toggles per-render matrix recalculation on all avatar skinned meshes.
-        /// </summary>
-        /// <param name="State">Whether to force matrix recalculation each render.</param>
-        public void SetAllMatrixRecalculation(bool State)
-        {
-            for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
-            {
-                SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
-                if (Render != null)
-                {
-                    Render.forceMatrixRecalculationPerRender = State;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Toggles updating skinned meshes when offscreen (helpful for VR and detached cameras).
-        /// </summary>
-        /// <param name="State">Whether to update meshes offscreen.</param>
-        public void UpdateWhenOffscreen(bool State)
-        {
-            for (int Index = 0; Index < SkinnedMeshRendererLength; Index++)
-            {
-                SkinnedMeshRenderer Render = SkinnedMeshRenderer[Index];
-                if (Render != null)
-                {
-                    Render.updateWhenOffscreen = State;
-                }
-            }
         }
     }
 }

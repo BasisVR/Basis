@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Networking.NetworkedAvatar;
@@ -17,13 +17,19 @@ namespace Basis.Scripts.Networking
         // --- Collections (thread-safe) -------------------------------------
         public static readonly ConcurrentDictionary<ushort, BasisNetworkPlayer> Players = new();
         public static readonly ConcurrentDictionary<ushort, BasisNetworkReceiver> RemotePlayers = new();
-        public static readonly List<ushort> JoiningPlayers = new(); // used as a set
+        public static readonly ConcurrentDictionary<ushort, byte> JoiningPlayers = new(); // used as a concurrent set
         public static readonly ConcurrentDictionary<string, ushort> OwnershipPairing = new();
 
         // Receiver snapshot for multi-threaded compute/apply phases.
-        private static volatile BasisNetworkReceiver[] _receiversSnapshot = Array.Empty<BasisNetworkReceiver>();
-        public static BasisNetworkReceiver[] ReceiversSnapshot => _receiversSnapshot;
-        public static int ReceiverCount => _receiversSnapshot.Length;
+        // Reusable buffer — grows on demand, never shrinks (avoids per-frame allocation).
+        public static BasisNetworkReceiver[] ReceiversSnapshot = Array.Empty<BasisNetworkReceiver>();
+        public static int ReceiverCount;
+        public static ushort LargestNetworkReceiverID;
+        private static BasisNetworkReceiver[] _snapshotBuffer = Array.Empty<BasisNetworkReceiver>();
+
+        // Dirty flag: only re-enumerate ConcurrentDictionary on player join/leave.
+        // ConcurrentDictionary enumeration acquires bucket locks and walks all nodes — too expensive per frame.
+        private static volatile bool _snapshotDirty = true;
 
         // --- Lifecycle helpers ---------------------------------------------
         public static void ClearAllRegistries()
@@ -36,11 +42,57 @@ namespace Basis.Scripts.Networking
             RemotePlayers.Clear();
             JoiningPlayers.Clear();
             OwnershipPairing.Clear();
-            PublishReceiversSnapshot();
+            _snapshotDirty = true;
         }
+
+        /// <summary>
+        /// Copies remote players into a reusable array. Only re-enumerates the
+        /// ConcurrentDictionary when the player list has actually changed (dirty flag).
+        /// In steady state this is effectively free.
+        /// </summary>
         public static void PublishReceiversSnapshot()
         {
-            _receiversSnapshot = RemotePlayers.Count == 0 ? Array.Empty<BasisNetworkReceiver>() : RemotePlayers.Values.ToArray();
+            if (!_snapshotDirty) return;
+
+            int count = RemotePlayers.Count;
+            if (count == 0)
+            {
+                // Null out stale references so GC can collect departed receivers
+                for (int j = 0; j < ReceiverCount && j < _snapshotBuffer.Length; j++)
+                {
+                    _snapshotBuffer[j] = default;
+                }
+                ReceiverCount = 0;
+                _snapshotDirty = false;
+                return;
+            }
+
+            // Grow-only buffer: power-of-2 sizing avoids realloc churn on join/leave
+            if (_snapshotBuffer.Length < count)
+            {
+                int newSize = 16;
+                while (newSize < count) newSize <<= 1;
+                _snapshotBuffer = new BasisNetworkReceiver[newSize];
+            }
+
+            // Enumerate directly (struct enumerator) — no Values/ToArray allocation
+            int i = 0;
+            foreach (var kvp in RemotePlayers)
+            {
+                if (i >= _snapshotBuffer.Length) break;
+                _snapshotBuffer[i++] = kvp.Value;
+            }
+
+            // Null out stale trailing references from a previous larger snapshot
+            int prevCount = ReceiverCount;
+            for (int j = i; j < prevCount && j < _snapshotBuffer.Length; j++)
+            {
+                _snapshotBuffer[j] = default;
+            }
+
+            ReceiversSnapshot = _snapshotBuffer;
+            ReceiverCount = i;
+            _snapshotDirty = false;
         }
 
         // --- Registry APIs --------------------------------------------------
@@ -84,8 +136,7 @@ namespace Basis.Scripts.Networking
                     BasisDebug.LogError($"Failed to add remote player {netPlayer.playerId} to RemotePlayers. Rolled back from Players.");
                     return false;
                 }
-
-                PublishReceiversSnapshot();
+                _snapshotDirty = true;
             }
 
             return true;
@@ -102,7 +153,7 @@ namespace Basis.Scripts.Networking
 
             Players.TryRemove(netId, out player);
             RemotePlayers.TryRemove(netId, out _);
-            PublishReceiversSnapshot();
+            _snapshotDirty = true;
             return true;
         }
 
@@ -159,7 +210,7 @@ namespace Basis.Scripts.Networking
                 return true;
             }
 
-            if (JoiningPlayers.Contains(id))
+            if (JoiningPlayers.ContainsKey(id))
                 BasisDebug.LogError("Player was still connecting when this was called!");
             else
                 BasisDebug.LogError("Player was not found, including joining list; something is very wrong!");
@@ -176,11 +227,11 @@ namespace Basis.Scripts.Networking
                 return false;
             }
 
-            int instance = basisPlayer.GetInstanceID();
+            int instance = basisPlayer.GetEntityId();
             foreach (var nPlayer in Players.Values)
             {
                 if (nPlayer?.Player == null) continue;
-                if (nPlayer.Player.GetInstanceID() == instance)
+                if (nPlayer.Player.GetEntityId() == instance)
                 {
                     networkedPlayer = nPlayer;
                     return true;

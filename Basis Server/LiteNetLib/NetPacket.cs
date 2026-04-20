@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using LiteNetLib.Utils;
 
 namespace LiteNetLib
@@ -37,6 +37,9 @@ namespace LiteNetLib
             {
                 switch ((PacketProperty)i)
                 {
+                    case PacketProperty.Unreliable:
+                        HeaderSizes[i] = NetConstants.UnreliableHeaderSize;
+                        break;
                     case PacketProperty.Channeled:
                     case PacketProperty.Ack:
                         HeaderSizes[i] = NetConstants.ChanneledHeaderSize;
@@ -78,7 +81,7 @@ namespace LiteNetLib
 
         public ushort Sequence
         {
-            get => BitConverter.ToUInt16(RawData, 1);
+            get => FastBitConverter.Read<ushort>(RawData, 1);
             set => FastBitConverter.GetBytes(RawData, 1, value);
         }
 
@@ -97,19 +100,19 @@ namespace LiteNetLib
 
         public ushort FragmentId
         {
-            get => BitConverter.ToUInt16(RawData, 4);
+            get => FastBitConverter.Read<ushort>(RawData, 4);
             set => FastBitConverter.GetBytes(RawData, 4, value);
         }
 
         public ushort FragmentPart
         {
-            get => BitConverter.ToUInt16(RawData, 6);
+            get => FastBitConverter.Read<ushort>(RawData, 6);
             set => FastBitConverter.GetBytes(RawData, 6, value);
         }
 
         public ushort FragmentsTotal
         {
-            get => BitConverter.ToUInt16(RawData, 8);
+            get => FastBitConverter.Read<ushort>(RawData, 8);
             set => FastBitConverter.GetBytes(RawData, 8, value);
         }
 
@@ -156,9 +159,6 @@ namespace LiteNetLib
             bool fragmented = (RawData[0] & 0x80) != 0;
             return Size >= headerSize && (!fragmented || Size >= headerSize + NetConstants.FragmentHeaderSize);
         }
-
-        #if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         public static implicit operator Span<byte>(NetPacket p) => new Span<byte>(p.RawData, 0, p.Size);
-        #endif
     }
 }

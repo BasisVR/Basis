@@ -160,19 +160,89 @@ namespace SteamAudio
         UnityEngine.Vector3[] mDeformedSphereVertices = null;
         Mesh mDeformedSphereMesh = null;
 
-        AudioSource mAudioSource = null;
+        public AudioSource mAudioSource = null;
         AudioSourceAttenuationData mAttenuationData = new AudioSourceAttenuationData { };
         DistanceAttenuationModel mCurveAttenuationModel = new DistanceAttenuationModel { };
         GCHandle mThis;
         SteamAudioSettings mSettings = null;
 
+        // Extra user-added fields preserved
+        public Transform Transform;
+        public bool IsUnityEngineUsed;
+        public bool AllowsUpdateParameters = false;
+        private DistanceAttenuationModel mDefaultAttenuationModel;
+        private SimulationFlags mCachedSimFlags;
+        private DirectSimulationFlags mCachedDirectFlags;
+
+        private bool mCachedUseCurveDrivenAttenuationModel;
+        private bool mCachedReflectionsEnabledAny;
+        private bool mCachedPathingEnabledAndValid;
+        private IntPtr mCachedPathingProbes;
+
+        private bool mCacheDirty = true;
+        private bool mInitialized = false;
+
+        // ── Deferred initialization ──────────────────────────────────
+        // iplSourceCreate is ~1ms per source. With 1k sources spawning,
+        // that's a 1s+ hitch. Awake does only a cheap transform cache;
+        // the heavy native init is queued and spread across frames.
+        private static readonly System.Collections.Generic.Queue<SteamAudioSource> s_pendingInit
+            = new System.Collections.Generic.Queue<SteamAudioSource>();
+
+        /// <summary>Max native source creations per frame. Tune to taste.</summary>
+        public static int InitBudgetPerFrame = 16;
+
+        /// <summary>
+        /// Call from SteamAudioManager.Update (or similar) to drain the init queue
+        /// over multiple frames instead of all-at-once in Awake.
+        /// </summary>
+        public static void ProcessPendingInits()
+        {
+            int budget = InitBudgetPerFrame;
+            while (budget > 0 && s_pendingInit.Count > 0)
+            {
+                var source = s_pendingInit.Dequeue();
+                // Unity fake-null: destroyed MonoBehaviours compare == null but aren't C# null.
+                if (source == null || source.mInitialized) continue;
+                source.HeavyInit();
+                budget--;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void MarkCacheDirty()
+        {
+            mCacheDirty = true;
+        }
+
         private void Awake()
         {
-            Transform = this.transform;
+            // Cheap: just cache transform. Heavy native init is deferred.
+            if (transform != null)
+            {
+                Transform = this.transform;
+            }
+            if (mAudioSource == null)
+            {
+                TryGetComponent<AudioSource>(out mAudioSource);
+            }
+            s_pendingInit.Enqueue(this);
+        }
+
+        /// <summary>
+        /// Performs the expensive native initialization (iplSourceCreate, audio engine setup).
+        /// Called either from the frame-budgeted queue or on-demand via EnsureInitialized().
+        /// </summary>
+        private void HeavyInit()
+        {
+            if (mInitialized) return;
+            mInitialized = true;
+
             mSimulator = SteamAudioManager.Simulator;
 
             var settings = SteamAudioManager.GetSimulationSettings(false);
             mSource = new Source(SteamAudioManager.Simulator, settings);
+
             mSettings = SteamAudioSettings.Singleton;
 
             mAudioEngineSource = AudioEngineSource.Create(mSettings.audioEngine);
@@ -182,9 +252,9 @@ namespace SteamAudio
                 mAudioEngineSource.UpdateParameters(this);
             }
 
-            mAudioSource = GetComponent<AudioSource>();
-
             mThis = GCHandle.Alloc(this);
+
+            mDefaultAttenuationModel.type = DistanceAttenuationModelType.Default;
 
             if (mSettings.audioEngine == AudioEngineType.Unity &&
                 distanceAttenuation &&
@@ -202,18 +272,42 @@ namespace SteamAudio
                 mCurveAttenuationModel.userData = GCHandle.ToIntPtr(mThis);
                 mCurveAttenuationModel.dirty = Bool.False;
             }
+
+            MarkCacheDirty();
+
+            // If OnEnable already fired before init completed, do the registration now.
+            if (isActiveAndEnabled && mSource != null)
+            {
+                mSource.AddToSimulator(mSimulator);
+                SteamAudioManager.AddSource(this);
+                IsUnityEngineUsed = SteamAudioSettings.Singleton.audioEngine == AudioEngineType.Unity;
+            }
+        }
+
+        /// <summary>
+        /// Forces immediate initialization if not yet done (e.g., code needs the source NOW).
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void EnsureInitialized()
+        {
+            if (!mInitialized) HeavyInit();
         }
 
         private void Start()
         {
+            if (!mInitialized) return;
             if (mAudioEngineSource != null)
             {
                 mAudioEngineSource.UpdateParameters(this);
             }
+
+            MarkCacheDirty();
         }
 
         private void OnDestroy()
         {
+            mInitialized = false;
+
             if (mAudioEngineSource != null)
             {
                 mAudioEngineSource.Destroy();
@@ -234,31 +328,54 @@ namespace SteamAudio
                 mThis.Free();
             }
         }
-        public Transform Transform;
+
         private void OnEnable()
         {
-            Transform = this.transform;
+            if (transform != null)
+            {
+                Transform = this.transform;
+            }
+
+            // If deferred init hasn't run yet, skip — HeavyInit will register when it completes.
+            if (!mInitialized) return;
+
             mSource.AddToSimulator(mSimulator);
             SteamAudioManager.AddSource(this);
+
+            IsUnityEngineUsed = SteamAudioSettings.Singleton.audioEngine == AudioEngineType.Unity;
 
             if (mAudioEngineSource != null)
             {
                 mAudioEngineSource.UpdateParameters(this);
             }
+
+            MarkCacheDirty();
         }
 
         private void OnDisable()
         {
+            if (!mInitialized) return;
             SteamAudioManager.RemoveSource(this);
             mSource.RemoveFromSimulator(mSimulator);
         }
 
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            // In editor, stuff can be reloaded / not ready yet.
+            // Keep this lightweight: just mark dirty so next SetInputs rebuilds.
+            MarkCacheDirty();
+        }
+#endif
+
         private void Update()
         {
-            if (mAudioEngineSource != null)
-            {
-                mAudioEngineSource.UpdateParameters(this);
-            }
+            if (!mInitialized) return;
+        }
+        public void ForceUpdate()
+        {
+            if (!mInitialized || mAudioEngineSource == null) return;
+            mAudioEngineSource.UpdateParameters(this);
         }
 
         private void OnDrawGizmosSelected()
@@ -274,50 +391,85 @@ namespace SteamAudio
 
                 var oldColor = Gizmos.color;
                 Gizmos.color = Color.red;
+
                 transform.GetPositionAndRotation(out UnityEngine.Vector3 Position, out UnityEngine.Quaternion Rotation);
                 Gizmos.DrawWireMesh(mDeformedSphereMesh, Position, Rotation);
+
                 Gizmos.color = oldColor;
             }
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetInputs(SimulationFlags flags)
+        // Rebuilds cached flags/models so SetInputs can be a tight hot path.
+        private void RebuildCache(SteamAudioListener listener)
         {
-            // --- Fast transform read: one native hop ---
-            Transform.GetPositionAndRotation(out var pos, out var rot);
-            var ahead = rot * UnityEngine.Vector3.forward; // pure math (managed), no extra native calls
-            var up = rot * UnityEngine.Vector3.up;
-            var right = rot * UnityEngine.Vector3.right;
+            // Refresh settings ref (can change in editor / domain reloads)
+            if (mSettings == null)
+            {
+                mSettings = SteamAudioSettings.Singleton;
+            }
 
-            // --- Cache frequently used refs/values ---
-            var settings = mSettings; // SteamAudioSettings.Singleton if that's what mSettings is
-            var listener = SteamAudioManager.GetSteamAudioListener();
+            // Default model cached
+            mDefaultAttenuationModel.type = DistanceAttenuationModelType.Default;
 
-            // Precompute booleans once
             bool reflectionsRealtime = reflectionsType == ReflectionsType.Realtime;
             bool reflectionsBakedSrcActive = reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null;
             bool reflectionsBakedLstActive = reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null;
-            bool reflectionsEnabledAny = reflections && (reflectionsRealtime || reflectionsBakedSrcActive || reflectionsBakedLstActive);
 
-            bool curveDrivenReflections = mSettings.audioEngine == AudioEngineType.Unity
-                                           && distanceAttenuation
-                                           && distanceAttenuationInput == DistanceAttenuationInput.CurveDriven
-                                           && reflections
-                                           && useDistanceCurveForReflections;
+            mCachedReflectionsEnabledAny = reflections && (reflectionsRealtime || reflectionsBakedSrcActive || reflectionsBakedLstActive);
 
-            // --- Build inputs with minimal writes ---
-            var inputs = new SimulationInputs { };
+            mCachedUseCurveDrivenAttenuationModel =
+                (mSettings.audioEngine == AudioEngineType.Unity) &&
+                distanceAttenuation &&
+                (distanceAttenuationInput == DistanceAttenuationInput.CurveDriven) &&
+                reflections &&
+                useDistanceCurveForReflections;
 
-            // Source transform (4 converts; see prev message if you want the 1-quat-convert path)
-            inputs.source.origin = Common.ConvertVector(pos);
-            inputs.source.ahead = Common.ConvertVector(ahead);
-            inputs.source.up = Common.ConvertVector(up);
-            inputs.source.right = Common.ConvertVector(right);
+            // Validate pathing once (no hot-path side effects)
+            mCachedPathingEnabledAndValid = pathing && (pathingProbeBatch != null);
+            if (pathing && pathingProbeBatch == null)
+            {
+                pathing = false; // preserve existing behavior, but do it once here
+                Debug.LogWarning($"Pathing probe batch not set, disabling pathing for source {gameObject.name}.");
+            }
+
+            mCachedPathingProbes = (mCachedPathingEnabledAndValid) ? pathingProbeBatch.GetProbeBatch() : IntPtr.Zero;
+
+            // Precompute flags once
+            var simFlags = SimulationFlags.Direct;
+            if (mCachedReflectionsEnabledAny) simFlags |= SimulationFlags.Reflections;
+            if (mCachedPathingEnabledAndValid) simFlags |= SimulationFlags.Pathing;
+            mCachedSimFlags = simFlags;
+
+            DirectSimulationFlags direct = default;
+            if (distanceAttenuation) direct |= DirectSimulationFlags.DistanceAttenuation;
+            if (airAbsorption) direct |= DirectSimulationFlags.AirAbsorption;
+            if (directivity) direct |= DirectSimulationFlags.Directivity;
+            if (occlusion) direct |= DirectSimulationFlags.Occlusion;
+            if (transmission) direct |= DirectSimulationFlags.Transmission;
+            mCachedDirectFlags = direct;
+
+            mCacheDirty = false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void SetInputs(SimulationFlags flags, Vector3 origin, Vector3 ahead, Vector3 up, Vector3 right, SteamAudioListener listener)
+        {
+            if (!mInitialized) return;
+            if (mCacheDirty)
+            {
+                RebuildCache(listener);
+            }
+
+            SimulationInputs inputs = default;
+
+            // Source transform
+            inputs.source.origin = origin;
+            inputs.source.ahead = ahead;
+            inputs.source.up = up;
+            inputs.source.right = right;
 
             // Distance attenuation model
-            inputs.distanceAttenuationModel = curveDrivenReflections
-                ? mCurveAttenuationModel
-                : new DistanceAttenuationModel { type = DistanceAttenuationModelType.Default };
+            inputs.distanceAttenuationModel = mCachedUseCurveDrivenAttenuationModel ? mCurveAttenuationModel : mDefaultAttenuationModel;
 
             // Air absorption + directivity
             inputs.airAbsorptionModel.type = AirAbsorptionModelType.Default;
@@ -334,57 +486,34 @@ namespace SteamAudio
             inputs.reverbScaleLow = 1f;
             inputs.reverbScaleMid = 1f;
             inputs.reverbScaleHigh = 1f;
-            inputs.hybridReverbTransitionTime = settings.hybridReverbTransitionTime;
-            inputs.hybridReverbOverlapPercent = settings.hybridReverbOverlapPercent * 0.01f;
+            inputs.hybridReverbTransitionTime = mSettings.hybridReverbTransitionTime;
+            inputs.hybridReverbOverlapPercent = mSettings.hybridReverbOverlapPercent * 0.01f;
 
             // Baking / pathing config
             inputs.baked = (reflectionsType != ReflectionsType.Realtime) ? Bool.True : Bool.False;
-            inputs.pathingProbes = (pathingProbeBatch != null) ? pathingProbeBatch.GetProbeBatch() : IntPtr.Zero;
-            inputs.visRadius = settings.bakingVisibilityRadius;
-            inputs.visThreshold = settings.bakingVisibilityThreshold;
-            inputs.visRange = settings.bakingVisibilityRange;
-            inputs.pathingOrder = settings.bakingAmbisonicOrder;
+            inputs.pathingProbes = mCachedPathingProbes;
+
+            inputs.visRadius = mSettings.bakingVisibilityRadius;
+            inputs.visThreshold = mSettings.bakingVisibilityThreshold;
+            inputs.visRange = mSettings.bakingVisibilityRange;
+            inputs.pathingOrder = mSettings.bakingAmbisonicOrder;
+
             inputs.enableValidation = pathValidation ? Bool.True : Bool.False;
             inputs.findAlternatePaths = findAlternatePaths ? Bool.True : Bool.False;
 
             // Baked identifiers (only when actually usable)
-            if (reflectionsBakedSrcActive)
+            if (reflectionsType == ReflectionsType.BakedStaticSource && currentBakedSource != null)
             {
                 inputs.bakedDataIdentifier = currentBakedSource.GetBakedDataIdentifier();
             }
-            else if (reflectionsBakedLstActive)
+            else if (reflectionsType == ReflectionsType.BakedStaticListener && listener != null && listener.currentBakedListener != null)
             {
                 inputs.bakedDataIdentifier = listener.currentBakedListener.GetBakedDataIdentifier();
             }
 
-            // --- Simulation flags (build once, no branches re-checking state) ---
-            var simFlags = SimulationFlags.Direct;
-            if (reflectionsEnabledAny) simFlags |= SimulationFlags.Reflections;
-
-            if (pathing)
-            {
-                if (pathingProbeBatch == null)
-                {
-                    pathing = false; // preserve existing side-effect
-                    Debug.LogWarningFormat("Pathing probe batch not set, disabling pathing for source {0}.", gameObject.name);
-                }
-                else
-                {
-                    simFlags |= SimulationFlags.Pathing;
-                }
-            }
-            inputs.flags = simFlags;
-
-            // Instead of: var direct = 0;
-            DirectSimulationFlags direct = default; // == (DirectSimulationFlags)0
-
-            if (distanceAttenuation) direct |= DirectSimulationFlags.DistanceAttenuation;
-            if (airAbsorption) direct |= DirectSimulationFlags.AirAbsorption;
-            if (directivity) direct |= DirectSimulationFlags.Directivity;
-            if (occlusion) direct |= DirectSimulationFlags.Occlusion;
-            if (transmission) direct |= DirectSimulationFlags.Transmission;
-
-            inputs.directFlags = direct;
+            // Cached flags
+            inputs.flags = mCachedSimFlags;
+            inputs.directFlags = mCachedDirectFlags;
 
             // Final handoff
             mSource.SetInputs(flags, inputs);
@@ -392,20 +521,22 @@ namespace SteamAudio
 
         public SimulationOutputs GetOutputs(SimulationFlags flags)
         {
+            if (!mInitialized) return default;
             return mSource.GetOutputs(flags);
         }
 
         public Source GetSource()
         {
+            EnsureInitialized();
             return mSource;
         }
 
         public void UpdateOutputs(SimulationFlags flags)
         {
+            if (!mInitialized) return;
             var outputs = mSource.GetOutputs(flags);
 
-            if (SteamAudioSettings.Singleton.audioEngine == AudioEngineType.Unity &&
-                ((flags & SimulationFlags.Direct) != 0))
+            if (IsUnityEngineUsed && ((flags & SimulationFlags.Direct) != 0))
             {
                 if (distanceAttenuation && distanceAttenuationInput == DistanceAttenuationInput.PhysicsBased)
                 {
@@ -451,6 +582,8 @@ namespace SteamAudio
             var dTheta = Mathf.PI / nTheta;
 
             mSphereVertices = new UnityEngine.Vector3[nPhi * nTheta];
+            mDeformedSphereVertices = new UnityEngine.Vector3[nPhi * nTheta];
+
             var index = 0;
             for (var i = 0; i < nPhi; ++i)
             {
@@ -463,14 +596,12 @@ namespace SteamAudio
                     var y = Mathf.Sin(theta);
                     var z = Mathf.Cos(theta) * -Mathf.Cos(phi);
 
-                    var vertex = new UnityEngine.Vector3(x, y, z);
-
-                    mSphereVertices[index++] = vertex;
+                    var v = new UnityEngine.Vector3(x, y, z);
+                    mSphereVertices[index] = v;
+                    mDeformedSphereVertices[index] = v;
+                    index++;
                 }
             }
-
-            mDeformedSphereVertices = new UnityEngine.Vector3[nPhi * nTheta];
-            Array.Copy(mSphereVertices, mDeformedSphereVertices, mSphereVertices.Length);
 
             var indices = new int[6 * nPhi * (nTheta - 1)];
             index = 0;
@@ -506,21 +637,27 @@ namespace SteamAudio
             }
 
             mDeformedSphereMesh.vertices = mDeformedSphereVertices;
+            mDeformedSphereMesh.RecalculateNormals();
         }
 
-        UnityEngine.Vector3 DeformedVertex(UnityEngine.Vector3 vertex)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        UnityEngine.Vector3 DeformedVertex(UnityEngine.Vector3 v)
         {
-            var cosine = vertex.z;
-            var r = Mathf.Pow(Mathf.Abs((1.0f - dipoleWeight) + dipoleWeight * cosine), dipolePower);
-            var deformedVertex = vertex;
-            deformedVertex.Scale(new UnityEngine.Vector3(r, r, r));
-            return deformedVertex;
+            float cosine = v.z;
+            float r = Mathf.Pow(Mathf.Abs((1.0f - dipoleWeight) + dipoleWeight * cosine), dipolePower);
+
+            // Faster than Vector3.Scale
+            v.x *= r;
+            v.y *= r;
+            v.z *= r;
+
+            return v;
         }
 
         [MonoPInvokeCallback(typeof(DistanceAttenuationCallback))]
         public static float EvaluateDistanceCurve(float distance, IntPtr userData)
         {
-            var target = (SteamAudioSource) GCHandle.FromIntPtr(userData).Target;
+            var target = (SteamAudioSource)GCHandle.FromIntPtr(userData).Target;
 
             var rMin = target.mAttenuationData.minDistance;
             var rMax = target.mAttenuationData.maxDistance;

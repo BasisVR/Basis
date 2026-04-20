@@ -1,200 +1,262 @@
 using Basis.Network.Core;
 using Basis.Network.Server.Generic;
 using Basis.Network.Server.Ownership;
+using BasisNetworkServer;
 using BasisNetworkServer.BasisNetworking;
 using BasisNetworkServer.BasisNetworkingReductionSystem;
 using BasisNetworkServer.Security;
+using BasisPermissions;
 using BasisServerHandle;
 using System;
+using System.Collections.Concurrent;
 using static BasisNetworkCore.Serializable.SerializableBasis;
+using static BasisPermissions.PermissionManager;
+
 public static class BasisNetworkMessageProcessor
 {
+    private const int MaxErrorsBeforeWarning = 50;
+    private static readonly ConcurrentDictionary<int, int> _peerErrorCounts = new();
+
+    public static void ClearPeerErrors(int peerId) => _peerErrorCounts.TryRemove(peerId, out _);
     public static void ProcessMessage(NetPeer peer, NetPacketReader reader, byte channel, DeliveryMethod deliveryMethod)
     {
+        BasisNetworkStatistics.RecordInbound(channel, reader.AvailableBytes);
         try
         {
-            if (TryRedirectFallChannel(peer,reader, ref channel, deliveryMethod))
-                return;
-
             switch (channel)
             {
-                case BasisNetworkCommons.AuthIdentityChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.AuthIdentityChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.HandleAuth(reader, peer);//recycles inside
+                case BasisNetworkCommons.ShoutVoiceChannel:
+                    BasisServerHandleEvents.HandleShoutVoiceMessage(reader, peer); // recycles inside
                     break;
 
-                case BasisNetworkCommons.PlayerAvatarChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.PlayerAvatarChannel, reader.AvailableBytes);
-                    BasisServerReductionSystemEvents.HandleAvatarMovement(reader, peer);//recycles inside
+                case BasisNetworkCommons.AuthIdentityChannel:
+                    BasisServerHandleEvents.HandleAuth(reader, peer); // recycles inside
+                    break;
+
+                case BasisNetworkCommons.PlayerAvatarHighChannel:
+                case BasisNetworkCommons.PlayerAvatarHighAdditionalChannel:
+                    BasisServerReductionSystemEvents.HandleAvatarMovement(reader, peer, channel); // recycles inside
                     break;
 
                 case BasisNetworkCommons.VoiceChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.VoiceChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.HandleVoiceMessage(reader, peer);//recycles inside
+                    BasisServerHandleEvents.HandleVoiceMessage(reader, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.AvatarChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.AvatarChannel, reader.AvailableBytes);
-                    BasisNetworkingGeneric.HandleAvatar(reader, deliveryMethod, peer);//recycles inside
+                    BasisNetworkingGeneric.HandleAvatar(reader, deliveryMethod, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.SceneChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.SceneChannel, reader.AvailableBytes);
-                    BasisNetworkingGeneric.HandleScene(reader, deliveryMethod, peer);//recycles inside
+                    BasisNetworkingGeneric.HandleScene(reader, deliveryMethod, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.AvatarChangeMessageChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.AvatarChangeMessageChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.SendAvatarMessageToClients(reader, peer);//recycles inside
+                    BasisServerHandleEvents.SendAvatarMessageToClients(reader, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.ChangeCurrentOwnerRequestChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, reader.AvailableBytes);
-                    BasisNetworkOwnership.OwnershipTransfer(reader, peer);//recycles inside
+                    HandlePermitted(peer, reader, PermNodes.OwnershipTransfer, () =>
+                    {
+                        BasisNetworkOwnership.OwnershipTransfer(reader, peer); // recycles inside
+                    });
                     break;
 
                 case BasisNetworkCommons.GetCurrentOwnerRequestChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.GetCurrentOwnerRequestChannel, reader.AvailableBytes);
-                    BasisNetworkOwnership.OwnershipResponse(reader, peer);//recycles inside
+                    HandlePermitted(peer, reader, PermNodes.OwnershipGet, () =>
+                    {
+                        BasisNetworkOwnership.OwnershipResponse(reader, peer); // recycles inside
+                    });
                     break;
 
                 case BasisNetworkCommons.RemoveCurrentOwnerRequestChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, reader.AvailableBytes);
-                    BasisNetworkOwnership.RemoveOwnership(reader, peer);//recycles inside
+                    HandlePermitted(peer, reader, PermNodes.OwnershipRemove, () =>
+                    {
+                        BasisNetworkOwnership.RemoveOwnership(reader, peer); // recycles inside
+                    });
                     break;
 
                 case BasisNetworkCommons.AudioRecipientsChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.AudioRecipientsChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.UpdateVoiceReceivers(reader, peer);//recycles inside
+                    BasisServerHandleEvents.UpdateVoiceReceivers(reader, peer, false); // byte count, recycles inside
+                    break;
+
+                case BasisNetworkCommons.AudioRecipientsLargeChannel:
+                    BasisServerHandleEvents.UpdateVoiceReceivers(reader, peer, true); // ushort count, recycles inside
+                    break;
+
+                case BasisNetworkCommons.AudioRecipientsInvertedChannel:
+                    BasisServerHandleEvents.UpdateVoiceReceiversInverted(reader, peer, false); // byte count excluded, recycles inside
+                    break;
+
+                case BasisNetworkCommons.AudioRecipientsInvertedLargeChannel:
+                    BasisServerHandleEvents.UpdateVoiceReceiversInverted(reader, peer, true); // ushort count excluded, recycles inside
+                    break;
+
+                case BasisNetworkCommons.AudioRecipientsBitfieldChannel:
+                    BasisServerHandleEvents.UpdateVoiceReceiversBitfield(reader, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.netIDAssignChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.netIDAssignChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.NetIDAssign(reader, peer);//recycles inside
+                    BasisServerHandleEvents.NetIDAssign(reader, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.LoadResourceChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.LoadResourceChannel, reader.AvailableBytes);
-                    HandleAdminResourceAction(peer, reader, BasisServerHandleEvents.LoadResource);//recycles inside
-                    break;
+                    if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string LRuuid))
+                    {
+                        BasisServerHandleEvents.LoadResource(reader, peer, LRuuid);
+                        break;
+                    }
+                    BNL.LogError($"User UUID not found for peer: {peer}");
+                    reader.Recycle();
+                    return;
 
                 case BasisNetworkCommons.UnloadResourceChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.UnloadResourceChannel, reader.AvailableBytes);
-                    HandleAdminResourceAction(peer, reader, BasisServerHandleEvents.UnloadResource);//recycles inside
-                    break;
+                    BasisServerHandleEvents.UnloadResource(reader, peer);
+                    reader.Recycle();
+                    return;
 
                 case BasisNetworkCommons.AdminChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.AdminChannel, reader.AvailableBytes);
-                    BasisPlayerModeration.OnAdminMessage(peer, reader);//recycles inside
+                    BasisPlayerModeration.OnAdminMessage(peer, reader); // recycles inside
                     break;
 
-                case BasisNetworkCommons.AvatarCloneRequestChannel:
-                case BasisNetworkCommons.AvatarCloneResponseChannel:
-                    // Placeholder for AvatarCloneMessage handlers
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.AvatarCloneResponseChannel, reader.AvailableBytes);
-                    reader.Recycle();//recycles here
+                case BasisNetworkCommons.ContentShareChannel:
+                    BasisNetworkContentShare.HandleContentShareDrop(reader, peer); // recycles inside
+                    break;
+
+                case BasisNetworkCommons.ContentShareCleanupChannel:
+                    BasisNetworkContentShare.HandleContentShareCleanup(reader, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.ServerBoundChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.ServerBoundChannel, reader.AvailableBytes);
                     BasisServerHandleEvents.OnServerReceived?.Invoke(peer, reader, deliveryMethod);
-                    reader.Recycle();//recycles here
+                    reader.Recycle(); // recycles here
                     break;
 
                 case BasisNetworkCommons.StoreDatabaseChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.StoreDatabaseChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.HandleStoreDatabase(reader,peer);//recycles inside
+                    BasisServerHandleEvents.HandleStoreDatabase(reader, peer); // recycles inside
                     break;
 
                 case BasisNetworkCommons.RequestStoreDatabaseChannel:
-                    BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.RequestStoreDatabaseChannel, reader.AvailableBytes);
-                    BasisServerHandleEvents.HandleRequestStoreDatabase(reader, peer);//recycles inside
+                    BasisServerHandleEvents.HandleRequestStoreDatabase(reader, peer); // recycles inside
                     break;
 
+              //  case BasisNetworkCommons.ServerIsAdminChannel:
+                ///    BasisPlayerModeration.CheckHasPermission(reader,peer);
+                ///    reader.Recycle(); // recycles here
+                //    break;
 
                 case BasisNetworkCommons.ServerStatisticsChannel:
-
-                    if (NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid) == false)
                     {
-                        BNL.LogError($"User UUID not found for peer: {peer}");
-                        return;
-                    }
-
-                    if (NetworkServer.AuthIdentity.IsNetPeerAdmin(uuid) == false)
-                    {
-                        BNL.LogError($"Unauthorized admin access attempt by UUID: {uuid}");
-                        return;
-                    }
-
-                    if (reader.GetBool())
-                    {
-                        BNL.Log("requested Server StatisticsChannel");
-                        BasisNetworkStatistics.IsRecordingData = true;
-                        BasisNetworkStatistics.RecordInbound(BasisNetworkCommons.ServerStatisticsChannel, reader.AvailableBytes);
-                        ServerStatisticMessage ServerStatistic = new ServerStatisticMessage
+                        // Permission-gated stats
+                        if (!TryWithPermission(peer, reader, PermNodes.ServerStats, out _))
                         {
-                            Data = BasisNetworkStatistics.Snapshot.SnapshotResetEncode(true, 6)
-                        };
-                        reader.Recycle();
+                            return;
+                        }
 
-                        NetDataWriter writer = new NetDataWriter(true);
-                        ServerStatistic.Serialize(writer);
-                        BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.ServerStatisticsChannel, writer.Length);
-                        peer.Send(writer, BasisNetworkCommons.ServerStatisticsChannel, DeliveryMethod.ReliableOrdered);
+                        if (reader.GetBool())
+                        {
+                            BNL.Log("requested Server StatisticsChannel");
+                            BasisNetworkStatistics.IsRecordingData = true;
 
+                            ServerStatisticMessage serverStatistic = new ServerStatisticMessage
+                            {
+                                Data = BasisNetworkStatistics.Snapshot.SnapshotResetEncode(true, 6)
+                            };
+
+                            reader.Recycle();
+
+                            NetDataWriter writer = NetworkServer.RentWriter();
+                            serverStatistic.Serialize(writer);
+                            BasisNetworkStatistics.RecordOutbound(BasisNetworkCommons.ServerStatisticsChannel, writer.Length);
+                            peer.Send(writer, BasisNetworkCommons.ServerStatisticsChannel, DeliveryMethod.ReliableOrdered);
+                            NetworkServer.ReturnWriter(writer);
+                        }
+                        else
+                        {
+                            BasisNetworkStatistics.IsRecordingData = false;
+                            reader.Recycle();
+                        }
+                        break;
                     }
-                    else
-                    {
-                        BasisNetworkStatistics.IsRecordingData = false;
-                    }
+
+                case BasisNetworkCommons.ChatChannel:
+                    BasisNetworkChat.HandleChatMessage(reader, peer); // recycles inside
+                    break;
+
+                case BasisNetworkCommons.CameraPIPStateChannel:
+                    BasisNetworkPIPCamera.HandlePIPStateChange(reader, peer); // recycles inside
+                    break;
+
+                case BasisNetworkCommons.CameraPIPPositionChannel:
+                    BasisNetworkPIPCamera.HandlePIPPositionUpdate(reader, peer); // recycles inside
+                    break;
+
+                case BasisNetworkCommons.PreloadReadyChannel:
+                    BasisServerHandleEvents.HandlePreloadReady(reader, peer); // recycles inside
+                    break;
+
+                case BasisNetworkCommons.EventsChannel:
+                    BasisNetworkEvents.HandleEvent(reader, peer); // reads event type byte, routes, recycles inside
                     break;
 
                 default:
-                    BNL.LogError($"Unknown channel: {channel} ({reader.AvailableBytes} bytes remaining)");
+                    int errorCount = _peerErrorCounts.AddOrUpdate(peer.Id, 1, (_, c) => c + 1);
+                    if (errorCount <= 5 || errorCount % 100 == 0)
+                    {
+                        BNL.LogError($"Unknown channel: {channel} ({reader.AvailableBytes} bytes remaining) from peer {peer.Id} (error #{errorCount})");
+                    }
+                    reader.Recycle();
+                    if (errorCount >= MaxErrorsBeforeWarning)
+                    {
+                        BNL.LogError($"Peer {peer.Id} ({peer.Address}) has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
+                        BasisPlayerModeration.SendBackMessage(peer, "The server has detected an issue with your client or connection. You may experience problems.");
+                        _peerErrorCounts.TryRemove(peer.Id, out _);
+                    }
                     break;
             }
         }
         catch (Exception ex)
         {
-
-            BNL.LogError($"[Error] Exception in ProcessMessage\nPeer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}");
+            int errorCount = _peerErrorCounts.AddOrUpdate(peer.Id, 1, (_, c) => c + 1);
+            if (errorCount <= 5 || errorCount % 100 == 0)
+            {
+                BNL.LogError(
+                    $"[Error] Exception in ProcessMessage (error #{errorCount})\nPeer: {peer.Address}, Channel: {channel}, Delivery: {deliveryMethod}\nMessage: {ex.Message}\nStackTrace: {ex.StackTrace}"
+                );
+            }
             reader.Recycle();
+            if (errorCount >= MaxErrorsBeforeWarning)
+            {
+                BNL.LogError($"Peer {peer.Id} ({peer.Address}) has reached {errorCount} protocol errors. The server has detected an issue with this client or its connection.");
+                BasisPlayerModeration.SendBackMessage(peer, "The server has detected an issue with your client or connection. You may experience problems.");
+                _peerErrorCounts.TryRemove(peer.Id, out _);
+            }
         }
     }
-
-    private static bool TryRedirectFallChannel(NetPeer Peer,NetPacketReader reader, ref byte channel, DeliveryMethod deliveryMethod)
+    private static bool TryWithPermission(NetPeer peer, NetPacketReader reader, string permNode, out string uuid)
     {
-        if (channel == BasisNetworkCommons.FallChannel && deliveryMethod == DeliveryMethod.Unreliable)
+        if (!NetworkServer.AuthIdentity.NetIDToUUID(peer, out uuid))
         {
-            if (reader.TryGetByte(out byte newChannel))
-            {
-                ProcessMessage(Peer, reader, newChannel, deliveryMethod);
-            }
-            else
-            {
-                BNL.LogError($"FallChannel redirection failed, no data remains: {reader.AvailableBytes}");
-            }
-
+            BNL.LogError($"User UUID not found for peer: {peer}");
             reader.Recycle();
+            return false;
+        }
+
+        // Allow if they have the specific node, or admin, or global wildcard
+        if (PermissionIntegration.HasValidRequirement(uuid, permNode))
+        {
             return true;
         }
 
+        BNL.LogError($"Unauthorized access attempt by UUID: {uuid} for {permNode}");
+        reader.Recycle();
         return false;
     }
-    private static void HandleAdminResourceAction(NetPeer peer, NetPacketReader reader, Action<NetPacketReader, NetPeer> action)
+
+    private static void HandlePermitted(NetPeer peer, NetPacketReader reader, string permNode, Action action)
     {
-        if (!NetworkServer.AuthIdentity.NetIDToUUID(peer, out string uuid))
+        if (TryWithPermission(peer, reader, permNode, out _))
         {
-            BNL.LogError($"User UUID not found for peer: {peer}");
-            return;
+            action();
         }
-
-        if (!NetworkServer.AuthIdentity.IsNetPeerAdmin(uuid))
-        {
-            BNL.LogError($"Unauthorized admin access attempt by UUID: {uuid}");
-            return;
-        }
-
-        action(reader, peer);
     }
 }

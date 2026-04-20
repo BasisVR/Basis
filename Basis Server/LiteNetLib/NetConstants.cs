@@ -39,10 +39,11 @@ namespace LiteNetLib
     {
         //can be tuned
         public const int DefaultWindowSize = 128;
-        public const int SocketBufferSize = 8 * 1024 * 1024; //8mb
+        public const int SocketBufferSize = 32 * 1024 * 1024; //32mb — needed for 1000+ player servers
         public const int SocketTTL = 255;
 
         public const int HeaderSize = 1;
+        public const int UnreliableHeaderSize = 2;
         public const int ChanneledHeaderSize = 4;
         public const int FragmentHeaderSize = 6;
         public const int FragmentedHeaderTotalSize = ChanneledHeaderSize + FragmentHeaderSize;
@@ -53,6 +54,8 @@ namespace LiteNetLib
         internal const int ProtocolId = 13;
         internal const int MaxUdpHeaderSize = 68;
         internal const int ChannelTypeCount = 4;
+        internal const int FragmentedChannelsCount = 2;
+        internal const int MaxFragmentsInWindow = DefaultWindowSize / 2;
 
         internal static readonly int[] PossibleMtu =
         {
@@ -68,7 +71,7 @@ namespace LiteNetLib
         //Max possible single packet size
         public static readonly int InitialMtu = PossibleMtu[0];
         public static readonly int MaxPacketSize = PossibleMtu[PossibleMtu.Length - 1];
-        public static readonly int MaxUnreliableDataSize = MaxPacketSize - HeaderSize;
+        public static readonly int MaxUnreliableDataSize = MaxPacketSize - UnreliableHeaderSize;
 
         //peer specific
         public const byte MaxConnectionNumber = 4;

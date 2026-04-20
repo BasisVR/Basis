@@ -14,7 +14,7 @@ namespace Basis.Network.Server.Ownership
         public static readonly object LockObject = new object();  // For synchronized multi-step operations
         public static void SendOutOwnershipInformation(NetPeer Peer)
         {
-            NetDataWriter Writer = new NetDataWriter(true, 2);
+            NetDataWriter Writer = NetworkServer.RentWriter();
             OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
             foreach (KeyValuePair<string, ushort> Ownership in ownershipByObjectId)
             {
@@ -24,6 +24,7 @@ namespace Basis.Network.Server.Ownership
                 NetworkServer.TrySend(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
                 Writer.Reset();
             }
+            NetworkServer.ReturnWriter(Writer);
         }
         public static void OwnershipResponse(NetPacketReader Reader, NetPeer Peer)
         {
@@ -34,11 +35,12 @@ namespace Basis.Network.Server.Ownership
             //the goal here is to make it so ownership understanding has to be requested.
             //once a ownership has been requested there good for life or when a ownership switch happens.
             NetworkRequestNewOrExisting(ownershipTransferMessage, out ushort currentOwner);
-            NetDataWriter Writer = new NetDataWriter(true, 2);
+            NetDataWriter Writer = NetworkServer.RentWriter();
             ownershipTransferMessage.playerIdMessage.playerID = currentOwner;
             ownershipTransferMessage.Serialize(Writer);
             BNL.Log("OwnershipResponse " + currentOwner + " for " + ownershipTransferMessage.playerIdMessage.playerID);
             NetworkServer.TrySend(Peer, Writer, BasisNetworkCommons.GetCurrentOwnerRequestChannel, DeliveryMethod.ReliableOrdered);
+            NetworkServer.ReturnWriter(Writer);
         }
         /// <summary>
         /// this api removes a owner from the object,
@@ -59,10 +61,10 @@ namespace Basis.Network.Server.Ownership
                     {
                         if (RemoveObject(ownershipTransferMessage.ownershipID))
                         {
-                            NetDataWriter Writer = new NetDataWriter(true);
+                            NetDataWriter Writer = NetworkServer.RentWriter();
                             ownershipTransferMessage.Serialize(Writer);
-                            NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-                            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, peers, DeliveryMethod.ReliableOrdered);
+                            NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
+                            NetworkServer.ReturnWriter(Writer);
                         }
                         else
                         {
@@ -90,7 +92,7 @@ namespace Basis.Network.Server.Ownership
             Reader.Recycle();
 
             ushort ClientId = (ushort)Peer.Id;
-            NetDataWriter Writer = new NetDataWriter(true, 2);
+            NetDataWriter Writer = NetworkServer.RentWriter();
             //all clients need to know about a ownership switch
             if (SwitchOwnership(ownershipTransferMessage.ownershipID, ClientId))
             {
@@ -98,8 +100,7 @@ namespace Basis.Network.Server.Ownership
                 ownershipTransferMessage.Serialize(Writer);
 
                 BNL.Log("OwnershipResponse " + ownershipTransferMessage.ownershipID + " for " + ownershipTransferMessage.playerIdMessage);
-                NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, peers, DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
             }
             else
             {
@@ -107,10 +108,11 @@ namespace Basis.Network.Server.Ownership
                 //the goal here is to make it so ownership understanding has to be requested.
                 //once a ownership has been requested there good for life or when a ownership switch happens.
                 NetworkRequestNewOrExisting(ownershipTransferMessage, out ushort currentOwner);
+                ownershipTransferMessage.playerIdMessage.playerID = currentOwner;
                 ownershipTransferMessage.Serialize(Writer);
-                NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
-                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, peers, DeliveryMethod.ReliableOrdered);
+                NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.ChangeCurrentOwnerRequestChannel, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
             }
+            NetworkServer.ReturnWriter(Writer);
         }
         /// <summary>
         /// Requests either new or existing ownership with thread safety and rollback.
@@ -255,7 +257,8 @@ namespace Basis.Network.Server.Ownership
                     return;
                 }
                 OwnershipTransferMessage ownershipTransferMessage = new OwnershipTransferMessage();
-                NetDataWriter Writer = new NetDataWriter(true);
+                NetDataWriter Writer = NetworkServer.RentWriter();
+                NetPeer[] peers = NetworkServer.PeerSnapshot;
                 foreach (string OwnershipId in objectsToRemove)
                 {
                     if (ownershipByObjectId.TryRemove(OwnershipId, out ushort OwnerID))
@@ -266,10 +269,10 @@ namespace Basis.Network.Server.Ownership
                         ownershipTransferMessage.ownershipID = OwnershipId;
 
                         ownershipTransferMessage.Serialize(Writer);
-                        NetPeer[] peers = NetworkServer.AuthenticatedPeers.Values.ToArray();
                         NetworkServer.BroadcastMessageToClients(Writer, BasisNetworkCommons.RemoveCurrentOwnerRequestChannel, peers, DeliveryMethod.ReliableOrdered);
                     }
                 }
+                NetworkServer.ReturnWriter(Writer);
                 BNL.Log($"Player {playerId}'s ownership removed from {objectsToRemove.Count} objects.");
             }
         }

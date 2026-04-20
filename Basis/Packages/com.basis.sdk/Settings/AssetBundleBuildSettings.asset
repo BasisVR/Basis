@@ -21,10 +21,15 @@ MonoBehaviour:
   BasisMetaEncryptedExtension: .BEM
   BasisEncryptedExtension: .BEE
   ProtectedPasswordFileName: dontuploadmepassword
+  UserSelectedPassword: 
+  UseCustomPassword: 0
   useCompression: 1
   GenerateImage: 1
   OpenFolderOnDisc: 1
+  RebakeOcclusionCulling: 1
   BuildTarget: 19
   BuildAssetBundleOptions: 256
   AssetBundleDirectory: ./AssetBundles
-  selectedTargets: 130000000d00000018000000
+  AssetBundleUnCombined: ./AssetCache
+  selectedTargets: 130000001800000002000000090000000d000000
+  RebakeOcclusionCullingInThese: 14000000090000000d000000

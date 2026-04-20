@@ -1,6 +1,8 @@
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
+using Basis.Scripts.Networking;
+using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Scripts.TransformBinders;
 using SteamAudio;
 using UnityEngine;
@@ -23,7 +25,8 @@ namespace Basis.Scripts.Drivers
 
         /// <summary>Singleton instance set in <see cref="OnEnable"/>.</summary>
         public static BasisLocalCameraDriver Instance;
-
+        /// <summary>Main camera used for local rendering.</summary>
+        public static Camera CameraInstance;
         /// <summary>Main camera used for local rendering.</summary>
         public Camera Camera;
 
@@ -81,18 +84,25 @@ namespace Basis.Scripts.Drivers
         /// <summary>Parent transform for UI elements anchored to the camera (e.g., mic icon).</summary>
         public Transform ParentOfUI;
 
+#if !BASIS_DISABLE_MICROPHONE
         /// <summary>Driver for microphone icon visuals and layout near the camera.</summary>
         [SerializeField]
         public BasisLocalMicrophoneIconDriver microphoneIconDriver = new BasisLocalMicrophoneIconDriver();
+#endif
+
+        /// <summary>Driver for avatar preview camera and HUD display.</summary>
+        [SerializeField]
+        public BasisLocalAvatarPreviewDriver avatarPreviewDriver = new BasisLocalAvatarPreviewDriver();
 
         /// <summary>
         /// World forward vector of the active camera instance, or zero if no instance exists.
+        /// Derived from the cached <see cref="Rotation"/> to avoid a native transform PInvoke per call.
         /// </summary>
         public static Vector3 Forward()
         {
             if (HasInstance)
             {
-                return Instance.transform.forward;
+                return Rotation * Vector3.forward;
             }
             else
             {
@@ -107,7 +117,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.up;
+                return Rotation * Vector3.up;
             }
             else
             {
@@ -122,7 +132,7 @@ namespace Basis.Scripts.Drivers
         {
             if (HasInstance)
             {
-                return Instance.transform.right;
+                return Rotation * Vector3.right;
             }
             else
             {
@@ -171,30 +181,40 @@ namespace Basis.Scripts.Drivers
                 Instance = this;
                 HasInstance = true;
             }
-
-            CameraInstanceID = Camera.GetInstanceID();
+            CameraInstance = Camera;
+            CameraInstanceID = Camera.GetEntityId();
 
             // Set initial scale from player height and set the clip planes.
             UpdateCameraScale();
 
             if (HasEvents == false)
             {
+#if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.OnPausedAction += microphoneIconDriver.OnPausedEvent;
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio += microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence += microphoneIconDriver.MicrophoneNotTransmitting;
+                BasisNetworkModeration.OnShoutModeChanged += OnShoutModeChangedForIcon;
+#else
+                ParentOfUI.gameObject.SetActive(false);
+#endif
 
                 RenderPipelineManager.beginCameraRendering += BeginCameraRendering;
                 RenderPipelineManager.endCameraRendering += EndCameraRendering;
 
                 BasisDeviceManagement.OnBootModeChanged += OnModeSwitch;
                 BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateCameraScale;
+                BasisLocalPlayer.OnLocalAvatarChanged += UpdateCameraScale;
 
                 InstanceExists?.Invoke();
                 HasEvents = true;
             }
 
-            microphoneIconDriver.Initalize(this);
-            microphoneIconDriver.UpdateMicrophoneVisuals(BasisLocalMicrophoneDriver.isPaused, false);
+#if !BASIS_DISABLE_MICROPHONE
+            microphoneIconDriver.HardEnableVisuals(false);
+            BasisLocalMicrophoneDriver.OnInitializedAction += OnMicrophoneDriverInitialized;
+#endif
+
+            avatarPreviewDriver.Initialize(this);
 
 #if STEAMAUDIO_ENABLED
             if (SteamAudioListener != null)
@@ -202,10 +222,6 @@ namespace Basis.Scripts.Drivers
                 SteamAudioManager.NotifyAudioListenerChanged();
             }
 #endif
-            microphoneIconDriver.SpriteRendererIcon.gameObject.SetActive(true);
-
-            // Cache icon half-size in camera-local RU for layout
-            microphoneIconDriver.iconHalfRU = microphoneIconDriver.GetIconHalfSizeRUInCameraSpace(Camera, ParentOfUI);
         }
 
         /// <summary>
@@ -213,11 +229,17 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void OnDestroy()
         {
+            avatarPreviewDriver.Cleanup();
+            CameraInstance = null;
             RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
             RenderPipelineManager.endCameraRendering -= EndCameraRendering;
             BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
             BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateCameraScale;
+            BasisLocalPlayer.OnLocalAvatarChanged -= UpdateCameraScale;
+#if !BASIS_DISABLE_MICROPHONE
             BasisLocalMicrophoneDriver.OnPausedAction -= microphoneIconDriver.OnPausedEvent;
+            BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
+#endif
             HasEvents = false;
             HasInstance = false;
         }
@@ -227,19 +249,23 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void OnDisable()
         {
-            if (BasisLocalAvatarDriver.References != null && BasisLocalAvatarDriver.References.head != null)
+            if (BasisLocalAvatarDriver.Mapping != null && BasisLocalAvatarDriver.Mapping.head != null)
             {
-                BasisLocalAvatarDriver.References.head.localScale = BasisLocalAvatarDriver.HeadScale;
+                BasisLocalAvatarDriver.Mapping.head.localScale = BasisLocalAvatarDriver.HeadScale;
             }
             if (HasEvents)
             {
                 RenderPipelineManager.beginCameraRendering -= BeginCameraRendering;
                 RenderPipelineManager.endCameraRendering -= EndCameraRendering;
                 BasisDeviceManagement.OnBootModeChanged -= OnModeSwitch;
+#if !BASIS_DISABLE_MICROPHONE
                 BasisLocalMicrophoneDriver.MainThreadOnHasAudio -= microphoneIconDriver.MicrophoneTransmitting;
                 BasisLocalMicrophoneDriver.MainThreadOnHasSilence -= microphoneIconDriver.MicrophoneNotTransmitting;
+                BasisNetworkModeration.OnShoutModeChanged -= OnShoutModeChangedForIcon;
+#endif
                 HasEvents = false;
             }
+            avatarPreviewDriver.Cleanup();
         }
 
         /// <summary>
@@ -252,8 +278,30 @@ namespace Basis.Scripts.Drivers
             {
                 Camera.fieldOfView = DefaultCameraFov;
             }
-            UpdateCameraScale();
+            UpdateCameraScale(BasisHeightDriver.HeightModeChange.OnTpose);
         }
+
+#if !BASIS_DISABLE_MICROPHONE
+        /// <summary>
+        /// Initializes microphone icon visibility and layout when the microphone driver signals it is ready.
+        /// </summary>
+        /// <param name="initialized"></param>
+        private void OnMicrophoneDriverInitialized(bool initialized)
+        {
+            if (initialized)
+            {
+                microphoneIconDriver.Initalize(this);
+            }
+            microphoneIconDriver.HardEnableVisuals(initialized);
+        }
+
+        private void OnShoutModeChangedForIcon(ushort playerId, bool enabled)
+        {
+            if (BasisNetworkPlayer.LocalPlayer == null || playerId != BasisNetworkPlayer.LocalPlayer.playerId)
+                return;
+            microphoneIconDriver.OnShoutModeChanged();
+        }
+#endif
 
         /// <summary>
         /// Gets world-space camera transform or returns zero/identity when no instance exists.
@@ -277,20 +325,22 @@ namespace Basis.Scripts.Drivers
         {
             DesiredClipFar = clipFar;
             DesiredClipNear = clipNear;
-            UpdateCameraScale();
+            UpdateCameraScale(BasisHeightDriver.HeightModeChange.OnTpose);
         }
-
+        private void UpdateCameraScale()
+        {
+            UpdateCameraScale(BasisHeightDriver.HeightModeChange.OnTpose);
+        }
         /// <summary>
         /// Applies scale from the player's height so the camera’s local scale matches avatar scale.
         /// </summary>
-        public void UpdateCameraScale()
+        public void UpdateCameraScale(BasisHeightDriver.HeightModeChange HeightModeChange)
         {
-            // the normal users scale is 1.6m; scale camera with selected avatar scale
-            this.transform.localScale = Vector3.one * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
+            this.transform.localScale = Vector3.one * BasisHeightDriver.DeviceScale;
             // Ensure that the near clip plane is never far enough away that the avatar body clips through it.
             // Critically we need to avoid small player heights causing the UI to become unusable due to clipping.
             // At the same time, we need to pull in the far clip plane on mobile platforms to avoid depth buffer precision issues.
-            float eyeHeightMeters = Mathf.Max(LocalPlayer.CurrentHeight.SelectedPlayerHeight, 1e-4f);
+            float eyeHeightMeters = Mathf.Max(BasisHeightDriver.SelectedScaledPlayerHeight, 1e-4f);
             if (BasisDeviceManagement.IsMobileHardware())
             {
                 Camera.nearClipPlane = Mathf.Clamp(DesiredClipNear, eyeHeightMeters / 32.0f, eyeHeightMeters / 16.0f);
@@ -308,9 +358,9 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         private void EndCameraRendering(ScriptableRenderContext context, Camera camera)
         {
-            if (BasisLocalAvatarDriver.References.Hashead)
+            if (BasisLocalAvatarDriver.Mapping.Hashead)
             {
-                if (Camera.GetInstanceID() == CameraInstanceID)
+                if (Camera.GetEntityId() == CameraInstanceID)
                 {
                     BasisLocalAvatarDriver.ScaleHeadToNormal();
                 }
@@ -322,35 +372,50 @@ namespace Basis.Scripts.Drivers
         /// </summary>
         public void BeginCameraRendering(ScriptableRenderContext context, Camera Camera)
         {
-            if (BasisLocalAvatarDriver.References.Hashead)
+            if (BasisLocalAvatarDriver.Mapping.Hashead)
             {
-                if (Camera.GetInstanceID() == CameraInstanceID)
+                if (Camera.GetEntityId() == CameraInstanceID)
                 {
-                    this.transform.GetPositionAndRotation(out Position, out Rotation);
                     BasisLocalAvatarDriver.ScaleheadToZero();
+                }
+            }
+        }
 
-                    if (CameraData.allowXRRendering)
+        public void Simulate()
+        {
+            if (BasisLocalAvatarDriver.Mapping.Hashead)
+            {
+                this.transform.GetPositionAndRotation(out Position, out Rotation);
+                if (CameraData.allowXRRendering)
+                {
+                    #if !BASIS_DISABLE_MICROPHONE
+                    ParentOfUI.localPosition = microphoneIconDriver.CalculateClampedLocal(Camera, Position);
+#endif
+                }
+                else
+                {
+                    if (BasisDeviceManagement.IsMobileHardware())
                     {
-                        ParentOfUI.localPosition = microphoneIconDriver.CalculateClampedLocal(Camera, Position);
+                        Vector3 viewportPos = MobileMicrophoneViewportPosition;
+                        viewportPos.x += microphoneIconDriver.IconPositionOffset.x;
+                        viewportPos.y += microphoneIconDriver.IconPositionOffset.y;
+                        Vector3 worldPoint = Camera.ViewportToWorldPoint(viewportPos);
+                        // assume this transform is the camera parent
+                        Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
+                        ParentOfUI.localPosition = localPos * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
                     }
                     else
                     {
-                        if (BasisDeviceManagement.IsMobileHardware())
-                        {
-                            Vector3 worldPoint = Camera.ViewportToWorldPoint(MobileMicrophoneViewportPosition);
-                            // assume this transform is the camera parent
-                            Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
-                            ParentOfUI.localPosition = localPos * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                        }
-                        else
-                        {
-                            Vector3 worldPoint = Camera.ViewportToWorldPoint(DesktopMicrophoneViewportPosition);
-                            // assume this transform is the camera parent
-                            Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
-                            ParentOfUI.localPosition = localPos * LocalPlayer.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-                        }
+                        Vector3 viewportPos = DesktopMicrophoneViewportPosition;
+                        viewportPos.x += microphoneIconDriver.IconPositionOffset.x;
+                        viewportPos.y += microphoneIconDriver.IconPositionOffset.y;
+                        Vector3 worldPoint = Camera.ViewportToWorldPoint(viewportPos);
+                        // assume this transform is the camera parent
+                        Vector3 localPos = this.transform.InverseTransformPoint(worldPoint);
+                        ParentOfUI.localPosition = localPos * BasisHeightDriver.PlayerToDefaultRatioScaledWithAvatarScale;
                     }
                 }
+                avatarPreviewDriver.Simulate();
             }
         }
 

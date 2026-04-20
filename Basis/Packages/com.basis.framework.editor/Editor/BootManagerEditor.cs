@@ -9,7 +9,7 @@ namespace Basis.Scripts.Boot_Sequence
     {
         private static bool isBootSequenceEnabled;
 
-        [MenuItem("Basis/Boot Sequence/Toggle Basis Booting")]
+        [MenuItem("Basis/Debug/Toggle Boot Sequence")]
         public static void ShowWindow() => GetWindow<BootManagerEditor>("Boot Sequence Toggle");
 
         private void OnEnable()

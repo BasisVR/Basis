@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace Basis.BasisUI
 {
@@ -13,9 +14,14 @@ namespace Basis.BasisUI
         public static class TabGroupStyles
         {
             public static string Vertical =>
-                "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/Tab Group Vertical.prefab";
+                "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical.prefab";
             public static string Horizontal =>
-                "Packages/com.basis.framework/BasisUI/Prefabs/Panel Elements/Tab Group Horizontal.prefab";
+                "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal.prefab";
+
+            public static string HorizontalNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal - No Background.prefab";
+            public static string VerticalNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical - No Background.prefab";
+            public static string VerticalStackedNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Vertical Stacked - No Background Variant.prefab";
+            public static string HorizontalStackedNoBackground => "Packages/com.basis.sdk/Prefabs/Panel Elements/Tab Group Horizontal Stacked - No Background Variant.prefab";
         }
 
 
@@ -28,6 +34,10 @@ namespace Basis.BasisUI
                     return CreateNew<PanelTabGroup>(TabGroupStyles.Vertical, parent);
                 case LayoutDirection.Horizontal:
                     return CreateNew<PanelTabGroup>(TabGroupStyles.Horizontal, parent);
+                case LayoutDirection.HorizontalNoBackground:
+                    return CreateNew<PanelTabGroup>(TabGroupStyles.HorizontalNoBackground, parent);
+                case LayoutDirection.VerticalNoBackground:
+                    return CreateNew<PanelTabGroup>(TabGroupStyles.VerticalNoBackground, parent);
             }
         }
 
@@ -45,9 +55,13 @@ namespace Basis.BasisUI
             }
         }
 
+        /// <summary>
+        /// Adds a tab to the group. The onSelected action is called when the tab is selected, and the page is the content that will be shown when the tab is selected.
+        /// </summary>
         public void AddTab(string tabName, Action onSelected, PanelTabPage page)
         {
             PanelButton tabButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Tab, TabButtonParent);
+
             SelectionButtons.Add(tabButton);
 
             tabButton.Descriptor.SetTitle(tabName);
@@ -58,9 +72,36 @@ namespace Basis.BasisUI
             ApplyValue();
         }
 
+        /// <summary>
+        /// Adds a tab to the group. The onSelected action is called when the tab is selected, and the page is the content that will be shown when the tab is selected. The tab also has an icon that can be set via an addressable asset reference.
+        /// </summary>>
+        public void AddTab(string tabName, string iconAddress, Action onSelected, PanelTabPage page)
+        {
+            PanelButton tabButton = PanelButton.CreateNew(PanelButton.ButtonStyles.Tab, TabButtonParent);
+
+            SelectionButtons.Add(tabButton);
+
+            tabButton.Descriptor.SetTitle(tabName);
+            tabButton.Descriptor.SetIcon(iconAddress);
+            tabButton.OnClicked += onSelected;
+            tabButton.OnClicked += () => OnTabSelected(tabButton);
+
+            Pages.Add(page);
+            ApplyValue();
+        }
+
         public PanelButton AddExtraAction(string actionName, Action onClicked)
         {
             PanelButton actionButton = PanelButton.CreateNew(ExtrasContainer);
+            actionButton.Descriptor.SetTitle(actionName);
+            actionButton.OnClicked += onClicked;
+            return actionButton;
+        }
+
+        public PanelButton AddExtraAction(string actionName, Action onClicked, Vector2 size)
+        {
+            PanelButton actionButton = PanelButton.CreateNew(ExtrasContainer);
+            actionButton.SetSize(size);
             actionButton.Descriptor.SetTitle(actionName);
             actionButton.OnClicked += onClicked;
             return actionButton;

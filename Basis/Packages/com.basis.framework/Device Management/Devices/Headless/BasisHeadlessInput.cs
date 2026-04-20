@@ -168,14 +168,42 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
 
         // ----------------------------------------------------------------------
 
+        private float GetBaseUnscaledHeight()
+        {
+            float height = BasisHeightDriver.SelectedUnScaledPlayerHeight + BasisHeightDriver.AdditionalPlayerHeight;
+            if (float.IsNaN(height) || float.IsInfinity(height) || height <= 0f)
+            {
+                height = BasisHeightDriver.FallbackHeightInMeters;
+            }
+            return height;
+        }
+
+        private float GetUnscaledHeadHeightForCrouch()
+        {
+            if (Control == null)
+            {
+                return GetBaseUnscaledHeight();
+            }
+
+            float headHeight = Control.TposeLocalScaled.position.y;
+            float scale = BasisHeightDriver.DeviceScale;
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0f)
+            {
+                return headHeight;
+            }
+
+            return headHeight / scale;
+        }
+
         public void Initialize(string ID = "Desktop Eye", string subSystems = "BasisDesktopManagement")
         {
             BasisDebug.Log("Initializing Avatar Eye", BasisDebug.LogTag.Input);
 
-            float height = BasisLocalPlayer.Instance?.CurrentHeight.SelectedPlayerHeight ?? BasisLocalHeight.FallbackSizeInMeters;
+            float height = GetBaseUnscaledHeight();
 
-            ScaledDeviceCoord.position = new Vector3(0, height, 0);
-            ScaledDeviceCoord.rotation = Quaternion.identity;
+            UnscaledDeviceCoord.position = new Vector3(0, height, 0);
+            UnscaledDeviceCoord.rotation = Quaternion.identity;
+            ConvertToScaledDeviceCoord();
 
             InitalizeTracking(ID, ID, subSystems, true, BasisBoneTrackedRole.CenterEye);
 
@@ -226,7 +254,7 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             BasisLocalPlayer.OnLocalAvatarChanged -= PlayerInitialized;
         }
         public bool ForceJump = false;
-        public override void DoPollData()
+        public override void LateDoPollData()
         {
             if (!hasRoleAssigned) return;
 
@@ -255,14 +283,14 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
 
                 CurrentInputState.Trigger = 0f;
                 CurrentInputState.SecondaryTrigger = 0f;
-                CurrentInputState.Primary2DAxis = Vector2.zero;
-                CurrentInputState.Secondary2DAxis = Vector2.zero;
+                CurrentInputState.Primary2DAxisRaw = Vector2.zero;
+                CurrentInputState.Secondary2DAxisRaw = Vector2.zero;
 
                 // maintain current head rotation (no extra spin)
                 UnscaledDeviceCoord.rotation = currentRotation;
 
                 // maintain height with crouch compensation
-                float baseHeightLocked = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight;
+                float baseHeightLocked = GetBaseUnscaledHeight();
                 Vector3 posLocked = new Vector3(0, baseHeightLocked, 0);
 
                 if (!BasisLocks.GetContext(BasisLocks.Crouching))
@@ -270,12 +298,13 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                     float crouchMin = charDriverLocked.MinimumCrouchPercent;
                     float crouchBlend = charDriverLocked.CrouchBlend;
                     float heightAdjust = (1f - crouchMin) * crouchBlend + crouchMin;
-                    posLocked.y -= Control.TposeLocalScaled.position.y * (1f - heightAdjust);
+                    float headHeightUnscaled = GetUnscaledHeadHeightForCrouch();
+                    posLocked.y -= headHeightUnscaled * (1f - heightAdjust);
                 }
 
                 UnscaledDeviceCoord.position = posLocked;
-                ScaledDeviceCoord.position = posLocked;
-                ScaledDeviceCoord.rotation = currentRotation;
+                UnscaledDeviceCoord.rotation = currentRotation;
+                ConvertToScaledDeviceCoord();
 
                 ControlOnlyAsDevice();
                 ComputeRaycastDirection(ScaledDeviceCoord.position, ScaledDeviceCoord.rotation, Quaternion.identity);
@@ -358,12 +387,12 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
             // --- Input state: subtle/noisy but calmer ---
             CurrentInputState.Trigger = 0f;          // disable spammy triggers in headless
             CurrentInputState.SecondaryTrigger = 0f; // keep quiet unless you need them
-            CurrentInputState.Primary2DAxis = currentPrimary2DAxis;
-            CurrentInputState.Secondary2DAxis = currentSecondary2DAxis;
+            CurrentInputState.Primary2DAxisRaw = currentPrimary2DAxis;
+            CurrentInputState.Secondary2DAxisRaw = currentSecondary2DAxis;
 
             // --- Head pose at eye height with crouch compensation ---
             UnscaledDeviceCoord.rotation = currentRotation;
-            float baseHeight = BasisLocalPlayer.Instance.CurrentHeight.SelectedPlayerHeight;
+            float baseHeight = GetBaseUnscaledHeight();
             Vector3 pos = new Vector3(0, baseHeight, 0);
 
             if (!BasisLocks.GetContext(BasisLocks.Crouching))
@@ -371,12 +400,13 @@ namespace Basis.Scripts.Device_Management.Devices.Headless
                 float crouchMin = charDriver.MinimumCrouchPercent;
                 float crouchBlend = charDriver.CrouchBlend;
                 float heightAdjust = (1f - crouchMin) * crouchBlend + crouchMin;
-                pos.y -= Control.TposeLocalScaled.position.y * (1f - heightAdjust);
+                float headHeightUnscaled = GetUnscaledHeadHeightForCrouch();
+                pos.y -= headHeightUnscaled * (1f - heightAdjust);
             }
 
             UnscaledDeviceCoord.position = pos;
-            ScaledDeviceCoord.position = pos;
-            ScaledDeviceCoord.rotation = currentRotation;
+            UnscaledDeviceCoord.rotation = currentRotation;
+            ConvertToScaledDeviceCoord();
 
             // Drive our CenterEye bone
             ControlOnlyAsDevice();

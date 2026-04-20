@@ -27,10 +27,16 @@ namespace Basis.Scripts.BasisCharacterController
                 ctx.UpdateCrouchBlend(ctx.CrouchBlendDelta);
             }
 
-            // Flatten head yaw for input space
-            var rot = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation.eulerAngles;
-            rot.x = rot.z = 0;
-            Quaternion facing = Quaternion.Euler(rot);
+            // Project head forward onto horizontal plane (avoids gimbal lock near ±90° pitch)
+            Quaternion headRot = BasisLocalBoneDriver.HeadControl.OutgoingWorldData.rotation;
+            Vector3 flatForward = headRot * Vector3.forward;
+            flatForward.y = 0f;
+            if (flatForward.sqrMagnitude < 0.0001f)
+            {
+                flatForward = -(headRot * Vector3.up);
+                flatForward.y = 0f;
+            }
+            Quaternion facing = Quaternion.LookRotation(flatForward.normalized, Vector3.up);
 
             Vector3 inputDir = new Vector3(ctx.MovementVector.x, 0, ctx.MovementVector.y).normalized;
 
@@ -40,11 +46,13 @@ namespace Basis.Scripts.BasisCharacterController
             Vector3 move = facing * inputDir * ctx.CurrentSpeed * dt;
 
             // Ground & gravity
-            ctx.GroundCheck();
+            ctx.GroundCheck(dt);
 
-            if (ctx.groundedPlayer && ctx.HasJumpAction && !ctx.MovementLock)
+
+            if (ctx.CanJump && ctx.HasJumpAction && !ctx.MovementLock)
             {
                 ctx.currentVerticalSpeed = Mathf.Sqrt(ctx.jumpHeight * -2f * ctx.gravityValue);
+                ctx.coyoteTimeCounter = 0f; // Consume coyote time to prevent double jumps
                 ctx.JustJumped?.Invoke();
             }
             else
@@ -59,7 +67,8 @@ namespace Basis.Scripts.BasisCharacterController
 
             if (ctx.MovementLock)
             {
-                move = Vector3.zero;
+                move.x = 0;
+                move.z = 0;
             }
 
             ctx.Flags = ctx.characterController.Move(move);

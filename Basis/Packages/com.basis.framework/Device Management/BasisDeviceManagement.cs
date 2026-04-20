@@ -1,3 +1,5 @@
+using Basis.BasisUI;
+using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisSdk.Helpers;
 using Basis.Scripts.Command_Line_Args;
 using Basis.Scripts.Device_Management.Devices;
@@ -5,17 +7,19 @@ using Basis.Scripts.Device_Management.Devices.Desktop;
 using Basis.Scripts.Player;
 using Basis.Scripts.TransformBinders;
 using Basis.Scripts.TransformBinders.BoneControl;
-using LiteNetLib.Utils;
+using Basis.Scripts.UI.UI_Panels;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Threading.Tasks;
 using uLipSync;
 using UnityEngine;
 using UnityEngine.ResourceManagement.ResourceProviders;
-
+using static Basis.Scripts.UI.UI_Panels.BasisDataStoreAvatarKeys;
+using static Basis.Scripts.UI.UI_Panels.BasisDataStoreItemKeys;
 namespace Basis.Scripts.Device_Management
 {
     /// <summary>
@@ -25,6 +29,7 @@ namespace Basis.Scripts.Device_Management
     /// This MonoBehaviour is intended to exist exactly once in a scene. Use <see cref="Instance"/> for access.
     /// It initializes players, loads settings/bindings, restores previously connected devices, and manages XR lifecycle.
     /// </remarks>
+    [DefaultExecutionOrder(-1000)]
     public class BasisDeviceManagement : MonoBehaviour
     {
         /// <summary>
@@ -104,6 +109,10 @@ namespace Basis.Scripts.Device_Management
         public static Action OnDeviceManagementLoop;
 
         /// <summary>
+        /// a disabled gameobject that we can spawn things under for security
+        /// </summary>
+        public GameObject CreationGameobject;
+        /// <summary>
         /// Command-line arguments baked into the build, used when platform args are unavailable (e.g., mobile).
         /// </summary>
         [SerializeField] public string[] BakedInCommandLineArgs = Array.Empty<string>();
@@ -117,6 +126,22 @@ namespace Basis.Scripts.Device_Management
         /// UI press/click audio.
         /// </summary>
         [SerializeField] public AudioClip pressUI;
+
+        /// <summary>
+        /// Audio played when a chat text message is received from another player.
+        /// If left unassigned, a default notification tone is generated at runtime.
+        /// </summary>
+        [SerializeField] public AudioClip ChatNotificationUI;
+
+        /// <summary>
+        /// Camera shutter sound played when a photo is captured.
+        /// </summary>
+        [SerializeField] public AudioClip CameraShutterSound;
+
+        /// <summary>
+        /// Countdown tick sound played each second during the camera timer.
+        /// </summary>
+        [SerializeField] public AudioClip CameraCountdownTickSound;
 
         /// <summary>
         /// Live collection of all input devices currently managed by this system.
@@ -163,6 +188,22 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         public Profile LipSyncProfile;
 
+        /// <summary>
+        /// The VR mode that was active before a soft swap switched to Desktop.
+        /// Used to restore the correct VR mode when the headset is detected again.
+        /// </summary>
+        public string AutoSwapPreviousVRMode = string.Empty;
+
+        /// <summary>
+        /// True when the system is in Desktop mode via a soft swap, with the XR runtime still alive.
+        /// </summary>
+        public bool IsSoftSwapped = false;
+
+        /// <summary>
+        /// Guard flag to prevent overlapping auto swap operations.
+        /// </summary>
+        private bool _autoSwapInProgress = false;
+
         #region Unity Lifecycle
 
         /// <summary>
@@ -170,11 +211,20 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         private async void Start()
         {
-            if (BasisHelpers.CheckInstance(Instance)) Instance = this;
+            if (BasisHelpers.CheckInstance(Instance))
+            {
+                Instance = this;
+            }
 
             StaticCurrentMode = BasisConstants.None;
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-
+            BasisSettingsSystem.Initalize();
+            // Localization must initialize before BasisSettingsDefaults so that
+            // auto-detection can see an empty settings dict on first run — any
+            // earlier binding constructor would write "en" as a default and
+            // defeat the HasSaveData("language") check.
+            Basis.BasisUI.BasisLocalization.Initialize();
+            BasisSettingsDefaults.LoadAll();
             try
             {
                 await Initialize();
@@ -190,25 +240,66 @@ namespace Basis.Scripts.Device_Management
         /// </summary>
         private void OnDestroy()
         {
+            CleanupAutoSwap();
             BasisXRManagement.DeInitalize();
             BasisPlayerFactory.DeInitalize();
             StopAllDevices();
             UnsubscribeEvents();
+            BasisUlipSyncDriver.DisposeShared();
+        }
+        public void Simulate()
+        {
+            int Count = BaseTypes.Count;
+            for (int Index = 0; Index < Count; Index++)
+            {
+                BasisBaseTypeManagement Sim = BaseTypes[Index];
+                if (Sim != null)
+                {
+                    Sim.Simulate();
+                }
+            }
         }
 
         #endregion
 
         #region Initialization
-
+        public static bool OnInitializationComplete = false;
         /// <summary>
         /// Initializes the device system, creates a local player, starts persistent devices, and switches to the default mode.
         /// </summary>
         /// <returns>A task that completes when initialization and bindings load are finished.</returns>
         public async Task Initialize()
         {
+
+            BasisAvatarFactory.Initalize();
             BasisPlayerFactory.Initalize();
             BasisXRManagement.Initalize();
             BasisCommandLineArgs.Initialize(BakedInCommandLineArgs, out ForcedDefault);
+            BasisUlipSyncDriver.Initialize(BasisDeviceManagement.Instance.LipSyncProfile);
+
+            //legacy!!! delete in a few months!
+            if (File.Exists(BasisDataStoreAvatarKeys.FilePath))
+            {
+                //lets try finding old avatars and then nuke there old data.
+                await BasisDataStoreAvatarKeys.LoadKeys();
+                await BasisDataStoreItemKeys.LoadKeys();
+
+                AvatarKey[] activeKeys = BasisDataStoreAvatarKeys.DisplayKeys();
+                foreach (AvatarKey Key in activeKeys)
+                {
+                    ItemKey ItemKey = new ItemKey
+                    {
+                        Url = Key.Url,
+                        Pass = Key.Pass,
+                        Mode = BundledContentHolder.Mode.Avatar,
+                        EmbeddedSettings = EmbeddedSettings.Default
+                    };
+
+                    await BasisDataStoreItemKeys.AddNewKey(ItemKey);
+                }
+
+                File.Delete(BasisDataStoreAvatarKeys.FilePath);
+            }
 
             await BasisPlayerFactory.CreateLocalPlayer(new InstantiationParameters(transform, true));
             StartAllStartIfPermanentlyExists();
@@ -218,7 +309,9 @@ namespace Basis.Scripts.Device_Management
 
             await BasisActionDriver.LoadBindings();
 
+            SetupAutoSwap();
             OnInitializationCompleted?.Invoke();
+            OnInitializationComplete = true;
         }
 
         #endregion
@@ -257,6 +350,33 @@ namespace Basis.Scripts.Device_Management
                 return;
             }
 
+            // Check whether we should use a soft swap (keep the XR runtime alive)
+            string swapMode = BasisSettingsSystem.LoadString("swap_mode", BasisSettingsDefaults.SwapMode_Shutdown);
+            bool useSoftSwap = !string.Equals(swapMode, BasisSettingsDefaults.SwapMode_Shutdown, StringComparison.OrdinalIgnoreCase);
+
+            if (useSoftSwap)
+            {
+                bool currentIsVR = IsCurrentModeVR();
+                bool newIsDesktop = string.Equals(newMode, BasisConstants.Desktop, StringComparison.Ordinal);
+                bool newIsVR = string.Equals(newMode, BasisConstants.OpenVRLoader, StringComparison.Ordinal) ||
+                               string.Equals(newMode, BasisConstants.OpenXRLoader, StringComparison.Ordinal);
+
+                // VR → Desktop: soft switch, keeping XR runtime alive
+                if (currentIsVR && newIsDesktop)
+                {
+                    await SoftSwitchToDesktop();
+                    return;
+                }
+
+                // Desktop (soft-swapped) → original VR mode: soft switch back
+                if (IsSoftSwapped && newIsVR && string.Equals(newMode, AutoSwapPreviousVRMode, StringComparison.Ordinal))
+                {
+                    await SoftSwitchToVR();
+                    return;
+                }
+            }
+
+            // Full swap (current default behavior)
             if (!string.Equals(StaticCurrentMode, BasisConstants.None, StringComparison.Ordinal))
             {
                 BasisDebug.Log($"Shutting down mode: {StaticCurrentMode}", BasisDebug.LogTag.Device);
@@ -286,6 +406,10 @@ namespace Basis.Scripts.Device_Management
         /// <param name="mode">The target mode used to select matching <see cref="BasisBaseTypeManagement"/> entries.</param>
         public async Task StartDevices(string mode)
         {
+            // Set mode BEFORE starting devices so subsystems (e.g. cursor locking)
+            // see the correct mode during initialization.
+            StaticCurrentMode = mode;
+
             if (TryFindBasisBaseTypeManagement(mode, out var matched))
             {
                 // Safely iterate and await each start
@@ -300,8 +424,9 @@ namespace Basis.Scripts.Device_Management
             }
 
             BasisSettingsSystem.LoadAllSettings();
+#if !BASIS_DISABLE_MICROPHONE
             SMDMicrophone.LoadInMicrophoneData(mode);
-            StaticCurrentMode = mode;
+#endif
             await BasisActionDriver.LoadBindings();
             BasisDebug.Log($"Loading mode: {mode}", BasisDebug.LogTag.Device);
         }
@@ -316,6 +441,8 @@ namespace Basis.Scripts.Device_Management
                 BaseTypes[i]?.AttemptStopSDK();
             }
 
+            IsSoftSwapped = false;
+            AutoSwapPreviousVRMode = string.Empty;
             StaticCurrentMode = BasisConstants.None;
             ShutDownXR();
         }
@@ -380,7 +507,7 @@ namespace Basis.Scripts.Device_Management
             return match.Count > 0 || string.Equals(name, BasisConstants.Exiting, StringComparison.Ordinal);
         }
 
-        #endregion
+#endregion
 
         #region Device Restore & Tracking
 
@@ -405,9 +532,17 @@ namespace Basis.Scripts.Device_Management
 
             AllInputDevices.Add(input);
 
-            if (RestoreDevice(input.SubSystemIdentifier, input.UniqueDeviceIdentifier, out var prev) && CheckBeforeOverride(prev))
+            if (RestoreDevice(input.SubSystemIdentifier, input.UniqueDeviceIdentifier, out var prev))
             {
-                StartCoroutine(RestoreInversetOffsets(input, prev));
+                if (CheckBeforeOverride(prev))
+                {
+                    BasisDebug.Log("Override Check Passed", BasisDebug.LogTag.Device);
+                    StartCoroutine(RestoreInversetOffsets(input, prev));
+                }
+                else
+                {
+                    BasisDebug.LogError("Existing Device Exist with this role!", BasisDebug.LogTag.Device);
+                }
             }
 
             return true;
@@ -420,13 +555,35 @@ namespace Basis.Scripts.Device_Management
         /// <param name="prev">The previously stored device metadata.</param>
         private IEnumerator RestoreInversetOffsets(BasisInput input, BasisStoredPreviousDevice prev)
         {
+            BasisDebug.Log("Waiting until end of frame for input", BasisDebug.LogTag.Device);
             yield return new WaitForEndOfFrame();
 
-            if (input != null && input.Control != null && CheckBeforeOverride(prev))
+            if (input != null)
             {
                 BasisDebug.Log($"Device restored: {prev.trackedRole}", BasisDebug.LogTag.Device);
-                input.ApplyTrackerCalibration(prev.trackedRole);
-                input.Control.InverseOffsetFromBone = prev.InverseOffsetFromBone;
+                if (prev.hasRoleAssigned)
+                {
+                    if (CheckBeforeOverride(prev))
+                    {
+                        input.ApplyTrackerCalibration(prev.trackedRole);
+                    }
+                    else
+                    {
+                        BasisDebug.Log($"Device unable to take role: {prev.trackedRole} already had existing role", BasisDebug.LogTag.Device);
+                    }
+                }
+                if (prev.hasRoleAssigned)
+                {
+                    input.Control.InverseOffsetFromBone = prev.InverseOffsetFromBone;
+                }
+                if (input.HasControl)
+                {
+                    input.Control.OnHasRigChanged?.Invoke(true);
+                }
+            }
+            else
+            {
+                BasisDebug.LogError("Device was removed!", BasisDebug.LogTag.Device);
             }
         }
 
@@ -447,7 +604,7 @@ namespace Basis.Scripts.Device_Management
             for (int i = 0; i < PreviouslyConnectedDevices.Count; i++)
             {
                 var dev = PreviouslyConnectedDevices[i];
-                if (dev != null && dev.UniqueID == id && dev.SubSystem == subsystem)
+                if (dev != null && dev.UniqueDeviceIdentifier == id && dev.SubSystemIdentifier == subsystem)
                 {
                     restored = dev;
                     PreviouslyConnectedDevices.RemoveAt(i);
@@ -472,8 +629,8 @@ namespace Basis.Scripts.Device_Management
                 {
                     trackedRole = role,
                     hasRoleAssigned = device.hasRoleAssigned,
-                    SubSystem = device.SubSystemIdentifier,
-                    UniqueID = device.UniqueDeviceIdentifier,
+                    SubSystemIdentifier = device.SubSystemIdentifier,
+                    UniqueDeviceIdentifier = device.UniqueDeviceIdentifier,
                     InverseOffsetFromBone = device.Control.InverseOffsetFromBone
                 });
             }
@@ -488,7 +645,7 @@ namespace Basis.Scripts.Device_Management
         {
             for (int i = AllInputDevices.Count - 1; i >= 0; i--)
             {
-                var device = AllInputDevices[i];
+                BasisInput device = AllInputDevices[i];
                 if (device != null && device.SubSystemIdentifier == subsystem && device.UniqueDeviceIdentifier == id)
                 {
                     CacheDevice(device);
@@ -507,13 +664,23 @@ namespace Basis.Scripts.Device_Management
         /// <returns><c>true</c> if no live device currently uses the stored role; otherwise <c>false</c>.</returns>
         public bool CheckBeforeOverride(BasisStoredPreviousDevice stored)
         {
-            if (stored == null) return false;
+            if (stored == null)
+            {
+                BasisDebug.Log("stored Was Null!", BasisDebug.LogTag.Device);
+                return false;
+            }
 
             for (int i = 0; i < AllInputDevices.Count; i++)
             {
                 var device = AllInputDevices[i];
                 if (device != null && device.TryGetRole(out var role) && role == stored.trackedRole)
-                    return false;
+                {
+                    if (stored.UniqueDeviceIdentifier != device.UniqueDeviceIdentifier)
+                    {
+                        BasisDebug.Log($"Bail as device Existed Already in that role {stored.UniqueDeviceIdentifier} - {device.UniqueDeviceIdentifier}", BasisDebug.LogTag.Device);
+                        return false;
+                    }
+                }
             }
             return true;
         }
@@ -574,6 +741,7 @@ namespace Basis.Scripts.Device_Management
             if (!HasEvents)
             {
                 OnInitializationCompleted += RunAfterInitialized;
+                BasisSettingsDefaults.EnableFBT.OnChanged += OnEnableFBTChanged;
                 HasEvents = true;
             }
         }
@@ -586,7 +754,22 @@ namespace Basis.Scripts.Device_Management
             if (HasEvents)
             {
                 OnInitializationCompleted -= RunAfterInitialized;
+                BasisSettingsDefaults.EnableFBT.OnChanged -= OnEnableFBTChanged;
                 HasEvents = false;
+            }
+        }
+
+        /// <summary>
+        /// Reacts to the master FBT toggle. Flipping it off immediately unassigns
+        /// any already-calibrated full-body trackers so the avatar drops back to
+        /// head + hands + foot IK. Flipping it on is a no-op — the user must run
+        /// calibration again to reassign trackers to roles.
+        /// </summary>
+        private void OnEnableFBTChanged(bool value)
+        {
+            if (!value)
+            {
+                UnassignFBTrackers();
             }
         }
 
@@ -641,7 +824,12 @@ namespace Basis.Scripts.Device_Management
 #else
             if (Application.isMobilePlatform) // try to boot vr first on standalone devices.
             {
-                // On mobile we assume OpenXR (tunable per project).
+                // iOS devices (iPhones/iPads) should use Desktop mode for touch controls
+                if (Application.platform == RuntimePlatform.IPhonePlayer)
+                {
+                    return BasisConstants.Desktop;
+                }
+                // On Android we assume OpenXR for VR headsets like Quest
                 return BasisConstants.OpenXRLoader;
             }
             else
@@ -666,6 +854,162 @@ namespace Basis.Scripts.Device_Management
         public static bool IsCurrentModeVR() =>
             string.Equals(StaticCurrentMode, BasisConstants.OpenVRLoader, StringComparison.Ordinal) ||
             string.Equals(StaticCurrentMode, BasisConstants.OpenXRLoader, StringComparison.Ordinal);
+
+        #endregion
+
+        #region Soft Swap (Auto Swap / Keep Runtime Alive)
+
+        /// <summary>
+        /// Switches from VR to Desktop without shutting down the XR runtime.
+        /// The VR SDK keeps running in the background; only input devices are destroyed.
+        /// Desktop input is created to drive the avatar with mouse/keyboard.
+        /// </summary>
+        public async Task SoftSwitchToDesktop()
+        {
+            if (IsUserInDesktop())
+            {
+                BasisDebug.LogError("Already in Desktop — cannot soft-switch.", BasisDebug.LogTag.Device);
+                return;
+            }
+
+            AutoSwapPreviousVRMode = StaticCurrentMode;
+            IsSoftSwapped = true;
+
+            BasisDebug.Log($"Soft-switching from {AutoSwapPreviousVRMode} to Desktop (keeping runtime alive)", BasisDebug.LogTag.Device);
+
+            // Soft-stop VR input devices — runtime stays alive
+            for (int i = 0; i < BaseTypes.Count; i++)
+            {
+                var bt = BaseTypes[i];
+                if (bt != null && bt.IsDeviceBooted && bt.IsDeviceBootable(AutoSwapPreviousVRMode))
+                {
+                    bt.SoftStopDevices();
+                }
+            }
+
+            // Do NOT call ShutDownXR() — the XR loader stays initialized
+
+            // Clear stale VR cursor state before Desktop devices initialize
+            BasisCursorManagement.OnReset();
+
+            // Start desktop devices (sets StaticCurrentMode, reloads settings, etc.)
+            await StartDevices(BasisConstants.Desktop);
+        }
+
+        /// <summary>
+        /// Restores VR mode from a soft swap without re-initializing the XR runtime.
+        /// Desktop input is destroyed and VR input devices are recreated.
+        /// </summary>
+        public async Task SoftSwitchToVR()
+        {
+            if (!IsSoftSwapped || string.IsNullOrEmpty(AutoSwapPreviousVRMode))
+            {
+                BasisDebug.LogError("Not in a soft-swapped state — cannot restore VR.", BasisDebug.LogTag.Device);
+                return;
+            }
+
+            string vrMode = AutoSwapPreviousVRMode;
+            IsSoftSwapped = false;
+            AutoSwapPreviousVRMode = string.Empty;
+
+            BasisDebug.Log($"Soft-switching from Desktop back to {vrMode}", BasisDebug.LogTag.Device);
+
+            // Stop desktop devices normally
+            for (int i = 0; i < BaseTypes.Count; i++)
+            {
+                var bt = BaseTypes[i];
+                if (bt != null && bt.IsDeviceBooted && bt.IsDeviceBootable(BasisConstants.Desktop))
+                {
+                    bt.AttemptStopSDK();
+                }
+            }
+
+            // Set mode BEFORE starting devices and reset cursor state so VR subsystems
+            // see the correct mode and desktop cursor locks don't linger.
+            StaticCurrentMode = vrMode;
+            BasisCursorManagement.OnReset();
+
+            // Soft-start VR input devices — runtime is already alive
+            for (int i = 0; i < BaseTypes.Count; i++)
+            {
+                var bt = BaseTypes[i];
+                if (bt != null && bt.IsDeviceBooted && bt.IsDeviceBootable(vrMode))
+                {
+                    bt.SoftStartDevices();
+                }
+            }
+
+            BasisSettingsSystem.LoadAllSettings();
+#if !BASIS_DISABLE_MICROPHONE
+            SMDMicrophone.LoadInMicrophoneData(vrMode);
+#endif
+            await BasisActionDriver.LoadBindings();
+            BasisDebug.Log($"Soft-switch to {vrMode} complete", BasisDebug.LogTag.Device);
+        }
+
+        #endregion
+
+        #region Auto Swap Management
+
+        /// <summary>
+        /// Subscribes to <see cref="BasisHMDPresence.OnPresenceChanged"/> so the system can
+        /// auto-swap between VR and Desktop when the headset is put on or taken off.
+        /// The VR SDKs (OpenVR / OpenXR) report presence into the static hub every frame;
+        /// this code only reacts when the debounced value actually changes.
+        /// </summary>
+        private void SetupAutoSwap()
+        {
+            BasisHMDPresence.OnPresenceChanged += OnHMDPresenceChanged;
+        }
+
+        /// <summary>
+        /// Unsubscribes from presence events during shutdown.
+        /// </summary>
+        private void CleanupAutoSwap()
+        {
+            BasisHMDPresence.OnPresenceChanged -= OnHMDPresenceChanged;
+            BasisHMDPresence.Reset();
+        }
+
+        /// <summary>
+        /// Reacts to headset presence changes. Only acts when the Auto Swap setting is enabled.
+        /// Each VR SDK polls presence natively (OpenVR activity level / OpenXR userPresence)
+        /// and reports into <see cref="BasisHMDPresence"/>; this handler triggers the soft swap.
+        /// </summary>
+        private async void OnHMDPresenceChanged(bool isPresent)
+        {
+            if (_autoSwapInProgress) return;
+            string swapMode = BasisSettingsSystem.LoadString("swap_mode", BasisSettingsDefaults.SwapMode_Shutdown);
+            if (!string.Equals(swapMode, BasisSettingsDefaults.SwapMode_AutoSwap, StringComparison.OrdinalIgnoreCase)) return;
+
+            bool shouldSwitchToDesktop = !isPresent && IsCurrentModeVR();
+            bool shouldSwitchToVR = isPresent && IsSoftSwapped;
+
+            if (!shouldSwitchToDesktop && !shouldSwitchToVR) return;
+
+            _autoSwapInProgress = true;
+            try
+            {
+                if (shouldSwitchToDesktop)
+                {
+                    BasisDebug.Log("AutoSwap: Headset removed — switching to Desktop", BasisDebug.LogTag.Device);
+                    await SoftSwitchToDesktop();
+                }
+                else
+                {
+                    BasisDebug.Log("AutoSwap: Headset detected — switching to VR", BasisDebug.LogTag.Device);
+                    await SoftSwitchToVR();
+                }
+            }
+            catch (Exception e)
+            {
+                BasisDebug.LogError($"AutoSwap: Swap failed — {e}", BasisDebug.LogTag.Device);
+            }
+            finally
+            {
+                _autoSwapInProgress = false;
+            }
+        }
 
         #endregion
     }

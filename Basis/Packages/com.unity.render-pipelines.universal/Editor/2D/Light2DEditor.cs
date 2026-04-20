@@ -213,7 +213,10 @@ namespace UnityEditor.Rendering.Universal
             labelRect.xMin += 16f;
             labelRect.xMax -= 20f;
 
-            bool newToggleState = GUI.Toggle(labelRect, toggleState.boolValue, " ");  // Needs a space because the checkbox won't have a proper outline if we don't make a space here
+            var labelRect_toggle = labelRect;
+            labelRect_toggle.width = labelRect.height;
+
+            bool newToggleState = GUI.Toggle(labelRect_toggle, toggleState.boolValue, " ");  // Needs a space because the checkbox won't have a proper outline if we don't make a space here
             bool newFoldoutState = CoreEditorUtils.DrawHeaderFoldout("", foldoutState.value);
 
             if (newToggleState != toggleState.boolValue)
@@ -313,7 +316,7 @@ namespace UnityEditor.Rendering.Universal
 
         internal void SendModifiedAnalytics(Analytics.Renderer2DAnalytics analytics, Light2D light)
         {
-            Analytics.LightDataAnalytic lightData = new Analytics.LightDataAnalytic(light.GetInstanceID(), false, light.lightType);
+            Analytics.LightDataAnalytic lightData = new Analytics.LightDataAnalytic(light.GetEntityId(), false, light.lightType);
             Analytics.Renderer2DAnalytics.instance.SendData(lightData);
         }
 

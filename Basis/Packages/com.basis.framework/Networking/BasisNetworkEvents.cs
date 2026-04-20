@@ -1,13 +1,13 @@
+using Basis.BasisUI;
 using Basis.Network.Core;
 using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management;
 using Basis.Scripts.Networking;
 using Basis.Scripts.Profiler;
-using Basis.Scripts.UI.UI_Panels;
 using BasisNetworkClient;
 using BasisNetworkServer.BasisNetworking;
+using BasisPermissions;
 using System;
-using UnityEngine;
 using static SerializableBasis;
 public static class BasisNetworkEvents
 {
@@ -15,26 +15,17 @@ public static class BasisNetworkEvents
     {
         switch (channel)
         {
-            case BasisNetworkCommons.FallChannel:
-                if (deliveryMethod == DeliveryMethod.Unreliable)
-                {
-                    if (Reader.TryGetByte(out byte Byte))
-                    {
-                        NetworkReceiveEvent(peer, Reader, Byte, deliveryMethod);
-                    }
-                    else
-                    {
-                        BNL.LogError($"Unknown channel no data remains: {channel} " + Reader.AvailableBytes);
-                        Reader.Recycle();
-                    }
-                }
-                else
-                {
-                    BNL.LogError($"Unknown channel: {channel} " + Reader.AvailableBytes);
-                    Reader.Recycle();
-                }
+            case BasisNetworkCommons.ShoutVoiceChannel:
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ShoutVoice, Reader.AvailableBytes);
+#if UNITY_SERVER
+                Reader.Recycle(true);
+#else
+                //released inside
+                await BasisNetworkHandleVoice.HandleShoutAudioUpdate(Reader);
+#endif
                 break;
             case BasisNetworkCommons.AuthIdentityChannel:
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Authentication, Reader.AvailableBytes);
                 AuthIdentityMessage(peer, Reader, channel);
                 break;
             case BasisNetworkCommons.DisconnectionChannel:
@@ -43,6 +34,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Disconnection, Reader.AvailableBytes);
                 BasisNetworkHandleRemoval.HandleDisconnection(Reader);
                 Reader.Recycle();
                 break;
@@ -64,10 +56,19 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                // Deserialize on the main thread (preserves existing thread affinity),
+                // recycle the reader immediately, then enqueue the heavy
+                // CreateRemotePlayer work into the budgeted lifecycle queue.
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
-                    BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, BasisNetworkManagement.instantiationParameters);
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Reader.AvailableBytes);
+                    ServerReadyMessage srm = new ServerReadyMessage();
+                    srm.Deserialize(Reader);
                     Reader.Recycle();
+                    BasisNetworkHandleRemoval.LifecycleQueue.Enqueue(() =>
+                    {
+                        BasisRemotePlayerFactory.CreateRemotePlayer(srm, BasisNetworkManagement.instantiationParameters);
+                    });
                 });
                 break;
             case BasisNetworkCommons.CreateRemotePlayersForNewPeerChannel:
@@ -79,9 +80,14 @@ public static class BasisNetworkEvents
                 //same as remote player but just used at the start
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
-                    //this one is called first and is also generally where the issues are.
-                    BasisRemotePlayerFactory.HandleCreateRemotePlayer(Reader, BasisNetworkManagement.instantiationParameters);
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerSideSyncPlayer, Reader.AvailableBytes);
+                    ServerReadyMessage srm = new ServerReadyMessage();
+                    srm.Deserialize(Reader);
                     Reader.Recycle();
+                    BasisNetworkHandleRemoval.LifecycleQueue.Enqueue(() =>
+                    {
+                        BasisRemotePlayerFactory.CreateRemotePlayer(srm, BasisNetworkManagement.instantiationParameters);
+                    });
                 });
                 break;
             case BasisNetworkCommons.GetCurrentOwnerRequestChannel:
@@ -90,6 +96,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.GetOwnership, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     BasisNetworkGenericMessages.HandleOwnershipResponse(Reader);
@@ -102,6 +109,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ChangeOwnership, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     BasisNetworkGenericMessages.HandleOwnershipTransfer(Reader);
@@ -114,6 +122,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.RemoveOwnership, Reader.AvailableBytes);
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
                     BasisNetworkGenericMessages.HandleOwnershipRemove(Reader);
@@ -122,19 +131,43 @@ public static class BasisNetworkEvents
                 break;
             case BasisNetworkCommons.VoiceChannel:
 #if UNITY_SERVER
-                Reader.Recycle();
+                Reader.Recycle(true);
 #else
                 //released inside
-                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader);
+                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, false);
 #endif
                 break;
-            case BasisNetworkCommons.PlayerAvatarChannel:
+            case BasisNetworkCommons.VoiceLargeChannel:
+#if UNITY_SERVER
+                Reader.Recycle(true);
+#else
+                //released inside
+                await BasisNetworkHandleVoice.HandleAudioUpdate(Reader, true);
+#endif
+                break;
+            case BasisNetworkCommons.PlayerAvatarVeryLowChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowAdditionalChannel:
+            case BasisNetworkCommons.PlayerAvatarLowChannel:
+            case BasisNetworkCommons.PlayerAvatarLowAdditionalChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumAdditionalChannel:
+            case BasisNetworkCommons.PlayerAvatarHighChannel:
+            case BasisNetworkCommons.PlayerAvatarHighAdditionalChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarVeryLowAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarLowLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarLowAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarMediumAdditionalLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarHighLargeChannel:
+            case BasisNetworkCommons.PlayerAvatarHighAdditionalLargeChannel:
                 if (ValidateSize(Reader, peer, channel) == false)
                 {
                     Reader.Recycle();
                     return;
                 }
-                BasisNetworkHandleAvatar.HandleAvatarUpdate(Reader,deliveryMethod);
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerAvatar, Reader.AvailableBytes);
+                BasisNetworkHandleAvatar.HandleAvatarUpdate(Reader, channel);
                 Reader.Recycle();
                 break;
             case BasisNetworkCommons.SceneChannel:
@@ -169,6 +202,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.NetIDAssigns, Reader.AvailableBytes);
                     BasisNetworkGenericMessages.MassNetIDAssign(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -181,6 +215,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.NetIDAssign, Reader.AvailableBytes);
                     BasisNetworkGenericMessages.NetIDAssign(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -193,6 +228,7 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(async () =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.LoadResource, Reader.AvailableBytes);
                     await BasisNetworkGenericMessages.LoadResourceMessage(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
@@ -203,9 +239,10 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
-                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                BasisDeviceManagement.EnqueueOnMainThread(async () =>
                 {
-                    BasisNetworkGenericMessages.UnloadResourceMessage(Reader, deliveryMethod);
+                   BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.UnloadResource, Reader.AvailableBytes);
+                   await BasisNetworkGenericMessages.UnloadResourceMessage(Reader, deliveryMethod);
                     Reader.Recycle();
                 });
                 break;
@@ -217,7 +254,47 @@ public static class BasisNetworkEvents
                 }
                 BasisDeviceManagement.EnqueueOnMainThread(() =>
                 {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Admin, Reader.AvailableBytes);
                     BasisNetworkModeration.AdminMessage(Reader);
+                    Reader.Recycle();
+                });
+                break;
+            case BasisNetworkCommons.ContentShareChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShare, Reader.AvailableBytes);
+                    BasisContentShareManager.HandleContentShareMessage(Reader);
+                    Reader.Recycle();
+                });
+                break;
+            case BasisNetworkCommons.ContentShareCleanupChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ContentShareCleanup, Reader.AvailableBytes);
+                    BasisContentShareManager.HandleContentShareCleanup(Reader);
+                    Reader.Recycle();
+                });
+                break;
+            case BasisNetworkCommons.ChatChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Chat, Reader.AvailableBytes);
+                    BasisNetworkHandleChat.HandleServerChatMessage(Reader);
                     Reader.Recycle();
                 });
                 break;
@@ -227,6 +304,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.PlayerMetaData, Reader.AvailableBytes);
                 ServerMetaDataMessage SMDM = new ServerMetaDataMessage();
                 SMDM.Deserialize(Reader);
                 Reader.Recycle();
@@ -234,7 +312,8 @@ public static class BasisNetworkEvents
                 BasisLocalPlayer.Instance.UUID = SMDM.ClientMetaDataMessage.playerUUID;
                 BasisLocalPlayer.Instance.DisplayName = SMDM.ClientMetaDataMessage.playerDisplayName;
                 BasisNetworkManagement.ServerMetaDataMessage = SMDM;
-
+                BasisNetworkManagement.LocalPermissions = SMDM.GetPermissions();
+                BasisNetworkManagement.OnlocalPermissionsChanged?.Invoke();
                 break;
             case BasisNetworkCommons.StoreDatabaseChannel:
                 if (ValidateSize(Reader, peer, channel) == false)
@@ -242,6 +321,7 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.StoreDatabase, Reader.AvailableBytes);
                 DatabasePrimativeMessage DatabasePrimativeMessage = new DatabasePrimativeMessage();
                 DatabasePrimativeMessage.Deserialize(Reader);
                 Reader.Recycle();
@@ -253,8 +333,99 @@ public static class BasisNetworkEvents
                     Reader.Recycle();
                     return;
                 }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerStatistics, Reader.AvailableBytes);
                 IncomingData(Reader);
                 Reader.Recycle();
+                break;
+            case BasisNetworkCommons.CameraPIPStateChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.CameraPIPState, Reader.AvailableBytes);
+                BasisDeviceManagement.EnqueueOnMainThread(() =>
+                {
+                    CameraPIPStateMessage pipState = new CameraPIPStateMessage();
+                    pipState.Deserialize(Reader);
+                    Reader.Recycle();
+                    BasisNetworkPIPCameraDriver.OnRemotePIPState(pipState);
+                });
+                break;
+            case BasisNetworkCommons.CameraPIPPositionChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.CameraPIPPosition, Reader.AvailableBytes);
+                    CameraPIPPositionMessage pipPos = new CameraPIPPositionMessage();
+                    pipPos.Deserialize(Reader);
+                    Reader.Recycle();
+                    BasisDeviceManagement.EnqueueOnMainThread(() =>
+                    {
+                        BasisNetworkPIPCameraDriver.OnRemotePIPPosition(pipPos);
+                    });
+                }
+                break;
+            case BasisNetworkCommons.SpawnPreloadedChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                BasisDeviceManagement.EnqueueOnMainThread(async () =>
+                {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.SpawnPreloaded, Reader.AvailableBytes);
+                    await BasisNetworkGenericMessages.SpawnPreloadedMessage(Reader, deliveryMethod);
+                    Reader.Recycle();
+                });
+                break;
+            case BasisNetworkCommons.EventsChannel:
+                if (ValidateSize(Reader, peer, channel) == false)
+                {
+                    Reader.Recycle();
+                    return;
+                }
+                {
+                    BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.Events, Reader.AvailableBytes);
+                    byte eventType = Reader.GetByte();
+                    switch (eventType)
+                    {
+                        case BasisNetworkCommons.EventType_CameraShutterSound:
+                            CameraShutterSoundMessage shutterMsg = new CameraShutterSoundMessage();
+                            shutterMsg.Deserialize(Reader);
+                            Reader.Recycle();
+                            BasisDeviceManagement.EnqueueOnMainThread(() =>
+                            {
+                                BasisNetworkPIPCameraDriver.OnRemoteShutterSound(shutterMsg);
+                            });
+                            break;
+                        case BasisNetworkCommons.EventType_CameraCountdown:
+                            CameraCountdownMessage countdownMsg = new CameraCountdownMessage();
+                            countdownMsg.Deserialize(Reader);
+                            Reader.Recycle();
+                            BasisDeviceManagement.EnqueueOnMainThread(() =>
+                            {
+                                BasisNetworkPIPCameraDriver.OnRemoteCountdown(countdownMsg);
+                            });
+                            break;
+                        case BasisNetworkCommons.EventType_PlayerTempBlock:
+                            ushort tempBlockSenderId = Reader.GetUShort();
+                            bool tempBlockIsBlocked = Reader.GetBool();
+                            Reader.Recycle();
+                            BasisDeviceManagement.EnqueueOnMainThread(() =>
+                            {
+                                BasisNetworkHandleTempBlock.OnRemoteTempBlockReceived(tempBlockSenderId, tempBlockIsBlocked);
+                            });
+                            break;
+                        default:
+                            BNL.LogError($"Unknown EventsChannel event type: {eventType}");
+                            Reader.Recycle();
+                            break;
+                    }
+                }
                 break;
             default:
                 BNL.LogError($"this Channel was not been implemented {channel}");
@@ -275,7 +446,7 @@ public static class BasisNetworkEvents
     {
         NetDataWriter Writer = new NetDataWriter();
         Writer.Put(true);
-        BasisNetworkConnection.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.ServerStatisticsChannel, DeliveryMethod.ReliableOrdered);
+        BasisNetworkConnection.LocalPlayerPeer.Send(Writer, BasisNetworkCommons.ServerStatisticsChannel, Basis.Network.Core.DeliveryMethod.ReliableOrdered);
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAvatarData, Writer.Length);
         BasisDebug.Log("RequestStatFrames");
     }
@@ -284,11 +455,11 @@ public static class BasisNetworkEvents
     {
         NetDataWriter Writer = new NetDataWriter();
         Writer.Put(false);
-        BasisNetworkConnection.LocalPlayerPeer?.Send(Writer, BasisNetworkCommons.ServerStatisticsChannel, DeliveryMethod.ReliableOrdered);
+        BasisNetworkConnection.LocalPlayerPeer?.Send(Writer, BasisNetworkCommons.ServerStatisticsChannel, Basis.Network.Core.DeliveryMethod.ReliableOrdered);
         BasisNetworkProfiler.AddToCounter(BasisNetworkProfilerCounter.ServerAvatarData, Writer.Length);
         BasisDebug.Log("StopStatFrames");
     }
-    public static void AuthIdentityMessage(NetPeer peer, NetPacketReader Reader, byte channel)
+    public static void AuthIdentityMessage(Basis.Network.Core.NetPeer peer, Basis.Network.Core.NetPacketReader Reader, byte channel)
     {
         BasisDebug.Log("Auth is being requested by server!");
         if (ValidateSize(Reader, peer, channel) == false)
@@ -308,13 +479,13 @@ public static class BasisNetworkEvents
         {
             BasisDebug.LogError("Failed Identity Message!");
             Reader.Recycle();
-            DisconnectInfo info = new DisconnectInfo
+            var info = new DisconnectInfo
             {
                 Reason = DisconnectReason.ConnectionRejected,
                 SocketErrorCode = System.Net.Sockets.SocketError.AccessDenied,
                 AdditionalData = null
             };
-            PeerDisconnectedEvent(peer, info);
+            BasisNetworkConnection.HandleDisconnection(peer, info);
         }
         BasisDebug.Log("Completed");
     }
@@ -329,34 +500,83 @@ public static class BasisNetworkEvents
     }
     public static void HandleDisconnectionReason(DisconnectInfo disconnectInfo)
     {
+#if UNITY_SERVER
+        bool canShowMenu = !UnityEngine.Application.isBatchMode;
+#endif
+
         if (disconnectInfo.Reason == DisconnectReason.RemoteConnectionClose)
         {
-            if (disconnectInfo.AdditionalData.TryGetString(out string Reason))
+#if UNITY_SERVER
+            string reason = null;
+            if (disconnectInfo.AdditionalData != null &&
+                !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
             {
-                BasisUINotification.OpenNotification(Reason, false, Vector3.zero);
+                reason = disconnectInfo.AdditionalData.PeekString();
+            }
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                if (canShowMenu)
+                {
+                    BasisMainMenu.Open();
+                    if (BasisMainMenu.Instance != null)
+                    {
+                        BasisMainMenu.Instance.OpenDialogue("Server Connection", reason, "ok", value =>
+                        {
+                        });
+                    }
+                }
+                BasisDebug.LogError(reason);
+            }
+            else
+            {
+                BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
+            }
+#else
+            if (disconnectInfo.AdditionalData != null && !string.IsNullOrEmpty(disconnectInfo.AdditionalData.PeekString()))
+            {
+                string Reason = disconnectInfo.AdditionalData.PeekString();
+                BasisMainMenu.Open();
+                if (BasisMainMenu.Instance != null)
+                {
+                    BasisMainMenu.Instance.OpenDialogue("Server Connection", Reason, "ok", value =>
+                    {
+                    });
+                }
                 BasisDebug.LogError(Reason);
             }
+            else
+            {
+                BasisDebug.Log($"Unexpected Failure Of Reason {disconnectInfo.Reason}");
+            }
+#endif
         }
         else
         {
-            BasisUINotification.OpenNotification(disconnectInfo.Reason.ToString(), false, Vector3.zero);
+#if UNITY_SERVER
+            if (canShowMenu)
+            {
+                BasisMainMenu.Open();
+                if (BasisMainMenu.Instance != null)
+                {
+                    BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+                    {
+                    });
+                }
+            }
+
             BasisDebug.LogError(disconnectInfo.Reason.ToString());
-        }
-        if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
-        {
-            BasisSetUserName.Instance.Ready.interactable = true;
-        }
-    }
-    public static void PeerDisconnectedEvent(NetPeer peer, DisconnectInfo disconnectInfo)
-    {
-        BasisDebug.Log($"Client disconnected from server [{peer.Id}]");
-        if (peer == BasisNetworkConnection.LocalPlayerPeer)
-        {
-            BasisNetworkConnection.HandleDisconnection(peer, disconnectInfo);
-        }
-        if (BasisSetUserName.Instance != null && BasisSetUserName.Instance.Ready != null)
-        {
-            BasisSetUserName.Instance.Ready.interactable = true;
+#else
+            BasisMainMenu.Open();
+            if (BasisMainMenu.Instance != null)
+            {
+                BasisMainMenu.Instance.OpenDialogue("Server Disconnected", disconnectInfo.Reason.ToString(), "ok", value =>
+                {
+                });
+            }
+
+            BasisDebug.LogError(disconnectInfo.Reason.ToString());
+#endif
         }
     }
 }

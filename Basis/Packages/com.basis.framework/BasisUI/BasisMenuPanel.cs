@@ -34,8 +34,8 @@ namespace Basis.BasisUI
 
         public static class PanelStyles
         {
-            public static string Default => "Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel.prefab";
-            public static string Page => "Packages/com.basis.framework/BasisUI/Prefabs/Menu Panel - Page.prefab";
+            public static string Default => "Packages/com.basis.sdk/Prefabs/Menu Panel.prefab";
+            public static string Page => "Packages/com.basis.sdk/Prefabs/Menu Panel - Page.prefab";
         }
 
         public PanelData Data;

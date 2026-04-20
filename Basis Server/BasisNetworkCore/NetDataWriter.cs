@@ -84,8 +84,6 @@ namespace Basis.Network.Core {
             netDataWriter.Put(bytes, offset, length);
             return netDataWriter;
         }
-
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         /// <summary>
         /// Creates NetDataWriter from the given <paramref name="bytes"/>.
         /// </summary>
@@ -95,8 +93,6 @@ namespace Basis.Network.Core {
             netDataWriter.Put(bytes);
             return netDataWriter;
         }
-#endif
-
         public static NetDataWriter FromString(string value)
         {
             var netDataWriter = new NetDataWriter();
@@ -239,14 +235,10 @@ namespace Basis.Network.Core {
 
         public void Put(Guid value)
         {
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
             if (_autoResize)
                 ResizeIfNeed(_position + 16);
             value.TryWriteBytes(_data.AsSpan(_position));
             _position += 16;
-#else
-            PutBytesWithLength(value.ToByteArray());
-#endif
         }
 
         public void Put(byte[] data, int offset, int length)
@@ -264,8 +256,6 @@ namespace Basis.Network.Core {
             Buffer.BlockCopy(data, 0, _data, _position, data.Length);
             _position += data.Length;
         }
-
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         public void Put(ReadOnlySpan<byte> data)
         {
             if (_autoResize)
@@ -273,7 +263,6 @@ namespace Basis.Network.Core {
             data.CopyTo(_data.AsSpan(_position));
             _position += data.Length;
         }
-#endif
 
         // public void PutSBytesWithLength(sbyte[] data, int offset, ushort length)
         // {

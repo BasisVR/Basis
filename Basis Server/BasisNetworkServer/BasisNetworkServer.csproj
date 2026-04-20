@@ -2,10 +2,11 @@
 	<Import Project="$(ProjectDir)..\.props" />
 
 	<PropertyGroup>
-		<TargetFrameworks>netstandard2.1;net9.0</TargetFrameworks>
+		<TargetFrameworks>netstandard2.1;net10.0</TargetFrameworks>
 		<Configurations>Debug;Release</Configurations>
 		<BaseOutputPath>$(ProjectDir)..\..\Basis Server Export\$(MSBuildProjectName)\bin\</BaseOutputPath>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<LangVersion>13</LangVersion>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Debug'">

@@ -1,0 +1,12 @@
+{
+  "name": "org.basisvr.bouncycastle",
+  "version": "2.5.0",
+  "displayName": "BouncyCastle.Cryptography",
+  "description": "The Bouncy Castle Cryptography library",
+  "documentationUrl": "https://github.com/bcgit/bc-csharp",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/@BasisVR"
+  },
+  "repository": "https://github.com/BasisVR/UpmBuilds",
+  "_fingerprint": "ced55f6e81c0d11c79206be116baf45e"
+}

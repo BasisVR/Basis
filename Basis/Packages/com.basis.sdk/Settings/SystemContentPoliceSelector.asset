@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b20bf104ec1d97d4c99fe5d73dd78d0d, type: 3}
   m_Name: SystemContentPoliceSelector
   m_EditorClassIdentifier: 
+  AudioMixer: {fileID: 6216228358845890117, guid: 1ff7d045b2e32054aad6c5815495d8b8, type: 2}
   selectedTypes:
   - BasisVideoPlayer
   - BasisVideoPlayerNetworked
@@ -166,3 +167,15 @@ MonoBehaviour:
   - BasisProp
   - BasisSeatSync
   - Basis.Scripts.BasisSdk.Interactions.BasisSeat
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleHoverThruster
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleThruster
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleWheel
+  - Basis.Scripts.Vehicles.Main.BasisVehicleBody
+  - Basis.Scripts.Vehicles.Main.BasisVehiclePilotSeat
+  - BasisNetworkedVehicles
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleSteeringWheel
+  - UnityEngine.WheelCollider
+  - UnityEngine.WheelJoint2D
+  - Basis.Network.Vehicles.BasisNetworkedVehicle
+  - Basis.Scripts.Vehicles.Parts.BasisVehicleEngineAudio
+  - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton

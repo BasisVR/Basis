@@ -30,7 +30,7 @@ using static SerializableBasis;
 
 public static class BasisMenuItemsEditor
 {
-    [MenuItem("Basis/Avatar/ReloadAvatar")]
+    [MenuItem("Basis/Avatar/Reload")]
     public static async Task ReloadAvatar()
     {
         if (BasisDataStore.LoadAvatar(BasisLocalPlayer.LoadFileNameAndExtension, BasisBeeConstants.DefaultAvatar, BasisPlayer.LoadModeLocal, out BasisDataStore.BasisSavedAvatar LastSavedAvatar))
@@ -38,18 +38,18 @@ public static class BasisMenuItemsEditor
             await BasisLocalPlayer.Instance.LoadInitialAvatar(LastSavedAvatar);
         }
     }
-    [MenuItem("Basis/Trackers/Hide Trackers")]
+    [MenuItem("Basis/Trackers/Hide")]
     public static void HideTrackersEditor()
     {
         BasisDeviceManagement.VisibleTrackers(false);
     }
 
-    [MenuItem("Basis/Trackers/Show Trackers")]
+    [MenuItem("Basis/Trackers/Show")]
     public static void ShowTrackersEditor()
     {
         BasisDeviceManagement.VisibleTrackers(true);
     }
-    [MenuItem("Basis/Trackers/Destroy All Tracker")]
+    [MenuItem("Basis/Trackers/Destroy All")]
     public static void DestroyXRInput()
     {
         List<BasisInput> allDevicesToRemove = new List<BasisInput>(BasisDeviceManagement.Instance.AllInputDevices);
@@ -68,7 +68,7 @@ public static class BasisMenuItemsEditor
         var Value = FindSimulate();
         foreach (var device in allDevicesToRemove)
         {
-            Value.CreatePhysicalTrackedDevice(device.UniqueID, "{htc}vr_tracker_vive_3_0");
+            Value.CreatePhysicalTrackedDevice(device.UniqueDeviceIdentifier, "{htc}vr_tracker_vive_3_0");
         }
     }
     public static BasisSimulateXR FindSimulate()
@@ -83,7 +83,7 @@ public static class BasisMenuItemsEditor
         }
         return null;
     }
-    [MenuItem("Basis/Trackers/Create Puck Tracker")]
+    [MenuItem("Basis/Trackers/Create Puck")]
     public static void CreatePuckTracker()
     {
         BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
@@ -112,7 +112,7 @@ public static class BasisMenuItemsEditor
         LeftTracker.FollowMovement.rotation = Quaternion.identity;
         BasisDeviceManagement.VisibleTrackers(true);
     }
-    [MenuItem("Basis/Trackers/Create Unknown Tracker")]
+    [MenuItem("Basis/Trackers/Create Unknown")]
     public static void CreateUnknowonTracker()
     {
         BasisLocalPlayer.Instance.LocalBoneDriver.FindBone(out BasisLocalBoneControl LeftHand, BasisBoneTrackedRole.LeftHand);
@@ -128,7 +128,7 @@ public static class BasisMenuItemsEditor
         CreateViveLeftTracker();
         CreateViveRightTracker();
     }
-    [MenuItem("Basis/Trackers/Create 3Point Tracking")]
+    [MenuItem("Basis/Trackers/Create 3 Point")]
     public static void CreatePuck3Tracker()
     {
         BasisLocalPlayer.Instance.LocalAvatarDriver.PutAvatarIntoTPose();
@@ -137,9 +137,9 @@ public static class BasisMenuItemsEditor
         BasisInputXRSimulate BasisLeftFoot = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisLeftFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
         BasisInputXRSimulate BasisRightFoot = XR.CreatePhysicalTrackedDevice("{htc}vr_tracker_vive_3_0 BasisRightFoot | " + UnityEngine.Random.Range(-9999999999999, 999999999999), "{htc}vr_tracker_vive_3_0");
 
-        var hips = BasisLocalAvatarDriver.References.Hips;
-        var leftFoot = BasisLocalAvatarDriver.References.leftFoot;
-        var rightFoot = BasisLocalAvatarDriver.References.rightFoot;
+        var hips = BasisLocalAvatarDriver.Mapping.Hips;
+        var leftFoot = BasisLocalAvatarDriver.Mapping.leftFoot;
+        var rightFoot = BasisLocalAvatarDriver.Mapping.rightFoot;
 
         Vector3 HipsPosition = ModifyVector(hips.position);
         Vector3 leftFootPosition = ModifyVector(leftFoot.position);
@@ -156,14 +156,14 @@ public static class BasisMenuItemsEditor
         // Show the trackers
         BasisDeviceManagement.VisibleTrackers(true);
     }
-    [MenuItem("Basis/Trackers/Create MaxTracker Tracking")]
+    [MenuItem("Basis/Trackers/Create Max")]
     public static void CreateFullMaxTracker()
     {
         //  BasisLocalPlayer.Instance.AvatarDriver.PutAvatarIntoTPose();
         // Create an array of the tracker names for simplicity
         string trackerName = "{htc}vr_tracker_vive_3_0";
 
-        var avatarDriver = BasisLocalAvatarDriver.References;
+        var avatarDriver = BasisLocalAvatarDriver.Mapping;
         // avatarDriver.neck, avatarDriver.head,
         // Array of all relevant body parts
         Transform[] bodyParts = new Transform[]
@@ -191,14 +191,14 @@ public static class BasisMenuItemsEditor
         }
         BasisDeviceManagement.VisibleTrackers(true);
     }
-    [MenuItem("Basis/Trackers/Create MaxTracker Tracking Normal Pos")]
+    [MenuItem("Basis/Trackers/Create Max Normal Pos")]
     public static void CreateFullMaxTrackerUnModifedPos()
     {
         //  BasisLocalPlayer.Instance.AvatarDriver.PutAvatarIntoTPose();
         // Create an array of the tracker names for simplicity
         string trackerName = "{htc}vr_tracker_vive_3_0";
 
-        var avatarDriver = BasisLocalAvatarDriver.References;
+        var avatarDriver = BasisLocalAvatarDriver.Mapping;
         // avatarDriver.neck, avatarDriver.head,
         // Array of all relevant body parts
         Transform[] bodyParts = new Transform[]
@@ -244,19 +244,19 @@ public static class BasisMenuItemsEditor
         float randomZ = UnityEngine.Random.Range(-randomRange, randomRange);
         return new Vector3(original.x + randomX, original.y + randomY, original.z + randomZ);
     }
-    [MenuItem("Basis/Calibration/CalibrateFB")]
+    [MenuItem("Basis/Calibration/Full Body")]
     public static void CalibrateEditor()
     {
         BasisAvatarIKStageCalibration.FullBodyCalibration();
     }
-    [MenuItem("Basis/Calibration/ProvideRandomData and create 3 point")]
+    [MenuItem("Basis/Calibration/Random Data 3 Point")]
     public static void ProvideRandomData()
     {
         Vector3 RotationVector = UnityEngine.Random.rotation.eulerAngles;
         Vector3 OnlyY = new Vector3(0, RotationVector.y, 0);
         BasisLocalPlayer.Instance.transform.eulerAngles = OnlyY;
 
-        BasisDesktopEye basisAvatarEyeInput = GameObject.FindFirstObjectByType<BasisDesktopEye>();
+        BasisDesktopEye basisAvatarEyeInput = GameObject.FindAnyObjectByType<BasisDesktopEye>();
         if (basisAvatarEyeInput != null)
         {
             basisAvatarEyeInput.rotationYaw = UnityEngine.Random.Range(-360, 360);
@@ -272,7 +272,7 @@ public static class BasisMenuItemsEditor
         // Call the final API
         CreatePuck3Tracker();
     }
-    [MenuItem("Basis/Player/Spawn Fake Remote")]
+    [MenuItem("Basis/Debug/Spawn Fake Remote")]
     public static void SpawnFakeRemote()
     {
         ServerReadyMessage serverSideSyncPlayerMessage = new ServerReadyMessage
@@ -408,14 +408,14 @@ public static class BasisMenuItemsEditor
     }
 
 
-    [MenuItem("Basis/ServerProfiler/RequestStatFrames")]
+    [MenuItem("Basis/Debug/Server Profiler Request")]
     public static void RequestStatsTick()
     {
         BasisNetworkEvents.Snapshotdata += DataPass;
         BasisNetworkEvents.RequestStatFrames();
         BasisNetworkManagement.HasRequested = true;
     }
-    [MenuItem("Basis/ServerProfiler/StopStatFrames")]
+    [MenuItem("Basis/Debug/Server Profiler Stop")]
     public static void TryStopStats()
     {
         BasisNetworkEvents.StopStatFrames();

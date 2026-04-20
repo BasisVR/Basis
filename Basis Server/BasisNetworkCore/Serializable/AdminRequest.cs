@@ -42,9 +42,28 @@ namespace BasisNetworkCore.Serializable
           //  RequestBannedPlayers,// gets a list of banned players
            // TeleportTo,// teleport to a player
             TeleportAll,// teleports everyone
-            AddAdmin,
-            RemoveAdmin,
             TeleportPlayer,
+
+            // Permission management (any user can request, only admins can modify)
+            GetPermissions,     // request full permission snapshot (read-only for non-admins)
+            SetUserGroup,       // admin: add/remove user from a group
+            SetUserNode,        // admin: add/remove permission node from a user
+            SetGroupNode,       // admin: add/remove permission node from a group
+            CreateGroup,        // admin: create a new permission group
+            DeleteGroup,        // admin: delete a permission group
+            SetGroupParent,     // admin: add/remove a parent group from a group
+
+            EnableShoutMode,    // admin: enable shout mode for a player (non-spatialized broadcast voice)
+            DisableShoutMode,   // admin: disable shout mode for a player
+
+            GlobalToggleAvatars, // admin: toggle global avatar loading lock
+            GlobalToggleProps,   // admin: toggle global prop loading lock
+            GlobalToggleWorlds,  // admin: toggle global world loading lock
+            GlobalGetLockState,  // server→client: current global lock state
+            GlobalGetHeadlessAudioState, // server→client: current global headless audio state
+            SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
+            GlobalGetHeadlessDisallowState, // server→client: current global headless disallow state
+            SetGlobalHeadlessDisallow, // admin: explicitly allow/disallow headless client connections
         }
     }
 }

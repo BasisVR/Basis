@@ -2,6 +2,7 @@ using Basis.Scripts.BasisSdk.Players;
 using Basis.Scripts.Device_Management.Devices;
 using System;
 using UnityEngine;
+using static BasisHeightDriver;
 
 namespace Basis.Scripts.Device_Management
 {
@@ -49,12 +50,12 @@ namespace Basis.Scripts.Device_Management
             {
                 BasisInput = basisInput;
 
-                UpdateVisualSizeAndOffset();
+                OnPlayersHeightChangedNextFrame();
 
                 if (HasEvents == false)
                 {
-                    BasisLocalPlayer.OnLocalAvatarChanged += UpdateVisualSizeAndOffset;
-                    BasisLocalPlayer.OnPlayersHeightChangedNextFrame += UpdateVisualSizeAndOffset;
+                    BasisLocalPlayer.OnLocalAvatarChanged += OnPlayersHeightChangedNextFrame;
+                    BasisLocalPlayer.OnPlayersHeightChangedNextFrame += OnPlayersHeightChangedNextFrame;
                     HasEvents = true;
                 }
 
@@ -69,20 +70,23 @@ namespace Basis.Scripts.Device_Management
         {
             if (HasEvents)
             {
-                BasisLocalPlayer.OnLocalAvatarChanged -= UpdateVisualSizeAndOffset;
-                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= UpdateVisualSizeAndOffset;
+                BasisLocalPlayer.OnLocalAvatarChanged -= OnPlayersHeightChangedNextFrame;
+                BasisLocalPlayer.OnPlayersHeightChangedNextFrame -= OnPlayersHeightChangedNextFrame;
                 HasEvents = false;
             }
         }
-
+        public void OnPlayersHeightChangedNextFrame()
+        {
+            OnPlayersHeightChangedNextFrame(HeightModeChange.OnApplyHeightAndScale);
+        }
         /// <summary>
         /// Applies avatar-relative scale and local offset/rotation to the visual.
         /// Called on initialization and whenever the local avatar/height changes.
         /// </summary>
-        public void UpdateVisualSizeAndOffset()
+        public void OnPlayersHeightChangedNextFrame(HeightModeChange Mode)
         {
-            gameObject.transform.localScale = ScaleOfModel * BasisLocalPlayer.Instance.CurrentHeight.SelectedAvatarToAvatarDefaultScale;
-            gameObject.transform.SetLocalPositionAndRotation(Vector3.zero, ModelRotationOffset);
+            this.transform.localScale = ScaleOfModel * BasisHeightDriver.AvatarToDefaultRatioScaledWithAvatarScale;
+            this.transform.SetLocalPositionAndRotation(Vector3.zero, ModelRotationOffset);
         }
     }
 }

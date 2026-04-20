@@ -6,11 +6,29 @@ on:
     branches:
       - developer
       - long-term-support
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository_owner }}/basis-server
+  HEADLESS_IMAGE_NAME: ${{ github.repository_owner }}/basis-headless
 
 jobs:
+  check-secret:
+    name: Check if secrets available
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    outputs:
+      secret-is-set: ${{ steps.secret-is-set.outputs.defined }}
+    steps:
+      - name: Check if secret is set, then set variable
+        id: secret-is-set
+        env:
+          TMP_SECRET1: ${{ secrets.UNITY_LICENSE }}
+          TMP_SECRET2: ${{ secrets.UNITY_EMAIL }}
+          TMP_SECRET3: ${{ secrets.UNITY_PASSWORD }}
+        if: "${{ env.TMP_SECRET1 != '' && env.TMP_SECRET2 != '' && env.TMP_SECRET3 != '' }}"
+        run: echo "defined=true" >> $GITHUB_OUTPUT
+
   server-build-and-push:
     runs-on: ubuntu-latest
     permissions:
@@ -69,3 +87,326 @@ jobs:
 
       - name: Image digest
         run: 'echo "Image pushed with digest: ${{ steps.build.outputs.digest }}"'
+
+  headless-build:
+    name: Build headless for ${{ matrix.targetPlatform }}${{ matrix.linuxArchitecture && format(' - {0}', matrix.linuxArchitecture) || '' }}
+    timeout-minutes: 100
+    runs-on: ${{ matrix.buildPlatform }}
+    permissions:
+      actions: write # to allow us to manage cache
+    env:
+      projectPath: Basis
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - targetPlatform: StandaloneLinux64
+            buildPlatform: ubuntu-latest
+            buildName: HeadlessLinuxServer
+            buildOutput: LinuxServerAmd64
+            artifactName: LinuxHeadlessAmd64
+            headlessFolderName: HeadlessLinux64
+            linuxArchitecture: X64
+            customParameters: -standaloneBuildSubtarget Server -linuxArchitecture X64
+            buildMethod: BasisHeadlessBuild.BuildLinuxServer
+          - targetPlatform: StandaloneLinux64
+            buildPlatform: ubuntu-latest
+            buildName: HeadlessLinuxServer
+            buildOutput: LinuxServerArm64
+            artifactName: LinuxHeadlessArm64
+            headlessFolderName: HeadlessLinuxArm64
+            linuxArchitecture: ARM64
+            customParameters: -standaloneBuildSubtarget Server -linuxArchitecture ARM64
+            buildMethod: BasisHeadlessBuild.BuildLinuxServer
+          - targetPlatform: StandaloneWindows64
+            buildPlatform: ubuntu-latest
+            buildName: HeadlessWindowsServer
+            buildOutput: WindowsServer
+            artifactName: WindowsHeadless
+            headlessFolderName: HeadlessWindows64
+            customParameters: -standaloneBuildSubtarget Server
+            buildMethod: BasisHeadlessBuild.BuildWindowsServer
+    needs: [check-secret]
+    if: needs.check-secret.outputs.secret-is-set == 'true'
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        if: matrix.buildPlatform == 'ubuntu-latest'
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: false
+          swap-storage: false
+      - name: "Checkout repository"
+        timeout-minutes: 10
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: "Restore Library cache"
+        id: restore-cache
+        timeout-minutes: 10
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ env.projectPath }}/Library
+          key: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-${{ hashFiles(env.projectPath) }}
+          restore-keys: Library-${{ env.projectPath }}-${{ matrix.targetPlatform }}-client-
+          enableCrossOsArchive: true
+      - name: "Sanitize headless project (Linux)"
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python3 .github/scripts/sanitize_headless_ci.py "${projectPath}"
+      - name: "Install Linux Arm64 Unity SDK package"
+        if: matrix.targetPlatform == 'StandaloneLinux64' && matrix.linuxArchitecture == 'ARM64'
+        shell: bash
+        run: |
+          python3 .github/scripts/install_unity_package_latest.py "${projectPath}" "com.unity.sdk.linux-arm64"
+      - name: "Disable OpenVR editor setup for Windows headless builds"
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $settingsPath = Join-Path $env:projectPath 'ProjectSettings/EditorBuildSettings.asset'
+          $settingsLines = Get-Content $settingsPath
+          $settingsLines |
+            Where-Object { $_ -notmatch '^\s*Unity\.XR\.OpenVR\.Settings:' } |
+            Set-Content $settingsPath
+
+          @(
+            'Assets/XR/Settings/OpenVRSettings.asset',
+            'Assets/XR/Settings/OpenVRSettings.asset.meta'
+          ) | ForEach-Object {
+            $path = Join-Path $env:projectPath $_
+            if (Test-Path $path) {
+              Remove-Item $path -Force
+            }
+          }
+      - name: "Sanitize headless project (Windows)"
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python .github/scripts/sanitize_headless_ci.py "${env:projectPath}"
+      - name: "Build Unity project"
+        timeout-minutes: 100
+        uses: BasisVR/unity-builder@main
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          buildName: ${{ matrix.buildName }}
+          buildMethod: ${{ matrix.buildMethod }}
+          customParameters: ${{ matrix.customParameters }}
+          projectPath: ${{ env.projectPath }}
+          targetPlatform: ${{ matrix.targetPlatform }}
+          versioning: None
+          buildsPath: build/${{ matrix.buildOutput }}
+          linux64RemoveExecutableExtension: false
+      - name: "Rename Windows headless output folder"
+        if: matrix.targetPlatform == 'StandaloneWindows64'
+        shell: bash
+        run: |
+          sudo mv "build/${{ matrix.buildOutput }}/StandaloneWindows64" "build/${{ matrix.buildOutput }}/HeadlessWindows64"
+          sudo chown -R "$(id -u):$(id -g)" "build/${{ matrix.buildOutput }}/HeadlessWindows64"
+      - name: "Rename Linux headless output folder"
+        if: matrix.targetPlatform == 'StandaloneLinux64'
+        shell: bash
+        run: |
+          sudo mv "build/${{ matrix.buildOutput }}/StandaloneLinux64" "build/${{ matrix.buildOutput }}/${{ matrix.headlessFolderName }}"
+          sudo chown -R "$(id -u):$(id -g)" "build/${{ matrix.buildOutput }}/${{ matrix.headlessFolderName }}"
+      - name: "Write headless config.xml into artifact"
+        shell: bash
+        run: |
+          if [ "${{ matrix.targetPlatform }}" = "StandaloneWindows64" ]; then
+            data_dir="build/${{ matrix.buildOutput }}/${{ matrix.headlessFolderName }}/HeadlessWindowsServer_Data"
+          else
+            data_dir="build/${{ matrix.buildOutput }}/${{ matrix.headlessFolderName }}/HeadlessLinuxServer_Data"
+          fi
+
+          mkdir -p "$data_dir"
+          cat > "$data_dir/config.xml" <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <Configuration>
+            <Password>default_password</Password>
+            <Ip>server1.basisvr.org</Ip>
+            <Port>4296</Port>
+            <AvatarFileLocation></AvatarFileLocation>
+            <AvatarPassword></AvatarPassword>
+            <HealthCheckEnabled>false</HealthCheckEnabled>
+            <HealthCheckHost>127.0.0.1</HealthCheckHost>
+            <HealthCheckPort>10666</HealthCheckPort>
+            <HealthPath>/health</HealthPath>
+            <ReconnectEnabled>true</ReconnectEnabled>
+            <ReconnectDelaySeconds>5</ReconnectDelaySeconds>
+            <MaxReconnectAttempts>10</MaxReconnectAttempts>
+          </Configuration>
+          EOF
+      - name: "Upload headless artifact"
+        timeout-minutes: 5
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifactName }}
+          path: build/${{ matrix.buildOutput }}
+
+  headless-docker-linux:
+    name: Build & push headless Linux image (${{ matrix.archSuffix }})
+    runs-on: ubuntu-latest
+    needs: [headless-build]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifactName: LinuxHeadlessAmd64
+            dockerPlatform: linux/amd64
+            archSuffix: amd64
+            artifactDir: HeadlessLinux64
+          - artifactName: LinuxHeadlessArm64
+            dockerPlatform: linux/arm64
+            archSuffix: arm64
+            artifactDir: HeadlessLinuxArm64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Download Linux headless artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifactName }}
+          path: headless
+      - name: Replace libopus for amd64 headless artifact
+        if: matrix.archSuffix == 'amd64'
+        shell: bash
+        run: |
+          set -eux
+          plugin_dir="headless/${{ matrix.artifactDir }}/HeadlessLinuxServer_Data/Plugins"
+          test -f "$plugin_dir/opus.so"
+          rm -f "$plugin_dir/libopus.so"
+          cp "$plugin_dir/opus.so" "$plugin_dir/libopus.so"
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.HEADLESS_IMAGE_NAME }}
+          tags: |
+            type=raw,value=nightly-linux-${{ matrix.archSuffix }},enable=${{ github.ref == 'refs/heads/developer' }}
+            type=raw,value=latest-linux-${{ matrix.archSuffix }},enable=${{ github.ref == 'refs/heads/long-term-support' }}
+            type=sha,prefix={{branch}}-,suffix=-linux-${{ matrix.archSuffix }},format=short
+            type=ref,event=branch,suffix=-linux-${{ matrix.archSuffix }}
+      - name: Build and push headless Linux image
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: ./headless
+          file: ./.github/docker/headless/linux/Dockerfile
+          platforms: ${{ matrix.dockerPlatform }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            ARTIFACT_DIR=${{ matrix.artifactDir }}
+      - name: Image digest
+        run: 'echo "Headless Linux image pushed with digest: ${{ steps.build.outputs.digest }}"'
+
+  headless-docker-linux-manifest:
+    name: Publish headless Linux manifest
+    runs-on: ubuntu-latest
+    needs: [headless-docker-linux]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.HEADLESS_IMAGE_NAME }}
+          tags: |
+            type=raw,value=nightly-linux,enable=${{ github.ref == 'refs/heads/developer' }}
+            type=raw,value=latest-linux,enable=${{ github.ref == 'refs/heads/long-term-support' }}
+            type=sha,prefix={{branch}}-,suffix=-linux,format=short
+            type=ref,event=branch,suffix=-linux
+      - name: Create Linux multi-arch manifest
+        shell: bash
+        run: |
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker buildx imagetools create \
+              --tag "$tag" \
+              "${tag}-amd64" \
+              "${tag}-arm64"
+          done <<< "${{ steps.meta.outputs.tags }}"
+
+  headless-docker-windows:
+    name: Build & push headless Windows image
+    runs-on: ubuntu-latest
+    needs: [headless-build]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Download Windows headless artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: WindowsHeadless
+          path: headless
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.HEADLESS_IMAGE_NAME }}
+          tags: |
+            type=raw,value=nightly-windows,enable=${{ github.ref == 'refs/heads/developer' }}
+            type=raw,value=latest-windows,enable=${{ github.ref == 'refs/heads/long-term-support' }}
+            type=sha,prefix={{branch}}-,suffix=-windows,format=short
+            type=ref,event=branch,suffix=-windows
+      - name: Build and push headless Windows image
+        uses: docker/build-push-action@v5
+        id: build
+        with:
+          context: ./headless
+          file: ./.github/docker/headless/windows/Dockerfile
+          platforms: windows/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Image digest
+        run: 'echo "Headless Windows image pushed with digest: ${{ steps.build.outputs.digest }}"'
+
+

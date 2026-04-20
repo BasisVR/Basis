@@ -6,8 +6,8 @@ public class NetworkClient
 {
     public  NetManager client;
     public EventBasedNetListener listener;
-    private static NetPeer peer;
-    private static bool IsInUse;
+    private NetPeer peer;
+    private bool IsInUse;
     /// <summary>
     /// inital data is typically the 
     /// </summary> 
@@ -28,6 +28,7 @@ public class NetworkClient
             AuthBytes.Serialize(Writer, AuthenticationMessage);
             ReadyMessage.Serialize(Writer);
             peer = client.Connect(IP, port, Writer);
+            IsInUse = true;
             return peer;
         }
         else

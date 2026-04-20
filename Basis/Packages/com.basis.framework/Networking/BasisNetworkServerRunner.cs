@@ -3,6 +3,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using static BasisPermissions.PermissionManager;
 
 public class BasisNetworkServerRunner
 {
@@ -22,11 +23,13 @@ public class BasisNetworkServerRunner
             try
             {
                 NetworkServer.StartServer(Configuration);
-                NetworkServer.AuthIdentity.AddNetPeerAsAdmin(UUIDTomarkAsAdmin);
+
+                PermissionIntegration.Manager.AddUserNode(UUIDTomarkAsAdmin,"*");
+                PermissionIntegration.Manager.AddUserToGroup(UUIDTomarkAsAdmin, "admin");
             }
             catch (Exception ex)
             {
-                BNL.LogError($"Server encountered an error: {ex.Message}");
+                BNL.LogError($"Server encountered an error: {ex.Message} {ex.StackTrace}");
                 // Optionally, handle server restart or log critical errors
             }
         }, cancellationToken);

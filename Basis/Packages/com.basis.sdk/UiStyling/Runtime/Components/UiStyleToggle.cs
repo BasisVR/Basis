@@ -7,17 +7,17 @@ namespace Basis.BasisUI.Styling
     public class UiStyleToggle : BaseUiStyleComponent
     {
         [UiStyleID(StyleComponentType.Toggle)] public string ColorStyle;
-        
+
         [SerializeField] protected UiStyleImage Indicator;
         [SerializeField] protected UiStyleImage Checkmark;
         [SerializeField] protected UiStyleLabel Label;
-        
+
         public void SetStyle(string styleId)
         {
             ColorStyle = styleId;
             ApplyActiveStyle();
         }
-        
+
         public override void ApplyActiveStyle()
         {
             Toggle toggle = GetComponent<Toggle>();

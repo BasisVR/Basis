@@ -1,24 +1,45 @@
 using Basis.Scripts.BasisSdk;
 using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Device_Management;
 using Basis.Scripts.Drivers;
-
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.Audio;
+using UnityEngine.AddressableAssets;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.ResourceManagement.AsyncOperations;
+using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
+using Object = UnityEngine.Object;
 
 public static class BasisSceneFactory
 {
+    public const string BasisLoadingSceneKey = "BasisLoadingScene";
+
     public static BasisScene BasisScene;
     private static float timeSinceLastCheck = 0f;
     public static float RespawnCheckTimer = 5f;
     public static float RespawnHeight = -100f;
     public static BasisLocalPlayer BasisLocalPlayer;
+    private static bool _isLoadingLoadingScene = false;
+    private static AsyncOperationHandle<SceneInstance>? _loadingSceneHandle = null;
+
     public static void Initalize()
     {
         BasisScene.Ready += Initalize;
         BasisScene.Destroyed += BasisSceneDestroyed;
+        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        SceneManager.sceneUnloaded += OnSceneUnloaded;
+    }
+    private static void OnSceneUnloaded(Scene unloadedScene)
+    {
+        // Check if any BasisScene still exists after the scene was unloaded
+        BasisScene[] scenes = Object.FindObjectsByType<BasisScene>(FindObjectsInactive.Exclude);
+        if (scenes.Length == 0)
+        {
+            LoadLoadingScene();
+        }
     }
     public static void BasisSceneDestroyed(BasisScene UnloadingScene)
     {
@@ -26,21 +47,79 @@ public static class BasisSceneFactory
         {
             return;
         }
-        else
+
+        BasisScene[] scenes = Object.FindObjectsByType<BasisScene>(FindObjectsInactive.Exclude);
+        foreach(BasisScene potentialMainScene in scenes)
         {
-            BasisScene[] Scenes = GameObject.FindObjectsByType<BasisScene>( FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-            foreach(BasisScene PotentialMainScene in Scenes)
+            if (potentialMainScene == UnloadingScene)
             {
-                if(PotentialMainScene != UnloadingScene)
-                {
-                    Initalize(PotentialMainScene);
-                    return;
-                }
+                continue;
             }
+
+            Initalize(potentialMainScene);
+            return;
+        }
+    }
+    private static async void LoadLoadingScene()
+    {
+        if (_isLoadingLoadingScene)
+        {
+            BasisDebug.Log("Loading scene load already in progress, skipping.", BasisDebug.LogTag.Scene);
+            return;
+        }
+        _isLoadingLoadingScene = true;
+        try
+        {
+            BasisDebug.Log("No BasisScene found after scene unload. Loading BasisLoadingScene.", BasisDebug.LogTag.Scene);
+            BasisLocalPlayer.SpawnPlayerOnSceneLoad = true;
+            AsyncOperationHandle<SceneInstance> handle = Addressables.LoadSceneAsync(BasisLoadingSceneKey, LoadSceneMode.Additive, activateOnLoad: true);
+            while (!handle.IsDone)
+            {
+                await Task.Yield();
+            }
+            await handle.Task;
+            _loadingSceneHandle = handle;
+            BasisDebug.Log("BasisLoadingScene loaded successfully.", BasisDebug.LogTag.Scene);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Error loading BasisLoadingScene: {ex}", BasisDebug.LogTag.Scene);
+        }
+        finally
+        {
+            _isLoadingLoadingScene = false;
+        }
+    }
+    private static async void UnloadLoadingScene()
+    {
+        if (_loadingSceneHandle == null)
+        {
+            return;
+        }
+        try
+        {
+            BasisDebug.Log("Unloading BasisLoadingScene.", BasisDebug.LogTag.Scene);
+            AsyncOperationHandle<SceneInstance> handle = _loadingSceneHandle.Value;
+            _loadingSceneHandle = null;
+            await Addressables.UnloadSceneAsync(handle).Task;
+            BasisDebug.Log("BasisLoadingScene unloaded successfully.", BasisDebug.LogTag.Scene);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Error unloading BasisLoadingScene: {ex}", BasisDebug.LogTag.Scene);
         }
     }
     public static void Initalize(BasisScene scene)
     {
+        // If a loading scene is active and a different BasisScene is now ready, unload the loading scene
+        if (_loadingSceneHandle != null && _loadingSceneHandle.Value.IsValid())
+        {
+            Scene loadingScene = _loadingSceneHandle.Value.Result.Scene;
+            if (scene.gameObject.scene != loadingScene)
+            {
+                UnloadLoadingScene();
+            }
+        }
         BasisScene = scene;
         AttachMixerToAllSceneAudioSources();
         RespawnCheckTimer = BasisScene.RespawnCheckTimer;
@@ -80,8 +159,42 @@ public static class BasisSceneFactory
         }
         else
         {
-            BasisLocalPlayer = GameObject.FindFirstObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
+            BasisLocalPlayer = GameObject.FindAnyObjectByType<BasisLocalPlayer>(FindObjectsInactive.Exclude);
         }
+        ForceLoadProbeVolumeData(scene.gameObject.scene);
+    }
+    private static void ForceLoadProbeVolumeData(Scene scene)
+    {
+        if (!ProbeReferenceVolume.instance.isInitialized)
+        {
+            return;
+        }
+        // Find ProbeVolumePerSceneData directly in the scene hierarchy.
+        // SetActiveScene uses a GUID-based lookup that can fail for bundle-loaded scenes
+        // or if the component hasn't registered yet due to enable ordering.
+        ProbeVolumePerSceneData perSceneData = null;
+        GameObject[] rootObjects = scene.GetRootGameObjects();
+        for (int i = 0; i < rootObjects.Length; i++)
+        {
+            perSceneData = rootObjects[i].GetComponentInChildren<ProbeVolumePerSceneData>(true);
+            if (perSceneData != null)
+            {
+                break;
+            }
+        }
+        if (perSceneData == null || perSceneData.bakingSet == null)
+        {
+            return;
+        }
+        // Switch baking set if it differs from the current one
+        ProbeReferenceVolume.instance.SetActiveBakingSet(perSceneData.bakingSet);
+        // Re-trigger registration so this scene's cells are queued for loading.
+        // Handles same-baking-set (where SetActiveBakingSet is a no-op)
+        // and timing issues (where OnEnable ran before the baking set was correct).
+        perSceneData.enabled = false;
+        perSceneData.enabled = true;
+        ProbeReferenceVolume.instance.PerformPendingOperations();
+        BasisDebug.Log("Forced adaptive probe volume baking set load for scene: " + scene.name, BasisDebug.LogTag.Scene);
     }
     public static void LoadCameraProperties(Camera Camera)
     {
@@ -90,6 +203,7 @@ public static class BasisSceneFactory
         Camera RealCamera = BasisLocalCameraDriver.Instance.Camera;
         RealCamera.useOcclusionCulling = Camera.useOcclusionCulling;
         RealCamera.backgroundColor = Camera.backgroundColor;
+        RealCamera.clearFlags = Camera.clearFlags;
         RealCamera.barrelClipping = Camera.barrelClipping;
         RealCamera.usePhysicalProperties = Camera.usePhysicalProperties;
         // Note that these are limited by the player's size in BasisLocalCameraDriver.UpdateCameraScale().
@@ -111,7 +225,7 @@ public static class BasisSceneFactory
         BasisScene.Group = SMModuleAudio.Instance.WorldDefaultMixer;
 
         // Get all active and inactive AudioSources in the scene
-        AudioSource[] sources = GameObject.FindObjectsByType<AudioSource>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        AudioSource[] sources = GameObject.FindObjectsByType<AudioSource>(FindObjectsInactive.Include);
         int AudioSourceCount = sources.Length;
         // Loop through each AudioSource and assign the mixer group if not already assigned
         for (int Index = 0; Index < AudioSourceCount; Index++)
@@ -125,33 +239,44 @@ public static class BasisSceneFactory
 
         BasisDebug.Log("Mixer group assigned to all scene AudioSources.");
     }
+    /// <summary>
+    /// Fired after the player has been spawned into the scene.
+    /// </summary>
+    public static Action OnSpawnedEvent;
     public static void SpawnPlayer(BasisLocalPlayer localPlayer)
     {
         BasisDebug.Log("Spawning Player");
-        RequestSpawnPoint(out Vector3 position, out Quaternion rotation);
-        if (localPlayer != null)
+        if (RequestSpawnPoint(out Vector3 position, out Quaternion rotation))
         {
-            localPlayer.Teleport(position, rotation);
+            if (localPlayer != null)
+            {
+                localPlayer.Teleport(position, rotation);
+            }
+            else
+            {
+                BasisDebug.LogError("Missing Local Player!");
+            }
+            OnSpawnedEvent?.Invoke();
         }
         else
         {
-            BasisDebug.LogError("Missing Local Player!");
+            OnSpawnedEvent?.Invoke();
         }
     }
-    public static void Simulate()
+    public static void Simulate(float FixedDeltaTime)
     {
-        timeSinceLastCheck += Time.deltaTime;
+        timeSinceLastCheck += FixedDeltaTime;
         // Check only if enough time has passed
         if (timeSinceLastCheck > RespawnCheckTimer)
         {
             timeSinceLastCheck = 0f; // Reset timer
-            if (BasisLocalPlayer != null && BasisLocalPlayer.transform.position.y < RespawnHeight)
+            if (BasisLocalPlayer.PlayerSelf.position.y < RespawnHeight)
             {
                 SpawnPlayer(BasisLocalPlayer);
             }
         }
     }
-    public static void RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
+    public static bool RequestSpawnPoint(out Vector3 Position, out Quaternion Rotation)
     {
         if (BasisScene != null)
         {
@@ -164,12 +289,14 @@ public static class BasisSceneFactory
             {
                 BasisScene.SpawnPoint.GetPositionAndRotation(out Position, out Rotation);
             }
+            return true;
         }
         else
         {
             BasisDebug.LogError("Missing BasisScene!");
             Position = Vector3.zero;
             Rotation = Quaternion.identity;
+            return false;
         }
     }
 }

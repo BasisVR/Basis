@@ -5,7 +5,7 @@ using Basis.Scripts.Networking.NetworkedAvatar;
 using Basis.Network.Core;
 using System;
 
-namespace Basis
+namespace Basis.Shims
 {
     public class BasisNetworkShim : BasisNetworkBehaviour
 	{
@@ -18,34 +18,39 @@ namespace Basis
 
 		public NetworkReadyEvent             NetworkReady { set; get; }
 		public OwnershipTransferEvent        OwnershipTransfer { set; get; }
-		public ServerOwnershipDestroyedEvent ServerOwnershipDestroyedE { set; get; }
+		public ServerOwnershipDestroyedEvent ServerOwnershipDestroyed { set; get; }
 		public NetworkMessageEvent           NetworkMessageReceived { set; get; }
 		public PlayerLeftEvent               PlayerLeft { set; get; }
 		public PlayerJoinedEvent             PlayerJoined { set; get; }
 
         public override void OnNetworkReady()
         {
-			NetworkReady.Invoke();
+			NetworkReady?.Invoke();
         }
-        public override void ServerOwnershipDestroyed()
+        public override void OnServerOwnershipDestroyed()
         {
-			ServerOwnershipDestroyedE.Invoke();
+			ServerOwnershipDestroyed?.Invoke();
         }
         public override void OnOwnershipTransfer(BasisNetworkPlayer NetNewOwner)
         {
-			OwnershipTransfer.Invoke(NetNewOwner);
+			OwnershipTransfer?.Invoke(NetNewOwner);
         }
         public override void OnNetworkMessage(ushort PlayerID, byte[] buffer, DeliveryMethod DeliveryMethod)
         {
-			NetworkMessageReceived.Invoke( PlayerID, buffer, DeliveryMethod );
+			NetworkMessageReceived?.Invoke( PlayerID, buffer, DeliveryMethod );
         }
         public override void OnPlayerLeft(BasisNetworkPlayer player)
         {
-			PlayerLeft.Invoke( player );
+			PlayerLeft?.Invoke( player );
         }
         public override void OnPlayerJoined(BasisNetworkPlayer player)
         {
-			PlayerJoined.Invoke( player );
+			PlayerJoined?.Invoke( player );
+        }
+
+        public void RequestOwnershipIfNone()
+        {
+	        RequestWhoIsOwnershipAsync();
         }
 	}
 }

@@ -1,0 +1,20 @@
+{
+    "name": "BasisVehicles",
+    "rootNamespace": "",
+    "references": [
+        "BasisCommon",
+        "BasisDebug",
+        "BasisSDK",
+        "Basis Framework",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

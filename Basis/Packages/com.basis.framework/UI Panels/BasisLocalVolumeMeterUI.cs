@@ -1,3 +1,4 @@
+#if !BASIS_DISABLE_MICROPHONE
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -78,3 +79,5 @@ public class BasisLocalVolumeMeterUI : MonoBehaviour
         return Mathf.InverseLerp(minDb, maxDb, db);
     }
 }
+
+#endif

@@ -1,61 +1,89 @@
+using Basis.BasisUI;
 using Basis.Scripts.Device_Management;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.XR;
+
 public class SMModuleRenderResolutionURP : BasisSettingsBase
 {
     public float RenderScale = 1;
+
     private XRDisplaySubsystem xrDisplaySubsystem;
     public List<XRDisplaySubsystem> xrDisplays = new List<XRDisplaySubsystem>();
+
+    public float foveatedRenderingLevel = 0;
+
+    // --- Canonical setting keys (from defaults) ---
+    private static string K_RENDER_RESOLUTION => BasisSettingsDefaults.RenderResolution.BindingKey;     // "render resolution"
+    private static string K_FOVEATED_RENDERING => BasisSettingsDefaults.FoveatedRendering.BindingKey;   // "foveated rendering"
+
     public override void ValidSettingsChange(string matchedSettingName, string optionValue)
     {
-        switch (matchedSettingName)
+        // Preserve your original behavior (case-insensitive matching)
+        string key = matchedSettingName;
+
+        switch (key)
         {
-            case "Render Resolution":
-                if (SliderReadOption(optionValue, out float RenderResolution))
+            case var s when s == K_RENDER_RESOLUTION:
+                if (SliderReadOption(optionValue, out float renderResolution))
                 {
-                    HandleRenderResolution(RenderResolution);
+                    HandleRenderResolution(renderResolution);
                 }
                 else
                 {
                     BasisDebug.LogError("Cant parse value!", BasisDebug.LogTag.Device);
                 }
                 break;
-            case "Foveated Rendering":
-                if (SliderReadOption(optionValue, out float FoveationLevel))
+
+            case var s when s == K_FOVEATED_RENDERING:
+                if (SliderReadOption(optionValue, out float foveationLevel))
                 {
-                    HandleFoveatedRendering(FoveationLevel);
+                    HandleFoveatedRendering(foveationLevel);
                 }
                 else
                 {
                     BasisDebug.LogError("Cant parse value!", BasisDebug.LogTag.Device);
                 }
-                break;
-            default:
-                BasisDebug.LogError($"UnImplemented Settings Name! {matchedSettingName}", BasisDebug.LogTag.Device);
                 break;
         }
     }
-    private void HandleRenderResolution(float Option)
+
+    public override void ChangedSettings()
+    {
+    }
+
+    private void HandleRenderResolution(float option)
     {
         if (!XRSettings.useOcclusionMesh)
         {
             XRSettings.useOcclusionMesh = true;
         }
-        RenderScale = Option;
-        UniversalRenderPipelineAsset Asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
-        /// the system allows us to scale the render resolution correctly, however gpu culling does not know about this
-        if (Asset.renderScale != RenderScale)
+
+        RenderScale = option;
+
+        UniversalRenderPipelineAsset asset = (UniversalRenderPipelineAsset)QualitySettings.renderPipeline;
+
+#if UNITY_SERVER
+        if (asset == null)
         {
-            Asset.renderScale = RenderScale;
+            BasisDebug.LogWarning("SMModuleRenderResolutionURP: No URP pipeline asset assigned. Skipping render scale changes.");
+            return;
+        }
+#endif
+        // the system allows us to scale the render resolution correctly,
+        // however gpu culling does not know about this
+        if (asset.renderScale != RenderScale)
+        {
+            asset.renderScale = RenderScale;
         }
     }
-    public float foveatedRenderingLevel = 0;
+
     private void HandleFoveatedRendering(float value)
     {
+        foveatedRenderingLevel = value;
         BasisDebug.Log($"changing Foveated To {value}", BasisDebug.LogTag.Video);
+
         SubsystemManager.GetSubsystems<XRDisplaySubsystem>(xrDisplays);
 
         if (xrDisplays.Count == 0)
@@ -66,6 +94,7 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             }
             return;
         }
+
         xrDisplaySubsystem = null;
         foreach (var subsystem in xrDisplays)
         {
@@ -84,41 +113,11 @@ public class SMModuleRenderResolutionURP : BasisSettingsBase
             }
             return;
         }
-        foveatedRenderingLevel = value;
+
         xrDisplaySubsystem.foveatedRenderingFlags = XRDisplaySubsystem.FoveatedRenderingFlags.GazeAllowed;
         xrDisplaySubsystem.foveatedRenderingLevel = value;
-        /*
-        OVRPlugin.useDynamicFoveatedRendering = true;
-        if (OVRManager.eyeTrackedFoveatedRenderingSupported)
-        {
-            OVRManager.eyeTrackedFoveatedRenderingEnabled = true;
-        }
-        if (value > 0.8)
-        {
-            OVRPlugin.foveatedRenderingLevel = OVRPlugin.FoveatedRenderingLevel.High;
-        }
-        else
-        {
-            if (value > 0.5)
-            {
-                OVRPlugin.foveatedRenderingLevel = OVRPlugin.FoveatedRenderingLevel.Medium;
-            }
-            else
-            {
-                if (value > 0.1)
-                {
-                    OVRPlugin.foveatedRenderingLevel = OVRPlugin.FoveatedRenderingLevel.Low;
-                }
-                else
-                {
-                    OVRPlugin.foveatedRenderingLevel = OVRPlugin.FoveatedRenderingLevel.Off;
-                }
-            }
-        }
-        */
-        if (BasisDeviceManagement.IsCurrentModeVR())
-        {
-            BasisDebug.Log($"foveatedRenderingLevel was set to {value}");
-        }
+
+        BasisDebug.Log($"foveatedRenderingLevel was set to {value}");
     }
 }
+

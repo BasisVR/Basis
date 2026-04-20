@@ -2,6 +2,7 @@ public static class BasisBeeConstants
 {
     public static readonly string BasisMetaExtension = ".BME";
     public static readonly string BasisEncryptedExtension = ".BEE";
+    public static readonly string BasisConnectorExtension = ".BEC";
     public static readonly string AssetBundlesFolder = "BEEData";
     public static int TimeUntilMemoryRemoval = 30;
     public const string DefaultAvatar = "LoadingAvatar";

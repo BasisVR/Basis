@@ -4,9 +4,9 @@ using Basis.Scripts.Device_Management.Devices;
 using Basis.Scripts.TransformBinders.BoneControl;
 using UnityEngine;
 using Unity.Mathematics;
-using Basis.Scripts.Avatar;
 using Basis.Scripts.BasisCharacterController;
 using Basis.Scripts.Drivers;
+using Basis.Scripts.Avatar;
 
 namespace Basis.Scripts.Animator_Driver
 {
@@ -57,12 +57,6 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         /// <value>Default: <c>0.03</c>.</value>
         public float LargerThenVelocityCheckRotation = 0.03f;
-
-        /// <summary>
-        /// Global multiplier applied to movement-driven animation values.
-        /// </summary>
-        /// <value>Default: <c>1</c>.</value>
-        public float ScaleMovementBy = 1;
 
         /// <summary>
         /// Percentage of crouch blend below which the avatar is considered crouching.
@@ -284,7 +278,7 @@ namespace Basis.Scripts.Animator_Driver
 
             basisAnimatorVariableApply.BasisAnimatorVariables.AngularVelocity = dampenedAngularVelocity;
 
-            basisAnimatorVariableApply.UpdateAnimator(ScaleMovementBy);
+            basisAnimatorVariableApply.UpdateAnimator();
 
             if (basisAnimatorVariableApply.BasisAnimatorVariables.IsFalling)
             {
@@ -302,6 +296,10 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         private void JustJumped()
         {
+            if (BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
+            {
+                return;
+            }
             basisAnimatorVariableApply.BasisAnimatorVariables.IsJumping = true;
             //basisAnimatorVariableApply.UpdateJumpState();
         }
@@ -311,6 +309,10 @@ namespace Basis.Scripts.Animator_Driver
         /// </summary>
         private void JustLanded()
         {
+            if (BasisAvatarIKStageCalibration.HasFBIKTrackers && Basis.BasisUI.BasisSettingsDefaults.DisableAnimationsInFBT.RawValue)
+            {
+                return;
+            }
             basisAnimatorVariableApply.UpdateIsLandingState();
         }
 

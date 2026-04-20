@@ -61,7 +61,7 @@ namespace LiteNetLib
         private float _pingSendTimer;
         private float _rttResetTimer;
         private readonly Stopwatch _pingTimer = new Stopwatch();
-        private volatile float _timeSinceLastPacket;
+        private float _timeSinceLastPacket;
         private long _remoteDelta;
 
         //Common
@@ -83,10 +83,7 @@ namespace LiteNetLib
         }
 
         //Channels
-        private NetPacket[] _unreliableSecondQueue;
-        private NetPacket[] _unreliableChannel;
-        private int _unreliablePendingCount;
-        private readonly object _unreliableChannelLock = new object();
+        private readonly ConcurrentQueue<NetPacket> _unreliableChannel = new ConcurrentQueue<NetPacket>();
 
         private readonly ConcurrentQueue<BaseChannel> _channelSendQueue;
         private readonly BaseChannel[] _channels;
@@ -104,10 +101,70 @@ namespace LiteNetLib
         //Fragment
         private class IncomingFragments
         {
-            public NetPacket[] Fragments;
+            // Fragments with TotalFragments <= threshold use a fixed array (faster)
+            // Larger sets use a dictionary to avoid large upfront allocations
+            private const int ArrayThreshold = 64;
+
+            private readonly NetPacket[] _array;
+            private readonly Dictionary<ushort, NetPacket> _dict;
+
+            public readonly ushort TotalFragments;
+            public readonly byte ChannelId;
             public int ReceivedCount;
             public int TotalSize;
-            public byte ChannelId;
+
+            public IncomingFragments(ushort totalFragments, byte channelId)
+            {
+                TotalFragments = totalFragments;
+                ChannelId = channelId;
+                if (totalFragments <= ArrayThreshold)
+                    _array = new NetPacket[totalFragments];
+                else
+                    _dict = new Dictionary<ushort, NetPacket>();
+            }
+
+            public bool Contains(ushort part) =>
+                _array != null ? _array[part] != null : _dict.ContainsKey(part);
+
+            public bool TryGet(ushort part, out NetPacket packet)
+            {
+                if (_array != null)
+                {
+                    packet = _array[part];
+                    return packet != null;
+                }
+                return _dict.TryGetValue(part, out packet);
+            }
+
+            public void Set(ushort part, NetPacket packet)
+            {
+                if (_array != null)
+                    _array[part] = packet;
+                else
+                    _dict[part] = packet;
+            }
+
+            public void Remove(ushort part)
+            {
+                if (_array != null)
+                    _array[part] = null;
+                else
+                    _dict.Remove(part);
+            }
+
+            public void RecycleAll(NetManager netManager)
+            {
+                if (_array != null)
+                {
+                    foreach (var p in _array)
+                        if (p != null) netManager.PoolRecycle(p);
+                }
+                else
+                {
+                    foreach (var p in _dict.Values)
+                        netManager.PoolRecycle(p);
+                }
+            }
         }
         private int _fragmentId;
 
@@ -249,8 +306,6 @@ namespace LiteNetLib
             _pongPacket = new NetPacket(PacketProperty.Pong, 0);
             _pingPacket = new NetPacket(PacketProperty.Ping, 0) { Sequence = 1 };
 
-            _unreliableSecondQueue = new NetPacket[8];
-            _unreliableChannel = new NetPacket[8];
             _holdedFragments = new Dictionary<ushort, IncomingFragments>();
             _deliveredFragments = new Dictionary<ushort, ushort>();
 
@@ -337,6 +392,7 @@ namespace LiteNetLib
             if (deliveryMethod == DeliveryMethod.Unreliable)
             {
                 packet.Property = PacketProperty.Unreliable;
+                packet.RawData[1] = channelNumber;
                 return new PooledPacket(packet, mtu, 0);
             }
             else
@@ -367,12 +423,7 @@ namespace LiteNetLib
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void EnqueueUnreliable(NetPacket packet)
         {
-            lock (_unreliableChannelLock)
-            {
-                if (_unreliablePendingCount == _unreliableChannel.Length)
-                    Array.Resize(ref _unreliableChannel, _unreliablePendingCount * 2);
-                _unreliableChannel[_unreliablePendingCount++] = packet;
-            }
+            _unreliableChannel.Enqueue(packet);
         }
 
         private BaseChannel CreateChannel(byte idx)
@@ -419,8 +470,6 @@ namespace LiteNetLib
 
             //  //NetDebug.Write(NetLogLevel.Trace, $"[CC] ConnectId: {_connectTime}, ConnectNum: {connectNum}");
         }
-
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         //"Connect to" constructor
         internal NetPeer(NetManager netManager, IPEndPoint remoteEndPoint, int id, byte connectNum, ReadOnlySpan<byte> connectData)
             : this(netManager, remoteEndPoint, id)
@@ -438,8 +487,6 @@ namespace LiteNetLib
 
             // //NetDebug.Write(NetLogLevel.Trace, $"[CC] ConnectId: {_connectTime}, ConnectNum: {connectNum}");
         }
-#endif
-
         //"Accept" incoming constructor
         internal NetPeer(NetManager netManager, ConnectionRequest request, int id)
             : this(netManager, request.RemoteEndPoint, id)
@@ -710,7 +757,7 @@ namespace LiteNetLib
                     p.FragmentsTotal = (ushort)totalPackets;
                     p.MarkFragmented();
 
-                    Buffer.BlockCopy(data, start + partIdx * packetDataSize, p.RawData, NetConstants.FragmentedHeaderTotalSize, sendLength);
+                    data.AsSpan(start + partIdx * packetDataSize, sendLength).CopyTo(p.RawData.AsSpan(NetConstants.FragmentedHeaderTotalSize));
                     channel.AddToQueue(p);
 
                     length -= sendLength;
@@ -721,11 +768,12 @@ namespace LiteNetLib
             //Else just send
             NetPacket packet = NetManager.PoolGetPacket(headerSize + length);
             packet.Property = property;
-            Buffer.BlockCopy(data, start, packet.RawData, headerSize, length);
+            data.AsSpan(start, length).CopyTo(packet.RawData.AsSpan(headerSize));
             packet.UserData = userData;
 
             if (channel == null) //unreliable
             {
+                packet.RawData[1] = channelNumber;
                 EnqueueUnreliable(packet);
             }
             else
@@ -733,8 +781,6 @@ namespace LiteNetLib
                 channel.AddToQueue(packet);
             }
         }
-
-#if LITENETLIB_SPANS || NETCOREAPP2_1_OR_GREATER || NETSTANDARD2_1_OR_GREATER || NETCOREAPP2_1 || NETCOREAPP3_1 || NET5_0 || NETSTANDARD2_1
         /// <summary>
         /// Send data to peer with delivery event called
         /// </summary>
@@ -841,7 +887,7 @@ namespace LiteNetLib
                     p.FragmentsTotal = (ushort)totalPackets;
                     p.MarkFragmented();
 
-                    data.Slice(partIdx * packetDataSize, sendLength).CopyTo(new Span<byte>(p.RawData, NetConstants.FragmentedHeaderTotalSize, sendLength));
+                    data.Slice(partIdx * packetDataSize, sendLength).CopyTo(p.RawData.AsSpan(NetConstants.FragmentedHeaderTotalSize));
                     channel.AddToQueue(p);
 
                     length -= sendLength;
@@ -852,11 +898,12 @@ namespace LiteNetLib
             //Else just send
             NetPacket packet = NetManager.PoolGetPacket(headerSize + length);
             packet.Property = property;
-            data.CopyTo(new Span<byte>(packet.RawData, headerSize, length));
+            data.CopyTo(packet.RawData.AsSpan(headerSize));
             packet.UserData = userData;
 
             if (channel == null) //unreliable
             {
+                packet.RawData[1] = channelNumber;
                 EnqueueUnreliable(packet);
             }
             else
@@ -864,8 +911,6 @@ namespace LiteNetLib
                 channel.AddToQueue(packet);
             }
         }
-#endif
-
         public void Disconnect(byte[] data)
         {
             NetManager.DisconnectPeer(this, data);
@@ -965,88 +1010,114 @@ namespace LiteNetLib
         {
             if (p.IsFragmented)
             {
+                if (p.FragmentsTotal == 0 || p.FragmentsTotal > NetManager.MaxFragmentsCount)
+                {
+                    NetManager.PoolRecycle(p);
+                    NetDebug.WriteError($"Invalid FragmentsTotal: {p.FragmentsTotal}");
+                    return;
+                }
+
+                if (p.FragmentPart >= p.FragmentsTotal)
+                {
+                    NetManager.PoolRecycle(p);
+                    NetDebug.WriteError($"FragmentPart {p.FragmentPart} >= FragmentsTotal {p.FragmentsTotal}");
+                    return;
+                }
+
                 NetPacket resultingPacket = null;
                 ushort packetFragId = p.FragmentId;
                 byte packetChannelId = p.ChannelId;
 
+                ushort totalFragments;
+                int totalSize;
+                NetPacket[] fragmentsCopy;
+
                 lock (_fragmentsLock)
                 {
-                    // Get or create entry
                     if (!_holdedFragments.TryGetValue(packetFragId, out var incomingFragments))
                     {
-                        incomingFragments = new IncomingFragments
+                        if (_holdedFragments.Count >= NetConstants.MaxFragmentsInWindow * NetManager.ChannelsCount * NetConstants.FragmentedChannelsCount)
                         {
-                            Fragments = new NetPacket[p.FragmentsTotal],
-                            ChannelId = p.ChannelId
-                        };
+                            NetManager.PoolRecycle(p);
+                            return;
+                        }
+
+                        incomingFragments = new IncomingFragments(p.FragmentsTotal, p.ChannelId);
                         _holdedFragments.Add(packetFragId, incomingFragments);
                     }
-
-                    var fragments = incomingFragments.Fragments;
-
-                    // Error check
-                    if (p.FragmentPart >= fragments.Length ||
-                        fragments[p.FragmentPart] != null ||
-                        p.ChannelId != incomingFragments.ChannelId)
+                    else if (p.FragmentsTotal != incomingFragments.TotalFragments || p.ChannelId != incomingFragments.ChannelId)
                     {
                         NetManager.PoolRecycle(p);
-                        NetDebug.WriteError("Invalid fragment packet");
+                        NetDebug.WriteError("Fragment metadata mismatch");
                         return;
                     }
 
-                    // Store fragment
-                    fragments[p.FragmentPart] = p;
+                    if (incomingFragments.Contains(p.FragmentPart))
+                    {
+                        NetManager.PoolRecycle(p);
+                        return;
+                    }
 
-                    // Increase received fragments count
+                    incomingFragments.Set(p.FragmentPart, p);
                     incomingFragments.ReceivedCount++;
-
-                    // Increase total size
                     incomingFragments.TotalSize += p.Size - NetConstants.FragmentedHeaderTotalSize;
 
-                    // Not all fragments yet – nothing more to do
-                    if (incomingFragments.ReceivedCount != fragments.Length)
+                    if (incomingFragments.ReceivedCount != incomingFragments.TotalFragments)
                         return;
 
-                    // All fragments received – build resulting packet
-                    resultingPacket = NetManager.PoolGetPacket(incomingFragments.TotalSize);
-
-                    int pos = 0;
-                    for (int i = 0; i < incomingFragments.ReceivedCount; i++)
+                    // All fragments received - copy references and remove from dictionary while under lock
+                    totalFragments = incomingFragments.TotalFragments;
+                    totalSize = incomingFragments.TotalSize;
+                    fragmentsCopy = new NetPacket[totalFragments];
+                    for (ushort i = 0; i < totalFragments; i++)
                     {
-                        var fragment = fragments[i];
-                        int writtenSize = fragment.Size - NetConstants.FragmentedHeaderTotalSize;
-
-                        if (pos + writtenSize > resultingPacket.RawData.Length)
+                        if (!incomingFragments.TryGet(i, out fragmentsCopy[i]))
                         {
+                            // Should not happen since ReceivedCount == TotalFragments, but handle gracefully
                             _holdedFragments.Remove(packetFragId);
-                            NetDebug.WriteError(
-                                $"Fragment error pos: {pos + writtenSize} >= resultPacketSize: {resultingPacket.RawData.Length} , totalSize: {incomingFragments.TotalSize}");
+                            incomingFragments.RecycleAll(NetManager);
+                            NetDebug.WriteError($"Fragment {i} missing during reassembly");
                             return;
                         }
-                        if (fragment.Size > fragment.RawData.Length)
-                        {
-                            _holdedFragments.Remove(packetFragId);
-                            NetDebug.WriteError(
-                                $"Fragment error size: {fragment.Size} > fragment.RawData.Length: {fragment.RawData.Length}");
-                            return;
-                        }
+                    }
+                    _holdedFragments.Remove(packetFragId);
+                }
 
-                        // Copy fragment payload
-                        Buffer.BlockCopy(
-                            fragment.RawData,
-                            NetConstants.FragmentedHeaderTotalSize,
-                            resultingPacket.RawData,
-                            pos,
-                            writtenSize);
-                        pos += writtenSize;
+                // Outside lock: do the actual data copy
+                resultingPacket = NetManager.PoolGetPacket(totalSize);
+                int pos = 0;
+                for (ushort i = 0; i < totalFragments; i++)
+                {
+                    var fragment = fragmentsCopy[i];
+                    int writtenSize = fragment.Size - NetConstants.FragmentedHeaderTotalSize;
 
-                        // Free fragment
-                        NetManager.PoolRecycle(fragment);
-                        fragments[i] = null;
+                    if (pos + writtenSize > resultingPacket.RawData.Length)
+                    {
+                        for (ushort j = i; j < totalFragments; j++)
+                            NetManager.PoolRecycle(fragmentsCopy[j]);
+                        NetManager.PoolRecycle(resultingPacket);
+                        NetDebug.WriteError($"Fragment error pos: {pos + writtenSize} >= resultPacketSize: {resultingPacket.RawData.Length}");
+                        return;
                     }
 
-                    // Clear dictionary entry
-                    _holdedFragments.Remove(packetFragId);
+                    if (fragment.Size > fragment.RawData.Length)
+                    {
+                        for (ushort j = i; j < totalFragments; j++)
+                            NetManager.PoolRecycle(fragmentsCopy[j]);
+                        NetManager.PoolRecycle(resultingPacket);
+                        NetDebug.WriteError($"Fragment error size: {fragment.Size} > fragment.RawData.Length: {fragment.RawData.Length}");
+                        return;
+                    }
+
+                    Buffer.BlockCopy(
+                        fragment.RawData,
+                        NetConstants.FragmentedHeaderTotalSize,
+                        resultingPacket.RawData,
+                        pos,
+                        writtenSize);
+                    pos += writtenSize;
+
+                    NetManager.PoolRecycle(fragment);
                 }
 
                 // Outside lock: process reconstructed packet
@@ -1224,12 +1295,14 @@ namespace LiteNetLib
                     int pos = NetConstants.HeaderSize;
                     while (pos < packet.Size)
                     {
+                        if (pos + 2 > packet.Size)
+                            break;
                         ushort size = BitConverter.ToUInt16(packet.RawData, pos);
                         if (size == 0)
                             break;
 
                         pos += 2;
-                        if (packet.RawData.Length - pos < size)
+                        if (packet.Size - pos < size)
                             break;
 
                         NetPacket mergedPacket = NetManager.PoolGetPacket(size);
@@ -1287,7 +1360,7 @@ namespace LiteNetLib
 
                 //Simple packet without acks
                 case PacketProperty.Unreliable:
-                    NetManager.CreateReceiveEvent(packet, DeliveryMethod.Unreliable, 0, NetConstants.HeaderSize, this);
+                    NetManager.CreateReceiveEvent(packet, DeliveryMethod.Unreliable, packet.RawData[1], NetConstants.UnreliableHeaderSize, this);
                     return;
 
                 case PacketProperty.MtuCheck:
@@ -1327,6 +1400,34 @@ namespace LiteNetLib
             _mergeCount = 0;
         }
 
+        /// <summary>
+        /// Builds an unreliable NetPacket from raw user bytes and enqueues it, skipping the
+        /// intermediate NetDataWriter copy. Thread-safe: uses the same _unreliableChannel
+        /// queue as Send(), so Update() merges it on the logic thread.
+        /// Optionally patches a single byte at patchOffset (relative to user data start)
+        /// after the copy — used for per-receiver fields like interval that differ per
+        /// destination while the source array is shared.
+        /// Pass patchOffset = -1 to skip patching.
+        /// </summary>
+        public void SendUnreliableRawMerge(byte[] data, int offset, int length, byte channelNumber, int patchOffset = -1, byte patchValue = 0)
+        {
+            if (_connectionState != ConnectionState.Connected || channelNumber >= _channels.Length)
+                return;
+
+            int headerSize = NetConstants.UnreliableHeaderSize;
+            int packetSize = headerSize + length;
+
+            NetPacket packet = NetManager.PoolGetPacket(packetSize);
+            packet.Property = PacketProperty.Unreliable;
+            packet.RawData[1] = channelNumber;
+            Buffer.BlockCopy(data, offset, packet.RawData, headerSize, length);
+
+            if (patchOffset >= 0 && patchOffset < length)
+                packet.RawData[headerSize + patchOffset] = patchValue;
+
+            EnqueueUnreliable(packet);
+        }
+
         internal void SendUserData(NetPacket packet)
         {
             packet.ConnectionNumber = _connectNum;
@@ -1357,7 +1458,13 @@ namespace LiteNetLib
 
         internal void Update(float deltaTime)
         {
-            _timeSinceLastPacket = _timeSinceLastPacket + deltaTime;
+            //atomic increment: CAS loop to avoid racing with Interlocked.Exchange on receive thread
+            float original, updated;
+            do
+            {
+                original = _timeSinceLastPacket;
+                updated = original + deltaTime;
+            } while (Interlocked.CompareExchange(ref _timeSinceLastPacket, updated, original) != original);
             switch (_connectionState)
             {
                 case ConnectionState.Connected:
@@ -1446,21 +1553,10 @@ namespace LiteNetLib
                 }
             }
 
-            if (_unreliablePendingCount > 0)
+            while (_unreliableChannel.TryDequeue(out var packet))
             {
-                int unreliableCount;
-                lock (_unreliableChannelLock)
-                {
-                    (_unreliableChannel, _unreliableSecondQueue) = (_unreliableSecondQueue, _unreliableChannel);
-                    unreliableCount = _unreliablePendingCount;
-                    _unreliablePendingCount = 0;
-                }
-                for (int i = 0; i < unreliableCount; i++)
-                {
-                    var packet = _unreliableSecondQueue[i];
-                    SendUserData(packet);
-                    NetManager.PoolRecycle(packet);
-                }
+                SendUserData(packet);
+                NetManager.PoolRecycle(packet);
             }
 
             SendMerged();
@@ -1515,9 +1611,13 @@ namespace LiteNetLib
         /// <returns>packets count in channel queue</returns>
         public int GetPacketsCountInQueue(byte channelNumber, DeliveryMethod deliveryMethod)
         {
+            if (deliveryMethod == DeliveryMethod.Unreliable)
+                return 0;
             int idx = (byte)(channelNumber * NetConstants.ChannelTypeCount + (byte)deliveryMethod);
+            if (idx >= _channels.Length)
+                return 0;
             var channel = _channels[idx];
-            return channel != null ? _channels[idx].PacketsInQueue : 0;
+            return channel != null ? channel.PacketsInQueue : 0;
         }
     }
 }

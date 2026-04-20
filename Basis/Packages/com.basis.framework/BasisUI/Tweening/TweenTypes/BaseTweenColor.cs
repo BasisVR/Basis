@@ -24,7 +24,7 @@ namespace Basis.BTween
         public T Start(float duration, Color endValue)
         {
             AssignTimes(duration);
-            StartValue = Color.white;
+            StartValue = Color.clear;
             EndValue = endValue;
             return (T)this;
         }
@@ -32,8 +32,8 @@ namespace Basis.BTween
         public override void Reset()
         {
             base.Reset();
-            StartValue = Color.white;
-            EndValue = Color.white;
+            StartValue = Color.clear;
+            EndValue = Color.clear;
         }
     }
 }

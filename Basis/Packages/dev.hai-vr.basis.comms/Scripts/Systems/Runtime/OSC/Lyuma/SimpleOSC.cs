@@ -571,9 +571,12 @@ public class SimpleOSC
 					} catch (Exception e) {
 						CryWolf(e.ToString());
 					}
+				} catch (ObjectDisposedException) {
+					CryWolf("[SimpleOSC] UDP socket disposed, receive thread exiting.");
+					break;
 				} catch (SocketException) {
 					if (!shutdown) {
-						continue; //throw;
+						continue;
 					}
 				}
 			}
