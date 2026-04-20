@@ -67,6 +67,20 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     [Range(0.1f, 0.9f)]
     public float cinematicDamping = 0.8f;
 
+    [Header("VR Handheld Stabilization")]
+    public bool useVRHandheldSmoothing = false;
+    public bool onlySmoothWhenStreamingToDesktop = true;
+
+    [Range(1f, 30f)]
+    public float vrHandheldPositionSmoothing = 12f;
+
+    [Range(1f, 30f)]
+    public float vrHandheldRotationSmoothing = 14f;
+
+    private Vector3 smoothedHandheldWorldPos;
+    private Quaternion smoothedHandheldWorldRot = Quaternion.identity;
+    private bool handheldSmoothingInitialized = false;
+
     // --- internal values / locks ---
     private readonly BasisLocks.LockContext LookLock = BasisLocks.GetContext(BasisLocks.LookRotation);
     private readonly BasisLocks.LockContext MovementLock = BasisLocks.GetContext(BasisLocks.Movement);
@@ -85,7 +99,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     [SerializeReference] private BasisParentConstraint cameraPinConstraint;
     [SerializeReference] private BasisFlyCamera flyCamera;
 
-    private const float cameraDefaultScale = 0.0003f;
+    private const float cameraDefaultScale = 0.00015f;
 
     private bool isPlayerManuallyUnlocked = false;
     private bool desktopSetup = false;
@@ -114,6 +128,7 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
     private bool vrThumbstickClickPrev = false;
     private Quaternion vrControllerRotation = Quaternion.identity;
 
+    private bool selfieRotationEnabled = false;
     /// <summary>Where to pin the camera transform.</summary>
     public enum CameraPinSpace
     {
@@ -234,6 +249,10 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
                     transform.GetPositionAndRotation(out Vector3 startPos, out Quaternion startRot);
                     var offsetPos = Quaternion.Inverse(inRot) * (startPos - inPos);
                     var offsetRot = Quaternion.Inverse(inRot) * startRot;
+
+                    // Pull it closer to the player's camera.
+                    offsetPos *= 0.65f;
+
                     InputConstraint.SetOffsetPositionAndRotation(0, offsetPos, offsetRot);
                     InputConstraint.Enabled = true;
 
@@ -261,46 +280,52 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         // Update pinning regardless of desktop/head-constraint logic
         PollCameraPin(Inputs.desktopCenterEye.Source);
     }
-
+    public void SetSelfieRotationEnabled(bool enabled)
+    {
+        selfieRotationEnabled = enabled;
+        handheldSmoothingInitialized = false;
+    }
     /// <summary>Detects landscape vs portrait by camera roll and triggers UI orientation updates.</summary>
     private void CheckCameraOrientation()
     {
         if (Time.time < orientationCheckCooldown)
             return;
 
-        if (HHC != null && HHC.captureCamera != null)
+        if (HHC == null || HHC.captureCamera == null)
+            return;
+
+        Transform orientationSource =
+            (HHC.HandHeld != null && HHC.HandHeld.uiOrientationReference != null)
+                ? HHC.HandHeld.uiOrientationReference.transform
+            : (HHC.HandHeld != null && HHC.HandHeld.cameraReference != null)
+                ? HHC.HandHeld.cameraReference.transform
+                : HHC.captureCamera.transform;
+
+        Vector3 right = orientationSource.right;
+        Vector3 up = orientationSource.up;
+
+        BasisCameraOrientation newOrientation;
+
+        if (Mathf.Abs(up.y) >= Mathf.Abs(right.y))
         {
-            float roll = HHC.captureCamera.transform.eulerAngles.z;
-            if (roll > 180f) roll -= 360f; // normalize to [-180, 180]
+            newOrientation = up.y >= 0f
+                ? BasisCameraOrientation.Landscape
+                : BasisCameraOrientation.LandscapeFlipped;
+        }
+        else
+        {
+            bool portraitCW = right.y >= 0f;
 
-            // Snap to the nearest 90° step: -180, -90, 0, +90, +180
-            int step = Mathf.RoundToInt(roll / 90f);
-            step = Mathf.Clamp(step, -2, 2);
+            newOrientation = portraitCW
+                ? BasisCameraOrientation.PortraitCW
+                : BasisCameraOrientation.PortraitCCW;
+        }
 
-            BasisCameraOrientation newOrientation;
-            switch (step)
-            {
-                case -2:
-                case 2:
-                    newOrientation = BasisCameraOrientation.LandscapeFlipped; // upside-down
-                    break;
-                case 1:
-                    newOrientation = BasisCameraOrientation.PortraitCW;        // one portrait side
-                    break;
-                case -1:
-                    newOrientation = BasisCameraOrientation.PortraitCCW;       // opposite portrait side
-                    break;
-                default:
-                    newOrientation = BasisCameraOrientation.Landscape;
-                    break;
-            }
-
-            if (newOrientation != currentOrientation)
-            {
-                currentOrientation = newOrientation;
-                orientationCheckCooldown = Time.time + 0.5f;
-                HandleOrientationChanged(currentOrientation);
-            }
+        if (newOrientation != currentOrientation)
+        {
+            currentOrientation = newOrientation;
+            orientationCheckCooldown = Time.time + 0.2f;
+            HandleOrientationChanged(currentOrientation);
         }
     }
 
@@ -339,14 +364,17 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         switch (PinSpace)
         {
             case CameraPinSpace.HandHeld:
-                if (previousPinState != CameraPinSpace.HandHeld)
-                {
-                    cameraPinConstraint.Enabled = false;
-                    cameraPinConstraint.UpdateSourcePositionAndRotation(0, Vector3.zero, Quaternion.identity);
-                    cameraPinConstraint.SetOffsetPositionAndRotation(0, Vector3.zero, Quaternion.identity);
-                    HHC.captureCamera.transform.SetLocalPositionAndRotation(cameraStartingLocalPos, cameraStartingLocalRot);
-                }
-                break;
+    if (previousPinState != CameraPinSpace.HandHeld)
+    {
+        cameraPinConstraint.Enabled = false;
+        cameraPinConstraint.UpdateSourcePositionAndRotation(0, Vector3.zero, Quaternion.identity);
+        cameraPinConstraint.SetOffsetPositionAndRotation(0, Vector3.zero, Quaternion.identity);
+        handheldSmoothingInitialized = false;
+    }
+
+    UpdateVRHandheldSmoothing();
+    previousPinState = PinSpace;
+    return;
 
             case CameraPinSpace.PlaySpace:
                 BasisLocalPlayer.Instance.AvatarTransform.GetPositionAndRotation(out Vector3 pinParentPos, out Quaternion pinParentRot);
@@ -765,7 +793,77 @@ public abstract class BasisHandHeldCameraInteractable : BasisPickupInteractable
         velocityMomentum = Vector3.zero;
         rotationMomentum = 0f;
     }
+    private void UpdateVRHandheldSmoothing()
+    {
+        if (HHC == null || HHC.captureCamera == null)
+            return;
 
+        bool shouldSmooth =
+            !BasisDeviceManagement.IsUserInDesktop() &&
+            PinSpace == CameraPinSpace.HandHeld &&
+            useVRHandheldSmoothing &&
+            (!onlySmoothWhenStreamingToDesktop || HHC.enableRecordingView);
+
+        Transform cameraTransform = HHC.captureCamera.transform;
+        Transform cameraParent = cameraTransform.parent;
+
+        if (cameraParent == null)
+            return;
+
+        Vector3 targetWorldPos = cameraParent.TransformPoint(cameraStartingLocalPos);
+
+        Quaternion localTargetRot = cameraStartingLocalRot;
+
+        if (selfieRotationEnabled)
+        {
+            localTargetRot *= Quaternion.Euler(0f, 180f, 0f);
+        }
+
+        Quaternion targetWorldRot = cameraParent.rotation * localTargetRot;
+
+        if (useAutoLeveling)
+        {
+            Quaternion prevRot = cameraTransform.rotation;
+            Vector3 prevEuler = prevRot.eulerAngles;
+
+            float pitch = NormalizeAngle(prevEuler.x);
+            float yaw = NormalizeAngle(targetWorldRot.eulerAngles.y);
+            float roll = NormalizeAngle(prevEuler.z);
+
+            pitch = Mathf.Lerp(pitch, 0f, autoLevelStrength * Time.deltaTime);
+            roll = Mathf.Lerp(roll, 0f, autoLevelStrength * Time.deltaTime);
+
+            targetWorldRot = Quaternion.Euler(pitch, yaw, roll);
+        }
+
+        if (!shouldSmooth)
+        {
+            handheldSmoothingInitialized = false;
+            cameraTransform.SetPositionAndRotation(targetWorldPos, targetWorldRot);
+            return;
+        }
+
+        if (!handheldSmoothingInitialized)
+        {
+            smoothedHandheldWorldPos = targetWorldPos;
+            smoothedHandheldWorldRot = targetWorldRot;
+            handheldSmoothingInitialized = true;
+        }
+
+        float dt = Time.deltaTime;
+        smoothedHandheldWorldPos = Vector3.Lerp(
+            smoothedHandheldWorldPos,
+            targetWorldPos,
+            vrHandheldPositionSmoothing * dt
+        );
+        smoothedHandheldWorldRot = Quaternion.Slerp(
+            smoothedHandheldWorldRot,
+            targetWorldRot,
+            vrHandheldRotationSmoothing * dt
+);
+
+        cameraTransform.SetPositionAndRotation(smoothedHandheldWorldPos, targetWorldRot);
+    }
     /// <summary>
     /// Unsubscribes events, releases locks, destroys highlight artifacts, shuts down fly camera,
     /// and then calls base destroy.

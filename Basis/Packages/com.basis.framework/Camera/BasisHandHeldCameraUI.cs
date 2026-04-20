@@ -1,683 +1,906 @@
-using Basis;
-using Basis.Scripts.BasisSdk.Helpers;
-using Basis.Scripts.BasisSdk.Interactions;
-using Basis.Scripts.BasisSdk.Players;
-using Basis.Scripts.Device_Management;
-using Basis.Scripts.Drivers;
-using Basis.Scripts.Networking;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
+using Basis.BasisUI;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.Universal;
+using UnityEngine.UI;
 
 /// <summary>
-/// Handheld capture camera with preview, screenshotting (PNG/EXR),
-/// post-processing integration (Tonemapping/DoF/Bloom/Color), and UI plumbing.
-/// Extends <see cref="BasisHandHeldCameraInteractable"/> for pin/fly modes.
+/// Handles the handheld camera UI: wiring buttons, toggles, sliders; loading/saving
+/// settings; and reflecting values into the capture camera and post-processing stack.
 /// </summary>
-public class BasisHandHeldCamera : BasisHandHeldCameraInteractable
+[Serializable]
+public partial class BasisHandHeldCameraUI
 {
-    [Header("Camera Components")]
-    /// <summary>URP camera data (AA, stack, etc.).</summary>
-    public UniversalAdditionalCameraData CameraData;
+    public Button TakePhotoButton;
+    public Button ResetButton;
+    public Button CloseButton;
+    public Button Timer;
+    public Button Nameplates;
+    public Button OverrideDesktopOutput;
+    public Button Selfie;
+    public Button AutoLevelButton;
+    public Button VRStabilizationButton;
 
-    /// <summary>The actual capture camera (physical properties enabled).</summary>
-    public Camera captureCamera;
+    [Space(10)]
+    public GameObject focusCursor;
 
-    /// <summary>Preview mesh renderer that displays the render texture.</summary>
-    public MeshRenderer Renderer;
+    public Button DepthModeAutoButton;
+    public Button DepthModeManualButton;
 
-    /// <summary>Base material used to show the preview texture on <see cref="Renderer"/>.</summary>
-    public Material Material;
+    [Space(10)]
+    // Optional dynamic button layout
+    public Transform DynamicButtonRoot;
+    public Button ButtonPrefab;
+    public BasisCameraButtonDescriptor[] ScriptableButtons;
 
-    [Header("UI Components")]
-    /// <summary>Countdown text for timer captures (e.g., “3…2…1…!”).</summary>
-    public TextMeshProUGUI countdownText;
+    public enum DepthMode { Auto, Manual }
+    public DepthMode currentDepthMode = DepthMode.Auto;
+    public bool IsSelfieMode => selfieBool;
+    public Transform imagePreviewFlip;
 
-    /// <summary>All handheld camera UI widgets and persistence (sliders/toggles/etc.).</summary>
-    [SerializeField] public BasisHandHeldCameraUI HandHeld = new BasisHandHeldCameraUI();
-
-    /// <summary>Handler to click-to-focus Depth of Field in the preview.</summary>
-    [SerializeField] public BasisDepthOfFieldInteractionHandler BasisDOFInteractionHandler;
-
-    /// <summary>Back-reference to the interactable (for UI hand-off).</summary>
-    [SerializeField] private BasisHandHeldCameraInteractable interactable;
-
-    [Header("Settings")]
-    /// <summary>Output capture width (photo resolution).</summary>
-    [Tooltip("Width of the captured photo")]
-    public int captureWidth = 3840;
-
-    /// <summary>Output capture height (photo resolution).</summary>
-    [Tooltip("Height of the captured photo")]
-    public int captureHeight = 2160;
-
-    /// <summary>Preview RT width.</summary>
-    [Tooltip("Preview resolution width")]
-    public int PreviewCaptureWidth = 1920;
-
-    /// <summary>Preview RT height.</summary>
-    [Tooltip("Preview resolution height")]
-    public int PreviewCaptureHeight = 1080;
-
-    /// <summary>“EXR” or “PNG” (affects RT format and encoding).</summary>
-    [Tooltip("Capture format (EXR/PNG)")]
-    public string captureFormat = "EXR";
-
-    /// <summary>Depth buffer bits for the render texture (e.g., 24).</summary>
-    [Tooltip("Depth buffer bits for render texture")]
-    public int depth = 24;
-
-    /// <summary>Instance identifier for multi-camera setups.</summary>
-    [Tooltip("Instance ID for multi-camera setups")]
-    public int InstanceID;
-
-    [Header("Advanced/Debug")]
-    /// <summary>If true and not on desktop, camera renders to display instead of RT.</summary>
-    public bool enableRecordingView = false;
-
-    /// <summary>Static metadata/presets and PP component references.</summary>
-    public BasisHandHeldCameraMetaData MetaData = new BasisHandHeldCameraMetaData();
-
-    // --- private state ---
-
-    /// <summary>Instantiated material assigned to the preview renderer.</summary>
-    private Material actualMaterial;
-
-    /// <summary>Current preview/capture render texture.</summary>
-    private RenderTexture renderTexture;
-
-    /// <summary>Last RT bound to material (to avoid redundant sets).</summary>
-    private RenderTexture lastAssignedRenderTexture = null;
-
-    /// <summary>Last material assigned to the renderer (to avoid redundant sets).</summary>
-    private Material lastAssignedMaterial = null;
-
-    /// <summary>Pooled CPU-side texture for async GPU readbacks.</summary>
-    private Texture2D pooledScreenshot;
-
-    /// <summary>Bitmask for the UI layer toggle in <see cref="Nameplates"/>.</summary>
-    private int uiLayerMask;
-
-    /// <summary>Shared “clear to color” material (Unlit/Color).</summary>
-    private static Material clearMaterial;
-
-    /// <summary>Shader path used to initialize <see cref="clearMaterial"/>.</summary>
-    private const string CLEAR_SHADER_PATH = "Unlit/Color";
-
-    /// <summary>Folder where screenshots are written (platform-dependent).</summary>
-    private string picturesFolder;
-
-    /// <summary>Whether the UI/nameplates are currently visible in the capture.</summary>
-    private bool showUI = false;
-
-    /// <summary>Last visibility state reported by the mesh renderer check.</summary>
-    public bool LastVisibilityState = false;
-
-    /// <summary>Renderer visibility observer.</summary>
-    private BasisMeshRendererCheck basisMeshRendererCheck;
-
+    [Space(10)]
     /// <summary>
-    /// Performs camera/PP/UI/material initialization, creates folders, saves initial settings,
-    /// and starts the preview loop. Also hooks boot-mode changes.
+    /// IMPORTANT: This behaves like a "cycle button" in your original code, not a real toggle.
+    /// We keep it as Toggle to avoid breaking prefab hookups, but we force it back off.
     /// </summary>
-    public new async void Awake()
+    public Toggle Resolution;
+    public GameObject[] ResolutionSprites; // 4 resolution sprites
+    private int currentResolutionIndex = 0;
+
+    public Toggle Format;
+    public bool useEXR => Format != null && Format.isOn;
+
+    private const int FORMAT_PNG = 0;
+    private const int FORMAT_EXR = 1;
+
+    public GameObject PngSprite;
+    public GameObject ExrSprite;
+
+    public GameObject DoFAutoSprite;
+    public GameObject DoFManualSprite;
+
+    [Space(10)]
+    public Slider ExposureSlider;
+
+    [Space(10)]
+    public Slider volumetricDensitySlider;
+
+    private static readonly float[] ExposureStops =
     {
-        InitializeCameraSettings();
-        InitializeMaterial();
-        InitializeMeshRendererCheck();
-        await InitializeUI();
-        InitializeTonemapping();
-        InitializeDepthOfField();
-        InitalizeVolumetrics();
-        InitializeFolders();
-        await HandHeld.SaveSettings();
-        SetupUILayerMask();
-        SetupClearMaterial();
+        -3f, -2.5f, -2f, -1.5f, -1f, -0.5f, 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f
+    };
 
-        base.Awake();
+    [Space(10)]
+    public TextMeshProUGUI DOFFocusOutput;
+    public TextMeshProUGUI DepthApertureOutput;
+    public TextMeshProUGUI BloomIntensityOutput;
+    public TextMeshProUGUI BloomThreshholdOutput;
+    public TextMeshProUGUI ContrastOutput;
+    public TextMeshProUGUI SaturationOutput;
+    public TextMeshProUGUI FOVOutput;
+    public TextMeshProUGUI VolFogOutput;
 
-        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
-        captureCamera.targetTexture = renderTexture;
-        captureCamera.gameObject.SetActive(true);
-        BasisDeviceManagement.OnBootModeChanged += OnBootModeChanged;
+    [Space(10)]
+    public Slider FOVSlider;
+    public Slider DepthFocusDistanceSlider;
+    public Slider DepthApertureSlider;
+    public Slider BloomIntensitySlider;
+    public Slider BloomThresholdSlider;
+    public Slider ContrastSlider;
+    public Slider SaturationSlider;
 
-        // Notify network that PIP camera was created
-        if (BasisNetworkConnection.LocalPlayerPeer != null)
+    [Space(10)]
+    // Keep your existing fields so you don't have to redo prefab references.
+    public RectTransform uiOrientationElement;
+    public RectTransform uiOrientationElement2;
+    public RectTransform uiOrientationElement3;
+    public RectTransform uiOrientationElement4;
+    public RectTransform uiOrientationElement5;
+
+    [Space(10)]
+    public GameObject cameraReference;
+    public GameObject uiOrientationReference;
+    private bool selfieBool = false;
+
+    public BasisHandHeldCamera HHC;
+    public async Task Initialize(BasisHandHeldCamera hhc)
+    {
+        HHC = hhc;
+
+        CachePostProcessingReferences();
+        SetupSliderRanges();
+
+        // Build default descriptors from existing button references if not set
+        EnsureDefaultScriptableButtons();
+
+        // Bind ONCE through descriptor system (prevents double listeners)
+        BindScriptableButtons();
+
+        // Bind non-descriptor UI (sliders/toggles)
+        BindNonButtonUIEvents();
+
+        // Load and apply settings after bindings are in place (but we use SetValueWithoutNotify to prevent spam)
+        await LoadSettings();
+
+        InitializeFormatUI();
+        SeedInitialSliderValues();
+        UpdateResolutionSprites();
+    }
+
+    private void CachePostProcessingReferences()
+    {
+        HHC.MetaData.Profile.TryGet(out HHC.MetaData.depthOfField);
+        HHC.MetaData.Profile.TryGet(out HHC.MetaData.bloom);
+        HHC.MetaData.Profile.TryGet(out HHC.MetaData.colorAdjustments);
+
+        if (HHC.MetaData.colorAdjustments != null)
+            HHC.MetaData.colorAdjustments.active = true;
+    }
+
+    // ---------- Binding (Buttons via descriptors) ----------
+
+    private void EnsureDefaultScriptableButtons()
+    {
+        if (ScriptableButtons != null && ScriptableButtons.Length > 0)
+            return;
+
+        var list = new List<BasisCameraButtonDescriptor>();
+
+        AddIf(list, "TakePhoto", TakePhotoButton, BasisCameraButtonAction.TakePhoto);
+        AddIf(list, "Reset", ResetButton, BasisCameraButtonAction.ResetSettings);
+        AddIf(list, "Close", CloseButton, BasisCameraButtonAction.CloseUI);
+        AddIf(list, "Timer", Timer, BasisCameraButtonAction.Timer);
+
+        // Optional buttons (may be removed in your project)
+        AddIf(list, "Nameplates", Nameplates, BasisCameraButtonAction.ToggleNameplates);
+        AddIf(list, "OverrideDesktopOutput", OverrideDesktopOutput, BasisCameraButtonAction.ToggleDesktopOutput);
+        AddIf(list, "Selfie", Selfie, BasisCameraButtonAction.ToggleSelfie);
+        AddIf(list, "AutoLevel", AutoLevelButton, BasisCameraButtonAction.ToggleAutoLevel);
+        AddIf(list, "VRStabilization", VRStabilizationButton, BasisCameraButtonAction.ToggleVRHandheldSmoothing);
+
+        AddIf(list, "DepthAuto", DepthModeAutoButton, BasisCameraButtonAction.DepthModeAuto);
+        AddIf(list, "DepthManual", DepthModeManualButton, BasisCameraButtonAction.DepthModeManual);
+
+        ScriptableButtons = list.ToArray();
+
+        static void AddIf(List<BasisCameraButtonDescriptor> l, string id, Button b, BasisCameraButtonAction a)
         {
-            captureCamera.transform.GetPositionAndRotation(out Vector3 pipPos, out Quaternion pipRot);
-            BasisNetworkPIPCameraDriver.SendPIPState(true, pipPos, pipRot);
+            if (b == null) return;
+            l.Add(new BasisCameraButtonDescriptor { id = id, action = a, button = b });
         }
     }
-    public void InitalizeVolumetrics()
+
+    private void BindScriptableButtons()
+    {
+        if (ScriptableButtons == null || ScriptableButtons.Length == 0)
+            return;
+
+        foreach (var descriptor in ScriptableButtons)
+        {
+            if (descriptor == null)
+                continue;
+
+            var button = descriptor.button;
+
+            // Create dynamically if allowed
+            if (button == null && ButtonPrefab != null && DynamicButtonRoot != null)
+            {
+                button = UnityEngine.Object.Instantiate(ButtonPrefab, DynamicButtonRoot, false);
+                descriptor.button = button;
+            }
+
+            if (button == null)
+                continue;
+
+            // Prevent stacking listeners on re-init / reuse
+            button.onClick.RemoveAllListeners();
+
+            // Apply icon if present
+            if (descriptor.icon != null)
+            {
+                var image = button.GetComponent<Image>() ?? button.GetComponentInChildren<Image>();
+                if (image != null)
+                    image.sprite = descriptor.icon;
+            }
+
+            AttachButtonAction(button, descriptor.action);
+        }
+    }
+
+    private void AttachButtonAction(Button button, BasisCameraButtonAction action)
+    {
+        if (button == null) return;
+
+        switch (action)
+        {
+            case BasisCameraButtonAction.TakePhoto:
+                button.onClick.AddListener(HHC.CapturePhoto);
+                break;
+
+            case BasisCameraButtonAction.ResetSettings:
+                button.onClick.AddListener(ResetSettings);
+                break;
+
+            case BasisCameraButtonAction.CloseUI:
+                button.onClick.AddListener(CloseUI);
+                break;
+
+            case BasisCameraButtonAction.Timer:
+                button.onClick.AddListener(HHC.Timer);
+                break;
+
+            case BasisCameraButtonAction.ToggleNameplates:
+                button.onClick.AddListener(HHC.Nameplates);
+                break;
+
+            case BasisCameraButtonAction.ToggleDesktopOutput:
+                button.onClick.AddListener(HHC.OnOverrideDesktopOutputButtonPress);
+                break;
+
+            case BasisCameraButtonAction.ToggleSelfie:
+                button.onClick.AddListener(SelfieToggle);
+                break;
+
+            case BasisCameraButtonAction.ToggleAutoLevel:
+                button.onClick.AddListener(ToggleAutoLevel);
+                break;
+
+            case BasisCameraButtonAction.ToggleVRHandheldSmoothing:
+                button.onClick.AddListener(ToggleVRHandheldSmoothing);
+                break;
+
+            case BasisCameraButtonAction.DepthModeAuto:
+                button.onClick.AddListener(() => SetDepthMode(DepthMode.Auto));
+                break;
+
+            case BasisCameraButtonAction.DepthModeManual:
+                button.onClick.AddListener(() => SetDepthMode(DepthMode.Manual));
+                break;
+        }
+    }
+    private void BindNonButtonUIEvents()
+    {
+        if (Resolution != null)
+        {
+            Resolution.onValueChanged.RemoveAllListeners();
+            Resolution.onValueChanged.AddListener(_ => CycleResolutionPreset());
+        }
+
+        if (Format != null)
+        {
+            Format.onValueChanged.RemoveAllListeners();
+            Format.onValueChanged.AddListener(OnFormatToggleChanged);
+        }
+
+        HookSlider(FOVSlider, ChangeFOV);
+        HookSlider(ExposureSlider, ChangeExposureCompensation);
+        HookSlider(DepthApertureSlider, ChangeAperture);
+        HookSlider(DepthFocusDistanceSlider, DepthChangeFocusDistance);
+        HookSlider(BloomIntensitySlider, ChangeBloomIntensity);
+        HookSlider(BloomThresholdSlider, ChangeBloomThreshold);
+        HookSlider(ContrastSlider, ChangeContrast);
+        HookSlider(SaturationSlider, ChangeSaturation);
+        HookSlider(volumetricDensitySlider, ChangeVolumetricDensity);
+    }
+
+    private static void HookSlider(Slider slider, Action<float> handler)
+    {
+        if (slider == null) return;
+        slider.onValueChanged.RemoveAllListeners();
+        slider.onValueChanged.AddListener(v => handler(v));
+    }
+
+    // ---------- Ranges / Initial ----------
+
+    private void SetupSliderRanges()
+    {
+        if (DepthApertureSlider != null) { DepthApertureSlider.minValue = 0f; DepthApertureSlider.maxValue = 32f; }
+        if (FOVSlider != null) { FOVSlider.minValue = 20f; FOVSlider.maxValue = 120f; }
+        if (DepthFocusDistanceSlider != null) { DepthFocusDistanceSlider.minValue = 0.1f; DepthFocusDistanceSlider.maxValue = 100f; }
+        if (BloomIntensitySlider != null) { BloomIntensitySlider.minValue = 0f; BloomIntensitySlider.maxValue = 5f; }
+        if (BloomThresholdSlider != null) { BloomThresholdSlider.minValue = 0.1f; BloomThresholdSlider.maxValue = 2f; }
+        if (ContrastSlider != null) { ContrastSlider.minValue = -100f; ContrastSlider.maxValue = 100f; }
+        if (SaturationSlider != null) { SaturationSlider.minValue = -100f; SaturationSlider.maxValue = 100f; }
+
+        if (HHC != null && HHC.captureCamera != null && FOVSlider != null)
+            FOVSlider.SetValueWithoutNotify(HHC.captureCamera.fieldOfView);
+    }
+
+    private void InitializeFormatUI()
+    {
+        if (Format != null)
+            OnFormatToggleChanged(Format.isOn);
+    }
+
+    private void SeedInitialSliderValues()
+    {
+        if (HHC != null && HHC.captureCamera != null && FOVSlider != null)
+            FOVSlider.SetValueWithoutNotify(HHC.captureCamera.fieldOfView);
+    }
+
+    // ---------- Orientation ----------
+
+    public void SetUIOrientation(BasisCameraOrientation orientation)
+    {
+        if (uiOrientationElement == null)
+        {
+            BasisDebug.LogError("[Camera UI] uiOrientationElement is NULL! Did you forget to assign it in the Inspector?");
+            return;
+        }
+
+        switch (orientation)
+        {
+            case BasisCameraOrientation.Landscape:
+                ApplyLandscapeLayout();
+                break;
+
+            case BasisCameraOrientation.LandscapeFlipped:
+                ApplyLandscapeLayout();
+                RotateAllUI180();
+                break;
+
+            case BasisCameraOrientation.PortraitCW:
+                ApplyPortraitLayout(true);
+                break;
+
+            case BasisCameraOrientation.PortraitCCW:
+                ApplyPortraitLayout(false);
+                break;
+        }
+    }
+
+    private void ApplyLandscapeLayout()
+    {
+        if (uiOrientationElement != null) { uiOrientationElement.localRotation = Quaternion.identity; uiOrientationElement.localPosition = Vector3.zero; }
+        if (uiOrientationElement2 != null) { uiOrientationElement2.localRotation = Quaternion.identity; uiOrientationElement2.localPosition = Vector3.zero; }
+        if (uiOrientationElement3 != null) { uiOrientationElement3.localRotation = Quaternion.identity; uiOrientationElement3.localPosition = new Vector3(0f, 600f, 0f); }
+        if (uiOrientationElement4 != null) { uiOrientationElement4.localRotation = Quaternion.Euler(0f, 0f, 90f); uiOrientationElement4.localPosition = new Vector3(1250f, 0f, 0f); }
+        if (uiOrientationElement5 != null) { uiOrientationElement5.localRotation = Quaternion.identity; uiOrientationElement5.localPosition = Vector3.zero; }
+    }
+
+    private void RotateAllUI180()
+    {
+        RotateElement180(uiOrientationElement);
+        RotateElement180(uiOrientationElement2);
+        RotateElement180(uiOrientationElement3);
+        RotateElement180(uiOrientationElement4);
+        RotateElement180(uiOrientationElement5);
+    }
+
+    private static void RotateElement180(RectTransform t)
+    {
+        if (t == null) return;
+        t.localRotation *= Quaternion.Euler(0f, 0f, 180f);
+        var p = t.localPosition;
+        t.localPosition = new Vector3(-p.x, -p.y, p.z);
+    }
+
+    private void ApplyPortraitLayout(bool isClockwise)
+    {
+        const float mainSideOffset = 525f;
+        const float secondSideOffset = 500f;
+        const float thirdSideOffsetSum = 1050f;
+        const float bottomMainOffset = 725f;
+        const float bottomSecondaryOffset = 525f;
+
+        float sideSign = isClockwise ? -1f : 1f;
+        float rotZ = isClockwise ? -90f : 90f;
+
+        if (uiOrientationElement != null)
+        {
+            uiOrientationElement.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+            uiOrientationElement.localPosition = new Vector3(sideSign * mainSideOffset, 0f, 0f);
+        }
+
+        if (uiOrientationElement2 != null)
+        {
+            uiOrientationElement2.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+            uiOrientationElement2.localPosition = new Vector3(sideSign * secondSideOffset, 0f, 0f);
+        }
+
+        if (uiOrientationElement3 != null)
+        {
+            uiOrientationElement3.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+            uiOrientationElement3.localPosition = new Vector3(-sideSign * thirdSideOffsetSum, 0f, 0f);
+        }
+
+        if (uiOrientationElement4 != null)
+        {
+            uiOrientationElement4.localRotation = Quaternion.identity;
+            uiOrientationElement4.localPosition = new Vector3(0f, -bottomMainOffset, 0f);
+        }
+
+        if (uiOrientationElement5 != null)
+        {
+            uiOrientationElement5.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+            uiOrientationElement5.localPosition = new Vector3(0f, -bottomSecondaryOffset, 0f);
+        }
+    }
+
+    // ---------- UI Actions ----------
+
+    private void SelfieToggle()
+    {
+        selfieBool = !selfieBool;
+
+        var interactable = HHC != null ? HHC.GetComponent<BasisHandHeldCameraInteractable>() : null;
+        interactable?.SetSelfieRotationEnabled(selfieBool);
+
+        if (imagePreviewFlip != null)
+        {
+            Vector3 scale = imagePreviewFlip.localScale;
+            scale.x = selfieBool ? -Mathf.Abs(scale.x) : Mathf.Abs(scale.x);
+            imagePreviewFlip.localScale = scale;
+        }
+    }
+    
+    private void ToggleAutoLevel()
+    {
+        if (HHC == null)
+            return;
+
+        HHC.useAutoLeveling = !HHC.useAutoLeveling;
+        BasisDebug.Log($"[AutoLevel] Auto leveling is now {(HHC.useAutoLeveling ? "ON" : "OFF")}");
+    }
+    private void ToggleVRHandheldSmoothing()
+    {
+        if (HHC == null)
+            return;
+
+        HHC.useVRHandheldSmoothing = !HHC.useVRHandheldSmoothing;
+        BasisDebug.Log($"[VRStabilization] VR handheld smoothing is now {(HHC.useVRHandheldSmoothing ? "ON" : "OFF")}");
+    }
+
+    public void SetDepthMode(DepthMode mode)
+    {
+        currentDepthMode = mode;
+
+        bool useAuto = (mode == DepthMode.Auto);
+        bool dofIsActive = HHC != null && HHC.MetaData.depthOfField != null && HHC.MetaData.depthOfField.active;
+
+        focusCursor?.SetActive(dofIsActive);
+
+        if (DepthApertureSlider != null)
+            DepthApertureSlider.gameObject.SetActive(dofIsActive);
+
+        if (DepthFocusDistanceSlider != null)
+            DepthFocusDistanceSlider.gameObject.SetActive(dofIsActive && !useAuto);
+
+        if (DoFAutoSprite != null) DoFAutoSprite.SetActive(dofIsActive && useAuto);
+        if (DoFManualSprite != null) DoFManualSprite.SetActive(dofIsActive && !useAuto);
+
+        BasisDebug.Log($"[DepthMode] Switched to {(useAuto ? "Auto" : "Manual")}");
+    }
+
+    public void ChangeExposureCompensation(float index)
+    {
+        if (HHC == null || HHC.MetaData.colorAdjustments == null) return;
+
+        int i = Mathf.Clamp((int)index, 0, ExposureStops.Length - 1);
+        HHC.MetaData.colorAdjustments.postExposure.value = ExposureStops[i];
+    }
+
+    private void OnFormatToggleChanged(bool state)
+    {
+        BasisDebug.Log($"[Format] Changed to {(state ? "EXR" : "PNG")}");
+
+        if (HHC != null)
+            HHC.captureFormat = state ? "EXR" : "PNG";
+
+        if (PngSprite != null) PngSprite.SetActive(!state);
+        if (ExrSprite != null) ExrSprite.SetActive(state);
+    }
+
+    private void CycleResolutionPreset()
+    {
+        currentResolutionIndex = (currentResolutionIndex + 1) % 4;
+
+        if (HHC != null)
+            HHC.ChangeResolution(currentResolutionIndex);
+
+        UpdateResolutionSprites();
+
+        // Make the Toggle behave like a momentary "cycle" control (prevents it staying checked)
+        if (Resolution != null)
+            Resolution.SetIsOnWithoutNotify(false);
+
+        BasisDebug.Log($"[Resolution] Changed to index {currentResolutionIndex}");
+    }
+
+    private void UpdateResolutionSprites()
+    {
+        if (ResolutionSprites == null || ResolutionSprites.Length == 0)
+            return;
+
+        int count = ResolutionSprites.Length;
+
+        if (currentResolutionIndex < 0 || currentResolutionIndex >= count)
+        {
+            BasisDebug.LogWarning($"[UpdateResolutionSprites] Invalid currentResolutionIndex: {currentResolutionIndex}, ResolutionSprites.Length: {count}");
+            return;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            if (ResolutionSprites[i] != null)
+                ResolutionSprites[i].SetActive(i == currentResolutionIndex);
+        }
+    }
+
+    public int GetFormatIndex()
+    {
+        return Format != null && Format.isOn ? FORMAT_EXR : FORMAT_PNG;
+    }
+
+    public void ReleaseUILock()
+    {
+        var cameraInteractable = HHC.GetComponent<BasisHandHeldCameraInteractable>();
+        cameraInteractable?.ReleasePlayerLocks();
+
+        // only hide the cursor if the basis main menu is not there
+        if(BasisMainMenu.Instance == null)
+            Cursor.visible = false;
+    }
+
+    public void CloseUI()
+    {
+        if (HHC == null) return;
+
+        ReleaseUILock();
+        GameObject.Destroy(HHC.gameObject);
+    }
+
+    // ---------- Persistence ----------
+
+    public const string CameraSettingsJson = "CameraSettings.json";
+
+    public async Task SaveSettings()
+    {
+        var settingsToSave = CreateCurrentCameraSettings();
+
+        try
+        {
+            string json = JsonUtility.ToJson(settingsToSave, true);
+            string path = Path.Combine(Application.persistentDataPath, CameraSettingsJson);
+            await File.WriteAllTextAsync(path, json);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"[SaveSettings] Failed: {ex.Message}");
+            await SaveDefaultSettings();
+        }
+    }
+
+    private CameraSettings CreateCurrentCameraSettings()
+    {
+        return new CameraSettings
+        {
+            resolutionIndex = currentResolutionIndex,
+            formatIndex = GetFormatIndex(),
+            fov = FOVSlider != null ? FOVSlider.value : 40f,
+            bloomIntensity = BloomIntensitySlider != null ? BloomIntensitySlider.value : 0.5f,
+            bloomThreshold = BloomThresholdSlider != null ? BloomThresholdSlider.value : 0.5f,
+            contrast = ContrastSlider != null ? ContrastSlider.value : 1f,
+            saturation = SaturationSlider != null ? SaturationSlider.value : 1f,
+            depthAperture = DepthApertureSlider != null ? DepthApertureSlider.value : 1f,
+            depthFocusDistance = DepthFocusDistanceSlider != null ? DepthFocusDistanceSlider.value : 10f,
+            exposureIndex = Mathf.Clamp((int)(ExposureSlider != null ? ExposureSlider.value : 6), 0, ExposureStops.Length - 1),
+            VolumetricFogVolumedensity = volumetricDensitySlider != null ? volumetricDensitySlider.value : 0.01f,
+            VolumetricFogenableAPVContribution = true,
+            VolumetricFogenableMainLightContribution = true,
+            VolumetricenableAdditionalLightsContribution = true,
+        };
+    }
+
+    private async Task SaveDefaultSettings()
+    {
+        try
+        {
+            var defaultSettings = new CameraSettings();
+            string json = JsonUtility.ToJson(defaultSettings, true);
+            string path = Path.Combine(Application.persistentDataPath, CameraSettingsJson);
+            await File.WriteAllTextAsync(path, json);
+            BasisDebug.Log("Default camera settings saved.");
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"[SaveDefaultSettings] Failed: {ex.Message}");
+        }
+    }
+
+    public void ResetSettings()
+    {
+        try
+        {
+            ApplySettings(new CameraSettings());
+            BasisDebug.Log("Settings have been reset to default values.");
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"Error resetting settings: {ex.Message}");
+        }
+    }
+
+    public async Task LoadSettings()
+    {
+        string path = Path.Combine(Application.persistentDataPath, CameraSettingsJson);
+
+        if (!File.Exists(path))
+        {
+            BasisDebug.Log("[LoadSettings] Settings file not found. Applying default values.");
+            ApplySettings(new CameraSettings());
+            return;
+        }
+
+        try
+        {
+            string json = await File.ReadAllTextAsync(path);
+            var loaded = JsonUtility.FromJson<CameraSettings>(json);
+            ApplySettings(loaded);
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"[LoadSettings] Failed to load settings: {ex.Message}");
+            ApplySettings(new CameraSettings());
+        }
+    }
+
+    private void ApplySettings(CameraSettings settings)
+    {
+        if (HHC == null) return;
+
+        // DOF interaction handler first (if present)
+        HHC.BasisDOFInteractionHandler?.SetDoFState(settings.depthIsActive);
+
+        try
+        {
+            // Resolution & indicator sprites
+            currentResolutionIndex = settings.resolutionIndex;
+            HHC.ChangeResolution(currentResolutionIndex);
+            UpdateResolutionSprites();
+
+            // Resolution toggle momentary behavior
+            if (Resolution != null)
+                Resolution.SetIsOnWithoutNotify(false);
+
+            // Sliders and toggles (no notify)
+            SetSliderValue(FOVSlider, settings.fov);
+            SetSliderValue(BloomIntensitySlider, settings.bloomIntensity);
+            SetSliderValue(BloomThresholdSlider, settings.bloomThreshold);
+            SetSliderValue(ContrastSlider, settings.contrast);
+            SetSliderValue(SaturationSlider, settings.saturation);
+            SetSliderValue(DepthApertureSlider, settings.depthAperture);
+            SetSliderValue(DepthFocusDistanceSlider, settings.depthFocusDistance);
+            SetSliderValue(ExposureSlider, settings.exposureIndex);
+            SetSliderValue(volumetricDensitySlider, settings.VolumetricFogVolumedensity);
+
+            if (Format != null)
+                Format.SetIsOnWithoutNotify(settings.formatIndex == FORMAT_EXR);
+
+            // Apply camera intrinsics
+            if (HHC.captureCamera != null)
+            {
+                HHC.captureCamera.fieldOfView = settings.fov;
+                HHC.captureCamera.focalLength = settings.focusDistance;
+                HHC.captureCamera.sensorSize = new Vector2(settings.sensorSizeX, settings.sensorSizeY);
+
+                // Aperture
+                if (settings.apertureIndex >= 0 && settings.apertureIndex < HHC.MetaData.apertures.Length)
+                {
+                    HHC.captureCamera.aperture = float.Parse(HHC.MetaData.apertures[settings.apertureIndex].TrimStart('f', '/'));
+                }
+                else
+                {
+                    BasisDebug.LogWarning($"[ApplySettings] Invalid apertureIndex: {settings.apertureIndex}, count: {HHC.MetaData.apertures.Length}");
+                }
+
+                // Shutter speed
+                if (settings.shutterSpeedIndex >= 0 && settings.shutterSpeedIndex < HHC.MetaData.shutterSpeeds.Length)
+                {
+                    string[] parts = HHC.MetaData.shutterSpeeds[settings.shutterSpeedIndex].Split('/');
+                    if (parts.Length == 2 && float.TryParse(parts[1], out float denominator) && denominator != 0f)
+                        HHC.captureCamera.shutterSpeed = 1f / denominator;
+                    else
+                        BasisDebug.LogWarning($"[ApplySettings] Invalid shutter speed format: {HHC.MetaData.shutterSpeeds[settings.shutterSpeedIndex]}");
+                }
+                else
+                {
+                    BasisDebug.LogWarning($"[ApplySettings] Invalid shutterSpeedIndex: {settings.shutterSpeedIndex}, count: {HHC.MetaData.shutterSpeeds.Length}");
+                }
+
+                // ISO
+                if (settings.isoIndex >= 0 && settings.isoIndex < HHC.MetaData.isoValues.Length)
+                {
+                    HHC.captureCamera.iso = int.Parse(HHC.MetaData.isoValues[settings.isoIndex]);
+                }
+                else
+                {
+                    BasisDebug.LogWarning($"[ApplySettings] Invalid isoIndex: {settings.isoIndex}, count: {HHC.MetaData.isoValues.Length}");
+                }
+            }
+
+            // Post-processing
+            ApplyPostProcessingSettings(settings);
+
+            // Depth UI mode & cursor
+            SetDepthMode(settings.useManualFocus ? DepthMode.Manual : DepthMode.Auto);
+            focusCursor?.SetActive(settings.depthIsActive);
+
+            // Update readouts
+            RefreshAllReadouts();
+
+            // Ensure format UI reflects toggle
+            if (Format != null)
+                OnFormatToggleChanged(Format.isOn);
+
+            BasisDebug.Log("[ApplySettings] Camera settings applied successfully.");
+        }
+        catch (Exception ex)
+        {
+            BasisDebug.LogError($"[ApplySettings] Failed: {ex.Message}");
+        }
+    }
+
+    private static void SetSliderValue(Slider slider, float value)
+    {
+        if (slider != null)
+            slider.SetValueWithoutNotify(value);
+    }
+
+    private void ApplyPostProcessingSettings(CameraSettings settings)
+    {
+        int clampedExposure = Mathf.Clamp(settings.exposureIndex, 0, ExposureStops.Length - 1);
+
+        if (HHC.MetaData.colorAdjustments != null)
+        {
+            HHC.MetaData.colorAdjustments.postExposure.value = ExposureStops[clampedExposure];
+            HHC.MetaData.colorAdjustments.contrast.value = settings.contrast;
+            HHC.MetaData.colorAdjustments.saturation.value = settings.saturation;
+        }
+
+        if (HHC.MetaData.depthOfField != null)
+        {
+            HHC.MetaData.depthOfField.aperture.value = settings.depthAperture;
+            HHC.MetaData.depthOfField.focusDistance.value = settings.depthFocusDistance;
+            HHC.MetaData.depthOfField.active = settings.depthIsActive;
+        }
+
+        if (HHC.MetaData.bloom != null)
+        {
+            HHC.MetaData.bloom.intensity.value = settings.bloomIntensity;
+            HHC.MetaData.bloom.threshold.value = settings.bloomThreshold;
+        }
+
+#if Basis_VOLUMETRIC_SUPPORTED
+        if (HHC.MetaData.VolumetricFogVolume != null)
+        {
+            HHC.MetaData.VolumetricFogVolume.density.value = settings.VolumetricFogVolumedensity;
+            HHC.MetaData.VolumetricFogVolume.enableAPVContribution.value = settings.VolumetricFogenableAPVContribution;
+            HHC.MetaData.VolumetricFogVolume.enableMainLightContribution.value = settings.VolumetricFogenableMainLightContribution;
+            HHC.MetaData.VolumetricFogVolume.enableAdditionalLightsContribution.value = settings.VolumetricenableAdditionalLightsContribution;
+        }
+#endif
+    }
+
+    private void RefreshAllReadouts()
+    {
+        if (FOVOutput != null && FOVSlider != null) FOVOutput.text = FOVSlider.value.ToString();
+        if (BloomIntensityOutput != null && BloomIntensitySlider != null) BloomIntensityOutput.text = BloomIntensitySlider.value.ToString();
+        if (BloomThreshholdOutput != null && BloomThresholdSlider != null) BloomThreshholdOutput.text = BloomThresholdSlider.value.ToString();
+        if (ContrastOutput != null && ContrastSlider != null) ContrastOutput.text = ContrastSlider.value.ToString();
+        if (SaturationOutput != null && SaturationSlider != null) SaturationOutput.text = SaturationSlider.value.ToString();
+        if (DepthApertureOutput != null && DepthApertureSlider != null) DepthApertureOutput.text = DepthApertureSlider.value.ToString();
+        if (DOFFocusOutput != null && DepthFocusDistanceSlider != null) DOFFocusOutput.text = DepthFocusDistanceSlider.value.ToString();
+#if Basis_VOLUMETRIC_SUPPORTED
+        if (VolFogOutput != null && volumetricDensitySlider != null) VolFogOutput.text = volumetricDensitySlider.value.ToString("F1");
+#endif
+    }
+    public void DepthChangeFocusDistance(float value)
+    {
+        if (HHC.MetaData.depthOfField != null)
+        {
+            HHC.MetaData.depthOfField.focusDistance.value = value;
+            if (DOFFocusOutput != null) DOFFocusOutput.text = value.ToString();
+        }
+    }
+
+    public void ChangeAperture(float value)
+    {
+        if (HHC.MetaData.depthOfField != null)
+        {
+            HHC.MetaData.depthOfField.aperture.value = value;
+            if (DepthApertureOutput != null) DepthApertureOutput.text = value.ToString();
+        }
+    }
+
+    public void ChangeBloomIntensity(float value)
+    {
+        if (HHC.MetaData.bloom != null)
+        {
+            HHC.MetaData.bloom.intensity.value = value;
+            if (BloomIntensityOutput != null) BloomIntensityOutput.text = value.ToString();
+        }
+    }
+
+    public void ChangeBloomThreshold(float value)
+    {
+        if (HHC.MetaData.bloom != null)
+        {
+            HHC.MetaData.bloom.threshold.value = value;
+            if (BloomThreshholdOutput != null) BloomThreshholdOutput.text = value.ToString();
+        }
+    }
+
+    public void ChangeContrast(float value)
+    {
+        if (HHC.MetaData.colorAdjustments != null)
+        {
+            HHC.MetaData.colorAdjustments.contrast.value = value;
+            if (ContrastOutput != null) ContrastOutput.text = value.ToString();
+        }
+    }
+
+    public void ChangeSaturation(float value)
+    {
+        if (HHC.MetaData.colorAdjustments != null)
+        {
+            HHC.MetaData.colorAdjustments.saturation.value = value;
+            if (SaturationOutput != null) SaturationOutput.text = value.ToString();
+        }
+    }
+
+    public void ChangeHueShift(float value)
+    {
+        if (HHC.MetaData.colorAdjustments != null)
+        {
+            HHC.MetaData.colorAdjustments.hueShift.value = value;
+        }
+    }
+
+    public void ChangeFOV(float value)
+    {
+        if (HHC.captureCamera != null)
+            HHC.captureCamera.fieldOfView = value;
+
+        if (FOVOutput != null)
+            FOVOutput.text = value.ToString();
+    }
+
+    public void ChangeFocusDistance(float value)
+    {
+        if (HHC.captureCamera != null)
+            HHC.captureCamera.focalLength = value;
+    }
+
+    public void ChangeAperture(int index)
+    {
+        if (HHC.captureCamera == null) return;
+        HHC.captureCamera.aperture = float.Parse(HHC.MetaData.apertures[index].TrimStart('f', '/'));
+    }
+
+    public void ChangeShutterSpeed(int index)
+    {
+        if (HHC.captureCamera == null) return;
+        HHC.captureCamera.shutterSpeed = 1 / float.Parse(HHC.MetaData.shutterSpeeds[index].Split('/')[1]);
+    }
+
+    public void ChangeISO(int index)
+    {
+        if (HHC.captureCamera == null) return;
+        HHC.captureCamera.iso = int.Parse(HHC.MetaData.isoValues[index]);
+    }
+
+    public void ChangeVolumetricDensity(float value)
     {
 #if Basis_VOLUMETRIC_SUPPORTED
-        if (MetaData.Profile.TryGet(out MetaData.VolumetricFogVolume))
+        if (HHC.MetaData.VolumetricFogVolume != null)
         {
-
+            HHC.MetaData.VolumetricFogVolume.density.value = value;
+            if (VolFogOutput != null) VolFogOutput.text = value.ToString("F1");
         }
 #endif
-    }
-    /// <summary>
-    /// Stops preview, saves settings, releases resources, unsubscribes events,
-    /// and returns this object to the Addressables pool.
-    /// </summary>
-    public new async void OnDestroy()
-    {
-        // Notify network that PIP camera was destroyed
-        if (BasisNetworkConnection.LocalPlayerPeer != null)
-        {
-            BasisNetworkPIPCameraDriver.SendPIPState(false, Vector3.zero, Quaternion.identity);
-        }
-
-        string myLoadedNetId = gameObject.name;
-        UnRegisterLoadedNetID(myLoadedNetId);
-
-        UnsubscribeMeshRendererCheck();
-        ReleaseRenderTexture();
-
-        if (HandHeld != null)
-        {
-            HandHeld.ReleaseUILock(); // we should release locks if for whatever reason we get destroyed
-            await HandHeld.SaveSettings();
-        
-        }
-        
-
-        BasisDeviceManagement.OnBootModeChanged -= OnBootModeChanged;
-        OnPickupUse.RemoveListener( OnPickupUseCapture );
-
-        base.OnDestroy();
-    }
-
-    /// <summary>
-    /// Ensures preview RT is set when re-enabled and (re)starts the preview loop.
-    /// </summary>
-    private void OnEnable()
-    {
-        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
-        BasisDebug.Log($"[HandHeldCamera] Preview reset to {PreviewCaptureWidth}x{PreviewCaptureHeight} @ {AntialiasingQuality.Low}");
-        captureCamera.targetTexture = renderTexture;
-    }
-
-    /// <summary>Initializes base camera properties (HDR, MSAA, physical cam, targets).</summary>
-    private void InitializeCameraSettings()
-    {
-        captureCamera.forceIntoRenderTexture = true;
-        captureCamera.allowHDR = true;
-        captureCamera.allowMSAA = true;
-        captureCamera.useOcclusionCulling = true;
-        captureCamera.usePhysicalProperties = true;
-        captureCamera.targetTexture = renderTexture;
-        captureCamera.targetDisplay = 1;
-    }
-
-    /// <summary>Instantiates a unique material used for the preview mesh.</summary>
-    private void InitializeMaterial()
-    {
-        actualMaterial = Instantiate(Material);
-    }
-
-    /// <summary>Attaches a renderer visibility checker and subscribes its event.</summary>
-    private void InitializeMeshRendererCheck()
-    {
-        basisMeshRendererCheck = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Renderer.gameObject);
-        basisMeshRendererCheck.Check += VisibilityFlag;
-    }
-
-    /// <summary>Builds UI, binds it to this camera, and registers for orientation updates.</summary>
-    private async System.Threading.Tasks.Task InitializeUI()
-    {
-        basisMeshRendererCheck = BasisHelpers.GetOrAddComponent<BasisMeshRendererCheck>(Renderer.gameObject);
-        basisMeshRendererCheck.Check += VisibilityFlag;
-        await HandHeld.Initialize(this);
-        interactable.SetCameraUI(HandHeld);
-    }
-
-    /// <summary>Fetches Tonemapping from the profile and sets default mode.</summary>
-    private void InitializeTonemapping()
-    {
-        if (MetaData.Profile.TryGet(out MetaData.tonemapping))
-        {
-            ToggleToneMapping(TonemappingMode.Neutral);
-        }
-    }
-
-    /// <summary>Validates Depth of Field is present; logs details.</summary>
-    private void InitializeDepthOfField()
-    {
-        if (!MetaData.Profile.TryGet(out MetaData.depthOfField))
-        {
-            BasisDebug.LogError("DoF profile not found!");
-        }
-        else
-        {
-            BasisDebug.Log($"DoF is loaded. FocusDistance: {MetaData.depthOfField.focusDistance.value}");
-        }
-    }
-
-    /// <summary>Creates/ensures a “Basis” pictures folder for screenshots.</summary>
-    private void InitializeFolders()
-    {
-        picturesFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Basis");
-        if (!Directory.Exists(picturesFolder))
-        {
-            Directory.CreateDirectory(picturesFolder);
-        }
-    }
-
-    /// <summary>Stores the UI layer bit as a culling mask for toggling nameplates.</summary>
-    private void SetupUILayerMask()
-    {
-        int uiLayer = LayerMask.NameToLayer("UI");
-        if (uiLayer < 0)
-        {
-            BasisDebug.LogError("UI Layer not found.");
-        }
-        else
-        {
-            uiLayerMask = 1 << uiLayer;
-        }
-    }
-
-    /// <summary>Initializes a shared “clear to color” material lazily.</summary>
-    private void SetupClearMaterial()
-    {
-        if (clearMaterial == null)
-        {
-            Shader shader = Shader.Find(CLEAR_SHADER_PATH);
-            if (shader != null)
-            {
-                clearMaterial = new Material(shader);
-            }
-        }
-    }
-
-    /// <summary>Registers input callbacks (e.g., pickup “use” → capture) after base start.</summary>
-    public new void Start()
-    {
-        base.Start();
-        OnPickupUse.AddListener( OnPickupUseCapture );
-    }
-
-    /// <summary>Pickup “use” callback that triggers a capture on press down.</summary>
-    /// <param name="mode">Pickup use mode.</param>
-    public void OnPickupUseCapture(BasisPickUpUseMode mode)
-    {
-        if (mode == BasisPickUpUseMode.OnPickUpUseDown)
-        {
-            CapturePhoto();
-        }
-    }
-
-    /// <summary>
-    /// (Re)creates a render texture for preview/capture and applies AA mode/quality.
-    /// Automatically updates the preview material when the RT changes.
-    /// </summary>
-    /// <param name="width">RT width.</param>
-    /// <param name="height">RT height.</param>
-    /// <param name="AQ">URP SMAA quality.</param>
-    /// <param name="RenderTextureFormat">Render texture format (ARGBFloat for EXR).</param>
-    public void SetResolution(int width, int height, AntialiasingQuality AQ, RenderTextureFormat RenderTextureFormat = RenderTextureFormat.ARGBFloat)
-    {
-        bool textureChanged = false;
-
-        if (renderTexture == null || renderTexture.width != width || renderTexture.height != height || renderTexture.format != RenderTextureFormat)
-        {
-            if (renderTexture != null)
-                renderTexture.Release();
-
-            var descriptor = new RenderTextureDescriptor(width, height, RenderTextureFormat, depth)
-            {
-                msaaSamples = 2,
-                useMipMap = false,
-                autoGenerateMips = false,
-                sRGB = true
-            };
-            renderTexture = new RenderTexture(descriptor);
-            renderTexture.Create();
-            textureChanged = true;
-        }
-
-        if (captureCamera.targetTexture != renderTexture)
-            captureCamera.targetTexture = renderTexture;
-
-        if (CameraData.antialiasing != AntialiasingMode.SubpixelMorphologicalAntiAliasing)
-            CameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-
-        if (CameraData.antialiasingQuality != AQ)
-            CameraData.antialiasingQuality = AQ;
-
-        if (actualMaterial != lastAssignedMaterial || renderTexture != lastAssignedRenderTexture || textureChanged)
-        {
-            actualMaterial.SetTexture("_MainTex", renderTexture);
-            actualMaterial.mainTexture = renderTexture;
-            Renderer.sharedMaterial = actualMaterial;
-            lastAssignedMaterial = actualMaterial;
-            lastAssignedRenderTexture = renderTexture;
-        }
-    }
-
-    /// <summary>
-    /// Captures a still image from the camera using the current resolution/format.
-    /// Uses AsyncGPUReadback and saves on completion.
-    /// </summary>
-    /// <param name="TextureFormat">Texture format for CPU-side buffer.</param>
-    /// <param name="Format">RT format for rendering the frame.</param>
-    public IEnumerator TakeScreenshot(TextureFormat TextureFormat, RenderTextureFormat Format = RenderTextureFormat.ARGBFloat)
-    {
-        SetResolution(captureWidth, captureHeight, AntialiasingQuality.High, Format);
-        yield return new WaitForEndOfFrame();
-
-        BasisLocalAvatarDriver.ScaleHeadToNormal();
-        ToggleToneMapping(TonemappingMode.ACES);
-
-        captureCamera.Render();
-
-        EnsureTexturePool(renderTexture.width, renderTexture.height, TextureFormat);
-
-        AsyncGPUReadback.Request(renderTexture, 0, request =>
-        {
-            if (request.hasError)
-            {
-                BasisDebug.LogError("GPU Readback failed.");
-                SetNormalAfterCapture();
-                return;
-            }
-
-            Unity.Collections.NativeArray<byte> data = request.GetData<byte>();
-            pooledScreenshot.LoadRawTextureData(data);
-            pooledScreenshot.Apply(false);
-
-            SetNormalAfterCapture();
-            SaveScreenshotAsync(pooledScreenshot);
-        });
-    }
-
-    /// <summary>Ensures <see cref="pooledScreenshot"/> matches the required size/format.</summary>
-    private void EnsureTexturePool(int width, int height, TextureFormat format)
-    {
-        if (pooledScreenshot == null || pooledScreenshot.width != width || pooledScreenshot.height != height || pooledScreenshot.format != format)
-        {
-            pooledScreenshot = new Texture2D(width, height, format, false);
-        }
-    }
-    /// <summary>Starts a 5-second countdown and triggers a capture at the end.</summary>
-    public void Timer()
-    {
-        // Notify remote clients so they replay the same tick/shutter timing
-        if (BasisNetworkConnection.LocalPlayerPeer != null)
-        {
-            BasisNetworkPIPCameraDriver.SendCountdown(5);
-        }
-        StartCoroutine(DelayedAction(5));
-    }
-
-    /// <summary>Countdown coroutine that flashes “!” and then takes a screenshot.</summary>
-    private IEnumerator DelayedAction(float delaySeconds)
-    {
-        for (int i = (int)delaySeconds; i > 0; i--)
-        {
-            countdownText.text = i.ToString();
-
-            if (BasisDeviceManagement.Instance.CameraCountdownTickSound != null)
-            {
-                AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraCountdownTickSound, captureCamera.transform.position, SMModuleAudio.ActivePropVolume);
-            }
-
-            yield return new WaitForSeconds(1f);
-        }
-
-        countdownText.text = "!";
-        yield return new WaitForSeconds(0.5f);
-
-        // Choose formats based on captureFormat
-        TextureFormat format;
-        RenderTextureFormat renderFormat;
-        if (captureFormat == "EXR")
-        {
-            format = TextureFormat.RGBAFloat;
-            renderFormat = RenderTextureFormat.ARGBFloat;
-        }
-        else
-        {
-            format = TextureFormat.RGBA32;
-            renderFormat = RenderTextureFormat.ARGB32;
-        }
-
-        // Play shutter sound locally (network was already notified via SendCountdown)
-        if (BasisDeviceManagement.Instance.CameraShutterSound != null)
-        {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, captureCamera.transform.position, SMModuleAudio.ActivePropVolume);
-        }
-
-        StartCoroutine(TakeScreenshot(format, renderFormat));
-        countdownText.text = ((int)delaySeconds).ToString();
-    }
-
-    /// <summary>Toggles UI/nameplates in/out of the capture via the UI layer bit.</summary>
-    public void Nameplates()
-    {
-        if (uiLayerMask == 0)
-        {
-            BasisDebug.LogWarning("UI Layer Mask was not initialized properly.");
-            return;
-        }
-
-        showUI = !showUI;
-
-        if (showUI)
-            captureCamera.cullingMask |= uiLayerMask;
-        else
-            captureCamera.cullingMask &= ~uiLayerMask;
-    }
-
-    /// <summary>Immediate photo capture using the current format choice (EXR/PNG).</summary>
-    public void CapturePhoto()
-    {
-        TextureFormat format;
-        RenderTextureFormat renderFormat;
-
-        if (captureFormat == "EXR")
-        {
-            format = TextureFormat.RGBAFloat;
-            renderFormat = RenderTextureFormat.ARGBFloat;
-        }
-        else
-        {
-            format = TextureFormat.RGBA32;
-            renderFormat = RenderTextureFormat.ARGB32;
-        }
-
-        // Play shutter sound locally at the camera position
-        if (BasisDeviceManagement.Instance.CameraShutterSound != null)
-        {
-            AudioSource.PlayClipAtPoint(BasisDeviceManagement.Instance.CameraShutterSound, captureCamera.transform.position, SMModuleAudio.ActivePropVolume);
-        }
-
-        // Send shutter sound event over the network
-        if (BasisNetworkConnection.LocalPlayerPeer != null)
-        {
-            BasisNetworkPIPCameraDriver.SendShutterSound();
-        }
-
-        StartCoroutine(TakeScreenshot(format, renderFormat));
-    }
-    bool IsOverridingDesktopView = false;
-    public void LateUpdate()
-    {
-        if (IsOverridingDesktopView)
-        {
-            actualMaterial.mainTexture = CopyCameraColorToStaticRTFeature.OutputRT;
-            actualMaterial.SetTexture("_MainTex", CopyCameraColorToStaticRTFeature.OutputRT);
-        }
-
-        // Send PIP camera position to network
-        if (BasisNetworkConnection.LocalPlayerPeer != null)
-        {
-            captureCamera.transform.GetPositionAndRotation(out Vector3 pos, out Quaternion rot);
-            BasisNetworkPIPCameraDriver.SendPIPPosition(pos, rot);
-        }
-    }
-    /// <summary>
-    /// When enabled and not on desktop, renders to the main display instead of the RT
-    /// (and fills the RT with black). Otherwise restores RT output.
-    /// </summary>
-    public void OverrideDesktopOutput()
-    {
-        IsOverridingDesktopView = enableRecordingView && !BasisDeviceManagement.IsUserInDesktop();
-        if (IsOverridingDesktopView)
-        {
-            captureCamera.targetTexture = null;
-            captureCamera.depth = 1;
-            captureCamera.targetDisplay = 0;
-            if(CopyCameraColorToStaticRTFeature.OutputRT == null)
-            {
-                BasisDebug.LogError("Missing RT Copy From Cam");
-            }
-            actualMaterial.mainTexture = CopyCameraColorToStaticRTFeature.OutputRT;
-            actualMaterial.SetTexture("_MainTex", CopyCameraColorToStaticRTFeature.OutputRT);
-        }
-        else
-        {
-            captureCamera.depth = -1;
-            captureCamera.targetDisplay = 0;
-            captureCamera.targetTexture = renderTexture;
-            actualMaterial.mainTexture = renderTexture;
-            actualMaterial.SetTexture("_MainTex", renderTexture);
-        }
-    }
-
-    /// <summary>UI callback to toggle recording view and apply <see cref="OverrideDesktopOutput"/>.</summary>
-    public void OnOverrideDesktopOutputButtonPress()
-    {
-        enableRecordingView = !enableRecordingView;
-        OverrideDesktopOutput();
-    }
-    /// <summary>
-    /// Encodes and writes the screenshot to disk asynchronously using the selected format.
-    /// </summary>
-    /// <param name="screenshot">CPU-side texture to encode.</param>
-    public async void SaveScreenshotAsync(Texture2D screenshot)
-    {
-        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        string extension = captureFormat == "EXR" ? "exr" : "png";
-        string filename = $"Screenshot_{timestamp}_{captureWidth}x{captureHeight}.{extension}";
-        string path = GetSavePath(filename);
-
-        byte[] imageData = captureFormat == "EXR"
-            ? screenshot.EncodeToEXR(Texture2D.EXRFlags.CompressZIP)
-            : screenshot.EncodeToPNG();
-
-        await File.WriteAllBytesAsync(path, imageData);
-    }
-
-    /// <summary>Builds a platform-appropriate save path for a screenshot filename.</summary>
-    public string GetSavePath(string filename)
-    {
-#if UNITY_STANDALONE_WIN
-        return Path.Combine(picturesFolder, filename);
-#else
-        return Path.Combine(Application.persistentDataPath, filename);
-#endif
-    }
-
-    /// <summary>Applies one of the preset resolutions from <see cref="MetaData.resolutions"/>.</summary>
-    public void ChangeResolution(int index)
-    {
-        if (index >= 0 && index < MetaData.resolutions.Length)
-        {
-            (captureWidth, captureHeight) = MetaData.resolutions[index];
-        }
-    }
-
-    /// <summary>Switches between formats in <see cref="MetaData.formats"/> and logs the change.</summary>
-    public void ChangeFormat(int index)
-    {
-        captureFormat = MetaData.formats[index];
-        BasisDebug.Log($"Capture format changed to {captureFormat}");
-    }
-
-    /// <summary>
-    /// Restores tonemapping, hides local head mesh, and returns preview RT settings after capture.
-    /// </summary>
-    public void SetNormalAfterCapture()
-    {
-        ToggleToneMapping(TonemappingMode.Neutral);
-        BasisLocalAvatarDriver.ScaleheadToZero();
-        SetResolution(PreviewCaptureWidth, PreviewCaptureHeight, AntialiasingQuality.Low);
-    }
-
-    /// <summary>Sets the URP tonemapping mode on the active profile.</summary>
-    public void ToggleToneMapping(TonemappingMode mappingMode)
-    {
-        MetaData.tonemapping.mode.value = mappingMode;
-    }
-
-    /// <summary>Boot-mode swap handler (keeps overrides in sync).</summary>
-    private new void OnBootModeChanged(string obj)
-    {
-        OverrideDesktopOutput();
-        // base.OnBootModeChanged(obj);
-    }
-
-    /// <summary>Unhooks visibility observer from the preview renderer.</summary>
-    private void UnsubscribeMeshRendererCheck()
-    {
-        if (basisMeshRendererCheck != null)
-            basisMeshRendererCheck.Check -= VisibilityFlag;
-    }
-
-    /// <summary>Releases the current render texture (if any).</summary>
-    private void ReleaseRenderTexture()
-    {
-        if (renderTexture != null)
-            renderTexture.Release();
-    }
-
-    private async void UnRegisterLoadedNetID(string myLoadedNetId)
-    {
-        if (string.IsNullOrEmpty(myLoadedNetId))
-            return;
-
-        if (BasisRuntimeSpawnRegistry.SpawnedGameobjects.TryGetValue(myLoadedNetId, out var go) && go)
-        {
-            bool success = await BasisRuntimeSpawnRegistry.RemoveByLoadedNetId(myLoadedNetId);
-            if (success)
-            {
-                BasisDebug.Log($"successfully removed item = {myLoadedNetId} from registry");
-            }
-            else
-            {
-                BasisDebug.LogError($"failed to remove item = {myLoadedNetId} from registry");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Called when the preview renderer enters/exits visibility; toggles camera.enabled accordingly.
-    /// </summary>
-    private void VisibilityFlag(bool isVisible)
-    {
-        if (!isVisible)
-        {
-            if (LastVisibilityState && BasisLocalPlayer.Instance != null)
-            {
-                captureCamera.enabled = false;
-                LastVisibilityState = false;
-            }
-        }
-        else
-        {
-            if (!LastVisibilityState && BasisLocalPlayer.Instance != null)
-            {
-                captureCamera.enabled = true;
-                LastVisibilityState = true;
-            }
-        }
     }
 }
