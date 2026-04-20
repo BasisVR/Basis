@@ -106,7 +106,8 @@ public static class BasisSettingsSystem
     }
     public static bool HasSaveData(string uniqueSettingsName)
     {
-        return settingsData.settings.TryGetValue(uniqueSettingsName, out var existing);
+        return settingsData.settings.TryGetValue(uniqueSettingsName, out var value)
+               && !string.IsNullOrEmpty(value);
     }
     public static void SaveString(string uniqueSettingsName, string value)
     {
