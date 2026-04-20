@@ -1035,6 +1035,9 @@ namespace Cilbox
 						MonoBehaviour script = scripts[scriptIndex];
 						if( script == null )
 							continue;
+						// Check if the script is active in the hierarchy.
+						if( !script.gameObject.activeInHierarchy )
+							continue;
 						if( !HasCilboxableAttribute( script.GetType() ) )
 							continue;
 						ret.Add( script );

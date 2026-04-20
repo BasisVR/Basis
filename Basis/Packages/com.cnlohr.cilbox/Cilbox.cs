@@ -2565,7 +2565,7 @@ spiperf.End();
 
 					foreach (MonoBehaviour component in components)
 					{
-						if( component != null )
+						if( component != null && component.gameObject.activeInHierarchy )
 						{
 							Type t = component.GetType();
 							if( !TypesInUseInScene.Contains( t ) )
