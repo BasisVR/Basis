@@ -63,8 +63,11 @@ namespace Cilbox
 		public MethodBase GetNativeMethodFromTypeAndName( Type declaringType, String name, Serializee [] parametersIn, Serializee [] genericArgumentsIn, String fullSignature )
 		{
 			MethodInfo mi = null;
-			bool bDisallowed = box.CheckMethodAllowed( out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature );
-			if( !bDisallowed ) goto disallowed;
+			if(!box.CheckMethodAllowed( out mi, declaringType, name, parametersIn, genericArgumentsIn, fullSignature ))
+			{
+				Debug.LogError( $"Privilege failed for {declaringType}.{name} method" );
+				return null;
+			}
 			if( mi != null ) return mi;
 
 			// Replace delegate construction with cilbox-backed host delegates.
@@ -83,16 +86,33 @@ namespace Cilbox
 			MethodBase m = InternalGetNativeMethodFromTypeAndNameNoSecurity( declaringType, name, parameters, genericArguments, fullSignature );
 
 			// Check all parameters for type safety.
-			foreach( Type t in parameters )
-				if( !CheckTypeSecurityRecursive( t ) ) goto disallowed;
-			foreach( Type t in genericArguments )
-				if( !CheckTypeSecurityRecursive( t ) ) goto disallowed;
-			if( m is MethodInfo && !CheckTypeSecurityRecursive( ((MethodInfo)m).ReturnType ) ) goto disallowed;
+			for (int i = 0; i < parameters.Length; i++)
+			{
+				Type t = parameters[i];
+				if( !CheckTypeSecurityRecursive( t ) )
+				{
+                    string typeName = genericArgumentsIn[i].AsMap()["n"].AsString();
+					Debug.LogError( $"Privilege failed for {declaringType}.{name} parameter {i} type {typeName}" );
+					return null;
+				}
+			}
+			for (int i = 0; i < genericArguments.Length; i++)
+			{
+				Type t = genericArguments[i];
+				if( !CheckTypeSecurityRecursive( t ) )
+				{
+                    string typeName = genericArgumentsIn[i].AsMap()["n"].AsString();
+					Debug.LogError( $"Privilege failed for {declaringType}.{name} generic argument {i} type {typeName}" );
+					return null;
+				}
+			}
+			if( m is MethodInfo && !CheckTypeSecurityRecursive( ((MethodInfo)m).ReturnType ) )
+			{
+				Debug.LogError( $"Privilege failed for {declaringType}.{name} return type {((MethodInfo)m).ReturnType.FullName}" );
+				return null;
+			}
 
 			return m;
-		disallowed:
-			Debug.LogError( $"Privilege failed {declaringType}.{name}" );
-			return null;
 		}
 
 		////////////////////////////////////////////////////////////////////////////////////
@@ -333,6 +353,7 @@ namespace Cilbox
 
 		public bool CheckTypeSecurityRecursive( Type t )
 		{
+			if( t == null ) return false;
 			TypeInfo typeInfo = t.GetTypeInfo();
 			if( typeInfo == null ) return false;
 			String typeName = typeInfo.ToString();
