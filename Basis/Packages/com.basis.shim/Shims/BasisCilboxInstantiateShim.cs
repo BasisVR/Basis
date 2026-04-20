@@ -164,7 +164,10 @@ namespace Basis.Shims
 				BundledContentHolder.Selector.Prop,
 				parent );
 
-			if( sanitizedClone == null ) return null;
+			if( sanitizedClone == null ) {
+				Debug.LogWarning( "[BasisCilbox] Sanitized clone is null." );
+				return null;
+			}
 
 			// Unity's Instantiate returns whatever sub-object on the clone
 			// matches the original's type: GameObject -> GameObject, Component
