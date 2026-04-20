@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -32,7 +33,40 @@ namespace Basis.BasisUI
         /// </summary>
         private static readonly (string Label, string[] Candidates)[] FallbackGroups = new[]
         {
-            ("Basis Fallback - CJK", new[]
+            ("Basis Fallback - zh-Hant", new[]
+            {
+                // Windows
+                "Microsoft JhengHei UI",
+                "Microsoft JhengHei",
+                // macOS
+                "PingFang TC",
+                // Linux / Noto
+                "Noto Sans CJK TC",
+                "Noto Sans TC",
+            }),
+            ("Basis Fallback - zh-Hans", new[]
+            {
+                // Windows
+                "Microsoft YaHei UI",
+                "Microsoft YaHei",
+                // macOS
+                "PingFang SC",
+                // Linux / Noto
+                "Noto Sans CJK SC",
+                "Noto Sans SC",
+                "Source Han Sans",
+            }),
+            ("Basis Fallback - ko-KR", new[]
+            {
+                // Windows
+                "Malgun Gothic",
+                // macOS
+                "Apple SD Gothic Neo",
+                // Linux / Noto
+                "Noto Sans CJK KR",
+                "Noto Sans KR",
+            }),
+            ("Basis Fallback - ja-JP", new[]
             {
                 // Windows 10/11 (ships by default, including English SKUs)
                 "Yu Gothic UI",
@@ -41,31 +75,12 @@ namespace Basis.BasisUI
                 "Meiryo",
                 "MS UI Gothic",
                 "MS Gothic",
-                "Microsoft YaHei UI",
-                "Microsoft YaHei",
-                "Microsoft JhengHei UI",
-                "Microsoft JhengHei",
-                "Malgun Gothic",
-                "SimSun",
-                "SimHei",
                 // macOS
                 "Hiragino Sans",
                 "Hiragino Kaku Gothic ProN",
-                "PingFang SC",
-                "PingFang TC",
-                "Apple SD Gothic Neo",
                 // Linux / Noto
                 "Noto Sans CJK JP",
-                "Noto Sans CJK SC",
-                "Noto Sans CJK KR",
                 "Noto Sans JP",
-                "Noto Sans SC",
-                "Noto Sans KR",
-                "Source Han Sans",
-                // Android
-                "Droid Sans Fallback",
-                // Legacy / universal
-                "Arial Unicode MS",
             }),
             ("Basis Fallback - Unicode", new[]
             {
