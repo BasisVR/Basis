@@ -1,6 +1,6 @@
 {
-  "code": "zh",
-  "nativeName": "中文（繁體）",
+  "code": "zh-Hant",
+  "nativeName": "繁体中文",
   "entries": [
     { "key": "menu.main.title", "value": "主菜单" },
 

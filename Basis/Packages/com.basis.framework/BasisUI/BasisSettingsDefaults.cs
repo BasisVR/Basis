@@ -831,7 +831,11 @@ namespace Basis.BasisUI
         public static BasisSettingsBinding<float> NoiseGateAttack = new("noisegateattack", new BasisPlatformDefault<float>(0.10f)); // 0..1
         public static BasisSettingsBinding<float> NoiseGateRelease = new("noisegaterelease", new BasisPlatformDefault<float>(0.05f)); // 0..1
 
-        public static BasisSettingsBinding<string> Language = new("language", new BasisPlatformDefault<string>(BasisLocalization.DefaultLanguage));
+        /// <summary>
+        /// We’ll initialize the language settings elsewhere.
+        /// see <see cref="BasisLocalization.Initialize"/>
+        /// </summary>
+        public static BasisSettingsBinding<string> Language = new("language", new BasisPlatformDefault<string>(string.Empty));
 
         public static void LoadAll()
         {

@@ -115,15 +115,9 @@ namespace Basis.BasisUI
             DiscoverAvailableLanguages();
             LoadTable(DefaultLanguage, _fallback);
 
-            string languageCode;
-            if (BasisSettingsSystem.HasSaveData("language"))
-            {
-                languageCode = BasisSettingsSystem.LoadString("language", DefaultLanguage);
-            }
-            else
-            {
+            var languageCode = BasisSettingsSystem.LoadString("language", DefaultLanguage);
+            if (string.IsNullOrEmpty(languageCode))
                 languageCode = DetectSystemLanguage();
-            }
 
             SetLanguage(languageCode, notify: false);
         }
@@ -142,9 +136,8 @@ namespace Basis.BasisUI
             {
                 case SystemLanguage.Japanese: candidate = "ja"; break;
                 case SystemLanguage.Korean: candidate = "ko"; break;
-                case SystemLanguage.ChineseSimplified: candidate = "zh-Hans"; break;
+                case SystemLanguage.ChineseSimplified or SystemLanguage.Chinese: candidate = "zh-Hans"; break;
                 case SystemLanguage.ChineseTraditional: candidate = "zh-Hant"; break;
-                case SystemLanguage.Chinese: candidate = "zh"; break;
                 case SystemLanguage.French: candidate = "fr"; break;
                 case SystemLanguage.German: candidate = "de"; break;
                 case SystemLanguage.Spanish: candidate = "es"; break;
