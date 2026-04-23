@@ -15,11 +15,16 @@ namespace Cilbox
 	public class CilboxSceneBasis : Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
+			// Text Mesh Pro types
+			"TMPro.*",
+
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
             "Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickupInteractable", // Restrictive (See below), only access field.
 			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableObject", // Restrictive (See below), only access field.
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton",
+			"Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton+ClickEvent",
 			"Basis.BasisNetworkBehaviour",
             "Basis.BasisImageDownloader",
 			"Basis.BasisNetworkBehaviour",
@@ -46,6 +51,7 @@ namespace Cilbox
 			"System.BitConverter", // HMMMMMMMMM SUSSY
 			"System.Boolean",
 			"System.Byte",
+			"System.SByte",
 			"System.Buffer",
 			"System.Char",
 			"System.Collections.Generic.*",
@@ -57,6 +63,7 @@ namespace Cilbox
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
+			"System.Float",
 			"System.Guid",
 			"System.IDisposable",
 			"System.Int*",
@@ -64,10 +71,14 @@ namespace Cilbox
 			"System.IO.BinaryWriter",
 			"System.IO.MemoryStream",
 			"System.IO.Stream",
+			"System.Long",
+			"System.ULong",
 			"System.Math",
 			"System.MathF",
 			"System.Object",
 			"System.Random",
+			"System.Short",
+			"System.Ushort",
 			"System.Single",
 			"System.String",
 			"System.StringComparison",

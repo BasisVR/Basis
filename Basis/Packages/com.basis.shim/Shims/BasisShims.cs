@@ -86,15 +86,15 @@ namespace Basis
 	{
 		System.Collections.Generic.HashSet< UnityWebRequest > InFlight = new System.Collections.Generic.HashSet< UnityWebRequest >();
 
-		public void DownloadImage( BasisUrl stringUrl, Action< IBasisImageDownload > callback )
+		public void DownloadImage( string stringUrl, Action< IBasisImageDownload > callback )
 		{
-			if( stringUrl.url.Substring(0, 7) != "http://" && stringUrl.url.Substring(0, 8) != "https://" )
+			if( stringUrl.Substring(0, 7) != "http://" && stringUrl.Substring(0, 8) != "https://" )
 			{
 				callback( new IBasisImageDownload( null, null, "Security Failure" ) );
 				return;
 			}
 
-			UnityWebRequest www = new UnityWebRequest( stringUrl.url );
+			UnityWebRequest www = new UnityWebRequest( stringUrl );
 
 			/////////////////////////////////////////////////////////////////
 			DownloadHandlerTexture dht = new DownloadHandlerTexture(true);

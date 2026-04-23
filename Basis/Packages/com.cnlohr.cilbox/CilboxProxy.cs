@@ -1,15 +1,11 @@
 using UnityEngine;
 using System;
-
-using System.Collections;
-using System.Collections.Specialized;
 using System.Collections.Generic;
 using System.Reflection;
 
 #if UNITY_EDITOR
 using Unity.Profiling;
 #endif
-using System.Text;
 
 namespace Cilbox
 {
@@ -202,24 +198,19 @@ namespace Cilbox
 			bool verboseLogging = box.verboseLogging;
 
 #if UNITY_EDITOR
-			new ProfilerMarker( "Initialize " + className ).Auto();
+			new ProfilerMarker($"Initialize {className}").Auto();
 #endif
-			// Build initialLoadPath in O(n) — the old "/" + name + path concat was O(depth^2) per proxy.
-			{
-				Transform cur = transform;
-				List<string> parts = new List<string>(8);
-				while (cur != null)
-				{
-					parts.Add(cur.gameObject.name);
-					cur = cur.parent;
-				}
-				StringBuilder sb = new StringBuilder(64);
-				for (int i = parts.Count - 1; i >= 0; i--)
-					sb.Append('/').Append(parts[i]);
-				initialLoadPath = sb.ToString();
-			}
+            var sb = new System.Text.StringBuilder("/" + transform.name);
+            Transform aparent = transform.parent;
+            while (aparent != null)
+            {
+                sb.Insert(0, aparent.name).Insert(0, '/');
+                aparent = aparent.parent;
+            }
+            initialLoadPath = sb.ToString();
 
-			if( string.IsNullOrEmpty( className ) )
+            Debug.Log($"initialLoadPath {initialLoadPath}");
+            if (string.IsNullOrEmpty(className))
 			{
 				Debug.LogError( $"[CilboxProxy:{gameObject.name}] RuntimeProxyLoad aborted: class {className} was not found in Cilbox assembly data." );
 				return;
@@ -353,10 +344,7 @@ namespace Cilbox
 
 			proxyWasSetup = true;
 			runtimeFieldsObjects = null;
-			// Release the serialized blob and original object list — they're only needed during load
-			// and the guard above prevents re-entry. Keeps ~a kB per proxy off the GC heap.
 			serializedObjectData = null;
-			fieldsObjects = null;
 			if (verboseLogging)
 				Debug.Log( $"RuntimeProxyLoad complete for class {className}" );
 		}

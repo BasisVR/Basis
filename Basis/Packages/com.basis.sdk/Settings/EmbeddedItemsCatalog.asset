@@ -136,8 +136,8 @@ MonoBehaviour:
   - Key:
       Mode: 0
       PlacementType: 0
-      Url: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/leona2/leona_light_dx11-20260412.BEE
-      Pass: d075d828b15eab1c9d77d164702e5ab6f7220aa7e3bfdb064725cf3c9139332d
+      Url: https://BasisFramework.b-cdn.net/Version2/Avatars/Public/leon3/2dc901c623344998a4bc07508fe1251a20260418.BEE
+      Pass: a323d55db09bc39461a90a43ac3ae58edaa69ebcec11ecab39a8f2859ea87ea1
       EmbeddedSettings:
         IsEmbedded: 1
         SourceType: 0

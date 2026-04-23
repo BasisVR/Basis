@@ -1,6 +1,8 @@
-using Basis.Scripts.BasisSdk.Interactions;
 using Basis.Scripts.Device_Management.Devices;
 using UnityEngine;
+
+namespace Basis.Scripts.BasisSdk.Interactions
+{
 public class BasisInteractableButton : BasisInteractableObject
 {
     // events other scripts can subscribe to
@@ -197,4 +199,5 @@ public class BasisInteractableButton : BasisInteractableObject
             _triggerCleanup = true;
         }
     }
+}
 }

@@ -13,6 +13,9 @@ namespace Cilbox
 	public class CilboxAvatarBasis : Cilbox
 	{
 		static HashSet<String> whiteListType = new HashSet<String>(){
+			// Text Mesh Pro types
+			"TMPro.*",
+
 			// Basis types
 			"Basis.Scripts.BasisSdk.Interactions.BasisPickUpUseMode",
 			"Basis.Scripts.Device_Management.Devices.BasisInput", // Restrictive, only used as a type.
@@ -48,6 +51,7 @@ namespace Cilbox
 			"System.Boolean",
 			"System.Buffer",
 			"System.Byte",
+			"System.SByte",
 			"System.Char",
 			"System.Collections.Generic.*",
 			"System.Convert", // HMMMMMMMMM SUSSY
@@ -58,10 +62,15 @@ namespace Cilbox
 			"System.Diagnostics.Stopwatch",
 			"System.Double",
 			"System.Exception",
+			"System.Float",
 			"System.Int*",
+			"System.Long",
+			"System.ULong",
 			"System.Math",
 			"System.MathF",
 			"System.Object",
+			"System.Short",
+			"System.Ushort",
 			"System.Single",
 			"System.String",
 			"System.StringComparison",
