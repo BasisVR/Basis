@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using Basis.Shims;
 using Basis.Scripts.BasisSdk;
@@ -198,6 +199,58 @@ namespace HVR.Basis.Comms.Tests
         }
 
         [Test]
+        public void BasisOsc_SubmitRawMessages_DeliversRepeatedPackets()
+        {
+            GameObject go = new GameObject("OscShimRepeatedRawCallbackTest");
+            MethodInfo submitRawMessages = typeof(BasisOscService).GetMethod("SubmitRawMessages", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(submitRawMessages, Is.Not.Null);
+
+            try
+            {
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+                float lastValue = 0f;
+
+                shim.Subscribe("/avatar/parameters/Callback", (message, arguments) =>
+                {
+                    callCount++;
+                    lastValue = arguments[0].FloatValue;
+                });
+
+                submitRawMessages.Invoke(null, new object[]
+                {
+                    new List<SimpleOSC.OSCMessage>
+                    {
+                        new SimpleOSC.OSCMessage
+                        {
+                            path = "/avatar/parameters/Callback",
+                            arguments = new object[] { 1f }
+                        }
+                    }
+                });
+
+                submitRawMessages.Invoke(null, new object[]
+                {
+                    new List<SimpleOSC.OSCMessage>
+                    {
+                        new SimpleOSC.OSCMessage
+                        {
+                            path = "/avatar/parameters/Callback",
+                            arguments = new object[] { 2f }
+                        }
+                    }
+                });
+
+                Assert.That(callCount, Is.EqualTo(2));
+                Assert.That(lastValue, Is.EqualTo(2f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
         public void BasisOsc_SubscribeValue_InvokesFirstArgument()
         {
             GameObject go = new GameObject("OscShimValueCallbackTest");
@@ -324,6 +377,57 @@ namespace HVR.Basis.Comms.Tests
             {
                 Object.DestroyImmediate(sceneInstance.gameObject);
                 sceneInstanceField.SetValue(null, null);
+            }
+        }
+
+        [Test]
+        public void BasisOsc_Subscribe_RegistersExactAddressInNodeMap()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("OscExactQueryRegistration");
+
+            try
+            {
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                shim.Subscribe("Face/Smile");
+
+                object leaf = ResolveNode(GetQueryRoot(), "avatar", "parameters", "Face", "Smile");
+                Assert.That(leaf, Is.Not.Null);
+                Assert.That((string)leaf.GetType().GetField("FULL_PATH").GetValue(leaf), Is.EqualTo("/avatar/parameters/Face/Smile"));
+                Assert.That((int)leaf.GetType().GetField("ACCESS").GetValue(leaf), Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
+            }
+        }
+
+        [Test]
+        public void BasisOsc_RemoteAvatarSubscription_RegistersNormalizedPublicAddressInNodeMap()
+        {
+            DestroySceneInstance();
+            GameObject go = new GameObject("RemoteAvatarQueryRegistration");
+
+            try
+            {
+                BasisAvatar avatar = go.AddComponent<BasisAvatar>();
+                avatar.IsOwnedLocally = false;
+
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                shim.Subscribe("/avatar/parameters/Blocked");
+
+                Assert.That(ResolveNode(GetQueryRoot(), "avatar", "parameters", "Blocked"), Is.Null);
+
+                object leaf = ResolveNode(GetQueryRoot(), "avatar", "public", "Blocked");
+                Assert.That(leaf, Is.Not.Null);
+                Assert.That((string)leaf.GetType().GetField("FULL_PATH").GetValue(leaf), Is.EqualTo("/avatar/public/Blocked"));
+                Assert.That((int)leaf.GetType().GetField("ACCESS").GetValue(leaf), Is.EqualTo(2));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                DestroySceneInstance();
             }
         }
 

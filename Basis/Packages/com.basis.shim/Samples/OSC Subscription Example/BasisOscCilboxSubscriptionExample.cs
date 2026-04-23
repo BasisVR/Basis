@@ -5,7 +5,6 @@ using UnityEngine;
 namespace Basis.Shims.Samples
 {
     [Cilboxable]
-    [RequireComponent(typeof(Basis.Shims.BasisOsc))]
     public class BasisOscCilboxSubscriptionExample : MonoBehaviour
     {
         private const string ExplicitTestAddress = "/avatar/parameters/test";
@@ -13,17 +12,17 @@ namespace Basis.Shims.Samples
 
         private Basis.Shims.BasisOsc osc;
 
-        private void Awake()
-        {
-            osc = GetComponent<Basis.Shims.BasisOsc>();
-        }
 
-        private void OnEnable()
+        private void Start()
         {
             if (osc == null)
             {
-                Debug.LogError("BasisOscCilboxSubscriptionExample requires a BasisOsc component.");
-                return;
+                osc = GetComponent<Basis.Shims.BasisOsc>();
+                if (osc == null)
+                {
+                    Debug.LogError("BasisOscCilboxSubscriptionExample requires a BasisOsc component.");
+                    return;
+                }
             }
 
             osc.Subscribe(ExplicitTestAddress, OnExplicitTestTriggered);
