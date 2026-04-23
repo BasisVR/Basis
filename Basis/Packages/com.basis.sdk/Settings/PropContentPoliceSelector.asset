@@ -358,3 +358,4 @@ MonoBehaviour:
   - UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   - Basis.Scripts.BasisSdk.Interactions.BasisInteractableButton
   - GatorDragonGames.JigglePhysics.JiggleRig
+  - Basis.Shims.BasisOsc

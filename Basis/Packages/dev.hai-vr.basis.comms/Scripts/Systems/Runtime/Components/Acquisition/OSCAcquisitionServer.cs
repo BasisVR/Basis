@@ -19,6 +19,7 @@ namespace HVR.Basis.Comms
         private const int OurFakeServerPort = 9000;
         private const int ExternalProgramReceiverPort = 9001;
         private const int SubscriptionAccess = 2;
+        private const int PublishAccess = 3;
         private bool _settingSubscribed;
         private bool _running;
         private string _lastWakeUp;
@@ -182,7 +183,7 @@ namespace HVR.Basis.Comms
             {
                 EnsureOscQueryRoot();
                 OsushiNode leaf = EnsureQueryNode(normalizedAddress);
-                leaf.ACCESS = 3;
+                leaf.ACCESS = PublishAccess;
                 leaf.TYPE = BuildTypeTag(values);
                 leaf.VALUE = BuildQueryValues(values);
             }

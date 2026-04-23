@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections;
 using System.Collections.Generic;
@@ -282,6 +283,37 @@ namespace HVR.Basis.Comms.Tests
                 Assert.That(received, Is.Not.Null);
                 Assert.That(received.Kind, Is.EqualTo(OscDataKind.String));
                 Assert.That(received.StringValue, Is.EqualTo("text"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOsc_SubscribeValue_DoesNotInvokeForEmptyArgumentMessages()
+        {
+            GameObject go = new GameObject("OscShimEmptyValueCallbackTest");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                bool called = false;
+
+                shim.SubscribeValue("/avatar/parameters/ValueCallback", value => called = true);
+
+                publish.Invoke(null, new object[]
+                {
+                    OscMessage.FromRaw(new SimpleOSC.OSCMessage
+                    {
+                        path = "/avatar/parameters/ValueCallback",
+                        arguments = Array.Empty<object>()
+                    })
+                });
+
+                Assert.That(called, Is.False);
             }
             finally
             {
@@ -597,6 +629,32 @@ namespace HVR.Basis.Comms.Tests
 
                 publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/FT/v2/JawOpen", arguments = new object[0] }) });
                 publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/public/FT/v2/JawOpen", arguments = new object[0] }) });
+
+                Assert.That(callCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void BasisOsc_PrefixSubscriptions_RequireSegmentBoundary()
+        {
+            GameObject go = new GameObject("PrefixBoundarySubscriber");
+            MethodInfo publish = typeof(BasisOscService).GetMethod("Publish", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(publish, Is.Not.Null);
+
+            try
+            {
+                BasisOsc shim = go.AddComponent<BasisOsc>();
+                int callCount = 0;
+
+                shim.OnMessage = (message, arguments) => callCount++;
+                shim.SubscribePrefix("/avatar/parameters");
+
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parametersExtra", arguments = Array.Empty<object>() }) });
+                publish.Invoke(null, new object[] { OscMessage.FromRaw(new SimpleOSC.OSCMessage { path = "/avatar/parameters/Face/Smile", arguments = Array.Empty<object>() }) });
 
                 Assert.That(callCount, Is.EqualTo(1));
             }

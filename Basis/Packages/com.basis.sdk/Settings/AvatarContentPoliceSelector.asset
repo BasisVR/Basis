@@ -194,3 +194,4 @@ MonoBehaviour:
   - Basis.Shims.BasisAvatarShim
   - Basis.Shims.BasisNetworkShim
   - Cilbox.CilboxProxy
+  - Basis.Shims.BasisOsc

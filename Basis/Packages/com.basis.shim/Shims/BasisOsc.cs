@@ -65,6 +65,7 @@ namespace Basis.Shims
         private readonly Dictionary<string, HashSet<string>> prefixCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> exactValueCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, HashSet<string>> prefixValueCallbackInputs = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        private int inspectorStateVersion;
 
         public OscMessageEvent OnMessage { get; set; }
 
@@ -80,6 +81,7 @@ namespace Basis.Shims
                 }
 
                 receiveAll = value;
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -110,6 +112,7 @@ namespace Basis.Shims
             {
                 subscribedAddresses.Add(normalizedAddress);
                 TrackInput(exactAddressInputs, normalizedAddress, address);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -121,6 +124,7 @@ namespace Basis.Shims
             {
                 AddCallback(exactCallbacks, normalizedAddress, callback);
                 TrackInput(exactCallbackInputs, normalizedAddress, address);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -132,6 +136,7 @@ namespace Basis.Shims
             {
                 AddCallback(exactValueCallbacks, normalizedAddress, callback);
                 TrackInput(exactValueCallbackInputs, normalizedAddress, address);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -143,6 +148,7 @@ namespace Basis.Shims
             {
                 subscribedPrefixes.Add(normalizedPrefix);
                 TrackInput(prefixAddressInputs, normalizedPrefix, prefix);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -154,6 +160,7 @@ namespace Basis.Shims
             {
                 AddCallback(prefixCallbacks, normalizedPrefix, callback);
                 TrackInput(prefixCallbackInputs, normalizedPrefix, prefix);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -165,10 +172,19 @@ namespace Basis.Shims
             {
                 AddCallback(prefixValueCallbacks, normalizedPrefix, callback);
                 TrackInput(prefixValueCallbackInputs, normalizedPrefix, prefix);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
 
+        /// <summary>
+        /// Removes all subscriptions and handlers for the normalized address. This is the "remove everything for this address"
+        /// variant: unlike <see cref="Unsubscribe(string, OscMessageEvent)"/>, which removes a single handler through
+        /// <see cref="RemoveCallback{TDelegate}(Dictionary{string, TDelegate}, string, TDelegate)"/>, this overload clears the
+        /// full address entry and all delegates that were previously added through <see cref="AddCallback{TDelegate}(Dictionary{string, TDelegate}, string, TDelegate)"/>.
+        /// When <see cref="RemoveCallback{TDelegate}(Dictionary{string, TDelegate}, string, TDelegate)"/> receives a null callback it
+        /// also removes the whole key, which is the same "remove all" behavior exposed intentionally by <see cref="Unsubscribe(string)"/>.
+        /// </summary>
         public void Unsubscribe(string address)
         {
             string normalizedAddress = NormalizeSubscriptionAddress(address);
@@ -180,6 +196,7 @@ namespace Basis.Shims
                 exactAddressInputs.Remove(normalizedAddress);
                 exactCallbackInputs.Remove(normalizedAddress);
                 exactValueCallbackInputs.Remove(normalizedAddress);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -191,6 +208,7 @@ namespace Basis.Shims
             {
                 RemoveCallback(exactCallbacks, normalizedAddress, callback);
                 RemoveTrackedInputsWhenEmpty(exactCallbacks, exactCallbackInputs, normalizedAddress);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -202,6 +220,7 @@ namespace Basis.Shims
             {
                 RemoveCallback(exactValueCallbacks, normalizedAddress, callback);
                 RemoveTrackedInputsWhenEmpty(exactValueCallbacks, exactValueCallbackInputs, normalizedAddress);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -217,6 +236,7 @@ namespace Basis.Shims
                 prefixAddressInputs.Remove(normalizedPrefix);
                 prefixCallbackInputs.Remove(normalizedPrefix);
                 prefixValueCallbackInputs.Remove(normalizedPrefix);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -228,6 +248,7 @@ namespace Basis.Shims
             {
                 RemoveCallback(prefixCallbacks, normalizedPrefix, callback);
                 RemoveTrackedInputsWhenEmpty(prefixCallbacks, prefixCallbackInputs, normalizedPrefix);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -239,6 +260,7 @@ namespace Basis.Shims
             {
                 RemoveCallback(prefixValueCallbacks, normalizedPrefix, callback);
                 RemoveTrackedInputsWhenEmpty(prefixValueCallbacks, prefixValueCallbackInputs, normalizedPrefix);
+                MarkInspectorStateDirty();
                 SyncQuerySubscriptions();
             }
         }
@@ -257,6 +279,7 @@ namespace Basis.Shims
             prefixCallbackInputs.Clear();
             exactValueCallbackInputs.Clear();
             prefixValueCallbackInputs.Clear();
+            MarkInspectorStateDirty();
             SyncQuerySubscriptions();
         }
 
@@ -291,6 +314,19 @@ namespace Basis.Shims
                     prefixCallbacks, prefixCallbackInputs, "Message Callback",
                     prefixValueCallbacks, prefixValueCallbackInputs, "Value Callback"),
             };
+        }
+
+        public int GetInspectorCacheKey()
+        {
+            unchecked
+            {
+                int key = inspectorStateVersion;
+                key = (key * 397) ^ (isActiveAndEnabled ? 1 : 0);
+                key = (key * 397) ^ (ReceiveAll ? 1 : 0);
+                key = (key * 397) ^ GetInvocationCount(OnMessage);
+                key = (key * 397) ^ (int)GetCurrentScopeForInspector();
+                return key;
+            }
         }
 
         public bool IsSubscribed(string address)
@@ -366,7 +402,7 @@ namespace Basis.Shims
             #region CollectPrefixCallbacks
             foreach (string prefix in subscribedPrefixes)
             {
-                if (path.StartsWith(prefix, StringComparison.Ordinal))
+                if (IsPathWithinPrefix(path, prefix))
                 {
                     matched = true;
                 }
@@ -374,7 +410,7 @@ namespace Basis.Shims
 
             foreach (KeyValuePair<string, OscMessageEvent> entry in prefixCallbacks)
             {
-                if (path.StartsWith(entry.Key, StringComparison.Ordinal))
+                if (IsPathWithinPrefix(path, entry.Key))
                 {
                     callback += entry.Value;
                     matched = true;
@@ -383,7 +419,7 @@ namespace Basis.Shims
 
             foreach (KeyValuePair<string, OscValueEvent> entry in prefixValueCallbacks)
             {
-                if (path.StartsWith(entry.Key, StringComparison.Ordinal))
+                if (IsPathWithinPrefix(path, entry.Key))
                 {
                     valueCallback += entry.Value;
                     matched = true;
@@ -398,7 +434,10 @@ namespace Basis.Shims
 
             OnMessage?.Invoke(message, message.Arguments);
             callback?.Invoke(message, message.Arguments);
-            valueCallback?.Invoke(message.Arguments != null && message.Arguments.Length > 0 ? message.Arguments[0] : null);
+            if (message.Arguments != null && message.Arguments.Length > 0)
+            {
+                valueCallback?.Invoke(message.Arguments[0]);
+            }
         }
 
         private void SyncQuerySubscriptions()
@@ -452,6 +491,14 @@ namespace Basis.Shims
         private static int GetInvocationCount(Delegate callback)
         {
             return callback?.GetInvocationList().Length ?? 0;
+        }
+
+        private void MarkInspectorStateDirty()
+        {
+            unchecked
+            {
+                inspectorStateVersion++;
+            }
         }
 
         private static void TrackInput(Dictionary<string, HashSet<string>> inputs, string normalizedAddress, string rawAddress)
@@ -619,16 +666,24 @@ namespace Basis.Shims
                         return AvatarPublicPrefix + trimmed.Substring(AvatarParametersPrefix.Length);
                     }
 
-                    return IsPathWithinPrefix(trimmed, AvatarPublicPrefix) || !IsPathWithinPrefix(trimmed, "/avatar")
-                        ? trimmed
-                        : null;
+                    if (IsPathWithinPrefix(trimmed, AvatarPublicPrefix) || !IsPathWithinPrefix(trimmed, "/avatar"))
+                    {
+                        return trimmed;
+                    }
+
+                    WarnRestrictedAvatarSubscription(address, scope);
+                    return null;
                     #endregion
                 }
 
                 bool restrictAvatarSubscriptions = scope == OscScope.Prop || scope == OscScope.Scene;
-                return !restrictAvatarSubscriptions || IsPathWithinPrefix(trimmed, AvatarPublicPrefix) || !IsPathWithinPrefix(trimmed, "/avatar")
-                    ? trimmed
-                    : null;
+                if (!restrictAvatarSubscriptions || IsPathWithinPrefix(trimmed, AvatarPublicPrefix) || !IsPathWithinPrefix(trimmed, "/avatar"))
+                {
+                    return trimmed;
+                }
+
+                WarnRestrictedAvatarSubscription(address, scope);
+                return null;
                 #endregion
             }
 
@@ -681,7 +736,7 @@ namespace Basis.Shims
         private static bool IsPathWithinPrefix(string path, string prefix)
         {
             return path.StartsWith(prefix, StringComparison.Ordinal) &&
-                   (path.Length == prefix.Length || path[prefix.Length] == '/');
+                   (path.Length == prefix.Length || prefix[prefix.Length - 1] == '/' || path[prefix.Length] == '/');
         }
 
         private bool TryGetOscScope(out OscScope scope, out string prefix)
@@ -729,6 +784,48 @@ namespace Basis.Shims
             }
 
             return false;
+        }
+
+        private OscScope GetCurrentScopeForInspector()
+        {
+            return GetCurrentScopeForInspector(this);
+        }
+
+        private static OscScope GetCurrentScopeForInspector(BasisOsc shim)
+        {
+            for (Transform current = shim.transform; current != null; current = current.parent)
+            {
+                if (current.GetComponent<BasisProp>() != null)
+                {
+                    return OscScope.Prop;
+                }
+
+                if (current.GetComponent<BasisScene>() != null)
+                {
+                    return OscScope.Scene;
+                }
+
+                BasisAvatar avatar = current.GetComponent<BasisAvatar>();
+                if (avatar != null)
+                {
+                    return avatar.IsOwnedLocally ? OscScope.AvatarLocal : OscScope.AvatarRemote;
+                }
+            }
+
+            if (BasisScene.SceneTraversalFindBasisScene(shim.gameObject, out _))
+            {
+                return OscScope.Scene;
+            }
+
+            return OscScope.None;
+        }
+
+        private static void WarnRestrictedAvatarSubscription(string address, OscScope scope)
+        {
+            Debug.LogWarning(
+                $"BasisOsc.NormalizeSubscriptionAddress rejected Subscribe address '{address}' for scope {GetScopeName(scope)}. " +
+                $"Only absolute {AvatarPublicPrefix}/* avatar subscriptions are allowed in this scope. " +
+                $"Use {AvatarPublicPrefix}/* or a relative address instead of {AvatarParametersPrefix}/*.");
         }
 
         private static string GetScopedContentIdentifier(BasisNetworkContentBase content)

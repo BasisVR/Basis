@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using Basis.Scripts.BasisSdk;
 using UnityEditor;
 using UnityEngine;
 
@@ -11,11 +12,17 @@ namespace Basis.Shims.Editor
         private bool _showExactRegistrations = true;
         private bool _showPrefixSubscriptions = true;
         private bool _showPrefixRegistrations = true;
+        private BasisOsc.InspectorState _cachedState;
+        private int _cachedStateKey;
+        private EntityId _cachedTargetEntityId;
+        private bool _hasCachedState;
+        private bool _cachedPlayModeState;
 
         public override void OnInspectorGUI()
         {
             BasisOsc osc = (BasisOsc)target;
-            BasisOsc.InspectorState state = osc.GetInspectorState();
+            RefreshInspectorState(osc);
+            BasisOsc.InspectorState state = _cachedState;
 
             DrawScriptField(osc);
             EditorGUILayout.Space();
@@ -93,6 +100,30 @@ namespace Basis.Shims.Editor
         public override bool RequiresConstantRepaint()
         {
             return Application.isPlaying;
+        }
+
+        private void RefreshInspectorState(BasisOsc osc)
+        {
+            if (osc == null)
+            {
+                _cachedState = null;
+                _hasCachedState = false;
+                return;
+            }
+
+            bool isPlaying = Application.isPlaying;
+            int stateKey = osc.GetInspectorCacheKey();
+            EntityId targetEntityId = osc.GetEntityId();
+            if (_hasCachedState && _cachedState != null && _cachedStateKey == stateKey && _cachedPlayModeState == isPlaying && _cachedTargetEntityId.Equals(targetEntityId))
+            {
+                return;
+            }
+
+            _cachedState = osc.GetInspectorState();
+            _cachedStateKey = stateKey;
+            _cachedTargetEntityId = targetEntityId;
+            _cachedPlayModeState = isPlaying;
+            _hasCachedState = true;
         }
 
         private static void DrawScriptField(BasisOsc osc)
