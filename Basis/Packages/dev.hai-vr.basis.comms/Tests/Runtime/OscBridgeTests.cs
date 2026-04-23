@@ -16,6 +16,12 @@ namespace HVR.Basis.Comms.Tests
 {
     public class OscBridgeTests
     {
+        [TearDown]
+        public void TearDown()
+        {
+            DestroySceneInstance();
+        }
+
         [Test]
         public void SimpleOsc_EncodesAndDecodes_SymbolAndMidi()
         {

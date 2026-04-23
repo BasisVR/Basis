@@ -43,7 +43,6 @@ namespace HVR.Basis.Comms
 
         private void OnDestroy()
         {
-            avatar.OnAvatarReady -= OnAvatarReady;
             if (avatar != null)
             {
                 avatar.OnAvatarReady -= OnAvatarReady;
