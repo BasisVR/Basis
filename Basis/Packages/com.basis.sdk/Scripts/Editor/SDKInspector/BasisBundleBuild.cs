@@ -66,12 +66,12 @@ public static class BasisBundleBuild
         {
             if (r == null) continue;
 
-            Bounds srcLocal;
+            Bounds transformed;
 
             if (r is SkinnedMeshRenderer smr)
             {
-                // In smr local space
-                srcLocal = smr.localBounds;
+                // Transform bounds center and extents to new AABB in parent local space
+                transformed = TransformBoundsAABB(smr.bounds, parentWorldToLocal);
             }
             else if (r is MeshRenderer mr)
             {
@@ -79,18 +79,16 @@ public static class BasisBundleBuild
                 if (mf == null || mf.sharedMesh == null) continue;
 
                 // In mesh local space (same as MeshFilter transform local space)
-                srcLocal = mf.sharedMesh.bounds;
+                var srcLocal = mf.sharedMesh.bounds;
+                // Map from renderer local -> world -> parent local
+                Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
+                // Transform bounds center and extents to new AABB in parent local space
+                transformed = TransformBoundsAABB(srcLocal, toParentLocal);
             }
             else
             {
                 continue; // ignore other renderer types for now
             }
-
-            // Map from renderer local -> world -> parent local
-            Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
-
-            // Transform bounds center and extents to new AABB in parent local space
-            Bounds transformed = TransformBoundsAABB(srcLocal, toParentLocal);
 
             if (!hasAny)
             {
