@@ -279,7 +279,7 @@
     { "key": "settings.general.language.title", "value": "Lingua" },
     { "key": "settings.general.language.description", "value": "Riapri il menu per applicare il cambio di lingua." },
     { "key": "settings.general.language.help_translate.title", "value": "Aiutaci a tradurre!" },
-    { "key": "settings.general.language.help_translate.description", "value": "I file di lingua si trovano in StreamingAssets/Basis/Languages. Copia en.json, traduci i valori e invia una pull request." },
+    { "key": "settings.general.language.help_translate.description", "value": "I file di lingua si trovano in Packages/com.basis.framework/BasisUI/Localization/Languages. Copia en.json, traduci i valori e invia una pull request." },
 
     { "key": "settings.audio.mixer.title", "value": "Mixer volume" },
     { "key": "settings.audio.mixer.description", "value": "Controlla il volume dei singoli canali." },

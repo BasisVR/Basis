@@ -1508,7 +1508,7 @@
         },
         {
             "key": "settings.general.language.help_translate.description",
-            "value": "Taalbestanden staan in StreamingAssets/Basis/Languages. Kopieer en.json, vertaal de waarden en stuur een pull request in."
+            "value": "Taalbestanden staan in Packages/com.basis.framework/BasisUI/Localization/Languages. Kopieer en.json, vertaal de waarden en stuur een pull request in."
         },
         {
             "key": "settings.general.limitAudio",

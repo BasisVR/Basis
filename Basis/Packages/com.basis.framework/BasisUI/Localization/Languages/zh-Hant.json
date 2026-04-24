@@ -279,7 +279,7 @@
     { "key": "settings.general.language.title", "value": "语言" },
     { "key": "settings.general.language.description", "value": "重新打开菜单以应用语言更改。" },
     { "key": "settings.general.language.help_translate.title", "value": "请帮助我们翻译！" },
-    { "key": "settings.general.language.help_translate.description", "value": "语言文件位于 StreamingAssets/Basis/Languages 中。复制 en.json，翻译其中的值，并提交一个 pull request。" },
+    { "key": "settings.general.language.help_translate.description", "value": "语言文件位于 Packages/com.basis.framework/BasisUI/Localization/Languages 中。复制 en.json，翻译其中的值，并提交一个 pull request。" },
 
     { "key": "settings.audio.mixer.title", "value": "音量混音器" },
     { "key": "settings.audio.mixer.description", "value": "控制各通道的音量。" },

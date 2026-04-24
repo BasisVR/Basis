@@ -278,7 +278,7 @@
     { "key": "settings.general.language.title", "value": "भाषा" },
     { "key": "settings.general.language.description", "value": "भाषा परिवर्तन लागू करने के लिए मेनू को फिर से खोलें।" },
     { "key": "settings.general.language.help_translate.title", "value": "कृपया अनुवाद करने में हमारी मदद करें!" },
-    { "key": "settings.general.language.help_translate.description", "value": "भाषा फ़ाइलें StreamingAssets/Basis/Languages में स्थित हैं। en.json की कॉपी बनाएँ, मानों का अनुवाद करें, और एक pull request जमा करें।" },
+    { "key": "settings.general.language.help_translate.description", "value": "भाषा फ़ाइलें Packages/com.basis.framework/BasisUI/Localization/Languages में स्थित हैं। en.json की कॉपी बनाएँ, मानों का अनुवाद करें, और एक pull request जमा करें।" },
 
     { "key": "settings.audio.mixer.title", "value": "वॉल्यूम मिक्सर" },
     { "key": "settings.audio.mixer.description", "value": "अलग-अलग चैनलों की वॉल्यूम नियंत्रित करें।" },

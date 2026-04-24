@@ -278,7 +278,7 @@
     { "key": "settings.general.language.title", "value": "Language" },
     { "key": "settings.general.language.description", "value": "Reopen the menu to apply a language change." },
     { "key": "settings.general.language.help_translate.title", "value": "Please help us translate!" },
-    { "key": "settings.general.language.help_translate.description", "value": "Language files are located in StreamingAssets/Basis/Languages. Copy en.json, translate the values, and submit a pull request." },
+    { "key": "settings.general.language.help_translate.description", "value": "Language files live in Packages/com.basis.framework/BasisUI/Localization/Languages. Copy en.json, rename the copy to your locale code (for example fr.json or ja.json), translate the values, and open a pull request at github.com/BasisVR/Basis." },
 
     { "key": "settings.audio.mixer.title", "value": "Volume Mixer" },
     { "key": "settings.audio.mixer.description", "value": "Control individual channel volumes." },

@@ -279,7 +279,7 @@
     { "key": "settings.general.language.title", "value": "言語" },
     { "key": "settings.general.language.description", "value": "言語の変更を反映するにはメニューを開き直してください。" },
     { "key": "settings.general.language.help_translate.title", "value": "翻訳にご協力ください！" },
-    { "key": "settings.general.language.help_translate.description", "value": "言語ファイルは StreamingAssets/Basis/Languages にあります。en.json をコピーして値を翻訳し、プルリクエストを送ってください。" },
+    { "key": "settings.general.language.help_translate.description", "value": "言語ファイルは Packages/com.basis.framework/BasisUI/Localization/Languages にあります。en.json をコピーして値を翻訳し、プルリクエストを送ってください。" },
 
     { "key": "settings.audio.mixer.title", "value": "音量ミキサー" },
     { "key": "settings.audio.mixer.description", "value": "各チャンネルの音量を個別に設定。" },

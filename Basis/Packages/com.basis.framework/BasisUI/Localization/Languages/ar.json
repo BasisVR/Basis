@@ -279,7 +279,7 @@
     { "key": "settings.general.language.title", "value": "اللغة" },
     { "key": "settings.general.language.description", "value": "أعد فتح القائمة لتطبيق تغيير اللغة." },
     { "key": "settings.general.language.help_translate.title", "value": "الرجاء مساعدتنا في الترجمة!" },
-    { "key": "settings.general.language.help_translate.description", "value": "ملفات اللغة موجودة في StreamingAssets/Basis/Languages. انسخ en.json، وترجم القيم، وأرسل pull request." },
+    { "key": "settings.general.language.help_translate.description", "value": "ملفات اللغة موجودة في Packages/com.basis.framework/BasisUI/Localization/Languages. انسخ en.json، وترجم القيم، وأرسل pull request." },
 
     { "key": "settings.audio.mixer.title", "value": "مازج الصوت" },
     { "key": "settings.audio.mixer.description", "value": "التحكم في مستوى صوت القنوات الفردية." },

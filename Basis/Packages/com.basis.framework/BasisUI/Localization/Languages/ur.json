@@ -279,7 +279,7 @@
     { "key": "settings.general.language.title", "value": "زبان" },
     { "key": "settings.general.language.description", "value": "زبان کی تبدیلی کو لاگو کرنے کے لیے مینیو کو دوبارہ کھولیں۔" },
     { "key": "settings.general.language.help_translate.title", "value": "براہ کرم ترجمہ میں ہماری مدد کریں!" },
-    { "key": "settings.general.language.help_translate.description", "value": "زبان کی فائلیں StreamingAssets/Basis/Languages میں موجود ہیں۔ en.json کو کاپی کریں، اقدار کا ترجمہ کریں، اور ایک pull request جمع کروائیں۔" },
+    { "key": "settings.general.language.help_translate.description", "value": "زبان کی فائلیں Packages/com.basis.framework/BasisUI/Localization/Languages میں موجود ہیں۔ en.json کو کاپی کریں، اقدار کا ترجمہ کریں، اور ایک pull request جمع کروائیں۔" },
 
     { "key": "settings.audio.mixer.title", "value": "والیوم مکسر" },
     { "key": "settings.audio.mixer.description", "value": "انفرادی چینل والیوم کنٹرول کریں۔" },

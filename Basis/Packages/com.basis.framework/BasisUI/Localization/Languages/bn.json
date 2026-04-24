@@ -278,7 +278,7 @@
     { "key": "settings.general.language.title", "value": "ভাষা" },
     { "key": "settings.general.language.description", "value": "ভাষা পরিবর্তন প্রয়োগ করতে মেনুটি পুনরায় খুলুন।" },
     { "key": "settings.general.language.help_translate.title", "value": "অনুগ্রহ করে আমাদের অনুবাদ করতে সাহায্য করুন!" },
-    { "key": "settings.general.language.help_translate.description", "value": "ভাষার ফাইলগুলি StreamingAssets/Basis/Languages এ অবস্থিত। en.json কপি করুন, মানগুলি অনুবাদ করুন, এবং একটি পুল রিকোয়েস্ট জমা দিন।" },
+    { "key": "settings.general.language.help_translate.description", "value": "ভাষার ফাইলগুলি Packages/com.basis.framework/BasisUI/Localization/Languages এ অবস্থিত। en.json কপি করুন, মানগুলি অনুবাদ করুন, এবং একটি পুল রিকোয়েস্ট জমা দিন।" },
 
     { "key": "settings.audio.mixer.title", "value": "ভলিউম মিক্সার" },
     { "key": "settings.audio.mixer.description", "value": "পৃথক চ্যানেল ভলিউম নিয়ন্ত্রণ করুন।" },
