@@ -118,12 +118,6 @@ public partial class BasisEventDriver : MonoBehaviour
 
     public static bool StateOfOnRenderBefore = false;
 
-    /// <summary>
-    /// Time For Jiggles
-    /// </summary>
-    private double accumulatedTime;
-    private double fixedTime;
-
     // ── Lifecycle ───────────────────────────────────────────────
 
     /// <summary>
@@ -307,22 +301,18 @@ public partial class BasisEventDriver : MonoBehaviour
         // ── BlendShape apply ──
         ProfileBegin(PROF_BLENDSHAPE_APPLY);
         BasisBlendShapeDriver.Apply();
-        BasisAvatarDriver.ScheduleReadBlendShapes();
+        if (BasisSettingsDefaults.LocalHeadBlendShapes.RawValue)
+        {
+            BasisAvatarDriver.ScheduleReadBlendShapes();
+        }
         ProfileEnd(PROF_BLENDSHAPE_APPLY);
 
         // ── JigglePhysics schedule ──
         ProfileBegin(PROF_JIGGLE_SCHEDULE);
-        var fixedDeltaTime = Time.fixedDeltaTime;
-        accumulatedTime += Time.deltaTime;
-        if (accumulatedTime > fixedDeltaTime)
-        {
-            while (accumulatedTime > fixedDeltaTime)
-            {
-                fixedTime += fixedDeltaTime;
-                accumulatedTime -= fixedDeltaTime;
-            }
-            JigglePhysics.ScheduleSimulate(fixedTime, TimeAsDouble, fixedDeltaTime);
-        }
+
+        fixedDeltaTime = Time.fixedDeltaTime;
+        JigglePhysics.ScheduleSimulate(TimeAsDouble, fixedDeltaTime);
+
         ProfileEnd(PROF_JIGGLE_SCHEDULE);
 
         // ── Network transmit (reads bone results via GetOutGoingMouth) ──
@@ -366,7 +356,10 @@ public partial class BasisEventDriver : MonoBehaviour
 
         // ── Shadow clone blendshapes ──
         ProfileBegin(PROF_SHADOW_CLONE);
-        BasisAvatarDriver.ApplyShadowCloneBlendShapes();
+        if (BasisSettingsDefaults.LocalHeadBlendShapes.RawValue)
+        {
+            BasisAvatarDriver.ApplyShadowCloneBlendShapes();
+        }
         ProfileEnd(PROF_SHADOW_CLONE);
 
         StateOfOnRenderBefore = true;

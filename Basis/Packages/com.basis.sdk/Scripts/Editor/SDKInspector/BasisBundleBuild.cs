@@ -27,7 +27,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please install build target for " + Targets[Index].ToString());
             }
         }
 
@@ -66,12 +66,12 @@ public static class BasisBundleBuild
         {
             if (r == null) continue;
 
-            Bounds srcLocal;
+            Bounds transformed;
 
             if (r is SkinnedMeshRenderer smr)
             {
-                // In smr local space
-                srcLocal = smr.localBounds;
+                // Transform bounds center and extents to new AABB in parent local space
+                transformed = TransformBoundsAABB(smr.bounds, parentWorldToLocal);
             }
             else if (r is MeshRenderer mr)
             {
@@ -79,18 +79,16 @@ public static class BasisBundleBuild
                 if (mf == null || mf.sharedMesh == null) continue;
 
                 // In mesh local space (same as MeshFilter transform local space)
-                srcLocal = mf.sharedMesh.bounds;
+                var srcLocal = mf.sharedMesh.bounds;
+                // Map from renderer local -> world -> parent local
+                Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
+                // Transform bounds center and extents to new AABB in parent local space
+                transformed = TransformBoundsAABB(srcLocal, toParentLocal);
             }
             else
             {
                 continue; // ignore other renderer types for now
             }
-
-            // Map from renderer local -> world -> parent local
-            Matrix4x4 toParentLocal = parentWorldToLocal * r.transform.localToWorldMatrix;
-
-            // Transform bounds center and extents to new AABB in parent local space
-            Bounds transformed = TransformBoundsAABB(srcLocal, toParentLocal);
 
             if (!hasAny)
             {
@@ -150,7 +148,7 @@ public static class BasisBundleBuild
         {
             if (CheckTarget(Targets[Index]) == false)
             {
-                return (false, "Please Install build Target for " + Targets[Index].ToString());
+                return (false, "Please install build target for " + Targets[Index].ToString());
             }
         }
 
@@ -546,11 +544,11 @@ public static class BasisBundleBuild
             string FilePath = Path.Combine(buildOutDir, $"{generatedID}{assetBundleObject.BasisEncryptedExtension}");
             await CombineFiles(FilePath, paths, EncryptedConnector);
 
-            EditorUtility.DisplayProgressBar("Saving Generated BEE file", "Saving Generated BEE file", 100);
+            EditorUtility.DisplayProgressBar("Saving Generated .BEE file", "Saving Generated .BEE file", 100);
 
             await AssetBundleBuilder.SaveFileAsync(buildOutDir, assetBundleObject.ProtectedPasswordFileName, "txt", Password);
 
-            EditorUtility.DisplayProgressBar("Finshed File Combining", "Finshed File Combining", 100);
+            EditorUtility.DisplayProgressBar("Finished File Combining", "Finished File Combining", 100);
 
             DeleteFolders(buildOutDir);
 
@@ -596,9 +594,9 @@ public static class BasisBundleBuild
     private static string EnsureBuildOutputDirectory(string rootOutDir, string folderName, bool deleteIfExists)
     {
         if (string.IsNullOrEmpty(rootOutDir))
-            throw new ArgumentException("rootOutDir is null/empty", nameof(rootOutDir));
+            throw new ArgumentException("rootOutDir is null or empty", nameof(rootOutDir));
         if (string.IsNullOrEmpty(folderName))
-            throw new ArgumentException("folderName is null/empty", nameof(folderName));
+            throw new ArgumentException("folderName is null or empty", nameof(folderName));
 
         string buildOutDir = Path.Combine(rootOutDir, folderName);
 

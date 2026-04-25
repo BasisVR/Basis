@@ -45,7 +45,6 @@ if [[ "$1" == "full" ]]; then
               Packages/com.cnlohr.cilbox:
               Packages/com.cqf.urpvolumetricfog:
               Packages/com.hecomi.ulipsync:
-              Packages/com.keviniglesias.basicmotions:
               Packages/com.llealloo.audiolink:
               Packages/com.steam.steamaudio:
               Packages/com.steam.steamvr:

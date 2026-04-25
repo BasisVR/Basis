@@ -48,6 +48,7 @@ namespace Basis.Scripts.Networking.Transmitters
                 DetachMicrophoneEvents();
             }
 
+            LocalOpusSettings.OnPacketLossPercentChanged -= ApplyPacketLossPerc;
             encoder?.Dispose();
             encoder = null;
 #endif
@@ -73,6 +74,34 @@ namespace Basis.Scripts.Networking.Transmitters
 
             encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_BITRATE, 32000);
             encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_COMPLEXITY, 5);
+            // Forward Error Correction — embed a low-bitrate redundant copy of the
+            // previous frame inside each packet. Combined with look-ahead decode on
+            // the receiver, this lets a single-packet loss be reconstructed from the
+            // next packet instead of falling back to PLC or silence.
+            encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_INBAND_FEC, 1);
+            ApplyPacketLossPerc(LocalOpusSettings.PacketLossPercent);
+            LocalOpusSettings.OnPacketLossPercentChanged += ApplyPacketLossPerc;
+        }
+
+        /// <summary>
+        /// Pushes OPUS_SET_PACKET_LOSS_PERC onto the live encoder without tearing
+        /// it down. Safe to call multiple times; subscribed to
+        /// <see cref="LocalOpusSettings.OnPacketLossPercentChanged"/> so an admin
+        /// push updates FEC immediately on the already-running encoder.
+        /// </summary>
+        private void ApplyPacketLossPerc(int percent)
+        {
+            if (encoder == null) return;
+            if (percent < 0) percent = 0;
+            else if (percent > 100) percent = 100;
+            try
+            {
+                encoder.Ctl(OpusSharp.Core.EncoderCTL.OPUS_SET_PACKET_LOSS_PERC, percent);
+            }
+            catch (OpusSharp.Core.OpusException ex)
+            {
+                BasisDebug.LogWarning($"Failed to set encoder packet-loss %: {ex.Message}", BasisDebug.LogTag.Voice);
+            }
         }
 #endif
 
@@ -133,7 +162,7 @@ namespace Basis.Scripts.Networking.Transmitters
             writer.Reset();
 
 #if !BASIS_DISABLE_MICROPHONE
-            Segment.LengthUsed = encoder.Encode(BasisLocalMicrophoneDriver.processBufferArray,BasisLocalMicrophoneDriver.SampleRate,Segment.buffer,Segment.TotalLength);
+            Segment.LengthUsed = encoder.Encode(BasisLocalMicrophoneDriver.processBufferArray,BasisLocalMicrophoneDriver.ProcessFrameLength,Segment.buffer,Segment.TotalLength);
 #endif
 
             Segment.SequenceNumber = _sequenceNumber++;

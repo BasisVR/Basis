@@ -17,31 +17,37 @@ public static class JigglePhysics {
     private static readonly List<Transform> tempColliderTransforms = new ();
     private static List<JiggleTreeSegment> rootJiggleTreeSegments;
     private static bool initializedRendering = false;
+    private static int skips = 0;
 
-    private static double lastFixedCurrentTime = 0f;
     public const float MERGE_DISTANCE = 0.001f;
 
     private static JiggleJobs jobs;
     private static bool hasRunThisFrame;
+    
+    private static double accumulator;
+    private static double lastFixedCurrentTime = 0f;
 
-    public static void ScheduleSimulate(double fixedCurrentTime, double realTime, float fixedDeltaTime) {
+    public static void ScheduleSimulate(double realTime, float fixedDeltaTime) {
         if (hasRunThisFrame) {
             return;
         }
-        if (Math.Abs(lastFixedCurrentTime - fixedCurrentTime) < 0.0001) {
-            return;
-        }
+
+        if (!(realTime - lastFixedCurrentTime > fixedDeltaTime)) return;
         
+        while (realTime - lastFixedCurrentTime > fixedDeltaTime) {
+            lastFixedCurrentTime += fixedDeltaTime;
+            skips++;
+        }
+            
         var rootJiggleTreeSegmentsCount = rootJiggleTreeSegments.Count;
         for (int i = 0; i < rootJiggleTreeSegmentsCount; i++) {
             var segment = rootJiggleTreeSegments[i];
             segment.UpdateParametersIfNeeded();
         }
-        
-        lastFixedCurrentTime = fixedCurrentTime;
-
-        jobs = GetJiggleJobs(fixedCurrentTime, fixedDeltaTime);
-        jobs.Simulate(fixedCurrentTime, realTime);
+            
+        jobs = GetJiggleJobs(lastFixedCurrentTime, fixedDeltaTime);
+        jobs.Simulate(lastFixedCurrentTime, realTime, skips);
+        skips = 0;
         hasRunThisFrame = true;
     }
 
@@ -66,6 +72,8 @@ public static class JigglePhysics {
     
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     private static void Initialize() {
+        lastFixedCurrentTime = 0f;
+        accumulator = 0;
         parametersCache = new();
         rootJiggleTreeSegments = new List<JiggleTreeSegment>();
         jiggleRootLookup = new Dictionary<Transform, JiggleTreeSegment>();
@@ -198,14 +206,23 @@ public static class JigglePhysics {
 
     private static void GetJiggleTrees() {
         Profiler.BeginSample("JiggleRoot.GetJiggleTrees");
-        // TODO: Cleanup previous trees, or reuse them.
-        foreach (var rootJiggleTreeSegment in rootJiggleTreeSegments) {
-            var currentTree = rootJiggleTreeSegment.jiggleTree;
+        // Prune any segments whose root Transform has been destroyed out-of-band
+        // (e.g. asset bundle unload, scene teardown, or a rig whose OnDisable was
+        // skipped) before attempting to regenerate their trees.
+        for (int i = rootJiggleTreeSegments.Count - 1; i >= 0; i--) {
+            var seg = rootJiggleTreeSegments[i];
+            if (seg.transform == null || seg.jiggleRigData.rootBone == null) {
+                if (seg.jiggleTree != null) ScheduleRemoveJiggleTree(seg.jiggleTree);
+                jiggleRootLookup.Remove(seg.transform);
+                rootJiggleTreeSegments.RemoveAt(i);
+                continue;
+            }
+            var currentTree = seg.jiggleTree;
             if (currentTree is { dirty: false }) {
                 continue;
             }
-            rootJiggleTreeSegment.RegenerateJiggleTreeIfNeeded();
-            jobs.ScheduleAdd(rootJiggleTreeSegment.jiggleTree);
+            seg.RegenerateJiggleTreeIfNeeded();
+            jobs.ScheduleAdd(seg.jiggleTree);
         }
         Profiler.EndSample();
     }
@@ -260,7 +277,7 @@ public static class JigglePhysics {
     }
 
     public static void VisitForLength(Transform t, JiggleRigData rig, Vector3 lastPosition, float currentLength, out float totalLength) {
-        if (rig.GetIsExcluded(t)) {
+        if (t == null || rig.GetIsExcluded(t)) {
             totalLength = Mathf.Max(currentLength, 0.001f);
             return;
         }
@@ -275,6 +292,10 @@ public static class JigglePhysics {
     }
 
     private static void Visit(Transform t, List<Transform> transforms, List<JiggleSimulatedPoint> points, List<JigglePointParameters> parameters, List<Vector3> restLocalPositions, List<Quaternion> restLocalRotations, int parentIndex, JiggleRigData lastJiggleRig, Vector3 lastPosition, float currentLength, out int newIndex) {
+        if (t == null) {
+            newIndex = -1;
+            return;
+        }
         if (Application.isPlaying && GetJiggleTreeSegmentByBone(t, out JiggleTreeSegment currentJiggleTreeSegment)) {
             lastJiggleRig = currentJiggleTreeSegment.jiggleRigData;
         }

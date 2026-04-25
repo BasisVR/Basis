@@ -417,15 +417,12 @@ namespace Basis.Scripts.BasisSdk.Players
                 IsLoadingAnAvatar = false;
             }
 
-            // Blocked is a terminal visibility state — skip the range-based re-evaluation
-            // to avoid an infinite ReloadAvatar loop (the mismatch condition below would
-            // always fire since blocked players never advance past the fallback branch).
-            // Same reasoning applies to HasFailedAvatarLoadGlobally: once we've given up,
-            // the player is pinned to the fallback until the user manually toggles them.
-            // Performance-blocked players are also pinned to the fallback until the user
-            // relaxes the relevant limit, at which point SMModuleAvatarPerformanceLimits
-            // reloads them directly.
-            if (IsEffectivelyBlocked || HasFailedAvatarLoadGlobally || IsBlockedByPerformance)
+            // Any terminal "pin to fallback" state must skip the range-based re-evaluation
+            // below — otherwise the mismatch check fires every iteration (fallback is the
+            // correct state for these, but the check reads it as drift) and ReloadAvatar
+            // recurses forever, hanging Unity. Applies to: block, global load failure,
+            // performance block, and the user hiding the avatar via the per-player menu.
+            if (IsEffectivelyBlocked || HasFailedAvatarLoadGlobally || IsBlockedByPerformance || !BasisPlayerSettingsData.AvatarVisible)
             {
                 return;
             }

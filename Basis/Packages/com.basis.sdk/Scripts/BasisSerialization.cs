@@ -62,7 +62,7 @@ public static class BasisSerialization
             }
             if (reader.TokenType != JsonToken.StartObject)
             {
-                throw new JsonSerializationException($"Expected Vector3 object, got {reader.TokenType}");
+                throw new JsonSerializationException($"Expected Vector3 object; got {reader.TokenType}");
             }
 
             float x = 0f, y = 0f, z = 0f;

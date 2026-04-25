@@ -215,6 +215,10 @@ public static class BasisNetworkModeration
                 HandleGlobalHeadlessDisallowState(reader);
                 break;
 
+            case AdminRequestMode.GlobalGetOpusPacketLossState:
+                HandleGlobalOpusPacketLossState(reader);
+                break;
+
             default:
                 BasisDebug.LogError($"Unhandled admin command: {mode}", BasisDebug.LogTag.Networking);
                 break;
@@ -563,6 +567,39 @@ public static class BasisNetworkModeration
         SendAdminRequest(
             AdminRequestMode.SetGlobalHeadlessDisallow,
             w => w.Put(headlessDisallowed));
+    }
+
+    /// <summary>
+    /// Last Opus FEC packet-loss percentage received from the server (0..100).
+    /// Admins can change it; every connected client applies the new value to its
+    /// local encoder on the fly via <see cref="LocalOpusSettings.SetPacketLossPercent"/>.
+    /// </summary>
+    public static int GlobalOpusPacketLossPercent { get; private set; } = 10;
+
+    /// <summary>Fired when the server-pushed Opus FEC packet-loss percentage changes.</summary>
+    public static event Action<int> OnGlobalOpusPacketLossChanged;
+
+    private static void HandleGlobalOpusPacketLossState(NetDataReader reader)
+    {
+        int percent = reader.GetByte();
+        GlobalOpusPacketLossPercent = percent;
+        LocalOpusSettings.SetPacketLossPercent(percent);
+        BasisDebug.Log($"Global Opus FEC packet-loss percent updated → {percent}%", BasisDebug.LogTag.Networking);
+        OnGlobalOpusPacketLossChanged?.Invoke(percent);
+    }
+
+    /// <summary>
+    /// Admin: Set the Opus FEC packet-loss percentage (0..100) applied to every
+    /// client's encoder. Higher values trade bitrate for better resilience on
+    /// lossy networks.
+    /// </summary>
+    public static void SetGlobalOpusPacketLoss(int percent)
+    {
+        if (percent < 0) percent = 0;
+        else if (percent > 100) percent = 100;
+        SendAdminRequest(
+            AdminRequestMode.SetGlobalOpusPacketLoss,
+            w => w.Put((byte)percent));
     }
 
     #endregion

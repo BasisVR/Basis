@@ -165,7 +165,7 @@ public class BasisAvatarValidator
                 EditorUtility.SetDirty(child.gameObject);
             }
         }
-        BasisDebug.Log($"Removed a total of {removedCount} missing scripts.", BasisDebug.LogTag.Editor);
+        BasisDebug.Log($"Removed a total of {removedCount} missing script(s).", BasisDebug.LogTag.Editor);
     }
 
     public bool ValidateAvatar(out List<BasisValidationIssue> errors, out List<BasisValidationIssue> warnings, out List<string> passes)
@@ -213,7 +213,7 @@ public class BasisAvatarValidator
                 errors.Add(new BasisValidationIssue(
                     "Animator exists but has no Avatar (Humanoid avatar not generated).", ValidationCategory.Configuration,
                     FixTryCreateHumanoidAvatarOnSourceModels,
-                    "Set source model(s) to Humanoid + Create Avatar"
+                    "Set source model(s) to Humanoid and Create Avatar"
                 ));
             }
         }
@@ -222,7 +222,7 @@ public class BasisAvatarValidator
             errors.Add(new BasisValidationIssue(
                 "Animator is missing.", ValidationCategory.MissingReference,
                 FixAddOrAssignAnimator,
-                "Add/Assign Animator"
+                "Add or assign Animator"
             ));
         }
 
@@ -287,7 +287,7 @@ public class BasisAvatarValidator
             if(assetBundleObject.UseCustomPassword && (assetBundleObject.UserSelectedPassword == null ||  assetBundleObject.UserSelectedPassword == ""))
             {
                 errors.Add(new BasisValidationIssue(
-                    "Can not have custom password be empty!",
+                    "The custom password is not allowed to be empty.",
                     ValidationCategory.Security,
                     null));
             }
@@ -303,18 +303,20 @@ public class BasisAvatarValidator
 
         ValidateTranslationDof(ref warnings, ref passes);
 
-        Renderer[] renderers = Avatar.GetComponentsInChildren<Renderer>(true);
+        var allNonEditorOnlyTransformsInAvatar = CollectAllNonEditorOnlyTransforms(Avatar);
+
+        Renderer[] renderers = GetComponentsInTransforms<Renderer>(allNonEditorOnlyTransformsInAvatar);
         foreach (Renderer r in renderers)
         {
             CheckTextures(r, ref warnings);
             CheckShaders(r, ref errors, ref warnings);
         }
 
-        SkinnedMeshRenderer[] smrs = Avatar.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        SkinnedMeshRenderer[] smrs = GetComponentsInTransforms<SkinnedMeshRenderer>(allNonEditorOnlyTransformsInAvatar);
         foreach (SkinnedMeshRenderer smr in smrs)
             CheckMesh(smr, ref errors, ref warnings);
 
-        Transform[] transforms = Avatar.GetComponentsInChildren<Transform>(true);
+        Transform[] transforms = GetComponentsInTransforms<Transform>(allNonEditorOnlyTransformsInAvatar);
         Dictionary<string, int> nameCounts = new Dictionary<string, int>();
         foreach (Transform t in transforms)
         {
@@ -331,7 +333,7 @@ public class BasisAvatarValidator
                 errors.Add(new BasisValidationIssue(
                     $"Duplicate name found: {entry.Key} ({entry.Value} times)", ValidationCategory.Configuration,
                     FixDisableDoNotAutoRenameBones,
-                    "Allow auto-rename bones"
+                    "Allow auto-renaming bones"
                 ));
             }
             else
@@ -344,6 +346,32 @@ public class BasisAvatarValidator
         }
 
         return errors.Count == 0;
+    }
+
+    private List<Transform> CollectAllNonEditorOnlyTransforms(BasisAvatar avatar)
+    {
+        var results = new List<Transform> { avatar.transform };
+        CollectNonEditorOnlyTransformsRecursive(avatar.transform, results);
+        return results;
+    }
+
+    private void CollectNonEditorOnlyTransformsRecursive(Transform rootTransform, List<Transform> results)
+    {
+        foreach (Transform child in rootTransform)
+        {
+            if (!child.gameObject.CompareTag("EditorOnly"))
+            {
+                results.Add(child);
+                CollectNonEditorOnlyTransformsRecursive(child, results);
+            }
+        }
+    }
+
+    private T[] GetComponentsInTransforms<T>(List<Transform> transforms)
+    {
+        return transforms
+            .SelectMany(t => t.GetComponents<T>())
+            .ToArray();
     }
 
     private void FixAddOrAssignAnimator()

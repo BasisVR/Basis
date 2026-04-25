@@ -26,6 +26,12 @@ namespace BasisPermissions
         public const string ResourceLoadAvatar = "basis.resource.load.avatar";
         public const string ResourceUnloadAvatar = "basis.resource.unload.avatar";
 
+        // Bypass the global lockouts (BasisGlobalLockManager). Users without
+        // the matching bypass node are blocked from loading while the lock is on.
+        public const string ResourceLockBypassAvatar = "basis.resource.lockbypass.avatar";
+        public const string ResourceLockBypassProp = "basis.resource.lockbypass.prop";
+        public const string ResourceLockBypassWorld = "basis.resource.lockbypass.world";
+
         public const string OwnershipTransfer = "basis.ownership.transfer";
         public const string OwnershipRemove = "basis.ownership.remove";
         public const string OwnershipGet = "basis.ownership.get";
@@ -738,6 +744,9 @@ namespace BasisPermissions
                     def.Nodes.Add(PermNodes.ResourceLoadAvatar);
                     def.Nodes.Add(PermNodes.ResourceUnloadAvatar);
 
+                    def.Nodes.Add(PermNodes.ResourceLoadWorld);
+                    def.Nodes.Add(PermNodes.ResourceUnloadWorld);
+
                     def.Nodes.Add(PermNodes.OwnershipTransfer);
                     def.Nodes.Add(PermNodes.OwnershipRemove);
                     def.Nodes.Add(PermNodes.OwnershipGet);
@@ -763,6 +772,10 @@ namespace BasisPermissions
                     adm.Nodes.Add(PermNodes.ModerationGlobalLock);
                     adm.Nodes.Add(PermNodes.ModerationHeadlessAudio);
                     adm.Nodes.Add(PermNodes.PermissionsView);
+
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassAvatar);
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassProp);
+                    adm.Nodes.Add(PermNodes.ResourceLockBypassWorld);
 
                     _store.Groups["moderator"] = adm;
                 }

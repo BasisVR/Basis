@@ -64,6 +64,8 @@ namespace BasisNetworkCore.Serializable
             SetGlobalHeadlessAudio, // admin: explicitly set headless audio clip playback state for headless clients
             GlobalGetHeadlessDisallowState, // server→client: current global headless disallow state
             SetGlobalHeadlessDisallow, // admin: explicitly allow/disallow headless client connections
+            SetGlobalOpusPacketLoss, // admin: set Opus FEC packet-loss percent (0..100) applied to every client's encoder
+            GlobalGetOpusPacketLossState, // server→client: current Opus FEC packet-loss percent
         }
     }
 }

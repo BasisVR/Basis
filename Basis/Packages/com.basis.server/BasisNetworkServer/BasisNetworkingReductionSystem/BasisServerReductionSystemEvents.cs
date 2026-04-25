@@ -142,9 +142,9 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
         };
 
         // Distance -> Quality thresholds (squared meters)
-        public static float HighDistanceSq = 9f;        // 3m
-        public static float MediumDistanceSq = 100f;    // 10m
-        public static float LowDistanceSq = 400f;       // 20m
+        public static float HighDistanceSq = 100f;      // 10m
+        public static float MediumDistanceSq = 900f;    // 30m
+        public static float LowDistanceSq = 2500f;      // 50m
 
         public static long intervalMs = 4;
         // Tick slicing: only process a subset of receivers each tick to spread the O(NÂ²) work.
@@ -243,73 +243,17 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             while (!cts.Token.IsCancellationRequested)
             {
                 long startTick = Stopwatch.GetTimestamp();
-                bool profiling = BSRProfiler.Enabled;
-                long phaseTick = profiling ? Stopwatch.GetTimestamp() : 0;
 
-                // Phase 1: Drain
-                // Swap to the back-buffer so inbound threads write to the cleared dictionary.
-                // No allocation per tick — just swap and drain.
-                _backMessages.Clear();
-                var batch = Interlocked.Exchange(ref currentMessages, _backMessages);
-                _backMessages = batch;
-                _messagesSnapshot.Clear();
-                foreach (var kvp in batch)
+                // One bad tick must not kill the thread. An unhandled throw here (e.g. an
+                // edge case during mass connect/recycle) would otherwise stop every future
+                // tick and silently freeze all avatar sync until server restart.
+                try
                 {
-                    _messagesSnapshot.Add(kvp.Value);
+                    RunTick(startTick);
                 }
-                if (profiling) { BSRProfiler.drainTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
-
-                // Phase 2: Process messages (static delegate avoids closure allocation per tick)
-                Parallel.ForEach(_messagesSnapshot, parallelOptions, s_processMessageAction);
-                if (profiling) { BSRProfiler.processTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
-
-                ProcessPendingRemovals();
-
-                // Phase 2.5: Distance cache update (runs at ~2Hz instead of every tick)
-                _distanceTickCounter++;
-                if (_distanceTickCounter >= DistanceUpdateIntervalTicks)
+                catch (Exception ex)
                 {
-                    _distanceTickCounter = 0;
-                    long distStart = profiling ? Stopwatch.GetTimestamp() : 0;
-                    UpdateDistanceCache();
-                    if (profiling) { BSRProfiler.distanceTicks += Stopwatch.GetTimestamp() - distStart; phaseTick = Stopwatch.GetTimestamp(); }
-                }
-
-                //Phase 3: Send loop
-                long now = Stopwatch.GetTimestamp();
-                UpdateCommunicationAndDistances(now);
-                if (profiling)
-                {
-                    BSRProfiler.updateTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp();
-                }
-
-                //Phase 4: Network I/O
-                BasisNetworkPIPCamera.UpdatePIPPositions(now);
-                if (NetworkServer.Server != null && NetworkServer.Server.manager != null)
-                {
-                    NetworkServer.Server.manager.TriggerUpdate();
-                }
-                if (profiling)
-                {
-                    BSRProfiler.triggerTicks += Stopwatch.GetTimestamp() - phaseTick;
-                    BSRProfiler.tickCount++;
-                    BSRProfiler.messagesProcessed += _messagesSnapshot.Count;
-                }
-
-                //Tick bookkeeping
-                long elapsedTicks = Stopwatch.GetTimestamp() - startTick;
-                double elapsedMs = elapsedTicks / MsToTick;
-
-                BSRProfiler.TryPrint();
-
-                // Adaptive slice count: if tick took > 3ms, increase slicing; if < 1ms, decrease.
-                if (elapsedMs > 3.0 && _sliceCount < 32)
-                {
-                    _sliceCount++;
-                }
-                else if (elapsedMs < 1.0 && _sliceCount > 1)
-                {
-                    _sliceCount--;
+                    BNL.LogError($"[BSR Tick] Unhandled exception: {ex}");
                 }
 
                 // Precise timing: coarse sleep for bulk wait, then spin to exact target.
@@ -328,6 +272,78 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
                 {
                     Thread.SpinWait(20);
                 }
+            }
+        }
+
+        private static void RunTick(long startTick)
+        {
+            bool profiling = BSRProfiler.Enabled;
+            long phaseTick = profiling ? Stopwatch.GetTimestamp() : 0;
+
+            // Phase 1: Drain
+            // Swap to the back-buffer so inbound threads write to the cleared dictionary.
+            // No allocation per tick — just swap and drain.
+            _backMessages.Clear();
+            var batch = Interlocked.Exchange(ref currentMessages, _backMessages);
+            _backMessages = batch;
+            _messagesSnapshot.Clear();
+            foreach (var kvp in batch)
+            {
+                _messagesSnapshot.Add(kvp.Value);
+            }
+            if (profiling) { BSRProfiler.drainTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
+
+            // Phase 2: Process messages (static delegate avoids closure allocation per tick)
+            Parallel.ForEach(_messagesSnapshot, parallelOptions, s_processMessageAction);
+            if (profiling) { BSRProfiler.processTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp(); }
+
+            ProcessPendingRemovals();
+
+            // Phase 2.5: Distance cache update (runs at ~2Hz instead of every tick)
+            _distanceTickCounter++;
+            if (_distanceTickCounter >= DistanceUpdateIntervalTicks)
+            {
+                _distanceTickCounter = 0;
+                long distStart = profiling ? Stopwatch.GetTimestamp() : 0;
+                UpdateDistanceCache();
+                if (profiling) { BSRProfiler.distanceTicks += Stopwatch.GetTimestamp() - distStart; phaseTick = Stopwatch.GetTimestamp(); }
+            }
+
+            //Phase 3: Send loop
+            long now = Stopwatch.GetTimestamp();
+            UpdateCommunicationAndDistances(now);
+            if (profiling)
+            {
+                BSRProfiler.updateTicks += Stopwatch.GetTimestamp() - phaseTick; phaseTick = Stopwatch.GetTimestamp();
+            }
+
+            //Phase 4: Network I/O
+            BasisNetworkPIPCamera.UpdatePIPPositions(now);
+            if (NetworkServer.Server != null && NetworkServer.Server.manager != null)
+            {
+                NetworkServer.Server.manager.TriggerUpdate();
+            }
+            if (profiling)
+            {
+                BSRProfiler.triggerTicks += Stopwatch.GetTimestamp() - phaseTick;
+                BSRProfiler.tickCount++;
+                BSRProfiler.messagesProcessed += _messagesSnapshot.Count;
+            }
+
+            //Tick bookkeeping
+            long elapsedTicks = Stopwatch.GetTimestamp() - startTick;
+            double elapsedMs = elapsedTicks / MsToTick;
+
+            BSRProfiler.TryPrint();
+
+            // Adaptive slice count: if tick took > 3ms, increase slicing; if < 1ms, decrease.
+            if (elapsedMs > 3.0 && _sliceCount < 32)
+            {
+                _sliceCount++;
+            }
+            else if (elapsedMs < 1.0 && _sliceCount > 1)
+            {
+                _sliceCount--;
             }
         }
 
@@ -844,6 +860,19 @@ namespace BasisNetworkServer.BasisNetworkingReductionSystem
             }
             else
             {
+                // Peer-slot reuse: LiteNetLib recycles NetPeer ids after disconnect.
+                // If the incoming peer is a different instance, the stored Peer is the
+                // old disconnected one — sends to it silently no-op, so the new player
+                // would never receive avatar data. Refresh the Peer ref and treat the
+                // next frame as the first frame so the sequence-delta check doesn't
+                // drop it against the previous player's last sequence.
+                if (!ReferenceEquals(state.Peer, message.FromPeer))
+                {
+                    state.Peer = message.FromPeer;
+                    state.HasReceivedFirst = false;
+                    state.SmallId = id <= byte.MaxValue;
+                }
+
                 // Drop stale inbound packets (unreliable can deliver out of order)
                 if (state.HasReceivedFirst)
                 {

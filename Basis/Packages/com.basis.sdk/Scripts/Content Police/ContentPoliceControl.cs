@@ -24,7 +24,7 @@ public static class ContentPoliceControl
             SearchAndDestroy = GameObject.Instantiate(SearchAndDestroy, Position, Rotation, DisabledGameobject.transform);
             if (ModifyScale)
             {
-                BasisDebug.Log($"Overriding Default scale is now {Scale} for Game object {SearchAndDestroy.name}");
+                BasisDebug.Log($"Overriding Default scale is now {Scale} for GameObject {SearchAndDestroy.name}");
                 SearchAndDestroy.transform.localScale = Scale;
             }
             // Create a list to hold all components in the original GameObject
@@ -119,7 +119,7 @@ public static class ContentPoliceControl
             }
             else
             {
-                BasisDebug.LogError("cant find Police check for " + Selector, BasisDebug.LogTag.Event);
+                BasisDebug.LogError("Can't find Police check for " + Selector, BasisDebug.LogTag.Event);
             }
         }
         else

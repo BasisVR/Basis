@@ -57,6 +57,12 @@ public class Configuration
     public bool UseNetworkFinalCompression = false;
     public bool EnableBSRProfiling = false;
     public bool DisallowHeadless = false;
+
+    // Global lockout defaults applied at server boot. Users need the matching
+    // basis.resource.lockbypass.{avatar,prop,world} permission to load while locked.
+    public bool AvatarsLocked = false;
+    public bool PropsLocked = false;
+    public bool WorldsLocked = true;
     /// <summary>
     /// Read config from file. If no file is found create a default config file at filePath
     /// </summary>

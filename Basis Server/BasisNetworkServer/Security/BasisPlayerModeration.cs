@@ -284,13 +284,27 @@ namespace BasisNetworkServer.Security
                     break;
 
                 case AdminRequestMode.TeleportAll:
-                case AdminRequestMode.TeleportPlayer:
                     Require(peer, PermNodes.ModerationTeleport, () =>
                     {
                         var writer = NetworkServer.RentWriter();
                         new AdminRequest().Serialize(writer, mode);
                         writer.Put(reader.GetUShort());
                         NetworkServer.BroadcastMessageToClients(writer, BasisNetworkCommons.AdminChannel, peer, NetworkServer.PeerSnapshot, DeliveryMethod.ReliableOrdered);
+                        NetworkServer.ReturnWriter(writer);
+                    });
+                    break;
+
+                case AdminRequestMode.TeleportPlayer:
+                    Require(peer, PermNodes.ModerationTeleport, () =>
+                    {
+                        ushort targetId = reader.GetUShort();
+                        if (!NetworkServer.AuthenticatedPeers.TryGetValue(targetId, out var targetPeer))
+                            return;
+
+                        var writer = NetworkServer.RentWriter();
+                        new AdminRequest().Serialize(writer, mode);
+                        writer.Put((ushort)peer.Id);
+                        NetworkServer.TrySend(targetPeer, writer, BasisNetworkCommons.AdminChannel, DeliveryMethod.ReliableOrdered);
                         NetworkServer.ReturnWriter(writer);
                     });
                     break;
@@ -325,6 +339,11 @@ namespace BasisNetworkServer.Security
                 case AdminRequestMode.SetGlobalHeadlessDisallow:
                     Require(peer, PermNodes.ModerationGlobalLock, () =>
                         HandleHeadlessDisallowSet(peer, reader));
+                    break;
+
+                case AdminRequestMode.SetGlobalOpusPacketLoss:
+                    Require(peer, PermNodes.ModerationGlobalLock, () =>
+                        HandleOpusPacketLossSet(peer, reader));
                     break;
 
                 // ===== PERMISSION EDIT =====
@@ -505,6 +524,26 @@ namespace BasisNetworkServer.Security
             }
 
             BasisHeadlessConnectionPolicyManager.BroadcastState();
+        }
+
+        private static void HandleOpusPacketLossSet(NetPeer peer, NetPacketReader reader)
+        {
+            if (reader.AvailableBytes < 1)
+            {
+                SendBackMessage(peer, "Failed to set Opus packet loss: missing value byte.");
+                return;
+            }
+
+            int percent = reader.GetByte();
+            bool changed = BasisOpusPacketLossStateManager.SetPacketLossPercent(percent);
+            int applied = BasisOpusPacketLossStateManager.PacketLossPercent;
+            string notification = changed
+                ? $"Opus FEC packet-loss % is now {applied}."
+                : $"Opus FEC packet-loss % was already {applied}.";
+
+            BNL.Log(notification);
+            SendBackMessage(peer, notification);
+            BasisOpusPacketLossStateManager.BroadcastState();
         }
 
         public static void SendBackMessage(NetPeer peer, string msg)

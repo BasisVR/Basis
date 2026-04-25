@@ -18,7 +18,7 @@ namespace Basis.BasisUI
             var caret = GetComponentInChildren<TMP_SelectionCaret>(true);
             if (caret != null)
             {
-                //BasisDebug.LogWarning("caret is found setting material");
+                //BasisDebug.LogWarning("Caret is found; setting material");
                 caret.material = desiredMaterial;
 
                 // Job done — remove this component
